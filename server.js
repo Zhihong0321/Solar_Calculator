@@ -161,6 +161,45 @@ app.get('/api/product-info', async (req, res) => {
   }
 });
 
+// Debug endpoint to test panel filtering
+app.get('/api/debug-panel-filter', async (req, res) => {
+  try {
+    const { panelQty = 1, panelType = 620 } = req.query;
+    const client = await pool.connect();
+
+    // Test the exact query that's failing
+    const debugQuery = `
+      SELECT p.*, pr.solar_output_rating, pr.solar_output_rating AS rating_type
+      FROM package p
+      JOIN product pr ON p.panel = pr.id
+      WHERE p.panel_qty = $1
+        AND p.active = true
+      ORDER BY p.price ASC
+      LIMIT 5
+    `;
+    const debugResult = await client.query(debugQuery, [parseInt(panelQty)]);
+
+    // Also check what solar_output_rating values exist
+    const ratingQuery = `
+      SELECT DISTINCT solar_output_rating, pg_typeof(solar_output_rating) as data_type
+      FROM product
+      WHERE solar_output_rating IS NOT NULL
+      ORDER BY solar_output_rating
+    `;
+    const ratingResult = await client.query(ratingQuery);
+
+    client.release();
+    res.json({
+      testQuery: debugResult.rows,
+      availableRatings: ratingResult.rows,
+      searchParams: { panelQty: parseInt(panelQty), panelType: panelType.toString() }
+    });
+  } catch (err) {
+    console.error('Debug panel filter error:', err);
+    res.status(500).json({ error: 'Debug query failed', details: err.message });
+  }
+});
+
 // API endpoint to calculate bill breakdown based on input amount
 app.get('/api/calculate-bill', async (req, res) => {
   try {
