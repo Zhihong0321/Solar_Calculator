@@ -1,0 +1,21 @@
+{
+  "table_name": "product",
+  "description": "Product table containing solar panel specifications",
+  "key_columns": {
+    "id": "integer (primary key)",
+    "name": "text - Product name",
+    "description": "text - Product description",
+    "solar_output_rating": "integer - Solar panel wattage (590 or 620)",
+    "selling_price": "numeric - Product selling price",
+    "cost_price": "numeric - Product cost price",
+    "linked_brand": "text - Brand information"
+  },
+  "relationship": {
+    "package.panel": "Links to product.id",
+    "filter_logic": "JOIN product ON package.panel = product.id WHERE product.solar_output_rating = [panelType]"
+  },
+  "usage_notes": {
+    "panel_filtering": "Filter packages by panel wattage through product relationship",
+    "query_pattern": "SELECT package.* FROM package JOIN product ON package.panel = product.id WHERE package.panel_qty = X AND package.active = true AND product.solar_output_rating = Y ORDER BY package.price ASC"
+  }
+}

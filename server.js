@@ -225,6 +225,7 @@ app.get('/api/solar-calculation', async (req, res) => {
       amount,
       sunPeakHour,
       morningUsage,
+      panelType,
       smpPrice,
       below19Discount,
       above19Discount
@@ -234,6 +235,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     const billAmount = parseFloat(amount);
     const peakHour = parseFloat(sunPeakHour);
     const morningPercent = parseFloat(morningUsage);
+    const panelWattage = parseInt(panelType) || 620; // Default to 620W
     const smp = parseFloat(smpPrice);
     const discount19Below = parseFloat(below19Discount) || 0;
     const discount19Above = parseFloat(above19Discount) || 0;
@@ -279,14 +281,18 @@ app.get('/api/solar-calculation', async (req, res) => {
     // Ensure minimum of 1 panel
     const numberOfPanels = Math.max(1, recommendedPanels);
 
-    // Search for package with matching panel_qty and lowest price
+    // Search for package with matching panel_qty, panel type, and lowest price
     const packageQuery = `
-      SELECT * FROM package
-      WHERE panel_qty = $1 AND active = true
-      ORDER BY price ASC
+      SELECT p.*, pr.solar_output_rating
+      FROM package p
+      JOIN product pr ON p.panel = pr.id
+      WHERE p.panel_qty = $1
+        AND p.active = true
+        AND pr.solar_output_rating = $2
+      ORDER BY p.price ASC
       LIMIT 1
     `;
-    const packageResult = await client.query(packageQuery, [numberOfPanels]);
+    const packageResult = await client.query(packageQuery, [numberOfPanels, panelWattage]);
 
     let selectedPackage = null;
     if (packageResult.rows.length > 0) {
@@ -295,8 +301,8 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     client.release();
 
-    // Calculate solar generation (assume 550W panels)
-    const panelWatts = 550;
+    // Calculate solar generation using selected panel wattage
+    const panelWatts = panelWattage;
     const dailySolarGeneration = (numberOfPanels * panelWatts * peakHour) / 1000; // kWh per day
     const monthlySolarGeneration = dailySolarGeneration * 30;
 
@@ -331,6 +337,7 @@ app.get('/api/solar-calculation', async (req, res) => {
       config: {
         sunPeakHour: peakHour,
         morningUsage: morningPercent,
+        panelType: panelWattage,
         smpPrice: smp
       },
       // PANEL RECOMMENDATION RESULTS
@@ -339,10 +346,11 @@ app.get('/api/solar-calculation', async (req, res) => {
         packageName: selectedPackage.package_name,
         panelQty: selectedPackage.panel_qty,
         price: selectedPackage.price,
+        panelWattage: selectedPackage.solar_output_rating,
         id: selectedPackage.id
       } : null,
 
-      solarConfig: `${numberOfPanels} panels (${(numberOfPanels * panelWatts / 1000).toFixed(1)} kW system)`,
+      solarConfig: `${numberOfPanels} x ${panelWattage}W panels (${(numberOfPanels * panelWatts / 1000).toFixed(1)} kW system)`,
       monthlySavings: totalMonthlySavings.toFixed(2),
       systemCostBeforeDiscount: systemCostBeforeDiscount.toFixed(2),
       discount: applicableDiscount.toFixed(2),

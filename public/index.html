@@ -605,11 +605,12 @@
                 `<div class="text-emerald-600 font-medium mt-3">
                     📦 Selected Package: ${data.selectedPackage.packageName}
                     <div class="text-sm text-gray-600 mt-1">
+                        ${data.recommendedPanels} x ${data.config.panelType}W panels<br>
                         Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}
                     </div>
                 </div>` :
                 `<div class="text-amber-600 font-medium mt-3">
-                    ⚠️ No package found for ${data.recommendedPanels} panels
+                    ⚠️ No package found for ${data.recommendedPanels} x ${data.config.panelType}W panels
                 </div>`;
 
             popup.innerHTML = `
@@ -627,7 +628,7 @@
                             ${packageInfo}
 
                             <div class="text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded">
-                                Formula: ${data.details.monthlyUsageKwh} kWh ÷ ${data.config.sunPeakHour}h ÷ 30 ÷ 0.62 = ${data.recommendedPanels} panels
+                                Formula: ${data.details.monthlyUsageKwh} kWh ÷ ${data.config.sunPeakHour}h ÷ 30 ÷ 0.62 = ${data.recommendedPanels} x ${data.config.panelType}W panels
                             </div>
                         </div>
 
