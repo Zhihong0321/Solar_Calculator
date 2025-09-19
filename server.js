@@ -142,6 +142,125 @@ app.get('/api/calculate-bill', async (req, res) => {
   }
 });
 
+// API endpoint for solar savings calculation
+app.get('/api/solar-calculation', async (req, res) => {
+  try {
+    const {
+      amount,
+      sunPeakHour,
+      morningUsage,
+      smpPrice,
+      below19Discount,
+      above19Discount
+    } = req.query;
+
+    // Validate inputs
+    const billAmount = parseFloat(amount);
+    const peakHour = parseFloat(sunPeakHour);
+    const morningPercent = parseFloat(morningUsage);
+    const smp = parseFloat(smpPrice);
+    const discount19Below = parseFloat(below19Discount) || 0;
+    const discount19Above = parseFloat(above19Discount) || 0;
+
+    if (!billAmount || billAmount <= 0) {
+      return res.status(400).json({ error: 'Invalid bill amount' });
+    }
+
+    if (!peakHour || peakHour < 3.0 || peakHour > 4.5) {
+      return res.status(400).json({ error: 'Sun Peak Hour must be between 3.0 and 4.5' });
+    }
+
+    if (!morningPercent || morningPercent < 1 || morningPercent > 100) {
+      return res.status(400).json({ error: 'Morning Usage must be between 1% and 100%' });
+    }
+
+    if (!smp || smp < 0.19 || smp > 0.27) {
+      return res.status(400).json({ error: 'SMP price must be between RM 0.19 and RM 0.27' });
+    }
+
+    // First get the TNB tariff data for the bill amount
+    const client = await pool.connect();
+    const query = `
+      SELECT * FROM tnb_tariff_2025
+      WHERE bill_total_normal <= $1
+      ORDER BY bill_total_normal DESC
+      LIMIT 1
+    `;
+    const result = await client.query(query, [billAmount]);
+    client.release();
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No tariff data found for calculation' });
+    }
+
+    const tariff = result.rows[0];
+    const monthlyUsageKwh = tariff.usage_kwh || 0;
+
+    // Solar calculation logic
+    // Estimate required solar panels based on usage and peak sun hours
+    const dailyUsage = monthlyUsageKwh / 30;
+    const requiredWatts = (dailyUsage / peakHour) * 1000; // Convert to watts
+    const panelWatts = 550; // Assume 550W panels
+    const numberOfPanels = Math.ceil(requiredWatts / panelWatts);
+
+    // Calculate solar generation
+    const dailySolarGeneration = (numberOfPanels * panelWatts * peakHour) / 1000; // kWh per day
+    const monthlySolarGeneration = dailySolarGeneration * 30;
+
+    // Calculate morning vs afternoon usage split
+    const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
+    const afternoonUsageKwh = monthlyUsageKwh - morningUsageKwh;
+
+    // Solar generation typically happens during afternoon
+    const solarDirectUsage = Math.min(afternoonUsageKwh, monthlySolarGeneration);
+    const excessSolar = Math.max(0, monthlySolarGeneration - afternoonUsageKwh);
+    const remainingBillUsage = monthlyUsageKwh - solarDirectUsage;
+
+    // Calculate savings
+    const avgTariffRate = tariff.bill_total_normal / monthlyUsageKwh; // RM per kWh
+    const directUsageSavings = solarDirectUsage * avgTariffRate;
+    const exportEarnings = excessSolar * smp;
+    const totalMonthlySavings = directUsageSavings + exportEarnings;
+
+    // Calculate system cost (rough estimate: RM 4.50 per watt)
+    const costPerWatt = 4.50;
+    const systemCostBeforeDiscount = numberOfPanels * panelWatts * costPerWatt;
+
+    // Apply discount based on panel count
+    const applicableDiscount = numberOfPanels >= 19 ? discount19Above : discount19Below;
+    const finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
+
+    // Calculate payback period
+    const paybackPeriod = totalMonthlySavings > 0 ?
+      (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1) : 'N/A';
+
+    res.json({
+      config: {
+        sunPeakHour: peakHour,
+        morningUsage: morningPercent,
+        smpPrice: smp
+      },
+      solarConfig: `${numberOfPanels} panels (${(numberOfPanels * panelWatts / 1000).toFixed(1)} kW system)`,
+      monthlySavings: totalMonthlySavings.toFixed(2),
+      systemCostBeforeDiscount: systemCostBeforeDiscount.toFixed(2),
+      discount: applicableDiscount.toFixed(2),
+      finalSystemCost: finalSystemCost.toFixed(2),
+      paybackPeriod: paybackPeriod,
+      details: {
+        monthlyUsageKwh: monthlyUsageKwh,
+        monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
+        directUsageSavings: directUsageSavings.toFixed(2),
+        exportEarnings: exportEarnings.toFixed(2),
+        excessSolar: excessSolar.toFixed(2)
+      }
+    });
+
+  } catch (err) {
+    console.error('Solar calculation error:', err);
+    res.status(500).json({ error: 'Failed to calculate solar savings', details: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
