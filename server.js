@@ -329,28 +329,19 @@ app.get('/api/solar-calculation', async (req, res) => {
     // Ensure minimum of 1 panel
     const numberOfPanels = Math.max(1, recommendedPanels);
 
-    // Search for package with matching panel_qty, panel type, and lowest price
-    // Temporary: Remove panel type filter to debug
+    // Search for package with matching panel_qty and lowest price
+    // TODO: Re-add panel type filtering once database relationship is confirmed
     const packageQuery = `
-      SELECT p.*, pr.solar_output_rating
-      FROM package p
-      JOIN product pr ON p.panel = pr.id
-      WHERE p.panel_qty = $1
-        AND p.active = true
-      ORDER BY p.price ASC
+      SELECT * FROM package
+      WHERE panel_qty = $1 AND active = true
+      ORDER BY price ASC
       LIMIT 1
     `;
     const packageResult = await client.query(packageQuery, [numberOfPanels]);
 
-    // Filter by panel type in JavaScript if needed
     let selectedPackage = null;
     if (packageResult.rows.length > 0) {
-      const matchingPackage = packageResult.rows.find(pkg =>
-        pkg.solar_output_rating == panelWattage.toString() ||
-        pkg.solar_output_rating == panelWattage ||
-        parseInt(pkg.solar_output_rating) == panelWattage
-      );
-      selectedPackage = matchingPackage || packageResult.rows[0]; // Fallback to first package
+      selectedPackage = packageResult.rows[0];
     }
 
     client.release();
@@ -400,7 +391,7 @@ app.get('/api/solar-calculation', async (req, res) => {
         packageName: selectedPackage.package_name,
         panelQty: selectedPackage.panel_qty,
         price: selectedPackage.price,
-        panelWattage: selectedPackage.solar_output_rating,
+        panelWattage: panelWattage, // Use selected panel wattage instead of DB value
         id: selectedPackage.id
       } : null,
 
