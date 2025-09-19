@@ -98,6 +98,9 @@
                     <button onclick="getTnbTariff()" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md text-sm">
                         Get TNB Data
                     </button>
+                    <button onclick="getPackageInfo()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm">
+                        Get Package Info
+                    </button>
                     <div id="results" class="mt-4"></div>
                 </div>
             </details>
@@ -545,6 +548,17 @@
             document.getElementById('results').innerHTML = '<div class="text-sm text-gray-600 p-2 bg-gray-100 rounded">Loading TNB data...</div>';
             try {
                 const response = await fetch('/api/tnb-tariff');
+                const data = await response.json();
+                document.getElementById('results').innerHTML = `<pre class="text-xs bg-gray-100 p-2 rounded overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('results').innerHTML = `<div class="text-sm text-red-600 p-2 bg-red-100 rounded">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function getPackageInfo() {
+            document.getElementById('results').innerHTML = '<div class="text-sm text-gray-600 p-2 bg-gray-100 rounded">Loading package info...</div>';
+            try {
+                const response = await fetch('/api/package-info');
                 const data = await response.json();
                 document.getElementById('results').innerHTML = `<pre class="text-xs bg-gray-100 p-2 rounded overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
             } catch (error) {

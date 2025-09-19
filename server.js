@@ -85,6 +85,36 @@ app.get('/api/tnb-tariff', async (req, res) => {
   }
 });
 
+// API endpoint to explore package table schema and data
+app.get('/api/package-info', async (req, res) => {
+  try {
+    const client = await pool.connect();
+
+    // Get package table structure
+    const schemaQuery = `
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'package'
+      ORDER BY ordinal_position;
+    `;
+    const schemaResult = await client.query(schemaQuery);
+
+    // Get sample package data
+    const dataQuery = 'SELECT * FROM package LIMIT 10';
+    const dataResult = await client.query(dataQuery);
+
+    client.release();
+    res.json({
+      schema: schemaResult.rows,
+      sampleData: dataResult.rows,
+      totalRecords: dataResult.rowCount
+    });
+  } catch (err) {
+    console.error('Package info query error:', err);
+    res.status(500).json({ error: 'Failed to fetch package information', details: err.message });
+  }
+});
+
 // API endpoint to calculate bill breakdown based on input amount
 app.get('/api/calculate-bill', async (req, res) => {
   try {
