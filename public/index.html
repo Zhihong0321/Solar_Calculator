@@ -161,35 +161,35 @@
                         </tr>
                         <tr style="border-bottom: 1px solid #ddd;">
                             <td style="padding: 8px; font-weight: bold;">Usage (RM)</td>
-                            <td style="padding: 8px; text-align: right;">RM ${(tariff.usage_normal || 0).toFixed(2)}</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(parseFloat(tariff.usage_normal) || 0).toFixed(2)}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #ddd;">
                             <td style="padding: 8px; font-weight: bold;">Network Fee</td>
-                            <td style="padding: 8px; text-align: right;">RM ${(tariff.network || 0).toFixed(2)}</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(parseFloat(tariff.network) || 0).toFixed(2)}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #ddd;">
                             <td style="padding: 8px; font-weight: bold;">Capacity Fee</td>
-                            <td style="padding: 8px; text-align: right;">RM ${(tariff.capacity || 0).toFixed(2)}</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(parseFloat(tariff.capacity) || 0).toFixed(2)}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #ddd;">
                             <td style="padding: 8px; font-weight: bold;">Retail Charge</td>
-                            <td style="padding: 8px; text-align: right;">RM ${(tariff.retail || 0).toFixed(2)}</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(parseFloat(tariff.retail) || 0).toFixed(2)}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #ddd;">
                             <td style="padding: 8px; font-weight: bold;">EEI</td>
-                            <td style="padding: 8px; text-align: right;">RM ${(tariff.eei || 0).toFixed(2)}</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(parseFloat(tariff.eei) || 0).toFixed(2)}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #ddd;">
                             <td style="padding: 8px; font-weight: bold;">SST</td>
-                            <td style="padding: 8px; text-align: right;">RM ${(tariff.sst_normal || 0).toFixed(2)}</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(parseFloat(tariff.sst_normal) || 0).toFixed(2)}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #ddd;">
                             <td style="padding: 8px; font-weight: bold;">KWTBB</td>
-                            <td style="padding: 8px; text-align: right;">RM ${(tariff.kwtbb_normal || 0).toFixed(2)}</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(parseFloat(tariff.kwtbb_normal) || 0).toFixed(2)}</td>
                         </tr>
                         <tr style="border-top: 2px solid #2c5530; background-color: #e8f5e8;">
                             <td style="padding: 12px; font-weight: bold; font-size: 16px;">Total Bill</td>
-                            <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">RM ${(tariff.bill_total_normal || 0).toFixed(2)}</td>
+                            <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">RM ${(parseFloat(tariff.bill_total_normal) || 0).toFixed(2)}</td>
                         </tr>
                     </table>
 
