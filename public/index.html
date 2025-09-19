@@ -422,8 +422,8 @@
                 loadingDiv.remove();
 
                 if (response.ok) {
-                    displaySolarCalculation(data);
-                    showNotification('Solar savings calculated successfully!', 'success');
+                    // Show popup with panel recommendation first
+                    showPanelRecommendationPopup(data);
                 } else {
                     const errorDiv = document.createElement('div');
                     errorDiv.className = 'bg-red-50 border border-red-200 rounded-xl p-6';
@@ -564,6 +564,69 @@
             } catch (error) {
                 document.getElementById('results').innerHTML = `<div class="text-sm text-red-600 p-2 bg-red-100 rounded">Error: ${error.message}</div>`;
             }
+        }
+
+        // Show panel recommendation popup
+        function showPanelRecommendationPopup(data) {
+            const popup = document.createElement('div');
+            popup.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+
+            const packageInfo = data.selectedPackage ?
+                `<div class="text-emerald-600 font-medium mt-3">
+                    📦 Selected Package: ${data.selectedPackage.packageName}
+                    <div class="text-sm text-gray-600 mt-1">
+                        Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}
+                    </div>
+                </div>` :
+                `<div class="text-amber-600 font-medium mt-3">
+                    ⚠️ No package found for ${data.recommendedPanels} panels
+                </div>`;
+
+            popup.innerHTML = `
+                <div class="bg-white rounded-xl shadow-xl max-w-sm w-full max-h-screen overflow-y-auto">
+                    <div class="bg-gradient-to-r from-primary to-secondary text-white p-6 text-center">
+                        <div class="text-4xl mb-2">⚡</div>
+                        <h3 class="text-xl font-bold">Solar System Recommendation</h3>
+                    </div>
+
+                    <div class="p-6">
+                        <div class="text-center">
+                            <div class="text-3xl font-bold text-primary">${data.recommendedPanels}</div>
+                            <div class="text-gray-600 text-lg">Recommended Panels</div>
+
+                            ${packageInfo}
+
+                            <div class="text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded">
+                                Formula: ${data.details.monthlyUsageKwh} kWh ÷ ${data.config.sunPeakHour}h ÷ 30 ÷ 0.62 = ${data.recommendedPanels} panels
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 mt-6">
+                            <button
+                                onclick="this.parentElement.parentElement.parentElement.parentElement.remove()"
+                                class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-4 rounded-lg transition-colors"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onclick="this.parentElement.parentElement.parentElement.parentElement.remove(); displaySolarCalculation(arguments[0]); showNotification('Solar savings calculated successfully!', 'success');"
+                                class="flex-1 bg-primary hover:bg-primary/90 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                            >
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Store data for the View Details button
+            popup.querySelector('button:last-child').onclick = function() {
+                popup.remove();
+                displaySolarCalculation(data);
+                showNotification('Solar savings calculated successfully!', 'success');
+            };
+
+            document.body.appendChild(popup);
         }
     </script>
 </body>

@@ -217,23 +217,40 @@ app.get('/api/solar-calculation', async (req, res) => {
       LIMIT 1
     `;
     const result = await client.query(query, [billAmount]);
-    client.release();
 
     if (result.rows.length === 0) {
+      client.release();
       return res.status(404).json({ error: 'No tariff data found for calculation' });
     }
 
     const tariff = result.rows[0];
     const monthlyUsageKwh = tariff.usage_kwh || 0;
 
-    // Solar calculation logic
-    // Estimate required solar panels based on usage and peak sun hours
-    const dailyUsage = monthlyUsageKwh / 30;
-    const requiredWatts = (dailyUsage / peakHour) * 1000; // Convert to watts
-    const panelWatts = 550; // Assume 550W panels
-    const numberOfPanels = Math.ceil(requiredWatts / panelWatts);
+    // NEW PANEL RECOMMENDATION FORMULA
+    // Formula: usage_kwh / sun_peak_hour / 30 / 0.62 = X, then floor(X)
+    const recommendedPanels = Math.floor(monthlyUsageKwh / peakHour / 30 / 0.62);
 
-    // Calculate solar generation
+    // Ensure minimum of 1 panel
+    const numberOfPanels = Math.max(1, recommendedPanels);
+
+    // Search for package with matching panel_qty and lowest price
+    const packageQuery = `
+      SELECT * FROM package
+      WHERE panel_qty = $1 AND active = true
+      ORDER BY price ASC
+      LIMIT 1
+    `;
+    const packageResult = await client.query(packageQuery, [numberOfPanels]);
+
+    let selectedPackage = null;
+    if (packageResult.rows.length > 0) {
+      selectedPackage = packageResult.rows[0];
+    }
+
+    client.release();
+
+    // Calculate solar generation (assume 550W panels)
+    const panelWatts = 550;
     const dailySolarGeneration = (numberOfPanels * panelWatts * peakHour) / 1000; // kWh per day
     const monthlySolarGeneration = dailySolarGeneration * 30;
 
@@ -270,6 +287,15 @@ app.get('/api/solar-calculation', async (req, res) => {
         morningUsage: morningPercent,
         smpPrice: smp
       },
+      // PANEL RECOMMENDATION RESULTS
+      recommendedPanels: numberOfPanels,
+      selectedPackage: selectedPackage ? {
+        packageName: selectedPackage.package_name,
+        panelQty: selectedPackage.panel_qty,
+        price: selectedPackage.price,
+        id: selectedPackage.id
+      } : null,
+
       solarConfig: `${numberOfPanels} panels (${(numberOfPanels * panelWatts / 1000).toFixed(1)} kW system)`,
       monthlySavings: totalMonthlySavings.toFixed(2),
       systemCostBeforeDiscount: systemCostBeforeDiscount.toFixed(2),

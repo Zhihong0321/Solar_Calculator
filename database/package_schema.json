@@ -1,0 +1,24 @@
+{
+  "table_name": "package",
+  "description": "Solar package configurations with panel quantities and pricing",
+  "key_columns": {
+    "id": "integer (primary key)",
+    "package_name": "text - Name of the solar package",
+    "panel_qty": "integer - Number of solar panels in this package",
+    "price": "numeric - Package price",
+    "type": "text - Package type/category",
+    "active": "boolean - Whether package is active/available",
+    "max_discount": "integer - Maximum discount allowed",
+    "special": "boolean - Special package flag",
+    "need_approval": "boolean - Requires approval flag"
+  },
+  "search_criteria": {
+    "panel_qty": "Used to find packages by recommended panel count",
+    "price": "Used to find lowest price package for given panel_qty",
+    "active": "Filter for active packages only"
+  },
+  "formula_notes": {
+    "panel_recommendation": "usage_kwh / sun_peak_hour / 30 / 0.62 = X, then floor(X)",
+    "package_selection": "SELECT * FROM package WHERE panel_qty = X AND active = true ORDER BY price ASC LIMIT 1"
+  }
+}
