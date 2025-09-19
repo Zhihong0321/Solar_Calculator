@@ -292,7 +292,7 @@ app.get('/api/solar-calculation', async (req, res) => {
       ORDER BY p.price ASC
       LIMIT 1
     `;
-    const packageResult = await client.query(packageQuery, [numberOfPanels, panelWattage]);
+    const packageResult = await client.query(packageQuery, [numberOfPanels, panelWattage.toString()]);
 
     let selectedPackage = null;
     if (packageResult.rows.length > 0) {
