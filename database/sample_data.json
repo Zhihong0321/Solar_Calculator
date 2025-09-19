@@ -1,0 +1,46 @@
+{
+  "table": "tnb_tariff_2025",
+  "sample_records": [
+    {
+      "id": 1,
+      "bubble_id": "1737247021549x316070830504681340",
+      "last_synced_at": null,
+      "created_at": null,
+      "updated_at": null,
+      "created_date": "2025-01-19T01:57:01.549Z",
+      "usage_kwh": 200,
+      "eei": -51,
+      "network": 26,
+      "kwtbb_normal": null,
+      "retail": null,
+      "modified_date": "2025-01-19T01:57:01.549Z",
+      "usage_normal": null,
+      "created_by": "admin_user_eternalgy_test",
+      "bill_total_normal": 38,
+      "capacity": 9.1,
+      "sst_normal": null
+    },
+    {
+      "id": 2,
+      "bubble_id": "1737247021549x857066969692741120",
+      "last_synced_at": null,
+      "created_at": null,
+      "updated_at": null,
+      "created_date": "2025-01-19T01:57:01.549Z",
+      "usage_kwh": 201,
+      "eei": -49,
+      "network": 25,
+      "kwtbb_normal": null,
+      "retail": null,
+      "modified_date": "2025-01-19T01:57:01.549Z",
+      "usage_normal": null,
+      "created_by": "admin_user_eternalgy_test",
+      "bill_total_normal": 42,
+      "capacity": 9.5,
+      "sst_normal": null
+    }
+  ],
+  "record_count": 10,
+  "date_retrieved": "2025-09-19",
+  "source_api": "/api/tnb-tariff"
+}

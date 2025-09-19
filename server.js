@@ -85,6 +85,63 @@ app.get('/api/tnb-tariff', async (req, res) => {
   }
 });
 
+// API endpoint to calculate bill breakdown based on input amount
+app.get('/api/calculate-bill', async (req, res) => {
+  try {
+    const inputAmount = parseFloat(req.query.amount);
+
+    if (!inputAmount || inputAmount <= 0) {
+      return res.status(400).json({ error: 'Invalid bill amount provided' });
+    }
+
+    const client = await pool.connect();
+
+    // Find the closest tariff record with bill_total_normal <= inputAmount
+    // Order by bill_total_normal DESC to get the highest value that's still <= input
+    const query = `
+      SELECT * FROM tnb_tariff_2025
+      WHERE bill_total_normal <= $1
+      ORDER BY bill_total_normal DESC
+      LIMIT 1
+    `;
+
+    const result = await client.query(query, [inputAmount]);
+
+    if (result.rows.length === 0) {
+      // If no record found (input is lower than all records), get the lowest record
+      const fallbackQuery = `
+        SELECT * FROM tnb_tariff_2025
+        ORDER BY bill_total_normal ASC
+        LIMIT 1
+      `;
+      const fallbackResult = await client.query(fallbackQuery);
+
+      if (fallbackResult.rows.length === 0) {
+        client.release();
+        return res.status(404).json({ error: 'No tariff data found in database' });
+      }
+
+      client.release();
+      return res.json({
+        tariff: fallbackResult.rows[0],
+        inputAmount: inputAmount,
+        message: 'Used lowest available tariff (input amount below all records)'
+      });
+    }
+
+    client.release();
+    res.json({
+      tariff: result.rows[0],
+      inputAmount: inputAmount,
+      message: 'Found closest matching tariff'
+    });
+
+  } catch (err) {
+    console.error('Calculate bill error:', err);
+    res.status(500).json({ error: 'Failed to calculate bill breakdown', details: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

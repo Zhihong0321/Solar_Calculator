@@ -1,0 +1,138 @@
+{
+  "table_name": "tnb_tariff_2025",
+  "description": "TNB (Tenaga Nasional Berhad) electricity tariff data for 2025",
+  "columns": [
+    {
+      "column_name": "id",
+      "data_type": "integer",
+      "is_nullable": "NO",
+      "column_default": "nextval('tnb_tariff_2025_id_seq'::regclass)",
+      "description": "Primary key, auto-incrementing"
+    },
+    {
+      "column_name": "bubble_id",
+      "data_type": "text",
+      "is_nullable": "NO",
+      "column_default": null,
+      "description": "Unique identifier for each record"
+    },
+    {
+      "column_name": "last_synced_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Last synchronization timestamp"
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Record creation timestamp"
+    },
+    {
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Record last update timestamp"
+    },
+    {
+      "column_name": "created_date",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Date when record was created"
+    },
+    {
+      "column_name": "usage_kwh",
+      "data_type": "integer",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Electricity usage in kilowatt-hours"
+    },
+    {
+      "column_name": "eei",
+      "data_type": "numeric",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Energy Efficiency Index (negative values observed)"
+    },
+    {
+      "column_name": "network",
+      "data_type": "numeric",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Network-related charge or factor"
+    },
+    {
+      "column_name": "kwtbb_normal",
+      "data_type": "integer",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "KWTBB normal rate component"
+    },
+    {
+      "column_name": "retail",
+      "data_type": "integer",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Retail component of the tariff"
+    },
+    {
+      "column_name": "modified_date",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Date when record was last modified"
+    },
+    {
+      "column_name": "usage_normal",
+      "data_type": "numeric",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Normal usage calculation"
+    },
+    {
+      "column_name": "created_by",
+      "data_type": "text",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "User who created the record"
+    },
+    {
+      "column_name": "bill_total_normal",
+      "data_type": "numeric",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Total bill amount for normal tariff calculation"
+    },
+    {
+      "column_name": "capacity",
+      "data_type": "numeric",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "Capacity factor or rating"
+    },
+    {
+      "column_name": "sst_normal",
+      "data_type": "integer",
+      "is_nullable": "YES",
+      "column_default": null,
+      "description": "SST (Sales and Service Tax) for normal billing"
+    }
+  ],
+  "sample_data_ranges": {
+    "usage_kwh": "200-209 kWh",
+    "bill_total_normal": "RM 38-42",
+    "capacity": "9.1-9.5",
+    "eei": "-49 to -51",
+    "network": "25-27"
+  },
+  "notes": [
+    "Data appears to be from test environment",
+    "All sample records created by 'admin_user_eternalgy_test'",
+    "Primary usage for solar savings calculations",
+    "Contains Malaysian electricity tariff structure"
+  ]
+}

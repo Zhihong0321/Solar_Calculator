@@ -66,6 +66,35 @@
 
         <div id="dbStatus" class="status loading">Checking database connection...</div>
 
+        <!-- TNB Bill Calculator Form -->
+        <div class="calculator-section" style="margin-top: 30px;">
+            <h3>Calculate Your TNB Bill Breakdown</h3>
+            <p>Enter your current average TNB bill amount to see the detailed breakdown of charges:</p>
+
+            <form id="billForm" style="margin-bottom: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label for="billAmount" style="display: block; margin-bottom: 5px; font-weight: bold;">
+                        Current Monthly TNB Bill (RM):
+                    </label>
+                    <input
+                        type="number"
+                        id="billAmount"
+                        name="billAmount"
+                        step="0.01"
+                        min="0"
+                        placeholder="e.g. 150.00"
+                        style="width: 200px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px;"
+                        required
+                    >
+                </div>
+                <button type="submit" style="font-size: 16px; padding: 12px 24px;">
+                    Calculate Bill Breakdown
+                </button>
+            </form>
+
+            <div id="calculatorResults" style="margin-top: 20px;"></div>
+        </div>
+
         <div class="api-section">
             <h3>Database Testing</h3>
             <button onclick="testConnection()">Test DB Connection</button>
@@ -81,6 +110,91 @@
         window.onload = function() {
             testConnection();
         };
+
+        // Handle form submission
+        document.getElementById('billForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const billAmount = parseFloat(document.getElementById('billAmount').value);
+            if (!billAmount || billAmount <= 0) {
+                alert('Please enter a valid bill amount');
+                return;
+            }
+
+            await calculateBillBreakdown(billAmount);
+        });
+
+        async function calculateBillBreakdown(billAmount) {
+            const resultsDiv = document.getElementById('calculatorResults');
+            resultsDiv.innerHTML = '<div class="status loading">Finding closest TNB tariff data...</div>';
+
+            try {
+                const response = await fetch(`/api/calculate-bill?amount=${billAmount}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayBillBreakdown(data);
+                } else {
+                    resultsDiv.innerHTML = `<div class="status error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function displayBillBreakdown(data) {
+            const resultsDiv = document.getElementById('calculatorResults');
+            const tariff = data.tariff;
+
+            resultsDiv.innerHTML = `
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #2c5530;">
+                    <h4 style="color: #2c5530; margin-top: 0;">TNB Bill Breakdown</h4>
+                    <p style="color: #666; margin-bottom: 20px;">
+                        Based on closest match: RM ${tariff.bill_total_normal}
+                        (Your input: RM ${data.inputAmount})
+                    </p>
+
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; font-weight: bold;">Usage kWh</td>
+                            <td style="padding: 8px; text-align: right;">${tariff.usage_kwh || 0} kWh</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; font-weight: bold;">Usage (RM)</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(tariff.usage_normal || 0).toFixed(2)}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; font-weight: bold;">Network Fee</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(tariff.network || 0).toFixed(2)}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; font-weight: bold;">Capacity Fee</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(tariff.capacity || 0).toFixed(2)}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; font-weight: bold;">Retail Charge</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(tariff.retail || 0).toFixed(2)}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; font-weight: bold;">EEI</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(tariff.eei || 0).toFixed(2)}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; font-weight: bold;">SST</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(tariff.sst_normal || 0).toFixed(2)}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #ddd;">
+                            <td style="padding: 8px; font-weight: bold;">KWTBB</td>
+                            <td style="padding: 8px; text-align: right;">RM ${(tariff.kwtbb_normal || 0).toFixed(2)}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #2c5530; background-color: #e8f5e8;">
+                            <td style="padding: 12px; font-weight: bold; font-size: 16px;">Total Bill</td>
+                            <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">RM ${(tariff.bill_total_normal || 0).toFixed(2)}</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+        }
 
         async function testConnection() {
             const statusDiv = document.getElementById('dbStatus');
