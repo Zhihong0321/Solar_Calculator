@@ -115,6 +115,52 @@ app.get('/api/package-info', async (req, res) => {
   }
 });
 
+// API endpoint to explore product table and package.Panel relationship
+app.get('/api/product-info', async (req, res) => {
+  try {
+    const client = await pool.connect();
+
+    // Get product table structure
+    const productSchemaQuery = `
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'product'
+      ORDER BY ordinal_position;
+    `;
+    const productSchemaResult = await client.query(productSchemaQuery);
+
+    // Get sample product data
+    const productDataQuery = 'SELECT * FROM product LIMIT 10';
+    const productDataResult = await client.query(productDataQuery);
+
+    // Test the relationship between package and product
+    const relationshipQuery = `
+      SELECT
+        p.id as package_id,
+        p.package_name,
+        p.panel_qty,
+        p.panel,
+        pr.id as product_id,
+        pr.solar_output_rating
+      FROM package p
+      LEFT JOIN product pr ON p.panel = pr.id
+      WHERE p.active = true
+      LIMIT 10;
+    `;
+    const relationshipResult = await client.query(relationshipQuery);
+
+    client.release();
+    res.json({
+      productSchema: productSchemaResult.rows,
+      productSampleData: productDataResult.rows,
+      packageProductRelationship: relationshipResult.rows
+    });
+  } catch (err) {
+    console.error('Product info query error:', err);
+    res.status(500).json({ error: 'Failed to fetch product information', details: err.message });
+  }
+});
+
 // API endpoint to calculate bill breakdown based on input amount
 app.get('/api/calculate-bill', async (req, res) => {
   try {
