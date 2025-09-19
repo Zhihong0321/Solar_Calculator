@@ -167,31 +167,40 @@ app.get('/api/debug-panel-filter', async (req, res) => {
     const { panelQty = 1, panelType = 620 } = req.query;
     const client = await pool.connect();
 
-    // Test the exact query that's failing
-    const debugQuery = `
-      SELECT p.*, pr.solar_output_rating, pr.solar_output_rating AS rating_type
-      FROM package p
-      JOIN product pr ON p.panel = pr.id
-      WHERE p.panel_qty = $1
-        AND p.active = true
-      ORDER BY p.price ASC
-      LIMIT 5
-    `;
-    const debugResult = await client.query(debugQuery, [parseInt(panelQty)]);
+    // First, check basic package data
+    const packageQuery = `SELECT * FROM package WHERE panel_qty = $1 AND active = true LIMIT 5`;
+    const packageResult = await client.query(packageQuery, [parseInt(panelQty)]);
 
-    // Also check what solar_output_rating values exist
-    const ratingQuery = `
-      SELECT DISTINCT solar_output_rating, pg_typeof(solar_output_rating) as data_type
-      FROM product
-      WHERE solar_output_rating IS NOT NULL
-      ORDER BY solar_output_rating
-    `;
-    const ratingResult = await client.query(ratingQuery);
+    // Check if package.panel values exist
+    const panelCheckQuery = `SELECT DISTINCT panel FROM package WHERE panel IS NOT NULL LIMIT 10`;
+    const panelCheckResult = await client.query(panelCheckQuery);
+
+    // Check product table
+    const productQuery = `SELECT id, solar_output_rating FROM product LIMIT 10`;
+    const productResult = await client.query(productQuery);
+
+    // Try the JOIN carefully
+    let joinResult = { error: 'Not attempted' };
+    try {
+      const joinQuery = `
+        SELECT p.id, p.panel_qty, p.panel, pr.id as product_id, pr.solar_output_rating
+        FROM package p
+        LEFT JOIN product pr ON p.panel = pr.id
+        WHERE p.panel_qty = $1 AND p.active = true
+        LIMIT 3
+      `;
+      const joinQueryResult = await client.query(joinQuery, [parseInt(panelQty)]);
+      joinResult = joinQueryResult.rows;
+    } catch (joinErr) {
+      joinResult = { error: joinErr.message };
+    }
 
     client.release();
     res.json({
-      testQuery: debugResult.rows,
-      availableRatings: ratingResult.rows,
+      packages: packageResult.rows,
+      panelValues: panelCheckResult.rows,
+      products: productResult.rows,
+      joinTest: joinResult,
       searchParams: { panelQty: parseInt(panelQty), panelType: panelType.toString() }
     });
   } catch (err) {
