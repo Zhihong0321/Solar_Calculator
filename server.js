@@ -367,13 +367,22 @@ app.get('/api/solar-calculation', async (req, res) => {
     // 3. Total saving = morning saving + export saving
     const totalMonthlySavings = morningSaving + exportSaving;
 
-    // Calculate system cost (rough estimate: RM 4.50 per watt)
-    const costPerWatt = 4.50;
-    const systemCostBeforeDiscount = numberOfPanels * panelWatts * costPerWatt;
+    // Use actual package price if available, otherwise fallback to calculation
+    let systemCostBeforeDiscount, finalSystemCost;
 
-    // Apply discount based on panel count
-    const applicableDiscount = numberOfPanels >= 19 ? discount19Above : discount19Below;
-    const finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
+    if (selectedPackage && selectedPackage.price) {
+      // Use actual package price from database
+      systemCostBeforeDiscount = parseFloat(selectedPackage.price);
+      // Apply discount based on panel count
+      const applicableDiscount = numberOfPanels >= 19 ? discount19Above : discount19Below;
+      finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
+    } else {
+      // Fallback to calculated cost if no package found
+      const costPerWatt = 4.50;
+      systemCostBeforeDiscount = numberOfPanels * panelWatts * costPerWatt;
+      const applicableDiscount = numberOfPanels >= 19 ? discount19Above : discount19Below;
+      finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
+    }
 
     // Calculate payback period
     const paybackPeriod = totalMonthlySavings > 0 ?
