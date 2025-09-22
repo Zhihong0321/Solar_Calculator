@@ -417,7 +417,6 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     // Generate 24-hour solar generation pattern
     const systemKwPeak = (numberOfPanels * panelWatts) / 1000;
-    const dailySolarGeneration = monthlySolarGeneration / 30;
     const solarGenerationPattern = [];
 
     for (let hour = 0; hour < 24; hour++) {
