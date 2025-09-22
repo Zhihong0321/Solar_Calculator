@@ -351,20 +351,21 @@ app.get('/api/solar-calculation', async (req, res) => {
     const dailySolarGeneration = (numberOfPanels * panelWatts * peakHour) / 1000; // kWh per day
     const monthlySolarGeneration = dailySolarGeneration * 30;
 
-    // Calculate morning vs afternoon usage split
+    // Calculate morning usage split
     const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
-    const afternoonUsageKwh = monthlyUsageKwh - morningUsageKwh;
 
-    // Solar generation typically happens during afternoon
-    const solarDirectUsage = Math.min(afternoonUsageKwh, monthlySolarGeneration);
-    const excessSolar = Math.max(0, monthlySolarGeneration - afternoonUsageKwh);
-    const remainingBillUsage = monthlyUsageKwh - solarDirectUsage;
+    // NEW SAVING FORMULA
+    // 1. Morning usage saving: morning_kwh * RM 0.4869
+    const morningUsageRate = 0.4869; // RM per kWh for morning usage
+    const morningSaving = morningUsageKwh * morningUsageRate;
 
-    // Calculate savings
-    const avgTariffRate = tariff.bill_total_normal / monthlyUsageKwh; // RM per kWh
-    const directUsageSavings = solarDirectUsage * avgTariffRate;
-    const exportEarnings = excessSolar * smp;
-    const totalMonthlySavings = directUsageSavings + exportEarnings;
+    // 2. Export calculation: total solar generation - morning_kwh, then multiply by export rate
+    const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+    const exportRate = 0.2703; // RM per kWh for export
+    const exportSaving = exportKwh * exportRate;
+
+    // 3. Total saving = morning saving + export saving
+    const totalMonthlySavings = morningSaving + exportSaving;
 
     // Calculate system cost (rough estimate: RM 4.50 per watt)
     const costPerWatt = 4.50;
@@ -404,9 +405,12 @@ app.get('/api/solar-calculation', async (req, res) => {
       details: {
         monthlyUsageKwh: monthlyUsageKwh,
         monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
-        directUsageSavings: directUsageSavings.toFixed(2),
-        exportEarnings: exportEarnings.toFixed(2),
-        excessSolar: excessSolar.toFixed(2)
+        morningUsageKwh: morningUsageKwh.toFixed(2),
+        morningSaving: morningSaving.toFixed(2),
+        exportKwh: exportKwh.toFixed(2),
+        exportSaving: exportSaving.toFixed(2),
+        morningUsageRate: morningUsageRate,
+        exportRate: exportRate
       }
     });
 
