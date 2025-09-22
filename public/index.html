@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solar Calculator - TNB Bill Analyzer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -586,10 +587,30 @@
                             <span class="text-accent">Payback Period</span>
                             <span class="text-accent">${data.paybackPeriod} years</span>
                         </div>
+
+                        <!-- Charts Section -->
+                        <div class="mt-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Daily Usage & Generation Patterns</h3>
+
+                            <!-- Electricity Usage Chart -->
+                            <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4">
+                                <h4 class="text-md font-medium text-gray-700 mb-3">⚡ Daily Electricity Usage Pattern</h4>
+                                <canvas id="electricityUsageChart" width="400" height="200"></canvas>
+                            </div>
+
+                            <!-- Solar Generation Chart -->
+                            <div class="bg-white p-4 rounded-lg border border-gray-200">
+                                <h4 class="text-md font-medium text-gray-700 mb-3">☀️ Solar Generation Pattern</h4>
+                                <canvas id="solarGenerationChart" width="400" height="200"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
             resultsDiv.appendChild(solarDiv);
+
+            // Create charts after adding the div to DOM
+            createCharts(data.charts);
 
             // Smooth scroll to results
             solarDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -748,6 +769,105 @@
             };
 
             document.body.appendChild(popup);
+        }
+
+        // Create charts function
+        function createCharts(chartData) {
+            // Electricity Usage Chart
+            const usageCtx = document.getElementById('electricityUsageChart').getContext('2d');
+            new Chart(usageCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.electricityUsagePattern.map(d => d.hour + ':00'),
+                    datasets: [{
+                        label: 'Electricity Usage (kWh)',
+                        data: chartData.electricityUsagePattern.map(d => parseFloat(d.usage)),
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#f59e0b',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Usage (kWh)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time (24 hours)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        },
+                        title: {
+                            display: true,
+                            text: 'Daily Electricity Usage Pattern'
+                        }
+                    }
+                }
+            });
+
+            // Solar Generation Chart
+            const solarCtx = document.getElementById('solarGenerationChart').getContext('2d');
+            new Chart(solarCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.solarGenerationPattern.map(d => d.hour + ':00'),
+                    datasets: [{
+                        label: 'Solar Generation (kWh)',
+                        data: chartData.solarGenerationPattern.map(d => parseFloat(d.generation)),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Generation (kWh)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time (24 hours)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        },
+                        title: {
+                            display: true,
+                            text: 'Daily Solar Generation Pattern'
+                        }
+                    }
+                }
+            });
         }
     </script>
 </body>

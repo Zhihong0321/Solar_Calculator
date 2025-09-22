@@ -388,6 +388,60 @@ app.get('/api/solar-calculation', async (req, res) => {
     const paybackPeriod = totalMonthlySavings > 0 ?
       (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1) : 'N/A';
 
+    // Generate 24-hour electricity usage pattern
+    const dailyUsageKwh = monthlyUsageKwh / 30;
+    const electricityUsagePattern = [];
+    for (let hour = 0; hour < 24; hour++) {
+      let usageMultiplier;
+
+      // Human activity pattern - higher usage in morning and evening
+      if (hour >= 6 && hour <= 9) {
+        // Morning peak (considering morning usage %)
+        usageMultiplier = 1.8 * (morningPercent / 100);
+      } else if (hour >= 18 && hour <= 22) {
+        // Evening peak
+        usageMultiplier = 2.2;
+      } else if (hour >= 10 && hour <= 17) {
+        // Day time (lower if high morning usage)
+        usageMultiplier = 0.8 * (1 - (morningPercent / 100) * 0.3);
+      } else {
+        // Night time
+        usageMultiplier = 0.3;
+      }
+
+      electricityUsagePattern.push({
+        hour: hour,
+        usage: (dailyUsageKwh * usageMultiplier / 10).toFixed(3) // Divide by 10 to normalize
+      });
+    }
+
+    // Generate 24-hour solar generation pattern
+    const systemKwPeak = (numberOfPanels * panelWatts) / 1000;
+    const dailySolarGeneration = monthlySolarGeneration / 30;
+    const solarGenerationPattern = [];
+
+    for (let hour = 0; hour < 24; hour++) {
+      let generationMultiplier = 0;
+
+      // Solar generation follows bell curve around peak sun hours
+      const sunriseHour = 7;
+      const sunsetHour = 19;
+      const peakHour = 12; // Noon
+
+      if (hour >= sunriseHour && hour <= sunsetHour) {
+        // Bell curve calculation
+        const hoursFromPeak = Math.abs(hour - peakHour);
+        const maxHoursFromPeak = 5; // 5 hours from peak (7am to 7pm range)
+        generationMultiplier = Math.cos((hoursFromPeak / maxHoursFromPeak) * (Math.PI / 2));
+        generationMultiplier = Math.max(0, generationMultiplier);
+      }
+
+      solarGenerationPattern.push({
+        hour: hour,
+        generation: (dailySolarGeneration * generationMultiplier / 8).toFixed(3) // Divide by 8 to normalize
+      });
+    }
+
     res.json({
       config: {
         sunPeakHour: peakHour,
@@ -424,6 +478,10 @@ app.get('/api/solar-calculation', async (req, res) => {
         exportSaving: exportSaving.toFixed(2),
         morningUsageRate: morningUsageRate,
         exportRate: exportRate
+      },
+      charts: {
+        electricityUsagePattern: electricityUsagePattern,
+        solarGenerationPattern: solarGenerationPattern
       }
     });
 
