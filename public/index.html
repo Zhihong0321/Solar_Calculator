@@ -592,16 +592,22 @@
                         <div class="mt-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Daily Usage & Generation Patterns</h3>
 
-                            <!-- Electricity Usage Chart -->
+                            <!-- Electricity Import Chart -->
                             <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4">
-                                <h4 class="text-md font-medium text-gray-700 mb-3">⚡ Daily Electricity Usage Pattern</h4>
-                                <canvas id="electricityUsageChart" width="400" height="200"></canvas>
+                                <h4 class="text-md font-medium text-gray-700 mb-3">⚡ Daily Electricity Import Pattern</h4>
+                                <canvas id="electricityImportChart" width="400" height="300"></canvas>
                             </div>
 
                             <!-- Solar Generation Chart -->
-                            <div class="bg-white p-4 rounded-lg border border-gray-200">
+                            <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4">
                                 <h4 class="text-md font-medium text-gray-700 mb-3">☀️ Solar Generation Pattern</h4>
-                                <canvas id="solarGenerationChart" width="400" height="200"></canvas>
+                                <canvas id="solarGenerationChart" width="400" height="300"></canvas>
+                            </div>
+
+                            <!-- Combined Solar vs Import Chart -->
+                            <div class="bg-white p-4 rounded-lg border border-gray-200">
+                                <h4 class="text-md font-medium text-gray-700 mb-3">🔋 Net Electricity Import (After Solar Offset)</h4>
+                                <canvas id="combinedChart" width="400" height="300"></canvas>
                             </div>
                         </div>
                     </div>
@@ -773,14 +779,14 @@
 
         // Create charts function
         function createCharts(chartData) {
-            // Electricity Usage Chart
-            const usageCtx = document.getElementById('electricityUsageChart').getContext('2d');
-            new Chart(usageCtx, {
+            // Electricity Import Chart
+            const importCtx = document.getElementById('electricityImportChart').getContext('2d');
+            new Chart(importCtx, {
                 type: 'line',
                 data: {
                     labels: chartData.electricityUsagePattern.map(d => d.hour + ':00'),
                     datasets: [{
-                        label: 'Electricity Usage (kWh)',
+                        label: 'Electricity Import (kWh)',
                         data: chartData.electricityUsagePattern.map(d => parseFloat(d.usage)),
                         borderColor: '#f59e0b',
                         backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -794,12 +800,13 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     scales: {
                         y: {
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: 'Usage (kWh)'
+                                text: 'Import (kWh)'
                             }
                         },
                         x: {
@@ -815,7 +822,7 @@
                         },
                         title: {
                             display: true,
-                            text: 'Daily Electricity Usage Pattern'
+                            text: 'Daily Electricity Import Pattern'
                         }
                     }
                 }
@@ -842,6 +849,7 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     scales: {
                         y: {
                             beginAtZero: true,
@@ -864,6 +872,88 @@
                         title: {
                             display: true,
                             text: 'Daily Solar Generation Pattern'
+                        }
+                    }
+                }
+            });
+
+            // Combined Chart - Net Import After Solar Offset
+            const combinedCtx = document.getElementById('combinedChart').getContext('2d');
+
+            // Calculate net import for each hour (usage - solar generation)
+            const netImportData = chartData.electricityUsagePattern.map((usage, index) => {
+                const usageKwh = parseFloat(usage.usage);
+                const solarKwh = parseFloat(chartData.solarGenerationPattern[index].generation);
+                const netImport = Math.max(0, usageKwh - solarKwh); // Can't import negative
+                return netImport.toFixed(3);
+            });
+
+            new Chart(combinedCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.electricityUsagePattern.map(d => d.hour + ':00'),
+                    datasets: [
+                        {
+                            label: 'Original Import Demand (kWh)',
+                            data: chartData.electricityUsagePattern.map(d => parseFloat(d.usage)),
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Solar Generation (kWh)',
+                            data: chartData.solarGenerationPattern.map(d => parseFloat(d.generation)),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Net Import (After Solar) (kWh)',
+                            data: netImportData,
+                            borderColor: '#dc2626',
+                            backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#dc2626',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            borderWidth: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Electricity (kWh)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time (24 hours)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Solar Impact on Electricity Import'
                         }
                     }
                 }
