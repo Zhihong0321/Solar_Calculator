@@ -333,7 +333,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     // TODO: Re-add panel type filtering once database relationship is confirmed
     const packageQuery = `
       SELECT * FROM package
-      WHERE panel_qty = $1 AND active = 1 AND special = 0
+      WHERE panel_qty = $1 AND active = true AND special = 0
       ORDER BY price ASC
       LIMIT 1
     `;
