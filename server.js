@@ -396,6 +396,7 @@ app.get('/api/solar-calculation', async (req, res) => {
         type: selectedPackage.type,
         maxDiscount: selectedPackage.max_discount,
         special: selectedPackage.special,
+        invoiceDesc: selectedPackage.invoice_desc,
         id: selectedPackage.id
       } : null,
 

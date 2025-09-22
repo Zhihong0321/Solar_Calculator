@@ -696,6 +696,7 @@
                         <div>• Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}</div>
                         ${data.selectedPackage.maxDiscount ? `<div>• Max Discount: RM ${data.selectedPackage.maxDiscount.toLocaleString('en-MY')}</div>` : ''}
                         ${data.selectedPackage.special ? '<div>• 🌟 Special Package</div>' : ''}
+                        ${data.selectedPackage.invoiceDesc ? `<div class="mt-2 p-2 bg-blue-50 border-l-2 border-blue-300"><strong>Invoice Description:</strong><br><span style="white-space: pre-line;">${data.selectedPackage.invoiceDesc}</span></div>` : ''}
                     </div>
                 </div>` :
                 `<div class="text-amber-600 font-medium mt-3">
