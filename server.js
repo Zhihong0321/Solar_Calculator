@@ -333,7 +333,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     // TODO: Re-add panel type filtering once database relationship is confirmed
     const packageQuery = `
       SELECT * FROM package
-      WHERE panel_qty = $1 AND active = true
+      WHERE panel_qty = $1 AND active = 1 AND special = 0
       ORDER BY price ASC
       LIMIT 1
     `;
@@ -361,7 +361,7 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     // 2. Export calculation: total solar generation - morning_kwh, then multiply by export rate
     const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
-    const exportRate = 0.2703; // RM per kWh for export
+    const exportRate = smp; // RM per kWh for export (SMP price)
     const exportSaving = exportKwh * exportRate;
 
     // 3. Total saving = morning saving + export saving
@@ -393,6 +393,9 @@ app.get('/api/solar-calculation', async (req, res) => {
         panelQty: selectedPackage.panel_qty,
         price: selectedPackage.price,
         panelWattage: panelWattage, // Use selected panel wattage instead of DB value
+        type: selectedPackage.type,
+        maxDiscount: selectedPackage.max_discount,
+        special: selectedPackage.special,
         id: selectedPackage.id
       } : null,
 

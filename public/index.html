@@ -689,9 +689,13 @@
             const packageInfo = data.selectedPackage ?
                 `<div class="text-emerald-600 font-medium mt-3">
                     📦 Selected Package: ${data.selectedPackage.packageName}
-                    <div class="text-sm text-gray-600 mt-1">
-                        ${data.recommendedPanels} x ${data.config.panelType}W panels<br>
-                        Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}
+                    <div class="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded">
+                        <div><strong>Package Description:</strong></div>
+                        <div>• Type: ${data.selectedPackage.type || 'Standard'}</div>
+                        <div>• Panels: ${data.recommendedPanels} x ${data.config.panelType}W</div>
+                        <div>• Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}</div>
+                        ${data.selectedPackage.maxDiscount ? `<div>• Max Discount: RM ${data.selectedPackage.maxDiscount.toLocaleString('en-MY')}</div>` : ''}
+                        ${data.selectedPackage.special ? '<div>• 🌟 Special Package</div>' : ''}
                     </div>
                 </div>` :
                 `<div class="text-amber-600 font-medium mt-3">
