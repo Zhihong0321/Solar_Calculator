@@ -370,17 +370,17 @@ app.get('/api/solar-calculation', async (req, res) => {
     // Use actual package price if available, otherwise fallback to calculation
     let systemCostBeforeDiscount, finalSystemCost;
 
+    // Calculate discount based on panel count (used in both paths)
+    const applicableDiscount = numberOfPanels >= 19 ? discount19Above : discount19Below;
+
     if (selectedPackage && selectedPackage.price) {
       // Use actual package price from database
       systemCostBeforeDiscount = parseFloat(selectedPackage.price);
-      // Apply discount based on panel count
-      const applicableDiscount = numberOfPanels >= 19 ? discount19Above : discount19Below;
       finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
     } else {
       // Fallback to calculated cost if no package found
       const costPerWatt = 4.50;
       systemCostBeforeDiscount = numberOfPanels * panelWatts * costPerWatt;
-      const applicableDiscount = numberOfPanels >= 19 ? discount19Above : discount19Below;
       finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
     }
 
