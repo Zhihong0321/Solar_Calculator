@@ -481,11 +481,96 @@
                             <span class="text-gray-600">System Size</span>
                             <span class="font-medium">${data.solarConfig}</span>
                         </div>
-                        <div class="flex justify-between py-2 border-b border-gray-100">
-                            <span class="text-gray-600">Monthly Savings</span>
-                            <span class="font-medium text-green-600">RM ${data.monthlySavings}</span>
+
+                        <!-- Detailed Saving Calculation Breakdown -->
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mt-4">
+                            <h4 class="font-semibold text-emerald-800 mb-3 flex items-center">
+                                <span class="text-lg mr-2">💰</span>
+                                Monthly Saving Calculation Breakdown
+                            </h4>
+
+                            <!-- Solar Generation -->
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between py-1">
+                                    <span class="text-gray-700">Solar Generation</span>
+                                    <span class="font-medium">${data.details.monthlySolarGeneration} kWh</span>
+                                </div>
+
+                                <!-- Morning Saving Calculation -->
+                                <div class="bg-blue-50 border border-blue-200 rounded p-3 mt-3">
+                                    <div class="font-medium text-blue-800 mb-2">🌅 Morning Usage Saving</div>
+                                    <div class="space-y-1 text-xs text-blue-700">
+                                        <div class="flex justify-between">
+                                            <span>Monthly Usage:</span>
+                                            <span>${data.details.monthlyUsageKwh} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Morning Usage (${data.config.morningUsage}%):</span>
+                                            <span>${data.details.morningUsageKwh} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Rate:</span>
+                                            <span>RM ${data.details.morningUsageRate}/kWh</span>
+                                        </div>
+                                        <div class="border-t border-blue-300 pt-1 mt-2">
+                                            <div class="flex justify-between font-semibold">
+                                                <span>Morning Saving:</span>
+                                                <span>RM ${data.details.morningSaving}</span>
+                                            </div>
+                                            <div class="text-xs text-blue-600 mt-1">
+                                                (${data.details.morningUsageKwh} × RM ${data.details.morningUsageRate})
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Export Saving Calculation -->
+                                <div class="bg-orange-50 border border-orange-200 rounded p-3 mt-3">
+                                    <div class="font-medium text-orange-800 mb-2">⚡ Export Saving</div>
+                                    <div class="space-y-1 text-xs text-orange-700">
+                                        <div class="flex justify-between">
+                                            <span>Solar Generation:</span>
+                                            <span>${data.details.monthlySolarGeneration} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Morning Usage:</span>
+                                            <span>-${data.details.morningUsageKwh} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Export Amount:</span>
+                                            <span>${data.details.exportKwh} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Export Rate:</span>
+                                            <span>RM ${data.details.exportRate}/kWh</span>
+                                        </div>
+                                        <div class="border-t border-orange-300 pt-1 mt-2">
+                                            <div class="flex justify-between font-semibold">
+                                                <span>Export Saving:</span>
+                                                <span>RM ${data.details.exportSaving}</span>
+                                            </div>
+                                            <div class="text-xs text-orange-600 mt-1">
+                                                (${data.details.exportKwh} × RM ${data.details.exportRate})
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Total Saving -->
+                                <div class="bg-green-100 border border-green-300 rounded p-3 mt-3">
+                                    <div class="flex justify-between font-bold text-green-800">
+                                        <span>🎯 Total Monthly Saving:</span>
+                                        <span>RM ${data.monthlySavings}</span>
+                                    </div>
+                                    <div class="text-xs text-green-700 mt-1">
+                                        (RM ${data.details.morningSaving} + RM ${data.details.exportSaving})
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex justify-between py-2 border-b border-gray-100">
+
+                        <!-- System Cost Information -->
+                        <div class="flex justify-between py-2 border-b border-gray-100 mt-4">
                             <span class="text-gray-600">System Cost (Before Discount)</span>
                             <span class="font-medium">RM ${data.systemCostBeforeDiscount}</span>
                         </div>
