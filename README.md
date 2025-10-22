@@ -58,4 +58,4 @@ The solar savings calculator can model lithium battery storage add-ons that dive
 | 10             | 7,500      |
 | 15             | 10,000     |
 
-When a battery is selected, the calculator reports how many kilowatt-hours per day are used to charge the battery and how much grid import is avoided each day, adjusting export savings accordingly.
+When a battery is selected, the calculator reports how many kilowatt-hours per day are used to charge the battery and how much grid import is avoided each day, adjusting export savings accordingly and recalculating the Energy Efficiency Incentive (EEI) tier based on the reduced grid import.

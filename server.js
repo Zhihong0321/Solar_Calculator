@@ -390,8 +390,44 @@ app.get('/api/solar-calculation', async (req, res) => {
     const averageUsageRate = monthlyUsageKwh > 0 ? usageCost / monthlyUsageKwh : morningUsageRate;
     const batterySaving = monthlyBatteryChargeKwh * averageUsageRate;
 
-    // 3. Total saving = morning saving + export saving
-    const totalMonthlySavings = morningSaving + exportSaving + batterySaving;
+    const gridImportAfterSolar = Math.max(0, monthlyUsageKwh - morningUsageKwh);
+    const gridImportAfterBattery = Math.max(0, gridImportAfterSolar - monthlyBatteryChargeKwh);
+    const baselineEei = parseFloat(tariff.eei) || 0;
+    let adjustedEei = baselineEei;
+    let eeiAdditionalSaving = 0;
+    let adjustedTariffRow = null;
+
+    if (batteryCapacityKwh > 0 && gridImportAfterBattery < gridImportAfterSolar) {
+      const adjustedUsageTarget = Math.max(0, Math.floor(gridImportAfterBattery));
+      let adjustedTariffResult = null;
+
+      if (adjustedUsageTarget > 0) {
+        const adjustedTariffQuery = `
+          SELECT * FROM tnb_tariff_2025
+          WHERE usage_kwh <= $1
+          ORDER BY usage_kwh DESC
+          LIMIT 1
+        `;
+        adjustedTariffResult = await pool.query(adjustedTariffQuery, [adjustedUsageTarget]);
+      }
+
+      if (!adjustedTariffResult || adjustedTariffResult.rows.length === 0) {
+        adjustedTariffResult = await pool.query(`
+          SELECT * FROM tnb_tariff_2025
+          ORDER BY usage_kwh ASC
+          LIMIT 1
+        `);
+      }
+
+      if (adjustedTariffResult.rows.length > 0) {
+        adjustedTariffRow = adjustedTariffResult.rows[0];
+        adjustedEei = parseFloat(adjustedTariffRow.eei) || 0;
+        eeiAdditionalSaving = Math.max(0, baselineEei - adjustedEei);
+      }
+    }
+
+    // 3. Total saving = morning saving + export saving + battery offset + EEI incentive boost
+    const totalMonthlySavings = morningSaving + exportSaving + batterySaving + eeiAdditionalSaving;
 
     // Use actual package price if available, otherwise fallback to calculation
     let systemCostBeforeDiscount, finalSystemCost;
@@ -511,7 +547,13 @@ app.get('/api/solar-calculation', async (req, res) => {
         monthlyExportReduction: monthlyBatteryChargeKwh.toFixed(2),
         exportReductionKwh: monthlyBatteryChargeKwh.toFixed(2),
         savings: batterySaving.toFixed(2),
-        averageUsageRate: averageUsageRate.toFixed(4)
+        averageUsageRate: averageUsageRate.toFixed(4),
+        gridImportBeforeBattery: gridImportAfterSolar.toFixed(2),
+        gridImportAfterBattery: gridImportAfterBattery.toFixed(2),
+        eeiBefore: baselineEei.toFixed(2),
+        eeiAfter: adjustedEei.toFixed(2),
+        eeiAdditionalSaving: eeiAdditionalSaving.toFixed(2),
+        adjustedTariffUsage: adjustedTariffRow ? adjustedTariffRow.usage_kwh : null
       } : null,
       details: {
         monthlyUsageKwh: monthlyUsageKwh,
@@ -525,7 +567,12 @@ app.get('/api/solar-calculation', async (req, res) => {
         morningUsageRate: morningUsageRate,
         exportRate: exportRate,
         solarSystemCostBeforeDiscount: systemCostBeforeDiscount.toFixed(2),
-        batteryPrice: batteryPrice.toFixed(2)
+        batteryPrice: batteryPrice.toFixed(2),
+        eeiOriginal: baselineEei.toFixed(2),
+        eeiAdjusted: adjustedEei.toFixed(2),
+        eeiAdditionalSaving: eeiAdditionalSaving.toFixed(2),
+        gridImportAfterSolar: gridImportAfterSolar.toFixed(2),
+        gridImportAfterBattery: gridImportAfterBattery.toFixed(2)
       },
       charts: {
         electricityUsagePattern: electricityUsagePattern,

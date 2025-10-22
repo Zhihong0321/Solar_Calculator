@@ -543,6 +543,24 @@
                                     <span>Monthly grid reduction:</span>
                                     <span>${formatNumber(data.batteryDetails.monthlyGridImportReduction)} kWh</span>
                                 </div>
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>Grid import after solar:</span>
+                                    <span>${formatNumber(data.batteryDetails.gridImportBeforeBattery)} kWh</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>Grid import after battery:</span>
+                                    <span>${formatNumber(data.batteryDetails.gridImportAfterBattery)} kWh</span>
+                                </div>
+                                ${parseFloat(data.batteryDetails.eeiAdditionalSaving) > 0 ? `
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>Extra EEI incentive:</span>
+                                    <span>RM ${formatNumber(data.batteryDetails.eeiAdditionalSaving)}</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>EEI tier:</span>
+                                    <span>RM ${formatNumber(data.batteryDetails.eeiBefore)} → RM ${formatNumber(data.batteryDetails.eeiAfter)}</span>
+                                </div>
+                                ` : ''}
                             </div>
                         </div>
                         ` : ''}
@@ -668,6 +686,14 @@
                                             <span>${formatNumber(data.batteryDetails.monthlyGridImportReduction)} kWh</span>
                                         </div>
                                         <div class="flex justify-between">
+                                            <span>Grid Import After Solar:</span>
+                                            <span>${formatNumber(data.batteryDetails.gridImportBeforeBattery)} kWh/month</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Grid Import After Battery:</span>
+                                            <span>${formatNumber(data.batteryDetails.gridImportAfterBattery)} kWh/month</span>
+                                        </div>
+                                        <div class="flex justify-between">
                                             <span>Export Reduction:</span>
                                             <span>${formatNumber(data.batteryDetails.exportReductionKwh)} kWh/month</span>
                                         </div>
@@ -678,6 +704,40 @@
                                         <div class="flex justify-between">
                                             <span>Monthly Battery Saving:</span>
                                             <span>RM ${formatNumber(data.batteryDetails.savings)}</span>
+                                        </div>
+                                        ${parseFloat(data.batteryDetails.eeiAdditionalSaving) > 0 ? `
+                                        <div class="flex justify-between">
+                                            <span>EEI Incentive:</span>
+                                            <span>RM ${formatNumber(data.batteryDetails.eeiBefore)} → RM ${formatNumber(data.batteryDetails.eeiAfter)}</span>
+                                        </div>
+                                        <div class="flex justify-between font-semibold text-purple-800">
+                                            <span>Additional EEI Saving:</span>
+                                            <span>RM ${formatNumber(data.batteryDetails.eeiAdditionalSaving)}</span>
+                                        </div>
+                                        ${data.batteryDetails.adjustedTariffUsage ? `<div class="text-xs text-purple-600">Adjusted to the ${formatNumber(data.batteryDetails.adjustedTariffUsage, 0)} kWh tariff tier.</div>` : ''}
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                ` : ''}
+
+                                ${parseFloat(data.details.eeiAdditionalSaving) > 0 ? `
+                                <div class="bg-amber-50 border border-amber-200 rounded p-3 mt-3">
+                                    <div class="font-medium text-amber-800 mb-2">🏅 Energy Efficiency Incentive</div>
+                                    <div class="space-y-1 text-xs text-amber-700">
+                                        <div class="flex justify-between">
+                                            <span>Baseline EEI:</span>
+                                            <span>RM ${formatNumber(data.details.eeiOriginal)}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Adjusted EEI:</span>
+                                            <span>RM ${formatNumber(data.details.eeiAdjusted)}</span>
+                                        </div>
+                                        <div class="flex justify-between font-semibold text-amber-800">
+                                            <span>Additional EEI Saving:</span>
+                                            <span>RM ${formatNumber(data.details.eeiAdditionalSaving)}</span>
+                                        </div>
+                                        <div class="text-xs text-amber-600 mt-1">
+                                            Grid import drops to ${formatNumber(data.details.gridImportAfterBattery)} kWh/month, unlocking a higher incentive tier.
                                         </div>
                                     </div>
                                 </div>
@@ -690,7 +750,7 @@
                                         <span>RM ${formatNumber(data.monthlySavings)}</span>
                                     </div>
                                     <div class="text-xs text-green-700 mt-1">
-                                        (RM ${formatNumber(data.details.morningSaving)} + RM ${formatNumber(data.details.exportSaving)}${parseFloat(data.details.batterySaving) > 0 ? ` + RM ${formatNumber(data.details.batterySaving)}` : ''})
+                                        (Morning RM ${formatNumber(data.details.morningSaving)} + Export RM ${formatNumber(data.details.exportSaving)}${parseFloat(data.details.batterySaving) > 0 ? ` + Battery RM ${formatNumber(data.details.batterySaving)}` : ''}${parseFloat(data.details.eeiAdditionalSaving) > 0 ? ` + EEI RM ${formatNumber(data.details.eeiAdditionalSaving)}` : ''})
                                     </div>
                                 </div>
                             </div>
@@ -899,6 +959,11 @@
                                 <div class="text-xs text-purple-600 mt-2">
                                     Uses ${formatNumber(data.batteryDetails.dailyChargeKwh)} kWh/day of solar export to cut grid import by the same amount (≈${formatNumber(data.batteryDetails.monthlyGridImportReduction)} kWh/month).
                                 </div>
+                                ${parseFloat(data.batteryDetails.eeiAdditionalSaving) > 0 ? `
+                                <div class="text-xs text-purple-600 mt-1">
+                                    Unlocks about RM ${formatNumber(data.batteryDetails.eeiAdditionalSaving)} in extra EEI incentive (RM ${formatNumber(data.batteryDetails.eeiBefore)} → RM ${formatNumber(data.batteryDetails.eeiAfter)}) by lowering import to ${formatNumber(data.batteryDetails.gridImportAfterBattery)} kWh/month.
+                                </div>
+                                ` : ''}
                             </div>
                             ` : ''}
                         </div>
