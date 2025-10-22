@@ -43,6 +43,11 @@ npm run dev
 
 This project is configured for Railway deployment with PostgreSQL database integration.
 
+After the agent commits changes in this environment, you still need to push the
+updates to your GitHub repository from your own machine because the container
+does not have remote credentials configured. Run a standard `git push` (for
+example, `git push origin main`) to trigger Railway's redeploy.
+
 ## Battery Add-On Options
 
 The solar savings calculator can model lithium battery storage add-ons that divert excess solar export to offset nighttime grid import. Available capacities and default pricing:
