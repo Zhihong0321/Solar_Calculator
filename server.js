@@ -277,7 +277,8 @@ app.get('/api/solar-calculation', async (req, res) => {
       smpPrice,
       below19Discount,
       above19Discount,
-      batteryCapacity
+      batteryCapacity,
+      zeroImport
     } = req.query;
 
     // Validate inputs
@@ -289,6 +290,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     const discount19Below = parseFloat(below19Discount) || 0;
     const discount19Above = parseFloat(above19Discount) || 0;
     let batteryCapacityKwh = parseFloat(batteryCapacity) || 0;
+    const zeroImportEnabled = zeroImport === 'true';
 
     const validBatteryCapacities = [0, 5, 10, 15];
     if (!validBatteryCapacities.includes(batteryCapacityKwh)) {
@@ -301,7 +303,7 @@ app.get('/api/solar-calculation', async (req, res) => {
       15: 10000
     };
 
-    const batteryPrice = batteryPricing[batteryCapacityKwh] || 0;
+    let batteryPrice = batteryPricing[batteryCapacityKwh] || 0;
 
     if (!billAmount || billAmount <= 0) {
       return res.status(400).json({ error: 'Invalid bill amount' });
@@ -380,7 +382,38 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     const daysInMonth = 30;
     const dailyExportBeforeBattery = exportKwh / daysInMonth;
-    const batteryChargePerDay = batteryCapacityKwh > 0 ? Math.min(batteryCapacityKwh, dailyExportBeforeBattery) : 0;
+
+    const zeroImportTargetKwh = 100;
+    const originalBatterySelection = batteryCapacityKwh;
+    const gridImportAfterSolar = Math.max(0, monthlyUsageKwh - morningUsageKwh);
+    const nonDayUsageMonthly = Math.max(0, monthlyUsageKwh - zeroImportTargetKwh - morningUsageKwh);
+    let requiredMonthlyReduction = Math.max(0, gridImportAfterSolar - zeroImportTargetKwh);
+    let requiredDailyReduction = requiredMonthlyReduction / daysInMonth;
+    let recommendedBatteryForZeroImport = batteryCapacityKwh;
+
+    if (zeroImportEnabled) {
+      const positiveBatteryOptions = validBatteryCapacities
+        .filter(capacity => capacity > 0)
+        .sort((a, b) => a - b);
+
+      recommendedBatteryForZeroImport = 0;
+      if (requiredDailyReduction > 0 && positiveBatteryOptions.length > 0) {
+        recommendedBatteryForZeroImport = positiveBatteryOptions.find(option => option >= requiredDailyReduction)
+          || positiveBatteryOptions[positiveBatteryOptions.length - 1];
+      }
+
+      batteryCapacityKwh = recommendedBatteryForZeroImport;
+      batteryPrice = batteryPricing[batteryCapacityKwh] || 0;
+    }
+
+    let batteryChargePerDay = 0;
+    if (batteryCapacityKwh > 0) {
+      const maxChargeFromExport = Math.min(batteryCapacityKwh, dailyExportBeforeBattery);
+      batteryChargePerDay = (zeroImportEnabled && requiredDailyReduction > 0)
+        ? Math.min(maxChargeFromExport, requiredDailyReduction)
+        : maxChargeFromExport;
+    }
+
     const monthlyBatteryChargeKwh = batteryChargePerDay * daysInMonth;
     const adjustedExportKwh = Math.max(0, exportKwh - monthlyBatteryChargeKwh);
     const dailyExportAfterBattery = adjustedExportKwh / daysInMonth;
@@ -390,44 +423,93 @@ app.get('/api/solar-calculation', async (req, res) => {
     const averageUsageRate = monthlyUsageKwh > 0 ? usageCost / monthlyUsageKwh : morningUsageRate;
     const batterySaving = monthlyBatteryChargeKwh * averageUsageRate;
 
-    const gridImportAfterSolar = Math.max(0, monthlyUsageKwh - morningUsageKwh);
     const gridImportAfterBattery = Math.max(0, gridImportAfterSolar - monthlyBatteryChargeKwh);
     const baselineEei = parseFloat(tariff.eei) || 0;
     let adjustedEei = baselineEei;
     let eeiAdditionalSaving = 0;
     let adjustedTariffRow = null;
 
-    if (batteryCapacityKwh > 0 && gridImportAfterBattery < gridImportAfterSolar) {
-      const adjustedUsageTarget = Math.max(0, Math.floor(gridImportAfterBattery));
-      let adjustedTariffResult = null;
+    const adjustedUsageTarget = Math.max(0, Math.floor(gridImportAfterBattery));
+    let adjustedTariffResult = null;
 
-      if (adjustedUsageTarget > 0) {
-        const adjustedTariffQuery = `
-          SELECT * FROM tnb_tariff_2025
-          WHERE usage_kwh <= $1
-          ORDER BY usage_kwh DESC
-          LIMIT 1
-        `;
-        adjustedTariffResult = await pool.query(adjustedTariffQuery, [adjustedUsageTarget]);
-      }
+    if (adjustedUsageTarget > 0) {
+      const adjustedTariffQuery = `
+        SELECT * FROM tnb_tariff_2025
+        WHERE usage_kwh <= $1
+        ORDER BY usage_kwh DESC
+        LIMIT 1
+      `;
+      adjustedTariffResult = await pool.query(adjustedTariffQuery, [adjustedUsageTarget]);
+    }
 
-      if (!adjustedTariffResult || adjustedTariffResult.rows.length === 0) {
-        adjustedTariffResult = await pool.query(`
-          SELECT * FROM tnb_tariff_2025
-          ORDER BY usage_kwh ASC
-          LIMIT 1
-        `);
-      }
+    if (!adjustedTariffResult || adjustedTariffResult.rows.length === 0) {
+      adjustedTariffResult = await pool.query(`
+        SELECT * FROM tnb_tariff_2025
+        ORDER BY usage_kwh ASC
+        LIMIT 1
+      `);
+    }
 
-      if (adjustedTariffResult.rows.length > 0) {
-        adjustedTariffRow = adjustedTariffResult.rows[0];
+    if (adjustedTariffResult.rows.length > 0) {
+      adjustedTariffRow = adjustedTariffResult.rows[0];
+      if (gridImportAfterBattery < gridImportAfterSolar) {
         adjustedEei = parseFloat(adjustedTariffRow.eei) || 0;
         eeiAdditionalSaving = Math.max(0, baselineEei - adjustedEei);
       }
     }
 
-    // 3. Total saving = morning saving + export saving + battery offset + EEI incentive boost
-    const totalMonthlySavings = morningSaving + exportSaving + batterySaving + eeiAdditionalSaving;
+    const baselineBillAmount = billAmount;
+    const baselineTariffBill = parseFloat(tariff.bill_total_normal) || baselineBillAmount;
+
+    let gridBillAfterBatteryCost = baselineTariffBill;
+    if (gridImportAfterBattery <= 0) {
+      gridBillAfterBatteryCost = 0;
+    } else if (adjustedTariffRow && adjustedTariffRow.bill_total_normal !== null) {
+      gridBillAfterBatteryCost = parseFloat(adjustedTariffRow.bill_total_normal) || baselineTariffBill;
+    } else if (monthlyUsageKwh > 0) {
+      const usageRatio = gridImportAfterBattery / monthlyUsageKwh;
+      gridBillAfterBatteryCost = baselineTariffBill * usageRatio;
+    }
+
+    const exportCreditValue = exportSaving;
+    let newBillAmount = Math.max(0, gridBillAfterBatteryCost - exportCreditValue);
+    let totalMonthlySavings = Math.max(0, baselineBillAmount - newBillAmount);
+    const componentSavingsTotal = morningSaving + exportSaving + batterySaving + eeiAdditionalSaving;
+
+    const zeroImportDetails = {
+      enabled: zeroImportEnabled,
+      targetMonthlyImportKwh: zeroImportTargetKwh,
+      targetDailyImportKwh: parseFloat((zeroImportTargetKwh / daysInMonth).toFixed(2)),
+      nonDayUsageMonthlyKwh: parseFloat(nonDayUsageMonthly.toFixed(2)),
+      nonDayUsageDailyKwh: parseFloat((nonDayUsageMonthly / daysInMonth).toFixed(2)),
+      requiredMonthlyReductionKwh: parseFloat(requiredMonthlyReduction.toFixed(2)),
+      requiredDailyReductionKwh: parseFloat(requiredDailyReduction.toFixed(2)),
+      recommendedBatteryKwh: zeroImportEnabled ? recommendedBatteryForZeroImport : 0,
+      manualBatterySelectionKwh: zeroImportEnabled ? originalBatterySelection : batteryCapacityKwh,
+      actualBatteryKwh: batteryCapacityKwh,
+      achievedDailyReductionKwh: parseFloat(batteryChargePerDay.toFixed(2)),
+      achievedMonthlyReductionKwh: parseFloat(monthlyBatteryChargeKwh.toFixed(2)),
+      availableDailyExportKwh: parseFloat(dailyExportBeforeBattery.toFixed(2)),
+      projectedImportAfterBatteryKwh: parseFloat(gridImportAfterBattery.toFixed(2)),
+      targetMet: zeroImportEnabled ? gridImportAfterBattery <= zeroImportTargetKwh + 0.1 : false,
+      exportLimited: zeroImportEnabled ? (dailyExportBeforeBattery + 0.01) < requiredDailyReduction : false,
+      batteryLimited: zeroImportEnabled ? (recommendedBatteryForZeroImport + 0.01) < requiredDailyReduction : false,
+      bestEffort: zeroImportEnabled ? gridImportAfterBattery > zeroImportTargetKwh + 0.1 : false
+    };
+
+    const billSummary = {
+      baselineBillAmount: parseFloat(baselineBillAmount.toFixed(2)),
+      closestTariffBillAmount: parseFloat(baselineTariffBill.toFixed(2)),
+      newBillAmount: parseFloat(newBillAmount.toFixed(2)),
+      gridChargesAfterBattery: parseFloat(gridBillAfterBatteryCost.toFixed(2)),
+      exportCredit: parseFloat(exportCreditValue.toFixed(2)),
+      totalSavings: parseFloat(totalMonthlySavings.toFixed(2)),
+      componentSavingsTotal: parseFloat(componentSavingsTotal.toFixed(2))
+    };
+
+    const zeroImportDailyShortfall = zeroImportEnabled
+      ? parseFloat(Math.max(0, zeroImportDetails.requiredDailyReductionKwh - zeroImportDetails.achievedDailyReductionKwh).toFixed(2))
+      : 0;
 
     // Use actual package price if available, otherwise fallback to calculation
     let systemCostBeforeDiscount, finalSystemCost;
@@ -553,8 +635,17 @@ app.get('/api/solar-calculation', async (req, res) => {
         eeiBefore: baselineEei.toFixed(2),
         eeiAfter: adjustedEei.toFixed(2),
         eeiAdditionalSaving: eeiAdditionalSaving.toFixed(2),
-        adjustedTariffUsage: adjustedTariffRow ? adjustedTariffRow.usage_kwh : null
+        adjustedTariffUsage: adjustedTariffRow ? adjustedTariffRow.usage_kwh : null,
+        autoSelected: zeroImportEnabled,
+        originalSelectionKwh: originalBatterySelection,
+        zeroImportTargetKwh: zeroImportEnabled ? zeroImportTargetKwh : null,
+        zeroImportTargetMet: zeroImportEnabled ? zeroImportDetails.targetMet : null,
+        zeroImportDailyRequirement: zeroImportEnabled ? zeroImportDetails.requiredDailyReductionKwh.toFixed(2) : null,
+        zeroImportDailyShortfall: zeroImportEnabled ? zeroImportDailyShortfall.toFixed(2) : null,
+        zeroImportBestEffort: zeroImportEnabled ? zeroImportDetails.bestEffort : null
       } : null,
+      billSummary: billSummary,
+      zeroImport: zeroImportDetails,
       details: {
         monthlyUsageKwh: monthlyUsageKwh,
         monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
@@ -572,7 +663,20 @@ app.get('/api/solar-calculation', async (req, res) => {
         eeiAdjusted: adjustedEei.toFixed(2),
         eeiAdditionalSaving: eeiAdditionalSaving.toFixed(2),
         gridImportAfterSolar: gridImportAfterSolar.toFixed(2),
-        gridImportAfterBattery: gridImportAfterBattery.toFixed(2)
+        gridImportAfterBattery: gridImportAfterBattery.toFixed(2),
+        baselineBillAmount: baselineBillAmount.toFixed(2),
+        closestTariffBillAmount: baselineTariffBill.toFixed(2),
+        newBillAmount: newBillAmount.toFixed(2),
+        gridBillAfterBattery: gridBillAfterBatteryCost.toFixed(2),
+        exportCreditValue: exportCreditValue.toFixed(2),
+        componentSavingsTotal: componentSavingsTotal.toFixed(2),
+        zeroImportEnabled: zeroImportEnabled,
+        zeroImportTargetKwh: zeroImportTargetKwh,
+        originalBatterySelection: originalBatterySelection,
+        requiredDailyReduction: requiredDailyReduction.toFixed(2),
+        requiredMonthlyReduction: requiredMonthlyReduction.toFixed(2),
+        nonDayUsageMonthly: nonDayUsageMonthly.toFixed(2),
+        nonDayUsageDaily: (nonDayUsageMonthly / daysInMonth).toFixed(2)
       },
       charts: {
         electricityUsagePattern: electricityUsagePattern,

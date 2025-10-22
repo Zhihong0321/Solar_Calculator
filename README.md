@@ -9,6 +9,7 @@ A solar savings calculator application that helps users calculate potential savi
 - API endpoints for exploring database schema and tariff data
 - Real TNB tariff data from 2025
 - Solar savings calculator that supports optional battery storage add-ons with grid import reduction reporting
+- Zero import optimizer that auto-sizes available batteries to target a 100 kWh/month grid import tier and recalculates bill savings against the original TNB bill input
 
 ## Setup
 
@@ -59,3 +60,5 @@ The solar savings calculator can model lithium battery storage add-ons that dive
 | 15             | 10,000     |
 
 When a battery is selected, the calculator reports how many kilowatt-hours per day are used to charge the battery and how much grid import is avoided each day, adjusting export savings accordingly and recalculating the Energy Efficiency Incentive (EEI) tier based on the reduced grid import.
+
+Enabling the zero import optimizer automatically chooses the smallest 5/10/15 kWh battery that can push nighttime import toward 100 kWh/month (best effort if export energy is limited). The backend recomputes the projected bill total using the reduced import, subtracts export credits, and reports the updated savings versus the user's original bill amount.
