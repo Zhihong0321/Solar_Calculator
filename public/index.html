@@ -156,6 +156,17 @@
             setTimeout(() => notification.remove(), 5000);
         }
 
+        function formatNumber(value, fractionDigits = 2) {
+            const numericValue = Number(value);
+            if (Number.isFinite(numericValue)) {
+                return numericValue.toLocaleString('en-MY', {
+                    minimumFractionDigits: fractionDigits,
+                    maximumFractionDigits: fractionDigits
+                });
+            }
+            return value;
+        }
+
         // Bill breakdown calculation
         async function calculateBillBreakdown(billAmount) {
             const resultsDiv = document.getElementById('calculatorResults');
@@ -331,6 +342,36 @@
                                 </div>
                                 <p class="text-xs text-gray-500 mt-1">Range: RM 0.19 - RM 0.27</p>
                             </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Battery Storage (Optional)
+                                </label>
+                                <select
+                                    id="batteryCapacity"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-accent focus:border-transparent"
+                                >
+                                    <option value="0">No Battery</option>
+                                    <option value="5">5 kWh (RM 5,000)</option>
+                                    <option value="10">10 kWh (RM 7,500)</option>
+                                    <option value="15">15 kWh (RM 10,000)</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">Uses excess solar to reduce nightly grid import.</p>
+                                <div class="mt-3 flex items-start gap-3 bg-purple-50 border border-purple-200 rounded-md px-3 py-2">
+                                    <input
+                                        type="checkbox"
+                                        id="zeroImportMode"
+                                        class="mt-1 h-4 w-4 text-purple-600 border-purple-300 rounded"
+                                    >
+                                    <div>
+                                        <div class="text-sm font-semibold text-purple-800">Zero Import Optimizer (target 100 kWh)</div>
+                                        <p class="text-xs text-purple-600 mt-1">
+                                            Auto-size a 5/10/15 kWh battery to push grid import toward 100 kWh/month after solar (best effort).
+                                        </p>
+                                    </div>
+                                </div>
+                                <p id="zeroImportNotice" class="hidden text-xs text-purple-600 mt-2">Battery selection will be overridden while this option is enabled.</p>
+                            </div>
                         </div>
 
                         <!-- Discounts Section -->
@@ -379,6 +420,31 @@
                     </div>
                 </div>
             `;
+
+            const zeroImportCheckbox = document.getElementById('zeroImportMode');
+            const batterySelect = document.getElementById('batteryCapacity');
+            const zeroImportNotice = document.getElementById('zeroImportNotice');
+
+            if (zeroImportCheckbox && batterySelect) {
+                zeroImportCheckbox.addEventListener('change', () => {
+                    if (zeroImportCheckbox.checked) {
+                        batterySelect.dataset.previousValue = batterySelect.value;
+                        batterySelect.value = '0';
+                        batterySelect.disabled = true;
+                        if (zeroImportNotice) {
+                            zeroImportNotice.classList.remove('hidden');
+                        }
+                    } else {
+                        batterySelect.disabled = false;
+                        if (batterySelect.dataset.previousValue) {
+                            batterySelect.value = batterySelect.dataset.previousValue;
+                        }
+                        if (zeroImportNotice) {
+                            zeroImportNotice.classList.add('hidden');
+                        }
+                    }
+                });
+            }
         }
 
         // Solar savings calculation
@@ -390,6 +456,8 @@
             const smpPrice = parseFloat(document.getElementById('smpPrice').value);
             const below19Discount = parseFloat(document.getElementById('below19Discount').value) || 0;
             const above19Discount = parseFloat(document.getElementById('above19Discount').value) || 0;
+            const batteryCapacity = parseFloat(document.getElementById('batteryCapacity').value) || 0;
+            const zeroImportMode = document.getElementById('zeroImportMode')?.checked || false;
 
             // Validation
             if (!billAmount || billAmount <= 0) {
@@ -433,7 +501,9 @@
                     panelType: panelType,
                     smpPrice: smpPrice,
                     below19Discount: below19Discount,
-                    above19Discount: above19Discount
+                    above19Discount: above19Discount,
+                    batteryCapacity: batteryCapacity,
+                    zeroImport: zeroImportMode
                 });
 
                 const response = await fetch(`/api/solar-calculation?${params}`);
@@ -463,6 +533,19 @@
         function displaySolarCalculation(data) {
             const resultsDiv = document.getElementById('calculatorResults');
 
+            const billSummary = data.billSummary || {};
+            const zeroImport = data.zeroImport || {};
+            const baselineBill = Number(billSummary.baselineBillAmount ?? data.details?.baselineBillAmount ?? data.inputAmount ?? 0);
+            const projectedBill = Number(billSummary.newBillAmount ?? data.details?.newBillAmount ?? 0);
+            const totalSavingsValue = Number(billSummary.totalSavings ?? data.monthlySavings ?? 0);
+            const exportCreditValue = Number(billSummary.exportCredit ?? data.details?.exportCreditValue ?? 0);
+            const gridChargesAfterBattery = Number(billSummary.gridChargesAfterBattery ?? data.details?.gridBillAfterBattery ?? 0);
+            const componentTotal = Number(billSummary.componentSavingsTotal ?? data.details?.componentSavingsTotal ?? 0);
+            const contributionsNote = Math.abs(componentTotal - totalSavingsValue) > 0.5;
+            const zeroImportEnabled = Boolean(zeroImport.enabled);
+            const zeroImportTargetKwh = Number(zeroImport.targetMonthlyImportKwh ?? data.details?.zeroImportTargetKwh ?? 100);
+            const zeroImportDailyTarget = Number(zeroImport.targetDailyImportKwh ?? (zeroImportTargetKwh / 30));
+
             const solarDiv = document.createElement('div');
             solarDiv.className = 'bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden';
             solarDiv.innerHTML = `
@@ -483,6 +566,114 @@
                             <span class="font-medium">${data.solarConfig}</span>
                         </div>
 
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800">
+                            <div class="flex justify-between">
+                                <span>Baseline Bill (input)</span>
+                                <span class="font-semibold">RM ${formatNumber(baselineBill)}</span>
+                            </div>
+                            <div class="flex justify-between mt-1">
+                                <span>Projected Bill After Solar${data.batteryDetails ? ' + Battery' : ''}</span>
+                                <span class="font-semibold">RM ${formatNumber(projectedBill)}</span>
+                            </div>
+                            <div class="flex justify-between mt-1">
+                                <span>Grid Charges After Solar${data.batteryDetails ? ' + Battery' : ''}</span>
+                                <span>RM ${formatNumber(gridChargesAfterBattery)}</span>
+                            </div>
+                            <div class="flex justify-between mt-2 text-base font-semibold">
+                                <span>Estimated Monthly Savings</span>
+                                <span>RM ${formatNumber(totalSavingsValue)}</span>
+                            </div>
+                            <div class="text-xs text-emerald-600 mt-1">
+                                Includes RM ${formatNumber(exportCreditValue)} export credit${data.batteryDetails ? ' after battery storage' : ''}.
+                            </div>
+                        </div>
+
+                        ${data.batteryDetails ? `
+                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 mt-3 text-sm text-purple-800">
+                            <div class="font-semibold flex items-center mb-2">
+                                <span class="text-lg mr-2">🔋</span>
+                                Battery Add-On${data.batteryDetails.autoSelected ? ' • Auto-Sized for Zero Import' : ''}
+                            </div>
+                            <div class="space-y-1 text-purple-700">
+                                <div class="flex justify-between">
+                                    <span>Capacity:</span>
+                                    <span>${formatNumber(data.batteryDetails.capacityKwh, 0)} kWh</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Price:</span>
+                                    <span>RM ${formatNumber(data.batteryDetails.price)}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Solar used to charge (per day):</span>
+                                    <span>${formatNumber(data.batteryDetails.dailyChargeKwh)} kWh</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Grid import reduced (per day):</span>
+                                    <span>${formatNumber(data.batteryDetails.dailyGridImportReduction)} kWh</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>Monthly charge:</span>
+                                    <span>${formatNumber(data.batteryDetails.monthlyChargeKwh)} kWh</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>Monthly grid reduction:</span>
+                                    <span>${formatNumber(data.batteryDetails.monthlyGridImportReduction)} kWh</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>Grid import after solar:</span>
+                                    <span>${formatNumber(data.batteryDetails.gridImportBeforeBattery)} kWh</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>Grid import after battery:</span>
+                                    <span>${formatNumber(data.batteryDetails.gridImportAfterBattery)} kWh</span>
+                                </div>
+                                ${parseFloat(data.batteryDetails.eeiAdditionalSaving) > 0 ? `
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>Extra EEI incentive:</span>
+                                    <span>RM ${formatNumber(data.batteryDetails.eeiAdditionalSaving)}</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-purple-600">
+                                    <span>EEI tier:</span>
+                                    <span>RM ${formatNumber(data.batteryDetails.eeiBefore)} → RM ${formatNumber(data.batteryDetails.eeiAfter)}</span>
+                                </div>
+                                ` : ''}
+                                ${data.batteryDetails.autoSelected ? `
+                                <div class="text-xs text-purple-600">Original selection: ${formatNumber(data.batteryDetails.originalSelectionKwh, 0)} kWh • Target ${formatNumber(zeroImportTargetKwh, 0)} kWh/month import.</div>
+                                ${zeroImport.targetMet ? `<div class="text-xs text-purple-600">✅ Zero import target achieved (~${formatNumber(zeroImport.projectedImportAfterBatteryKwh || 0)} kWh/month).</div>` : ''}
+                                ${(!zeroImport.targetMet && zeroImport.bestEffort) ? `<div class="text-xs text-purple-600">⚠️ Best effort: limited by ${zeroImport.exportLimited ? 'available export' : 'battery size'} (needs ${formatNumber(zeroImport.requiredDailyReductionKwh || 0)} kWh/day, battery covers ${formatNumber(zeroImport.achievedDailyReductionKwh || 0)} kWh/day).</div>` : ''}
+                                ` : ''}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        ${zeroImportEnabled ? `
+                        <div class="bg-purple-50 border border-purple-200 rounded p-3 mt-3 text-xs text-purple-700">
+                            <div class="font-medium text-purple-800 mb-2">🎯 Zero Import Optimizer</div>
+                            <div class="flex justify-between">
+                                <span>Night usage to cover:</span>
+                                <span>${formatNumber(zeroImport.nonDayUsageDailyKwh || 0)} kWh/day (${formatNumber(zeroImport.nonDayUsageMonthlyKwh || 0)} kWh/month)</span>
+                            </div>
+                            <div class="flex justify-between mt-1">
+                                <span>Target import level:</span>
+                                <span>${formatNumber(zeroImportTargetKwh, 0)} kWh/month (~${formatNumber(zeroImportDailyTarget)} kWh/day)</span>
+                            </div>
+                            <div class="flex justify-between mt-1">
+                                <span>Battery required (est.):</span>
+                                <span>${formatNumber(zeroImport.recommendedBatteryKwh || 0, 0)} kWh</span>
+                            </div>
+                            <div class="flex justify-between mt-1">
+                                <span>Battery achieves:</span>
+                                <span>${formatNumber(zeroImport.achievedDailyReductionKwh || 0)} kWh/day (${formatNumber(zeroImport.achievedMonthlyReductionKwh || 0)} kWh/month)</span>
+                            </div>
+                            <div class="flex justify-between mt-1">
+                                <span>Projected grid import:</span>
+                                <span>${formatNumber(zeroImport.projectedImportAfterBatteryKwh || 0)} kWh/month</span>
+                            </div>
+                            ${zeroImport.targetMet ? `<div class="text-xs text-purple-700 mt-1">✅ Target met.</div>` : ''}
+                            ${(!zeroImport.targetMet && zeroImport.bestEffort) ? `<div class="text-xs text-purple-700 mt-1">⚠️ Best effort — limited by ${zeroImport.exportLimited ? 'available export energy' : 'battery sizing'}.</div>` : ''}
+                        </div>
+                        ` : ''}
+
                         <!-- Detailed Saving Calculation Breakdown -->
                         <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mt-4">
                             <h4 class="font-semibold text-emerald-800 mb-3 flex items-center">
@@ -494,7 +685,7 @@
                             <div class="space-y-2 text-sm">
                                 <div class="flex justify-between py-1">
                                     <span class="text-gray-700">Solar Generation</span>
-                                    <span class="font-medium">${data.details.monthlySolarGeneration} kWh</span>
+                                    <span class="font-medium">${formatNumber(data.details.monthlySolarGeneration)} kWh</span>
                                 </div>
 
                                 <!-- Morning Saving Calculation -->
@@ -503,23 +694,23 @@
                                     <div class="space-y-1 text-xs text-blue-700">
                                         <div class="flex justify-between">
                                             <span>Monthly Usage:</span>
-                                            <span>${data.details.monthlyUsageKwh} kWh</span>
+                                            <span>${formatNumber(data.details.monthlyUsageKwh)} kWh</span>
                                         </div>
                                         <div class="flex justify-between">
                                             <span>Morning Usage (${data.config.morningUsage}%):</span>
-                                            <span>${data.details.morningUsageKwh} kWh</span>
+                                            <span>${formatNumber(data.details.morningUsageKwh)} kWh</span>
                                         </div>
                                         <div class="flex justify-between">
                                             <span>Rate:</span>
-                                            <span>RM ${data.details.morningUsageRate}/kWh</span>
+                                            <span>RM ${formatNumber(data.details.morningUsageRate, 4)}/kWh</span>
                                         </div>
                                         <div class="border-t border-blue-300 pt-1 mt-2">
                                             <div class="flex justify-between font-semibold">
                                                 <span>Morning Saving:</span>
-                                                <span>RM ${data.details.morningSaving}</span>
+                                                <span>RM ${formatNumber(data.details.morningSaving)}</span>
                                             </div>
                                             <div class="text-xs text-blue-600 mt-1">
-                                                (${data.details.morningUsageKwh} × RM ${data.details.morningUsageRate})
+                                                (${formatNumber(data.details.morningUsageKwh)} × RM ${formatNumber(data.details.morningUsageRate, 4)})
                                             </div>
                                         </div>
                                     </div>
@@ -531,57 +722,175 @@
                                     <div class="space-y-1 text-xs text-orange-700">
                                         <div class="flex justify-between">
                                             <span>Solar Generation:</span>
-                                            <span>${data.details.monthlySolarGeneration} kWh</span>
+                                            <span>${formatNumber(data.details.monthlySolarGeneration)} kWh</span>
                                         </div>
                                         <div class="flex justify-between">
                                             <span>Morning Usage:</span>
-                                            <span>-${data.details.morningUsageKwh} kWh</span>
+                                            <span>-${formatNumber(data.details.morningUsageKwh)} kWh</span>
                                         </div>
+                                        ${data.batteryDetails ? `
+                                        <div class="flex justify-between text-gray-700">
+                                            <span>Export Before Battery:</span>
+                                            <span>${formatNumber(data.details.exportKwhBeforeBattery)} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between text-xs text-purple-700">
+                                            <span>Export Before Battery (daily):</span>
+                                            <span>${formatNumber(data.batteryDetails.dailyExportBeforeBattery)} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between text-xs text-purple-700">
+                                            <span>Battery Charge (per day):</span>
+                                            <span>-${formatNumber(data.batteryDetails.dailyChargeKwh)} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between text-xs text-purple-700">
+                                            <span>Export After Battery (daily):</span>
+                                            <span>${formatNumber(data.batteryDetails.dailyExportAfterBattery)} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between text-purple-700">
+                                            <span>Battery Charge (monthly):</span>
+                                            <span>-${formatNumber(data.batteryDetails.monthlyChargeKwh)} kWh</span>
+                                        </div>
+                                        ` : ''}
                                         <div class="flex justify-between">
-                                            <span>Export Amount:</span>
-                                            <span>${data.details.exportKwh} kWh</span>
+                                            <span>Export Amount${data.batteryDetails ? ' (After Battery)' : ''}:</span>
+                                            <span>${formatNumber(data.details.exportKwh)} kWh</span>
                                         </div>
                                         <div class="flex justify-between">
                                             <span>Export Rate:</span>
-                                            <span>RM ${data.details.exportRate}/kWh</span>
+                                            <span>RM ${formatNumber(data.details.exportRate, 2)}/kWh</span>
                                         </div>
                                         <div class="border-t border-orange-300 pt-1 mt-2">
                                             <div class="flex justify-between font-semibold">
                                                 <span>Export Saving:</span>
-                                                <span>RM ${data.details.exportSaving}</span>
+                                                <span>RM ${formatNumber(data.details.exportSaving)}</span>
                                             </div>
                                             <div class="text-xs text-orange-600 mt-1">
-                                                (${data.details.exportKwh} × RM ${data.details.exportRate})
+                                                (${formatNumber(data.details.exportKwh)} × RM ${formatNumber(data.details.exportRate, 2)})
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
+                                ${data.batteryDetails ? `
+                                <div class="bg-purple-50 border border-purple-200 rounded p-3 mt-3">
+                                    <div class="font-medium text-purple-800 mb-2">🔋 Battery Impact</div>
+                                    <div class="space-y-1 text-xs text-purple-700">
+                                        <div class="flex justify-between">
+                                            <span>Battery Capacity:</span>
+                                            <span>${formatNumber(data.batteryDetails.capacityKwh, 0)} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Solar Used to Charge (per day):</span>
+                                            <span>${formatNumber(data.batteryDetails.dailyChargeKwh)} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between text-purple-600">
+                                            <span>Solar Used to Charge (monthly):</span>
+                                            <span>${formatNumber(data.batteryDetails.monthlyChargeKwh)} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Grid Import Reduced (per day):</span>
+                                            <span>${formatNumber(data.batteryDetails.dailyGridImportReduction)} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between text-purple-600">
+                                            <span>Grid Import Reduced (monthly):</span>
+                                            <span>${formatNumber(data.batteryDetails.monthlyGridImportReduction)} kWh</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Grid Import After Solar:</span>
+                                            <span>${formatNumber(data.batteryDetails.gridImportBeforeBattery)} kWh/month</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Grid Import After Battery:</span>
+                                            <span>${formatNumber(data.batteryDetails.gridImportAfterBattery)} kWh/month</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Export Reduction:</span>
+                                            <span>${formatNumber(data.batteryDetails.exportReductionKwh)} kWh/month</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Export After Battery:</span>
+                                            <span>${formatNumber(data.batteryDetails.monthlyExportAfterBattery)} kWh/month</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Monthly Battery Saving:</span>
+                                            <span>RM ${formatNumber(data.batteryDetails.savings)}</span>
+                                        </div>
+                                        ${parseFloat(data.batteryDetails.eeiAdditionalSaving) > 0 ? `
+                                        <div class="flex justify-between">
+                                            <span>EEI Incentive:</span>
+                                            <span>RM ${formatNumber(data.batteryDetails.eeiBefore)} → RM ${formatNumber(data.batteryDetails.eeiAfter)}</span>
+                                        </div>
+                                        <div class="flex justify-between font-semibold text-purple-800">
+                                            <span>Additional EEI Saving:</span>
+                                            <span>RM ${formatNumber(data.batteryDetails.eeiAdditionalSaving)}</span>
+                                        </div>
+                                        ${data.batteryDetails.adjustedTariffUsage ? `<div class="text-xs text-purple-600">Adjusted to the ${formatNumber(data.batteryDetails.adjustedTariffUsage, 0)} kWh tariff tier.</div>` : ''}
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                ` : ''}
+
+                                ${parseFloat(data.details.eeiAdditionalSaving) > 0 ? `
+                                <div class="bg-amber-50 border border-amber-200 rounded p-3 mt-3">
+                                    <div class="font-medium text-amber-800 mb-2">🏅 Energy Efficiency Incentive</div>
+                                    <div class="space-y-1 text-xs text-amber-700">
+                                        <div class="flex justify-between">
+                                            <span>Baseline EEI:</span>
+                                            <span>RM ${formatNumber(data.details.eeiOriginal)}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>Adjusted EEI:</span>
+                                            <span>RM ${formatNumber(data.details.eeiAdjusted)}</span>
+                                        </div>
+                                        <div class="flex justify-between font-semibold text-amber-800">
+                                            <span>Additional EEI Saving:</span>
+                                            <span>RM ${formatNumber(data.details.eeiAdditionalSaving)}</span>
+                                        </div>
+                                        <div class="text-xs text-amber-600 mt-1">
+                                            Grid import drops to ${formatNumber(data.details.gridImportAfterBattery)} kWh/month, unlocking a higher incentive tier.
+                                        </div>
+                                    </div>
+                                </div>
+                                ` : ''}
+
                                 <!-- Total Saving -->
                                 <div class="bg-green-100 border border-green-300 rounded p-3 mt-3">
                                     <div class="flex justify-between font-bold text-green-800">
-                                        <span>🎯 Total Monthly Saving:</span>
-                                        <span>RM ${data.monthlySavings}</span>
+                                        <span>🎯 Estimated Monthly Savings</span>
+                                        <span>RM ${formatNumber(totalSavingsValue)}</span>
                                     </div>
                                     <div class="text-xs text-green-700 mt-1">
-                                        (RM ${data.details.morningSaving} + RM ${data.details.exportSaving})
+                                        Based on reducing your RM ${formatNumber(baselineBill)} bill to RM ${formatNumber(projectedBill)} per month (grid charges ≈ RM ${formatNumber(gridChargesAfterBattery)}, export credit ≈ RM ${formatNumber(exportCreditValue)}).
                                     </div>
+                                    <div class="text-xs text-green-600 mt-1">
+                                        Contribution snapshot: Morning RM ${formatNumber(data.details.morningSaving)} + Export RM ${formatNumber(data.details.exportSaving)}${parseFloat(data.details.batterySaving) > 0 ? ` + Battery RM ${formatNumber(data.details.batterySaving)}` : ''}${parseFloat(data.details.eeiAdditionalSaving) > 0 ? ` + EEI RM ${formatNumber(data.details.eeiAdditionalSaving)}` : ''}
+                                    </div>
+                                    ${contributionsNote ? `<div class="text-xs text-green-600 mt-1">Component savings are approximate and may not sum exactly to the total.</div>` : ''}
                                 </div>
                             </div>
                         </div>
 
                         <!-- System Cost Information -->
                         <div class="flex justify-between py-2 border-b border-gray-100 mt-4">
-                            <span class="text-gray-600">System Cost (Before Discount)</span>
-                            <span class="font-medium">RM ${data.systemCostBeforeDiscount}</span>
+                            <span class="text-gray-600">Solar System Cost (Before Discount)</span>
+                            <span class="font-medium">RM ${formatNumber(data.details.solarSystemCostBeforeDiscount)}</span>
+                        </div>
+                        ${data.batteryDetails ? `
+                        <div class="flex justify-between py-2 border-b border-gray-100">
+                            <span class="text-gray-600">Battery Price</span>
+                            <span class="font-medium">RM ${formatNumber(data.details.batteryPrice)}</span>
                         </div>
                         <div class="flex justify-between py-2 border-b border-gray-100">
+                            <span class="text-gray-600">Total System Cost (Before Discount)</span>
+                            <span class="font-medium">RM ${formatNumber(data.systemCostBeforeDiscount)}</span>
+                        </div>
+                        ` : ''}
+                        <div class="flex justify-between py-2 border-b border-gray-100">
                             <span class="text-gray-600">Discount Applied</span>
-                            <span class="font-medium text-orange-600">-RM ${data.discount}</span>
+                            <span class="font-medium text-orange-600">-RM ${formatNumber(data.discount)}</span>
                         </div>
                         <div class="flex justify-between py-3 bg-secondary/10 rounded-lg px-3 font-semibold text-lg">
                             <span class="text-secondary">Final System Cost</span>
-                            <span class="text-secondary">RM ${data.finalSystemCost}</span>
+                            <span class="text-secondary">RM ${formatNumber(data.finalSystemCost)}</span>
                         </div>
                         <div class="flex justify-between py-3 bg-accent/10 rounded-lg px-3 font-semibold text-lg">
                             <span class="text-accent">Payback Period</span>
@@ -719,6 +1028,13 @@
             const popup = document.createElement('div');
             popup.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
 
+            const billSummary = data.billSummary || {};
+            const zeroImport = data.zeroImport || {};
+            const baselineBill = Number(billSummary.baselineBillAmount ?? data.details?.baselineBillAmount ?? 0);
+            const projectedBill = Number(billSummary.newBillAmount ?? data.details?.newBillAmount ?? 0);
+            const savingsValue = Number(billSummary.totalSavings ?? data.monthlySavings ?? 0);
+            const zeroImportTargetKwh = Number(zeroImport.targetMonthlyImportKwh ?? data.details?.zeroImportTargetKwh ?? 100);
+
             const packageInfo = data.selectedPackage ?
                 `<div class="text-emerald-600 font-medium mt-3">
                     📦 Selected Package: ${data.selectedPackage.packageName}
@@ -751,8 +1067,45 @@
                             ${packageInfo}
 
                             <div class="text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded">
-                                Formula: ${data.details.monthlyUsageKwh} kWh ÷ ${data.config.sunPeakHour}h ÷ 30 ÷ 0.62 = ${data.recommendedPanels} x ${data.config.panelType}W panels
+                                Formula: ${formatNumber(data.details.monthlyUsageKwh)} kWh ÷ ${data.config.sunPeakHour}h ÷ 30 ÷ 0.62 = ${data.recommendedPanels} x ${data.config.panelType}W panels
                             </div>
+
+                            <div class="mt-4 bg-emerald-50 border border-emerald-200 rounded p-3 text-sm text-emerald-800">
+                                <div class="flex justify-between">
+                                    <span>Baseline Bill</span>
+                                    <span>RM ${formatNumber(baselineBill)}</span>
+                                </div>
+                                <div class="flex justify-between mt-1">
+                                    <span>Projected Bill After Solar${data.batteryDetails ? ' + Battery' : ''}</span>
+                                    <span>RM ${formatNumber(projectedBill)}</span>
+                                </div>
+                                <div class="flex justify-between mt-1 font-semibold">
+                                    <span>Estimated Savings</span>
+                                    <span>RM ${formatNumber(savingsValue)}</span>
+                                </div>
+                            </div>
+
+                            ${data.batteryDetails ? `
+                            <div class="mt-4 p-3 bg-purple-50 border border-purple-200 rounded text-left">
+                                <div class="font-medium text-purple-800">Battery Add-On${data.batteryDetails.autoSelected ? ' • Auto-Sized for Zero Import' : ' Selected'}</div>
+                                <div class="text-sm text-purple-700 mt-1">
+                                    ${formatNumber(data.batteryDetails.capacityKwh, 0)} kWh battery • RM ${formatNumber(data.batteryDetails.price)}
+                                </div>
+                                <div class="text-xs text-purple-600 mt-2">
+                                    Uses ${formatNumber(data.batteryDetails.dailyChargeKwh)} kWh/day of solar export to cut grid import by the same amount (≈${formatNumber(data.batteryDetails.monthlyGridImportReduction)} kWh/month).
+                                </div>
+                                ${data.batteryDetails.autoSelected ? `
+                                <div class="text-xs text-purple-600 mt-1">Original selection: ${formatNumber(data.batteryDetails.originalSelectionKwh, 0)} kWh • Target ${formatNumber(zeroImportTargetKwh, 0)} kWh/month import.</div>
+                                ${zeroImport.targetMet ? `<div class="text-xs text-purple-600">✅ Zero import target achieved (~${formatNumber(zeroImport.projectedImportAfterBatteryKwh || 0)} kWh/month).</div>` : ''}
+                                ${(!zeroImport.targetMet && zeroImport.bestEffort) ? `<div class="text-xs text-purple-600">⚠️ Best effort: limited by ${zeroImport.exportLimited ? 'available export' : 'battery size'} (needs ${formatNumber(zeroImport.requiredDailyReductionKwh || 0)} kWh/day, battery covers ${formatNumber(zeroImport.achievedDailyReductionKwh || 0)} kWh/day).</div>` : ''}
+                                ` : ''}
+                                ${parseFloat(data.batteryDetails.eeiAdditionalSaving) > 0 ? `
+                                <div class="text-xs text-purple-600 mt-1">
+                                    Unlocks about RM ${formatNumber(data.batteryDetails.eeiAdditionalSaving)} in extra EEI incentive (RM ${formatNumber(data.batteryDetails.eeiBefore)} → RM ${formatNumber(data.batteryDetails.eeiAfter)}) by lowering import to ${formatNumber(data.batteryDetails.gridImportAfterBattery)} kWh/month.
+                                </div>
+                                ` : ''}
+                            </div>
+                            ` : ''}
                         </div>
 
                         <div class="flex gap-3 mt-6">
