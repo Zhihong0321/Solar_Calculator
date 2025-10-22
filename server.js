@@ -276,7 +276,8 @@ app.get('/api/solar-calculation', async (req, res) => {
       panelType,
       smpPrice,
       below19Discount,
-      above19Discount
+      above19Discount,
+      batteryCapacity
     } = req.query;
 
     // Validate inputs
@@ -287,6 +288,20 @@ app.get('/api/solar-calculation', async (req, res) => {
     const smp = parseFloat(smpPrice);
     const discount19Below = parseFloat(below19Discount) || 0;
     const discount19Above = parseFloat(above19Discount) || 0;
+    let batteryCapacityKwh = parseFloat(batteryCapacity) || 0;
+
+    const validBatteryCapacities = [0, 5, 10, 15];
+    if (!validBatteryCapacities.includes(batteryCapacityKwh)) {
+      batteryCapacityKwh = 0;
+    }
+
+    const batteryPricing = {
+      5: 5000,
+      10: 7500,
+      15: 10000
+    };
+
+    const batteryPrice = batteryPricing[batteryCapacityKwh] || 0;
 
     if (!billAmount || billAmount <= 0) {
       return res.status(400).json({ error: 'Invalid bill amount' });
@@ -362,10 +377,21 @@ app.get('/api/solar-calculation', async (req, res) => {
     // 2. Export calculation: total solar generation - morning_kwh, then multiply by export rate
     const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
     const exportRate = smp; // RM per kWh for export (SMP price)
-    const exportSaving = exportKwh * exportRate;
+
+    const daysInMonth = 30;
+    const dailyExportBeforeBattery = exportKwh / daysInMonth;
+    const batteryChargePerDay = batteryCapacityKwh > 0 ? Math.min(batteryCapacityKwh, dailyExportBeforeBattery) : 0;
+    const monthlyBatteryChargeKwh = batteryChargePerDay * daysInMonth;
+    const adjustedExportKwh = Math.max(0, exportKwh - monthlyBatteryChargeKwh);
+    const dailyExportAfterBattery = adjustedExportKwh / daysInMonth;
+    const exportSaving = adjustedExportKwh * exportRate;
+
+    const usageCost = parseFloat(tariff.usage_normal) || 0;
+    const averageUsageRate = monthlyUsageKwh > 0 ? usageCost / monthlyUsageKwh : morningUsageRate;
+    const batterySaving = monthlyBatteryChargeKwh * averageUsageRate;
 
     // 3. Total saving = morning saving + export saving
-    const totalMonthlySavings = morningSaving + exportSaving;
+    const totalMonthlySavings = morningSaving + exportSaving + batterySaving;
 
     // Use actual package price if available, otherwise fallback to calculation
     let systemCostBeforeDiscount, finalSystemCost;
@@ -384,9 +410,12 @@ app.get('/api/solar-calculation', async (req, res) => {
       finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
     }
 
+    const totalSystemCostBeforeDiscount = systemCostBeforeDiscount + batteryPrice;
+    const totalFinalSystemCost = finalSystemCost + batteryPrice;
+
     // Calculate payback period
     const paybackPeriod = totalMonthlySavings > 0 ?
-      (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1) : 'N/A';
+      (totalFinalSystemCost / (totalMonthlySavings * 12)).toFixed(1) : 'N/A';
 
     // Generate 24-hour electricity usage pattern
     const dailyUsageKwh = monthlyUsageKwh / 30;
@@ -464,19 +493,39 @@ app.get('/api/solar-calculation', async (req, res) => {
 
       solarConfig: `${numberOfPanels} x ${panelWattage}W panels (${(numberOfPanels * panelWatts / 1000).toFixed(1)} kW system)`,
       monthlySavings: totalMonthlySavings.toFixed(2),
-      systemCostBeforeDiscount: systemCostBeforeDiscount.toFixed(2),
+      systemCostBeforeDiscount: totalSystemCostBeforeDiscount.toFixed(2),
       discount: applicableDiscount.toFixed(2),
-      finalSystemCost: finalSystemCost.toFixed(2),
+      finalSystemCost: totalFinalSystemCost.toFixed(2),
       paybackPeriod: paybackPeriod,
+      batteryDetails: batteryCapacityKwh > 0 ? {
+        capacityKwh: batteryCapacityKwh,
+        price: batteryPrice.toFixed(2),
+        dailyChargeKwh: batteryChargePerDay.toFixed(2),
+        monthlyChargeKwh: monthlyBatteryChargeKwh.toFixed(2),
+        dailyGridImportReduction: batteryChargePerDay.toFixed(2),
+        monthlyGridImportReduction: (batteryChargePerDay * daysInMonth).toFixed(2),
+        dailyExportBeforeBattery: dailyExportBeforeBattery.toFixed(2),
+        dailyExportAfterBattery: dailyExportAfterBattery.toFixed(2),
+        dailyExportReduction: (dailyExportBeforeBattery - dailyExportAfterBattery).toFixed(2),
+        monthlyExportAfterBattery: adjustedExportKwh.toFixed(2),
+        monthlyExportReduction: monthlyBatteryChargeKwh.toFixed(2),
+        exportReductionKwh: monthlyBatteryChargeKwh.toFixed(2),
+        savings: batterySaving.toFixed(2),
+        averageUsageRate: averageUsageRate.toFixed(4)
+      } : null,
       details: {
         monthlyUsageKwh: monthlyUsageKwh,
         monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
         morningUsageKwh: morningUsageKwh.toFixed(2),
         morningSaving: morningSaving.toFixed(2),
-        exportKwh: exportKwh.toFixed(2),
+        exportKwh: adjustedExportKwh.toFixed(2),
+        exportKwhBeforeBattery: exportKwh.toFixed(2),
         exportSaving: exportSaving.toFixed(2),
+        batterySaving: batterySaving.toFixed(2),
         morningUsageRate: morningUsageRate,
-        exportRate: exportRate
+        exportRate: exportRate,
+        solarSystemCostBeforeDiscount: systemCostBeforeDiscount.toFixed(2),
+        batteryPrice: batteryPrice.toFixed(2)
       },
       charts: {
         electricityUsagePattern: electricityUsagePattern,
