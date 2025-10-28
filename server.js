@@ -329,15 +329,14 @@ app.get('/api/solar-calculation', async (req, res) => {
     // Ensure minimum of 1 panel
     const numberOfPanels = Math.max(1, recommendedPanels);
 
-    // Search for package with matching panel_qty and lowest price
-    // TODO: Re-add panel type filtering once database relationship is confirmed
+    // Search for Residential package with matching panel_qty that is active, non-special, and lowest price
     const packageQuery = `
       SELECT * FROM package
-      WHERE panel_qty = $1 AND active = true AND special = false
+      WHERE panel_qty = $1 AND active = true AND special = false AND type = $2
       ORDER BY price ASC
       LIMIT 1
     `;
-    const packageResult = await client.query(packageQuery, [numberOfPanels]);
+    const packageResult = await client.query(packageQuery, [numberOfPanels, 'Residential']);
 
     let selectedPackage = null;
     if (packageResult.rows.length > 0) {
