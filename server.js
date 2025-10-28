@@ -376,25 +376,27 @@ app.get('/api/solar-calculation', async (req, res) => {
     const totalMonthlySavings = morningSaving + exportSaving;
 
     // Use actual package price if available, otherwise fallback to calculation
-    let systemCostBeforeDiscount, finalSystemCost;
+    let systemCostBeforeDiscount = null;
+    let finalSystemCost = null;
+    let discountAmount = null;
+    let paybackPeriod = null;
 
-    // Calculate discount based on panel count (used in both paths)
+    // Calculate discount based on panel count (used when a package is available)
     const applicableDiscount = actualPanelQty >= 19 ? discount19Above : discount19Below;
 
     if (selectedPackage && selectedPackage.price) {
       // Use actual package price from database
       systemCostBeforeDiscount = parseFloat(selectedPackage.price);
-      finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
-    } else {
-      // Fallback to calculated cost if no package found
-      const costPerWatt = 4.50;
-      systemCostBeforeDiscount = actualPanelQty * panelWatts * costPerWatt;
-      finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
-    }
+      discountAmount = applicableDiscount;
+      finalSystemCost = systemCostBeforeDiscount - discountAmount;
 
-    // Calculate payback period
-    const paybackPeriod = totalMonthlySavings > 0 ?
-      (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1) : 'N/A';
+      // Calculate payback period only when system cost is available
+      if (totalMonthlySavings > 0) {
+        paybackPeriod = (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1);
+      } else {
+        paybackPeriod = 'N/A';
+      }
+    }
 
     // Generate 24-hour electricity usage pattern
     const dailyUsageKwh = monthlyUsageKwh / 30;
@@ -475,9 +477,9 @@ app.get('/api/solar-calculation', async (req, res) => {
 
       solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${(actualPanelQty * panelWatts / 1000).toFixed(1)} kW system)`,
       monthlySavings: totalMonthlySavings.toFixed(2),
-      systemCostBeforeDiscount: systemCostBeforeDiscount.toFixed(2),
-      discount: applicableDiscount.toFixed(2),
-      finalSystemCost: finalSystemCost.toFixed(2),
+      systemCostBeforeDiscount: systemCostBeforeDiscount !== null ? systemCostBeforeDiscount.toFixed(2) : null,
+      discount: discountAmount !== null ? discountAmount.toFixed(2) : null,
+      finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : null,
       paybackPeriod: paybackPeriod,
       details: {
         monthlyUsageKwh: monthlyUsageKwh,
