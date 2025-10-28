@@ -122,6 +122,15 @@
             testConnection();
         };
 
+        let latestSolarParams = null;
+        let latestSolarData = null;
+        let panelUpdateInFlight = false;
+        const chartInstances = {
+            electricity: null,
+            solar: null,
+            combined: null
+        };
+
         // Form submission handler
         document.getElementById('billForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -425,46 +434,121 @@
             `;
             resultsDiv.appendChild(loadingDiv);
 
+            latestSolarParams = {
+                amount: billAmount,
+                sunPeakHour: sunPeakHour,
+                morningUsage: morningUsage,
+                panelType: panelType,
+                smpPrice: smpPrice,
+                below19Discount: below19Discount,
+                above19Discount: above19Discount
+            };
+            delete latestSolarParams.overridePanels;
+
             try {
-                const params = new URLSearchParams({
-                    amount: billAmount,
-                    sunPeakHour: sunPeakHour,
-                    morningUsage: morningUsage,
-                    panelType: panelType,
-                    smpPrice: smpPrice,
-                    below19Discount: below19Discount,
-                    above19Discount: above19Discount
-                });
-
-                const response = await fetch(`/api/solar-calculation?${params}`);
-                const data = await response.json();
-
-                loadingDiv.remove();
-
-                if (response.ok) {
-                    // Show popup with panel recommendation first
-                    showPanelRecommendationPopup(data);
-                } else {
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'bg-red-50 border border-red-200 rounded-xl p-6';
-                    errorDiv.innerHTML = `
-                        <div class="text-red-700 font-medium">Calculation Error</div>
-                        <div class="text-red-600 text-sm mt-1">${data.error}</div>
-                    `;
-                    resultsDiv.appendChild(errorDiv);
-                }
+                await fetchSolarCalculation({ displayPopup: true });
             } catch (error) {
-                loadingDiv.remove();
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-50 border border-red-200 rounded-xl p-6';
+                errorDiv.innerHTML = `
+                    <div class="text-red-700 font-medium">Calculation Error</div>
+                    <div class="text-red-600 text-sm mt-1">${error.message}</div>
+                `;
+                resultsDiv.appendChild(errorDiv);
                 showNotification(`Error: ${error.message}`, 'error');
+            } finally {
+                loadingDiv.remove();
             }
+        }
+
+        async function fetchSolarCalculation({ displayPopup = false, overridePanels = null } = {}) {
+            if (!latestSolarParams) {
+                throw new Error('Solar parameters are not set. Please analyze your bill first.');
+            }
+
+            const params = new URLSearchParams();
+            Object.entries(latestSolarParams).forEach(([key, value]) => {
+                if (key === 'overridePanels') {
+                    return;
+                }
+                if (value !== undefined && value !== null && value !== '') {
+                    params.set(key, value);
+                }
+            });
+
+            if (overridePanels !== null) {
+                params.set('overridePanels', overridePanels);
+            } else if (latestSolarParams.overridePanels) {
+                params.set('overridePanels', latestSolarParams.overridePanels);
+            }
+
+            const response = await fetch(`/api/solar-calculation?${params.toString()}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to calculate solar savings');
+            }
+
+            latestSolarData = data;
+
+            if (data.overrideApplied) {
+                latestSolarParams.overridePanels = data.actualPanels;
+            } else {
+                delete latestSolarParams.overridePanels;
+            }
+
+            displaySolarCalculation(data);
+
+            if (displayPopup) {
+                showPanelRecommendationPopup(data);
+            }
+
+            return data;
         }
 
         // Display solar calculation results
         function displaySolarCalculation(data) {
-            const resultsDiv = document.getElementById('calculatorResults');
+            latestSolarData = data;
 
-            const solarDiv = document.createElement('div');
+            const resultsDiv = document.getElementById('calculatorResults');
+            let solarDiv = document.getElementById('solarResultsCard');
+            const isInitialRender = !solarDiv;
+
+            if (!solarDiv) {
+                solarDiv = document.createElement('div');
+                solarDiv.id = 'solarResultsCard';
+                resultsDiv.appendChild(solarDiv);
+            }
+
             solarDiv.className = 'bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden';
+
+            const packageSection = data.selectedPackage ? `
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-3">
+                    <div class="text-sm font-semibold text-emerald-700 flex items-center">
+                        <span class="text-lg mr-2">📦</span>
+                        Package Match Found
+                    </div>
+                    <div class="text-xs text-emerald-700 mt-2 space-y-1">
+                        <div><strong>${data.selectedPackage.packageName}</strong> • ${data.selectedPackage.type || 'Residential'}</div>
+                        <div>${data.actualPanels} panels × ${data.config.panelType}W</div>
+                        <div>Price: RM ${formatCurrency(data.selectedPackage.price)}</div>
+                        ${data.selectedPackage.maxDiscount ? `<div>Max Discount: RM ${formatCurrency(data.selectedPackage.maxDiscount)}</div>` : ''}
+                        ${data.selectedPackage.special ? '<div>🌟 Special Package</div>' : ''}
+                        ${data.selectedPackage.invoiceDesc ? `<div class="pt-2 border-t border-emerald-200">${data.selectedPackage.invoiceDesc}</div>` : ''}
+                    </div>
+                </div>
+            ` : `
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
+                    <div class="text-sm font-semibold text-amber-700 flex items-center">
+                        <span class="text-lg mr-2">⚠️</span>
+                        No Matching Package Found
+                    </div>
+                    <div class="text-xs text-amber-700 mt-2">
+                        We could not find an active residential package for ${data.packageSearchQty} panels. Try adjusting the panel count.
+                    </div>
+                </div>
+            `;
+
             solarDiv.innerHTML = `
                 <div class="bg-gradient-to-r from-secondary to-emerald-600 text-white p-4">
                     <h3 class="text-lg font-semibold flex items-center">
@@ -483,21 +567,40 @@
                             <span class="font-medium">${data.solarConfig}</span>
                         </div>
 
-                        <!-- Detailed Saving Calculation Breakdown -->
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-3" id="panelAdjustmentSection">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <div class="text-sm font-semibold text-gray-700">Adjust Panel Count</div>
+                                    <div class="text-xs text-gray-500">Recommended: ${data.recommendedPanels} panels</div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" id="panelDecreaseBtn" ${data.actualPanels <= 1 ? 'disabled' : ''} onclick="adjustPanelCount(-1)" class="w-9 h-9 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-lg font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">&minus;</button>
+                                    <input type="number" id="panelQtyInput" min="1" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-20 text-center border border-gray-300 rounded-lg py-1.5 px-2 text-sm focus:ring-2 focus:ring-secondary focus:border-transparent" />
+                                    <button type="button" id="panelIncreaseBtn" onclick="adjustPanelCount(1)" class="w-9 h-9 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-lg font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">+</button>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-gray-500 mt-2">
+                                <div id="panelAdjustSpinner" class="hidden">
+                                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-secondary border-t-transparent"></div>
+                                </div>
+                                <span id="panelAdjustStatus">${buildPanelStatusText(data)}</span>
+                            </div>
+                        </div>
+
+                        ${packageSection}
+
                         <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mt-4">
                             <h4 class="font-semibold text-emerald-800 mb-3 flex items-center">
                                 <span class="text-lg mr-2">💰</span>
                                 Monthly Saving Calculation Breakdown
                             </h4>
 
-                            <!-- Solar Generation -->
                             <div class="space-y-2 text-sm">
                                 <div class="flex justify-between py-1">
                                     <span class="text-gray-700">Solar Generation</span>
                                     <span class="font-medium">${data.details.monthlySolarGeneration} kWh</span>
                                 </div>
 
-                                <!-- Morning Saving Calculation -->
                                 <div class="bg-blue-50 border border-blue-200 rounded p-3 mt-3">
                                     <div class="font-medium text-blue-800 mb-2">🌅 Morning Usage Saving</div>
                                     <div class="space-y-1 text-xs text-blue-700">
@@ -525,7 +628,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Export Saving Calculation -->
                                 <div class="bg-orange-50 border border-orange-200 rounded p-3 mt-3">
                                     <div class="font-medium text-orange-800 mb-2">⚡ Export Saving</div>
                                     <div class="space-y-1 text-xs text-orange-700">
@@ -557,7 +659,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Total Saving -->
                                 <div class="bg-green-100 border border-green-300 rounded p-3 mt-3">
                                     <div class="flex justify-between font-bold text-green-800">
                                         <span>🎯 Total Monthly Saving:</span>
@@ -570,7 +671,6 @@
                             </div>
                         </div>
 
-                        <!-- System Cost Information -->
                         <div class="flex justify-between py-2 border-b border-gray-100 mt-4">
                             <span class="text-gray-600">System Cost (Before Discount)</span>
                             <span class="font-medium">RM ${data.systemCostBeforeDiscount}</span>
@@ -588,11 +688,9 @@
                             <span class="text-accent">${data.paybackPeriod} years</span>
                         </div>
 
-                        <!-- Charts Section -->
                         <div class="mt-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Daily Usage & Generation Patterns</h3>
 
-                            <!-- Electricity Import Chart -->
                             <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4">
                                 <h4 class="text-md font-medium text-gray-700 mb-3">⚡ Daily Electricity Import Pattern</h4>
                                 <div style="height: 300px; position: relative;">
@@ -600,7 +698,6 @@
                                 </div>
                             </div>
 
-                            <!-- Solar Generation Chart -->
                             <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4">
                                 <h4 class="text-md font-medium text-gray-700 mb-3">☀️ Solar Generation Pattern</h4>
                                 <div style="height: 300px; position: relative;">
@@ -608,7 +705,6 @@
                                 </div>
                             </div>
 
-                            <!-- Combined Solar vs Import Chart -->
                             <div class="bg-white p-4 rounded-lg border border-gray-200">
                                 <h4 class="text-md font-medium text-gray-700 mb-3">🔋 Net Electricity Import (After Solar Offset)</h4>
                                 <div style="height: 300px; position: relative;">
@@ -619,13 +715,134 @@
                     </div>
                 </div>
             `;
-            resultsDiv.appendChild(solarDiv);
 
-            // Create charts after adding the div to DOM
             createCharts(data.charts);
+            setPanelControlsLoading(false);
 
-            // Smooth scroll to results
-            solarDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (isInitialRender) {
+                solarDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function formatCurrency(value) {
+            const numericValue = Number(value);
+            if (Number.isNaN(numericValue)) {
+                return '0.00';
+            }
+            return numericValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function buildPanelStatusText(data) {
+            if (!data) {
+                return '';
+            }
+
+            if (data.panelAdjustment === 0) {
+                return `Using the recommended ${data.recommendedPanels} panels for your bill.`;
+            }
+
+            if (data.panelAdjustment > 0) {
+                return `Using ${data.actualPanels} panels (${data.panelAdjustment} more than the recommended ${data.recommendedPanels}).`;
+            }
+
+            return `Using ${data.actualPanels} panels (${Math.abs(data.panelAdjustment)} fewer than the recommended ${data.recommendedPanels}).`;
+        }
+
+        function setPanelControlsLoading(isLoading) {
+            const decreaseBtn = document.getElementById('panelDecreaseBtn');
+            const increaseBtn = document.getElementById('panelIncreaseBtn');
+            const input = document.getElementById('panelQtyInput');
+            const spinner = document.getElementById('panelAdjustSpinner');
+            const status = document.getElementById('panelAdjustStatus');
+
+            if (spinner) {
+                spinner.classList.toggle('hidden', !isLoading);
+            }
+
+            if (decreaseBtn) {
+                const disableDecrease = isLoading || (latestSolarData && latestSolarData.actualPanels <= 1);
+                decreaseBtn.disabled = disableDecrease;
+            }
+
+            if (increaseBtn) {
+                increaseBtn.disabled = Boolean(isLoading);
+            }
+
+            if (input) {
+                input.disabled = Boolean(isLoading);
+                if (!isLoading && latestSolarData) {
+                    input.value = latestSolarData.actualPanels;
+                }
+            }
+
+            if (status) {
+                status.textContent = isLoading ? 'Updating solar savings...' : buildPanelStatusText(latestSolarData);
+            }
+        }
+
+        function adjustPanelCount(delta) {
+            if (!latestSolarData) {
+                return;
+            }
+
+            const proposedCount = latestSolarData.actualPanels + delta;
+            if (proposedCount < 1) {
+                return;
+            }
+
+            const input = document.getElementById('panelQtyInput');
+            if (input) {
+                input.value = proposedCount;
+            }
+
+            requestPanelUpdate(proposedCount);
+        }
+
+        function commitPanelInputChange(event) {
+            if (!latestSolarData) {
+                return;
+            }
+
+            let value = parseInt(event.target.value, 10);
+            if (Number.isNaN(value) || value < 1) {
+                value = latestSolarData.actualPanels;
+                event.target.value = value;
+                return;
+            }
+
+            if (value === latestSolarData.actualPanels) {
+                return;
+            }
+
+            requestPanelUpdate(value);
+        }
+
+        async function requestPanelUpdate(newCount) {
+            if (!latestSolarParams || !latestSolarData) {
+                return;
+            }
+
+            if (panelUpdateInFlight) {
+                return;
+            }
+
+            panelUpdateInFlight = true;
+            setPanelControlsLoading(true);
+
+            try {
+                await fetchSolarCalculation({ overridePanels: newCount });
+            } catch (error) {
+                showNotification(`Error: ${error.message}`, 'error');
+                if (latestSolarData) {
+                    const input = document.getElementById('panelQtyInput');
+                    if (input) {
+                        input.value = latestSolarData.actualPanels;
+                    }
+                }
+                setPanelControlsLoading(false);
+            } finally {
+                panelUpdateInFlight = false;
+            }
         }
 
         // Database connection test
@@ -725,7 +942,7 @@
                     <div class="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded">
                         <div><strong>Package Description:</strong></div>
                         <div>• Type: ${data.selectedPackage.type || 'Standard'}</div>
-                        <div>• Panels: ${data.recommendedPanels} x ${data.config.panelType}W</div>
+                        <div>• Panels: ${data.actualPanels} x ${data.config.panelType}W</div>
                         <div>• Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}</div>
                         ${data.selectedPackage.maxDiscount ? `<div>• Max Discount: RM ${data.selectedPackage.maxDiscount.toLocaleString('en-MY')}</div>` : ''}
                         ${data.selectedPackage.special ? '<div>• 🌟 Special Package</div>' : ''}
@@ -733,7 +950,7 @@
                     </div>
                 </div>` :
                 `<div class="text-amber-600 font-medium mt-3">
-                    ⚠️ No package found for ${data.recommendedPanels} x ${data.config.panelType}W panels
+                    ⚠️ No package found for ${data.packageSearchQty} x ${data.config.panelType}W panels
                 </div>`;
 
             popup.innerHTML = `
@@ -763,8 +980,8 @@
                                 Close
                             </button>
                             <button
-                                onclick="this.parentElement.parentElement.parentElement.parentElement.remove(); displaySolarCalculation(arguments[0]); showNotification('Solar savings calculated successfully!', 'success');"
                                 class="flex-1 bg-primary hover:bg-primary/90 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                                type="button"
                             >
                                 View Details
                             </button>
@@ -785,9 +1002,29 @@
 
         // Create charts function
         function createCharts(chartData) {
-            // Electricity Import Chart
-            const importCtx = document.getElementById('electricityImportChart').getContext('2d');
-            new Chart(importCtx, {
+            if (!chartData) {
+                return;
+            }
+
+            const importCanvas = document.getElementById('electricityImportChart');
+            const solarCanvas = document.getElementById('solarGenerationChart');
+            const combinedCanvas = document.getElementById('combinedChart');
+
+            if (!importCanvas || !solarCanvas || !combinedCanvas) {
+                return;
+            }
+
+            if (chartInstances.electricity) {
+                chartInstances.electricity.destroy();
+            }
+            if (chartInstances.solar) {
+                chartInstances.solar.destroy();
+            }
+            if (chartInstances.combined) {
+                chartInstances.combined.destroy();
+            }
+
+            chartInstances.electricity = new Chart(importCanvas.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: chartData.electricityUsagePattern.map(d => d.hour + ':00'),
@@ -835,8 +1072,7 @@
             });
 
             // Solar Generation Chart
-            const solarCtx = document.getElementById('solarGenerationChart').getContext('2d');
-            new Chart(solarCtx, {
+            chartInstances.solar = new Chart(solarCanvas.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: chartData.solarGenerationPattern.map(d => d.hour + ':00'),
@@ -884,8 +1120,6 @@
             });
 
             // Combined Chart - Net Import After Solar Offset
-            const combinedCtx = document.getElementById('combinedChart').getContext('2d');
-
             // Calculate net import for each hour (usage - solar generation)
             const netImportData = chartData.electricityUsagePattern.map((usage, index) => {
                 const usageKwh = parseFloat(usage.usage);
@@ -894,7 +1128,7 @@
                 return netImport.toFixed(3);
             });
 
-            new Chart(combinedCtx, {
+            chartInstances.combined = new Chart(combinedCanvas.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: chartData.electricityUsagePattern.map(d => d.hour + ':00'),
