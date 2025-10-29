@@ -287,6 +287,14 @@ app.get('/api/solar-calculation', async (req, res) => {
     const smp = parseFloat(smpPrice);
     const discount19Below = parseFloat(below19Discount) || 0;
     const discount19Above = parseFloat(above19Discount) || 0;
+    const overridePanelsRaw = req.query.overridePanels;
+    let overridePanels = null;
+    if (overridePanelsRaw !== undefined) {
+      const parsedOverride = parseInt(overridePanelsRaw, 10);
+      if (!Number.isNaN(parsedOverride) && parsedOverride >= 1) {
+        overridePanels = parsedOverride;
+      }
+    }
 
     if (!billAmount || billAmount <= 0) {
       return res.status(400).json({ error: 'Invalid bill amount' });
@@ -324,20 +332,20 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     // NEW PANEL RECOMMENDATION FORMULA
     // Formula: usage_kwh / sun_peak_hour / 30 / 0.62 = X, then floor(X)
-    const recommendedPanels = Math.floor(monthlyUsageKwh / peakHour / 30 / 0.62);
+    const recommendedPanelsRaw = Math.floor(monthlyUsageKwh / peakHour / 30 / 0.62);
 
-    // Ensure minimum of 1 panel
-    const numberOfPanels = Math.max(1, recommendedPanels);
+    // Ensure minimum of 1 panel for recommendation
+    const recommendedPanels = Math.max(1, recommendedPanelsRaw);
+    const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
 
-    // Search for package with matching panel_qty and lowest price
-    // TODO: Re-add panel type filtering once database relationship is confirmed
+    // Search for Residential package with matching panel_qty that is active, non-special, and lowest price
     const packageQuery = `
       SELECT * FROM package
-      WHERE panel_qty = $1 AND active = true AND special = false
+      WHERE panel_qty = $1 AND active = true AND special = false AND type = $2
       ORDER BY price ASC
       LIMIT 1
     `;
-    const packageResult = await client.query(packageQuery, [numberOfPanels]);
+    const packageResult = await client.query(packageQuery, [actualPanelQty, 'Residential']);
 
     let selectedPackage = null;
     if (packageResult.rows.length > 0) {
@@ -348,7 +356,7 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     // Calculate solar generation using selected panel wattage
     const panelWatts = panelWattage;
-    const dailySolarGeneration = (numberOfPanels * panelWatts * peakHour) / 1000; // kWh per day
+    const dailySolarGeneration = (actualPanelQty * panelWatts * peakHour) / 1000; // kWh per day
     const monthlySolarGeneration = dailySolarGeneration * 30;
 
     // Calculate morning usage split
@@ -368,25 +376,27 @@ app.get('/api/solar-calculation', async (req, res) => {
     const totalMonthlySavings = morningSaving + exportSaving;
 
     // Use actual package price if available, otherwise fallback to calculation
-    let systemCostBeforeDiscount, finalSystemCost;
+    let systemCostBeforeDiscount = null;
+    let finalSystemCost = null;
+    let discountAmount = null;
+    let paybackPeriod = null;
 
-    // Calculate discount based on panel count (used in both paths)
-    const applicableDiscount = numberOfPanels >= 19 ? discount19Above : discount19Below;
+    // Calculate discount based on panel count (used when a package is available)
+    const applicableDiscount = actualPanelQty >= 19 ? discount19Above : discount19Below;
 
     if (selectedPackage && selectedPackage.price) {
       // Use actual package price from database
       systemCostBeforeDiscount = parseFloat(selectedPackage.price);
-      finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
-    } else {
-      // Fallback to calculated cost if no package found
-      const costPerWatt = 4.50;
-      systemCostBeforeDiscount = numberOfPanels * panelWatts * costPerWatt;
-      finalSystemCost = systemCostBeforeDiscount - applicableDiscount;
-    }
+      discountAmount = applicableDiscount;
+      finalSystemCost = systemCostBeforeDiscount - discountAmount;
 
-    // Calculate payback period
-    const paybackPeriod = totalMonthlySavings > 0 ?
-      (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1) : 'N/A';
+      // Calculate payback period only when system cost is available
+      if (totalMonthlySavings > 0) {
+        paybackPeriod = (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1);
+      } else {
+        paybackPeriod = 'N/A';
+      }
+    }
 
     // Generate 24-hour electricity usage pattern
     const dailyUsageKwh = monthlyUsageKwh / 30;
@@ -416,7 +426,6 @@ app.get('/api/solar-calculation', async (req, res) => {
     }
 
     // Generate 24-hour solar generation pattern
-    const systemKwPeak = (numberOfPanels * panelWatts) / 1000;
     const solarGenerationPattern = [];
 
     for (let hour = 0; hour < 24; hour++) {
@@ -449,7 +458,11 @@ app.get('/api/solar-calculation', async (req, res) => {
         smpPrice: smp
       },
       // PANEL RECOMMENDATION RESULTS
-      recommendedPanels: numberOfPanels,
+      recommendedPanels: recommendedPanels,
+      actualPanels: actualPanelQty,
+      panelAdjustment: actualPanelQty - recommendedPanels,
+      overrideApplied: overridePanels !== null,
+      packageSearchQty: actualPanelQty,
       selectedPackage: selectedPackage ? {
         packageName: selectedPackage.package_name,
         panelQty: selectedPackage.panel_qty,
@@ -462,11 +475,11 @@ app.get('/api/solar-calculation', async (req, res) => {
         id: selectedPackage.id
       } : null,
 
-      solarConfig: `${numberOfPanels} x ${panelWattage}W panels (${(numberOfPanels * panelWatts / 1000).toFixed(1)} kW system)`,
+      solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${(actualPanelQty * panelWatts / 1000).toFixed(1)} kW system)`,
       monthlySavings: totalMonthlySavings.toFixed(2),
-      systemCostBeforeDiscount: systemCostBeforeDiscount.toFixed(2),
-      discount: applicableDiscount.toFixed(2),
-      finalSystemCost: finalSystemCost.toFixed(2),
+      systemCostBeforeDiscount: systemCostBeforeDiscount !== null ? systemCostBeforeDiscount.toFixed(2) : null,
+      discount: discountAmount !== null ? discountAmount.toFixed(2) : null,
+      finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : null,
       paybackPeriod: paybackPeriod,
       details: {
         monthlyUsageKwh: monthlyUsageKwh,
