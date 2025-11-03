@@ -561,6 +561,11 @@
             let solarDiv = document.getElementById('solarResultsCard');
             const isInitialRender = !solarDiv;
 
+            const toNumber = (value, fallback = 0) => {
+                const numeric = Number(value);
+                return Number.isFinite(numeric) ? numeric : fallback;
+            };
+
             const detailSource = data.details || {};
             const billComparison = data.billComparison || {};
             const monthlySavingsValue = Number(data.monthlySavings) || 0;
@@ -604,6 +609,30 @@
             const billReductionValue = afterBillValue !== null
                 ? Math.max(0, beforeBillValue - afterBillValue)
                 : morningSavingValue;
+            const breakdownData = data.billBreakdownComparison || detailSource.billBreakdown || {};
+            const breakdownItems = Array.isArray(breakdownData.items) ? breakdownData.items : [];
+            const breakdownTotals = breakdownData.totals || {};
+            const savingsBreakdownData = data.savingsBreakdown || detailSource.savingsBreakdown || {};
+            const exportCreditValue = toNumber(
+                savingsBreakdownData.exportCredit,
+                exportSavingValue
+            );
+            const combinedSavingsValue = toNumber(
+                savingsBreakdownData.total,
+                billReductionValue + exportSavingValue
+            );
+            const breakdownTotalBefore = toNumber(
+                breakdownTotals.before,
+                beforeBillValue
+            );
+            const breakdownTotalAfterRaw = breakdownTotals.after;
+            const breakdownTotalAfter = breakdownTotalAfterRaw === null || breakdownTotalAfterRaw === undefined
+                ? (afterBillValue !== null ? afterBillValue : null)
+                : toNumber(breakdownTotalAfterRaw, afterBillValue || 0);
+            const breakdownTotalDelta = toNumber(
+                breakdownTotals.delta,
+                billReductionValue
+            );
             const morningCoverageValue = morningUsageKwhValue > 0
                 ? Math.min(100, (morningSelfConsumptionValue / morningUsageKwhValue) * 100)
                 : 0;
@@ -633,7 +662,15 @@
                 billAfter: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A',
                 billReduction: formatCurrency(billReductionValue),
                 monthlyBillReduction: formatCurrency(billReductionValue),
-                annualReturn: formatCurrency(annualReturnValue)
+                annualReturn: formatCurrency(annualReturnValue),
+                exportCredit: formatCurrency(exportCreditValue),
+                totalSavings: formatCurrency(combinedSavingsValue),
+                breakdownTotals: {
+                    before: formatCurrency(breakdownTotalBefore),
+                    after: breakdownTotalAfter !== null ? formatCurrency(breakdownTotalAfter) : null,
+                    delta: formatCurrency(Math.abs(breakdownTotalDelta)),
+                    deltaDirection: breakdownTotalDelta >= 0 ? 'decrease' : 'increase'
+                }
             };
 
             data.details = formattedDetails;
@@ -644,6 +681,84 @@
                 : null;
             data.roiPercentage = roiValue !== null ? formatPercentage(roiValue, 1) : null;
             const roiDisplay = data.roiPercentage !== null ? `${data.roiPercentage}%` : 'N/A';
+
+            const buildBreakdownRows = () => {
+                if (!breakdownItems.length) {
+                    return `<div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-500">Bill component details unavailable for the selected usage.</div>`;
+                }
+
+                return breakdownItems.map((item) => {
+                    const beforeValue = toNumber(item.before);
+                    const afterRaw = item.after;
+                    const afterValue = afterRaw === null || afterRaw === undefined ? null : toNumber(afterRaw);
+                    const deltaValue = toNumber(item.delta, beforeValue - (afterValue || 0));
+                    const deltaPositive = deltaValue >= 0;
+                    const deltaClass = deltaPositive ? 'text-emerald-300' : 'text-amber-300';
+                    const deltaSymbol = deltaPositive ? '−' : '+';
+                    const beforeDisplay = `RM ${formatCurrency(beforeValue)}`;
+                    const afterDisplay = afterValue !== null ? `RM ${formatCurrency(afterValue)}` : 'N/A';
+                    const deltaDisplay = `${deltaSymbol}RM ${formatCurrency(Math.abs(deltaValue))}`;
+
+                    return `
+                        <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-xs sm:text-sm">
+                            <div class="font-medium text-slate-200">${item.label}</div>
+                            <div class="text-slate-100">${beforeDisplay}</div>
+                            <div class="text-slate-100">${afterDisplay}</div>
+                            <div class="font-semibold ${deltaClass}">${deltaDisplay}</div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            const breakdownRowsHtml = buildBreakdownRows();
+            const totalDeltaSymbol = breakdownTotalDelta >= 0 ? '−' : '+';
+            const totalDeltaClass = breakdownTotalDelta >= 0 ? 'text-emerald-300' : 'text-amber-300';
+            const totalsRowHtml = `
+                <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border border-primary/40 bg-primary/10 px-4 py-4 text-xs sm:text-sm">
+                    <div class="font-semibold text-primary">Total Bill</div>
+                    <div class="font-semibold text-slate-100">RM ${formatCurrency(breakdownTotalBefore)}</div>
+                    <div class="font-semibold text-slate-100">${breakdownTotalAfter !== null ? `RM ${formatCurrency(breakdownTotalAfter)}` : 'N/A'}</div>
+                    <div class="text-base font-semibold ${totalDeltaClass}">${totalDeltaSymbol}RM ${formatCurrency(Math.abs(breakdownTotalDelta))}</div>
+                </div>
+            `;
+
+            const billBreakdownSection = `
+                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-5 sm:px-6 sm:py-6">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Bill Composition Comparison</p>
+                            <h4 class="mt-1 text-lg font-semibold text-slate-100">Component-level savings insight</h4>
+                        </div>
+                        <div class="text-xs text-slate-500">RM values before vs. after morning solar offset</div>
+                    </div>
+                    <div class="mt-4 hidden grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] gap-3 text-[11px] uppercase tracking-[0.25em] text-slate-500 sm:grid">
+                        <div>Component</div>
+                        <div class="text-center">Before</div>
+                        <div class="text-center">After</div>
+                        <div class="text-center">Change</div>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                        ${breakdownRowsHtml}
+                        ${totalsRowHtml}
+                    </div>
+                    <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                        <div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-300">
+                            <div class="text-[11px] uppercase tracking-[0.3em] text-slate-500">Bill Reduction</div>
+                            <div class="mt-2 text-lg font-semibold text-emerald-300">RM ${data.details.billReduction}</div>
+                        </div>
+                        <div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-300">
+                            <div class="text-[11px] uppercase tracking-[0.3em] text-slate-500">Export Credit</div>
+                            <div class="mt-2 text-lg font-semibold text-emerald-300">RM ${data.details.exportCredit}</div>
+                            <div class="text-[11px] text-slate-500">(${data.details.exportKwh} kWh × RM ${data.details.exportRate})</div>
+                        </div>
+                        <div class="rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-100">
+                            <div class="text-[11px] uppercase tracking-[0.3em]">Total Solar Value</div>
+                            <div class="mt-2 text-lg font-semibold text-emerald-200">RM ${data.details.totalSavings}</div>
+                            <div class="text-[11px] text-emerald-100/80">(Bill reduction + export credit)</div>
+                        </div>
+                    </div>
+                </div>
+            `;
 
             if (!solarDiv) {
                 solarDiv = document.createElement('div');
@@ -777,6 +892,8 @@
                         </div>
                         <p class="mt-2 text-[11px] text-slate-500">Excludes SMP export credits and recalculates usage from the TNB tariff table.</p>
                     </div>
+
+                    ${billBreakdownSection}
 
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">

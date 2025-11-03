@@ -425,6 +425,83 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
 
+    const parseCurrencyValue = (value, fallback = 0) => {
+      if (value === null || value === undefined) {
+        return fallback;
+      }
+      const numeric = Number(value);
+      return Number.isNaN(numeric) ? fallback : numeric;
+    };
+
+    const buildBillBreakdown = (tariffRow) => {
+      if (!tariffRow) {
+        return null;
+      }
+
+      const usage = parseCurrencyValue(tariffRow.usage_normal);
+      const network = parseCurrencyValue(tariffRow.network);
+      const capacity = parseCurrencyValue(tariffRow.capacity);
+      const sst = parseCurrencyValue(tariffRow.sst_normal);
+      const eei = parseCurrencyValue(tariffRow.eei);
+      const total = parseCurrencyValue(
+        tariffRow.bill_total_normal,
+        usage + network + capacity + sst + eei
+      );
+
+      return {
+        usage,
+        network,
+        capacity,
+        sst,
+        eei,
+        total
+      };
+    };
+
+    const calculateBreakdownDelta = (beforeValue, afterValue) => {
+      const before = parseCurrencyValue(beforeValue);
+      if (afterValue === null || afterValue === undefined) {
+        return before;
+      }
+      const after = parseCurrencyValue(afterValue);
+      return before - after;
+    };
+
+    const beforeBreakdown = buildBillBreakdown(tariff);
+    const afterBreakdown = buildBillBreakdown(afterTariff);
+
+    const breakdownItems = [
+      { key: 'usage', label: 'Usage' },
+      { key: 'network', label: 'Network' },
+      { key: 'capacity', label: 'Capacity Fee' },
+      { key: 'sst', label: 'SST' },
+      { key: 'eei', label: 'EEI' }
+    ].map((item) => {
+      const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
+      const afterValue = afterBreakdown ? afterBreakdown[item.key] : null;
+      return {
+        ...item,
+        before: beforeValue,
+        after: afterValue,
+        delta: calculateBreakdownDelta(beforeValue, afterValue)
+      };
+    });
+
+    const totals = {
+      before: beforeBreakdown ? beforeBreakdown.total : billBefore,
+      after: afterBreakdown ? afterBreakdown.total : afterBill,
+      delta: calculateBreakdownDelta(
+        beforeBreakdown ? beforeBreakdown.total : billBefore,
+        afterBreakdown ? afterBreakdown.total : afterBill
+      )
+    };
+
+    const savingsBreakdown = {
+      billReduction,
+      exportCredit: exportSaving,
+      total: billReduction + exportSaving
+    };
+
     // Use actual package price if available, otherwise fallback to calculation
     let systemCostBeforeDiscount = null;
     let finalSystemCost = null;
@@ -544,7 +621,14 @@ app.get('/api/solar-calculation', async (req, res) => {
         afterUsageKwh: (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh).toFixed(2),
         billBefore: billBefore.toFixed(2),
         billAfter: afterBill !== null ? afterBill.toFixed(2) : null,
-        billReduction: billReduction.toFixed(2)
+        billReduction: billReduction.toFixed(2),
+        billBreakdown: {
+          before: beforeBreakdown,
+          after: afterBreakdown,
+          items: breakdownItems,
+          totals
+        },
+        savingsBreakdown: savingsBreakdown
       },
       billComparison: {
         before: {
@@ -558,6 +642,13 @@ app.get('/api/solar-calculation', async (req, res) => {
         lookupUsageKwh: netUsageForLookup,
         actualNetUsageKwh: parseFloat(netUsageKwh.toFixed(2))
       },
+      billBreakdownComparison: {
+        before: beforeBreakdown,
+        after: afterBreakdown,
+        items: breakdownItems,
+        totals
+      },
+      savingsBreakdown: savingsBreakdown,
       charts: {
         electricityUsagePattern: electricityUsagePattern,
         solarGenerationPattern: solarGenerationPattern
