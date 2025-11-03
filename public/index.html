@@ -561,6 +561,61 @@
             let solarDiv = document.getElementById('solarResultsCard');
             const isInitialRender = !solarDiv;
 
+            const detailSource = data.details || {};
+            const monthlySavingsValue = Number(data.monthlySavings) || 0;
+            const finalSystemCostValue = data.finalSystemCost !== null ? Number(data.finalSystemCost) : null;
+            const annualReturnValue = monthlySavingsValue * 12;
+
+            const monthlyUsageKwhValue = Number(detailSource.monthlyUsageKwh) || 0;
+            const monthlySolarGenerationValue = Number(detailSource.monthlySolarGeneration) || 0;
+            const morningUsageKwhValue = Number(detailSource.morningUsageKwh) || 0;
+            const morningSavingValue = Number(detailSource.morningSaving) || 0;
+            const exportKwhValue = Number(detailSource.exportKwh) || 0;
+            const exportSavingValue = Number(detailSource.exportSaving) || 0;
+            const morningUsageRateValue = Number(detailSource.morningUsageRate) || 0;
+            const exportRateValue = Number(detailSource.exportRate) || 0;
+            const sunPeakHourValue = Number(
+                (data.config && data.config.sunPeakHour) ||
+                (latestSolarParams && latestSolarParams.sunPeakHour) ||
+                0
+            );
+
+            const morningSelfConsumptionValue = Math.min(monthlySolarGenerationValue, morningUsageKwhValue);
+            const morningCoverageValue = morningUsageKwhValue > 0
+                ? Math.min(100, (morningSelfConsumptionValue / morningUsageKwhValue) * 100)
+                : 0;
+            const exportCoverageValue = monthlySolarGenerationValue > 0
+                ? Math.min(100, (exportKwhValue / monthlySolarGenerationValue) * 100)
+                : 0;
+
+            const formattedDetails = {
+                ...detailSource,
+                monthlyUsageKwh: formatNumber(monthlyUsageKwhValue, 0),
+                monthlySolarGeneration: formatNumber(monthlySolarGenerationValue, 2),
+                morningUsageKwh: formatNumber(morningUsageKwhValue, 2),
+                morningSaving: formatCurrency(morningSavingValue),
+                exportKwh: formatNumber(exportKwhValue, 2),
+                exportSaving: formatCurrency(exportSavingValue),
+                morningUsageRate: formatNumber(morningUsageRateValue, 4),
+                exportRate: formatNumber(exportRateValue, 2),
+                morningSelfConsumption: formatNumber(morningSelfConsumptionValue, 2),
+                morningCoverage: formatPercentage(morningCoverageValue, 1),
+                exportCoverage: formatPercentage(exportCoverageValue, 1),
+                totalGeneration: formatNumber(monthlySolarGenerationValue, 2),
+                sunPeakHour: formatNumber(sunPeakHourValue, 1),
+                monthlyBillReduction: formatCurrency(morningSavingValue),
+                annualReturn: formatCurrency(annualReturnValue)
+            };
+
+            data.details = formattedDetails;
+            data.monthlySavings = formatCurrency(monthlySavingsValue);
+
+            const roiValue = finalSystemCostValue && finalSystemCostValue > 0
+                ? (annualReturnValue / finalSystemCostValue) * 100
+                : null;
+            data.roiPercentage = roiValue !== null ? formatPercentage(roiValue, 1) : null;
+            const roiDisplay = data.roiPercentage !== null ? `${data.roiPercentage}%` : 'N/A';
+
             if (!solarDiv) {
                 solarDiv = document.createElement('div');
                 solarDiv.id = 'solarResultsCard';
@@ -702,12 +757,12 @@
                         <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Savings Snapshot</p>
                             <p class="mt-3 text-3xl font-semibold text-emerald-300">RM ${data.monthlySavings}</p>
-                            <p class="mt-1 text-xs text-slate-500">${data.details.monthlyBillReduction} RM bill reduction</p>
+                            <p class="mt-1 text-xs text-slate-500">RM ${data.details.monthlyBillReduction} bill reduction</p>
                         </div>
                         <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">ROI</p>
-                            <p class="mt-3 text-3xl font-semibold text-emerald-300">${data.roiPercentage}%</p>
-                            <p class="mt-1 text-xs text-slate-500">${data.details.annualReturn} RM annual return</p>
+                            <p class="mt-3 text-3xl font-semibold text-emerald-300">${roiDisplay}</p>
+                            <p class="mt-1 text-xs text-slate-500">RM ${data.details.annualReturn} annual return</p>
                         </div>
                     </div>
 
@@ -775,6 +830,28 @@
                 return '0.00';
             }
             return numericValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatNumber(value, decimals = 2) {
+            const numericValue = Number(value);
+            if (Number.isNaN(numericValue)) {
+                return Number(0).toLocaleString('en-MY', {
+                    minimumFractionDigits: decimals,
+                    maximumFractionDigits: decimals
+                });
+            }
+            return numericValue.toLocaleString('en-MY', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            });
+        }
+
+        function formatPercentage(value, decimals = 1) {
+            const numericValue = Number(value);
+            if (Number.isNaN(numericValue)) {
+                return Number(0).toFixed(decimals);
+            }
+            return numericValue.toFixed(decimals);
         }
 
         function buildPanelStatusText(data) {
