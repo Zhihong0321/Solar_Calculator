@@ -582,15 +582,18 @@
             );
 
             const morningSelfConsumptionValue = Math.min(monthlySolarGenerationValue, morningUsageKwhValue);
+            const actualNetUsageValue = billComparison.actualNetUsageKwh !== undefined
+                ? Number(billComparison.actualNetUsageKwh)
+                : Math.max(0, monthlyUsageKwhValue - morningSelfConsumptionValue);
             const lookupUsageValue = billComparison.lookupUsageKwh !== undefined
                 ? Number(billComparison.lookupUsageKwh)
-                : Math.max(0, monthlyUsageKwhValue - morningSelfConsumptionValue);
+                : Math.floor(actualNetUsageValue);
             const rawAfterUsageValue = billComparison.after && billComparison.after.usageKwh !== undefined
                 ? billComparison.after.usageKwh
                 : detailSource.afterUsageKwh;
             const afterUsageValue = rawAfterUsageValue !== undefined && rawAfterUsageValue !== null
                 ? Number(rawAfterUsageValue)
-                : lookupUsageValue;
+                : actualNetUsageValue;
             const beforeBillValue = Number((billComparison.before && billComparison.before.billAmount) ?? detailSource.billBefore ?? 0);
             const rawAfterBillValue = billComparison.after && billComparison.after.billAmount !== null
                 ? billComparison.after.billAmount
@@ -623,7 +626,8 @@
                 exportCoverage: formatPercentage(exportCoverageValue, 1),
                 totalGeneration: formatNumber(monthlySolarGenerationValue, 2),
                 sunPeakHour: formatNumber(sunPeakHourValue, 1),
-                netUsageKwh: formatNumber(lookupUsageValue, 2),
+                netUsageKwh: formatNumber(actualNetUsageValue, 2),
+                lookupUsageKwh: formatNumber(lookupUsageValue, 0),
                 afterUsageKwh: formatNumber(afterUsageValue, 2),
                 billBefore: formatCurrency(beforeBillValue),
                 billAfter: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A',

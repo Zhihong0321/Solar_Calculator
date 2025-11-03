@@ -362,6 +362,7 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
     const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
+    const netUsageForLookup = Math.max(0, Math.floor(netUsageKwh));
 
     // Calculate the post-solar bill using the reduced usage (excluding export)
     let afterTariff = null;
@@ -372,7 +373,7 @@ app.get('/api/solar-calculation', async (req, res) => {
       LIMIT 1
     `;
 
-    if (netUsageKwh === 0) {
+    if (netUsageForLookup <= 0) {
       const lowestUsageQuery = `
         SELECT * FROM tnb_tariff_2025
         ORDER BY usage_kwh ASC
@@ -383,7 +384,7 @@ app.get('/api/solar-calculation', async (req, res) => {
         afterTariff = lowestUsageResult.rows[0];
       }
     } else {
-      const afterTariffResult = await client.query(afterTariffQuery, [netUsageKwh]);
+      const afterTariffResult = await client.query(afterTariffQuery, [netUsageForLookup]);
       if (afterTariffResult.rows.length > 0) {
         afterTariff = afterTariffResult.rows[0];
       } else {
@@ -554,7 +555,8 @@ app.get('/api/solar-calculation', async (req, res) => {
           usageKwh: afterUsageMatched !== null ? afterUsageMatched : netUsageKwh,
           billAmount: afterBill
         } : null,
-        lookupUsageKwh: netUsageKwh
+        lookupUsageKwh: netUsageForLookup,
+        actualNetUsageKwh: parseFloat(netUsageKwh.toFixed(2))
       },
       charts: {
         electricityUsagePattern: electricityUsagePattern,
