@@ -352,8 +352,6 @@ app.get('/api/solar-calculation', async (req, res) => {
       selectedPackage = packageResult.rows[0];
     }
 
-    client.release();
-
     // Calculate solar generation using selected panel wattage
     const panelWatts = panelWattage;
     const dailySolarGeneration = (actualPanelQty * panelWatts * peakHour) / 1000; // kWh per day
@@ -361,6 +359,47 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     // Calculate morning usage split
     const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
+
+    const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
+    const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
+
+    // Calculate the post-solar bill using the reduced usage (excluding export)
+    let afterTariff = null;
+    const afterTariffQuery = `
+      SELECT * FROM tnb_tariff_2025
+      WHERE usage_kwh <= $1
+      ORDER BY usage_kwh DESC
+      LIMIT 1
+    `;
+
+    if (netUsageKwh === 0) {
+      const lowestUsageQuery = `
+        SELECT * FROM tnb_tariff_2025
+        ORDER BY usage_kwh ASC
+        LIMIT 1
+      `;
+      const lowestUsageResult = await client.query(lowestUsageQuery);
+      if (lowestUsageResult.rows.length > 0) {
+        afterTariff = lowestUsageResult.rows[0];
+      }
+    } else {
+      const afterTariffResult = await client.query(afterTariffQuery, [netUsageKwh]);
+      if (afterTariffResult.rows.length > 0) {
+        afterTariff = afterTariffResult.rows[0];
+      } else {
+        const fallbackAfterQuery = `
+          SELECT * FROM tnb_tariff_2025
+          ORDER BY usage_kwh ASC
+          LIMIT 1
+        `;
+        const fallbackAfterResult = await client.query(fallbackAfterQuery);
+        if (fallbackAfterResult.rows.length > 0) {
+          afterTariff = fallbackAfterResult.rows[0];
+        }
+      }
+    }
+
+    client.release();
 
     // NEW SAVING FORMULA
     // 1. Morning usage saving: morning_kwh * RM 0.4869
@@ -374,6 +413,16 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     // 3. Total saving = morning saving + export saving
     const totalMonthlySavings = morningSaving + exportSaving;
+
+    const billBefore = tariff.bill_total_normal !== null ? parseFloat(tariff.bill_total_normal) : 0;
+    const afterBill = afterTariff && afterTariff.bill_total_normal !== null
+      ? parseFloat(afterTariff.bill_total_normal)
+      : null;
+    const afterUsageMatched = afterTariff && afterTariff.usage_kwh !== null
+      ? parseFloat(afterTariff.usage_kwh)
+      : null;
+
+    const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
 
     // Use actual package price if available, otherwise fallback to calculation
     let systemCostBeforeDiscount = null;
@@ -489,7 +538,23 @@ app.get('/api/solar-calculation', async (req, res) => {
         exportKwh: exportKwh.toFixed(2),
         exportSaving: exportSaving.toFixed(2),
         morningUsageRate: morningUsageRate,
-        exportRate: exportRate
+        exportRate: exportRate,
+        netUsageKwh: netUsageKwh.toFixed(2),
+        afterUsageKwh: (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh).toFixed(2),
+        billBefore: billBefore.toFixed(2),
+        billAfter: afterBill !== null ? afterBill.toFixed(2) : null,
+        billReduction: billReduction.toFixed(2)
+      },
+      billComparison: {
+        before: {
+          usageKwh: monthlyUsageKwh,
+          billAmount: billBefore
+        },
+        after: afterBill !== null ? {
+          usageKwh: afterUsageMatched !== null ? afterUsageMatched : netUsageKwh,
+          billAmount: afterBill
+        } : null,
+        lookupUsageKwh: netUsageKwh
       },
       charts: {
         electricityUsagePattern: electricityUsagePattern,
