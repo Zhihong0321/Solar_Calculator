@@ -4,115 +4,170 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solar Calculator - TNB Bill Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui']
+                    },
                     colors: {
-                        primary: '#059669',
-                        secondary: '#10b981',
-                        accent: '#f59e0b',
-                        dark: '#1f2937'
+                        primary: '#38bdf8',
+                        primaryDark: '#0ea5e9',
+                        surface: '#0f172a',
+                        surfaceAlt: '#111c2f',
+                        stroke: '#1e293b',
+                        accent: '#22d3ee'
                     }
                 }
             }
         }
     </script>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Container with max-width 450px on desktop -->
-    <div class="w-full max-w-md mx-auto bg-white min-h-screen shadow-lg">
-
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-primary to-secondary p-6 text-white">
-            <div class="text-center">
-                <div class="text-4xl mb-2">🌞</div>
-                <h1 class="text-2xl font-bold">Solar Calculator</h1>
-                <p class="text-emerald-100 text-sm mt-2">Calculate your solar savings with real TNB data</p>
-            </div>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+    <div class="relative min-h-screen">
+        <div class="absolute inset-0">
+            <div class="h-full w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
+            <div class="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.25),_transparent_45%)]"></div>
+            <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_bottom,_rgba(34,211,238,0.2),_transparent_50%)]"></div>
         </div>
 
-        <!-- Connection Status -->
-        <div class="p-4">
-            <div id="dbStatus" class="flex items-center justify-center p-3 rounded-lg bg-yellow-50 border border-yellow-200">
-                <div class="animate-spin rounded-full h-4 w-4 border-2 border-yellow-400 border-t-transparent mr-2"></div>
-                <span class="text-yellow-700 text-sm">Checking database connection...</span>
-            </div>
-        </div>
+        <div class="relative z-10 mx-auto w-full max-w-5xl px-6 py-10 lg:py-14">
+            <div class="grid gap-8 lg:grid-cols-[1.35fr,1fr]">
+                <div class="space-y-8">
+                    <header class="rounded-3xl border border-slate-800 bg-surface/80 px-8 py-10 backdrop-blur shadow-[0_0_60px_rgba(15,23,42,0.6)]">
+                        <div class="flex items-center justify-between text-sm uppercase tracking-[0.4em] text-slate-400">
+                            <span>Solar Intelligence Suite</span>
+                            <span>v2.0</span>
+                        </div>
+                        <div class="mt-8 space-y-4">
+                            <div class="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-4 py-1 text-xs font-medium text-primary">
+                                <span class="mr-2 h-2 w-2 animate-pulse rounded-full bg-primary"></span>
+                                Real-time tariff optimisation
+                            </div>
+                            <h1 class="text-3xl font-semibold text-slate-50 sm:text-4xl">Solar Calculator</h1>
+                            <p class="max-w-xl text-sm text-slate-400 sm:text-base">
+                                Analyse TNB bills, model solar configurations, and surface savings insights in a clean, professional interface.
+                            </p>
+                        </div>
+                    </header>
 
-        <!-- TNB Bill Input Section -->
-        <div class="p-4">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                    <span class="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">1</span>
-                    Enter Your TNB Bill
-                </h2>
+                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-6 py-6 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)]">
+                        <div id="dbStatus" class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-5 py-4 text-sm text-slate-300">
+                            <div class="flex items-center">
+                                <div class="mr-3 inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-700">
+                                    <div class="h-3 w-3 animate-ping rounded-full bg-primary"></div>
+                                </div>
+                                <span>Checking database connection...</span>
+                            </div>
+                            <span class="text-xs uppercase tracking-[0.25em] text-slate-500">System</span>
+                        </div>
+                    </section>
 
-                <form id="billForm" class="space-y-4">
-                    <div>
-                        <label for="billAmount" class="block text-sm font-medium text-gray-700 mb-2">
-                            Monthly TNB Bill Amount (RM)
-                        </label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">RM</span>
-                            <input
-                                type="number"
-                                id="billAmount"
-                                name="billAmount"
-                                step="0.01"
-                                min="0"
-                                placeholder="150.00"
-                                class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-lg"
-                                required
-                            >
+                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-6 py-6 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)]">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-900/70 px-6 py-6">
+                            <h2 class="text-lg font-medium text-slate-50">TNB Bill Intake</h2>
+                            <p class="mt-2 text-sm text-slate-400">Introduce your monthly spend to unlock a tailored solar profile.</p>
+
+                            <form id="billForm" class="mt-6 space-y-5">
+                                <div class="space-y-2">
+                                    <label for="billAmount" class="text-xs uppercase tracking-[0.3em] text-slate-500">Monthly TNB Bill (RM)</label>
+                                    <div class="relative">
+                                        <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">RM</span>
+                                        <input
+                                            type="number"
+                                            id="billAmount"
+                                            name="billAmount"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="150.00"
+                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 pl-14 pr-4 text-base text-slate-100 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                            required
+                                        >
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    class="group relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-primaryDark to-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-950 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                                >
+                                    <span class="mr-3 text-xs font-medium">Analyse Bill</span>
+                                    <span class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-900/20 bg-slate-950/10 text-slate-950 transition group-hover:border-slate-900/40">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
+                                        </svg>
+                                    </span>
+                                </button>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section id="calculatorResults" class="space-y-6"></section>
+
+                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-6 py-6 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)]">
+                        <details class="group rounded-2xl border border-slate-800 bg-slate-900/70">
+                            <summary class="flex cursor-pointer items-center justify-between px-6 py-4 text-sm font-medium text-slate-300">
+                                <span class="flex items-center space-x-3">
+                                    <span class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-950/50 text-primary">🔧</span>
+                                    <span>Database Diagnostics</span>
+                                </span>
+                                <span class="text-xs uppercase tracking-[0.3em] text-slate-600 group-open:text-primary">Toggle</span>
+                            </summary>
+                            <div class="space-y-3 border-t border-slate-800 px-6 py-6 text-sm text-slate-200">
+                                <button onclick="testConnection()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
+                                    Test DB Connection
+                                </button>
+                                <button onclick="getSchema()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
+                                    Get Schema
+                                </button>
+                                <button onclick="getTnbTariff()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
+                                    Get TNB Data
+                                </button>
+                                <button onclick="getPackageInfo()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
+                                    Get Package Info
+                                </button>
+                                <button onclick="getProductInfo()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
+                                    Get Product Relationship
+                                </button>
+                                <div id="results" class="mt-4 text-xs text-slate-400"></div>
+                            </div>
+                        </details>
+                    </section>
+                </div>
+
+                <aside class="space-y-6 lg:sticky lg:top-10">
+                    <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-6 py-8 shadow-[0_0_50px_rgba(15,23,42,0.5)]">
+                        <h2 class="text-sm uppercase tracking-[0.4em] text-slate-500">Live Metrics</h2>
+                        <p class="mt-3 text-2xl font-semibold text-slate-100">Precision-built for energy strategists.</p>
+                        <p class="mt-4 text-sm text-slate-400">
+                            Surface immediate ROI, time-to-payback, and solar coverage with clarity. Each card updates dynamically when calculations complete.
+                        </p>
+                        <div class="mt-6 space-y-3 text-xs text-slate-500">
+                            <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/30 px-4 py-3">
+                                <span>Tariff pairing</span>
+                                <span class="text-slate-200">Automated</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/30 px-4 py-3">
+                                <span>Panel modelling</span>
+                                <span class="text-slate-200">Adaptive</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/30 px-4 py-3">
+                                <span>Reporting</span>
+                                <span class="text-slate-200">Investor-ready</span>
+                            </div>
                         </div>
                     </div>
-                    <button
-                        type="submit"
-                        class="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
-                    >
-                        <span>Analyze My Bill</span>
-                        <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
-                    </button>
-                </form>
+
+                    <footer class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-6 py-6 text-xs text-slate-500">
+                        <p>Solar Calculator • Calibrated with TNB tariff intelligence.</p>
+                        <p class="mt-2">Crafted for minimal friction and maximal clarity.</p>
+                    </footer>
+                </aside>
             </div>
-        </div>
-
-        <!-- Results Container -->
-        <div id="calculatorResults" class="p-4 space-y-4"></div>
-
-        <!-- Debug Section (Collapsible) -->
-        <div class="p-4">
-            <details class="bg-gray-100 rounded-lg">
-                <summary class="p-4 cursor-pointer text-gray-600 font-medium">🔧 Database Testing</summary>
-                <div class="p-4 pt-0 space-y-2">
-                    <button onclick="testConnection()" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md text-sm">
-                        Test DB Connection
-                    </button>
-                    <button onclick="getSchema()" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md text-sm">
-                        Get Schema
-                    </button>
-                    <button onclick="getTnbTariff()" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-md text-sm">
-                        Get TNB Data
-                    </button>
-                    <button onclick="getPackageInfo()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm">
-                        Get Package Info
-                    </button>
-                    <button onclick="getProductInfo()" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md text-sm">
-                        Get Product Relationship
-                    </button>
-                    <div id="results" class="mt-4"></div>
-                </div>
-            </details>
-        </div>
-
-        <!-- Footer -->
-        <div class="p-4 text-center text-gray-500 text-xs border-t border-gray-200">
-            <p>Powered by real TNB tariff data • Solar Calculator v2.0</p>
         </div>
     </div>
 
@@ -147,17 +202,17 @@
         // Notification system
         function showNotification(message, type = 'info') {
             const colors = {
-                success: 'bg-green-50 border-green-200 text-green-700',
-                error: 'bg-red-50 border-red-200 text-red-700',
-                info: 'bg-blue-50 border-blue-200 text-blue-700'
+                success: 'bg-emerald-500/10 border border-emerald-400/40 text-emerald-200',
+                error: 'bg-rose-500/10 border border-rose-400/40 text-rose-200',
+                info: 'bg-sky-500/10 border border-sky-400/40 text-sky-200'
             };
 
             const notification = document.createElement('div');
-            notification.className = `fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-96 p-4 rounded-lg border ${colors[type]} z-50`;
+            notification.className = `fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-96 rounded-2xl px-5 py-4 backdrop-blur border ${colors[type]} z-50 shadow-[0_20px_40px_rgba(8,47,73,0.3)]`;
             notification.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <span>${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-lg">&times;</button>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="pr-6">${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-lg text-slate-400 hover:text-slate-200">&times;</button>
                 </div>
             `;
             document.body.appendChild(notification);
@@ -171,10 +226,10 @@
 
             // Show loading
             resultsDiv.innerHTML = `
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <div class="flex items-center justify-center">
-                        <div class="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent mr-3"></div>
-                        <span class="text-gray-600">Finding closest TNB tariff data...</span>
+                <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/70 p-6 text-slate-300 shadow-[0_20px_40px_rgba(8,47,73,0.35)]">
+                    <div class="flex items-center justify-center space-x-3 text-sm">
+                        <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                        <span>Mapping closest TNB tariff intelligence...</span>
                     </div>
                 </div>
             `;
@@ -187,17 +242,17 @@
                     displayBillBreakdown(data);
                 } else {
                     resultsDiv.innerHTML = `
-                        <div class="bg-red-50 border border-red-200 rounded-xl p-6">
-                            <div class="text-red-700 font-medium">Error</div>
-                            <div class="text-red-600 text-sm mt-1">${data.error}</div>
+                        <div class="rounded-3xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-200">
+                            <div class="text-base font-medium">Error</div>
+                            <div class="mt-1 opacity-80">${data.error}</div>
                         </div>
                     `;
                 }
             } catch (error) {
                 resultsDiv.innerHTML = `
-                    <div class="bg-red-50 border border-red-200 rounded-xl p-6">
-                        <div class="text-red-700 font-medium">Connection Error</div>
-                        <div class="text-red-600 text-sm mt-1">${error.message}</div>
+                    <div class="rounded-3xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-200">
+                        <div class="text-base font-medium">Connection Error</div>
+                        <div class="mt-1 opacity-80">${error.message}</div>
                     </div>
                 `;
             }
@@ -209,182 +264,174 @@
             const tariff = data.tariff;
 
             resultsDiv.innerHTML = `
-                <!-- TNB Bill Breakdown -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="bg-primary text-white p-4">
-                        <h3 class="text-lg font-semibold flex items-center">
-                            <span class="bg-white text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">2</span>
-                            TNB Bill Breakdown
-                        </h3>
-                        <p class="text-emerald-100 text-sm mt-2">
-                            Closest match: RM ${(parseFloat(tariff.bill_total_normal) || 0).toFixed(2)}
-                            <span class="text-emerald-200">(Your input: RM ${data.inputAmount})</span>
-                        </p>
-                    </div>
-
-                    <div class="p-4">
-                        <div class="space-y-3">
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Usage</span>
-                                <span class="font-medium">${tariff.usage_kwh || 0} kWh</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Usage Cost</span>
-                                <span class="font-medium">RM ${(parseFloat(tariff.usage_normal) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Network Fee</span>
-                                <span class="font-medium">RM ${(parseFloat(tariff.network) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Capacity Fee</span>
-                                <span class="font-medium">RM ${(parseFloat(tariff.capacity) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Retail Charge</span>
-                                <span class="font-medium">RM ${(parseFloat(tariff.retail) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">EEI</span>
-                                <span class="font-medium">RM ${(parseFloat(tariff.eei) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">SST</span>
-                                <span class="font-medium">RM ${(parseFloat(tariff.sst_normal) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between py-2 border-b border-gray-100">
-                                <span class="text-gray-600">KWTBB</span>
-                                <span class="font-medium">RM ${(parseFloat(tariff.kwtbb_normal) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex justify-between py-3 bg-primary/10 rounded-lg px-3 font-semibold text-lg">
-                                <span class="text-primary">Total Bill</span>
-                                <span class="text-primary">RM ${(parseFloat(tariff.bill_total_normal) || 0).toFixed(2)}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Solar Configuration -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                    <div class="bg-gradient-to-r from-accent to-orange-500 text-white p-4">
-                        <h3 class="text-lg font-semibold flex items-center">
-                            <span class="bg-white text-accent rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">3</span>
-                            Solar Configuration
-                        </h3>
-                        <p class="text-orange-100 text-sm mt-2">Configure your solar setup parameters</p>
-                    </div>
-
-                    <div class="p-4 space-y-4">
-                        <!-- Solar Parameters Grid -->
-                        <div class="grid grid-cols-1 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    Sun Peak Hours
-                                </label>
-                                <input
-                                    type="number"
-                                    id="sunPeakHour"
-                                    step="0.1"
-                                    min="3.0"
-                                    max="4.5"
-                                    value="3.4"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-accent focus:border-transparent"
-                                >
-                                <p class="text-xs text-gray-500 mt-1">Range: 3.0 - 4.5 hours</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    Morning Usage (%)
-                                </label>
-                                <input
-                                    type="number"
-                                    id="morningUsage"
-                                    min="1"
-                                    max="100"
-                                    value="30"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-accent focus:border-transparent"
-                                >
-                                <p class="text-xs text-gray-500 mt-1">Range: 1% - 100%</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    Panel Type (Watts)
-                                </label>
-                                <select
-                                    id="panelType"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-accent focus:border-transparent"
-                                >
-                                    <option value="620">620W (Default)</option>
-                                    <option value="590">590W</option>
-                                </select>
-                                <p class="text-xs text-gray-500 mt-1">Select panel wattage type</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    SMP Export Price (RM/kWh)
-                                </label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">RM</span>
-                                    <input
-                                        type="number"
-                                        id="smpPrice"
-                                        step="0.01"
-                                        min="0.19"
-                                        max="0.27"
-                                        value="0.20"
-                                        class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-accent focus:border-transparent"
-                                    >
-                                </div>
-                                <p class="text-xs text-gray-500 mt-1">Range: RM 0.19 - RM 0.27</p>
-                            </div>
-                        </div>
-
-                        <!-- Discounts Section -->
-                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                            <h4 class="font-medium text-amber-800 mb-3 flex items-center">
-                                <span class="text-lg mr-2">🎯</span>
-                                Discounts & Promos
-                            </h4>
-                            <div class="grid grid-cols-1 gap-3">
+                <div class="space-y-6">
+                    <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 shadow-[0_30px_60px_rgba(8,47,73,0.4)] overflow-hidden">
+                        <div class="border-b border-slate-800 px-6 py-6">
+                            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <label class="block text-sm font-medium text-amber-700 mb-1">
-                                        Below 19 Panels Discount (RM)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        id="below19Discount"
-                                        step="0.01"
-                                        min="0"
-                                        value="0"
-                                        class="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                                    >
+                                    <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Phase 02</p>
+                                    <h3 class="mt-2 text-xl font-semibold text-slate-100">TNB Bill Breakdown</h3>
+                                    <p class="mt-2 text-sm text-slate-400">
+                                        Closest tariff alignment at <span class="text-primary">RM ${(parseFloat(tariff.bill_total_normal) || 0).toFixed(2)}</span>
+                                    </p>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-amber-700 mb-1">
-                                        Above 19 Panels Discount (RM)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        id="above19Discount"
-                                        step="0.01"
-                                        min="0"
-                                        value="0"
-                                        class="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                                    >
+                                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 text-right">
+                                    <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Your input</p>
+                                    <p class="mt-2 text-lg font-semibold text-slate-100">RM ${data.inputAmount}</p>
                                 </div>
                             </div>
                         </div>
+                        <div class="grid gap-3 px-6 py-6 text-sm text-slate-300">
+                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
+                                <span class="text-slate-400">Usage</span>
+                                <span class="text-slate-100">${tariff.usage_kwh || 0} kWh</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3">
+                                <span class="text-slate-400">Usage Cost</span>
+                                <span class="text-slate-100">RM ${(parseFloat(tariff.usage_normal) || 0).toFixed(2)}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
+                                <span class="text-slate-400">Network Fee</span>
+                                <span class="text-slate-100">RM ${(parseFloat(tariff.network) || 0).toFixed(2)}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3">
+                                <span class="text-slate-400">Capacity Fee</span>
+                                <span class="text-slate-100">RM ${(parseFloat(tariff.capacity) || 0).toFixed(2)}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
+                                <span class="text-slate-400">Retail Charge</span>
+                                <span class="text-slate-100">RM ${(parseFloat(tariff.retail) || 0).toFixed(2)}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3">
+                                <span class="text-slate-400">EEI</span>
+                                <span class="text-slate-100">RM ${(parseFloat(tariff.eei) || 0).toFixed(2)}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
+                                <span class="text-slate-400">SST</span>
+                                <span class="text-slate-100">RM ${(parseFloat(tariff.sst_normal) || 0).toFixed(2)}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3">
+                                <span class="text-slate-400">KWTBB</span>
+                                <span class="text-slate-100">RM ${(parseFloat(tariff.kwtbb_normal) || 0).toFixed(2)}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-primary/40 bg-primary/10 px-5 py-4 text-base font-semibold text-primary">
+                                <span>Total Bill</span>
+                                <span>RM ${(parseFloat(tariff.bill_total_normal) || 0).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
 
-                        <button
-                            onclick="calculateSolarSavings()"
-                            class="w-full bg-gradient-to-r from-accent to-orange-500 hover:from-accent/90 hover:to-orange-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center"
-                        >
-                            <span class="text-lg mr-2">⚡</span>
-                            Calculate Solar Savings
-                        </button>
+                    <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 shadow-[0_30px_60px_rgba(8,47,73,0.4)]">
+                        <div class="border-b border-slate-800 px-6 py-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Phase 03</p>
+                                    <h3 class="mt-2 text-xl font-semibold text-slate-100">Solar Configuration</h3>
+                                    <p class="mt-2 text-sm text-slate-400">Control system assumptions to match your profile.</p>
+                                </div>
+                                <div class="hidden sm:flex h-12 w-12 items-center justify-center rounded-full border border-slate-800 bg-slate-950/40 text-primary">
+                                    ⚡
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-6 px-6 py-6 text-sm text-slate-300">
+                            <div class="grid gap-5 md:grid-cols-2">
+                                <div class="space-y-2">
+                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Sun Peak Hours</label>
+                                    <input
+                                        type="number"
+                                        id="sunPeakHour"
+                                        step="0.1"
+                                        min="3.0"
+                                        max="4.5"
+                                        value="3.4"
+                                        class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                    >
+                                    <p class="text-xs text-slate-500">Range: 3.0 - 4.5 hours</p>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Morning Usage (%)</label>
+                                    <input
+                                        type="number"
+                                        id="morningUsage"
+                                        min="1"
+                                        max="100"
+                                        value="30"
+                                        class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                    >
+                                    <p class="text-xs text-slate-500">Range: 1% - 100%</p>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Type (Watts)</label>
+                                    <select
+                                        id="panelType"
+                                        class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                    >
+                                        <option value="620">620W (Default)</option>
+                                        <option value="590">590W</option>
+                                    </select>
+                                    <p class="text-xs text-slate-500">Select panel wattage type</p>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">SMP Export Price (RM/kWh)</label>
+                                    <div class="relative">
+                                        <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs uppercase tracking-[0.3em] text-slate-500">RM</span>
+                                        <input
+                                            type="number"
+                                            id="smpPrice"
+                                            step="0.01"
+                                            min="0.19"
+                                            max="0.27"
+                                            value="0.20"
+                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 pl-14 pr-4 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                        >
+                                    </div>
+                                    <p class="text-xs text-slate-500">Range: RM 0.19 - RM 0.27</p>
+                                </div>
+                            </div>
+
+                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-5">
+                                <h4 class="text-sm font-medium text-slate-200">Discount Programs</h4>
+                                <p class="mt-1 text-xs text-slate-500">Incentivise installations with tier-based rebates.</p>
+                                <div class="mt-4 grid gap-4 md:grid-cols-2">
+                                    <div class="space-y-2">
+                                        <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Below 19 Panels (RM)</label>
+                                        <input
+                                            type="number"
+                                            id="below19Discount"
+                                            step="0.01"
+                                            min="0"
+                                            value="0"
+                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                        >
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Above 19 Panels (RM)</label>
+                                        <input
+                                            type="number"
+                                            id="above19Discount"
+                                            step="0.01"
+                                            min="0"
+                                            value="0"
+                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button
+                                onclick="calculateSolarSavings()"
+                                class="group flex w-full items-center justify-center rounded-2xl border border-transparent bg-gradient-to-r from-primaryDark to-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.3em] text-slate-950 transition hover:from-primary hover:to-primary/80"
+                            >
+                                <span class="mr-3 text-xs font-medium">Run Solar Model</span>
+                                <span class="flex h-9 w-9 items-center justify-center rounded-full border border-slate-900/20 bg-slate-950/10 text-slate-950 transition group-hover:border-slate-900/40">
+                                    ⚡
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -425,11 +472,11 @@
 
             // Add loading indicator
             const loadingDiv = document.createElement('div');
-            loadingDiv.className = 'bg-white rounded-xl shadow-sm border border-gray-200 p-6';
+            loadingDiv.className = 'rounded-3xl border border-slate-800 bg-surfaceAlt/70 p-6 text-slate-300 shadow-[0_20px_40px_rgba(8,47,73,0.35)]';
             loadingDiv.innerHTML = `
-                <div class="flex items-center justify-center">
-                    <div class="animate-spin rounded-full h-6 w-6 border-2 border-secondary border-t-transparent mr-3"></div>
-                    <span class="text-gray-600">Calculating solar savings...</span>
+                <div class="flex items-center justify-center space-x-3 text-sm">
+                    <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                    <span>Calibrating solar model...</span>
                 </div>
             `;
             resultsDiv.appendChild(loadingDiv);
@@ -449,10 +496,10 @@
                 await fetchSolarCalculation({ displayPopup: true });
             } catch (error) {
                 const errorDiv = document.createElement('div');
-                errorDiv.className = 'bg-red-50 border border-red-200 rounded-xl p-6';
+                errorDiv.className = 'rounded-3xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-200';
                 errorDiv.innerHTML = `
-                    <div class="text-red-700 font-medium">Calculation Error</div>
-                    <div class="text-red-600 text-sm mt-1">${error.message}</div>
+                    <div class="text-base font-medium">Calculation Error</div>
+                    <div class="mt-1 opacity-80">${error.message}</div>
                 `;
                 resultsDiv.appendChild(errorDiv);
                 showNotification(`Error: ${error.message}`, 'error');
@@ -520,204 +567,193 @@
                 resultsDiv.appendChild(solarDiv);
             }
 
-            solarDiv.className = 'bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden';
+            solarDiv.className = 'rounded-3xl border border-slate-800 bg-surfaceAlt/80 shadow-[0_40px_80px_rgba(8,47,73,0.45)] overflow-hidden';
 
             const packageSection = data.selectedPackage ? `
-                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-3">
-                    <div class="text-sm font-semibold text-emerald-700 flex items-center">
-                        <span class="text-lg mr-2">📦</span>
-                        Package Match Found
+                <div class="rounded-2xl border border-primary/40 bg-primary/10 px-5 py-4 text-sm text-slate-200">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <div class="flex items-center text-primary">
+                                <span class="mr-2 text-lg">📦</span>
+                                <span class="text-xs uppercase tracking-[0.3em] text-primary/70">Package Match</span>
+                            </div>
+                            <div class="mt-2 font-semibold text-slate-100">${data.selectedPackage.packageName}</div>
+                            <div class="mt-1 text-xs text-slate-400">${data.actualPanels} × ${data.config.panelType}W • ${data.selectedPackage.type || 'Residential'}</div>
+                        </div>
+                        <div class="rounded-full border border-primary/40 bg-slate-950/40 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-primary/80">Active</div>
                     </div>
-                    <div class="text-xs text-emerald-700 mt-2 space-y-1">
-                        <div><strong>${data.selectedPackage.packageName}</strong> • ${data.selectedPackage.type || 'Residential'}</div>
-                        <div>${data.actualPanels} panels × ${data.config.panelType}W</div>
-                        <div>Price: RM ${formatCurrency(data.selectedPackage.price)}</div>
-                        ${data.selectedPackage.maxDiscount ? `<div>Max Discount: RM ${formatCurrency(data.selectedPackage.maxDiscount)}</div>` : ''}
-                        ${data.selectedPackage.special ? '<div>🌟 Special Package</div>' : ''}
-                        ${data.selectedPackage.invoiceDesc ? `<div class="pt-2 border-t border-emerald-200">${data.selectedPackage.invoiceDesc}</div>` : ''}
+                    <div class="mt-3 grid gap-2 text-xs text-slate-300">
+                        <div>Investment: RM ${formatCurrency(data.selectedPackage.price)}</div>
+                        ${data.selectedPackage.maxDiscount ? `<div>Potential Discount: RM ${formatCurrency(data.selectedPackage.maxDiscount)}</div>` : ''}
+                        ${data.selectedPackage.special ? '<div class="text-primary">🌟 Special Package Available</div>' : ''}
+                        ${data.selectedPackage.invoiceDesc ? `<div class="rounded-xl border border-primary/20 bg-slate-950/40 px-4 py-3 text-[11px] text-slate-400">${data.selectedPackage.invoiceDesc}</div>` : ''}
                     </div>
                 </div>
             ` : `
-                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
-                    <div class="text-sm font-semibold text-amber-700 flex items-center">
-                        <span class="text-lg mr-2">⚠️</span>
-                        No Matching Package Found
+                <div class="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
+                    <div class="flex items-center text-amber-200">
+                        <span class="mr-2">⚠️</span>
+                        <span class="text-xs uppercase tracking-[0.3em]">No Package Match</span>
                     </div>
-                    <div class="text-xs text-amber-700 mt-2">
-                        We could not find an active residential package for ${data.packageSearchQty} panels. Try adjusting the panel count.
-                    </div>
+                    <p class="mt-2 text-xs text-amber-100/80">We couldn’t locate an active package for ${data.packageSearchQty} panels. Adjust the panel count to explore more options.</p>
                 </div>
             `;
 
             const costSummarySection = data.finalSystemCost !== null ? `
-                        <div class="flex justify-between py-2 border-b border-gray-100 mt-4">
-                            <span class="text-gray-600">System Cost (Before Discount)</span>
-                            <span class="font-medium">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-gray-100">
-                            <span class="text-gray-600">Discount Applied</span>
-                            <span class="font-medium text-orange-600">-RM ${formatCurrency(data.discount)}</span>
-                        </div>
-                        <div class="flex justify-between py-3 bg-secondary/10 rounded-lg px-3 font-semibold text-lg">
-                            <span class="text-secondary">Final System Cost</span>
-                            <span class="text-secondary">RM ${formatCurrency(data.finalSystemCost)}</span>
-                        </div>
+                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 text-sm text-slate-300 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">System Cost</span>
+                        <span class="font-medium text-slate-100">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Discount Applied</span>
+                        <span class="font-medium text-emerald-300">-RM ${formatCurrency(data.discount)}</span>
+                    </div>
+                    <div class="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-base font-semibold text-primary">
+                        <span>Final System Cost</span>
+                        <span>RM ${formatCurrency(data.finalSystemCost)}</span>
+                    </div>
+                </div>
             ` : '';
 
             const paybackDisplay = data.paybackPeriod === null
                 ? null
                 : (data.paybackPeriod === 'N/A' ? 'N/A' : `${data.paybackPeriod} years`);
             const paybackSection = paybackDisplay !== null ? `
-                        <div class="flex justify-between py-3 bg-accent/10 rounded-lg px-3 font-semibold text-lg">
-                            <span class="text-accent">Payback Period</span>
-                            <span class="text-accent">${paybackDisplay}</span>
-                        </div>
+                <div class="rounded-2xl border border-accent/40 bg-accent/10 px-5 py-4 text-base font-semibold text-accent">
+                    <div class="flex items-center justify-between">
+                        <span>Payback Period</span>
+                        <span>${paybackDisplay}</span>
+                    </div>
+                </div>
             ` : '';
 
             solarDiv.innerHTML = `
-                <div class="bg-gradient-to-r from-secondary to-emerald-600 text-white p-4">
-                    <h3 class="text-lg font-semibold flex items-center">
-                        <span class="bg-white text-secondary rounded-full w-8 h-8 flex items-center justify-center text-sm mr-3">4</span>
-                        Solar Savings Results
-                    </h3>
-                    <p class="text-emerald-100 text-sm mt-2">
-                        ${data.config.sunPeakHour}h peak • ${data.config.morningUsage}% morning • RM ${data.config.smpPrice}/kWh export
-                    </p>
+                <div class="border-b border-slate-800 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-6 text-slate-100">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Phase 04</p>
+                            <h3 class="mt-2 text-2xl font-semibold">Solar Savings Results</h3>
+                            <p class="mt-2 text-sm text-slate-400">${data.config.sunPeakHour}h peak • ${data.config.morningUsage}% morning • RM ${data.config.smpPrice}/kWh export</p>
+                        </div>
+                        <div class="hidden sm:flex h-12 w-12 items-center justify-center rounded-full border border-primary/40 bg-slate-950/40 text-primary">⚙️</div>
+                    </div>
                 </div>
 
-                <div class="p-4">
-                    <div class="space-y-3">
-                        <div class="flex justify-between py-2 border-b border-gray-100">
-                            <span class="text-gray-600">System Size</span>
-                            <span class="font-medium">${data.solarConfig}</span>
+                <div class="space-y-5 px-6 py-6 text-sm text-slate-300">
+                    <div class="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">System Size</p>
+                            <p class="mt-2 text-lg font-semibold text-slate-100">${data.solarConfig}</p>
                         </div>
-
-                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-3" id="panelAdjustmentSection">
+                        <div class="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-4 sm:w-auto" id="panelAdjustmentSection">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <div class="text-sm font-semibold text-gray-700">Adjust Panel Count</div>
-                                    <div class="text-xs text-gray-500">Recommended: ${data.recommendedPanels} panels</div>
+                                    <div class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Modulation</div>
+                                    <div class="mt-1 text-xs text-slate-500">Recommended: ${data.recommendedPanels} panels</div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <button type="button" id="panelDecreaseBtn" ${data.actualPanels <= 1 ? 'disabled' : ''} onclick="adjustPanelCount(-1)" class="w-9 h-9 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-lg font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">&minus;</button>
-                                    <input type="number" id="panelQtyInput" min="1" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-20 text-center border border-gray-300 rounded-lg py-1.5 px-2 text-sm focus:ring-2 focus:ring-secondary focus:border-transparent" />
-                                    <button type="button" id="panelIncreaseBtn" onclick="adjustPanelCount(1)" class="w-9 h-9 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-lg font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">+</button>
+                                    <button type="button" id="panelDecreaseBtn" ${data.actualPanels <= 1 ? 'disabled' : ''} onclick="adjustPanelCount(-1)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-primary hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed">&minus;</button>
+                                    <input type="number" id="panelQtyInput" min="1" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-20 rounded-xl border border-slate-700 bg-slate-950/60 py-2 text-center text-sm text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40" />
+                                    <button type="button" id="panelIncreaseBtn" onclick="adjustPanelCount(1)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-primary hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed">+</button>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 text-xs text-gray-500 mt-2">
+                            <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
                                 <div id="panelAdjustSpinner" class="hidden">
-                                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-secondary border-t-transparent"></div>
+                                    <div class="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
                                 </div>
                                 <span id="panelAdjustStatus">${buildPanelStatusText(data)}</span>
                             </div>
                         </div>
+                    </div>
 
-                        ${packageSection}
-
-                        <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mt-4">
-                            <h4 class="font-semibold text-emerald-800 mb-3 flex items-center">
-                                <span class="text-lg mr-2">💰</span>
-                                Monthly Saving Calculation Breakdown
-                            </h4>
-
-                            <div class="space-y-2 text-sm">
-                                <div class="flex justify-between py-1">
-                                    <span class="text-gray-700">Solar Generation</span>
-                                    <span class="font-medium">${data.details.monthlySolarGeneration} kWh</span>
-                                </div>
-
-                                <div class="bg-blue-50 border border-blue-200 rounded p-3 mt-3">
-                                    <div class="font-medium text-blue-800 mb-2">🌅 Morning Usage Saving</div>
-                                    <div class="space-y-1 text-xs text-blue-700">
-                                        <div class="flex justify-between">
-                                            <span>Monthly Usage:</span>
-                                            <span>${data.details.monthlyUsageKwh} kWh</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span>Morning Usage (${data.config.morningUsage}%):</span>
-                                            <span>${data.details.morningUsageKwh} kWh</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span>Rate:</span>
-                                            <span>RM ${data.details.morningUsageRate}/kWh</span>
-                                        </div>
-                                        <div class="border-t border-blue-300 pt-1 mt-2">
-                                            <div class="flex justify-between font-semibold">
-                                                <span>Morning Saving:</span>
-                                                <span>RM ${data.details.morningSaving}</span>
-                                            </div>
-                                            <div class="text-xs text-blue-600 mt-1">
-                                                (${data.details.morningUsageKwh} × RM ${data.details.morningUsageRate})
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="bg-orange-50 border border-orange-200 rounded p-3 mt-3">
-                                    <div class="font-medium text-orange-800 mb-2">⚡ Export Saving</div>
-                                    <div class="space-y-1 text-xs text-orange-700">
-                                        <div class="flex justify-between">
-                                            <span>Solar Generation:</span>
-                                            <span>${data.details.monthlySolarGeneration} kWh</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span>Morning Usage:</span>
-                                            <span>-${data.details.morningUsageKwh} kWh</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span>Export Amount:</span>
-                                            <span>${data.details.exportKwh} kWh</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span>Export Rate:</span>
-                                            <span>RM ${data.details.exportRate}/kWh</span>
-                                        </div>
-                                        <div class="border-t border-orange-300 pt-1 mt-2">
-                                            <div class="flex justify-between font-semibold">
-                                                <span>Export Saving:</span>
-                                                <span>RM ${data.details.exportSaving}</span>
-                                            </div>
-                                            <div class="text-xs text-orange-600 mt-1">
-                                                (${data.details.exportKwh} × RM ${data.details.exportRate})
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="bg-green-100 border border-green-300 rounded p-3 mt-3">
-                                    <div class="flex justify-between font-bold text-green-800">
-                                        <span>🎯 Total Monthly Saving:</span>
-                                        <span>RM ${data.monthlySavings}</span>
-                                    </div>
-                                    <div class="text-xs text-green-700 mt-1">
-                                        (RM ${data.details.morningSaving} + RM ${data.details.exportSaving})
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Recommended Panels</p>
+                            <p class="mt-3 text-3xl font-semibold text-slate-100">${data.recommendedPanels}</p>
+                            <p class="mt-1 text-xs text-slate-500">Baseline for bill alignment</p>
                         </div>
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Active Panels</p>
+                            <p class="mt-3 text-3xl font-semibold text-slate-100">${data.actualPanels}</p>
+                            <p class="mt-1 text-xs text-slate-500">${data.overrideApplied ? 'Override applied for export balance' : 'Optimised recommendation'}</p>
+                        </div>
+                    </div>
 
-                        ${costSummarySection}
-                        ${paybackSection}
+                    <div class="grid gap-4 md:grid-cols-3">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Morning Coverage</p>
+                            <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.morningCoverage}%</p>
+                            <p class="mt-1 text-xs text-slate-500">RM ${data.details.morningSaving} captured</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Export Coverage</p>
+                            <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.exportCoverage}%</p>
+                            <p class="mt-1 text-xs text-slate-500">RM ${data.details.exportSaving} gained</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Total Generation</p>
+                            <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.totalGeneration} kWh</p>
+                            <p class="mt-1 text-xs text-slate-500">${data.details.sunPeakHour} sun peak hours</p>
+                        </div>
+                    </div>
 
-                        <div class="mt-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Daily Usage & Generation Patterns</h3>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Savings Snapshot</p>
+                            <p class="mt-3 text-3xl font-semibold text-emerald-300">RM ${data.monthlySavings}</p>
+                            <p class="mt-1 text-xs text-slate-500">${data.details.monthlyBillReduction} RM bill reduction</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">ROI</p>
+                            <p class="mt-3 text-3xl font-semibold text-emerald-300">${data.roiPercentage}%</p>
+                            <p class="mt-1 text-xs text-slate-500">${data.details.annualReturn} RM annual return</p>
+                        </div>
+                    </div>
 
-                            <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4">
-                                <h4 class="text-md font-medium text-gray-700 mb-3">⚡ Daily Electricity Import Pattern</h4>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Morning Self-Consumption</p>
+                            <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.morningSelfConsumption} kWh</p>
+                            <p class="mt-1 text-xs text-slate-500">${data.details.morningCoverage}% of morning usage</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Grid Export</p>
+                            <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.exportKwh} kWh</p>
+                            <p class="mt-1 text-xs text-slate-500">${data.details.exportCoverage}% coverage</p>
+                            <p class="mt-1 text-[11px] text-slate-500">(${data.details.exportKwh} × RM ${data.details.exportRate})</p>
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100">
+                        <div class="flex items-center justify-between">
+                            <span class="flex items-center text-base font-semibold">🎯 Total Monthly Saving</span>
+                            <span class="text-lg font-semibold">RM ${data.monthlySavings}</span>
+                        </div>
+                        <p class="mt-1 text-xs text-emerald-100/80">(RM ${data.details.morningSaving} + RM ${data.details.exportSaving})</p>
+                    </div>
+
+                    ${costSummarySection}
+                    ${paybackSection}
+                    ${packageSection}
+
+                    <div class="space-y-4 rounded-3xl border border-slate-800 bg-slate-950/30 px-5 py-6">
+                        <h3 class="text-base font-semibold text-slate-100">Daily Usage & Generation Patterns</h3>
+                        <div class="grid gap-4">
+                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                                <h4 class="text-sm font-medium text-slate-300 mb-3">⚡ Daily Electricity Import Pattern</h4>
                                 <div style="height: 300px; position: relative;">
                                     <canvas id="electricityImportChart"></canvas>
                                 </div>
                             </div>
-
-                            <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4">
-                                <h4 class="text-md font-medium text-gray-700 mb-3">☀️ Solar Generation Pattern</h4>
+                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                                <h4 class="text-sm font-medium text-slate-300 mb-3">☀️ Solar Generation Pattern</h4>
                                 <div style="height: 300px; position: relative;">
                                     <canvas id="solarGenerationChart"></canvas>
                                 </div>
                             </div>
-
-                            <div class="bg-white p-4 rounded-lg border border-gray-200">
-                                <h4 class="text-md font-medium text-gray-700 mb-3">🔋 Net Electricity Import (After Solar Offset)</h4>
+                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                                <h4 class="text-sm font-medium text-slate-300 mb-3">🔋 Net Electricity Import (After Solar Offset)</h4>
                                 <div style="height: 300px; position: relative;">
                                     <canvas id="combinedChart"></canvas>
                                 </div>
@@ -725,9 +761,7 @@
                         </div>
                     </div>
                 </div>
-            `;
-
-            createCharts(data.charts);
+            `;            createCharts(data.charts);
             setPanelControlsLoading(false);
 
             if (isInitialRender) {
@@ -859,139 +893,154 @@
         // Database connection test
         async function testConnection() {
             const statusDiv = document.getElementById('dbStatus');
-            statusDiv.className = 'flex items-center justify-center p-3 rounded-lg bg-yellow-50 border border-yellow-200';
+            statusDiv.className = 'flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-5 py-4 text-sm text-slate-300';
             statusDiv.innerHTML = `
-                <div class="animate-spin rounded-full h-4 w-4 border-2 border-yellow-400 border-t-transparent mr-2"></div>
-                <span class="text-yellow-700 text-sm">Testing database connection...</span>
+                <div class="flex items-center space-x-3">
+                    <div class="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                    <span>Testing database connection...</span>
+                </div>
+                <span class="text-xs uppercase tracking-[0.3em] text-slate-500">Checking</span>
             `;
 
             try {
                 const response = await fetch('/api/health');
                 const data = await response.json();
 
-                if (response.ok) {
-                    statusDiv.className = 'flex items-center justify-center p-3 rounded-lg bg-green-50 border border-green-200';
+                    if (response.ok) {
+                        statusDiv.className = 'flex items-center justify-between rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100';
+                        statusDiv.innerHTML = `
+                            <div class="flex items-center space-x-3">
+                                <svg class="h-5 w-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>Database connected successfully</span>
+                            </div>
+                            <span class="text-xs uppercase tracking-[0.3em] text-emerald-200">Online</span>
+                        `;
+                    } else {
+                        statusDiv.className = 'flex items-center justify-between rounded-2xl border border-rose-500/40 bg-rose-500/10 px-5 py-4 text-sm text-rose-200';
+                        statusDiv.innerHTML = `
+                            <div class="flex items-center space-x-3">
+                                <svg class="h-5 w-5 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Database connection failed</span>
+                            </div>
+                            <span class="text-xs uppercase tracking-[0.3em] text-rose-200/80">Offline</span>
+                        `;
+                    }
+                } catch (error) {
+                    statusDiv.className = 'flex items-center justify-between rounded-2xl border border-rose-500/40 bg-rose-500/10 px-5 py-4 text-sm text-rose-200';
                     statusDiv.innerHTML = `
-                        <svg class="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                        </svg>
-                        <span class="text-green-700 text-sm">Database connected successfully!</span>
-                    `;
-                } else {
-                    statusDiv.className = 'flex items-center justify-center p-3 rounded-lg bg-red-50 border border-red-200';
-                    statusDiv.innerHTML = `
-                        <svg class="w-4 h-4 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                        </svg>
-                        <span class="text-red-700 text-sm">Database connection failed</span>
+                        <div class="flex items-center space-x-3">
+                            <svg class="h-5 w-5 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Connection error: ${error.message}</span>
+                        </div>
+                        <span class="text-xs uppercase tracking-[0.3em] text-rose-200/80">Retry</span>
                     `;
                 }
-            } catch (error) {
-                statusDiv.className = 'flex items-center justify-center p-3 rounded-lg bg-red-50 border border-red-200';
-                statusDiv.innerHTML = `
-                    <svg class="w-4 h-4 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                    </svg>
-                    <span class="text-red-700 text-sm">Connection error: ${error.message}</span>
-                `;
-            }
         }
 
         // Debug functions for testing (simplified)
         async function getSchema() {
-            document.getElementById('results').innerHTML = '<div class="text-sm text-gray-600 p-2 bg-gray-100 rounded">Loading schema...</div>';
+            document.getElementById('results').innerHTML = '<div class="text-sm text-slate-300 border border-slate-800 bg-slate-900/60 px-4 py-3 rounded-xl">Loading schema...</div>';
             try {
                 const response = await fetch('/api/schema');
                 const data = await response.json();
-                document.getElementById('results').innerHTML = `<pre class="text-xs bg-gray-100 p-2 rounded overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
+                document.getElementById('results').innerHTML = `<pre class="text-xs rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-300 overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
             } catch (error) {
-                document.getElementById('results').innerHTML = `<div class="text-sm text-red-600 p-2 bg-red-100 rounded">Error: ${error.message}</div>`;
+                document.getElementById('results').innerHTML = `<div class="text-sm text-rose-200 border border-rose-500/40 bg-rose-500/10 px-4 py-3 rounded-xl">Error: ${error.message}</div>`;
             }
         }
 
         async function getTnbTariff() {
-            document.getElementById('results').innerHTML = '<div class="text-sm text-gray-600 p-2 bg-gray-100 rounded">Loading TNB data...</div>';
+            document.getElementById('results').innerHTML = '<div class="text-sm text-slate-300 border border-slate-800 bg-slate-900/60 px-4 py-3 rounded-xl">Loading TNB data...</div>';
             try {
                 const response = await fetch('/api/tnb-tariff');
                 const data = await response.json();
-                document.getElementById('results').innerHTML = `<pre class="text-xs bg-gray-100 p-2 rounded overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
+                document.getElementById('results').innerHTML = `<pre class="text-xs rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-300 overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
             } catch (error) {
-                document.getElementById('results').innerHTML = `<div class="text-sm text-red-600 p-2 bg-red-100 rounded">Error: ${error.message}</div>`;
+                document.getElementById('results').innerHTML = `<div class="text-sm text-rose-200 border border-rose-500/40 bg-rose-500/10 px-4 py-3 rounded-xl">Error: ${error.message}</div>`;
             }
         }
 
         async function getPackageInfo() {
-            document.getElementById('results').innerHTML = '<div class="text-sm text-gray-600 p-2 bg-gray-100 rounded">Loading package info...</div>';
+            document.getElementById('results').innerHTML = '<div class="text-sm text-slate-300 border border-slate-800 bg-slate-900/60 px-4 py-3 rounded-xl">Loading package info...</div>';
             try {
                 const response = await fetch('/api/package-info');
                 const data = await response.json();
-                document.getElementById('results').innerHTML = `<pre class="text-xs bg-gray-100 p-2 rounded overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
+                document.getElementById('results').innerHTML = `<pre class="text-xs rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-300 overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
             } catch (error) {
-                document.getElementById('results').innerHTML = `<div class="text-sm text-red-600 p-2 bg-red-100 rounded">Error: ${error.message}</div>`;
+                document.getElementById('results').innerHTML = `<div class="text-sm text-rose-200 border border-rose-500/40 bg-rose-500/10 px-4 py-3 rounded-xl">Error: ${error.message}</div>`;
             }
         }
 
         async function getProductInfo() {
-            document.getElementById('results').innerHTML = '<div class="text-sm text-gray-600 p-2 bg-gray-100 rounded">Loading product relationship...</div>';
+            document.getElementById('results').innerHTML = '<div class="text-sm text-slate-300 border border-slate-800 bg-slate-900/60 px-4 py-3 rounded-xl">Loading product relationship...</div>';
             try {
                 const response = await fetch('/api/product-info');
                 const data = await response.json();
-                document.getElementById('results').innerHTML = `<pre class="text-xs bg-gray-100 p-2 rounded overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
+                document.getElementById('results').innerHTML = `<pre class="text-xs rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-300 overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>`;
             } catch (error) {
-                document.getElementById('results').innerHTML = `<div class="text-sm text-red-600 p-2 bg-red-100 rounded">Error: ${error.message}</div>`;
+                document.getElementById('results').innerHTML = `<div class="text-sm text-rose-200 border border-rose-500/40 bg-rose-500/10 px-4 py-3 rounded-xl">Error: ${error.message}</div>`;
             }
         }
 
         // Show panel recommendation popup
         function showPanelRecommendationPopup(data) {
             const popup = document.createElement('div');
-            popup.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            popup.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm';
 
             const packageInfo = data.selectedPackage ?
-                `<div class="text-emerald-600 font-medium mt-3">
-                    📦 Selected Package: ${data.selectedPackage.packageName}
-                    <div class="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded">
-                        <div><strong>Package Description:</strong></div>
+                `<div class="mt-6 rounded-2xl border border-primary/30 bg-primary/10 px-5 py-4 text-sm text-slate-200">
+                    <div class="flex items-center justify-between">
+                        <span class="flex items-center text-primary"><span class="mr-2 text-lg">📦</span>Selected Package</span>
+                        <span class="rounded-full border border-primary/40 bg-slate-950/40 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-primary/70">Active</span>
+                    </div>
+                    <div class="mt-3 text-base font-semibold text-slate-100">${data.selectedPackage.packageName}</div>
+                    <div class="mt-2 grid gap-1 text-xs text-slate-300">
                         <div>• Type: ${data.selectedPackage.type || 'Standard'}</div>
-                        <div>• Panels: ${data.actualPanels} x ${data.config.panelType}W</div>
+                        <div>• Configuration: ${data.actualPanels} × ${data.config.panelType}W</div>
                         <div>• Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}</div>
                         ${data.selectedPackage.maxDiscount ? `<div>• Max Discount: RM ${data.selectedPackage.maxDiscount.toLocaleString('en-MY')}</div>` : ''}
-                        ${data.selectedPackage.special ? '<div>• 🌟 Special Package</div>' : ''}
-                        ${data.selectedPackage.invoiceDesc ? `<div class="mt-2 p-2 bg-blue-50 border-l-2 border-blue-300"><strong>Invoice Description:</strong><br><span style="white-space: pre-line;">${data.selectedPackage.invoiceDesc}</span></div>` : ''}
+                        ${data.selectedPackage.special ? '<div>• 🌟 Special Package Available</div>' : ''}
                     </div>
+                    ${data.selectedPackage.invoiceDesc ? `<div class=\"mt-4 rounded-xl border border-primary/20 bg-slate-950/50 px-4 py-3 text-[11px] text-slate-400\"><strong class=\"block text-primary/80\">Invoice Notes</strong><span style=\"white-space: pre-line;\">${data.selectedPackage.invoiceDesc}</span></div>` : ''}
                 </div>` :
-                `<div class="text-amber-600 font-medium mt-3">
-                    ⚠️ No package found for ${data.packageSearchQty} x ${data.config.panelType}W panels
+                `<div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
+                    ⚠️ No package found for ${data.packageSearchQty} × ${data.config.panelType}W panels
                 </div>`;
 
             popup.innerHTML = `
-                <div class="bg-white rounded-xl shadow-xl max-w-sm w-full max-h-screen overflow-y-auto">
-                    <div class="bg-gradient-to-r from-primary to-secondary text-white p-6 text-center">
-                        <div class="text-4xl mb-2">⚡</div>
-                        <h3 class="text-xl font-bold">Solar System Recommendation</h3>
+                <div class="solar-modal-card w-full max-w-lg rounded-3xl border border-slate-800 bg-surfaceAlt/90 shadow-[0_40px_80px_rgba(8,47,73,0.6)] overflow-hidden">
+                    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-6 text-center text-slate-100">
+                        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-primary/40 bg-slate-950/40 text-2xl text-primary">⚡</div>
+                        <h3 class="mt-4 text-xl font-semibold">Solar System Recommendation</h3>
+                        <p class="mt-2 text-sm text-slate-400">Adaptive panel guidance aligned to your usage profile.</p>
                     </div>
 
-                    <div class="p-6">
+                    <div class="px-6 py-6 text-sm text-slate-300">
                         <div class="text-center">
-                            <div class="text-3xl font-bold text-primary">${data.recommendedPanels}</div>
-                            <div class="text-gray-600 text-lg">Recommended Panels</div>
-
-                            ${packageInfo}
-
-                            <div class="text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded">
-                                Formula: ${data.details.monthlyUsageKwh} kWh ÷ ${data.config.sunPeakHour}h ÷ 30 ÷ 0.62 = ${data.recommendedPanels} x ${data.config.panelType}W panels
+                            <div class="text-4xl font-semibold text-slate-100">${data.recommendedPanels}</div>
+                            <div class="mt-1 text-xs uppercase tracking-[0.3em] text-slate-500">Recommended Panels</div>
+                            <div class="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-xs text-slate-400">
+                                Formula: ${data.details.monthlyUsageKwh} kWh ÷ ${data.config.sunPeakHour}h ÷ 30 ÷ 0.62 = ${data.recommendedPanels} × ${data.config.panelType}W
                             </div>
                         </div>
 
-                        <div class="flex gap-3 mt-6">
+                        ${packageInfo}
+
+                        <div class="mt-6 flex gap-3">
                             <button
                                 onclick="this.parentElement.parentElement.parentElement.parentElement.remove()"
-                                class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-4 rounded-lg transition-colors"
+                                class="flex-1 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-primary hover:text-primary"
                             >
                                 Close
                             </button>
                             <button
-                                class="flex-1 bg-primary hover:bg-primary/90 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                                class="flex-1 rounded-2xl border border-transparent bg-gradient-to-r from-primaryDark to-primary px-4 py-3 text-sm font-semibold text-slate-950 transition hover:from-primary hover:to-primary/80"
                                 type="button"
                             >
                                 View Details
@@ -999,7 +1048,7 @@
                         </div>
                     </div>
                 </div>
-            `;
+            `;`;
 
             // Store data for the View Details button
             popup.querySelector('button:last-child').onclick = function() {
