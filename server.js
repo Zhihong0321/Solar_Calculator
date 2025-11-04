@@ -497,9 +497,9 @@ app.get('/api/solar-calculation', async (req, res) => {
     };
 
     const savingsBreakdown = {
-      billReduction,
-      exportCredit: exportSaving,
-      total: billReduction + exportSaving
+      billReduction: Number(billReduction.toFixed(2)),
+      exportCredit: Number(exportSaving.toFixed(2)),
+      total: Number((billReduction + exportSaving).toFixed(2))
     };
 
     // Use actual package price if available, otherwise fallback to calculation
