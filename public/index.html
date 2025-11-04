@@ -37,15 +37,24 @@
             <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_bottom,_rgba(34,211,238,0.2),_transparent_50%)]"></div>
         </div>
 
-        <div class="relative z-10 mx-auto w-full max-w-5xl px-6 py-10 lg:py-14">
-            <div class="grid gap-8 lg:grid-cols-[1.35fr,1fr]">
-                <div class="space-y-8">
-                    <header class="rounded-3xl border border-slate-800 bg-surface/80 px-8 py-10 backdrop-blur shadow-[0_0_60px_rgba(15,23,42,0.6)]">
-                        <div class="flex items-center justify-between text-sm uppercase tracking-[0.4em] text-slate-400">
-                            <span>Solar Intelligence Suite</span>
-                            <span>v2.0</span>
+        <div class="relative z-10 mx-auto w-full max-w-5xl px-3 py-6 sm:px-5 sm:py-8 lg:py-14">
+            <div class="grid gap-6 lg:grid-cols-[1.35fr,1fr]">
+                <div class="space-y-6">
+                    <header class="rounded-3xl border border-slate-800 bg-surface/80 px-4 py-6 backdrop-blur shadow-[0_0_60px_rgba(15,23,42,0.6)] sm:px-7 sm:py-9">
+                        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:gap-4 sm:text-left">
+                                <img src="assets/eternaly-logo.svg" alt="Eternalgy Sdn Bhd logo" class="h-12 w-auto sm:h-14">
+                                <div class="space-y-1">
+                                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-200">Eternalgy Sdn Bhd</p>
+                                    <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500">Eternal Energy</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-slate-500 sm:flex-row sm:gap-3 sm:text-xs">
+                                <span class="text-slate-400">Solar Intelligence Suite</span>
+                                <span class="rounded-full border border-slate-700 px-3 py-1 text-slate-300">v2.0</span>
+                            </div>
                         </div>
-                        <div class="mt-8 space-y-4">
+                        <div class="mt-6 space-y-4">
                             <div class="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-4 py-1 text-xs font-medium text-primary">
                                 <span class="mr-2 h-2 w-2 animate-pulse rounded-full bg-primary"></span>
                                 Real-time tariff optimisation
@@ -57,8 +66,8 @@
                         </div>
                     </header>
 
-                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-6 py-6 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)]">
-                        <div id="dbStatus" class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-5 py-4 text-sm text-slate-300">
+                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-4 py-4 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)] sm:px-6 sm:py-6">
+                        <div id="dbStatus" class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-300 sm:px-5">
                             <div class="flex items-center">
                                 <div class="mr-3 inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-700">
                                     <div class="h-3 w-3 animate-ping rounded-full bg-primary"></div>
@@ -69,8 +78,8 @@
                         </div>
                     </section>
 
-                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-6 py-6 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)]">
-                        <div class="rounded-2xl border border-slate-800 bg-slate-900/70 px-6 py-6">
+                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-4 py-4 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)] sm:px-6 sm:py-6">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4 sm:px-6 sm:py-6">
                             <h2 class="text-lg font-medium text-slate-50">TNB Bill Intake</h2>
                             <p class="mt-2 text-sm text-slate-400">Introduce your monthly spend to unlock a tailored solar profile.</p>
 
@@ -108,7 +117,7 @@
 
                     <section id="calculatorResults" class="space-y-6"></section>
 
-                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-6 py-6 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)]">
+                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-4 py-4 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)] sm:px-6 sm:py-6">
                         <details class="group rounded-2xl border border-slate-800 bg-slate-900/70">
                             <summary class="flex cursor-pointer items-center justify-between px-6 py-4 text-sm font-medium text-slate-300">
                                 <span class="flex items-center space-x-3">
@@ -117,7 +126,7 @@
                                 </span>
                                 <span class="text-xs uppercase tracking-[0.3em] text-slate-600 group-open:text-primary">Toggle</span>
                             </summary>
-                            <div class="space-y-3 border-t border-slate-800 px-6 py-6 text-sm text-slate-200">
+                            <div class="space-y-3 border-t border-slate-800 px-4 py-4 text-sm text-slate-200 sm:px-6 sm:py-6">
                                 <button onclick="testConnection()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
                                     Test DB Connection
                                 </button>
@@ -139,8 +148,8 @@
                     </section>
                 </div>
 
-                <aside class="space-y-6 lg:sticky lg:top-10">
-                    <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-6 py-8 shadow-[0_0_50px_rgba(15,23,42,0.5)]">
+                <aside class="space-y-5 lg:sticky lg:top-10">
+                    <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-4 py-5 shadow-[0_0_50px_rgba(15,23,42,0.5)] sm:px-6 sm:py-7">
                         <h2 class="text-sm uppercase tracking-[0.4em] text-slate-500">Live Metrics</h2>
                         <p class="mt-3 text-2xl font-semibold text-slate-100">Precision-built for energy strategists.</p>
                         <p class="mt-4 text-sm text-slate-400">
@@ -162,7 +171,7 @@
                         </div>
                     </div>
 
-                    <footer class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-6 py-6 text-xs text-slate-500">
+                    <footer class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-4 py-4 text-xs text-slate-500 sm:px-6 sm:py-6">
                         <p>Solar Calculator • Calibrated with TNB tariff intelligence.</p>
                         <p class="mt-2">Crafted for minimal friction and maximal clarity.</p>
                     </footer>
@@ -208,7 +217,7 @@
             };
 
             const notification = document.createElement('div');
-            notification.className = `fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-96 rounded-2xl px-5 py-4 backdrop-blur border ${colors[type]} z-50 shadow-[0_20px_40px_rgba(8,47,73,0.3)]`;
+            notification.className = `fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-96 rounded-2xl px-4 py-3 backdrop-blur border ${colors[type]} z-50 shadow-[0_20px_40px_rgba(8,47,73,0.3)]`;
             notification.innerHTML = `
                 <div class="flex items-center justify-between text-sm">
                     <span class="pr-6">${message}</span>
@@ -275,7 +284,7 @@
                                         Closest tariff alignment at <span class="text-primary">RM ${(parseFloat(tariff.bill_total_normal) || 0).toFixed(2)}</span>
                                     </p>
                                 </div>
-                                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 text-right">
+                                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-right">
                                     <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Your input</p>
                                     <p class="mt-2 text-lg font-semibold text-slate-100">RM ${data.inputAmount}</p>
                                 </div>
@@ -314,7 +323,7 @@
                                 <span class="text-slate-400">KWTBB</span>
                                 <span class="text-slate-100">RM ${(parseFloat(tariff.kwtbb_normal) || 0).toFixed(2)}</span>
                             </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-primary/40 bg-primary/10 px-5 py-4 text-base font-semibold text-primary">
+                            <div class="flex items-center justify-between rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-base font-semibold text-primary">
                                 <span>Total Bill</span>
                                 <span>RM ${(parseFloat(tariff.bill_total_normal) || 0).toFixed(2)}</span>
                             </div>
@@ -393,7 +402,7 @@
                                 </div>
                             </div>
 
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-5">
+                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4">
                                 <h4 class="text-sm font-medium text-slate-200">Discount Programs</h4>
                                 <p class="mt-1 text-xs text-slate-500">Incentivise installations with tier-based rebates.</p>
                                 <div class="mt-4 grid gap-4 md:grid-cols-2">
@@ -561,7 +570,13 @@
             let solarDiv = document.getElementById('solarResultsCard');
             const isInitialRender = !solarDiv;
 
+            const toNumber = (value, fallback = 0) => {
+                const numeric = Number(value);
+                return Number.isFinite(numeric) ? numeric : fallback;
+            };
+
             const detailSource = data.details || {};
+            const billComparison = data.billComparison || {};
             const monthlySavingsValue = Number(data.monthlySavings) || 0;
             const finalSystemCostValue = data.finalSystemCost !== null ? Number(data.finalSystemCost) : null;
             const annualReturnValue = monthlySavingsValue * 12;
@@ -581,6 +596,52 @@
             );
 
             const morningSelfConsumptionValue = Math.min(monthlySolarGenerationValue, morningUsageKwhValue);
+            const actualNetUsageValue = billComparison.actualNetUsageKwh !== undefined
+                ? Number(billComparison.actualNetUsageKwh)
+                : Math.max(0, monthlyUsageKwhValue - morningSelfConsumptionValue);
+            const lookupUsageValue = billComparison.lookupUsageKwh !== undefined
+                ? Number(billComparison.lookupUsageKwh)
+                : Math.floor(actualNetUsageValue);
+            const rawAfterUsageValue = billComparison.after && billComparison.after.usageKwh !== undefined
+                ? billComparison.after.usageKwh
+                : detailSource.afterUsageKwh;
+            const afterUsageValue = rawAfterUsageValue !== undefined && rawAfterUsageValue !== null
+                ? Number(rawAfterUsageValue)
+                : actualNetUsageValue;
+            const beforeBillValue = Number((billComparison.before && billComparison.before.billAmount) ?? detailSource.billBefore ?? 0);
+            const rawAfterBillValue = billComparison.after && billComparison.after.billAmount !== null
+                ? billComparison.after.billAmount
+                : detailSource.billAfter;
+            const afterBillValue = rawAfterBillValue !== null && rawAfterBillValue !== undefined
+                ? Number(rawAfterBillValue)
+                : null;
+            const billReductionValue = afterBillValue !== null
+                ? Math.max(0, beforeBillValue - afterBillValue)
+                : morningSavingValue;
+            const breakdownData = data.billBreakdownComparison || detailSource.billBreakdown || {};
+            const breakdownItems = Array.isArray(breakdownData.items) ? breakdownData.items : [];
+            const breakdownTotals = breakdownData.totals || {};
+            const savingsBreakdownData = data.savingsBreakdown || detailSource.savingsBreakdown || {};
+            const exportCreditValue = toNumber(
+                savingsBreakdownData.exportCredit,
+                exportSavingValue
+            );
+            const combinedSavingsValue = toNumber(
+                savingsBreakdownData.total,
+                billReductionValue + exportSavingValue
+            );
+            const breakdownTotalBefore = toNumber(
+                breakdownTotals.before,
+                beforeBillValue
+            );
+            const breakdownTotalAfterRaw = breakdownTotals.after;
+            const breakdownTotalAfter = breakdownTotalAfterRaw === null || breakdownTotalAfterRaw === undefined
+                ? (afterBillValue !== null ? afterBillValue : null)
+                : toNumber(breakdownTotalAfterRaw, afterBillValue || 0);
+            const breakdownTotalDelta = toNumber(
+                breakdownTotals.delta,
+                billReductionValue
+            );
             const morningCoverageValue = morningUsageKwhValue > 0
                 ? Math.min(100, (morningSelfConsumptionValue / morningUsageKwhValue) * 100)
                 : 0;
@@ -603,8 +664,22 @@
                 exportCoverage: formatPercentage(exportCoverageValue, 1),
                 totalGeneration: formatNumber(monthlySolarGenerationValue, 2),
                 sunPeakHour: formatNumber(sunPeakHourValue, 1),
-                monthlyBillReduction: formatCurrency(morningSavingValue),
-                annualReturn: formatCurrency(annualReturnValue)
+                netUsageKwh: formatNumber(actualNetUsageValue, 2),
+                lookupUsageKwh: formatNumber(lookupUsageValue, 0),
+                afterUsageKwh: formatNumber(afterUsageValue, 2),
+                billBefore: formatCurrency(beforeBillValue),
+                billAfter: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A',
+                billReduction: formatCurrency(billReductionValue),
+                monthlyBillReduction: formatCurrency(billReductionValue),
+                annualReturn: formatCurrency(annualReturnValue),
+                exportCredit: formatCurrency(exportCreditValue),
+                totalSavings: formatCurrency(combinedSavingsValue),
+                breakdownTotals: {
+                    before: formatCurrency(breakdownTotalBefore),
+                    after: breakdownTotalAfter !== null ? formatCurrency(breakdownTotalAfter) : null,
+                    delta: formatCurrency(Math.abs(breakdownTotalDelta)),
+                    deltaDirection: breakdownTotalDelta >= 0 ? 'decrease' : 'increase'
+                }
             };
 
             data.details = formattedDetails;
@@ -616,6 +691,88 @@
             data.roiPercentage = roiValue !== null ? formatPercentage(roiValue, 1) : null;
             const roiDisplay = data.roiPercentage !== null ? `${data.roiPercentage}%` : 'N/A';
 
+            const buildBreakdownRows = () => {
+                if (!breakdownItems.length) {
+                    return `<div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-500">Bill component details unavailable for the selected usage.</div>`;
+                }
+
+                return breakdownItems.map((item) => {
+                    const beforeValue = toNumber(item.before);
+                    const afterRaw = item.after;
+                    const afterValue = afterRaw === null || afterRaw === undefined ? null : toNumber(afterRaw);
+                    const deltaValue = toNumber(item.delta, beforeValue - (afterValue || 0));
+                    const deltaPositive = deltaValue >= 0;
+                    const deltaClass = deltaPositive ? 'text-emerald-300' : 'text-amber-300';
+                    const deltaSymbol = deltaPositive ? '−' : '+';
+                    const beforeDisplay = `RM ${formatCurrency(beforeValue)}`;
+                    const afterDisplay = afterValue !== null ? `RM ${formatCurrency(afterValue)}` : 'N/A';
+                    const deltaDisplay = `${deltaSymbol}RM ${formatCurrency(Math.abs(deltaValue))}`;
+
+                    return `
+                        <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-xs sm:text-sm">
+                            <div class="font-medium text-slate-200">${item.label}</div>
+                            <div class="text-slate-100">${beforeDisplay}</div>
+                            <div class="text-slate-100">${afterDisplay}</div>
+                            <div class="font-semibold ${deltaClass}">${deltaDisplay}</div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            const breakdownRowsHtml = buildBreakdownRows();
+            const totalDeltaSymbol = breakdownTotalDelta >= 0 ? '−' : '+';
+            const totalDeltaClass = breakdownTotalDelta >= 0 ? 'text-emerald-300' : 'text-amber-300';
+            const totalsRowHtml = `
+                <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border border-primary/40 bg-primary/10 px-4 py-4 text-xs sm:text-sm">
+                    <div class="font-semibold text-primary">Total Bill</div>
+                    <div class="font-semibold text-slate-100">RM ${formatCurrency(breakdownTotalBefore)}</div>
+                    <div class="font-semibold text-slate-100">${breakdownTotalAfter !== null ? `RM ${formatCurrency(breakdownTotalAfter)}` : 'N/A'}</div>
+                    <div class="text-base font-semibold ${totalDeltaClass}">${totalDeltaSymbol}RM ${formatCurrency(Math.abs(breakdownTotalDelta))}</div>
+                </div>
+            `;
+
+            const billBreakdownSection = `
+                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4 sm:px-6 sm:py-6">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Bill Composition Comparison</p>
+                            <h4 class="mt-1 text-lg font-semibold text-slate-100">Component-level savings insight</h4>
+                        </div>
+                        <div class="text-xs text-slate-500">RM values before vs. after morning solar offset</div>
+                    </div>
+                    <div class="mt-4 hidden grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] gap-3 text-[11px] uppercase tracking-[0.25em] text-slate-500 sm:grid">
+                        <div>Component</div>
+                        <div class="text-center">Before</div>
+                        <div class="text-center">After</div>
+                        <div class="text-center">Change</div>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                        ${breakdownRowsHtml}
+                        ${totalsRowHtml}
+                    </div>
+                    <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                        <div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-300">
+                            <div class="text-[11px] uppercase tracking-[0.3em] text-slate-500">Bill Reduction</div>
+                            <div class="mt-2 text-lg font-semibold text-emerald-300">RM ${data.details.billReduction}</div>
+                        </div>
+                        <div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-300">
+                            <div class="text-[11px] uppercase tracking-[0.3em] text-slate-500">Export Credit</div>
+                            <div class="mt-2 text-lg font-semibold text-emerald-300">RM ${data.details.exportCredit}</div>
+                            <div class="text-[11px] text-slate-500">(${data.details.exportKwh} kWh × RM ${data.details.exportRate})</div>
+                        </div>
+                        <div class="rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-100">
+                            <div class="text-[11px] uppercase tracking-[0.3em]">Total Solar Value</div>
+                            <div class="mt-2 text-lg font-semibold text-emerald-200">RM ${data.details.totalSavings}</div>
+                            <div class="text-[11px] text-emerald-100/80">(Bill reduction + export credit)</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-100">
+                        <p class="font-semibold text-emerald-200">RM ${data.details.billReduction} + RM ${data.details.exportCredit} = RM ${data.details.totalSavings}</p>
+                        <p class="mt-1 text-[11px] text-emerald-100/80">Savings combine lower TNB charges with ${data.details.exportKwh} kWh exported at RM ${data.details.exportRate}/kWh.</p>
+                    </div>
+                </div>
+            `;
+
             if (!solarDiv) {
                 solarDiv = document.createElement('div');
                 solarDiv.id = 'solarResultsCard';
@@ -625,7 +782,7 @@
             solarDiv.className = 'rounded-3xl border border-slate-800 bg-surfaceAlt/80 shadow-[0_40px_80px_rgba(8,47,73,0.45)] overflow-hidden';
 
             const packageSection = data.selectedPackage ? `
-                <div class="rounded-2xl border border-primary/40 bg-primary/10 px-5 py-4 text-sm text-slate-200">
+                <div class="rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-slate-200">
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <div class="flex items-center text-primary">
@@ -645,7 +802,7 @@
                     </div>
                 </div>
             ` : `
-                <div class="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
+                <div class="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                     <div class="flex items-center text-amber-200">
                         <span class="mr-2">⚠️</span>
                         <span class="text-xs uppercase tracking-[0.3em]">No Package Match</span>
@@ -655,7 +812,7 @@
             `;
 
             const costSummarySection = data.finalSystemCost !== null ? `
-                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 text-sm text-slate-300 space-y-3">
+                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm text-slate-300 space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-slate-400">System Cost</span>
                         <span class="font-medium text-slate-100">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
@@ -675,7 +832,7 @@
                 ? null
                 : (data.paybackPeriod === 'N/A' ? 'N/A' : `${data.paybackPeriod} years`);
             const paybackSection = paybackDisplay !== null ? `
-                <div class="rounded-2xl border border-accent/40 bg-accent/10 px-5 py-4 text-base font-semibold text-accent">
+                <div class="rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-base font-semibold text-accent">
                     <div class="flex items-center justify-between">
                         <span>Payback Period</span>
                         <span>${paybackDisplay}</span>
@@ -684,7 +841,7 @@
             ` : '';
 
             solarDiv.innerHTML = `
-                <div class="border-b border-slate-800 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-6 text-slate-100">
+                <div class="border-b border-slate-800 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-4 text-slate-100 sm:px-6 sm:py-6">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Phase 04</p>
@@ -695,8 +852,8 @@
                     </div>
                 </div>
 
-                <div class="space-y-5 px-6 py-6 text-sm text-slate-300">
-                    <div class="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="space-y-5 px-4 py-4 text-sm text-slate-300 sm:px-6 sm:py-6">
+                    <div class="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">System Size</p>
                             <p class="mt-2 text-lg font-semibold text-slate-100">${data.solarConfig}</p>
@@ -722,13 +879,42 @@
                         </div>
                     </div>
 
+                    <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4 sm:px-6 sm:py-6">
+                        <div class="flex items-center justify-between text-[11px] uppercase tracking-[0.3em] text-slate-500">
+                            <span>From</span>
+                            <span>To</span>
+                        </div>
+                        <div class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                            <div class="space-y-1">
+                                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Before Solar</p>
+                                <p class="text-2xl font-semibold text-slate-100">RM ${data.details.billBefore}</p>
+                                <p class="text-xs text-slate-500">${data.details.monthlyUsageKwh} kWh</p>
+                            </div>
+                            <div class="flex items-center justify-center">
+                                <span class="flex h-10 w-10 items-center justify-center rounded-full border border-slate-800 bg-slate-950/60 text-slate-400">→</span>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">After Morning Offset</p>
+                                <p class="text-2xl font-semibold text-emerald-300">${data.details.billAfter !== 'N/A' ? 'RM ' + data.details.billAfter : 'N/A'}</p>
+                                <p class="text-xs text-slate-500">${data.details.afterUsageKwh} kWh</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center justify-between rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                            <span>Bill Reduction</span>
+                            <span class="text-base font-semibold text-emerald-200">RM ${data.details.billReduction}</span>
+                        </div>
+                        <p class="mt-2 text-[11px] text-slate-500">Excludes SMP export credits and recalculates usage from the TNB tariff table.</p>
+                    </div>
+
+                    ${billBreakdownSection}
+
                     <div class="grid gap-4 sm:grid-cols-2">
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Recommended Panels</p>
                             <p class="mt-3 text-3xl font-semibold text-slate-100">${data.recommendedPanels}</p>
                             <p class="mt-1 text-xs text-slate-500">Baseline for bill alignment</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Active Panels</p>
                             <p class="mt-3 text-3xl font-semibold text-slate-100">${data.actualPanels}</p>
                             <p class="mt-1 text-xs text-slate-500">${data.overrideApplied ? 'Override applied for export balance' : 'Optimised recommendation'}</p>
@@ -736,17 +922,17 @@
                     </div>
 
                     <div class="grid gap-4 md:grid-cols-3">
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Morning Coverage</p>
                             <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.morningCoverage}%</p>
                             <p class="mt-1 text-xs text-slate-500">RM ${data.details.morningSaving} captured</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Export Coverage</p>
                             <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.exportCoverage}%</p>
                             <p class="mt-1 text-xs text-slate-500">RM ${data.details.exportSaving} gained</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Total Generation</p>
                             <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.totalGeneration} kWh</p>
                             <p class="mt-1 text-xs text-slate-500">${data.details.sunPeakHour} sun peak hours</p>
@@ -754,12 +940,12 @@
                     </div>
 
                     <div class="grid gap-4 md:grid-cols-2">
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Savings Snapshot</p>
                             <p class="mt-3 text-3xl font-semibold text-emerald-300">RM ${data.monthlySavings}</p>
                             <p class="mt-1 text-xs text-slate-500">RM ${data.details.monthlyBillReduction} bill reduction</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">ROI</p>
                             <p class="mt-3 text-3xl font-semibold text-emerald-300">${roiDisplay}</p>
                             <p class="mt-1 text-xs text-slate-500">RM ${data.details.annualReturn} annual return</p>
@@ -767,12 +953,12 @@
                     </div>
 
                     <div class="grid gap-4 md:grid-cols-2">
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Morning Self-Consumption</p>
                             <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.morningSelfConsumption} kWh</p>
                             <p class="mt-1 text-xs text-slate-500">${data.details.morningCoverage}% of morning usage</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Grid Export</p>
                             <p class="mt-3 text-2xl font-semibold text-slate-100">${data.details.exportKwh} kWh</p>
                             <p class="mt-1 text-xs text-slate-500">${data.details.exportCoverage}% coverage</p>
@@ -780,7 +966,7 @@
                         </div>
                     </div>
 
-                    <div class="rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100">
+                    <div class="rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
                         <div class="flex items-center justify-between">
                             <span class="flex items-center text-base font-semibold">🎯 Total Monthly Saving</span>
                             <span class="text-lg font-semibold">RM ${data.monthlySavings}</span>
@@ -792,22 +978,22 @@
                     ${paybackSection}
                     ${packageSection}
 
-                    <div class="space-y-4 rounded-3xl border border-slate-800 bg-slate-950/30 px-5 py-6">
+                    <div class="space-y-4 rounded-3xl border border-slate-800 bg-slate-950/30 px-4 py-4 sm:px-6 sm:py-6">
                         <h3 class="text-base font-semibold text-slate-100">Daily Usage & Generation Patterns</h3>
                         <div class="grid gap-4">
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                                 <h4 class="text-sm font-medium text-slate-300 mb-3">⚡ Daily Electricity Import Pattern</h4>
                                 <div style="height: 300px; position: relative;">
                                     <canvas id="electricityImportChart"></canvas>
                                 </div>
                             </div>
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                                 <h4 class="text-sm font-medium text-slate-300 mb-3">☀️ Solar Generation Pattern</h4>
                                 <div style="height: 300px; position: relative;">
                                     <canvas id="solarGenerationChart"></canvas>
                                 </div>
                             </div>
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                                 <h4 class="text-sm font-medium text-slate-300 mb-3">🔋 Net Electricity Import (After Solar Offset)</h4>
                                 <div style="height: 300px; position: relative;">
                                     <canvas id="combinedChart"></canvas>
@@ -970,7 +1156,7 @@
         // Database connection test
         async function testConnection() {
             const statusDiv = document.getElementById('dbStatus');
-            statusDiv.className = 'flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-5 py-4 text-sm text-slate-300';
+            statusDiv.className = 'flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-300';
             statusDiv.innerHTML = `
                 <div class="flex items-center space-x-3">
                     <div class="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
@@ -984,7 +1170,7 @@
                 const data = await response.json();
 
                     if (response.ok) {
-                        statusDiv.className = 'flex items-center justify-between rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100';
+                        statusDiv.className = 'flex items-center justify-between rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100';
                         statusDiv.innerHTML = `
                             <div class="flex items-center space-x-3">
                                 <svg class="h-5 w-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -995,7 +1181,7 @@
                             <span class="text-xs uppercase tracking-[0.3em] text-emerald-200">Online</span>
                         `;
                     } else {
-                        statusDiv.className = 'flex items-center justify-between rounded-2xl border border-rose-500/40 bg-rose-500/10 px-5 py-4 text-sm text-rose-200';
+                        statusDiv.className = 'flex items-center justify-between rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200';
                         statusDiv.innerHTML = `
                             <div class="flex items-center space-x-3">
                                 <svg class="h-5 w-5 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -1007,7 +1193,7 @@
                         `;
                     }
                 } catch (error) {
-                    statusDiv.className = 'flex items-center justify-between rounded-2xl border border-rose-500/40 bg-rose-500/10 px-5 py-4 text-sm text-rose-200';
+                    statusDiv.className = 'flex items-center justify-between rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200';
                     statusDiv.innerHTML = `
                         <div class="flex items-center space-x-3">
                             <svg class="h-5 w-5 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -1071,7 +1257,7 @@
             popup.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm';
 
             const packageInfo = data.selectedPackage ?
-                `<div class="mt-6 rounded-2xl border border-primary/30 bg-primary/10 px-5 py-4 text-sm text-slate-200">
+                `<div class="mt-6 rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-slate-200">
                     <div class="flex items-center justify-between">
                         <span class="flex items-center text-primary"><span class="mr-2 text-lg">📦</span>Selected Package</span>
                         <span class="rounded-full border border-primary/40 bg-slate-950/40 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-primary/70">Active</span>
@@ -1086,7 +1272,7 @@
                     </div>
                     ${data.selectedPackage.invoiceDesc ? `<div class=\"mt-4 rounded-xl border border-primary/20 bg-slate-950/50 px-4 py-3 text-[11px] text-slate-400\"><strong class=\"block text-primary/80\">Invoice Notes</strong><span style=\"white-space: pre-line;\">${data.selectedPackage.invoiceDesc}</span></div>` : ''}
                 </div>` :
-                `<div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
+                `<div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                     ⚠️ No package found for ${data.packageSearchQty} × ${data.config.panelType}W panels
                 </div>`;
 

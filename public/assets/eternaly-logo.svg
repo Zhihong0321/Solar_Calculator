@@ -1,0 +1,21 @@
+<svg width="320" height="96" viewBox="0 0 320 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="loopGradient" x1="0" y1="48" x2="160" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c8d1dc"/>
+    </linearGradient>
+    <linearGradient id="textGradient" x1="160" y1="32" x2="320" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e2e8f0"/>
+    </linearGradient>
+  </defs>
+  <path d="M112 72C92 72 74 54 64 48C74 42 92 24 112 24C124 24 134 30 142 38L154 50C158 54 160 58 160 64C160 76 150 86 138 86C126 86 116 78 112 72Z" fill="url(#loopGradient)"/>
+  <path d="M48 24C68 24 86 42 96 48C86 54 68 72 48 72C22 72 4 54 4 48C4 42 22 24 48 24ZM48 36C38 36 28 42 28 48C28 54 38 60 48 60C58 60 68 54 68 48C68 42 58 36 48 36Z" fill="url(#loopGradient)"/>
+  <path d="M208 72C188 72 170 54 160 48C170 42 188 24 208 24C234 24 252 42 252 48C252 54 234 72 208 72ZM208 36C198 36 188 42 188 48C188 54 198 60 208 60C218 60 228 54 228 48C228 42 218 36 208 36Z" fill="url(#loopGradient)"/>
+  <text x="164" y="42" fill="url(#textGradient)" font-family="'Inter', 'Segoe UI', sans-serif" font-size="28" font-weight="700" letter-spacing="4">
+    ETERNALGY
+  </text>
+  <text x="166" y="70" fill="#e2e8f0" font-family="'Inter', 'Segoe UI', sans-serif" font-size="14" font-weight="500" letter-spacing="6">
+    ETERNAL ENERGY
+  </text>
+</svg>

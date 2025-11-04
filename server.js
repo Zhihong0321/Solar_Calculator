@@ -352,8 +352,6 @@ app.get('/api/solar-calculation', async (req, res) => {
       selectedPackage = packageResult.rows[0];
     }
 
-    client.release();
-
     // Calculate solar generation using selected panel wattage
     const panelWatts = panelWattage;
     const dailySolarGeneration = (actualPanelQty * panelWatts * peakHour) / 1000; // kWh per day
@@ -361,6 +359,48 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     // Calculate morning usage split
     const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
+
+    const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
+    const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
+    const netUsageForLookup = Math.max(0, Math.floor(netUsageKwh));
+
+    // Calculate the post-solar bill using the reduced usage (excluding export)
+    let afterTariff = null;
+    const afterTariffQuery = `
+      SELECT * FROM tnb_tariff_2025
+      WHERE usage_kwh <= $1
+      ORDER BY usage_kwh DESC
+      LIMIT 1
+    `;
+
+    if (netUsageForLookup <= 0) {
+      const lowestUsageQuery = `
+        SELECT * FROM tnb_tariff_2025
+        ORDER BY usage_kwh ASC
+        LIMIT 1
+      `;
+      const lowestUsageResult = await client.query(lowestUsageQuery);
+      if (lowestUsageResult.rows.length > 0) {
+        afterTariff = lowestUsageResult.rows[0];
+      }
+    } else {
+      const afterTariffResult = await client.query(afterTariffQuery, [netUsageForLookup]);
+      if (afterTariffResult.rows.length > 0) {
+        afterTariff = afterTariffResult.rows[0];
+      } else {
+        const fallbackAfterQuery = `
+          SELECT * FROM tnb_tariff_2025
+          ORDER BY usage_kwh ASC
+          LIMIT 1
+        `;
+        const fallbackAfterResult = await client.query(fallbackAfterQuery);
+        if (fallbackAfterResult.rows.length > 0) {
+          afterTariff = fallbackAfterResult.rows[0];
+        }
+      }
+    }
+
+    client.release();
 
     // NEW SAVING FORMULA
     // 1. Morning usage saving: morning_kwh * RM 0.4869
@@ -374,6 +414,93 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     // 3. Total saving = morning saving + export saving
     const totalMonthlySavings = morningSaving + exportSaving;
+
+    const billBefore = tariff.bill_total_normal !== null ? parseFloat(tariff.bill_total_normal) : 0;
+    const afterBill = afterTariff && afterTariff.bill_total_normal !== null
+      ? parseFloat(afterTariff.bill_total_normal)
+      : null;
+    const afterUsageMatched = afterTariff && afterTariff.usage_kwh !== null
+      ? parseFloat(afterTariff.usage_kwh)
+      : null;
+
+    const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
+
+    const parseCurrencyValue = (value, fallback = 0) => {
+      if (value === null || value === undefined) {
+        return fallback;
+      }
+      const numeric = Number(value);
+      return Number.isNaN(numeric) ? fallback : numeric;
+    };
+
+    const buildBillBreakdown = (tariffRow) => {
+      if (!tariffRow) {
+        return null;
+      }
+
+      const usage = parseCurrencyValue(tariffRow.usage_normal);
+      const network = parseCurrencyValue(tariffRow.network);
+      const capacity = parseCurrencyValue(tariffRow.capacity);
+      const sst = parseCurrencyValue(tariffRow.sst_normal);
+      const eei = parseCurrencyValue(tariffRow.eei);
+      const total = parseCurrencyValue(
+        tariffRow.bill_total_normal,
+        usage + network + capacity + sst + eei
+      );
+
+      return {
+        usage,
+        network,
+        capacity,
+        sst,
+        eei,
+        total
+      };
+    };
+
+    const calculateBreakdownDelta = (beforeValue, afterValue) => {
+      const before = parseCurrencyValue(beforeValue);
+      if (afterValue === null || afterValue === undefined) {
+        return before;
+      }
+      const after = parseCurrencyValue(afterValue);
+      return before - after;
+    };
+
+    const beforeBreakdown = buildBillBreakdown(tariff);
+    const afterBreakdown = buildBillBreakdown(afterTariff);
+
+    const breakdownItems = [
+      { key: 'usage', label: 'Usage' },
+      { key: 'network', label: 'Network' },
+      { key: 'capacity', label: 'Capacity Fee' },
+      { key: 'sst', label: 'SST' },
+      { key: 'eei', label: 'EEI' }
+    ].map((item) => {
+      const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
+      const afterValue = afterBreakdown ? afterBreakdown[item.key] : null;
+      return {
+        ...item,
+        before: beforeValue,
+        after: afterValue,
+        delta: calculateBreakdownDelta(beforeValue, afterValue)
+      };
+    });
+
+    const totals = {
+      before: beforeBreakdown ? beforeBreakdown.total : billBefore,
+      after: afterBreakdown ? afterBreakdown.total : afterBill,
+      delta: calculateBreakdownDelta(
+        beforeBreakdown ? beforeBreakdown.total : billBefore,
+        afterBreakdown ? afterBreakdown.total : afterBill
+      )
+    };
+
+    const savingsBreakdown = {
+      billReduction: Number(billReduction.toFixed(2)),
+      exportCredit: Number(exportSaving.toFixed(2)),
+      total: Number((billReduction + exportSaving).toFixed(2))
+    };
 
     // Use actual package price if available, otherwise fallback to calculation
     let systemCostBeforeDiscount = null;
@@ -489,8 +616,39 @@ app.get('/api/solar-calculation', async (req, res) => {
         exportKwh: exportKwh.toFixed(2),
         exportSaving: exportSaving.toFixed(2),
         morningUsageRate: morningUsageRate,
-        exportRate: exportRate
+        exportRate: exportRate,
+        netUsageKwh: netUsageKwh.toFixed(2),
+        afterUsageKwh: (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh).toFixed(2),
+        billBefore: billBefore.toFixed(2),
+        billAfter: afterBill !== null ? afterBill.toFixed(2) : null,
+        billReduction: billReduction.toFixed(2),
+        billBreakdown: {
+          before: beforeBreakdown,
+          after: afterBreakdown,
+          items: breakdownItems,
+          totals
+        },
+        savingsBreakdown: savingsBreakdown
       },
+      billComparison: {
+        before: {
+          usageKwh: monthlyUsageKwh,
+          billAmount: billBefore
+        },
+        after: afterBill !== null ? {
+          usageKwh: afterUsageMatched !== null ? afterUsageMatched : netUsageKwh,
+          billAmount: afterBill
+        } : null,
+        lookupUsageKwh: netUsageForLookup,
+        actualNetUsageKwh: parseFloat(netUsageKwh.toFixed(2))
+      },
+      billBreakdownComparison: {
+        before: beforeBreakdown,
+        after: afterBreakdown,
+        items: breakdownItems,
+        totals
+      },
+      savingsBreakdown: savingsBreakdown,
       charts: {
         electricityUsagePattern: electricityUsagePattern,
         solarGenerationPattern: solarGenerationPattern
