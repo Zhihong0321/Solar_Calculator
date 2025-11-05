@@ -911,22 +911,11 @@
                             <p class="mt-2 text-lg font-semibold text-slate-100">${data.solarConfig}</p>
                         </div>
                         <div class="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-4 sm:w-auto" id="panelAdjustmentSection">
-                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <div class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Modulation</div>
-                                    <div class="mt-1 text-xs text-slate-500">Recommended: ${data.recommendedPanels} panels</div>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <button type="button" id="panelDecreaseBtn" ${data.actualPanels <= 1 ? 'disabled' : ''} onclick="adjustPanelCount(-1)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-primary hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed">&minus;</button>
-                                    <input type="number" id="panelQtyInput" min="1" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-20 rounded-xl border border-slate-700 bg-slate-950/60 py-2 text-center text-sm text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40" />
-                                    <button type="button" id="panelIncreaseBtn" onclick="adjustPanelCount(1)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-primary hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed">+</button>
-                                </div>
-                            </div>
-                            <div class="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
-                                <div id="panelAdjustSpinner" class="hidden">
-                                    <div class="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                                </div>
-                                <span id="panelAdjustStatus">${buildPanelStatusText(data)}</span>
+                            <div>
+                                <div class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Modulation</div>
+                                <div class="mt-1 text-xs text-slate-500">Recommended: ${data.recommendedPanels} panels</div>
+                                <div class="mt-3 text-xs text-slate-400">Use the floating controls at the bottom to adjust the panel quantity.</div>
+                                <div class="mt-2 text-[11px] text-slate-500">${buildPanelStatusText(data)}</div>
                             </div>
                         </div>
                     </div>
