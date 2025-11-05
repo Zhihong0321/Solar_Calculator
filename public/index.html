@@ -1114,18 +1114,34 @@
             const input = document.getElementById('panelQtyInput');
             const spinner = document.getElementById('panelAdjustSpinner');
             const status = document.getElementById('panelAdjustStatus');
+            // Floating controls (if present)
+            const decreaseBtnFloating = document.getElementById('panelDecreaseBtnFloating');
+            const increaseBtnFloating = document.getElementById('panelIncreaseBtnFloating');
+            const inputFloating = document.getElementById('panelQtyInputFloating');
+            const spinnerFloating = document.getElementById('panelAdjustSpinnerFloating');
+            const statusFloating = document.getElementById('panelAdjustStatusFloating');
 
             if (spinner) {
                 spinner.classList.toggle('hidden', !isLoading);
+            }
+            if (spinnerFloating) {
+                spinnerFloating.classList.toggle('hidden', !isLoading);
             }
 
             if (decreaseBtn) {
                 const disableDecrease = isLoading || (latestSolarData && latestSolarData.actualPanels <= 1);
                 decreaseBtn.disabled = disableDecrease;
             }
+            if (decreaseBtnFloating) {
+                const disableDecrease = isLoading || (latestSolarData && latestSolarData.actualPanels <= 1);
+                decreaseBtnFloating.disabled = disableDecrease;
+            }
 
             if (increaseBtn) {
                 increaseBtn.disabled = Boolean(isLoading);
+            }
+            if (increaseBtnFloating) {
+                increaseBtnFloating.disabled = Boolean(isLoading);
             }
 
             if (input) {
@@ -1134,9 +1150,18 @@
                     input.value = latestSolarData.actualPanels;
                 }
             }
+            if (inputFloating) {
+                inputFloating.disabled = Boolean(isLoading);
+                if (!isLoading && latestSolarData) {
+                    inputFloating.value = latestSolarData.actualPanels;
+                }
+            }
 
             if (status) {
                 status.textContent = isLoading ? 'Updating solar savings...' : buildPanelStatusText(latestSolarData);
+            }
+            if (statusFloating) {
+                statusFloating.textContent = isLoading ? 'Updating solar savings...' : buildPanelStatusText(latestSolarData);
             }
         }
 
@@ -1153,6 +1178,10 @@
             const input = document.getElementById('panelQtyInput');
             if (input) {
                 input.value = proposedCount;
+            }
+            const inputFloating = document.getElementById('panelQtyInputFloating');
+            if (inputFloating) {
+                inputFloating.value = proposedCount;
             }
 
             requestPanelUpdate(proposedCount);
@@ -1198,11 +1227,52 @@
                     if (input) {
                         input.value = latestSolarData.actualPanels;
                     }
+                    const inputFloating = document.getElementById('panelQtyInputFloating');
+                    if (inputFloating) {
+                        inputFloating.value = latestSolarData.actualPanels;
+                    }
                 }
                 setPanelControlsLoading(false);
             } finally {
                 panelUpdateInFlight = false;
             }
+        }
+
+        // Render floating Panel Modulation controls (fixed at bottom)
+        function renderFloatingPanelModulation(data) {
+            if (!data) return;
+
+            let bar = document.getElementById('floatingPanelBar');
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'floatingPanelBar';
+                bar.className = 'fixed bottom-4 left-0 right-0 z-40 mx-4 sm:mx-6';
+                document.body.appendChild(bar);
+            }
+
+            bar.innerHTML = `
+                <div class="pointer-events-auto mx-auto max-w-3xl rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-4 py-4 shadow-[0_30px_60px_rgba(8,47,73,0.45)] backdrop-blur sm:px-6 sm:py-5">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Modulation</div>
+                            <div class="mt-1 text-xs text-slate-500">Recommended: ${data.recommendedPanels} panels</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="panelDecreaseBtnFloating" ${data.actualPanels <= 1 ? 'disabled' : ''} onclick="adjustPanelCount(-1)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-primary hover:text-primary disabled:opacity-50">−</button>
+                            <input type="number" id="panelQtyInputFloating" min="1" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-20 rounded-xl border border-slate-700 bg-slate-950/60 py-2 text-center text-sm text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40" />
+                            <button type="button" id="panelIncreaseBtnFloating" onclick="adjustPanelCount(1)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-primary hover:text-primary">+</button>
+                            <div id="panelAdjustSpinnerFloating" class="ml-3 hidden h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                        </div>
+                    </div>
+                    <div id="panelAdjustStatusFloating" class="mt-2 text-xs text-slate-400">${buildPanelStatusText(data)}</div>
+                </div>
+            `;
+
+            // Render floating controls at the bottom of the screen using actual data
+            renderFloatingPanelModulation(data);
+
+            // Ensure controls reflect current loading state
+            setPanelControlsLoading(Boolean(panelUpdateInFlight));
         }
 
         // Database connection test
