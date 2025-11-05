@@ -857,9 +857,9 @@
                 <div class="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                     <div class="flex items-center text-amber-200">
                         <span class="mr-2">⚠️</span>
-                        <span class="text-xs uppercase tracking-[0.3em]">No Package Match</span>
+                        <span class="text-xs uppercase tracking-[0.3em]">No match package</span>
                     </div>
-                    <p class="mt-2 text-xs text-amber-100/80">We couldn’t locate an active package for ${data.packageSearchQty} panels. Adjust the panel count to explore more options.</p>
+                    <p class="mt-2 text-xs text-amber-100/80">No matching package for ${data.packageSearchQty} × ${data.config.panelType}W. This calculator shows database references only.</p>
                 </div>
             `;
 
@@ -1325,7 +1325,7 @@
                     ${data.selectedPackage.invoiceDesc ? `<div class=\"mt-4 rounded-xl border border-primary/20 bg-slate-950/50 px-4 py-3 text-[11px] text-slate-400\"><strong class=\"block text-primary/80\">Invoice Notes</strong><span style=\"white-space: pre-line;\">${data.selectedPackage.invoiceDesc}</span></div>` : ''}
                 </div>` :
                 `<div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                    ⚠️ No package found for ${data.packageSearchQty} × ${data.config.panelType}W panels
+                    ⚠️ No match package for ${data.packageSearchQty} × ${data.config.panelType}W
                 </div>`;
 
             popup.innerHTML = `
