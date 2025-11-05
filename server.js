@@ -455,36 +455,53 @@ app.get('/api/solar-calculation', async (req, res) => {
     const recommendedPanels = Math.max(1, recommendedPanelsRaw);
     const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
 
-    // Search for Residential package with matching panel_qty and optional exact product match
+    // Search for Residential package within filtered product pool
+    // Rule: Always filter by selected product type
+    // - If panelBubbleId provided: match product bubble_id
+    // - Else: match product wattage (solar_output_rating)
     let packageResult = { rows: [] };
     if (selectedPanelBubbleId) {
-      const packageByProductQuery = `
-        SELECT * FROM package
-        WHERE panel_qty = $1
-          AND active = true
-          AND special = false
-          AND type = $2
-          AND panel = $3
-        ORDER BY price ASC
+      const packageByBubbleQuery = `
+        SELECT p.*
+        FROM package p
+        JOIN product pr ON (
+          CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+          OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+        )
+        WHERE p.panel_qty = $1
+          AND p.active = true
+          AND p.special = false
+          AND p.type = $2
+          AND pr.bubble_id = $3
+        ORDER BY p.price ASC
         LIMIT 1
       `;
-      packageResult = await client.query(packageByProductQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
-    }
-
-    // Fallback to original selection if no package found for exact product
-    if (!packageResult.rows || packageResult.rows.length === 0) {
-      const packageQuery = `
-        SELECT * FROM package
-        WHERE panel_qty = $1 AND active = true AND special = false AND type = $2
-        ORDER BY price ASC
+      packageResult = await client.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
+    } else {
+      const packageByWattQuery = `
+        SELECT p.*
+        FROM package p
+        JOIN product pr ON (
+          CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+          OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+        )
+        WHERE p.panel_qty = $1
+          AND p.active = true
+          AND p.special = false
+          AND p.type = $2
+          AND pr.solar_output_rating = $3
+        ORDER BY p.price ASC
         LIMIT 1
       `;
-      packageResult = await client.query(packageQuery, [actualPanelQty, 'Residential']);
+      packageResult = await client.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage]);
     }
 
     let selectedPackage = null;
     if (packageResult.rows.length > 0) {
       selectedPackage = packageResult.rows[0];
+    } else {
+      // No package in filtered pool; do NOT fallback across products
+      selectedPackage = null;
     }
 
     // Calculate solar generation using selected panel wattage
@@ -798,4 +815,72 @@ app.get('/api/solar-calculation', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+// Readonly lookup: verify package price by panel_qty and optional panel bubble_id
+app.get('/readonly/package/lookup', async (req, res) => {
+  try {
+    const qtyRaw = req.query.panelQty;
+    const bubbleIdRaw = req.query.panelBubbleId || null;
+
+    if (!qtyRaw) {
+      return res.status(400).json({ error: 'panelQty is required' });
+    }
+    const qty = parseInt(qtyRaw, 10);
+    if (Number.isNaN(qty) || qty <= 0) {
+      return res.status(400).json({ error: 'panelQty must be a positive integer' });
+    }
+
+    const client = await pool.connect();
+    let result;
+    if (bubbleIdRaw) {
+      const queryByBubble = `
+        SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
+               pr.id as product_id, pr.bubble_id, pr.solar_output_rating
+        FROM package p
+        JOIN product pr ON (
+          CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+          OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+        )
+        WHERE p.active = true
+          AND p.special = false
+          AND p.type = 'Residential'
+          AND p.panel_qty = $1
+          AND pr.bubble_id = $2
+        ORDER BY p.price ASC
+        LIMIT 10
+      `;
+      result = await client.query(queryByBubble, [qty, bubbleIdRaw]);
+    } else {
+      const queryByWatt = `
+        SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
+               pr.id as product_id, pr.bubble_id, pr.solar_output_rating
+        FROM package p
+        JOIN product pr ON (
+          CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+          OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+        )
+        WHERE p.active = true
+          AND p.special = false
+          AND p.type = 'Residential'
+          AND p.panel_qty = $1
+          AND pr.solar_output_rating = $2
+        ORDER BY p.price ASC
+        LIMIT 10
+      `;
+      const wattRaw = req.query.panelType;
+      const watt = wattRaw ? parseInt(wattRaw, 10) : null;
+      result = await client.query(queryByWatt, [qty, watt]);
+    }
+    client.release();
+
+    return res.json({
+      searchParams: { panelQty: qty, panelBubbleId: bubbleIdRaw },
+      count: result.rowCount,
+      packages: result.rows
+    });
+  } catch (err) {
+    console.error('Readonly package lookup error:', err);
+    return res.status(500).json({ error: 'Failed to lookup packages', details: err.message });
+  }
 });
