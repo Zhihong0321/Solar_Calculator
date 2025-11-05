@@ -470,7 +470,7 @@ app.get('/api/solar-calculation', async (req, res) => {
         )
         WHERE p.panel_qty = $1
           AND p.active = true
-          AND p.special = false
+          AND (p.special IS FALSE OR p.special IS NULL)
           AND p.type = $2
           AND pr.bubble_id = $3
         ORDER BY p.price ASC
@@ -487,7 +487,7 @@ app.get('/api/solar-calculation', async (req, res) => {
         )
         WHERE p.panel_qty = $1
           AND p.active = true
-          AND p.special = false
+          AND (p.special IS FALSE OR p.special IS NULL)
           AND p.type = $2
           AND pr.solar_output_rating = $3
         ORDER BY p.price ASC
@@ -843,7 +843,7 @@ app.get('/readonly/package/lookup', async (req, res) => {
           OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
         )
         WHERE p.active = true
-          AND p.special = false
+          AND (p.special IS FALSE OR p.special IS NULL)
           AND p.type = 'Residential'
           AND p.panel_qty = $1
           AND pr.bubble_id = $2
@@ -861,7 +861,7 @@ app.get('/readonly/package/lookup', async (req, res) => {
           OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
         )
         WHERE p.active = true
-          AND p.special = false
+          AND (p.special IS FALSE OR p.special IS NULL)
           AND p.type = 'Residential'
           AND p.panel_qty = $1
           AND pr.solar_output_rating = $2
