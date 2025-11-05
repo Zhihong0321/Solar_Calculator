@@ -499,7 +499,10 @@
             const billAmount = parseFloat(document.getElementById('billAmount').value);
             const sunPeakHour = parseFloat(document.getElementById('sunPeakHour').value);
             const morningUsage = parseFloat(document.getElementById('morningUsage').value);
-            const panelType = document.getElementById('panelType').value;
+            const panelSelect = document.getElementById('panelType');
+            const panelType = panelSelect.value;
+            const selectedOption = panelSelect.options[panelSelect.selectedIndex];
+            const panelProductId = selectedOption && selectedOption.dataset ? selectedOption.dataset.productId : '';
             const smpPrice = parseFloat(document.getElementById('smpPrice').value);
             const below19Discount = parseFloat(document.getElementById('below19Discount').value) || 0;
             const above19Discount = parseFloat(document.getElementById('above19Discount').value) || 0;
@@ -543,6 +546,7 @@
                 sunPeakHour: sunPeakHour,
                 morningUsage: morningUsage,
                 panelType: panelType,
+                panelProductId: panelProductId,
                 smpPrice: smpPrice,
                 below19Discount: below19Discount,
                 above19Discount: above19Discount

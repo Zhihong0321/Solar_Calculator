@@ -385,6 +385,7 @@ app.get('/api/solar-calculation', async (req, res) => {
       sunPeakHour,
       morningUsage,
       panelType,
+      panelProductId,
       smpPrice,
       below19Discount,
       above19Discount
@@ -395,6 +396,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     const peakHour = parseFloat(sunPeakHour);
     const morningPercent = parseFloat(morningUsage);
     const panelWattage = parseInt(panelType) || 620; // Default to 620W
+    const selectedProductId = panelProductId !== undefined ? parseInt(panelProductId, 10) : null;
     const smp = parseFloat(smpPrice);
     const discount19Below = parseFloat(below19Discount) || 0;
     const discount19Above = parseFloat(above19Discount) || 0;
@@ -449,14 +451,49 @@ app.get('/api/solar-calculation', async (req, res) => {
     const recommendedPanels = Math.max(1, recommendedPanelsRaw);
     const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
 
-    // Search for Residential package with matching panel_qty that is active, non-special, and lowest price
-    const packageQuery = `
-      SELECT * FROM package
-      WHERE panel_qty = $1 AND active = true AND special = false AND type = $2
-      ORDER BY price ASC
-      LIMIT 1
-    `;
-    const packageResult = await client.query(packageQuery, [actualPanelQty, 'Residential']);
+    // If a specific product was selected, resolve its bubble_id to filter packages by exact panel product
+    let selectedProductBubbleId = null;
+    let selectedProductRow = null;
+    if (selectedProductId && Number.isInteger(selectedProductId)) {
+      const productLookupQuery = `
+        SELECT id, bubble_id, solar_output_rating, active
+        FROM product
+        WHERE id = $1
+        LIMIT 1
+      `;
+      const productLookupResult = await client.query(productLookupQuery, [selectedProductId]);
+      if (productLookupResult.rows.length > 0) {
+        selectedProductRow = productLookupResult.rows[0];
+        selectedProductBubbleId = selectedProductRow.bubble_id || null;
+      }
+    }
+
+    // Search for Residential package with matching panel_qty and optional exact product match
+    let packageResult = { rows: [] };
+    if (selectedProductBubbleId) {
+      const packageByProductQuery = `
+        SELECT * FROM package
+        WHERE panel_qty = $1
+          AND active = true
+          AND special = false
+          AND type = $2
+          AND panel = $3
+        ORDER BY price ASC
+        LIMIT 1
+      `;
+      packageResult = await client.query(packageByProductQuery, [actualPanelQty, 'Residential', selectedProductBubbleId]);
+    }
+
+    // Fallback to original selection if no package found for exact product
+    if (!packageResult.rows || packageResult.rows.length === 0) {
+      const packageQuery = `
+        SELECT * FROM package
+        WHERE panel_qty = $1 AND active = true AND special = false AND type = $2
+        ORDER BY price ASC
+        LIMIT 1
+      `;
+      packageResult = await client.query(packageQuery, [actualPanelQty, 'Residential']);
+    }
 
     let selectedPackage = null;
     if (packageResult.rows.length > 0) {
