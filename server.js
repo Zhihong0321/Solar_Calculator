@@ -205,6 +205,7 @@ app.get('/readonly/product/options', async (req, res) => {
     const hasActive = cols.some(c => c.column_name === 'active' && c.data_type.includes('boolean'));
     const hasName = cols.some(c => c.column_name === 'name');
     const hasWatt = cols.some(c => c.column_name === 'solar_output_rating');
+    const hasBubble = cols.some(c => c.column_name === 'bubble_id');
 
     if (!hasWatt) {
       client.release();
@@ -215,7 +216,8 @@ app.get('/readonly/product/options', async (req, res) => {
     }
 
     // Build query safely
-    const selectFields = ['id'];
+    const selectFields = [];
+    if (hasBubble) selectFields.push('bubble_id');
     if (hasName) selectFields.push('name');
     if (hasWatt) selectFields.push('solar_output_rating');
 
@@ -228,7 +230,7 @@ app.get('/readonly/product/options', async (req, res) => {
       SELECT ${selectFields.join(', ')}
       FROM product
       ${whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : ''}
-      ORDER BY ${hasWatt ? 'solar_output_rating DESC' : 'id ASC'}
+      ORDER BY ${hasWatt ? 'solar_output_rating DESC' : (hasName ? 'name ASC' : (hasBubble ? 'bubble_id ASC' : '1'))}
       LIMIT 100;
     `;
 
@@ -237,13 +239,13 @@ app.get('/readonly/product/options', async (req, res) => {
 
     // Map to dropdown options
     const options = result.rows.map(row => ({
-      id: row.id,
+      bubble_id: hasBubble ? row.bubble_id : null,
       label: hasName && row.name ? row.name : `${row.solar_output_rating}W`,
       value: row.solar_output_rating
-    }));
+    })).filter(opt => opt.bubble_id); // exclude rows without bubble_id
 
     res.json({
-      schemaFlags: { hasActive, hasName, hasWatt },
+      schemaFlags: { hasActive, hasName, hasWatt, hasBubble },
       recordCount: result.rowCount,
       options
     });
@@ -385,7 +387,7 @@ app.get('/api/solar-calculation', async (req, res) => {
       sunPeakHour,
       morningUsage,
       panelType,
-      panelProductId,
+      panelBubbleId,
       smpPrice,
       below19Discount,
       above19Discount
@@ -396,7 +398,9 @@ app.get('/api/solar-calculation', async (req, res) => {
     const peakHour = parseFloat(sunPeakHour);
     const morningPercent = parseFloat(morningUsage);
     const panelWattage = parseInt(panelType) || 620; // Default to 620W
-    const selectedProductId = panelProductId !== undefined ? parseInt(panelProductId, 10) : null;
+    const selectedPanelBubbleId = typeof panelBubbleId === 'string' && panelBubbleId.trim().length > 0
+      ? panelBubbleId.trim()
+      : null;
     const smp = parseFloat(smpPrice);
     const discount19Below = parseFloat(below19Discount) || 0;
     const discount19Above = parseFloat(above19Discount) || 0;
@@ -451,26 +455,9 @@ app.get('/api/solar-calculation', async (req, res) => {
     const recommendedPanels = Math.max(1, recommendedPanelsRaw);
     const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
 
-    // If a specific product was selected, resolve its bubble_id to filter packages by exact panel product
-    let selectedProductBubbleId = null;
-    let selectedProductRow = null;
-    if (selectedProductId && Number.isInteger(selectedProductId)) {
-      const productLookupQuery = `
-        SELECT id, bubble_id, solar_output_rating, active
-        FROM product
-        WHERE id = $1
-        LIMIT 1
-      `;
-      const productLookupResult = await client.query(productLookupQuery, [selectedProductId]);
-      if (productLookupResult.rows.length > 0) {
-        selectedProductRow = productLookupResult.rows[0];
-        selectedProductBubbleId = selectedProductRow.bubble_id || null;
-      }
-    }
-
     // Search for Residential package with matching panel_qty and optional exact product match
     let packageResult = { rows: [] };
-    if (selectedProductBubbleId) {
+    if (selectedPanelBubbleId) {
       const packageByProductQuery = `
         SELECT * FROM package
         WHERE panel_qty = $1
@@ -481,7 +468,7 @@ app.get('/api/solar-calculation', async (req, res) => {
         ORDER BY price ASC
         LIMIT 1
       `;
-      packageResult = await client.query(packageByProductQuery, [actualPanelQty, 'Residential', selectedProductBubbleId]);
+      packageResult = await client.query(packageByProductQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
     }
 
     // Fallback to original selection if no package found for exact product

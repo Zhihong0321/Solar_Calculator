@@ -478,8 +478,8 @@
                     const optionEl = document.createElement('option');
                     optionEl.value = String(watts);
                     optionEl.textContent = (opt.label || `${watts}W`).trim();
-                    // Keep product metadata for potential future use without changing existing logic
-                    optionEl.dataset.productId = String(opt.id ?? '');
+                    // Keep only bubble_id metadata as the sole identifier
+                    optionEl.dataset.bubbleId = String(opt.bubble_id ?? '');
                     optionEl.dataset.label = opt.label ?? '';
                     select.appendChild(optionEl);
                 });
@@ -502,7 +502,7 @@
             const panelSelect = document.getElementById('panelType');
             const panelType = panelSelect.value;
             const selectedOption = panelSelect.options[panelSelect.selectedIndex];
-            const panelProductId = selectedOption && selectedOption.dataset ? selectedOption.dataset.productId : '';
+            const panelBubbleId = selectedOption && selectedOption.dataset ? selectedOption.dataset.bubbleId : '';
             const smpPrice = parseFloat(document.getElementById('smpPrice').value);
             const below19Discount = parseFloat(document.getElementById('below19Discount').value) || 0;
             const above19Discount = parseFloat(document.getElementById('above19Discount').value) || 0;
@@ -546,7 +546,7 @@
                 sunPeakHour: sunPeakHour,
                 morningUsage: morningUsage,
                 panelType: panelType,
-                panelProductId: panelProductId,
+                panelBubbleId: panelBubbleId,
                 smpPrice: smpPrice,
                 below19Discount: below19Discount,
                 above19Discount: above19Discount
