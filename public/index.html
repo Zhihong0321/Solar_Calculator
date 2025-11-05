@@ -1044,6 +1044,8 @@
                     </div>
                 </div>
             `;            createCharts(data.charts);
+            // Ensure the floating bottom bar renders after results update
+            renderFloatingPanelModulation(data);
             setPanelControlsLoading(false);
 
             if (isInitialRender) {
@@ -1235,7 +1237,8 @@
             if (!bar) {
                 bar = document.createElement('div');
                 bar.id = 'floatingPanelBar';
-                bar.className = 'fixed bottom-4 left-0 right-0 z-40 mx-4 sm:mx-6';
+                // Use fixed positioning and an aggressively high z-index to ensure visibility above popups
+                bar.className = 'fixed bottom-0 left-0 right-0 z-[9999] mx-4 sm:mx-6';
                 document.body.appendChild(bar);
             }
 
@@ -1257,8 +1260,12 @@
                 </div>
             `;
 
-            // Render floating controls at the bottom of the screen using actual data
-            renderFloatingPanelModulation(data);
+            // Log for investigation-first validation (runtime + key fields)
+            console.info('Floating panel rendered', {
+                recommendedPanels: data.recommendedPanels,
+                actualPanels: data.actualPanels,
+                overrideApplied: data.overrideApplied
+            });
 
             // Ensure controls reflect current loading state
             setPanelControlsLoading(Boolean(panelUpdateInFlight));
