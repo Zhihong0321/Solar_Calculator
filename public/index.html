@@ -374,6 +374,7 @@
                                         id="panelType"
                                         class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
                                     >
+                                        <!-- Default static options (will be replaced dynamically if backend options load) -->
                                         <option value="620">620W (Default)</option>
                                         <option value="590">590W</option>
                                     </select>
@@ -440,6 +441,57 @@
                     </div>
                 </div>
             `;
+
+            // Populate panel options from the live Railway database (read-only API)
+            // This respects the investigation-first philosophy: use real schema/data, no assumptions.
+            populatePanelOptions();
+        }
+
+        // Fetch and populate panel type options from backend
+        async function populatePanelOptions() {
+            const select = document.getElementById('panelType');
+            if (!select) return;
+
+            try {
+                const res = await fetch('/readonly/product/options');
+                if (!res.ok) throw new Error(`Failed to load product options (${res.status})`);
+                const data = await res.json();
+
+                let options = Array.isArray(data?.options) ? data.options.slice() : [];
+                if (!options.length) {
+                    // If no options returned, keep current state (do not insert placeholders)
+                    console.warn('No product options received from backend. Keeping existing select state.');
+                    return;
+                }
+
+                // Sort by wattage (desc) for a sensible default ordering
+                options.sort((a, b) => Number(b?.value) - Number(a?.value));
+
+                // Clear any existing static options before injecting live ones
+                select.innerHTML = '';
+
+                options.forEach(opt => {
+                    // Defensive checks based on confirmed schema: name (label) text, solar_output_rating integer
+                    const watts = Number(opt.value);
+                    if (!Number.isFinite(watts) || watts <= 0) return;
+
+                    const optionEl = document.createElement('option');
+                    optionEl.value = String(watts);
+                    optionEl.textContent = (opt.label || `${watts}W`).trim();
+                    // Keep product metadata for potential future use without changing existing logic
+                    optionEl.dataset.productId = String(opt.id ?? '');
+                    optionEl.dataset.label = opt.label ?? '';
+                    select.appendChild(optionEl);
+                });
+
+                // Ensure a deterministic default selection (first valid option)
+                if (select.options.length > 0) {
+                    select.selectedIndex = 0;
+                }
+            } catch (err) {
+                // Do not introduce dummy data; simply log and leave existing options intact
+                console.warn('Failed to populate panel options from backend:', err);
+            }
         }
 
         // Solar savings calculation
