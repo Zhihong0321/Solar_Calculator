@@ -161,6 +161,117 @@ app.get('/api/product-info', async (req, res) => {
   }
 });
 
+// READ-ONLY endpoints for schema and sample data investigation (safe for Railway)
+// These endpoints do not mutate data and are intended to confirm actual structures
+// and provide dropdown-friendly product options without assumptions.
+
+// Get only the product table schema from information_schema
+app.get('/readonly/schema/product', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    const schemaQuery = `
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'product'
+      ORDER BY ordinal_position;
+    `;
+    const schemaResult = await client.query(schemaQuery);
+    client.release();
+    res.json({
+      table: 'product',
+      columns: schemaResult.rows
+    });
+  } catch (err) {
+    console.error('Readonly product schema error:', err);
+    res.status(500).json({ error: 'Failed to fetch product schema', details: err.message });
+  }
+});
+
+// Get dropdown-friendly product options
+// Label: product.name; Value: product.solar_output_rating (numeric)
+// Filters: solar_output_rating > 0; active = true IF the column exists as boolean
+app.get('/readonly/product/options', async (req, res) => {
+  try {
+    const client = await pool.connect();
+
+    // Inspect product schema to build safe query dynamically
+    const schemaQuery = `
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'product';
+    `;
+    const schemaResult = await client.query(schemaQuery);
+    const cols = schemaResult.rows;
+    const hasActive = cols.some(c => c.column_name === 'active' && c.data_type.includes('boolean'));
+    const hasName = cols.some(c => c.column_name === 'name');
+    const hasWatt = cols.some(c => c.column_name === 'solar_output_rating');
+
+    if (!hasWatt) {
+      client.release();
+      return res.status(400).json({
+        error: 'solar_output_rating column not found on product table',
+        schemaColumns: cols
+      });
+    }
+
+    // Build query safely
+    const selectFields = ['id'];
+    if (hasName) selectFields.push('name');
+    if (hasWatt) selectFields.push('solar_output_rating');
+
+    const whereClauses = ['solar_output_rating > 0'];
+    if (hasActive) {
+      whereClauses.push('active = true');
+    }
+
+    const query = `
+      SELECT ${selectFields.join(', ')}
+      FROM product
+      ${whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : ''}
+      ORDER BY ${hasWatt ? 'solar_output_rating DESC' : 'id ASC'}
+      LIMIT 100;
+    `;
+
+    const result = await client.query(query);
+    client.release();
+
+    // Map to dropdown options
+    const options = result.rows.map(row => ({
+      id: row.id,
+      label: hasName && row.name ? row.name : `${row.solar_output_rating}W`,
+      value: row.solar_output_rating
+    }));
+
+    res.json({
+      schemaFlags: { hasActive, hasName, hasWatt },
+      recordCount: result.rowCount,
+      options
+    });
+  } catch (err) {
+    console.error('Readonly product options error:', err);
+    res.status(500).json({ error: 'Failed to fetch product options', details: err.message });
+  }
+});
+
+// Return limited product rows for verification/testing
+app.get('/readonly/product/sample', async (req, res) => {
+  try {
+    const limitRaw = req.query.limit;
+    let limit = parseInt(limitRaw, 10);
+    if (Number.isNaN(limit) || limit <= 0 || limit > 100) {
+      limit = 10;
+    }
+
+    const client = await pool.connect();
+    const result = await client.query('SELECT * FROM product LIMIT $1', [limit]);
+    client.release();
+    res.json({ data: result.rows, count: result.rowCount, limit });
+  } catch (err) {
+    console.error('Readonly product sample error:', err);
+    res.status(500).json({ error: 'Failed to fetch product sample', details: err.message });
+  }
+});
+
 // Debug endpoint to test panel filtering
 app.get('/api/debug-panel-filter', async (req, res) => {
   try {

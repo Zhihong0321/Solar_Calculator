@@ -38,6 +38,15 @@ npm run dev
 - `GET /api/schema` - Database schema exploration
 - `GET /api/tnb-tariff` - TNB tariff 2025 data
 
+### Read-only investigation endpoints (for Railway)
+
+- `GET /readonly/schema/product` — Returns actual column definitions for the `product` table from `information_schema`.
+- `GET /readonly/product/options` — Returns dropdown-friendly options from `product`:
+  - Filters: `solar_output_rating > 0` and `active = true` (only if the `active` column exists and is boolean)
+  - Fields: `{ id, label, value }` where `label = product.name` (fallback to `"<solar_output_rating>W"` if name is missing) and `value = product.solar_output_rating`
+  - Limit: 100 records, ordered by `solar_output_rating DESC`
+- `GET /readonly/product/sample?limit=10` — Returns limited `product` rows for verification.
+
 ## Deployment
 
 This project is configured for Railway deployment with PostgreSQL database integration.
