@@ -1372,7 +1372,14 @@
         // Show panel recommendation popup
         function showPanelRecommendationPopup(data) {
             const popup = document.createElement('div');
-            popup.className = 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm';
+            // Higher z-index and compact design; allow scroll within modal content
+            popup.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm';
+
+            // Hide floating panel while popup is open; it will reappear after user action
+            const existingBar = document.getElementById('floatingPanelBar');
+            if (existingBar) {
+                existingBar.style.display = 'none';
+            }
 
             const packageInfo = data.selectedPackage ?
                 `<div class="mt-6 rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-slate-200">
@@ -1395,48 +1402,48 @@
                 </div>`;
 
             popup.innerHTML = `
-                <div class="solar-modal-card w-full max-w-lg rounded-3xl border border-slate-800 bg-surfaceAlt/90 shadow-[0_40px_80px_rgba(8,47,73,0.6)] overflow-hidden">
-                    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-6 text-center text-slate-100">
-                        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-primary/40 bg-slate-950/40 text-2xl text-primary">⚡</div>
-                        <h3 class="mt-4 text-xl font-semibold">Solar System Recommendation</h3>
-                        <p class="mt-2 text-sm text-slate-400">Adaptive panel guidance aligned to your usage profile.</p>
+                <div class="solar-modal-card w-full max-w-md rounded-3xl border border-slate-800 bg-surfaceAlt/90 shadow-[0_40px_80px_rgba(8,47,73,0.6)] overflow-hidden flex flex-col max-h-[85vh]">
+                    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-4 text-center text-slate-100">
+                        <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-primary/40 bg-slate-950/40 text-xl text-primary">⚡</div>
+                        <h3 class="mt-3 text-lg font-semibold">Solar System Recommendation</h3>
+                        <p class="mt-1 text-xs text-slate-400">Adaptive guidance aligned to your usage profile.</p>
                     </div>
 
-                    <div class="px-6 py-6 text-sm text-slate-300">
+                    <div class="px-6 py-5 text-sm text-slate-300 overflow-y-auto grow">
                         <div class="text-center">
-                            <div class="text-4xl font-semibold text-slate-100">${data.recommendedPanels}</div>
-                            <div class="mt-1 text-xs uppercase tracking-[0.3em] text-slate-500">Recommended Panels</div>
-                            <div class="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-xs text-slate-400">
+                            <div class="text-3xl font-semibold text-slate-100">${data.recommendedPanels}</div>
+                            <div class="mt-1 text-[11px] uppercase tracking-[0.3em] text-slate-500">Recommended Panels</div>
+                            <div class="mt-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-[11px] text-slate-400">
                                 Formula: ${data.details.monthlyUsageKwh} kWh ÷ ${data.config.sunPeakHour}h ÷ 30 ÷ 0.62 = ${data.recommendedPanels} × ${data.config.panelType}W
                             </div>
                         </div>
 
                         ${packageInfo}
+                    </div>
 
-                        <div class="mt-6 flex gap-3">
-                            <button
-                                onclick="this.parentElement.parentElement.parentElement.parentElement.remove()"
-                                class="flex-1 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-primary hover:text-primary"
-                            >
-                                Close
-                            </button>
-                            <button
-                                class="flex-1 rounded-2xl border border-transparent bg-gradient-to-r from-primaryDark to-primary px-4 py-3 text-sm font-semibold text-slate-950 transition hover:from-primary hover:to-primary/80"
-                                type="button"
-                            >
-                                View Details
-                            </button>
-                        </div>
+                    <div class="sticky bottom-0 flex gap-3 border-t border-slate-800 bg-surfaceAlt/95 px-6 py-4">
+                        <button id="popupCloseBtn" class="flex-1 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-primary hover:text-primary">Close</button>
+                        <button id="popupViewDetailsBtn" class="flex-1 rounded-2xl border border-transparent bg-gradient-to-r from-primaryDark to-primary px-4 py-3 text-sm font-semibold text-slate-950 transition hover:from-primary hover:to-primary/80" type="button">View Details</button>
                     </div>
                 </div>
             `;
 
-            // Store data for the View Details button
-            popup.querySelector('button:last-child').onclick = function() {
+            // Hook button actions: both will reveal the floating panel after popup interaction
+            const viewBtn = popup.querySelector('#popupViewDetailsBtn');
+            const closeBtn = popup.querySelector('#popupCloseBtn');
+
+            function revealFloatingPanel() {
                 popup.remove();
+                // Re-render results (safe) and ensure floating bar appears after user interaction
                 displaySolarCalculation(data);
+                renderFloatingPanelModulation(data);
+                const bar = document.getElementById('floatingPanelBar');
+                if (bar) bar.style.display = '';
                 showNotification('Solar savings calculated successfully!', 'success');
-            };
+            }
+
+            viewBtn.onclick = revealFloatingPanel;
+            closeBtn.onclick = revealFloatingPanel;
 
             document.body.appendChild(popup);
         }
