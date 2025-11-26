@@ -710,6 +710,11 @@
                 ? Math.min(100, (exportKwhValue / monthlySolarGenerationValue) * 100)
                 : 0;
 
+            // Calculate final bill after solar (bill after morning offset - export earnings)
+            const finalBillAfterSolar = afterBillValue !== null 
+                ? Math.max(0, afterBillValue - exportCreditValue)
+                : null;
+
             const formattedDetails = {
                 ...detailSource,
                 monthlyUsageKwh: formatNumber(monthlyUsageKwhValue, 0),
@@ -730,6 +735,7 @@
                 afterUsageKwh: formatNumber(afterUsageValue, 2),
                 billBefore: formatCurrency(beforeBillValue),
                 billAfter: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A',
+                billAfterSolar: finalBillAfterSolar !== null ? formatCurrency(finalBillAfterSolar) : 'N/A',
                 billReduction: formatCurrency(billReductionValue),
                 monthlyBillReduction: formatCurrency(billReductionValue),
                 annualReturn: formatCurrency(annualReturnValue),
@@ -1022,15 +1028,18 @@
                             </div>
                             <div class="rounded-xl border border-emerald-400/40 bg-emerald-950/40 px-4 py-4 text-center">
                                 <p class="text-xs uppercase tracking-[0.3em] text-emerald-200/80">After Solar Bill</p>
-                                <p class="mt-2 text-3xl font-bold text-emerald-300">${data.details.billAfter !== 'N/A' ? 'RM ' + data.details.billAfter : 'N/A'}</p>
-                                <p class="mt-1 text-xs text-emerald-200/60">${data.details.afterUsageKwh} kWh</p>
+                                <p class="mt-2 text-3xl font-bold text-emerald-300">${data.details.billAfterSolar !== 'N/A' ? 'RM ' + data.details.billAfterSolar : 'N/A'}</p>
+                                <p class="mt-1 text-xs text-emerald-200/60">After morning offset & export</p>
                             </div>
                         </div>
-                        <div class="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-950/40 px-4 py-3 text-center">
-                            <p class="text-sm text-emerald-100">
-                                <span class="font-semibold text-emerald-200">You save RM ${data.details.billReduction}</span> on your monthly bill
-                            </p>
-                            <p class="mt-1 text-xs text-emerald-200/70">Plus RM ${data.details.exportCredit} export credit = Total RM ${data.details.totalSavings}/month</p>
+                        <div class="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-950/40 px-4 py-3">
+                            <div class="text-xs text-emerald-200/70 space-y-1">
+                                <p>Bill after morning usage: RM ${data.details.billAfter}</p>
+                                <p>Less export earnings: -RM ${data.details.exportCredit}</p>
+                                <div class="border-t border-emerald-400/20 my-2 pt-2">
+                                    <p class="text-sm font-semibold text-emerald-200">Total Saving: RM ${data.details.totalSavings}/month</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
