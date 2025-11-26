@@ -389,8 +389,8 @@ app.get('/api/solar-calculation', async (req, res) => {
       panelType,
       panelBubbleId,
       smpPrice,
-      below19Discount,
-      above19Discount
+      percentDiscount,
+      fixedDiscount
     } = req.query;
 
     // Validate inputs
@@ -402,8 +402,8 @@ app.get('/api/solar-calculation', async (req, res) => {
       ? panelBubbleId.trim()
       : null;
     const smp = parseFloat(smpPrice);
-    const discount19Below = parseFloat(below19Discount) || 0;
-    const discount19Above = parseFloat(above19Discount) || 0;
+    const discountPercent = parseFloat(percentDiscount) || 0;
+    const discountFixed = parseFloat(fixedDiscount) || 0;
     const overridePanelsRaw = req.query.overridePanels;
     let overridePanels = null;
     if (overridePanelsRaw !== undefined) {
@@ -657,20 +657,29 @@ app.get('/api/solar-calculation', async (req, res) => {
     // Use actual package price if available, otherwise fallback to calculation
     let systemCostBeforeDiscount = null;
     let finalSystemCost = null;
-    let discountAmount = null;
+    let percentDiscountAmount = null;
+    let fixedDiscountAmount = null;
+    let totalDiscountAmount = null;
     let paybackPeriod = null;
-
-    // Calculate discount based on panel count (used when a package is available)
-    const applicableDiscount = actualPanelQty >= 19 ? discount19Above : discount19Below;
 
     if (selectedPackage && selectedPackage.price) {
       // Use actual package price from database
       systemCostBeforeDiscount = parseFloat(selectedPackage.price);
-      discountAmount = applicableDiscount;
-      finalSystemCost = systemCostBeforeDiscount - discountAmount;
+      
+      // Apply discount logic: Percent discount first, then fixed amount discount
+      // Step 1: Apply percentage discount
+      percentDiscountAmount = (systemCostBeforeDiscount * discountPercent) / 100;
+      const priceAfterPercent = systemCostBeforeDiscount - percentDiscountAmount;
+      
+      // Step 2: Apply fixed amount discount
+      fixedDiscountAmount = discountFixed;
+      
+      // Calculate final system cost
+      finalSystemCost = Math.max(0, priceAfterPercent - fixedDiscountAmount);
+      totalDiscountAmount = systemCostBeforeDiscount - finalSystemCost;
 
       // Calculate payback period only when system cost is available
-      if (totalMonthlySavings > 0) {
+      if (totalMonthlySavings > 0 && finalSystemCost > 0) {
         paybackPeriod = (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1);
       } else {
         paybackPeriod = 'N/A';
@@ -757,7 +766,9 @@ app.get('/api/solar-calculation', async (req, res) => {
       solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${(actualPanelQty * panelWatts / 1000).toFixed(1)} kW system)`,
       monthlySavings: totalMonthlySavings.toFixed(2),
       systemCostBeforeDiscount: systemCostBeforeDiscount !== null ? systemCostBeforeDiscount.toFixed(2) : null,
-      discount: discountAmount !== null ? discountAmount.toFixed(2) : null,
+      percentDiscountAmount: percentDiscountAmount !== null ? percentDiscountAmount.toFixed(2) : null,
+      fixedDiscountAmount: fixedDiscountAmount !== null ? fixedDiscountAmount.toFixed(2) : null,
+      totalDiscountAmount: totalDiscountAmount !== null ? totalDiscountAmount.toFixed(2) : null,
       finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : null,
       paybackPeriod: paybackPeriod,
       details: {

@@ -401,29 +401,38 @@
 
                             <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4">
                                 <h4 class="text-sm font-medium text-slate-200">Discount Programs</h4>
-                                <p class="mt-1 text-xs text-slate-500">Incentivise installations with tier-based rebates.</p>
+                                <p class="mt-1 text-xs text-slate-500">Apply percentage discount first, then fixed amount discount.</p>
                                 <div class="mt-4 grid gap-4 md:grid-cols-2">
                                     <div class="space-y-2">
-                                        <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Below 19 Panels (RM)</label>
-                                        <input
-                                            type="number"
-                                            id="below19Discount"
-                                            step="0.01"
-                                            min="0"
-                                            value="0"
-                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                        >
+                                        <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Discount (%)</label>
+                                        <div class="relative">
+                                            <input
+                                                type="number"
+                                                id="percentDiscount"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                value="0"
+                                                class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 pr-10 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                            >
+                                            <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">%</span>
+                                        </div>
+                                        <p class="text-xs text-slate-500">Applied first (0-100%)</p>
                                     </div>
                                     <div class="space-y-2">
-                                        <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Above 19 Panels (RM)</label>
-                                        <input
-                                            type="number"
-                                            id="above19Discount"
-                                            step="0.01"
-                                            min="0"
-                                            value="0"
-                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                        >
+                                        <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Fixed Amount Discount (RM)</label>
+                                        <div class="relative">
+                                            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">RM</span>
+                                            <input
+                                                type="number"
+                                                id="fixedDiscount"
+                                                step="0.01"
+                                                min="0"
+                                                value="0"
+                                                class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 pl-14 pr-4 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                            >
+                                        </div>
+                                        <p class="text-xs text-slate-500">Applied after percentage</p>
                                     </div>
                                 </div>
                             </div>
@@ -504,8 +513,8 @@
             const selectedOption = panelSelect.options[panelSelect.selectedIndex];
             const panelBubbleId = selectedOption && selectedOption.dataset ? selectedOption.dataset.bubbleId : '';
             const smpPrice = parseFloat(document.getElementById('smpPrice').value);
-            const below19Discount = parseFloat(document.getElementById('below19Discount').value) || 0;
-            const above19Discount = parseFloat(document.getElementById('above19Discount').value) || 0;
+            const percentDiscount = parseFloat(document.getElementById('percentDiscount').value) || 0;
+            const fixedDiscount = parseFloat(document.getElementById('fixedDiscount').value) || 0;
 
             // Validation
             if (!billAmount || billAmount <= 0) {
@@ -548,8 +557,8 @@
                 panelType: panelType,
                 panelBubbleId: panelBubbleId,
                 smpPrice: smpPrice,
-                below19Discount: below19Discount,
-                above19Discount: above19Discount
+                percentDiscount: percentDiscount,
+                fixedDiscount: fixedDiscount
             };
             delete latestSolarParams.overridePanels;
 
@@ -869,10 +878,24 @@
                         <span class="text-slate-400">System Cost</span>
                         <span class="font-medium text-slate-100">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
                     </div>
+                    ${data.percentDiscountAmount && parseFloat(data.percentDiscountAmount) > 0 ? `
                     <div class="flex items-center justify-between">
-                        <span class="text-slate-400">Discount Applied</span>
-                        <span class="font-medium text-emerald-300">-RM ${formatCurrency(data.discount)}</span>
+                        <span class="text-slate-400">Percent Discount</span>
+                        <span class="font-medium text-emerald-300">-RM ${formatCurrency(data.percentDiscountAmount)}</span>
                     </div>
+                    ` : ''}
+                    ${data.fixedDiscountAmount && parseFloat(data.fixedDiscountAmount) > 0 ? `
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Fixed Discount</span>
+                        <span class="font-medium text-emerald-300">-RM ${formatCurrency(data.fixedDiscountAmount)}</span>
+                    </div>
+                    ` : ''}
+                    ${data.totalDiscountAmount && parseFloat(data.totalDiscountAmount) > 0 ? `
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Total Discount</span>
+                        <span class="font-medium text-emerald-300">-RM ${formatCurrency(data.totalDiscountAmount)}</span>
+                    </div>
+                    ` : ''}
                     <div class="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-base font-semibold text-primary">
                         <span>Final System Cost</span>
                         <span>RM ${formatCurrency(data.finalSystemCost)}</span>
@@ -980,12 +1003,38 @@
                         </div>
                     </div>
 
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Savings Snapshot</p>
-                            <p class="mt-3 text-3xl font-semibold text-emerald-300">RM ${data.monthlySavings}</p>
-                            <p class="mt-1 text-xs text-slate-500">RM ${data.details.monthlyBillReduction} bill reduction</p>
+                    <div class="rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-4 sm:px-6 sm:py-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.3em] text-emerald-200/80">Bill Comparison</p>
+                                <h4 class="mt-1 text-base font-semibold text-emerald-100">See your savings at a glance</h4>
+                            </div>
+                            <div class="hidden sm:flex h-10 w-10 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-950/40 text-emerald-300 text-xl">💰</div>
                         </div>
+                        <div class="grid gap-4 sm:grid-cols-[1fr_auto_1fr] items-center">
+                            <div class="rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-4 text-center">
+                                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Original Bill</p>
+                                <p class="mt-2 text-3xl font-bold text-slate-100">RM ${data.details.billBefore}</p>
+                                <p class="mt-1 text-xs text-slate-400">${data.details.monthlyUsageKwh} kWh</p>
+                            </div>
+                            <div class="flex justify-center">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-950/40 text-emerald-300">→</div>
+                            </div>
+                            <div class="rounded-xl border border-emerald-400/40 bg-emerald-950/40 px-4 py-4 text-center">
+                                <p class="text-xs uppercase tracking-[0.3em] text-emerald-200/80">After Solar Bill</p>
+                                <p class="mt-2 text-3xl font-bold text-emerald-300">${data.details.billAfter !== 'N/A' ? 'RM ' + data.details.billAfter : 'N/A'}</p>
+                                <p class="mt-1 text-xs text-emerald-200/60">${data.details.afterUsageKwh} kWh</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-950/40 px-4 py-3 text-center">
+                            <p class="text-sm text-emerald-100">
+                                <span class="font-semibold text-emerald-200">You save RM ${data.details.billReduction}</span> on your monthly bill
+                            </p>
+                            <p class="mt-1 text-xs text-emerald-200/70">Plus RM ${data.details.exportCredit} export credit = Total RM ${data.details.totalSavings}/month</p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 md:grid-cols-1">
                         <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
                             <p class="text-xs uppercase tracking-[0.3em] text-slate-500">ROI</p>
                             <p class="mt-3 text-3xl font-semibold text-emerald-300">${roiDisplay}</p>
