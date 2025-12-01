@@ -737,6 +737,7 @@
                 billBefore: formatCurrency(beforeBillValue),
                 billAfter: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A',
                 billAfterSolar: finalBillAfterSolar !== null ? formatCurrency(finalBillAfterSolar) : 'N/A',
+                billAfterSolarWithBattery: finalBillAfterSolar !== null ? formatCurrency(finalBillAfterSolar) : 'N/A', // Store original for Battery UI
                 billReduction: formatCurrency(billReductionValue),
                 monthlyBillReduction: formatCurrency(billReductionValue),
                 annualReturn: formatCurrency(annualReturnValue),
@@ -749,6 +750,29 @@
                     deltaDirection: breakdownTotalDelta >= 0 ? 'decrease' : 'increase'
                 }
             };
+            
+            // Override with baseline (no-battery) values for the main display if battery is active
+            if (data.config && data.config.batterySize > 0 && data.details.battery && data.details.battery.baseline) {
+                const baseline = data.details.battery.baseline;
+                formattedDetails.billReduction = formatCurrency(baseline.billReduction);
+                formattedDetails.exportCredit = formatCurrency(baseline.exportCredit);
+                formattedDetails.totalSavings = formatCurrency(baseline.totalSavings);
+                formattedDetails.billAfter = baseline.billAfter !== null ? formatCurrency(baseline.billAfter) : 'N/A';
+                
+                // Calculate Baseline Net Bill (Bill After - Export Credit)
+                const baselineBillAfterVal = baseline.billAfter !== null ? Number(baseline.billAfter) : 0;
+                const baselineExportVal = Number(baseline.exportCredit);
+                const baselineNetBill = Math.max(0, baselineBillAfterVal - baselineExportVal);
+                formattedDetails.billAfterSolar = formatCurrency(baselineNetBill);
+
+                // Recalculate ROI based on baseline savings to keep it consistent with "Solar Only" view
+                // However, user might expect ROI to include battery if they see battery cost... 
+                // For now, user requested: "keep all number of After solar ( no battery ), intact"
+                // So we revert main display numbers to baseline.
+                
+                // Also revert the "Total Monthly Saving" display value
+                data.monthlySavings = formatCurrency(baseline.totalSavings);
+            }
 
             data.details = formattedDetails;
             data.monthlySavings = formatCurrency(monthlySavingsValue);
@@ -1099,8 +1123,23 @@
                                 <span>Monthly Grid Offset</span>
                                 <span class="text-slate-200">${data.details.battery.monthlyDischarge} kWh</span>
                              </div>
-                             <div class="mt-2 text-[10px] text-slate-500">
-                                Limited by: ${getBatteryLimiterText(data.details.battery.caps)}
+                             <div class="flex justify-between">
+                                <span>Reduced Grid Import</span>
+                                <span class="text-emerald-300">-${data.details.battery.monthlyDischarge} kWh</span>
+                             </div>
+                             <div class="flex justify-between">
+                                <span>Reduced Export</span>
+                                <span class="text-amber-300">-${data.details.battery.monthlyDischarge} kWh</span>
+                             </div>
+                             <div class="mt-3 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2">
+                                 <div class="flex justify-between items-center font-semibold text-primary">
+                                    <span>New Bill (Solar + Battery)</span>
+                                    <span>RM ${data.details.billAfterSolarWithBattery}</span>
+                                 </div>
+                                 <div class="flex justify-between items-center mt-1 text-emerald-300 font-medium">
+                                    <span>New Total Saving</span>
+                                    <span>RM ${data.details.savingsBreakdown.total}</span>
+                                 </div>
                              </div>
                         </div>
                         ` : ''}
