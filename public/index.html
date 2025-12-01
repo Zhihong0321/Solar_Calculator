@@ -783,6 +783,21 @@
             // instead of mutating 'formattedDetails' and hoping for the best.
 
             data.details = formattedDetails;
+            
+            // Calculate explicit Total New Saving for "Solar + Battery" to ensure visual consistency
+            // Formula: (Bill Before - New Bill) + New Export Income
+            const parseVal = (str) => {
+                if (typeof str !== 'string') return Number(str) || 0;
+                return Number(str.replace(/,/g, '')) || 0;
+            };
+
+            const batteryBillBefore = parseVal(formattedDetails.billBefore);
+            const batteryBillAfter = parseVal(formattedDetails.billAfterSolarWithBattery);
+            const batteryExport = parseVal(formattedDetails.exportCredit);
+            
+            const batteryTotalSaving = (batteryBillBefore - batteryBillAfter) + batteryExport;
+            const batteryTotalSavingDisplay = formatCurrency(batteryTotalSaving);
+
             // data.monthlySavings = formatCurrency(monthlySavingsValue); // Keep original total calculation for Battery sections
 
             const roiValue = finalSystemCostValue && finalSystemCostValue > 0
@@ -1173,7 +1188,7 @@
                                         </div>
                                         <div class="flex justify-between items-center">
                                             <span class="text-slate-300">New Export Income</span>
-                                            <span class="text-lg font-medium text-emerald-300">+RM ${(Number(data.details.exportCredit.replace(/,/g,'')) - (Number(data.details.battery.monthlyDischarge) * data.config.smpPrice)).toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                            <span class="text-lg font-medium text-emerald-300">+RM ${data.details.exportCredit}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1181,12 +1196,12 @@
                                     <div class="flex justify-between items-end">
                                         <div>
                                             <span class="block text-[10px] uppercase tracking-widest text-primary/60 mb-1">Total New Saving</span>
-                                            <span class="text-3xl font-bold text-primary">RM ${data.details.savingsBreakdown.total}</span>
+                                            <span class="text-3xl font-bold text-primary">RM ${batteryTotalSavingDisplay}</span>
                                         </div>
                                         <div class="flex flex-col items-end">
                                             <div class="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-emerald-300 border border-emerald-500/20">
                                                 <span class="text-xs">▲</span>
-                                                <span class="text-sm font-bold">RM ${(Number(data.details.savingsBreakdown.total) - Number(baselineStats.totalSavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2})}</span>
+                                                <span class="text-sm font-bold">RM ${(batteryTotalSaving - parseVal(baselineStats.totalSavings)).toLocaleString('en-MY', {minimumFractionDigits: 2})}</span>
                                             </div>
                                             <span class="text-[9px] uppercase tracking-wider text-emerald-400/50 mt-1">Extra vs Solar Only</span>
                                         </div>
