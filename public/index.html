@@ -765,7 +765,7 @@
                 billBefore: formatCurrency(beforeBillValue),
                 billAfter: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A',
                 billAfterSolar: finalBillAfterSolar !== null ? formatCurrency(finalBillAfterSolar) : 'N/A',
-                billAfterSolarWithBattery: finalBillAfterSolar !== null ? formatCurrency(finalBillAfterSolar) : 'N/A', // Store original for Battery UI
+                billAfterSolarWithBattery: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A', // Corrected: Use Gross Bill (before export deduction) to match breakdown
                 billReduction: formatCurrency(billReductionValue),
                 monthlyBillReduction: formatCurrency(billReductionValue),
                 annualReturn: formatCurrency(annualReturnValue),
