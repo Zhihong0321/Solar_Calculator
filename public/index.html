@@ -558,7 +558,8 @@
                 panelBubbleId: panelBubbleId,
                 smpPrice: smpPrice,
                 percentDiscount: percentDiscount,
-                fixedDiscount: fixedDiscount
+                fixedDiscount: fixedDiscount,
+                batterySize: 0 // Default to 0 kWh
             };
             delete latestSolarParams.overridePanels;
 
@@ -1073,6 +1074,38 @@
                         <p class="mt-1 text-xs text-emerald-100/80">(RM ${data.details.morningSaving} + RM ${data.details.exportSaving})</p>
                     </div>
 
+                    <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Battery Storage</p>
+                                <p class="mt-1 text-sm text-slate-300">Reduce grid reliance at night</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="adjustBatterySize(-5)" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-200 hover:border-primary hover:text-primary disabled:opacity-50" ${data.config.batterySize <= 0 ? 'disabled' : ''}>−</button>
+                                <div class="w-20 text-center">
+                                    <span class="text-lg font-semibold text-slate-100">${data.config.batterySize}</span>
+                                    <span class="text-xs text-slate-500">kWh</span>
+                                </div>
+                                <button onclick="adjustBatterySize(5)" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-200 hover:border-primary hover:text-primary">+</button>
+                            </div>
+                        </div>
+                        ${data.config.batterySize > 0 ? `
+                        <div class="mt-3 space-y-2 border-t border-slate-800 pt-3 text-xs text-slate-400">
+                             <div class="flex justify-between">
+                                <span>Max Daily Discharge</span>
+                                <span class="text-slate-200">${data.details.battery.dailyDischarge} kWh</span>
+                             </div>
+                             <div class="flex justify-between">
+                                <span>Monthly Grid Offset</span>
+                                <span class="text-slate-200">${data.details.battery.monthlyDischarge} kWh</span>
+                             </div>
+                             <div class="mt-2 text-[10px] text-slate-500">
+                                Limited by: ${getBatteryLimiterText(data.details.battery.caps)}
+                             </div>
+                        </div>
+                        ` : ''}
+                    </div>
+
                     ${costSummarySection}
                     ${paybackSection}
                     ${packageSection}
@@ -1169,6 +1202,10 @@
             const inputFloating = document.getElementById('panelQtyInputFloating');
             const spinnerFloating = document.getElementById('panelAdjustSpinnerFloating');
             const statusFloating = document.getElementById('panelAdjustStatusFloating');
+            
+            // Battery controls (disable while loading)
+            const batteryButtons = document.querySelectorAll('button[onclick^="adjustBatterySize"]');
+            batteryButtons.forEach(btn => btn.disabled = isLoading);
 
             if (spinner) {
                 spinner.classList.toggle('hidden', !isLoading);
@@ -1285,6 +1322,41 @@
             } finally {
                 panelUpdateInFlight = false;
             }
+        }
+
+        function adjustBatterySize(delta) {
+            if (!latestSolarParams) return;
+            
+            const currentSize = latestSolarParams.batterySize || 0;
+            const newSize = Math.max(0, currentSize + delta);
+            
+            if (newSize === currentSize) return;
+            
+            latestSolarParams.batterySize = newSize;
+            
+            // Re-fetch calculation with new battery size
+            // Note: this will re-render the whole results section
+            const resultsDiv = document.getElementById('calculatorResults');
+            // Show a small loading toast or overlay if desired, but we'll rely on setPanelControlsLoading for now
+            
+            setPanelControlsLoading(true);
+            fetchSolarCalculation().then(() => {
+                 setPanelControlsLoading(false);
+            }).catch(err => {
+                 showNotification(err.message, 'error');
+                 setPanelControlsLoading(false);
+            });
+        }
+
+        function getBatteryLimiterText(caps) {
+            if (!caps) return '';
+            const excess = parseFloat(caps.excessSolar);
+            const night = parseFloat(caps.nightUsage);
+            const battery = parseFloat(caps.batterySize);
+            
+            if (battery <= excess && battery <= night) return 'Battery Capacity';
+            if (night <= excess && night <= battery) return 'Night Usage Demand';
+            return 'Excess Solar Generation';
         }
 
         // Render floating Panel Modulation controls (fixed at bottom)

@@ -404,6 +404,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     const smp = parseFloat(smpPrice);
     const discountPercent = parseFloat(percentDiscount) || 0;
     const discountFixed = parseFloat(fixedDiscount) || 0;
+    const batterySizeVal = parseFloat(req.query.batterySize) || 0;
     const overridePanelsRaw = req.query.overridePanels;
     let overridePanels = null;
     if (overridePanelsRaw !== undefined) {
@@ -513,8 +514,32 @@ app.get('/api/solar-calculation', async (req, res) => {
     const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
 
     const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
-    const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
+    
+    // --- Battery Logic Start ---
+    // Hard Cap 1: Daily Excess Solar Energy
+    const dailyExcessSolar = Math.max(0, monthlySolarGeneration - morningUsageKwh) / 30;
+    
+    // Hard Cap 2: Daily Grid Import (Night Usage)
+    const dailyNightUsage = Math.max(0, monthlyUsageKwh - morningUsageKwh) / 30;
+    
+    // Hard Cap 3: Battery Capacity
+    const dailyBatteryCap = batterySizeVal;
+
+    // Max Discharge = Lowest of the 3 caps
+    const dailyMaxDischarge = Math.min(dailyExcessSolar, dailyNightUsage, dailyBatteryCap);
+    const monthlyMaxDischarge = dailyMaxDischarge * 30;
+
+    // Step 1: New Total Import from Grid (after solar & battery)
+    // Original logic: netUsageKwh = monthlyUsageKwh - morningSelfConsumption
+    // New logic: netUsageKwh = (monthlyUsageKwh - morningSelfConsumption) - monthlyMaxDischarge
+    const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption - monthlyMaxDischarge);
     const netUsageForLookup = Math.max(0, Math.floor(netUsageKwh));
+
+    // Step 3 (Calc Prep): Export Energy
+    // Original: monthlySolarGeneration - morningUsageKwh
+    // New: (monthlySolarGeneration - morningUsageKwh) - monthlyMaxDischarge
+    const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
+    // --- Battery Logic End ---
 
     // Calculate the post-solar bill using the reduced usage (excluding export)
     let afterTariff = null;
@@ -560,7 +585,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     const morningSaving = morningUsageKwh * morningUsageRate;
 
     // 2. Export calculation: total solar generation - morning_kwh, then multiply by export rate
-    const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+    // exportKwh is already calculated above in Battery Logic
     const exportRate = smp; // RM per kWh for export (SMP price)
     const exportSaving = exportKwh * exportRate;
 
@@ -743,7 +768,8 @@ app.get('/api/solar-calculation', async (req, res) => {
         sunPeakHour: peakHour,
         morningUsage: morningPercent,
         panelType: panelWattage,
-        smpPrice: smp
+        smpPrice: smp,
+        batterySize: batterySizeVal
       },
       // PANEL RECOMMENDATION RESULTS
       recommendedPanels: recommendedPanels,
@@ -791,7 +817,17 @@ app.get('/api/solar-calculation', async (req, res) => {
           items: breakdownItems,
           totals
         },
-        savingsBreakdown: savingsBreakdown
+        savingsBreakdown: savingsBreakdown,
+        battery: {
+          size: batterySizeVal,
+          dailyDischarge: dailyMaxDischarge.toFixed(2),
+          monthlyDischarge: monthlyMaxDischarge.toFixed(2),
+          caps: {
+             excessSolar: dailyExcessSolar.toFixed(2),
+             nightUsage: dailyNightUsage.toFixed(2),
+             batterySize: dailyBatteryCap.toFixed(2)
+          }
+        }
       },
       billComparison: {
         before: {
