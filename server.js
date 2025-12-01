@@ -856,7 +856,36 @@ app.get('/api/solar-calculation', async (req, res) => {
              exportCredit: exportSavingBaseline.toFixed(2),
              totalSavings: totalMonthlySavingsBaseline.toFixed(2),
              billAfter: afterBillBaseline !== null ? afterBillBaseline.toFixed(2) : null,
-             usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null
+             usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null,
+             billBreakdown: {
+                before: beforeBreakdown,
+                after: buildBillBreakdown(baselineTariff),
+                items: [
+                  { key: 'usage', label: 'Usage' },
+                  { key: 'network', label: 'Network' },
+                  { key: 'capacity', label: 'Capacity Fee' },
+                  { key: 'sst', label: 'SST' },
+                  { key: 'eei', label: 'EEI' }
+                ].map((item) => {
+                  const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
+                  const baselineBreakdown = buildBillBreakdown(baselineTariff);
+                  const afterValue = baselineBreakdown ? baselineBreakdown[item.key] : null;
+                  return {
+                    ...item,
+                    before: beforeValue,
+                    after: afterValue,
+                    delta: calculateBreakdownDelta(beforeValue, afterValue)
+                  };
+                }),
+                totals: {
+                  before: beforeBreakdown ? beforeBreakdown.total : billBefore,
+                  after: baselineTariff && baselineTariff.bill_total_normal !== null ? parseFloat(baselineTariff.bill_total_normal) : null,
+                  delta: calculateBreakdownDelta(
+                    beforeBreakdown ? beforeBreakdown.total : billBefore,
+                    baselineTariff && baselineTariff.bill_total_normal !== null ? parseFloat(baselineTariff.bill_total_normal) : null
+                  )
+                }
+             }
           }
         }
       },

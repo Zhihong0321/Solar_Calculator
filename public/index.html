@@ -783,12 +783,13 @@
             data.roiPercentage = roiValue !== null ? formatPercentage(roiValue, 1) : null;
             const roiDisplay = data.roiPercentage !== null ? `${data.roiPercentage}%` : 'N/A';
 
-            const buildBreakdownRows = () => {
-                if (!breakdownItems.length) {
+            const buildBreakdownRows = (breakdownData, isBattery = false) => {
+                const items = Array.isArray(breakdownData.items) ? breakdownData.items : [];
+                if (!items.length) {
                     return `<div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-500">Bill component details unavailable for the selected usage.</div>`;
                 }
 
-                return breakdownItems.map((item) => {
+                return items.map((item) => {
                     const beforeValue = toNumber(item.before);
                     const afterRaw = item.after;
                     const afterValue = afterRaw === null || afterRaw === undefined ? null : toNumber(afterRaw);
@@ -801,7 +802,7 @@
                     const deltaDisplay = `${deltaSymbol}RM ${formatCurrency(Math.abs(deltaValue))}`;
 
                     return `
-                        <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-xs sm:text-sm">
+                        <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border ${isBattery ? 'border-primary/20 bg-slate-950/60' : 'border-emerald-500/20 bg-slate-950/40'} px-4 py-3 text-xs sm:text-sm">
                             <div class="font-medium text-slate-200">${item.label}</div>
                             <div class="text-slate-100">${beforeDisplay}</div>
                             <div class="text-slate-100">${afterDisplay}</div>
@@ -811,59 +812,97 @@
                 }).join('');
             };
 
-            const breakdownRowsHtml = buildBreakdownRows();
-            const totalDeltaSymbol = breakdownTotalDelta >= 0 ? '−' : '+';
-            const totalDeltaClass = breakdownTotalDelta >= 0 ? 'text-emerald-300' : 'text-amber-300';
-            const totalsRowHtml = `
-                <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border border-primary/40 bg-primary/10 px-4 py-4 text-xs sm:text-sm">
-                    <div class="font-semibold text-primary">Total Bill</div>
-                    <div class="font-semibold text-slate-100">RM ${formatCurrency(breakdownTotalBefore)}</div>
-                    <div class="font-semibold text-slate-100">${breakdownTotalAfter !== null ? `RM ${formatCurrency(breakdownTotalAfter)}` : 'N/A'}</div>
-                    <div class="text-base font-semibold ${totalDeltaClass}">${totalDeltaSymbol}RM ${formatCurrency(Math.abs(breakdownTotalDelta))}</div>
-                </div>
-            `;
+            const buildBillBreakdownSection = (breakdownData, title, labelColorClass, borderColorClass, bgColorClass, isBattery = false) => {
+                const rowsHtml = buildBreakdownRows(breakdownData, isBattery);
+                const totals = breakdownData.totals || {};
+                const before = toNumber(totals.before);
+                const after = totals.after !== null ? toNumber(totals.after) : null;
+                const delta = toNumber(totals.delta);
+                
+                const totalDeltaSymbol = delta >= 0 ? '−' : '+';
+                const totalDeltaClass = delta >= 0 ? 'text-emerald-300' : 'text-amber-300';
 
-            const billBreakdownSection = `
-                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4 sm:px-6 sm:py-6">
-                    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
-                            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Bill Composition Comparison</p>
-                            <h4 class="mt-1 text-lg font-semibold text-slate-100">Component-level savings insight</h4>
-                        </div>
-                        <div class="text-xs text-slate-500">RM values before vs. after morning solar offset</div>
+                const totalsRowHtml = `
+                    <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border ${isBattery ? 'border-primary/40 bg-primary/10' : 'border-emerald-500/40 bg-emerald-500/10'} px-4 py-4 text-xs sm:text-sm">
+                        <div class="font-semibold ${isBattery ? 'text-primary' : 'text-emerald-400'}">Total Bill</div>
+                        <div class="font-semibold text-slate-100">RM ${formatCurrency(before)}</div>
+                        <div class="font-semibold text-slate-100">${after !== null ? `RM ${formatCurrency(after)}` : 'N/A'}</div>
+                        <div class="text-base font-semibold ${totalDeltaClass}">${totalDeltaSymbol}RM ${formatCurrency(Math.abs(delta))}</div>
                     </div>
-                    <div class="mt-4 hidden grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] gap-3 text-[11px] uppercase tracking-[0.25em] text-slate-500 sm:grid">
-                        <div>Component</div>
-                        <div class="text-center">Before</div>
-                        <div class="text-center">After</div>
-                        <div class="text-center">Change</div>
-                    </div>
-                    <div class="mt-4 space-y-3">
-                        ${breakdownRowsHtml}
-                        ${totalsRowHtml}
-                    </div>
-                    <div class="mt-4 grid gap-3 sm:grid-cols-3">
-                        <div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-300">
-                            <div class="text-[11px] uppercase tracking-[0.3em] text-slate-500">Bill Reduction</div>
-                            <div class="mt-2 text-lg font-semibold text-emerald-300">RM ${data.details.billReduction}</div>
+                `;
+
+                return `
+                    <div class="rounded-2xl border ${borderColorClass} ${bgColorClass} px-4 py-4 sm:px-6 sm:py-6">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.3em] ${labelColorClass}">Bill Breakdown</p>
+                                <h4 class="mt-1 text-lg font-semibold text-slate-100">${title}</h4>
+                            </div>
+                            <div class="text-xs text-slate-500">RM values comparison</div>
                         </div>
-                        <div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-300">
-                            <div class="text-[11px] uppercase tracking-[0.3em] text-slate-500">Export Credit</div>
-                            <div class="mt-2 text-lg font-semibold text-emerald-300">RM ${data.details.exportCredit}</div>
-                            <div class="text-[11px] text-slate-500">(${data.details.exportKwh} kWh × RM ${data.details.exportRate})</div>
+                        <div class="mt-4 hidden grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] gap-3 text-[11px] uppercase tracking-[0.25em] text-slate-500 sm:grid">
+                            <div>Component</div>
+                            <div class="text-center">Before</div>
+                            <div class="text-center">After</div>
+                            <div class="text-center">Change</div>
                         </div>
-                        <div class="rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-100">
-                            <div class="text-[11px] uppercase tracking-[0.3em]">Total Solar Value</div>
-                            <div class="mt-2 text-lg font-semibold text-emerald-200">RM ${data.details.totalSavings}</div>
-                            <div class="text-[11px] text-emerald-100/80">(Bill reduction + export credit)</div>
+                        <div class="mt-4 space-y-3">
+                            ${rowsHtml}
+                            ${totalsRowHtml}
                         </div>
                     </div>
-                    <div class="mt-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-100">
-                        <p class="font-semibold text-emerald-200">RM ${data.details.billReduction} + RM ${data.details.exportCredit} = RM ${data.details.totalSavings}</p>
-                        <p class="mt-1 text-[11px] text-emerald-100/80">Savings combine lower TNB charges with ${data.details.exportKwh} kWh exported at RM ${data.details.exportRate}/kWh.</p>
-                    </div>
-                </div>
-            `;
+                `;
+            };
+
+            // Determine which breakdown data to use for baseline
+            // If battery is active, use the baseline bill breakdown stored in details.battery.baseline.billBreakdown
+            // Otherwise use data.billBreakdownComparison
+            let baselineBreakdownData = data.billBreakdownComparison;
+            if (data.config.batterySize > 0 && data.details.battery && data.details.battery.baseline && data.details.battery.baseline.billBreakdown) {
+                baselineBreakdownData = data.details.battery.baseline.billBreakdown;
+            }
+
+            const billBreakdownSection = buildBillBreakdownSection(
+                baselineBreakdownData, 
+                "With Solar (No Battery)", 
+                "text-emerald-400/80",
+                "border-emerald-500/20",
+                "bg-emerald-500/5",
+                false
+            );
+
+            // Build Battery Breakdown Section (Hidden by default)
+            let batteryBreakdownSection = '';
+            if (data.config.batterySize > 0) {
+                // Battery breakdown uses the main 'billBreakdownComparison' (which is "With Battery" when battery > 0)
+                // Wait, server returns 'billBreakdownComparison' as the MAIN result. 
+                // If battery > 0, the main result IS the battery result.
+                // So 'data.billBreakdownComparison' IS the Solar + Battery breakdown.
+                
+                batteryBreakdownSection = `
+                    <details class="group rounded-2xl border border-primary/20 bg-primary/5 overflow-hidden">
+                        <summary class="flex cursor-pointer items-center justify-between px-6 py-4 text-sm font-medium text-slate-300 hover:bg-primary/5 transition">
+                            <span class="flex items-center space-x-3">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-full border border-primary/40 bg-slate-950/50 text-primary">📊</span>
+                                <span>View Bill Breakdown (Solar + Battery)</span>
+                            </span>
+                            <span class="text-primary group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div class="border-t border-primary/20 px-4 py-4 sm:px-6 sm:py-6">
+                             ${buildBillBreakdownSection(
+                                data.billBreakdownComparison,
+                                "With Solar + Battery",
+                                "text-primary/80",
+                                "border-transparent", // nesting handles border
+                                "bg-transparent",
+                                true
+                             )}
+                        </div>
+                    </details>
+                `;
+            }
+
+            if (!solarDiv) {
 
             if (!solarDiv) {
                 solarDiv = document.createElement('div');
@@ -988,15 +1027,15 @@
                     </section>
 
                     <!-- GROUP 2: SOLAR SAVING (BASELINE) -->
-                    <section id="group-solar-results" class="space-y-4 pt-4 border-t border-slate-800/50">
+                    <section id="group-solar-results" class="space-y-4 pt-6 pb-2 border-t border-emerald-500/20">
                         <div class="flex items-center gap-2 mb-2">
-                            <div class="h-6 w-1 rounded-full bg-emerald-500"></div>
-                            <h4 class="text-sm font-semibold uppercase tracking-widest text-slate-400">Solar Saving Analysis (With Solar Only)</h4>
+                            <div class="h-6 w-1 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+                            <h4 class="text-sm font-semibold uppercase tracking-widest text-emerald-100/80">Solar Saving Analysis (Solar Only)</h4>
                         </div>
 
                         ${billBreakdownSection}
 
-                        <div class="rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-5 py-5 sm:px-6 sm:py-6">
+                        <div class="rounded-2xl border border-emerald-500/30 bg-emerald-900/10 px-5 py-5 sm:px-6 sm:py-6 backdrop-blur-sm">
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <p class="text-xs uppercase tracking-[0.3em] text-emerald-200/80">Solar Only Impact</p>
@@ -1018,12 +1057,12 @@
 
                         <div class="grid gap-4 sm:grid-cols-2">
                              ${paybackDisplay !== null ? `
-                                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 hover:border-slate-700 transition">
                                     <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Payback Period</p>
                                     <p class="mt-2 text-2xl font-semibold text-slate-100">${paybackDisplay}</p>
                                 </div>
                              ` : ''}
-                             <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
+                             <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 hover:border-slate-700 transition">
                                 <p class="text-xs uppercase tracking-[0.3em] text-slate-500">ROI</p>
                                 <p class="mt-2 text-2xl font-semibold text-emerald-300">${roiDisplay}</p>
                                 <p class="mt-1 text-xs text-slate-500">RM ${data.details.annualReturn} / year</p>
@@ -1032,17 +1071,17 @@
                     </section>
 
                     <!-- GROUP 3: SOLAR + BATTERY CONFIG -->
-                    <section id="group-battery-config" class="space-y-4 pt-4 border-t border-slate-800/50">
+                    <section id="group-battery-config" class="space-y-4 pt-6 pb-2 border-t border-amber-500/20">
                         <div class="flex items-center gap-2 mb-2">
-                            <div class="h-6 w-1 rounded-full bg-amber-500"></div>
-                            <h4 class="text-sm font-semibold uppercase tracking-widest text-slate-400">Battery Integration</h4>
+                            <div class="h-6 w-1 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
+                            <h4 class="text-sm font-semibold uppercase tracking-widest text-amber-100/80">Battery Integration</h4>
                         </div>
 
-                        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-5">
+                        <div class="rounded-2xl border border-amber-500/20 bg-amber-900/5 px-5 py-5 backdrop-blur-sm">
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
                                 <div>
-                                    <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Battery Storage</p>
-                                    <p class="mt-1 text-sm text-slate-300">Reduce grid reliance at night</p>
+                                    <p class="text-xs uppercase tracking-[0.3em] text-amber-200/70">Battery Storage</p>
+                                    <p class="mt-1 text-sm text-amber-100/90">Reduce grid reliance at night</p>
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <button onclick="adjustBatterySize(-5)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-primary hover:text-primary disabled:opacity-50" ${data.config.batterySize <= 0 ? 'disabled' : ''}>−</button>
@@ -1055,20 +1094,20 @@
                             </div>
                             
                             ${data.config.batterySize > 0 ? `
-                            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 border-t border-slate-800 pt-4 text-xs">
-                                 <div class="rounded-xl bg-slate-900/50 px-3 py-2">
+                            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 border-t border-amber-500/10 pt-4 text-xs">
+                                 <div class="rounded-xl bg-slate-900/50 px-3 py-2 border border-white/5">
                                     <span class="block text-slate-500">Max Daily Discharge</span>
                                     <span class="block mt-1 text-sm font-medium text-slate-200">${data.details.battery.dailyDischarge} kWh</span>
                                  </div>
-                                 <div class="rounded-xl bg-slate-900/50 px-3 py-2">
+                                 <div class="rounded-xl bg-slate-900/50 px-3 py-2 border border-white/5">
                                     <span class="block text-slate-500">Monthly Grid Offset</span>
                                     <span class="block mt-1 text-sm font-medium text-slate-200">${data.details.battery.monthlyDischarge} kWh</span>
                                  </div>
-                                 <div class="rounded-xl bg-emerald-900/10 border border-emerald-500/10 px-3 py-2">
+                                 <div class="rounded-xl bg-emerald-900/20 border border-emerald-500/20 px-3 py-2">
                                     <span class="block text-emerald-200/60">Reduced Grid Import</span>
                                     <span class="block mt-1 text-sm font-medium text-emerald-300">-${data.details.battery.monthlyDischarge} kWh</span>
                                  </div>
-                                 <div class="rounded-xl bg-amber-900/10 border border-amber-500/10 px-3 py-2">
+                                 <div class="rounded-xl bg-amber-900/20 border border-amber-500/20 px-3 py-2">
                                     <span class="block text-amber-200/60">Reduced Export</span>
                                     <span class="block mt-1 text-sm font-medium text-amber-300">-${data.details.battery.monthlyDischarge} kWh</span>
                                  </div>
@@ -1082,17 +1121,17 @@
 
                     <!-- GROUP 4: SCENARIO COMPARISON -->
                     ${data.config.batterySize > 0 ? `
-                    <section id="group-comparison" class="space-y-4 pt-4 border-t border-slate-800/50">
+                    <section id="group-comparison" class="space-y-4 pt-6 border-t border-primary/20">
                         <div class="flex items-center gap-2 mb-2">
-                            <div class="h-6 w-1 rounded-full bg-primary"></div>
-                            <h4 class="text-sm font-semibold uppercase tracking-widest text-slate-400">Scenario Comparison</h4>
+                            <div class="h-6 w-1 rounded-full bg-primary shadow-[0_0_10px_rgba(56,189,248,0.5)]"></div>
+                            <h4 class="text-sm font-semibold uppercase tracking-widest text-primary/90">Scenario Comparison</h4>
                         </div>
 
                         <div class="grid gap-4 md:grid-cols-2">
                             <!-- Solar Only Card -->
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-5 flex flex-col justify-between">
+                            <div class="rounded-2xl border border-emerald-500/20 bg-emerald-900/5 px-5 py-5 flex flex-col justify-between relative overflow-hidden hover:border-emerald-500/30 transition">
                                 <div>
-                                    <div class="text-xs uppercase tracking-[0.3em] text-slate-500 mb-4">Solar Only</div>
+                                    <div class="text-xs uppercase tracking-[0.3em] text-emerald-200/60 mb-4">Solar Only</div>
                                     <div class="space-y-3">
                                         <div class="flex justify-between items-center">
                                             <span class="text-slate-400">Monthly Bill</span>
@@ -1104,23 +1143,23 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="mt-6 pt-4 border-t border-slate-800">
+                                <div class="mt-6 pt-4 border-t border-emerald-500/10">
                                     <div class="flex justify-between items-end">
                                         <span class="text-sm font-medium text-slate-400">Total Saving</span>
-                                        <span class="text-2xl font-bold text-slate-100">RM ${data.monthlySavings}</span>
+                                        <span class="text-2xl font-bold text-emerald-300">RM ${data.monthlySavings}</span>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Solar + Battery Card -->
-                            <div class="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/5 to-slate-950 px-5 py-5 flex flex-col justify-between relative overflow-hidden">
+                            <div class="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-slate-950 px-5 py-5 flex flex-col justify-between relative overflow-hidden shadow-[0_0_30px_rgba(56,189,248,0.1)]">
                                 <div class="absolute top-0 right-0 p-3 opacity-10">
-                                    <div class="text-6xl">🔋</div>
+                                    <div class="text-6xl text-primary">🔋</div>
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2 mb-4">
                                         <span class="text-xs uppercase tracking-[0.3em] text-primary">Solar + Battery</span>
-                                        <span class="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">${data.config.batterySize}kWh</span>
+                                        <span class="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary border border-primary/20">${data.config.batterySize}kWh</span>
                                     </div>
                                     <div class="space-y-3">
                                         <div class="flex justify-between items-center">
@@ -1144,6 +1183,8 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        ${batteryBreakdownSection}
                     </section>
                     ` : ''}
 
