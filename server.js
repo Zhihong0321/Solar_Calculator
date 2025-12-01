@@ -432,487 +432,489 @@ app.get('/api/solar-calculation', async (req, res) => {
 
     // First get the TNB tariff data for the bill amount
     const client = await pool.connect();
-    const query = `
-      SELECT * FROM tnb_tariff_2025
-      WHERE bill_total_normal <= $1
-      ORDER BY bill_total_normal DESC
-      LIMIT 1
-    `;
-    const result = await client.query(query, [billAmount]);
-
-    if (result.rows.length === 0) {
-      client.release();
-      return res.status(404).json({ error: 'No tariff data found for calculation' });
-    }
-
-    const tariff = result.rows[0];
-    const monthlyUsageKwh = tariff.usage_kwh || 0;
-
-    // NEW PANEL RECOMMENDATION FORMULA
-    // Formula: usage_kwh / sun_peak_hour / 30 / 0.62 = X, then floor(X)
-    const recommendedPanelsRaw = Math.floor(monthlyUsageKwh / peakHour / 30 / 0.62);
-
-    // Ensure minimum of 1 panel for recommendation
-    const recommendedPanels = Math.max(1, recommendedPanelsRaw);
-    const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
-
-    // Search for Residential package within filtered product pool
-    // Rule: Always filter by selected product type
-    // - If panelBubbleId provided: match product bubble_id
-    // - Else: match product wattage (solar_output_rating)
-    let packageResult = { rows: [] };
-    if (selectedPanelBubbleId) {
-      const packageByBubbleQuery = `
-        SELECT p.*
-        FROM package p
-        JOIN product pr ON (
-          CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-          OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-        )
-        WHERE p.panel_qty = $1
-          AND p.active = true
-          AND (p.special IS FALSE OR p.special IS NULL)
-          AND p.type = $2
-          AND pr.bubble_id = $3
-        ORDER BY p.price ASC
-        LIMIT 1
-      `;
-      packageResult = await client.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
-    } else {
-      const packageByWattQuery = `
-        SELECT p.*
-        FROM package p
-        JOIN product pr ON (
-          CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-          OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-        )
-        WHERE p.panel_qty = $1
-          AND p.active = true
-          AND (p.special IS FALSE OR p.special IS NULL)
-          AND p.type = $2
-          AND pr.solar_output_rating = $3
-        ORDER BY p.price ASC
-        LIMIT 1
-      `;
-      packageResult = await client.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage]);
-    }
-
-    let selectedPackage = null;
-    if (packageResult.rows.length > 0) {
-      selectedPackage = packageResult.rows[0];
-    } else {
-      // No package in filtered pool; do NOT fallback across products
-      selectedPackage = null;
-    }
-
-    // Calculate solar generation using selected panel wattage
-    const panelWatts = panelWattage;
-    const dailySolarGeneration = (actualPanelQty * panelWatts * peakHour) / 1000; // kWh per day
-    const monthlySolarGeneration = dailySolarGeneration * 30;
-
-    // Calculate morning usage split
-    const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
-
-    const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
     
-    // --- Battery Logic Start ---
-    // Hard Cap 1: Daily Excess Solar Energy
-    const dailyExcessSolar = Math.max(0, monthlySolarGeneration - morningUsageKwh) / 30;
-    
-    // Hard Cap 2: Daily Grid Import (Night Usage)
-    const dailyNightUsage = Math.max(0, monthlyUsageKwh - morningUsageKwh) / 30;
-    
-    // Hard Cap 3: Battery Capacity
-    const dailyBatteryCap = batterySizeVal;
+    try {
+        const query = `
+          SELECT * FROM tnb_tariff_2025
+          WHERE bill_total_normal <= $1
+          ORDER BY bill_total_normal DESC
+          LIMIT 1
+        `;
+        const result = await client.query(query, [billAmount]);
 
-    // Max Discharge = Lowest of the 3 caps
-    const dailyMaxDischarge = Math.min(dailyExcessSolar, dailyNightUsage, dailyBatteryCap);
-    const monthlyMaxDischarge = dailyMaxDischarge * 30;
+        if (result.rows.length === 0) {
+          return res.status(404).json({ error: 'No tariff data found for calculation' });
+        }
 
-    // Step 1: New Total Import from Grid (after solar & battery)
-    // Original logic: netUsageKwh = monthlyUsageKwh - morningSelfConsumption
-    // New logic: netUsageKwh = (monthlyUsageKwh - morningSelfConsumption) - monthlyMaxDischarge
-    
-    // --- Baseline Logic (No Battery) ---
-    // We calculate the baseline separately to preserve "After Solar (No Battery)" values for comparison
-    const netUsageBaseline = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
-    const netUsageBaselineForLookup = Math.max(0, Math.floor(netUsageBaseline));
-    const exportKwhBaseline = Math.max(0, monthlySolarGeneration - morningUsageKwh);
-    
-    // --- Battery Logic (With Battery) ---
-    const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption - monthlyMaxDischarge);
-    const netUsageForLookup = Math.max(0, Math.floor(netUsageKwh));
+        const tariff = result.rows[0];
+        const monthlyUsageKwh = tariff.usage_kwh || 0;
 
-    // Step 3 (Calc Prep): Export Energy
-    // Original: monthlySolarGeneration - morningUsageKwh
-    // New: (monthlySolarGeneration - morningUsageKwh) - monthlyMaxDischarge
-    const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
-    // --- Battery Logic End ---
+        // NEW PANEL RECOMMENDATION FORMULA
+        // Formula: usage_kwh / sun_peak_hour / 30 / 0.62 = X, then floor(X)
+        const recommendedPanelsRaw = Math.floor(monthlyUsageKwh / peakHour / 30 / 0.62);
 
-    // Calculate the post-solar bill using the reduced usage (excluding export)
-    let afterTariff = null;
-    let baselineTariff = null;
+        // Ensure minimum of 1 panel for recommendation
+        const recommendedPanels = Math.max(1, recommendedPanelsRaw);
+        const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
 
-    // Helper function to lookup tariff
-    const lookupTariff = async (usageValue) => {
-         if (usageValue <= 0) {
-            const lowestUsageQuery = `
-                SELECT * FROM tnb_tariff_2025
-                ORDER BY usage_kwh ASC
-                LIMIT 1
-            `;
-            const res = await client.query(lowestUsageQuery);
-            return res.rows.length > 0 ? res.rows[0] : null;
-         } else {
-            const tariffQuery = `
-              SELECT * FROM tnb_tariff_2025
-              WHERE usage_kwh <= $1
-              ORDER BY usage_kwh DESC
-              LIMIT 1
-            `;
-            const res = await client.query(tariffQuery, [usageValue]);
-            if (res.rows.length > 0) return res.rows[0];
-            
-            // Fallback
-            const fallbackQuery = `
-              SELECT * FROM tnb_tariff_2025
-              ORDER BY usage_kwh ASC
-              LIMIT 1
-            `;
-            const fallbackRes = await client.query(fallbackQuery);
-            return fallbackRes.rows.length > 0 ? fallbackRes.rows[0] : null;
-         }
-    };
+        // Search for Residential package within filtered product pool
+        // Rule: Always filter by selected product type
+        // - If panelBubbleId provided: match product bubble_id
+        // - Else: match product wattage (solar_output_rating)
+        let packageResult = { rows: [] };
+        if (selectedPanelBubbleId) {
+          const packageByBubbleQuery = `
+            SELECT p.*
+            FROM package p
+            JOIN product pr ON (
+              CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+              OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+            )
+            WHERE p.panel_qty = $1
+              AND p.active = true
+              AND (p.special IS FALSE OR p.special IS NULL)
+              AND p.type = $2
+              AND pr.bubble_id = $3
+            ORDER BY p.price ASC
+            LIMIT 1
+          `;
+          packageResult = await client.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
+        } else {
+          const packageByWattQuery = `
+            SELECT p.*
+            FROM package p
+            JOIN product pr ON (
+              CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+              OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+            )
+            WHERE p.panel_qty = $1
+              AND p.active = true
+              AND (p.special IS FALSE OR p.special IS NULL)
+              AND p.type = $2
+              AND pr.solar_output_rating = $3
+            ORDER BY p.price ASC
+            LIMIT 1
+          `;
+          packageResult = await client.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage]);
+        }
 
-    baselineTariff = await lookupTariff(netUsageBaselineForLookup);
-    afterTariff = await lookupTariff(netUsageForLookup);
+        let selectedPackage = null;
+        if (packageResult.rows.length > 0) {
+          selectedPackage = packageResult.rows[0];
+        } else {
+          // No package in filtered pool; do NOT fallback across products
+          selectedPackage = null;
+        }
 
-    client.release();
+        // Calculate solar generation using selected panel wattage
+        const panelWatts = panelWattage;
+        const dailySolarGeneration = (actualPanelQty * panelWatts * peakHour) / 1000; // kWh per day
+        const monthlySolarGeneration = dailySolarGeneration * 30;
 
-    // NEW SAVING FORMULA
-    // 1. Morning usage saving: morning_kwh * RM 0.4869
-    const morningUsageRate = 0.4869; // RM per kWh for morning usage
-    const morningSaving = morningUsageKwh * morningUsageRate;
+        // Calculate morning usage split
+        const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
 
-    // 2. Export calculation
-    const exportRate = smp; // RM per kWh for export (SMP price)
-    const exportSaving = exportKwh * exportRate;
-    const exportSavingBaseline = exportKwhBaseline * exportRate;
+        const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
+        
+        // --- Battery Logic Start ---
+        // Hard Cap 1: Daily Excess Solar Energy
+        const dailyExcessSolar = Math.max(0, monthlySolarGeneration - morningUsageKwh) / 30;
+        
+        // Hard Cap 2: Daily Grid Import (Night Usage)
+        const dailyNightUsage = Math.max(0, monthlyUsageKwh - morningUsageKwh) / 30;
+        
+        // Hard Cap 3: Battery Capacity
+        const dailyBatteryCap = batterySizeVal;
 
-    // 3. Total saving
-    const totalMonthlySavings = morningSaving + exportSaving;
-    const totalMonthlySavingsBaseline = morningSaving + exportSavingBaseline;
+        // Max Discharge = Lowest of the 3 caps
+        const dailyMaxDischarge = Math.min(dailyExcessSolar, dailyNightUsage, dailyBatteryCap);
+        const monthlyMaxDischarge = dailyMaxDischarge * 30;
 
-    const billBefore = tariff.bill_total_normal !== null ? parseFloat(tariff.bill_total_normal) : 0;
-    
-    // Baseline Bills (No Battery)
-    const afterBillBaseline = baselineTariff && baselineTariff.bill_total_normal !== null 
-       ? parseFloat(baselineTariff.bill_total_normal) 
-       : null;
-    const afterUsageMatchedBaseline = baselineTariff && baselineTariff.usage_kwh !== null 
-       ? parseFloat(baselineTariff.usage_kwh) 
-       : null;
-    const billReductionBaseline = afterBillBaseline !== null 
-       ? Math.max(0, billBefore - afterBillBaseline) 
-       : morningSaving;
+        // Step 1: New Total Import from Grid (after solar & battery)
+        // Original logic: netUsageKwh = monthlyUsageKwh - morningSelfConsumption
+        // New logic: netUsageKwh = (monthlyUsageKwh - morningSelfConsumption) - monthlyMaxDischarge
+        
+        // --- Baseline Logic (No Battery) ---
+        // We calculate the baseline separately to preserve "After Solar (No Battery)" values for comparison
+        const netUsageBaseline = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
+        const netUsageBaselineForLookup = Math.max(0, Math.floor(netUsageBaseline));
+        const exportKwhBaseline = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+        
+        // --- Battery Logic (With Battery) ---
+        const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption - monthlyMaxDischarge);
+        const netUsageForLookup = Math.max(0, Math.floor(netUsageKwh));
 
-    // With Battery Bills
-    const afterBill = afterTariff && afterTariff.bill_total_normal !== null
-      ? parseFloat(afterTariff.bill_total_normal)
-      : null;
-    const afterUsageMatched = afterTariff && afterTariff.usage_kwh !== null
-      ? parseFloat(afterTariff.usage_kwh)
-      : null;
+        // Step 3 (Calc Prep): Export Energy
+        // Original: monthlySolarGeneration - morningUsageKwh
+        // New: (monthlySolarGeneration - morningUsageKwh) - monthlyMaxDischarge
+        const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
+        // --- Battery Logic End ---
 
-    const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
+        // Calculate the post-solar bill using the reduced usage (excluding export)
+        let afterTariff = null;
+        let baselineTariff = null;
 
-    const parseCurrencyValue = (value, fallback = 0) => {
-      if (value === null || value === undefined) {
-        return fallback;
-      }
-      const numeric = Number(value);
-      return Number.isNaN(numeric) ? fallback : numeric;
-    };
-
-    const buildBillBreakdown = (tariffRow) => {
-      if (!tariffRow) {
-        return null;
-      }
-
-      const usage = parseCurrencyValue(tariffRow.usage_normal);
-      const network = parseCurrencyValue(tariffRow.network);
-      const capacity = parseCurrencyValue(tariffRow.capacity);
-      const sst = parseCurrencyValue(tariffRow.sst_normal);
-      const eei = parseCurrencyValue(tariffRow.eei);
-      const total = parseCurrencyValue(
-        tariffRow.bill_total_normal,
-        usage + network + capacity + sst + eei
-      );
-
-      return {
-        usage,
-        network,
-        capacity,
-        sst,
-        eei,
-        total
-      };
-    };
-
-    const calculateBreakdownDelta = (beforeValue, afterValue) => {
-      const before = parseCurrencyValue(beforeValue);
-      if (afterValue === null || afterValue === undefined) {
-        return before;
-      }
-      const after = parseCurrencyValue(afterValue);
-      return before - after;
-    };
-
-    const beforeBreakdown = buildBillBreakdown(tariff);
-    const afterBreakdown = buildBillBreakdown(afterTariff);
-
-    const breakdownItems = [
-      { key: 'usage', label: 'Usage' },
-      { key: 'network', label: 'Network' },
-      { key: 'capacity', label: 'Capacity Fee' },
-      { key: 'sst', label: 'SST' },
-      { key: 'eei', label: 'EEI' }
-    ].map((item) => {
-      const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
-      const afterValue = afterBreakdown ? afterBreakdown[item.key] : null;
-      return {
-        ...item,
-        before: beforeValue,
-        after: afterValue,
-        delta: calculateBreakdownDelta(beforeValue, afterValue)
-      };
-    });
-
-    const totals = {
-      before: beforeBreakdown ? beforeBreakdown.total : billBefore,
-      after: afterBreakdown ? afterBreakdown.total : afterBill,
-      delta: calculateBreakdownDelta(
-        beforeBreakdown ? beforeBreakdown.total : billBefore,
-        afterBreakdown ? afterBreakdown.total : afterBill
-      )
-    };
-
-    const savingsBreakdown = {
-      billReduction: Number(billReduction.toFixed(2)),
-      exportCredit: Number(exportSaving.toFixed(2)),
-      total: Number((billReduction + exportSaving).toFixed(2))
-    };
-
-    // Use actual package price if available, otherwise fallback to calculation
-    let systemCostBeforeDiscount = null;
-    let finalSystemCost = null;
-    let percentDiscountAmount = null;
-    let fixedDiscountAmount = null;
-    let totalDiscountAmount = null;
-    let paybackPeriod = null;
-
-    if (selectedPackage && selectedPackage.price) {
-      // Use actual package price from database
-      systemCostBeforeDiscount = parseFloat(selectedPackage.price);
-      
-      // Apply discount logic: Percent discount first, then fixed amount discount
-      // Step 1: Apply percentage discount
-      percentDiscountAmount = (systemCostBeforeDiscount * discountPercent) / 100;
-      const priceAfterPercent = systemCostBeforeDiscount - percentDiscountAmount;
-      
-      // Step 2: Apply fixed amount discount
-      fixedDiscountAmount = discountFixed;
-      
-      // Calculate final system cost
-      finalSystemCost = Math.max(0, priceAfterPercent - fixedDiscountAmount);
-      totalDiscountAmount = systemCostBeforeDiscount - finalSystemCost;
-
-      // Calculate payback period only when system cost is available
-      if (totalMonthlySavings > 0 && finalSystemCost > 0) {
-        paybackPeriod = (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1);
-      } else {
-        paybackPeriod = 'N/A';
-      }
-    }
-
-    // Generate 24-hour electricity usage pattern
-    const dailyUsageKwh = monthlyUsageKwh / 30;
-    const electricityUsagePattern = [];
-    for (let hour = 0; hour < 24; hour++) {
-      let usageMultiplier;
-
-      // Human activity pattern - higher usage in morning and evening
-      if (hour >= 6 && hour <= 9) {
-        // Morning peak (considering morning usage %)
-        usageMultiplier = 1.8 * (morningPercent / 100);
-      } else if (hour >= 18 && hour <= 22) {
-        // Evening peak
-        usageMultiplier = 2.2;
-      } else if (hour >= 10 && hour <= 17) {
-        // Day time (lower if high morning usage)
-        usageMultiplier = 0.8 * (1 - (morningPercent / 100) * 0.3);
-      } else {
-        // Night time
-        usageMultiplier = 0.3;
-      }
-
-      electricityUsagePattern.push({
-        hour: hour,
-        usage: (dailyUsageKwh * usageMultiplier / 10).toFixed(3) // Divide by 10 to normalize
-      });
-    }
-
-    // Generate 24-hour solar generation pattern
-    const solarGenerationPattern = [];
-
-    for (let hour = 0; hour < 24; hour++) {
-      let generationMultiplier = 0;
-
-      // Solar generation follows bell curve around peak sun hours
-      const sunriseHour = 7;
-      const sunsetHour = 19;
-      const peakHour = 12; // Noon
-
-      if (hour >= sunriseHour && hour <= sunsetHour) {
-        // Bell curve calculation
-        const hoursFromPeak = Math.abs(hour - peakHour);
-        const maxHoursFromPeak = 5; // 5 hours from peak (7am to 7pm range)
-        generationMultiplier = Math.cos((hoursFromPeak / maxHoursFromPeak) * (Math.PI / 2));
-        generationMultiplier = Math.max(0, generationMultiplier);
-      }
-
-      solarGenerationPattern.push({
-        hour: hour,
-        generation: (dailySolarGeneration * generationMultiplier / 8).toFixed(3) // Divide by 8 to normalize
-      });
-    }
-
-    res.json({
-      config: {
-        sunPeakHour: peakHour,
-        morningUsage: morningPercent,
-        panelType: panelWattage,
-        smpPrice: smp,
-        batterySize: batterySizeVal
-      },
-      // PANEL RECOMMENDATION RESULTS
-      recommendedPanels: recommendedPanels,
-      actualPanels: actualPanelQty,
-      panelAdjustment: actualPanelQty - recommendedPanels,
-      overrideApplied: overridePanels !== null,
-      packageSearchQty: actualPanelQty,
-      selectedPackage: selectedPackage ? {
-        packageName: selectedPackage.package_name,
-        panelQty: selectedPackage.panel_qty,
-        price: selectedPackage.price,
-        panelWattage: panelWattage, // Use selected panel wattage instead of DB value
-        type: selectedPackage.type,
-        maxDiscount: selectedPackage.max_discount,
-        special: selectedPackage.special,
-        invoiceDesc: selectedPackage.invoice_desc,
-        id: selectedPackage.id
-      } : null,
-
-      solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${(actualPanelQty * panelWatts / 1000).toFixed(1)} kW system)`,
-      monthlySavings: totalMonthlySavings.toFixed(2),
-      systemCostBeforeDiscount: systemCostBeforeDiscount !== null ? systemCostBeforeDiscount.toFixed(2) : null,
-      percentDiscountAmount: percentDiscountAmount !== null ? percentDiscountAmount.toFixed(2) : null,
-      fixedDiscountAmount: fixedDiscountAmount !== null ? fixedDiscountAmount.toFixed(2) : null,
-      totalDiscountAmount: totalDiscountAmount !== null ? totalDiscountAmount.toFixed(2) : null,
-      finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : null,
-      paybackPeriod: paybackPeriod,
-      details: {
-        monthlyUsageKwh: monthlyUsageKwh,
-        monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
-        morningUsageKwh: morningUsageKwh.toFixed(2),
-        morningSaving: morningSaving.toFixed(2),
-        exportKwh: exportKwh.toFixed(2),
-        exportSaving: exportSaving.toFixed(2),
-        morningUsageRate: morningUsageRate,
-        exportRate: exportRate,
-        netUsageKwh: netUsageKwh.toFixed(2),
-        afterUsageKwh: (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh).toFixed(2),
-        billBefore: billBefore.toFixed(2),
-        billAfter: afterBill !== null ? afterBill.toFixed(2) : null,
-        billReduction: billReduction.toFixed(2),
-        billBreakdown: {
-          before: beforeBreakdown,
-          after: afterBreakdown,
-          items: breakdownItems,
-          totals
-        },
-        savingsBreakdown: savingsBreakdown,
-        battery: {
-          size: batterySizeVal,
-          dailyDischarge: dailyMaxDischarge.toFixed(2),
-          monthlyDischarge: monthlyMaxDischarge.toFixed(2),
-          caps: {
-             excessSolar: dailyExcessSolar.toFixed(2),
-             nightUsage: dailyNightUsage.toFixed(2),
-             batterySize: dailyBatteryCap.toFixed(2)
-          },
-          baseline: {
-             billReduction: billReductionBaseline.toFixed(2),
-             exportCredit: exportSavingBaseline.toFixed(2),
-             totalSavings: totalMonthlySavingsBaseline.toFixed(2),
-             billAfter: afterBillBaseline !== null ? afterBillBaseline.toFixed(2) : null,
-             usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null,
-             billBreakdown: {
-                before: beforeBreakdown,
-                after: buildBillBreakdown(baselineTariff),
-                items: [
-                  { key: 'usage', label: 'Usage' },
-                  { key: 'network', label: 'Network' },
-                  { key: 'capacity', label: 'Capacity Fee' },
-                  { key: 'sst', label: 'SST' },
-                  { key: 'eei', label: 'EEI' }
-                ].map((item) => {
-                  const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
-                  const baselineBreakdown = buildBillBreakdown(baselineTariff);
-                  const afterValue = baselineBreakdown ? baselineBreakdown[item.key] : null;
-                  return {
-                    ...item,
-                    before: beforeValue,
-                    after: afterValue,
-                    delta: calculateBreakdownDelta(beforeValue, afterValue)
-                  };
-                }),
-                totals: {
-                  before: beforeBreakdown ? beforeBreakdown.total : billBefore,
-                  after: baselineTariff && baselineTariff.bill_total_normal !== null ? parseFloat(baselineTariff.bill_total_normal) : null,
-                  delta: calculateBreakdownDelta(
-                    beforeBreakdown ? beforeBreakdown.total : billBefore,
-                    baselineTariff && baselineTariff.bill_total_normal !== null ? parseFloat(baselineTariff.bill_total_normal) : null
-                  )
-                }
+        // Helper function to lookup tariff
+        const lookupTariff = async (usageValue) => {
+             if (usageValue <= 0) {
+                const lowestUsageQuery = `
+                    SELECT * FROM tnb_tariff_2025
+                    ORDER BY usage_kwh ASC
+                    LIMIT 1
+                `;
+                const res = await client.query(lowestUsageQuery);
+                return res.rows.length > 0 ? res.rows[0] : null;
+             } else {
+                const tariffQuery = `
+                  SELECT * FROM tnb_tariff_2025
+                  WHERE usage_kwh <= $1
+                  ORDER BY usage_kwh DESC
+                  LIMIT 1
+                `;
+                const res = await client.query(tariffQuery, [usageValue]);
+                if (res.rows.length > 0) return res.rows[0];
+                
+                // Fallback
+                const fallbackQuery = `
+                  SELECT * FROM tnb_tariff_2025
+                  ORDER BY usage_kwh ASC
+                  LIMIT 1
+                `;
+                const fallbackRes = await client.query(fallbackQuery);
+                return fallbackRes.rows.length > 0 ? fallbackRes.rows[0] : null;
              }
+        };
+
+        baselineTariff = await lookupTariff(netUsageBaselineForLookup);
+        afterTariff = await lookupTariff(netUsageForLookup);
+
+        // NEW SAVING FORMULA
+        // 1. Morning usage saving: morning_kwh * RM 0.4869
+        const morningUsageRate = 0.4869; // RM per kWh for morning usage
+        const morningSaving = morningUsageKwh * morningUsageRate;
+
+        // 2. Export calculation
+        const exportRate = smp; // RM per kWh for export (SMP price)
+        const exportSaving = exportKwh * exportRate;
+        const exportSavingBaseline = exportKwhBaseline * exportRate;
+
+        // 3. Total saving
+        const totalMonthlySavings = morningSaving + exportSaving;
+        const totalMonthlySavingsBaseline = morningSaving + exportSavingBaseline;
+
+        const billBefore = tariff.bill_total_normal !== null ? parseFloat(tariff.bill_total_normal) : 0;
+        
+        // Baseline Bills (No Battery)
+        const afterBillBaseline = baselineTariff && baselineTariff.bill_total_normal !== null 
+           ? parseFloat(baselineTariff.bill_total_normal) 
+           : null;
+        const afterUsageMatchedBaseline = baselineTariff && baselineTariff.usage_kwh !== null 
+           ? parseFloat(baselineTariff.usage_kwh) 
+           : null;
+        const billReductionBaseline = afterBillBaseline !== null 
+           ? Math.max(0, billBefore - afterBillBaseline) 
+           : morningSaving;
+
+        // With Battery Bills
+        const afterBill = afterTariff && afterTariff.bill_total_normal !== null
+          ? parseFloat(afterTariff.bill_total_normal)
+          : null;
+        const afterUsageMatched = afterTariff && afterTariff.usage_kwh !== null
+          ? parseFloat(afterTariff.usage_kwh)
+          : null;
+
+        const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
+
+        const parseCurrencyValue = (value, fallback = 0) => {
+          if (value === null || value === undefined) {
+            return fallback;
+          }
+          const numeric = Number(value);
+          return Number.isNaN(numeric) ? fallback : numeric;
+        };
+
+        const buildBillBreakdown = (tariffRow) => {
+          if (!tariffRow) {
+            return null;
+          }
+
+          const usage = parseCurrencyValue(tariffRow.usage_normal);
+          const network = parseCurrencyValue(tariffRow.network);
+          const capacity = parseCurrencyValue(tariffRow.capacity);
+          const sst = parseCurrencyValue(tariffRow.sst_normal);
+          const eei = parseCurrencyValue(tariffRow.eei);
+          const total = parseCurrencyValue(
+            tariffRow.bill_total_normal,
+            usage + network + capacity + sst + eei
+          );
+
+          return {
+            usage,
+            network,
+            capacity,
+            sst,
+            eei,
+            total
+          };
+        };
+
+        const calculateBreakdownDelta = (beforeValue, afterValue) => {
+          const before = parseCurrencyValue(beforeValue);
+          if (afterValue === null || afterValue === undefined) {
+            return before;
+          }
+          const after = parseCurrencyValue(afterValue);
+          return before - after;
+        };
+
+        const beforeBreakdown = buildBillBreakdown(tariff);
+        const afterBreakdown = buildBillBreakdown(afterTariff);
+
+        const breakdownItems = [
+          { key: 'usage', label: 'Usage' },
+          { key: 'network', label: 'Network' },
+          { key: 'capacity', label: 'Capacity Fee' },
+          { key: 'sst', label: 'SST' },
+          { key: 'eei', label: 'EEI' }
+        ].map((item) => {
+          const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
+          const afterValue = afterBreakdown ? afterBreakdown[item.key] : null;
+          return {
+            ...item,
+            before: beforeValue,
+            after: afterValue,
+            delta: calculateBreakdownDelta(beforeValue, afterValue)
+          };
+        });
+
+        const totals = {
+          before: beforeBreakdown ? beforeBreakdown.total : billBefore,
+          after: afterBreakdown ? afterBreakdown.total : afterBill,
+          delta: calculateBreakdownDelta(
+            beforeBreakdown ? beforeBreakdown.total : billBefore,
+            afterBreakdown ? afterBreakdown.total : afterBill
+          )
+        };
+
+        const savingsBreakdown = {
+          billReduction: Number(billReduction.toFixed(2)),
+          exportCredit: Number(exportSaving.toFixed(2)),
+          total: Number((billReduction + exportSaving).toFixed(2))
+        };
+
+        // Use actual package price if available, otherwise fallback to calculation
+        let systemCostBeforeDiscount = null;
+        let finalSystemCost = null;
+        let percentDiscountAmount = null;
+        let fixedDiscountAmount = null;
+        let totalDiscountAmount = null;
+        let paybackPeriod = null;
+
+        if (selectedPackage && selectedPackage.price) {
+          // Use actual package price from database
+          systemCostBeforeDiscount = parseFloat(selectedPackage.price);
+          
+          // Apply discount logic: Percent discount first, then fixed amount discount
+          // Step 1: Apply percentage discount
+          percentDiscountAmount = (systemCostBeforeDiscount * discountPercent) / 100;
+          const priceAfterPercent = systemCostBeforeDiscount - percentDiscountAmount;
+          
+          // Step 2: Apply fixed amount discount
+          fixedDiscountAmount = discountFixed;
+          
+          // Calculate final system cost
+          finalSystemCost = Math.max(0, priceAfterPercent - fixedDiscountAmount);
+          totalDiscountAmount = systemCostBeforeDiscount - finalSystemCost;
+
+          // Calculate payback period only when system cost is available
+          if (totalMonthlySavings > 0 && finalSystemCost > 0) {
+            paybackPeriod = (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1);
+          } else {
+            paybackPeriod = 'N/A';
           }
         }
-      },
-      billComparison: {
-        before: {
-          usageKwh: monthlyUsageKwh,
-          billAmount: billBefore
-        },
-        after: afterBill !== null ? {
-          usageKwh: afterUsageMatched !== null ? afterUsageMatched : netUsageKwh,
-          billAmount: afterBill
-        } : null,
-        lookupUsageKwh: netUsageForLookup,
-        actualNetUsageKwh: parseFloat(netUsageKwh.toFixed(2))
-      },
-      billBreakdownComparison: {
-        before: beforeBreakdown,
-        after: afterBreakdown,
-        items: breakdownItems,
-        totals
-      },
-      savingsBreakdown: savingsBreakdown,
-      charts: {
-        electricityUsagePattern: electricityUsagePattern,
-        solarGenerationPattern: solarGenerationPattern
-      }
-    });
+
+        // Generate 24-hour electricity usage pattern
+        const dailyUsageKwh = monthlyUsageKwh / 30;
+        const electricityUsagePattern = [];
+        for (let hour = 0; hour < 24; hour++) {
+          let usageMultiplier;
+
+          // Human activity pattern - higher usage in morning and evening
+          if (hour >= 6 && hour <= 9) {
+            // Morning peak (considering morning usage %)
+            usageMultiplier = 1.8 * (morningPercent / 100);
+          } else if (hour >= 18 && hour <= 22) {
+            // Evening peak
+            usageMultiplier = 2.2;
+          } else if (hour >= 10 && hour <= 17) {
+            // Day time (lower if high morning usage)
+            usageMultiplier = 0.8 * (1 - (morningPercent / 100) * 0.3);
+          } else {
+            // Night time
+            usageMultiplier = 0.3;
+          }
+
+          electricityUsagePattern.push({
+            hour: hour,
+            usage: (dailyUsageKwh * usageMultiplier / 10).toFixed(3) // Divide by 10 to normalize
+          });
+        }
+
+        // Generate 24-hour solar generation pattern
+        const solarGenerationPattern = [];
+
+        for (let hour = 0; hour < 24; hour++) {
+          let generationMultiplier = 0;
+
+          // Solar generation follows bell curve around peak sun hours
+          const sunriseHour = 7;
+          const sunsetHour = 19;
+          const peakHour = 12; // Noon
+
+          if (hour >= sunriseHour && hour <= sunsetHour) {
+            // Bell curve calculation
+            const hoursFromPeak = Math.abs(hour - peakHour);
+            const maxHoursFromPeak = 5; // 5 hours from peak (7am to 7pm range)
+            generationMultiplier = Math.cos((hoursFromPeak / maxHoursFromPeak) * (Math.PI / 2));
+            generationMultiplier = Math.max(0, generationMultiplier);
+          }
+
+          solarGenerationPattern.push({
+            hour: hour,
+            generation: (dailySolarGeneration * generationMultiplier / 8).toFixed(3) // Divide by 8 to normalize
+          });
+        }
+
+        res.json({
+          config: {
+            sunPeakHour: peakHour,
+            morningUsage: morningPercent,
+            panelType: panelWattage,
+            smpPrice: smp,
+            batterySize: batterySizeVal
+          },
+          // PANEL RECOMMENDATION RESULTS
+          recommendedPanels: recommendedPanels,
+          actualPanels: actualPanelQty,
+          panelAdjustment: actualPanelQty - recommendedPanels,
+          overrideApplied: overridePanels !== null,
+          packageSearchQty: actualPanelQty,
+          selectedPackage: selectedPackage ? {
+            packageName: selectedPackage.package_name,
+            panelQty: selectedPackage.panel_qty,
+            price: selectedPackage.price,
+            panelWattage: panelWattage, // Use selected panel wattage instead of DB value
+            type: selectedPackage.type,
+            maxDiscount: selectedPackage.max_discount,
+            special: selectedPackage.special,
+            invoiceDesc: selectedPackage.invoice_desc,
+            id: selectedPackage.id
+          } : null,
+
+          solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${(actualPanelQty * panelWatts / 1000).toFixed(1)} kW system)`,
+          monthlySavings: totalMonthlySavings.toFixed(2),
+          systemCostBeforeDiscount: systemCostBeforeDiscount !== null ? systemCostBeforeDiscount.toFixed(2) : null,
+          percentDiscountAmount: percentDiscountAmount !== null ? percentDiscountAmount.toFixed(2) : null,
+          fixedDiscountAmount: fixedDiscountAmount !== null ? fixedDiscountAmount.toFixed(2) : null,
+          totalDiscountAmount: totalDiscountAmount !== null ? totalDiscountAmount.toFixed(2) : null,
+          finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : null,
+          paybackPeriod: paybackPeriod,
+          details: {
+            monthlyUsageKwh: monthlyUsageKwh,
+            monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
+            morningUsageKwh: morningUsageKwh.toFixed(2),
+            morningSaving: morningSaving.toFixed(2),
+            exportKwh: exportKwh.toFixed(2),
+            exportSaving: exportSaving.toFixed(2),
+            morningUsageRate: morningUsageRate,
+            exportRate: exportRate,
+            netUsageKwh: netUsageKwh.toFixed(2),
+            afterUsageKwh: (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh).toFixed(2),
+            billBefore: billBefore.toFixed(2),
+            billAfter: afterBill !== null ? afterBill.toFixed(2) : null,
+            billReduction: billReduction.toFixed(2),
+            billBreakdown: {
+              before: beforeBreakdown,
+              after: afterBreakdown,
+              items: breakdownItems,
+              totals
+            },
+            savingsBreakdown: savingsBreakdown,
+            battery: {
+              size: batterySizeVal,
+              dailyDischarge: dailyMaxDischarge.toFixed(2),
+              monthlyDischarge: monthlyMaxDischarge.toFixed(2),
+              caps: {
+                 excessSolar: dailyExcessSolar.toFixed(2),
+                 nightUsage: dailyNightUsage.toFixed(2),
+                 batterySize: dailyBatteryCap.toFixed(2)
+              },
+              baseline: {
+                 billReduction: billReductionBaseline.toFixed(2),
+                 exportCredit: exportSavingBaseline.toFixed(2),
+                 totalSavings: totalMonthlySavingsBaseline.toFixed(2),
+                 billAfter: afterBillBaseline !== null ? afterBillBaseline.toFixed(2) : null,
+                 usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null,
+                 billBreakdown: {
+                    before: beforeBreakdown,
+                    after: buildBillBreakdown(baselineTariff),
+                    items: [
+                      { key: 'usage', label: 'Usage' },
+                      { key: 'network', label: 'Network' },
+                      { key: 'capacity', label: 'Capacity Fee' },
+                      { key: 'sst', label: 'SST' },
+                      { key: 'eei', label: 'EEI' }
+                    ].map((item) => {
+                      const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
+                      const baselineBreakdown = buildBillBreakdown(baselineTariff);
+                      const afterValue = baselineBreakdown ? baselineBreakdown[item.key] : null;
+                      return {
+                        ...item,
+                        before: beforeValue,
+                        after: afterValue,
+                        delta: calculateBreakdownDelta(beforeValue, afterValue)
+                      };
+                    }),
+                    totals: {
+                      before: beforeBreakdown ? beforeBreakdown.total : billBefore,
+                      after: baselineTariff && baselineTariff.bill_total_normal !== null ? parseFloat(baselineTariff.bill_total_normal) : null,
+                      delta: calculateBreakdownDelta(
+                        beforeBreakdown ? beforeBreakdown.total : billBefore,
+                        baselineTariff && baselineTariff.bill_total_normal !== null ? parseFloat(baselineTariff.bill_total_normal) : null
+                      )
+                    }
+                 }
+              }
+            }
+          },
+          billComparison: {
+            before: {
+              usageKwh: monthlyUsageKwh,
+              billAmount: billBefore
+            },
+            after: afterBill !== null ? {
+              usageKwh: afterUsageMatched !== null ? afterUsageMatched : netUsageKwh,
+              billAmount: afterBill
+            } : null,
+            lookupUsageKwh: netUsageForLookup,
+            actualNetUsageKwh: parseFloat(netUsageKwh.toFixed(2))
+          },
+          billBreakdownComparison: {
+            before: beforeBreakdown,
+            after: afterBreakdown,
+            items: breakdownItems,
+            totals
+          },
+          savingsBreakdown: savingsBreakdown,
+          charts: {
+            electricityUsagePattern: electricityUsagePattern,
+            solarGenerationPattern: solarGenerationPattern
+          }
+        });
+    } finally {
+        client.release();
+    }
 
   } catch (err) {
     console.error('Solar calculation error:', err);
