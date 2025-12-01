@@ -1140,18 +1140,18 @@
                                     <div class="space-y-3">
                                         <div class="flex justify-between items-center">
                                             <span class="text-slate-400">Monthly Bill</span>
-                                            <span class="text-lg font-medium text-slate-200">RM ${data.details.billAfterSolar}</span>
+                                            <span class="text-lg font-medium text-slate-200">RM ${baselineStats.billAfter}</span>
                                         </div>
                                         <div class="flex justify-between items-center">
                                             <span class="text-slate-400">Export Income</span>
-                                            <span class="text-lg font-medium text-emerald-300/80">+RM ${data.details.exportCredit}</span>
+                                            <span class="text-lg font-medium text-emerald-300/80">+RM ${baselineStats.exportCredit}</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="mt-6 pt-4 border-t border-emerald-500/10">
                                     <div class="flex justify-between items-end">
                                         <span class="text-sm font-medium text-slate-400">Total Saving</span>
-                                        <span class="text-2xl font-bold text-emerald-300">RM ${data.monthlySavings}</span>
+                                        <span class="text-2xl font-bold text-emerald-300">RM ${baselineStats.totalSavings}</span>
                                     </div>
                                 </div>
                             </div>
@@ -1186,7 +1186,7 @@
                                         <div class="flex flex-col items-end">
                                             <div class="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-emerald-300 border border-emerald-500/20">
                                                 <span class="text-xs">▲</span>
-                                                <span class="text-sm font-bold">RM ${(Number(data.details.savingsBreakdown.total) - Number(data.monthlySavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2})}</span>
+                                                <span class="text-sm font-bold">RM ${(Number(data.details.savingsBreakdown.total) - Number(baselineStats.totalSavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2})}</span>
                                             </div>
                                             <span class="text-[9px] uppercase tracking-wider text-emerald-400/50 mt-1">Extra vs Solar Only</span>
                                         </div>
