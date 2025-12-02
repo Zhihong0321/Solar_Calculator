@@ -184,6 +184,7 @@
 
         let latestSolarParams = null;
         let latestSolarData = null;
+        let originalSolarData = null;
         let panelUpdateInFlight = false;
         const chartInstances = {
             electricity: null,
@@ -608,6 +609,12 @@
             }
 
             latestSolarData = data;
+
+            // Capture original data as baseline if this is a fresh calculation (no overrides)
+            // This allows price comparison against the system-recommended package
+            if (overridePanels === null && (!latestSolarParams || !latestSolarParams.overridePanels)) {
+                originalSolarData = data;
+            }
 
             if (data.overrideApplied) {
                 latestSolarParams.overridePanels = data.actualPanels;
@@ -1477,12 +1484,30 @@
                 document.body.appendChild(bar);
             }
 
+            // Calculate price difference logic
+            let priceDiffHtml = '';
+            if (originalSolarData && originalSolarData.selectedPackage && data.selectedPackage) {
+                const originalPrice = Number(originalSolarData.selectedPackage.price) || 0;
+                const currentPrice = Number(data.selectedPackage.price) || 0;
+                const diff = currentPrice - originalPrice;
+
+                if (Math.abs(diff) > 0.01) {
+                    const sign = diff > 0 ? '+' : '-'; 
+                    // Red for increase (more expensive), Emerald for decrease (cheaper)
+                    const colorClass = diff > 0 ? 'text-rose-400' : 'text-emerald-400';
+                    priceDiffHtml = `<div class="mt-1 text-xs font-medium ${colorClass}">Price Diff: ${sign}RM ${Math.abs(diff).toLocaleString('en-MY', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div>`;
+                } else if (originalSolarData.actualPanels !== data.actualPanels) {
+                     priceDiffHtml = `<div class="mt-1 text-xs text-slate-500">Price Unchanged</div>`;
+                }
+            }
+
             bar.innerHTML = `
                 <div class="pointer-events-auto mx-auto max-w-3xl rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-4 py-4 shadow-[0_30px_60px_rgba(8,47,73,0.45)] backdrop-blur sm:px-6 sm:py-5">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <div class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Modulation</div>
                             <div class="mt-1 text-xs text-slate-500">Recommended: ${data.recommendedPanels} panels</div>
+                            ${priceDiffHtml}
                         </div>
                         <div class="flex items-center gap-2">
                             <button type="button" id="panelDecreaseBtnFloating" ${data.actualPanels <= 1 ? 'disabled' : ''} onclick="adjustPanelCount(-1)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-primary hover:text-primary disabled:opacity-50">−</button>
@@ -1499,7 +1524,8 @@
             console.info('Floating panel rendered', {
                 recommendedPanels: data.recommendedPanels,
                 actualPanels: data.actualPanels,
-                overrideApplied: data.overrideApplied
+                overrideApplied: data.overrideApplied,
+                hasOriginal: Boolean(originalSolarData)
             });
 
             // Ensure controls reflect current loading state
