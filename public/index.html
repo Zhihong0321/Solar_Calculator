@@ -370,16 +370,17 @@
                                 </div>
 
                                 <div class="space-y-2">
-                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Type (Watts)</label>
-                                    <select
-                                        id="panelType"
+                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Rating (W)</label>
+                                    <input
+                                        type="number"
+                                        id="panelRating"
+                                        step="1"
+                                        min="450"
+                                        max="850"
+                                        value="620"
                                         class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
                                     >
-                                        <!-- Default static options (will be replaced dynamically if backend options load) -->
-                                        <option value="620">620W (Default)</option>
-                                        <option value="590">590W</option>
-                                    </select>
-                                    <p class="text-xs text-slate-500">Select panel wattage type</p>
+                                    <p class="text-xs text-slate-500">Range: 450W - 850W</p>
                                 </div>
 
                                 <div class="space-y-2">
@@ -389,14 +390,14 @@
                                         <input
                                             type="number"
                                             id="smpPrice"
-                                            step="0.01"
+                                            step="0.0001"
                                             min="0.19"
-                                            max="0.27"
-                                            value="0.20"
+                                            max="0.2703"
+                                            value="0.2703"
                                             class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 pl-14 pr-4 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
                                         >
                                     </div>
-                                    <p class="text-xs text-slate-500">Range: RM 0.19 - RM 0.27</p>
+                                    <p class="text-xs text-slate-500">Range: RM 0.19 - RM 0.2703</p>
                                 </div>
                             </div>
 
@@ -452,56 +453,6 @@
                 </div>
             `;
 
-            // Populate panel options from the live Railway database (read-only API)
-            // This respects the investigation-first philosophy: use real schema/data, no assumptions.
-            populatePanelOptions();
-        }
-
-        // Fetch and populate panel type options from backend
-        async function populatePanelOptions() {
-            const select = document.getElementById('panelType');
-            if (!select) return;
-
-            try {
-                const res = await fetch('/readonly/product/options');
-                if (!res.ok) throw new Error(`Failed to load product options (${res.status})`);
-                const data = await res.json();
-
-                let options = Array.isArray(data?.options) ? data.options.slice() : [];
-                if (!options.length) {
-                    // If no options returned, keep current state (do not insert placeholders)
-                    console.warn('No product options received from backend. Keeping existing select state.');
-                    return;
-                }
-
-                // Sort by wattage (desc) for a sensible default ordering
-                options.sort((a, b) => Number(b?.value) - Number(a?.value));
-
-                // Clear any existing static options before injecting live ones
-                select.innerHTML = '';
-
-                options.forEach(opt => {
-                    // Defensive checks based on confirmed schema: name (label) text, solar_output_rating integer
-                    const watts = Number(opt.value);
-                    if (!Number.isFinite(watts) || watts <= 0) return;
-
-                    const optionEl = document.createElement('option');
-                    optionEl.value = String(watts);
-                    optionEl.textContent = (opt.label || `${watts}W`).trim();
-                    // Keep only bubble_id metadata as the sole identifier
-                    optionEl.dataset.bubbleId = String(opt.bubble_id ?? '');
-                    optionEl.dataset.label = opt.label ?? '';
-                    select.appendChild(optionEl);
-                });
-
-                // Ensure a deterministic default selection (first valid option)
-                if (select.options.length > 0) {
-                    select.selectedIndex = 0;
-                }
-            } catch (err) {
-                // Do not introduce dummy data; simply log and leave existing options intact
-                console.warn('Failed to populate panel options from backend:', err);
-            }
         }
 
         // Solar savings calculation
@@ -509,10 +460,7 @@
             const billAmount = parseFloat(document.getElementById('billAmount').value);
             const sunPeakHour = parseFloat(document.getElementById('sunPeakHour').value);
             const morningUsage = parseFloat(document.getElementById('morningUsage').value);
-            const panelSelect = document.getElementById('panelType');
-            const panelType = panelSelect.value;
-            const selectedOption = panelSelect.options[panelSelect.selectedIndex];
-            const panelBubbleId = selectedOption && selectedOption.dataset ? selectedOption.dataset.bubbleId : '';
+            const panelRating = parseInt(document.getElementById('panelRating').value, 10);
             const smpPrice = parseFloat(document.getElementById('smpPrice').value);
             const percentDiscount = parseFloat(document.getElementById('percentDiscount').value) || 0;
             const fixedDiscount = parseFloat(document.getElementById('fixedDiscount').value) || 0;
@@ -533,8 +481,13 @@
                 return;
             }
 
-            if (!smpPrice || smpPrice < 0.19 || smpPrice > 0.27) {
-                showNotification('SMP price must be between RM 0.19 and RM 0.27', 'error');
+            if (!Number.isFinite(panelRating) || panelRating < 450 || panelRating > 850) {
+                showNotification('Panel rating must be between 450W and 850W', 'error');
+                return;
+            }
+
+            if (!smpPrice || smpPrice < 0.19 || smpPrice > 0.2703) {
+                showNotification('SMP price must be between RM 0.19 and RM 0.2703', 'error');
                 return;
             }
 
@@ -555,8 +508,7 @@
                 amount: billAmount,
                 sunPeakHour: sunPeakHour,
                 morningUsage: morningUsage,
-                panelType: panelType,
-                panelBubbleId: panelBubbleId,
+                panelType: panelRating,
                 smpPrice: smpPrice,
                 percentDiscount: percentDiscount,
                 fixedDiscount: fixedDiscount,
@@ -932,7 +884,19 @@
 
             solarDiv.className = 'rounded-3xl border border-slate-800 bg-surfaceAlt/80 shadow-[0_40px_80px_rgba(8,47,73,0.45)] overflow-hidden';
 
-            const packageSection = data.selectedPackage ? `
+            const panelRatingW = Number(data?.config?.panelType);
+            const isCustomPanelRating = Number.isFinite(panelRatingW) && panelRatingW !== 620;
+            const customPanelNotice = isCustomPanelRating ? `
+                <div class="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                    <div class="flex items-center text-amber-200">
+                        <span class="mr-2">⚠️</span>
+                        <span class="text-xs uppercase tracking-[0.3em]">Package recommendation disabled</span>
+                    </div>
+                    <p class="mt-2 text-xs text-amber-100/80">Currently we only have 620W package. Solar calculation will still proceed for custom panel ratings.</p>
+                </div>
+            ` : '';
+
+            const packageSection = isCustomPanelRating ? '' : (data.selectedPackage ? `
                 <div class="rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-slate-200">
                     <div class="flex items-start justify-between gap-3">
                         <div>
@@ -960,9 +924,9 @@
                     </div>
                     <p class="mt-2 text-xs text-amber-100/80">No matching package for ${data.packageSearchQty} × ${data.config.panelType}W. This calculator shows database references only.</p>
                 </div>
-            `;
+            `);
 
-            const costSummarySection = data.finalSystemCost !== null ? `
+            const costSummarySection = (!isCustomPanelRating && data.finalSystemCost !== null) ? `
                 <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm text-slate-300 space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-slate-400">System Cost</span>
@@ -1041,7 +1005,8 @@
                                 <p class="mt-1 text-[11px] text-slate-500">${data.overrideApplied ? 'Override applied' : 'Recommended based on bill'}</p>
                             </div>
                         </div>
-                        
+
+                        ${customPanelNotice}
                         ${packageSection}
                         ${costSummarySection}
                     </section>
@@ -1079,17 +1044,19 @@
                         </div>
 
                         <div class="grid gap-4 sm:grid-cols-2">
-                             ${paybackDisplay !== null ? `
+                             ${(!isCustomPanelRating && paybackDisplay !== null) ? `
                                 <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 hover:border-slate-700 transition">
                                     <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Payback Period</p>
                                     <p class="mt-2 text-2xl font-semibold text-slate-100">${paybackDisplay}</p>
                                 </div>
                              ` : ''}
-                             <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 hover:border-slate-700 transition">
-                                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">ROI</p>
-                                <p class="mt-2 text-2xl font-semibold text-emerald-300">${roiDisplay}</p>
-                                <p class="mt-1 text-xs text-slate-500">RM ${baselineStats.annualReturn} / year</p>
-                             </div>
+                             ${!isCustomPanelRating ? `
+                                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 hover:border-slate-700 transition">
+                                    <p class="text-xs uppercase tracking-[0.3em] text-slate-500">ROI</p>
+                                    <p class="mt-2 text-2xl font-semibold text-emerald-300">${roiDisplay}</p>
+                                    <p class="mt-1 text-xs text-slate-500">RM ${baselineStats.annualReturn} / year</p>
+                                </div>
+                             ` : ''}
                         </div>
                     </section>
 
@@ -1475,6 +1442,9 @@
         function renderFloatingPanelModulation(data) {
             if (!data) return;
 
+            const panelRatingW = Number(data?.config?.panelType);
+            const isCustomPanelRating = Number.isFinite(panelRatingW) && panelRatingW !== 620;
+
             let bar = document.getElementById('floatingPanelBar');
             if (!bar) {
                 bar = document.createElement('div');
@@ -1486,7 +1456,7 @@
 
             // Calculate price difference logic
             let priceDiffHtml = '';
-            if (originalSolarData && originalSolarData.selectedPackage && data.selectedPackage) {
+            if (!isCustomPanelRating && originalSolarData && originalSolarData.selectedPackage && data.selectedPackage) {
                 const originalPrice = Number(originalSolarData.selectedPackage.price) || 0;
                 const currentPrice = Number(data.selectedPackage.price) || 0;
                 const diff = currentPrice - originalPrice;
@@ -1642,7 +1612,20 @@
                 existingBar.style.display = 'none';
             }
 
-            const packageInfo = data.selectedPackage ?
+            const panelRatingW = Number(data?.config?.panelType);
+            const isCustomPanelRating = Number.isFinite(panelRatingW) && panelRatingW !== 620;
+
+            const customPanelNotice = isCustomPanelRating
+                ? `<div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                    <div class="flex items-center text-amber-200">
+                        <span class="mr-2">⚠️</span>
+                        <span class="text-xs uppercase tracking-[0.3em]">Package recommendation disabled</span>
+                    </div>
+                    <p class="mt-2 text-xs text-amber-100/80">Currently we only have 620W package. Solar calculation will still proceed for custom panel ratings.</p>
+                </div>`
+                : '';
+
+            const packageInfo = isCustomPanelRating ? '' : (data.selectedPackage ?
                 `<div class="mt-6 rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-slate-200">
                     <div class="flex items-center justify-between">
                         <span class="flex items-center text-primary"><span class="mr-2 text-lg">📦</span>Selected Package</span>
@@ -1660,7 +1643,7 @@
                 </div>` :
                 `<div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
                     ⚠️ No match package for ${data.packageSearchQty} × ${data.config.panelType}W
-                </div>`;
+                </div>`);
 
             popup.innerHTML = `
                 <div class="solar-modal-card w-full max-w-md rounded-3xl border border-slate-800 bg-surfaceAlt/90 shadow-[0_40px_80px_rgba(8,47,73,0.6)] overflow-hidden flex flex-col max-h-[85vh]">
@@ -1679,6 +1662,7 @@
                             </div>
                         </div>
 
+                        ${customPanelNotice}
                         ${packageInfo}
                     </div>
 

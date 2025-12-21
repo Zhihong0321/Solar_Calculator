@@ -426,8 +426,8 @@ app.get('/api/solar-calculation', async (req, res) => {
       return res.status(400).json({ error: 'Morning Usage must be between 1% and 100%' });
     }
 
-    if (!smp || smp < 0.19 || smp > 0.27) {
-      return res.status(400).json({ error: 'SMP price must be between RM 0.19 and RM 0.27' });
+    if (!smp || smp < 0.19 || smp > 0.2703) {
+      return res.status(400).json({ error: 'SMP price must be between RM 0.19 and RM 0.2703' });
     }
 
     // First get the TNB tariff data for the bill amount
