@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solar Calculator - TNB Bill Analyzer</title>
+    <title>Solar Calculator - Systematic Paper Terminal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -14,184 +14,126 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['Inter', 'ui-sans-serif', 'system-ui']
+                        mono: ['"Roboto Mono"', 'monospace']
                     },
                     colors: {
-                        primary: '#38bdf8',
-                        primaryDark: '#0ea5e9',
-                        surface: '#0f172a',
-                        surfaceAlt: '#111c2f',
-                        stroke: '#1e293b',
-                        accent: '#22d3ee'
+                        paper: '#FAF9F6',
+                        fact: '#000000',
+                        label: '#525252',
+                        context: '#A3A3A3',
+                        divider: '#E5E7EB',
+                        primary: '#000000'
                     }
                 }
             }
         }
     </script>
+    <style>
+        body { font-family: 'Roboto Mono', monospace; background-color: #FAF9F6; color: #000000; }
+        .tier-1 { color: #000000; }
+        .tier-2 { color: #525252; }
+        .tier-3 { color: #A3A3A3; }
+        input, select { background: transparent; border: none; border-bottom: 1px solid #E5E7EB; border-radius: 0; outline: none; }
+        input:focus, select:focus { border-bottom: 1px solid #000000; }
+        .ledger-line { border-top: 1px solid #E5E7EB; }
+        .ledger-double-line { border-top: 3px double #E5E7EB; }
+        /* Hide arrows from number input */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
-    <div class="relative min-h-screen">
-        <div class="absolute inset-0">
-            <div class="h-full w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"></div>
-            <div class="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.25),_transparent_45%)]"></div>
-            <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_bottom,_rgba(34,211,238,0.2),_transparent_50%)]"></div>
-        </div>
-
-        <div class="relative z-10 mx-auto w-full max-w-5xl px-3 py-6 sm:px-5 sm:py-8 lg:py-14">
-            <div class="grid gap-6 lg:grid-cols-[1.35fr,1fr]">
-                <div class="space-y-6">
-                    <header class="rounded-3xl border border-slate-800 bg-surface/80 px-4 py-6 backdrop-blur shadow-[0_0_60px_rgba(15,23,42,0.6)] sm:px-7 sm:py-9">
-                        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div class="flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left">
-                                <img src="logo.png" alt="Eternalgy logo" class="h-12 w-auto sm:h-14">
-                            </div>
-                            <div class="flex items-center gap-3 text-xs uppercase tracking-[0.12em] text-slate-400">
-                                <span class="whitespace-nowrap">Solar Intelligence Suite</span>
-                                <span class="whitespace-nowrap rounded-full border border-slate-700 px-3 py-1 text-slate-300">v2.0</span>
-                            </div>
-                        </div>
-                        <div class="mt-6 space-y-4">
-                            <div class="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-4 py-1 text-xs font-medium text-primary">
-                                <span class="mr-2 h-2 w-2 animate-pulse rounded-full bg-primary"></span>
-                                Real-time tariff optimisation
-                            </div>
-                            <h1 class="text-3xl font-semibold text-slate-50 sm:text-4xl">Solar Calculator</h1>
-                            <p class="max-w-xl text-sm text-slate-400 sm:text-base">
-                                Analyse TNB bills, model solar configurations, and surface savings insights in a clean, professional interface.
-                            </p>
-                        </div>
-                    </header>
-
-                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-4 py-4 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)] sm:px-6 sm:py-6">
-                        <div id="dbStatus" class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-300 sm:px-5">
-                            <div class="flex items-center">
-                                <div class="mr-3 inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-700">
-                                    <div class="h-3 w-3 animate-ping rounded-full bg-primary"></div>
-                                </div>
-                                <span>Checking database connection...</span>
-                            </div>
-                            <span class="text-xs uppercase tracking-[0.25em] text-slate-500">System</span>
-                        </div>
-                    </section>
-
-                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-4 py-4 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)] sm:px-6 sm:py-6">
-                        <div class="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4 sm:px-6 sm:py-6">
-                            <h2 class="text-lg font-medium text-slate-50">TNB Bill Intake</h2>
-                            <p class="mt-2 text-sm text-slate-400">Introduce your monthly spend to unlock a tailored solar profile.</p>
-
-                            <form id="billForm" class="mt-6 space-y-5">
-                                <div class="space-y-2">
-                                    <label for="billAmount" class="text-xs uppercase tracking-[0.3em] text-slate-500">Monthly TNB Bill (RM)</label>
-                                    <div class="relative">
-                                        <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">RM</span>
-                                        <input
-                                            type="number"
-                                            id="billAmount"
-                                            name="billAmount"
-                                            step="0.01"
-                                            min="0"
-                                            placeholder="150.00"
-                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 pl-14 pr-4 text-base text-slate-100 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                            required
-                                        >
-                                    </div>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <label for="historicalAfaRate" class="text-xs uppercase tracking-[0.3em] text-slate-500">Historical AFA Rate (Rebate/Surcharge)</label>
-                                    <select
-                                        id="historicalAfaRate"
-                                        name="historicalAfaRate"
-                                        class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 px-4 text-base text-slate-100 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                    >
-                                        <option value="0.0000">July 2025: 0.00 sen/kWh (Baseline)</option>
-                                        <option value="-0.0145">August 2025: -1.45 sen/kWh</option>
-                                        <option value="-0.0110">September 2025: -1.10 sen/kWh</option>
-                                        <option value="-0.0650">October 2025: -6.50 sen/kWh</option>
-                                        <option value="-0.0891">November 2025: -8.91 sen/kWh</option>
-                                        <option value="-0.0642">December 2025: -6.42 sen/kWh</option>
-                                    </select>
-                                    <p class="text-[10px] text-slate-500 uppercase tracking-wider">Select the month corresponding to your bill amount</p>
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    class="group relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-primaryDark to-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-950 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-                                >
-                                    <span class="mr-3 text-xs font-medium">Analyse Bill</span>
-                                    <span class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-900/20 bg-slate-950/10 text-slate-950 transition group-hover:border-slate-900/40">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
-                                        </svg>
-                                    </span>
-                                </button>
-                            </form>
-                        </div>
-                    </section>
-
-                    <section id="calculatorResults" class="space-y-6"></section>
-
-                    <section class="rounded-3xl border border-slate-800 bg-surface/70 px-4 py-4 backdrop-blur shadow-[0_0_40px_rgba(8,47,73,0.45)] sm:px-6 sm:py-6">
-                        <details class="group rounded-2xl border border-slate-800 bg-slate-900/70">
-                            <summary class="flex cursor-pointer items-center justify-between px-6 py-4 text-sm font-medium text-slate-300">
-                                <span class="flex items-center space-x-3">
-                                    <span class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-950/50 text-primary">🔧</span>
-                                    <span>Database Diagnostics</span>
-                                </span>
-                                <span class="text-xs uppercase tracking-[0.3em] text-slate-600 group-open:text-primary">Toggle</span>
-                            </summary>
-                            <div class="space-y-3 border-t border-slate-800 px-4 py-4 text-sm text-slate-200 sm:px-6 sm:py-6">
-                                <button onclick="testConnection()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
-                                    Test DB Connection
-                                </button>
-                                <button onclick="getSchema()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
-                                    Get Schema
-                                </button>
-                                <button onclick="getTnbTariff()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
-                                    Get TNB Data
-                                </button>
-                                <button onclick="getPackageInfo()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
-                                    Get Package Info
-                                </button>
-                                <button onclick="getProductInfo()" class="w-full rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-left text-slate-200 transition hover:border-primary hover:text-primary">
-                                    Get Product Relationship
-                                </button>
-                                <div id="results" class="mt-4 text-xs text-slate-400"></div>
-                            </div>
-                        </details>
-                    </section>
+<body class="bg-paper text-fact min-h-screen font-mono selection:bg-black selection:text-white">
+    <div class="mx-auto w-full max-w-4xl px-6 py-12 md:py-20">
+        <header class="mb-16">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold uppercase tracking-tighter">Solar_Calculator_v2.0</h1>
+                    <p class="mt-2 text-xs tier-3 uppercase tracking-widest">Systematic ROI Analysis & Tariff Pairing</p>
                 </div>
+                <img src="logo.png" alt="Eternalgy" class="h-10 w-auto grayscale">
+            </div>
+            <div class="mt-8 h-px bg-fact w-full"></div>
+        </header>
 
-                <aside class="space-y-5 lg:sticky lg:top-10">
-                    <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-4 py-5 shadow-[0_0_50px_rgba(15,23,42,0.5)] sm:px-6 sm:py-7">
-                        <h2 class="text-sm uppercase tracking-[0.4em] text-slate-500">Live Metrics</h2>
-                        <p class="mt-3 text-2xl font-semibold text-slate-100">Precision-built for energy strategists.</p>
-                        <p class="mt-4 text-sm text-slate-400">
-                            Surface immediate ROI, time-to-payback, and solar coverage with clarity. Each card updates dynamically when calculations complete.
-                        </p>
-                        <div class="mt-6 space-y-3 text-xs text-slate-500">
-                            <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/30 px-4 py-3">
-                                <span>Tariff pairing</span>
-                                <span class="text-slate-200">Automated</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/30 px-4 py-3">
-                                <span>Panel modelling</span>
-                                <span class="text-slate-200">Adaptive</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/30 px-4 py-3">
-                                <span>Reporting</span>
-                                <span class="text-slate-200">Investor-ready</span>
-                            </div>
+        <main class="space-y-24">
+            <!-- Phase 01: System Status -->
+            <section id="dbStatus" class="text-[10px] uppercase tracking-widest tier-3 flex items-center gap-4">
+                <span>[ STATUS: CHECKING_DB ]</span>
+                <div class="h-px grow bg-divider"></div>
+            </section>
+
+            <!-- Phase 02: Intake -->
+            <section id="intake-section">
+                <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">01_BILL_INTAKE</h2>
+                
+                <form id="billForm" class="grid gap-12 md:grid-cols-2 md:gap-20">
+                    <div class="space-y-4">
+                        <label for="billAmount" class="block text-[10px] uppercase tracking-widest tier-3">Monthly_TNB_Bill (RM)</label>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-sm tier-2">RM</span>
+                            <input
+                                type="number"
+                                id="billAmount"
+                                name="billAmount"
+                                step="0.01"
+                                min="0"
+                                placeholder="000.00"
+                                class="w-full text-xl font-medium tracking-tighter py-1"
+                                required
+                            >
                         </div>
                     </div>
 
-                    <footer class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-4 py-4 text-xs text-slate-500 sm:px-6 sm:py-6">
-                        <p>Solar Calculator • Calibrated with TNB tariff intelligence.</p>
-                        <p class="mt-2">Crafted for minimal friction and maximal clarity.</p>
-                    </footer>
-                </aside>
-            </div>
-        </div>
+                    <div class="space-y-4">
+                        <label for="historicalAfaRate" class="block text-[10px] uppercase tracking-widest tier-3">Historical_AFA_Period</label>
+                        <select
+                            id="historicalAfaRate"
+                            name="historicalAfaRate"
+                            class="w-full text-sm font-medium py-2 cursor-pointer"
+                        >
+                            <option value="0.0000">JUL_2025 (0.00 sen)</option>
+                            <option value="-0.0145">AUG_2025 (-1.45 sen)</option>
+                            <option value="-0.0110">SEP_2025 (-1.10 sen)</option>
+                            <option value="-0.0650">OCT_2025 (-6.50 sen)</option>
+                            <option value="-0.0891">NOV_2025 (-8.91 sen)</option>
+                            <option value="-0.0642">DEC_2025 (-6.42 sen)</option>
+                        </select>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <button
+                            type="submit"
+                            class="text-xs font-bold uppercase tracking-[0.3em] border border-fact px-8 py-4 hover:bg-black hover:text-white transition-colors"
+                        >
+                            Execute_Bill_Analysis ->
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="calculatorResults" class="space-y-24"></section>
+
+            <!-- Diagnostics moved to footer -->
+            <footer class="pt-24 border-t border-divider space-y-12">
+                <details class="group">
+                    <summary class="list-none cursor-pointer text-[10px] uppercase tracking-widest tier-3 hover:tier-2 transition-colors">
+                        [+] SYSTEM_DIAGNOSTICS
+                    </summary>
+                    <div class="mt-8 grid grid-cols-2 gap-4">
+                        <button onclick="testConnection()" class="text-left text-[10px] uppercase tracking-widest tier-2 hover:tier-1">Test_DB_Link</button>
+                        <button onclick="getSchema()" class="text-left text-[10px] uppercase tracking-widest tier-2 hover:tier-1">Dump_Schema</button>
+                        <button onclick="getTnbTariff()" class="text-left text-[10px] uppercase tracking-widest tier-2 hover:tier-1">Fetch_TNB_Data</button>
+                        <button onclick="getPackageInfo()" class="text-left text-[10px] uppercase tracking-widest tier-2 hover:tier-1">Package_Info</button>
+                    </div>
+                    <div id="results" class="mt-8 text-[10px] tier-3 overflow-x-auto whitespace-pre"></div>
+                </details>
+                
+                <div class="flex justify-between items-center text-[9px] tier-3 uppercase tracking-[0.2em]">
+                    <span>Eternalgy // Solar Intelligence Suite</span>
+                    <span>v2.0_Minimalist_Paper</span>
+                </div>
+            </footer>
+        </main>
     </div>
 
     <script>
@@ -228,37 +170,27 @@
         // Notification system
         function showNotification(message, type = 'info') {
             const colors = {
-                success: 'bg-emerald-500/10 border border-emerald-400/40 text-emerald-200',
-                error: 'bg-rose-500/10 border border-rose-400/40 text-rose-200',
-                info: 'bg-sky-500/10 border border-sky-400/40 text-sky-200'
+                success: 'border-emerald-600 text-emerald-700 bg-emerald-50',
+                error: 'border-rose-600 text-rose-700 bg-rose-50',
+                info: 'border-fact text-fact bg-paper'
             };
 
             const notification = document.createElement('div');
-            notification.className = `fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-96 rounded-2xl px-4 py-3 backdrop-blur border ${colors[type]} z-50 shadow-[0_20px_40px_rgba(8,47,73,0.3)]`;
+            notification.className = `fixed bottom-8 right-8 max-w-sm border p-4 z-[10001] text-xs uppercase tracking-widest font-bold shadow-lg ${colors[type]}`;
             notification.innerHTML = `
-                <div class="flex items-center justify-between text-sm">
-                    <span class="pr-6">${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-lg text-slate-400 hover:text-slate-200">&times;</button>
+                <div class="flex items-center justify-between gap-8">
+                    <span>[ ${message} ]</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="hover:opacity-50">X</button>
                 </div>
             `;
             document.body.appendChild(notification);
-
             setTimeout(() => notification.remove(), 5000);
         }
 
         // Bill breakdown calculation
         async function calculateBillBreakdown(billAmount, afaRate = 0) {
             const resultsDiv = document.getElementById('calculatorResults');
-
-            // Show loading
-            resultsDiv.innerHTML = `
-                <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/70 p-6 text-slate-300 shadow-[0_20px_40px_rgba(8,47,73,0.35)]">
-                    <div class="flex items-center justify-center space-x-3 text-sm">
-                        <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                        <span>Mapping closest TNB tariff intelligence...</span>
-                    </div>
-                </div>
-            `;
+            resultsDiv.innerHTML = `<div class="text-[10px] tier-3 uppercase tracking-[0.3em] animate-pulse">PROCESSING_QUERY...</div>`;
 
             try {
                 const response = await fetch(`/api/calculate-bill?amount=${billAmount}&afaRate=${afaRate}`);
@@ -267,26 +199,15 @@
                 if (response.ok) {
                     displayBillBreakdown(data);
                     currentHistoricalAfaRate = afaRate;
-                    // Update the projection AFA rate to match the historical selection
                     const projectionAfaInput = document.getElementById('afaRate');
                     if (projectionAfaInput) {
                         projectionAfaInput.value = afaRate.toFixed(4);
                     }
                 } else {
-                    resultsDiv.innerHTML = `
-                        <div class="rounded-3xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-200">
-                            <div class="text-base font-medium">Error</div>
-                            <div class="mt-1 opacity-80">${data.error}</div>
-                        </div>
-                    `;
+                    showNotification(data.error, 'error');
                 }
             } catch (error) {
-                resultsDiv.innerHTML = `
-                    <div class="rounded-3xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-200">
-                        <div class="text-base font-medium">Connection Error</div>
-                        <div class="mt-1 opacity-80">${error.message}</div>
-                    </div>
-                `;
+                showNotification(error.message, 'error');
             }
         }
 
@@ -300,208 +221,124 @@
             const adjustedTotal = (parseFloat(tariff.bill_total_normal) || 0) + afaCharge;
 
             resultsDiv.innerHTML = `
-                <div class="space-y-6">
-                    <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 shadow-[0_30px_60px_rgba(8,47,73,0.4)] overflow-hidden">
-                        <div class="border-b border-slate-800 px-6 py-6">
-                            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Phase 02</p>
-                                    <h3 class="mt-2 text-xl font-semibold text-slate-100">TNB Bill Breakdown</h3>
-                                    <p class="mt-2 text-sm text-slate-400">
-                                        Closest tariff alignment at <span class="text-primary">RM ${adjustedTotal.toFixed(2)}</span>
-                                    </p>
-                                </div>
-                                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-right">
-                                    <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Your input</p>
-                                    <p class="mt-2 text-lg font-semibold text-slate-100">RM ${data.inputAmount}</p>
-                                </div>
+                <div class="space-y-12">
+                    <section>
+                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">02_BILL_ANALYSIS_LEDGER</h2>
+                        
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between tier-3 uppercase text-[10px] tracking-widest mb-4">
+                                <span>Component</span>
+                                <span>Value_(RM)</span>
+                            </div>
+                            <div class="h-px bg-divider w-full"></div>
+                            
+                            <div class="flex justify-between py-2">
+                                <span class="tier-2">Energy_Usage</span>
+                                <span class="tier-1">${formatCurrency(tariff.usage_normal)}</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="tier-2">Network_Fee</span>
+                                <span class="tier-1">${formatCurrency(tariff.network)}</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="tier-2">Capacity_Charge</span>
+                                <span class="tier-1">${formatCurrency(tariff.capacity)}</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="tier-2">Retail_Charge</span>
+                                <span class="tier-1">${formatCurrency(tariff.retail)}</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="tier-2">EEI_Adjustment</span>
+                                <span class="tier-1">${formatCurrency(tariff.eei)}</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="tier-2">SST_Tax</span>
+                                <span class="tier-1">${formatCurrency(tariff.sst_normal)}</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="tier-2">KWTBB_Fund</span>
+                                <span class="tier-1">${formatCurrency(tariff.kwtbb_normal)}</span>
+                            </div>
+                            <div class="flex justify-between py-2">
+                                <span class="tier-2">AFA_Adjustment</span>
+                                <span class="${afaCharge < 0 ? 'text-emerald-600' : 'tier-1'}">${formatCurrency(afaCharge)}</span>
+                            </div>
+                            
+                            <div class="ledger-double-line pt-4 mt-4 flex justify-between items-baseline">
+                                <span class="text-xs font-bold uppercase tracking-widest">Total_Bill_Matched</span>
+                                <span class="text-2xl font-bold tracking-tighter">RM ${formatCurrency(adjustedTotal)}</span>
+                            </div>
+                            
+                            <div class="mt-8 flex justify-between items-center text-[10px] tier-3 uppercase tracking-widest">
+                                <span>Derived_Usage: ${tariff.usage_kwh} kWh</span>
+                                <span>Mapping_Tolerance: +/- 0.01%</span>
                             </div>
                         </div>
-                        <div class="grid gap-3 px-6 py-6 text-sm text-slate-300">
-                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-                                <span class="text-slate-400">Usage</span>
-                                <span class="text-slate-100">${tariff.usage_kwh || 0} kWh</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3">
-                                <span class="text-slate-400">Usage Cost</span>
-                                <span class="text-slate-100">RM ${(parseFloat(tariff.usage_normal) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-                                <span class="text-slate-400">Network Fee</span>
-                                <span class="text-slate-100">RM ${(parseFloat(tariff.network) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3">
-                                <span class="text-slate-400">Capacity Fee</span>
-                                <span class="text-slate-100">RM ${(parseFloat(tariff.capacity) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-                                <span class="text-slate-400">Retail Charge</span>
-                                <span class="text-slate-100">RM ${(parseFloat(tariff.retail) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3">
-                                <span class="text-slate-400">EEI</span>
-                                <span class="text-slate-100">RM ${(parseFloat(tariff.eei) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-                                <span class="text-slate-400">SST</span>
-                                <span class="text-slate-100">RM ${(parseFloat(tariff.sst_normal) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/30 px-4 py-3">
-                                <span class="text-slate-400">KWTBB</span>
-                                <span class="text-slate-100">RM ${(parseFloat(tariff.kwtbb_normal) || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-                                <span class="text-slate-400">AFA Charge</span>
-                                <span class="${afaCharge >= 0 ? 'text-slate-100' : 'text-emerald-300'}">RM ${afaCharge.toFixed(2)}</span>
-                            </div>
-                            <div class="flex items-center justify-between rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-base font-semibold text-primary">
-                                <span>Total Bill</span>
-                                <span>RM ${adjustedTotal.toFixed(2)}</span>
-                            </div>
-                        </div>
-                    </div>
+                    </section>
 
-                    <div class="rounded-3xl border border-slate-800 bg-surfaceAlt/80 shadow-[0_30px_60px_rgba(8,47,73,0.4)]">
-                        <div class="border-b border-slate-800 px-6 py-6">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Phase 03</p>
-                                    <h3 class="mt-2 text-xl font-semibold text-slate-100">Solar Configuration</h3>
-                                    <p class="mt-2 text-sm text-slate-400">Control system assumptions to match your profile.</p>
-                                </div>
-                                <div class="hidden sm:flex h-12 w-12 items-center justify-center rounded-full border border-slate-800 bg-slate-950/40 text-primary">
-                                    ⚡
-                                </div>
-                            </div>
-                        </div>
-                        <div class="space-y-6 px-6 py-6 text-sm text-slate-300">
-                            <div class="grid gap-5 md:grid-cols-2">
-                                <div class="space-y-2">
-                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Sun Peak Hours</label>
-                                    <input
-                                        type="number"
-                                        id="sunPeakHour"
-                                        step="0.1"
-                                        min="3.0"
-                                        max="4.5"
-                                        value="3.4"
-                                        class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                    >
-                                    <p class="text-xs text-slate-500">Range: 3.0 - 4.5 hours</p>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Morning Usage (%)</label>
-                                    <input
-                                        type="number"
-                                        id="morningUsage"
-                                        min="1"
-                                        max="100"
-                                        value="30"
-                                        class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                    >
-                                    <p class="text-xs text-slate-500">Range: 1% - 100%</p>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Rating (W)</label>
-                                    <input
-                                        type="number"
-                                        id="panelRating"
-                                        step="1"
-                                        min="450"
-                                        max="850"
-                                        value="620"
-                                        class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                    >
-                                    <p class="text-xs text-slate-500">Range: 450W - 850W</p>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">SMP Export Price (RM/kWh)</label>
-                                    <div class="relative">
-                                        <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs uppercase tracking-[0.3em] text-slate-500">RM</span>
-                                        <input
-                                            type="number"
-                                            id="smpPrice"
-                                            step="0.0001"
-                                            min="0.19"
-                                            max="0.2703"
-                                            value="0.2703"
-                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 pl-14 pr-4 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                        >
-                                    </div>
-                                    <p class="text-xs text-slate-500">Range: RM 0.19 - RM 0.2703</p>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">AFA Rate (RM/kWh)</label>
-                                    <div class="relative">
-                                        <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs uppercase tracking-[0.3em] text-slate-500">RM</span>
-                                        <input
-                                            type="number"
-                                            id="afaRate"
-                                            step="0.0001"
-                                            value="0.0000"
-                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 pl-14 pr-4 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                        >
-                                    </div>
-                                    <p class="text-xs text-slate-500">Automatic Fuel Adjustment</p>
-                                </div>
+                    <section id="solar-config-section">
+                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">03_SOLAR_MODELING_PARAMS</h2>
+                        
+                        <div class="grid gap-12 md:grid-cols-2 md:gap-x-20 md:gap-y-12">
+                            <div class="space-y-2">
+                                <label class="block text-[10px] uppercase tracking-widest tier-3">Sun_Peak_Hours</label>
+                                <input type="number" id="sunPeakHour" step="0.1" min="3.0" max="4.5" value="3.4" class="w-full text-lg py-1">
+                                <p class="text-[9px] tier-3 uppercase">Standard: 3.0 - 4.5 h</p>
                             </div>
 
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4">
-                                <h4 class="text-sm font-medium text-slate-200">Discount Programs</h4>
-                                <p class="mt-1 text-xs text-slate-500">Apply percentage discount first, then fixed amount discount.</p>
-                                <div class="mt-4 grid gap-4 md:grid-cols-2">
-                                    <div class="space-y-2">
-                                        <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Discount (%)</label>
-                                        <div class="relative">
-                                            <input
-                                                type="number"
-                                                id="percentDiscount"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value="0"
-                                                class="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 pr-10 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                            >
-                                            <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">%</span>
+                            <div class="space-y-2">
+                                <label class="block text-[10px] uppercase tracking-widest tier-3">Daytime_Usage_Share (%)</label>
+                                <input type="number" id="morningUsage" min="1" max="100" value="30" class="w-full text-lg py-1">
+                                <p class="text-[9px] tier-3 uppercase">Range: 1% - 100%</p>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="block text-[10px] uppercase tracking-widest tier-3">Panel_Output_Rating (W)</label>
+                                <input type="number" id="panelRating" step="1" min="450" max="850" value="620" class="w-full text-lg py-1">
+                                <p class="text-[9px] tier-3 uppercase">Range: 450W - 850W</p>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="block text-[10px] uppercase tracking-widest tier-3">AFA_Projection (RM/kWh)</label>
+                                <input type="number" id="afaRate" step="0.0001" value="0.0000" class="w-full text-lg py-1">
+                                <p class="text-[9px] tier-3 uppercase">Automatic Fuel Adjustment</p>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="block text-[10px] uppercase tracking-widest tier-3">NEM_Export_Rate (RM/kWh)</label>
+                                <input type="number" id="smpPrice" step="0.0001" min="0.19" max="0.2703" value="0.2703" class="w-full text-lg py-1">
+                                <p class="text-[9px] tier-3 uppercase">SMP Market Price</p>
+                            </div>
+
+                            <div class="md:col-span-2 mt-4">
+                                <div class="p-6 border border-divider">
+                                    <h4 class="text-[10px] font-bold uppercase tracking-widest tier-3 mb-6">Discount_Protocol</h4>
+                                    <div class="grid gap-8 md:grid-cols-2">
+                                        <div class="space-y-2">
+                                            <label class="block text-[10px] uppercase tracking-widest tier-3">Percentage_Disc (%)</label>
+                                            <input type="number" id="percentDiscount" step="0.01" min="0" max="100" value="0" class="w-full text-sm py-1">
                                         </div>
-                                        <p class="text-xs text-slate-500">Applied first (0-100%)</p>
-                                    </div>
-                                    <div class="space-y-2">
-                                        <label class="text-xs uppercase tracking-[0.3em] text-slate-500">Fixed Amount Discount (RM)</label>
-                                        <div class="relative">
-                                            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">RM</span>
-                                            <input
-                                                type="number"
-                                                id="fixedDiscount"
-                                                step="0.01"
-                                                min="0"
-                                                value="0"
-                                                class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 pl-14 pr-4 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                                            >
+                                        <div class="space-y-2">
+                                            <label class="block text-[10px] uppercase tracking-widest tier-3">Fixed_Amount_Disc (RM)</label>
+                                            <input type="number" id="fixedDiscount" step="0.01" min="0" value="0" class="w-full text-sm py-1">
                                         </div>
-                                        <p class="text-xs text-slate-500">Applied after percentage</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <button
-                                onclick="calculateSolarSavings()"
-                                class="group flex w-full items-center justify-center rounded-2xl border border-transparent bg-gradient-to-r from-primaryDark to-primary px-6 py-4 text-sm font-semibold uppercase tracking-[0.3em] text-slate-950 transition hover:from-primary hover:to-primary/80"
-                            >
-                                <span class="mr-3 text-xs font-medium">Run Solar Model</span>
-                                <span class="flex h-9 w-9 items-center justify-center rounded-full border border-slate-900/20 bg-slate-950/10 text-slate-950 transition group-hover:border-slate-900/40">
-                                    ⚡
-                                </span>
-                            </button>
+                            <div class="md:col-span-2 pt-8">
+                                <button
+                                    onclick="calculateSolarSavings()"
+                                    class="text-xs font-bold uppercase tracking-[0.3em] border border-fact px-8 py-4 hover:bg-black hover:text-white transition-colors"
+                                >
+                                    Generate_ROI_Matrix ->
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
             `;
-
         }
 
         // Solar savings calculation
@@ -649,87 +486,16 @@
             };
 
             const detailSource = data.details || {};
-            const billComparison = data.billComparison || {};
             const monthlySavingsValue = Number(data.monthlySavings) || 0;
             const finalSystemCostValue = data.finalSystemCost !== null ? Number(data.finalSystemCost) : null;
             const annualReturnValue = monthlySavingsValue * 12;
 
-            const monthlyUsageKwhValue = Number(detailSource.monthlyUsageKwh) || 0;
-            const monthlySolarGenerationValue = Number(detailSource.monthlySolarGeneration) || 0;
-            const morningUsageKwhValue = Number(detailSource.morningUsageKwh) || 0;
-            const morningSavingValue = Number(detailSource.morningSaving) || 0;
-            const exportKwhValue = Number(detailSource.exportKwh) || 0;
-            const exportSavingValue = Number(detailSource.exportSaving) || 0;
-            const morningUsageRateValue = Number(detailSource.morningUsageRate) || 0;
-            const exportRateValue = Number(detailSource.exportRate) || 0;
-            const sunPeakHourValue = Number(
-                (data.config && data.config.sunPeakHour) ||
-                (latestSolarParams && latestSolarParams.sunPeakHour) ||
-                0
-            );
-
-            const morningSelfConsumptionValue = Math.min(monthlySolarGenerationValue, morningUsageKwhValue);
-            const actualNetUsageValue = billComparison.actualNetUsageKwh !== undefined
-                ? Number(billComparison.actualNetUsageKwh)
-                : Math.max(0, monthlyUsageKwhValue - morningSelfConsumptionValue);
-            const lookupUsageValue = billComparison.lookupUsageKwh !== undefined
-                ? Number(billComparison.lookupUsageKwh)
-                : Math.floor(actualNetUsageValue);
-            const rawAfterUsageValue = billComparison.after && billComparison.after.usageKwh !== undefined
-                ? billComparison.after.usageKwh
-                : detailSource.afterUsageKwh;
-            const afterUsageValue = rawAfterUsageValue !== undefined && rawAfterUsageValue !== null
-                ? Number(rawAfterUsageValue)
-                : actualNetUsageValue;
-            const beforeBillValue = Number((billComparison.before && billComparison.before.billAmount) ?? detailSource.billBefore ?? 0);
-            const rawAfterBillValue = billComparison.after && billComparison.after.billAmount !== null
-                ? billComparison.after.billAmount
-                : detailSource.billAfter;
-            const afterBillValue = rawAfterBillValue !== null && rawAfterBillValue !== undefined
-                ? Number(rawAfterBillValue)
-                : null;
-            const billReductionValue = afterBillValue !== null
-                ? Math.max(0, beforeBillValue - afterBillValue)
-                : morningSavingValue;
-            const breakdownData = data.billBreakdownComparison || detailSource.billBreakdown || {};
-            const breakdownItems = Array.isArray(breakdownData.items) ? breakdownData.items : [];
-            const breakdownTotals = breakdownData.totals || {};
-            const savingsBreakdownData = data.savingsBreakdown || detailSource.savingsBreakdown || {};
-            const exportCreditValue = toNumber(
-                savingsBreakdownData.exportCredit,
-                exportSavingValue
-            );
-            const combinedSavingsValue = toNumber(
-                savingsBreakdownData.total,
-                billReductionValue + exportSavingValue
-            );
-            const breakdownTotalBefore = toNumber(
-                breakdownTotals.before,
-                beforeBillValue
-            );
-            const breakdownTotalAfterRaw = breakdownTotals.after;
-            const breakdownTotalAfter = breakdownTotalAfterRaw === null || breakdownTotalAfterRaw === undefined
-                ? (afterBillValue !== null ? afterBillValue : null)
-                : toNumber(breakdownTotalAfterRaw, afterBillValue || 0);
-            const breakdownTotalDelta = toNumber(
-                breakdownTotals.delta,
-                billReductionValue
-            );
-            const morningCoverageValue = morningUsageKwhValue > 0
-                ? Math.min(100, (morningSelfConsumptionValue / morningUsageKwhValue) * 100)
-                : 0;
-            const exportCoverageValue = monthlySolarGenerationValue > 0
-                ? Math.min(100, (exportKwhValue / monthlySolarGenerationValue) * 100)
-                : 0;
-
-            // Calculate final bill after solar (bill after morning offset - export earnings)
-            const finalBillAfterSolar = afterBillValue !== null 
-                ? Math.max(0, afterBillValue - exportCreditValue)
-                : null;
+            const billBeforeValue = Number(detailSource.billBefore || 0);
+            const afterBillValue = detailSource.billAfter !== null ? Number(detailSource.billAfter) : null;
+            const billReductionValue = afterBillValue !== null ? Math.max(0, billBeforeValue - afterBillValue) : 0;
+            const exportSavingValue = Number(detailSource.exportSaving || 0);
 
             // --- STRICT DATA SEPARATION LOGIC ---
-            // Define distinct data sources for "Solar Only" vs "Solar + Battery" to prevents UI confusion
-            
             let baselineStats = {
                 billReduction: formatCurrency(billReductionValue),
                 exportCredit: formatCurrency(exportSavingValue),
@@ -738,11 +504,9 @@
                 totalSavings: formatCurrency(monthlySavingsValue),
                 annualReturn: formatCurrency(annualReturnValue),
                 billAfter: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A',
-                billBreakdown: data.billBreakdownComparison // Default to main if no specific baseline exists
+                billBreakdown: data.billBreakdownComparison
             };
 
-            // If the backend provides a specific baseline (calculated with 0 battery), use that for the Solar Only section
-            // This ensures the "Solar Only" numbers NEVER change when you add a battery
             if (data.details.battery && data.details.battery.baseline) {
                 const b = data.details.battery.baseline;
                 baselineStats.billReduction = formatCurrency(b.billReduction);
@@ -751,186 +515,29 @@
                 baselineStats.baseBillReduction = formatCurrency(b.baseBillReduction || 0);
                 baselineStats.totalSavings = formatCurrency(b.totalSavings);
                 baselineStats.billAfter = b.billAfter !== null ? formatCurrency(b.billAfter) : 'N/A';
-                // Recalculate Annual Return for baseline (Monthly * 12) to ensure consistency
                 baselineStats.annualReturn = formatCurrency(Number(b.totalSavings) * 12);
-                
-                if (b.billBreakdown) {
-                    baselineStats.billBreakdown = b.billBreakdown;
-                }
+                if (b.billBreakdown) baselineStats.billBreakdown = b.billBreakdown;
             }
-
-            const formattedDetails = {
-                ...detailSource,
-                monthlyUsageKwh: formatNumber(monthlyUsageKwhValue, 0),
-                monthlySolarGeneration: formatNumber(monthlySolarGenerationValue, 2),
-                morningUsageKwh: formatNumber(morningUsageKwhValue, 2),
-                morningSaving: formatCurrency(morningSavingValue),
-                exportKwh: formatNumber(exportKwhValue, 2),
-                exportSaving: formatCurrency(exportSavingValue),
-                morningUsageRate: formatNumber(morningUsageRateValue, 4),
-                exportRate: formatNumber(exportRateValue, 2),
-                morningSelfConsumption: formatNumber(morningSelfConsumptionValue, 2),
-                morningCoverage: formatPercentage(morningCoverageValue, 1),
-                exportCoverage: formatPercentage(exportCoverageValue, 1),
-                totalGeneration: formatNumber(monthlySolarGenerationValue, 2),
-                sunPeakHour: formatNumber(sunPeakHourValue, 1),
-                netUsageKwh: formatNumber(actualNetUsageValue, 2),
-                lookupUsageKwh: formatNumber(lookupUsageValue, 0),
-                afterUsageKwh: formatNumber(afterUsageValue, 2),
-                billBefore: formatCurrency(beforeBillValue),
-                billAfter: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A',
-                billAfterSolar: finalBillAfterSolar !== null ? formatCurrency(finalBillAfterSolar) : 'N/A',
-                billAfterSolarWithBattery: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A', // Corrected: Use Gross Bill (before export deduction) to match breakdown
-                billReduction: formatCurrency(billReductionValue),
-                monthlyBillReduction: formatCurrency(billReductionValue),
-                annualReturn: formatCurrency(annualReturnValue),
-                exportCredit: formatCurrency(exportCreditValue),
-                totalSavings: formatCurrency(combinedSavingsValue),
-                breakdownTotals: {
-                    before: formatCurrency(breakdownTotalBefore),
-                    after: breakdownTotalAfter !== null ? formatCurrency(breakdownTotalAfter) : null,
-                    delta: formatCurrency(Math.abs(breakdownTotalDelta)),
-                    deltaDirection: breakdownTotalDelta >= 0 ? 'decrease' : 'increase'
-                }
-            };
-            
-            // Removed: Previous override logic. We now use 'baselineStats' explicitly for the UI construction
-            // instead of mutating 'formattedDetails' and hoping for the best.
-
-            data.details = formattedDetails;
-            
-            // Calculate explicit Total New Saving for "Solar + Battery" to ensure visual consistency
-            // Formula: (Bill Before - New Bill) + New Export Income
-            const parseVal = (str) => {
-                if (typeof str !== 'string') return Number(str) || 0;
-                return Number(str.replace(/,/g, '')) || 0;
-            };
-
-            const batteryBillBefore = parseVal(formattedDetails.billBefore);
-            const batteryBillAfter = parseVal(formattedDetails.billAfterSolarWithBattery);
-            const batteryExport = parseVal(formattedDetails.exportCredit);
-            
-            const batteryTotalSaving = (batteryBillBefore - batteryBillAfter) + batteryExport;
-            const batteryTotalSavingDisplay = formatCurrency(batteryTotalSaving);
-
-            // data.monthlySavings = formatCurrency(monthlySavingsValue); // Keep original total calculation for Battery sections
 
             const roiValue = finalSystemCostValue && finalSystemCostValue > 0
                 ? (annualReturnValue / finalSystemCostValue) * 100
                 : null;
-            data.roiPercentage = roiValue !== null ? formatPercentage(roiValue, 1) : null;
-            const roiDisplay = data.roiPercentage !== null ? `${data.roiPercentage}%` : 'N/A';
+            const roiDisplay = roiValue !== null ? `${formatPercentage(roiValue, 1)}%` : 'N/A';
+            const paybackDisplay = data.paybackPeriod === null ? 'N/A' : (data.paybackPeriod === 'N/A' ? 'N/A' : `${data.paybackPeriod} yr`);
 
-            const buildBreakdownRows = (breakdownData, isBattery = false) => {
+            const buildLedgerRows = (breakdownData) => {
                 const items = Array.isArray(breakdownData.items) ? breakdownData.items : [];
-                if (!items.length) {
-                    return `<div class="rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-xs text-slate-500">Bill component details unavailable for the selected usage.</div>`;
-                }
-
-                return items.map((item) => {
-                    const beforeValue = toNumber(item.before);
-                    const afterRaw = item.after;
-                    const afterValue = afterRaw === null || afterRaw === undefined ? null : toNumber(afterRaw);
-                    const deltaValue = toNumber(item.delta, beforeValue - (afterValue || 0));
-                    const deltaPositive = deltaValue >= 0;
-                    const deltaClass = deltaPositive ? 'text-emerald-300' : 'text-amber-300';
-                    const deltaSymbol = deltaPositive ? '−' : '+';
-                    const beforeDisplay = `RM ${formatCurrency(beforeValue)}`;
-                    const afterDisplay = afterValue !== null ? `RM ${formatCurrency(afterValue)}` : 'N/A';
-                    const deltaDisplay = `${deltaSymbol}RM ${formatCurrency(Math.abs(deltaValue))}`;
-
-                    return `
-                        <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border ${isBattery ? 'border-primary/20 bg-slate-950/60' : 'border-emerald-500/20 bg-slate-950/40'} px-4 py-3 text-xs sm:text-sm">
-                            <div class="font-medium text-slate-200">${item.label}</div>
-                            <div class="text-slate-100">${beforeDisplay}</div>
-                            <div class="text-slate-100">${afterDisplay}</div>
-                            <div class="font-semibold ${deltaClass}">${deltaDisplay}</div>
-                        </div>
-                    `;
-                }).join('');
+                return items.map((item) => `
+                    <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 py-2 border-b border-divider/50">
+                        <span class="tier-2 uppercase text-[10px] tracking-widest">${item.label.replace(' ', '_')}</span>
+                        <span class="tier-1 text-right">${formatCurrency(item.before)}</span>
+                        <span class="tier-1 text-right">${item.after !== null ? formatCurrency(item.after) : '---'}</span>
+                        <span class="${item.delta >= 0 ? 'text-emerald-600' : 'text-rose-600'} text-right font-bold">${item.delta >= 0 ? '-' : '+'}${formatCurrency(Math.abs(item.delta))}</span>
+                    </div>
+                `).join('');
             };
 
-            const buildBillBreakdownSection = (breakdownData, title, labelColorClass, borderColorClass, bgColorClass, isBattery = false) => {
-                const rowsHtml = buildBreakdownRows(breakdownData, isBattery);
-                const totals = breakdownData.totals || {};
-                const before = toNumber(totals.before);
-                const after = totals.after !== null ? toNumber(totals.after) : null;
-                const delta = toNumber(totals.delta);
-                
-                const totalDeltaSymbol = delta >= 0 ? '−' : '+';
-                const totalDeltaClass = delta >= 0 ? 'text-emerald-300' : 'text-amber-300';
-
-                const totalsRowHtml = `
-                    <div class="grid grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] items-center gap-3 rounded-xl border ${isBattery ? 'border-primary/40 bg-primary/10' : 'border-emerald-500/40 bg-emerald-500/10'} px-4 py-4 text-xs sm:text-sm">
-                        <div class="font-semibold ${isBattery ? 'text-primary' : 'text-emerald-400'}">Total Bill</div>
-                        <div class="font-semibold text-slate-100">RM ${formatCurrency(before)}</div>
-                        <div class="font-semibold text-slate-100">${after !== null ? `RM ${formatCurrency(after)}` : 'N/A'}</div>
-                        <div class="text-base font-semibold ${totalDeltaClass}">${totalDeltaSymbol}RM ${formatCurrency(Math.abs(delta))}</div>
-                    </div>
-                `;
-
-                return `
-                    <div class="rounded-2xl border ${borderColorClass} ${bgColorClass} px-4 py-4 sm:px-6 sm:py-6">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.3em] ${labelColorClass}">Bill Breakdown</p>
-                                <h4 class="mt-1 text-lg font-semibold text-slate-100">${title}</h4>
-                            </div>
-                            <div class="text-xs text-slate-500">RM values comparison</div>
-                        </div>
-                        <div class="mt-4 hidden grid-cols-[1.2fr_repeat(3,minmax(0,1fr))] gap-3 text-[11px] uppercase tracking-[0.25em] text-slate-500 sm:grid">
-                            <div>Component</div>
-                            <div class="text-center">Before</div>
-                            <div class="text-center">After</div>
-                            <div class="text-center">Change</div>
-                        </div>
-                        <div class="mt-4 space-y-3">
-                            ${rowsHtml}
-                            ${totalsRowHtml}
-                        </div>
-                    </div>
-                `;
-            };
-
-            const billBreakdownSection = buildBillBreakdownSection(
-                baselineStats.billBreakdown, 
-                "With Solar (No Battery)", 
-                "text-emerald-400/80",
-                "border-emerald-500/20",
-                "bg-emerald-500/5",
-                false
-            );
-
-            // Build Battery Breakdown Section (Hidden by default)
-            let batteryBreakdownSection = '';
-            if (data.config.batterySize > 0) {
-                // Battery breakdown uses the main 'billBreakdownComparison' (which is "With Battery" when battery > 0)
-                // Wait, server returns 'billBreakdownComparison' as the MAIN result. 
-                // If battery > 0, the main result IS the battery result.
-                // So 'data.billBreakdownComparison' IS the Solar + Battery breakdown.
-                
-                batteryBreakdownSection = `
-                    <details class="group rounded-2xl border border-primary/20 bg-primary/5 overflow-hidden">
-                        <summary class="flex cursor-pointer items-center justify-between px-6 py-4 text-sm font-medium text-slate-300 hover:bg-primary/5 transition">
-                            <span class="flex items-center space-x-3">
-                                <span class="flex h-8 w-8 items-center justify-center rounded-full border border-primary/40 bg-slate-950/50 text-primary">📊</span>
-                                <span>View Bill Breakdown (Solar + Battery)</span>
-                            </span>
-                            <span class="text-primary group-open:rotate-180 transition-transform">▼</span>
-                        </summary>
-                        <div class="border-t border-primary/20 px-4 py-4 sm:px-6 sm:py-6">
-                             ${buildBillBreakdownSection(
-                                data.billBreakdownComparison,
-                                "With Solar + Battery",
-                                "text-primary/80",
-                                "border-transparent", // nesting handles border
-                                "bg-transparent",
-                                true
-                             )}
-                        </div>
-                    </details>
-                `;
-            }
+            const batteryTotalSaving = (toNumber(detailSource.billBefore) - toNumber(detailSource.billAfter)) + toNumber(detailSource.exportSaving);
 
             if (!solarDiv) {
                 solarDiv = document.createElement('div');
@@ -938,376 +545,148 @@
                 resultsDiv.appendChild(solarDiv);
             }
 
-            solarDiv.className = 'rounded-3xl border border-slate-800 bg-surfaceAlt/80 shadow-[0_40px_80px_rgba(8,47,73,0.45)] overflow-hidden';
-
-            const panelRatingW = Number(data?.config?.panelType);
-            const isCustomPanelRating = Number.isFinite(panelRatingW) && panelRatingW !== 620;
-            const customPanelNotice = isCustomPanelRating ? `
-                <div class="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                    <div class="flex items-center text-amber-200">
-                        <span class="mr-2">⚠️</span>
-                        <span class="text-xs uppercase tracking-[0.3em]">Package recommendation disabled</span>
-                    </div>
-                    <p class="mt-2 text-xs text-amber-100/80">Currently we only have 620W package. Solar calculation will still proceed for custom panel ratings.</p>
-                </div>
-            ` : '';
-
-            const packageSection = isCustomPanelRating ? '' : (data.selectedPackage ? `
-                <div class="rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-slate-200">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <div class="flex items-center text-primary">
-                                <span class="mr-2 text-lg">📦</span>
-                                <span class="text-xs uppercase tracking-[0.3em] text-primary/70">Package Match</span>
-                            </div>
-                            <div class="mt-2 font-semibold text-slate-100">${data.selectedPackage.packageName}</div>
-                            <div class="mt-1 text-xs text-slate-400">${data.actualPanels} × ${data.config.panelType}W • ${data.selectedPackage.type || 'Residential'}</div>
-                        </div>
-                        <div class="rounded-full border border-primary/40 bg-slate-950/40 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-primary/80">Active</div>
-                    </div>
-                    <div class="mt-3 grid gap-2 text-xs text-slate-300">
-                        <div>Investment: RM ${formatCurrency(data.selectedPackage.price)}</div>
-                        ${data.selectedPackage.maxDiscount ? `<div>Potential Discount: RM ${formatCurrency(data.selectedPackage.maxDiscount)}</div>` : ''}
-                        ${data.selectedPackage.special ? '<div class="text-primary">🌟 Special Package Available</div>' : ''}
-                        ${data.selectedPackage.invoiceDesc ? `<div class="rounded-xl border border-primary/20 bg-slate-950/40 px-4 py-3 text-[11px] text-slate-400">${data.selectedPackage.invoiceDesc}</div>` : ''}
-                    </div>
-                </div>
-            ` : `
-                <div class="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                    <div class="flex items-center text-amber-200">
-                        <span class="mr-2">⚠️</span>
-                        <span class="text-xs uppercase tracking-[0.3em]">No match package</span>
-                    </div>
-                    <p class="mt-2 text-xs text-amber-100/80">No matching package for ${data.packageSearchQty} × ${data.config.panelType}W. This calculator shows database references only.</p>
-                </div>
-            `);
-
-            const costSummarySection = (!isCustomPanelRating && data.finalSystemCost !== null) ? `
-                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm text-slate-300 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-400">System Cost</span>
-                        <span class="font-medium text-slate-100">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
-                    </div>
-                    ${data.percentDiscountAmount && parseFloat(data.percentDiscountAmount) > 0 ? `
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-400">Percent Discount</span>
-                        <span class="font-medium text-emerald-300">-RM ${formatCurrency(data.percentDiscountAmount)}</span>
-                    </div>
-                    ` : ''}
-                    ${data.fixedDiscountAmount && parseFloat(data.fixedDiscountAmount) > 0 ? `
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-400">Fixed Discount</span>
-                        <span class="font-medium text-emerald-300">-RM ${formatCurrency(data.fixedDiscountAmount)}</span>
-                    </div>
-                    ` : ''}
-                    ${data.totalDiscountAmount && parseFloat(data.totalDiscountAmount) > 0 ? `
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-400">Total Discount</span>
-                        <span class="font-medium text-emerald-300">-RM ${formatCurrency(data.totalDiscountAmount)}</span>
-                    </div>
-                    ` : ''}
-                    <div class="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-base font-semibold text-primary">
-                        <span>Final System Cost</span>
-                        <span>RM ${formatCurrency(data.finalSystemCost)}</span>
-                    </div>
-                </div>
-            ` : '';
-
-            const paybackDisplay = data.paybackPeriod === null
-                ? null
-                : (data.paybackPeriod === 'N/A' ? 'N/A' : `${data.paybackPeriod} years`);
-            const paybackSection = paybackDisplay !== null ? `
-                <div class="rounded-2xl border border-accent/40 bg-accent/10 px-4 py-3 text-base font-semibold text-accent">
-                    <div class="flex items-center justify-between">
-                        <span>Payback Period</span>
-                        <span>${paybackDisplay}</span>
-                    </div>
-                </div>
-            ` : '';
-
             solarDiv.innerHTML = `
-                <div class="border-b border-slate-800 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-4 text-slate-100 sm:px-6 sm:py-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Phase 04</p>
-                            <h3 class="mt-2 text-2xl font-semibold">Solar Savings Results</h3>
-                            <p class="mt-2 text-sm text-slate-400">${data.config.sunPeakHour}h peak • ${data.config.morningUsage}% morning • RM ${data.config.afaRate}/kWh AFA</p>
-                        </div>
-                        <div class="hidden sm:flex h-12 w-12 items-center justify-center rounded-full border border-primary/40 bg-slate-950/40 text-primary">⚙️</div>
-                    </div>
-                </div>
-
-                <div class="space-y-8 px-4 py-6 text-sm text-slate-300 sm:px-6 sm:py-8">
-                    
-                    <!-- GROUP 1: SYSTEM INFO -->
-                    <section id="group-system-info" class="space-y-4">
-                        <div class="flex items-center gap-2 mb-2">
-                            <div class="h-6 w-1 rounded-full bg-primary"></div>
-                            <h4 class="text-sm font-semibold uppercase tracking-widest text-slate-400">System Configuration</h4>
-                        </div>
-                        
-                        <div class="grid gap-4 sm:grid-cols-2">
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
-                                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">System Size</p>
-                                <p class="mt-2 text-xl font-semibold text-slate-100">${data.solarConfig}</p>
-                                <p class="mt-1 text-xs text-slate-500">${data.details.totalGeneration} kWh / month</p>
+                <div class="space-y-24">
+                    <!-- 04 ROI SUMMARY -->
+                    <section>
+                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">04_ROI_MATRIX_SUMMARY</h2>
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-12 py-12 border-y border-fact">
+                            <div class="space-y-2">
+                                <span class="text-[10px] uppercase tracking-[0.2em] tier-3">Monthly_Savings_Est</span>
+                                <div class="text-4xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</div>
                             </div>
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4">
-                                <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Configuration</p>
-                                <div class="mt-2 flex items-baseline gap-2">
-                                    <span class="text-xl font-semibold text-slate-100">${data.actualPanels}</span>
-                                    <span class="text-sm text-slate-400">x ${data.config.panelType}W</span>
-                                </div>
-                                <p class="mt-1 text-[11px] text-slate-500">${data.overrideApplied ? 'Override applied' : 'Recommended based on bill'}</p>
+                            <div class="h-px md:h-12 w-full md:w-px bg-divider"></div>
+                            <div class="space-y-2">
+                                <span class="text-[10px] uppercase tracking-[0.2em] tier-3">ROI_Percentage</span>
+                                <div class="text-4xl font-bold tracking-tighter">${roiDisplay}</div>
                             </div>
-                        </div>
-
-                        ${customPanelNotice}
-                        ${packageSection}
-                        ${costSummarySection}
-                    </section>
-
-                    <!-- GROUP 2: SOLAR SAVING (BASELINE) -->
-                    <section id="group-solar-results" class="space-y-4 pt-6 pb-2 border-t border-emerald-500/20">
-                        <div class="flex items-center gap-2 mb-2">
-                            <div class="h-6 w-1 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-                            <h4 class="text-sm font-semibold uppercase tracking-widest text-emerald-100/80">Solar Saving Analysis (Solar Only)</h4>
-                        </div>
-
-                        ${billBreakdownSection}
-
-                        <div class="rounded-2xl border border-emerald-500/30 bg-emerald-900/10 px-5 py-5 sm:px-6 sm:py-6 backdrop-blur-sm">
-                            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <p class="text-xs uppercase tracking-[0.3em] text-emerald-200/80">Solar Only Impact</p>
-                                    <div class="mt-2 flex items-baseline gap-2">
-                                        <span class="text-2xl font-bold text-slate-100">RM ${baselineStats.billReduction}</span>
-                                        <span class="text-xs text-emerald-200/70">Total Bill Reduction</span>
-                                    </div>
-                                    <div class="mt-2 pl-4 border-l border-emerald-500/20 space-y-1">
-                                        <div class="flex items-center justify-between text-[11px]">
-                                            <span class="text-emerald-200/60">Base Tariff Saving</span>
-                                            <span class="text-slate-200 font-medium">RM ${baselineStats.baseBillReduction}</span>
-                                        </div>
-                                        <div class="flex items-center justify-between text-[11px]">
-                                            <span class="text-emerald-200/60">AFA Component ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 ? 'Saving' : 'Factor'}</span>
-                                            <span class="${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 ? 'text-emerald-300' : 'text-amber-300'} font-medium">RM ${baselineStats.afaImpact}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- AFA Methodology Explanation -->
-                                    <div class="mt-4 rounded-xl border border-slate-700/50 bg-slate-900/40 p-3">
-                                        <div class="flex items-start gap-2">
-                                            <span class="text-primary text-xs">ℹ️</span>
-                                            <div class="text-[10px] leading-relaxed text-slate-400">
-                                                <strong class="text-slate-300 block mb-1">AFA Impact Logic</strong>
-                                                Solar reduces your grid consumption, which directly lowers the fuel adjustment charge on your bill. 
-                                                ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 
-                                                    ? 'In surcharge scenarios, this is a direct saving.' 
-                                                    : 'In rebate scenarios (negative AFA), using less grid energy reduces the total rebate received, which is accounted for here.'
-                                                }
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    ${Math.abs(Number(baselineStats.afaImpact.replace(/,/g,''))) > 0 ? `
-                                    <div class="mt-2 text-[10px] text-slate-500 italic">
-                                        Note: RM ${Math.abs(Number(baselineStats.afaImpact.replace(/,/g,''))).toFixed(2)} of your bill change is attributed to the Automatic Fuel Adjustment (AFA) ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 ? 'saving' : 'rebate reduction'} based on reduced grid usage.
-                                    </div>
-                                    ` : ''}
-                                    <div class="mt-2 flex items-baseline gap-2">
-                                        <span class="text-lg font-semibold text-emerald-300">+ RM ${baselineStats.exportCredit}</span>
-                                        <span class="text-xs text-emerald-200/70">Export Earnings</span>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <div class="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] uppercase tracking-widest text-emerald-300 mb-2">
-                                        Baseline Savings
-                                    </div>
-                                    <div class="text-4xl font-bold text-emerald-300">RM ${baselineStats.totalSavings}</div>
-                                    <div class="text-[10px] uppercase tracking-wider text-emerald-200/60 mt-1">Per Month</div>
-                                </div>
+                            <div class="h-px md:h-12 w-full md:w-px bg-divider"></div>
+                            <div class="space-y-2">
+                                <span class="text-[10px] uppercase tracking-[0.2em] tier-3">Payback_Period</span>
+                                <div class="text-4xl font-bold tracking-tighter">${paybackDisplay}</div>
                             </div>
-                        </div>
-
-                        <div class="grid gap-4 sm:grid-cols-2">
-                             ${(!isCustomPanelRating && paybackDisplay !== null) ? `
-                                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 hover:border-slate-700 transition">
-                                    <p class="text-xs uppercase tracking-[0.3em] text-slate-500">Payback Period</p>
-                                    <p class="mt-2 text-2xl font-semibold text-slate-100">${paybackDisplay}</p>
-                                </div>
-                             ` : ''}
-                             ${!isCustomPanelRating ? `
-                                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-5 py-4 hover:border-slate-700 transition">
-                                    <p class="text-xs uppercase tracking-[0.3em] text-slate-500">ROI</p>
-                                    <p class="mt-2 text-2xl font-semibold text-emerald-300">${roiDisplay}</p>
-                                    <p class="mt-1 text-xs text-slate-500">RM ${baselineStats.annualReturn} / year</p>
-                                </div>
-                             ` : ''}
                         </div>
                     </section>
 
-                    <!-- GROUP 3: SOLAR + BATTERY CONFIG -->
-                    <section id="group-battery-config" class="space-y-4 pt-6 pb-2 border-t border-amber-500/20">
-                        <div class="flex items-center gap-2 mb-2">
-                            <div class="h-6 w-1 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
-                            <h4 class="text-sm font-semibold uppercase tracking-widest text-amber-100/80">Battery Integration</h4>
-                        </div>
-
-                        <div class="rounded-2xl border border-amber-500/20 bg-amber-900/5 px-5 py-5 backdrop-blur-sm">
-                            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-                                <div>
-                                    <p class="text-xs uppercase tracking-[0.3em] text-amber-200/70">Battery Storage</p>
-                                    <p class="mt-1 text-sm text-amber-100/90">Reduce grid reliance at night</p>
+                    <!-- 05 SYSTEM CONFIG -->
+                    <section>
+                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">05_SYSTEM_CONFIGURATION</h2>
+                        <div class="grid gap-12 md:grid-cols-2">
+                            <div class="space-y-6">
+                                <div class="flex justify-between items-center py-2 border-b border-divider">
+                                    <span class="text-[10px] uppercase tracking-widest tier-3">System_Size</span>
+                                    <span class="text-sm font-bold">${data.solarConfig}</span>
                                 </div>
-                                <div class="flex items-center gap-3">
-                                    <button onclick="adjustBatterySize(-5)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-primary hover:text-primary disabled:opacity-50" ${data.config.batterySize <= 0 ? 'disabled' : ''}>−</button>
-                                    <div class="w-24 text-center rounded-xl border border-slate-800 bg-slate-950/60 py-2">
-                                        <div class="text-xl font-bold text-slate-100">${data.config.batterySize}</div>
-                                        <div class="text-[10px] uppercase tracking-wider text-slate-500">kWh</div>
-                                    </div>
-                                    <button onclick="adjustBatterySize(5)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-primary hover:text-primary">+</button>
+                                <div class="flex justify-between items-center py-2 border-b border-divider">
+                                    <span class="text-[10px] uppercase tracking-widest tier-3">Panel_Qty</span>
+                                    <span class="text-sm font-bold">${data.actualPanels} UNIT</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-divider">
+                                    <span class="text-[10px] uppercase tracking-widest tier-3">Monthly_Yield</span>
+                                    <span class="text-sm font-bold">${data.details.totalGeneration} kWh</span>
                                 </div>
                             </div>
-                            
-                            ${data.config.batterySize > 0 ? `
-                            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 border-t border-amber-500/10 pt-4 text-xs">
-                                 <div class="rounded-xl bg-slate-900/50 px-3 py-2 border border-white/5">
-                                    <span class="block text-slate-500">Max Daily Discharge</span>
-                                    <span class="block mt-1 text-sm font-medium text-slate-200">${data.details.battery.dailyDischarge} kWh</span>
-                                 </div>
-                                 <div class="rounded-xl bg-slate-900/50 px-3 py-2 border border-white/5">
-                                    <span class="block text-slate-500">Monthly Grid Offset</span>
-                                    <span class="block mt-1 text-sm font-medium text-slate-200">${data.details.battery.monthlyDischarge} kWh</span>
-                                 </div>
-                                 <div class="rounded-xl bg-emerald-900/20 border border-emerald-500/20 px-3 py-2">
-                                    <span class="block text-emerald-200/60">Reduced Grid Import</span>
-                                    <span class="block mt-1 text-sm font-medium text-emerald-300">-${data.details.battery.monthlyDischarge} kWh</span>
-                                 </div>
-                                 <div class="rounded-xl bg-amber-900/20 border border-amber-500/20 px-3 py-2">
-                                    <span class="block text-amber-200/60">Reduced Export</span>
-                                    <span class="block mt-1 text-sm font-medium text-amber-300">-${data.details.battery.monthlyDischarge} kWh</span>
-                                 </div>
+                            <div class="space-y-6">
+                                <div class="flex justify-between items-center py-2 border-b border-divider">
+                                    <span class="text-[10px] uppercase tracking-widest tier-3">Base_System_Cost</span>
+                                    <span class="text-sm font-bold">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-divider">
+                                    <span class="text-[10px] uppercase tracking-widest tier-3">Applied_Discounts</span>
+                                    <span class="text-sm font-bold text-emerald-600">-RM ${formatCurrency(data.totalDiscountAmount)}</span>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-divider bg-black/5 px-2 -mx-2">
+                                    <span class="text-[10px] uppercase tracking-widest tier-3 font-bold">Net_Investment</span>
+                                    <span class="text-sm font-bold">RM ${formatCurrency(data.finalSystemCost)}</span>
+                                </div>
                             </div>
-                            <div class="mt-4 flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                                <span class="text-xs uppercase tracking-widest text-amber-200/80">Battery Value Add</span>
-                                <span class="text-lg font-bold text-amber-300">+ RM ${(Number(data.details.savingsBreakdown.total) - Number(data.monthlySavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2})} / mo</span>
-                            </div>
-                            <div class="mt-2 text-[10px] text-slate-500 text-center">
-                               Limited by: ${getBatteryLimiterText(data.details.battery.caps)}
-                            </div>
-                            ` : '<div class="text-center text-xs text-slate-500 py-2">Add battery storage to see impact on savings</div>'}
                         </div>
                     </section>
 
-                    <!-- GROUP 4: SCENARIO COMPARISON -->
+                    <!-- 06 LEDGER COMPARISON -->
+                    <section>
+                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">06_SAVINGS_LEDGER_LEDGER</h2>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 tier-3 uppercase text-[9px] tracking-widest pb-4">
+                                <span>Component</span>
+                                <span class="text-right">Baseline</span>
+                                <span class="text-right">Post_Solar</span>
+                                <span class="text-right">Delta</span>
+                            </div>
+                            <div class="ledger-line"></div>
+                            ${buildLedgerRows(baselineStats.billBreakdown)}
+                            <div class="ledger-double-line pt-4 mt-2 flex justify-between items-baseline">
+                                <span class="text-[10px] font-bold uppercase tracking-widest tier-2">Monthly_Bill_Subtotal</span>
+                                <div class="flex items-baseline gap-4">
+                                    <span class="text-lg font-bold">RM ${baselineStats.billAfter}</span>
+                                    <span class="text-sm tier-3">(${baselineStats.billReduction} Reduction)</span>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-baseline py-2">
+                                <span class="text-[10px] font-bold uppercase tracking-widest tier-2">NEM_Export_Earnings</span>
+                                <span class="text-lg font-bold text-emerald-600">+RM ${baselineStats.exportCredit}</span>
+                            </div>
+                            <div class="ledger-double-line pt-6 mt-6 flex justify-between items-baseline bg-black text-white p-6 -mx-6">
+                                <span class="text-xs font-bold uppercase tracking-[0.3em]">Net_Monthly_Savings</span>
+                                <span class="text-3xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 07 FOOTNOTES -->
+                    <section class="opacity-60">
+                        <h2 class="text-[9px] font-bold uppercase tracking-widest mb-6 tier-3">07_AFA_METHODOLOGY_FOOTNOTES</h2>
+                        <div class="space-y-4 text-[10px] leading-relaxed tier-3 max-w-2xl">
+                            <p>[*] AFA_IMPACT: Solar reduces grid consumption, lowering fuel adjustment charges by RM ${baselineStats.afaImpact}. 
+                            ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 
+                                ? 'In surcharge periods, this scales as a direct saving.' 
+                                : 'In rebate periods, this reflects a reduction in the total rebate received due to lower volume.'}
+                            </p>
+                            <p>[*] ROI_CALC: Based on 12-month projected savings vs Net_Investment. NEM export rate locked at RM ${data.config.smpPrice}/kWh.</p>
+                        </div>
+                    </section>
+
+                    <!-- BATTERY INTEGRATION (CLEANED) -->
                     ${data.config.batterySize > 0 ? `
-                    <section id="group-comparison" class="space-y-4 pt-6 border-t border-primary/20">
-                        <div class="flex items-center gap-2 mb-2">
-                            <div class="h-6 w-1 rounded-full bg-primary shadow-[0_0_10px_rgba(56,189,248,0.5)]"></div>
-                            <h4 class="text-sm font-semibold uppercase tracking-widest text-primary/90">Scenario Comparison</h4>
-                        </div>
-
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <!-- Solar Only Card -->
-                            <div class="rounded-2xl border border-emerald-500/20 bg-emerald-900/5 px-5 py-5 flex flex-col justify-between relative overflow-hidden hover:border-emerald-500/30 transition">
-                                <div>
-                                    <div class="text-xs uppercase tracking-[0.3em] text-emerald-200/60 mb-4">Solar Only</div>
-                                    <div class="space-y-3">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-slate-400">New Monthly Bill</span>
-                                            <span class="text-lg font-medium text-slate-200">RM ${baselineStats.billAfter}</span>
-                                        </div>
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-slate-400">New Export Income</span>
-                                            <span class="text-lg font-medium text-emerald-300/80">+RM ${baselineStats.exportCredit}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="mt-6 pt-4 border-t border-emerald-500/10">
-                                    <div class="flex justify-between items-end">
-                                        <span class="text-sm font-medium text-slate-400">Total Saving</span>
-                                        <span class="text-2xl font-bold text-emerald-300">RM ${baselineStats.totalSavings}</span>
-                                    </div>
+                    <section class="pt-24 border-t border-divider">
+                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">08_BATTERY_STORAGE_INTEGRATION</h2>
+                        <div class="grid gap-12 md:grid-cols-3">
+                            <div class="space-y-2">
+                                <span class="text-[10px] uppercase tracking-widest tier-3">Storage_Capacity</span>
+                                <div class="flex items-center gap-4">
+                                    <button onclick="adjustBatterySize(-5)" class="text-xl border border-divider w-10 h-10 hover:bg-black hover:text-white">-</button>
+                                    <span class="text-xl font-bold">${data.config.batterySize} kWh</span>
+                                    <button onclick="adjustBatterySize(5)" class="text-xl border border-divider w-10 h-10 hover:bg-black hover:text-white">+</button>
                                 </div>
                             </div>
-
-                            <!-- Solar + Battery Card -->
-                            <div class="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-slate-950 px-5 py-5 flex flex-col justify-between relative overflow-hidden shadow-[0_0_30px_rgba(56,189,248,0.1)]">
-                                <div class="absolute top-0 right-0 p-3 opacity-10">
-                                    <div class="text-6xl text-primary">🔋</div>
-                                </div>
-                                <div>
-                                    <div class="flex items-center gap-2 mb-4">
-                                        <span class="text-xs uppercase tracking-[0.3em] text-primary">Solar + Battery</span>
-                                        <span class="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary border border-primary/20">${data.config.batterySize}kWh</span>
-                                    </div>
-                                    <div class="space-y-3">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-slate-300">New Monthly Bill</span>
-                                            <span class="text-lg font-bold text-slate-100">RM ${data.details.billAfterSolarWithBattery}</span>
-                                        </div>
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-slate-300">New Export Income</span>
-                                            <span class="text-lg font-medium text-emerald-300">+RM ${data.details.exportCredit}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="mt-6 pt-4 border-t border-primary/20">
-                                    <div class="flex justify-between items-end">
-                                        <div>
-                                            <span class="block text-[10px] uppercase tracking-widest text-primary/60 mb-1">Total New Saving</span>
-                                            <span class="text-3xl font-bold text-primary">RM ${batteryTotalSavingDisplay}</span>
-                                        </div>
-                                        <div class="flex flex-col items-end">
-                                            <div class="flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2 py-1 text-emerald-300 border border-emerald-500/20">
-                                                <span class="text-xs">▲</span>
-                                                <span class="text-sm font-bold">RM ${(batteryTotalSaving - parseVal(baselineStats.totalSavings)).toLocaleString('en-MY', {minimumFractionDigits: 2})}</span>
-                                            </div>
-                                            <span class="text-[9px] uppercase tracking-wider text-emerald-400/50 mt-1">Extra vs Solar Only</span>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="space-y-2">
+                                <span class="text-[10px] uppercase tracking-widest tier-3">Battery_Value_Add</span>
+                                <div class="text-xl font-bold text-emerald-600">+RM ${(Number(data.details.savingsBreakdown.total) - Number(data.monthlySavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2})} / mo</div>
+                            </div>
+                            <div class="space-y-2">
+                                <span class="text-[10px] uppercase tracking-widest tier-3">Net_Battery_Saving</span>
+                                <div class="text-xl font-bold tracking-tighter">RM ${formatCurrency(batteryTotalSaving)}</div>
                             </div>
                         </div>
-                        
-                        ${batteryBreakdownSection}
                     </section>
-                    ` : ''}
-
-                    <!-- CHARTS (HIDDEN) -->
-                    <div class="hidden space-y-4 rounded-3xl border border-slate-800 bg-slate-950/30 px-4 py-4 sm:px-6 sm:py-6">
-                        <h3 class="text-base font-semibold text-slate-100">Daily Usage & Generation Patterns</h3>
-                        <div class="grid gap-4">
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-                                <h4 class="text-sm font-medium text-slate-300 mb-3">⚡ Daily Electricity Import Pattern</h4>
-                                <div style="height: 300px; position: relative;">
-                                    <canvas id="electricityImportChart"></canvas>
-                                </div>
-                            </div>
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-                                <h4 class="text-sm font-medium text-slate-300 mb-3">☀️ Solar Generation Pattern</h4>
-                                <div style="height: 300px; position: relative;">
-                                    <canvas id="solarGenerationChart"></canvas>
-                                </div>
-                            </div>
-                            <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-                                <h4 class="text-sm font-medium text-slate-300 mb-3">🔋 Net Electricity Import (After Solar Offset)</h4>
-                                <div style="height: 300px; position: relative;">
-                                    <canvas id="combinedChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    ` : `
+                    <section class="pt-12 text-center tier-3 text-[10px] uppercase tracking-widest">
+                        <button onclick="adjustBatterySize(5)" class="hover:tier-1 underline">[+]_SIMULATE_BATTERY_STORAGE_STORAGE</button>
+                    </section>
+                    `}
                 </div>
-            `;            createCharts(data.charts);
-            // Ensure the floating bottom bar renders after results update
+            `;
+            
+            // Render floating bar
             renderFloatingPanelModulation(data);
             setPanelControlsLoading(false);
 
             if (isInitialRender) {
                 solarDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
+            
+            // Create charts after content is rendered
+            createCharts(data.charts);
         }
 
         function formatCurrency(value) {
@@ -1529,117 +908,52 @@
         function renderFloatingPanelModulation(data) {
             if (!data) return;
 
-            const panelRatingW = Number(data?.config?.panelType);
-            const isCustomPanelRating = Number.isFinite(panelRatingW) && panelRatingW !== 620;
-
             let bar = document.getElementById('floatingPanelBar');
             if (!bar) {
                 bar = document.createElement('div');
                 bar.id = 'floatingPanelBar';
-                // Use fixed positioning and an aggressively high z-index to ensure visibility above popups
-                bar.className = 'fixed bottom-0 left-0 right-0 z-[9999] mx-4 sm:mx-6';
+                bar.className = 'fixed bottom-0 left-0 right-0 z-[10000] px-6 py-8';
                 document.body.appendChild(bar);
             }
 
-            // Calculate price difference logic
             let priceDiffHtml = '';
-            if (!isCustomPanelRating && originalSolarData && originalSolarData.selectedPackage && data.selectedPackage) {
-                const originalPrice = Number(originalSolarData.selectedPackage.price) || 0;
-                const currentPrice = Number(data.selectedPackage.price) || 0;
-                const diff = currentPrice - originalPrice;
-
+            if (originalSolarData && originalSolarData.selectedPackage && data.selectedPackage) {
+                const diff = Number(data.selectedPackage.price) - Number(originalSolarData.selectedPackage.price);
                 if (Math.abs(diff) > 0.01) {
-                    const sign = diff > 0 ? '+' : '-'; 
-                    // Red for increase (more expensive), Emerald for decrease (cheaper)
-                    const colorClass = diff > 0 ? 'text-rose-400' : 'text-emerald-400';
-                    priceDiffHtml = `<div class="mt-1 text-xs font-medium ${colorClass}">Price Diff: ${sign}RM ${Math.abs(diff).toLocaleString('en-MY', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div>`;
-                } else if (originalSolarData.actualPanels !== data.actualPanels) {
-                     priceDiffHtml = `<div class="mt-1 text-xs text-slate-500">Price Unchanged</div>`;
+                    const colorClass = diff > 0 ? 'text-rose-600' : 'text-emerald-600';
+                    priceDiffHtml = `<div class="text-[9px] uppercase tracking-widest ${colorClass}">INVESTMENT_DELTA: ${diff > 0 ? '+' : '-'}RM ${Math.abs(diff).toFixed(0)}</div>`;
                 }
             }
 
             bar.innerHTML = `
-                <div class="pointer-events-auto mx-auto max-w-3xl rounded-3xl border border-slate-800 bg-surfaceAlt/80 px-4 py-4 shadow-[0_30px_60px_rgba(8,47,73,0.45)] backdrop-blur sm:px-6 sm:py-5">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <div class="text-xs uppercase tracking-[0.3em] text-slate-500">Panel Modulation</div>
-                            <div class="mt-1 text-xs text-slate-500">Recommended: ${data.recommendedPanels} panels</div>
-                            ${priceDiffHtml}
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button type="button" id="panelDecreaseBtnFloating" ${data.actualPanels <= 1 ? 'disabled' : ''} onclick="adjustPanelCount(-1)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-primary hover:text-primary disabled:opacity-50">−</button>
-                            <input type="number" id="panelQtyInputFloating" min="1" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-20 rounded-xl border border-slate-700 bg-slate-950/60 py-2 text-center text-sm text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40" />
-                            <button type="button" id="panelIncreaseBtnFloating" onclick="adjustPanelCount(1)" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-primary hover:text-primary">+</button>
-                            <div id="panelAdjustSpinnerFloating" class="ml-3 hidden h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                        </div>
+                <div class="mx-auto max-w-4xl border border-fact bg-paper p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div class="space-y-1 text-center md:text-left">
+                        <div class="text-[10px] font-bold uppercase tracking-[0.2em]">PANEL_MODULATION_CONTROL</div>
+                        <div class="text-[9px] tier-3 uppercase tracking-widest">Recommended: ${data.recommendedPanels} Units</div>
+                        ${priceDiffHtml}
                     </div>
-                    <div id="panelAdjustStatusFloating" class="mt-2 text-xs text-slate-400">${buildPanelStatusText(data)}</div>
+                    <div class="flex items-center gap-6">
+                        <div class="flex items-center border border-divider">
+                            <button onclick="adjustPanelCount(-1)" class="w-10 h-10 hover:bg-black hover:text-white transition-colors">-</button>
+                            <input type="number" id="panelQtyInputFloating" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-16 text-center text-sm font-bold border-none py-0">
+                            <button onclick="adjustPanelCount(1)" class="w-10 h-10 hover:bg-black hover:text-white transition-colors">+</button>
+                        </div>
+                        <div id="panelAdjustSpinnerFloating" class="hidden w-4 h-4 border-2 border-fact border-t-transparent animate-spin"></div>
+                    </div>
                 </div>
             `;
-
-            // Log for investigation-first validation (runtime + key fields)
-            console.info('Floating panel rendered', {
-                recommendedPanels: data.recommendedPanels,
-                actualPanels: data.actualPanels,
-                overrideApplied: data.overrideApplied,
-                hasOriginal: Boolean(originalSolarData)
-            });
-
-            // Ensure controls reflect current loading state
             setPanelControlsLoading(Boolean(panelUpdateInFlight));
         }
 
         // Database connection test
         async function testConnection() {
             const statusDiv = document.getElementById('dbStatus');
-            statusDiv.className = 'flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-300';
-            statusDiv.innerHTML = `
-                <div class="flex items-center space-x-3">
-                    <div class="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-                    <span>Testing database connection...</span>
-                </div>
-                <span class="text-xs uppercase tracking-[0.3em] text-slate-500">Checking</span>
-            `;
-
             try {
                 const response = await fetch('/api/health');
-                const data = await response.json();
-
-                    if (response.ok) {
-                        statusDiv.className = 'flex items-center justify-between rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100';
-                        statusDiv.innerHTML = `
-                            <div class="flex items-center space-x-3">
-                                <svg class="h-5 w-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                                <span>Database connected successfully</span>
-                            </div>
-                            <span class="text-xs uppercase tracking-[0.3em] text-emerald-200">Online</span>
-                        `;
-                    } else {
-                        statusDiv.className = 'flex items-center justify-between rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200';
-                        statusDiv.innerHTML = `
-                            <div class="flex items-center space-x-3">
-                                <svg class="h-5 w-5 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span>Database connection failed</span>
-                            </div>
-                            <span class="text-xs uppercase tracking-[0.3em] text-rose-200/80">Offline</span>
-                        `;
-                    }
-                } catch (error) {
-                    statusDiv.className = 'flex items-center justify-between rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200';
-                    statusDiv.innerHTML = `
-                        <div class="flex items-center space-x-3">
-                            <svg class="h-5 w-5 text-rose-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>Connection error: ${error.message}</span>
-                        </div>
-                        <span class="text-xs uppercase tracking-[0.3em] text-rose-200/80">Retry</span>
-                    `;
-                }
+                statusDiv.innerHTML = response.ok ? `<span>[ STATUS: ONLINE ]</span><div class="h-px grow bg-divider"></div>` : `<span>[ STATUS: OFFLINE ]</span><div class="h-px grow bg-divider"></div>`;
+            } catch (error) {
+                statusDiv.innerHTML = `<span>[ STATUS: ERROR ]</span><div class="h-px grow bg-divider"></div>`;
+            }
         }
 
         // Debug functions for testing (simplified)
@@ -1690,93 +1004,59 @@
         // Show panel recommendation popup
         function showPanelRecommendationPopup(data) {
             const popup = document.createElement('div');
-            // Higher z-index and compact design; allow scroll within modal content
-            popup.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm';
+            popup.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm';
 
-            // Hide floating panel while popup is open; it will reappear after user action
             const existingBar = document.getElementById('floatingPanelBar');
-            if (existingBar) {
-                existingBar.style.display = 'none';
-            }
+            if (existingBar) existingBar.style.display = 'none';
 
-            const panelRatingW = Number(data?.config?.panelType);
-            const isCustomPanelRating = Number.isFinite(panelRatingW) && panelRatingW !== 620;
-
-            const customPanelNotice = isCustomPanelRating
-                ? `<div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                    <div class="flex items-center text-amber-200">
-                        <span class="mr-2">⚠️</span>
-                        <span class="text-xs uppercase tracking-[0.3em]">Package recommendation disabled</span>
+            const packageInfo = data.selectedPackage ?
+                `<div class="mt-8 p-6 border border-fact bg-black text-white">
+                    <div class="text-[10px] uppercase tracking-widest opacity-70 mb-4">SELECTED_PACKAGE</div>
+                    <div class="text-lg font-bold tracking-tighter mb-2">${data.selectedPackage.packageName}</div>
+                    <div class="text-[10px] uppercase tracking-widest opacity-70 space-y-1">
+                        <div>Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}</div>
+                        <div>Config: ${data.actualPanels} UNIT x ${data.config.panelType}W</div>
                     </div>
-                    <p class="mt-2 text-xs text-amber-100/80">Currently we only have 620W package. Solar calculation will still proceed for custom panel ratings.</p>
-                </div>`
-                : '';
-
-            const packageInfo = isCustomPanelRating ? '' : (data.selectedPackage ?
-                `<div class="mt-6 rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-slate-200">
-                    <div class="flex items-center justify-between">
-                        <span class="flex items-center text-primary"><span class="mr-2 text-lg">📦</span>Selected Package</span>
-                        <span class="rounded-full border border-primary/40 bg-slate-950/40 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-primary/70">Active</span>
-                    </div>
-                    <div class="mt-3 text-base font-semibold text-slate-100">${data.selectedPackage.packageName}</div>
-                    <div class="mt-2 grid gap-1 text-xs text-slate-300">
-                        <div>• Type: ${data.selectedPackage.type || 'Standard'}</div>
-                        <div>• Configuration: ${data.actualPanels} × ${data.config.panelType}W</div>
-                        <div>• Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}</div>
-                        ${data.selectedPackage.maxDiscount ? `<div>• Max Discount: RM ${data.selectedPackage.maxDiscount.toLocaleString('en-MY')}</div>` : ''}
-                        ${data.selectedPackage.special ? '<div>• 🌟 Special Package Available</div>' : ''}
-                    </div>
-                    ${data.selectedPackage.invoiceDesc ? `<div class=\"mt-4 rounded-xl border border-primary/20 bg-slate-950/50 px-4 py-3 text-[11px] text-slate-400\"><strong class=\"block text-primary/80\">Invoice Notes</strong><span style=\"white-space: pre-line;\">${data.selectedPackage.invoiceDesc}</span></div>` : ''}
                 </div>` :
-                `<div class="mt-6 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                    ⚠️ No match package for ${data.packageSearchQty} × ${data.config.panelType}W
-                </div>`);
+                `<div class="mt-8 p-6 border border-divider tier-3 text-[10px] uppercase tracking-widest text-center">
+                    [ NO_MATCHING_PACKAGE_FOUND ]
+                </div>`;
 
             popup.innerHTML = `
-                <div class="solar-modal-card w-full max-w-md rounded-3xl border border-slate-800 bg-surfaceAlt/90 shadow-[0_40px_80px_rgba(8,47,73,0.6)] overflow-hidden flex flex-col max-h-[85vh]">
-                    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-4 text-center text-slate-100">
-                        <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-primary/40 bg-slate-950/40 text-xl text-primary">⚡</div>
-                        <h3 class="mt-3 text-lg font-semibold">Solar System Recommendation</h3>
-                        <p class="mt-1 text-xs text-slate-400">Adaptive guidance aligned to your usage profile.</p>
+                <div class="w-full max-w-lg border border-fact bg-paper p-10 shadow-2xl space-y-10">
+                    <div class="text-center space-y-2">
+                        <div class="text-xs font-bold uppercase tracking-[0.4em]">SYSTEM_RECOMMENDATION</div>
+                        <div class="h-px bg-divider w-12 mx-auto"></div>
                     </div>
 
-                    <div class="px-6 py-5 text-sm text-slate-300 overflow-y-auto grow">
-                        <div class="text-center">
-                            <div class="text-3xl font-semibold text-slate-100">${data.recommendedPanels}</div>
-                            <div class="mt-1 text-[11px] uppercase tracking-[0.3em] text-slate-500">Recommended Panels</div>
-                            <div class="mt-3 rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-[11px] text-slate-400">
-                                Formula: ${data.details.monthlyUsageKwh} kWh ÷ ${data.config.sunPeakHour}h ÷ 30 ÷ 0.62 = ${data.recommendedPanels} × ${data.config.panelType}W
-                            </div>
-                        </div>
-
-                        ${customPanelNotice}
-                        ${packageInfo}
+                    <div class="text-center">
+                        <div class="text-6xl font-bold tracking-tighter mb-2">${data.recommendedPanels}</div>
+                        <div class="text-[10px] uppercase tracking-[0.3em] tier-3">Recommended_Panel_Units</div>
                     </div>
 
-                    <div class="sticky bottom-0 flex gap-3 border-t border-slate-800 bg-surfaceAlt/95 px-6 py-4">
-                        <button id="popupCloseBtn" class="flex-1 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-primary hover:text-primary">Close</button>
-                        <button id="popupViewDetailsBtn" class="flex-1 rounded-2xl border border-transparent bg-gradient-to-r from-primaryDark to-primary px-4 py-3 text-sm font-semibold text-slate-950 transition hover:from-primary hover:to-primary/80" type="button">View Details</button>
+                    <div class="text-[9px] leading-relaxed tier-3 uppercase tracking-widest text-center border-y border-divider py-6">
+                        Basis: ${data.details.monthlyUsageKwh}kWh / ${data.config.sunPeakHour}h / 30 / 0.62 Efficiency
+                    </div>
+
+                    ${packageInfo}
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <button id="popupCloseBtn" class="border border-divider py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-divider transition-colors">Close</button>
+                        <button id="popupViewDetailsBtn" class="bg-black text-white py-4 text-[10px] font-bold uppercase tracking-widest hover:opacity-80 transition-colors">View_Full_Report</button>
                     </div>
                 </div>
             `;
 
-            // Hook button actions: both will reveal the floating panel after popup interaction
-            const viewBtn = popup.querySelector('#popupViewDetailsBtn');
-            const closeBtn = popup.querySelector('#popupCloseBtn');
-
-            function revealFloatingPanel() {
+            const revealFloatingPanel = () => {
                 popup.remove();
-                // Re-render results (safe) and ensure floating bar appears after user interaction
                 displaySolarCalculation(data);
-                renderFloatingPanelModulation(data);
                 const bar = document.getElementById('floatingPanelBar');
                 if (bar) bar.style.display = '';
-                showNotification('Solar savings calculated successfully!', 'success');
-            }
+                showNotification('ROI Matrix Generated', 'success');
+            };
 
-            viewBtn.onclick = revealFloatingPanel;
-            closeBtn.onclick = revealFloatingPanel;
-
+            popup.querySelector('#popupViewDetailsBtn').onclick = revealFloatingPanel;
+            popup.querySelector('#popupCloseBtn').onclick = revealFloatingPanel;
             document.body.appendChild(popup);
         }
 
