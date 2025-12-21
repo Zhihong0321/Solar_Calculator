@@ -547,9 +547,48 @@
 
             solarDiv.innerHTML = `
                 <div class="space-y-16 md:space-y-24">
-                    <!-- 04 ROI SUMMARY -->
+                    <!-- 04 EXECUTIVE SUMMARY (HIGH CONTRAST) -->
+                    <section class="bg-black text-white p-8 md:p-12 -mx-4 md:-mx-6">
+                        <h2 class="text-[10px] font-bold uppercase tracking-[0.4em] mb-8 opacity-70">ROI_EXECUTIVE_SUMMARY</h2>
+                        
+                        <div class="space-y-8 text-sm md:text-base">
+                            <div class="space-y-2">
+                                <p class="opacity-70 uppercase text-[9px] tracking-widest">Baseline_Consumption</p>
+                                <p class="font-medium">Original_Bill: <span class="text-white">RM ${formatCurrency(data.details.billBefore)}</span></p>
+                                <p class="font-medium">Monthly_Usage: <span class="text-white">${data.details.monthlyUsageKwh} kWh</span></p>
+                            </div>
+
+                            <div class="h-px bg-white/20 w-full"></div>
+
+                            <div class="space-y-4">
+                                <p class="opacity-70 uppercase text-[9px] tracking-widest">Projected_Outcome</p>
+                                <div class="flex justify-between items-baseline">
+                                    <span>New_Monthly_Bill:</span>
+                                    <span class="font-bold">RM ${baselineStats.billAfter}</span>
+                                </div>
+                                <div class="flex justify-between items-baseline text-emerald-400">
+                                    <span>Bill_Reduction:</span>
+                                    <span class="font-bold">RM ${baselineStats.billReduction}</span>
+                                </div>
+                                <div class="flex justify-between items-baseline text-emerald-400">
+                                    <span>Export_Credit (${data.actualPanels}_Panels):</span>
+                                    <span class="font-bold">RM ${baselineStats.exportCredit}</span>
+                                </div>
+                                <p class="text-[8px] text-white/40 uppercase tracking-tighter text-right">@ NEM_Rate: RM ${data.config.smpPrice}/kWh</p>
+                            </div>
+
+                            <div class="pt-8 border-t border-white/40">
+                                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-baseline gap-2">
+                                    <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Total_Monthly_Savings:</span>
+                                    <span class="text-4xl md:text-5xl font-bold tracking-tighter text-emerald-400">RM ${baselineStats.totalSavings}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 05 ROI SUMMARY -->
                     <section>
-                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">04_ROI_MATRIX_SUMMARY</h2>
+                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">05_ROI_MATRIX_SUMMARY</h2>
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-10 md:gap-12 py-10 md:py-12 border-y border-fact">
                             <div class="space-y-2">
                                 <span class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] tier-3">Monthly_Savings_Est</span>
