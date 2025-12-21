@@ -96,6 +96,24 @@
                                         >
                                     </div>
                                 </div>
+
+                                <div class="space-y-2">
+                                    <label for="historicalAfaRate" class="text-xs uppercase tracking-[0.3em] text-slate-500">Historical AFA Rate (Rebate/Surcharge)</label>
+                                    <select
+                                        id="historicalAfaRate"
+                                        name="historicalAfaRate"
+                                        class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 px-4 text-base text-slate-100 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                    >
+                                        <option value="0.0000">July 2025: 0.00 sen/kWh (Baseline)</option>
+                                        <option value="-0.0145">August 2025: -1.45 sen/kWh</option>
+                                        <option value="-0.0110">September 2025: -1.10 sen/kWh</option>
+                                        <option value="-0.0650">October 2025: -6.50 sen/kWh</option>
+                                        <option value="-0.0891">November 2025: -8.91 sen/kWh</option>
+                                        <option value="-0.0642">December 2025: -6.42 sen/kWh</option>
+                                    </select>
+                                    <p class="text-[10px] text-slate-500 uppercase tracking-wider">Select the month corresponding to your bill amount</p>
+                                </div>
+
                                 <button
                                     type="submit"
                                     class="group relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-primaryDark to-primary px-5 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-slate-950 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
@@ -197,12 +215,13 @@
             e.preventDefault();
 
             const billAmount = parseFloat(document.getElementById('billAmount').value);
+            const afaRate = parseFloat(document.getElementById('historicalAfaRate').value) || 0;
             if (!billAmount || billAmount <= 0) {
                 showNotification('Please enter a valid bill amount', 'error');
                 return;
             }
 
-            await calculateBillBreakdown(billAmount);
+            await calculateBillBreakdown(billAmount, afaRate);
         });
 
         // Notification system
@@ -227,7 +246,7 @@
         }
 
         // Bill breakdown calculation
-        async function calculateBillBreakdown(billAmount) {
+        async function calculateBillBreakdown(billAmount, afaRate = 0) {
             const resultsDiv = document.getElementById('calculatorResults');
 
             // Show loading
@@ -241,11 +260,16 @@
             `;
 
             try {
-                const response = await fetch(`/api/calculate-bill?amount=${billAmount}`);
+                const response = await fetch(`/api/calculate-bill?amount=${billAmount}&afaRate=${afaRate}`);
                 const data = await response.json();
 
                 if (response.ok) {
                     displayBillBreakdown(data);
+                    // Update the projection AFA rate to match the historical selection
+                    const projectionAfaInput = document.getElementById('afaRate');
+                    if (projectionAfaInput) {
+                        projectionAfaInput.value = afaRate.toFixed(4);
+                    }
                 } else {
                     resultsDiv.innerHTML = `
                         <div class="rounded-3xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-200">
@@ -268,6 +292,10 @@
         function displayBillBreakdown(data) {
             const resultsDiv = document.getElementById('calculatorResults');
             const tariff = data.tariff;
+            const afaRate = data.afaRate || 0;
+            const usageKwh = parseFloat(tariff.usage_kwh) || 0;
+            const afaCharge = usageKwh * afaRate;
+            const adjustedTotal = (parseFloat(tariff.bill_total_normal) || 0) + afaCharge;
 
             resultsDiv.innerHTML = `
                 <div class="space-y-6">
@@ -278,7 +306,7 @@
                                     <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Phase 02</p>
                                     <h3 class="mt-2 text-xl font-semibold text-slate-100">TNB Bill Breakdown</h3>
                                     <p class="mt-2 text-sm text-slate-400">
-                                        Closest tariff alignment at <span class="text-primary">RM ${(parseFloat(tariff.bill_total_normal) || 0).toFixed(2)}</span>
+                                        Closest tariff alignment at <span class="text-primary">RM ${adjustedTotal.toFixed(2)}</span>
                                     </p>
                                 </div>
                                 <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-right">
@@ -320,9 +348,13 @@
                                 <span class="text-slate-400">KWTBB</span>
                                 <span class="text-slate-100">RM ${(parseFloat(tariff.kwtbb_normal) || 0).toFixed(2)}</span>
                             </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3">
+                                <span class="text-slate-400">AFA Charge</span>
+                                <span class="${afaCharge >= 0 ? 'text-slate-100' : 'text-emerald-300'}">RM ${afaCharge.toFixed(2)}</span>
+                            </div>
                             <div class="flex items-center justify-between rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-base font-semibold text-primary">
                                 <span>Total Bill</span>
-                                <span>RM ${(parseFloat(tariff.bill_total_normal) || 0).toFixed(2)}</span>
+                                <span>RM ${adjustedTotal.toFixed(2)}</span>
                             </div>
                         </div>
                     </div>
@@ -399,6 +431,21 @@
                                     </div>
                                     <p class="text-xs text-slate-500">Range: RM 0.19 - RM 0.2703</p>
                                 </div>
+
+                                <div class="space-y-2">
+                                    <label class="text-xs uppercase tracking-[0.3em] text-slate-500">AFA Rate (RM/kWh)</label>
+                                    <div class="relative">
+                                        <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xs uppercase tracking-[0.3em] text-slate-500">RM</span>
+                                        <input
+                                            type="number"
+                                            id="afaRate"
+                                            step="0.0001"
+                                            value="0.0000"
+                                            class="w-full rounded-xl border border-slate-700 bg-slate-950/60 py-3 pl-14 pr-4 text-slate-100 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                                        >
+                                    </div>
+                                    <p class="text-xs text-slate-500">Automatic Fuel Adjustment</p>
+                                </div>
                             </div>
 
                             <div class="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-4">
@@ -462,6 +509,7 @@
             const morningUsage = parseFloat(document.getElementById('morningUsage').value);
             const panelRating = parseInt(document.getElementById('panelRating').value, 10);
             const smpPrice = parseFloat(document.getElementById('smpPrice').value);
+            const afaRate = parseFloat(document.getElementById('afaRate').value) || 0;
             const percentDiscount = parseFloat(document.getElementById('percentDiscount').value) || 0;
             const fixedDiscount = parseFloat(document.getElementById('fixedDiscount').value) || 0;
 
@@ -510,6 +558,7 @@
                 morningUsage: morningUsage,
                 panelType: panelRating,
                 smpPrice: smpPrice,
+                afaRate: afaRate,
                 percentDiscount: percentDiscount,
                 fixedDiscount: fixedDiscount,
                 batterySize: 0 // Default to 0 kWh
@@ -681,6 +730,8 @@
             let baselineStats = {
                 billReduction: formatCurrency(billReductionValue),
                 exportCredit: formatCurrency(exportSavingValue),
+                afaImpact: formatCurrency(data.details.savingsBreakdown?.afaImpact || 0),
+                baseBillReduction: formatCurrency(data.details.savingsBreakdown?.baseBillReduction || 0),
                 totalSavings: formatCurrency(monthlySavingsValue),
                 annualReturn: formatCurrency(annualReturnValue),
                 billAfter: afterBillValue !== null ? formatCurrency(afterBillValue) : 'N/A',
@@ -693,6 +744,8 @@
                 const b = data.details.battery.baseline;
                 baselineStats.billReduction = formatCurrency(b.billReduction);
                 baselineStats.exportCredit = formatCurrency(b.exportCredit);
+                baselineStats.afaImpact = formatCurrency(b.afaImpact || 0);
+                baselineStats.baseBillReduction = formatCurrency(b.baseBillReduction || 0);
                 baselineStats.totalSavings = formatCurrency(b.totalSavings);
                 baselineStats.billAfter = b.billAfter !== null ? formatCurrency(b.billAfter) : 'N/A';
                 // Recalculate Annual Return for baseline (Monthly * 12) to ensure consistency
@@ -975,7 +1028,7 @@
                         <div>
                             <p class="text-xs uppercase tracking-[0.4em] text-slate-500">Phase 04</p>
                             <h3 class="mt-2 text-2xl font-semibold">Solar Savings Results</h3>
-                            <p class="mt-2 text-sm text-slate-400">${data.config.sunPeakHour}h peak • ${data.config.morningUsage}% morning • RM ${data.config.smpPrice}/kWh export</p>
+                            <p class="mt-2 text-sm text-slate-400">${data.config.sunPeakHour}h peak • ${data.config.morningUsage}% morning • RM ${data.config.afaRate}/kWh AFA</p>
                         </div>
                         <div class="hidden sm:flex h-12 w-12 items-center justify-center rounded-full border border-primary/40 bg-slate-950/40 text-primary">⚙️</div>
                     </div>
@@ -1026,9 +1079,40 @@
                                     <p class="text-xs uppercase tracking-[0.3em] text-emerald-200/80">Solar Only Impact</p>
                                     <div class="mt-2 flex items-baseline gap-2">
                                         <span class="text-2xl font-bold text-slate-100">RM ${baselineStats.billReduction}</span>
-                                        <span class="text-xs text-emerald-200/70">Bill Reduction</span>
+                                        <span class="text-xs text-emerald-200/70">Total Bill Reduction</span>
                                     </div>
-                                    <div class="mt-1 flex items-baseline gap-2">
+                                    <div class="mt-2 pl-4 border-l border-emerald-500/20 space-y-1">
+                                        <div class="flex items-center justify-between text-[11px]">
+                                            <span class="text-emerald-200/60">Base Tariff Saving</span>
+                                            <span class="text-slate-200 font-medium">RM ${baselineStats.baseBillReduction}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between text-[11px]">
+                                            <span class="text-emerald-200/60">AFA Component ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 ? 'Saving' : 'Factor'}</span>
+                                            <span class="${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 ? 'text-emerald-300' : 'text-amber-300'} font-medium">RM ${baselineStats.afaImpact}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- AFA Methodology Explanation -->
+                                    <div class="mt-4 rounded-xl border border-slate-700/50 bg-slate-900/40 p-3">
+                                        <div class="flex items-start gap-2">
+                                            <span class="text-primary text-xs">ℹ️</span>
+                                            <div class="text-[10px] leading-relaxed text-slate-400">
+                                                <strong class="text-slate-300 block mb-1">AFA Impact Logic</strong>
+                                                Solar reduces your grid consumption, which directly lowers the fuel adjustment charge on your bill. 
+                                                ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 
+                                                    ? 'In surcharge scenarios, this is a direct saving.' 
+                                                    : 'In rebate scenarios (negative AFA), using less grid energy reduces the total rebate received, which is accounted for here.'
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    ${Math.abs(Number(baselineStats.afaImpact.replace(/,/g,''))) > 0 ? `
+                                    <div class="mt-2 text-[10px] text-slate-500 italic">
+                                        Note: RM ${Math.abs(Number(baselineStats.afaImpact.replace(/,/g,''))).toFixed(2)} of your bill change is attributed to the Automatic Fuel Adjustment (AFA) ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 ? 'saving' : 'rebate reduction'} based on reduced grid usage.
+                                    </div>
+                                    ` : ''}
+                                    <div class="mt-2 flex items-baseline gap-2">
                                         <span class="text-lg font-semibold text-emerald-300">+ RM ${baselineStats.exportCredit}</span>
                                         <span class="text-xs text-emerald-200/70">Export Earnings</span>
                                     </div>

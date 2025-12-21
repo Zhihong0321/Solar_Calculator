@@ -326,6 +326,7 @@ app.get('/api/debug-panel-filter', async (req, res) => {
 app.get('/api/calculate-bill', async (req, res) => {
   try {
     const inputAmount = parseFloat(req.query.amount);
+    const historicalAfaRate = parseFloat(req.query.afaRate) || 0;
 
     if (!inputAmount || inputAmount <= 0) {
       return res.status(400).json({ error: 'Invalid bill amount provided' });
@@ -333,25 +334,27 @@ app.get('/api/calculate-bill', async (req, res) => {
 
     const client = await pool.connect();
 
-    // Find the closest tariff record with bill_total_normal <= inputAmount
-    // Order by bill_total_normal DESC to get the highest value that's still <= input
+    // Find the closest tariff record by adjusting the stored bill_total_normal with the historical AFA rate
+    // Equation: stored_total + (usage_kwh * rate) <= inputAmount
     const query = `
-      SELECT * FROM tnb_tariff_2025
-      WHERE bill_total_normal <= $1
-      ORDER BY bill_total_normal DESC
+      SELECT *, (bill_total_normal + (usage_kwh * $2)) as adjusted_total
+      FROM tnb_tariff_2025
+      WHERE (bill_total_normal + (usage_kwh * $2)) <= $1
+      ORDER BY adjusted_total DESC
       LIMIT 1
     `;
 
-    const result = await client.query(query, [inputAmount]);
+    const result = await client.query(query, [inputAmount, historicalAfaRate]);
 
     if (result.rows.length === 0) {
-      // If no record found (input is lower than all records), get the lowest record
+      // Fallback to lowest
       const fallbackQuery = `
-        SELECT * FROM tnb_tariff_2025
-        ORDER BY bill_total_normal ASC
+        SELECT *, (bill_total_normal + (usage_kwh * $2)) as adjusted_total
+        FROM tnb_tariff_2025
+        ORDER BY adjusted_total ASC
         LIMIT 1
       `;
-      const fallbackResult = await client.query(fallbackQuery);
+      const fallbackResult = await client.query(fallbackQuery, [historicalAfaRate]);
 
       if (fallbackResult.rows.length === 0) {
         client.release();
@@ -362,6 +365,7 @@ app.get('/api/calculate-bill', async (req, res) => {
       return res.json({
         tariff: fallbackResult.rows[0],
         inputAmount: inputAmount,
+        afaRate: historicalAfaRate,
         message: 'Used lowest available tariff (input amount below all records)'
       });
     }
@@ -370,6 +374,7 @@ app.get('/api/calculate-bill', async (req, res) => {
     res.json({
       tariff: result.rows[0],
       inputAmount: inputAmount,
+      afaRate: historicalAfaRate,
       message: 'Found closest matching tariff'
     });
 
@@ -390,7 +395,8 @@ app.get('/api/solar-calculation', async (req, res) => {
       panelBubbleId,
       smpPrice,
       percentDiscount,
-      fixedDiscount
+      fixedDiscount,
+      afaRate: afaRateRaw
     } = req.query;
 
     // Validate inputs
@@ -404,6 +410,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     const smp = parseFloat(smpPrice);
     const discountPercent = parseFloat(percentDiscount) || 0;
     const discountFixed = parseFloat(fixedDiscount) || 0;
+    const afaRate = parseFloat(afaRateRaw) || 0;
     const batterySizeVal = parseFloat(req.query.batterySize) || 0;
     const overridePanelsRaw = req.query.overridePanels;
     let overridePanels = null;
@@ -589,9 +596,9 @@ app.get('/api/solar-calculation', async (req, res) => {
         afterTariff = await lookupTariff(netUsageForLookup);
 
         // NEW SAVING FORMULA
-        // 1. Morning usage saving: morning_kwh * RM 0.4869
+        // 1. Morning usage saving: morning_kwh * (RM 0.4869 + AFA)
         const morningUsageRate = 0.4869; // RM per kWh for morning usage
-        const morningSaving = morningUsageKwh * morningUsageRate;
+        const morningSaving = morningUsageKwh * (morningUsageRate + afaRate);
 
         // 2. Export calculation
         const exportRate = smp; // RM per kWh for export (SMP price)
@@ -601,29 +608,6 @@ app.get('/api/solar-calculation', async (req, res) => {
         // 3. Total saving
         const totalMonthlySavings = morningSaving + exportSaving;
         const totalMonthlySavingsBaseline = morningSaving + exportSavingBaseline;
-
-        const billBefore = tariff.bill_total_normal !== null ? parseFloat(tariff.bill_total_normal) : 0;
-        
-        // Baseline Bills (No Battery)
-        const afterBillBaseline = baselineTariff && baselineTariff.bill_total_normal !== null 
-           ? parseFloat(baselineTariff.bill_total_normal) 
-           : null;
-        const afterUsageMatchedBaseline = baselineTariff && baselineTariff.usage_kwh !== null 
-           ? parseFloat(baselineTariff.usage_kwh) 
-           : null;
-        const billReductionBaseline = afterBillBaseline !== null 
-           ? Math.max(0, billBefore - afterBillBaseline) 
-           : morningSaving;
-
-        // With Battery Bills
-        const afterBill = afterTariff && afterTariff.bill_total_normal !== null
-          ? parseFloat(afterTariff.bill_total_normal)
-          : null;
-        const afterUsageMatched = afterTariff && afterTariff.usage_kwh !== null
-          ? parseFloat(afterTariff.usage_kwh)
-          : null;
-
-        const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
 
         const parseCurrencyValue = (value, fallback = 0) => {
           if (value === null || value === undefined) {
@@ -643,10 +627,12 @@ app.get('/api/solar-calculation', async (req, res) => {
           const capacity = parseCurrencyValue(tariffRow.capacity);
           const sst = parseCurrencyValue(tariffRow.sst_normal);
           const eei = parseCurrencyValue(tariffRow.eei);
+          const usageKwh = parseCurrencyValue(tariffRow.usage_kwh);
+          const afa = usageKwh * afaRate;
           const total = parseCurrencyValue(
             tariffRow.bill_total_normal,
             usage + network + capacity + sst + eei
-          );
+          ) + afa;
 
           return {
             usage,
@@ -654,9 +640,42 @@ app.get('/api/solar-calculation', async (req, res) => {
             capacity,
             sst,
             eei,
-            total
+            afa,
+            total,
+            totalBase: total - afa
           };
         };
+
+        const beforeBreakdown = buildBillBreakdown(tariff);
+        const afterBreakdown = buildBillBreakdown(afterTariff);
+        const baselineBreakdown = buildBillBreakdown(baselineTariff);
+
+        const billBefore = beforeBreakdown ? beforeBreakdown.total : 0;
+        const billBeforeBase = beforeBreakdown ? beforeBreakdown.totalBase : 0;
+        
+        // Baseline Bills (No Battery)
+        const afterBillBaseline = baselineBreakdown ? baselineBreakdown.total : null;
+        const afterBillBaselineBase = baselineBreakdown ? baselineBreakdown.totalBase : null;
+        const afterUsageMatchedBaseline = baselineTariff && baselineTariff.usage_kwh !== null 
+           ? parseFloat(baselineTariff.usage_kwh) 
+           : null;
+        const billReductionBaseline = afterBillBaseline !== null 
+           ? Math.max(0, billBefore - afterBillBaseline) 
+           : morningSaving;
+
+        // With Battery Bills
+        const afterBill = afterBreakdown ? afterBreakdown.total : null;
+        const afterBillBase = afterBreakdown ? afterBreakdown.totalBase : null;
+        const afterUsageMatched = afterTariff && afterTariff.usage_kwh !== null
+          ? parseFloat(afterTariff.usage_kwh)
+          : null;
+
+        const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
+
+        // AFA Impact Calculation
+        const usageReduction = monthlyUsageKwh - (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh);
+        const afaSaving = usageReduction * afaRate;
+        const baseBillReduction = billReduction - afaSaving;
 
         const calculateBreakdownDelta = (beforeValue, afterValue) => {
           const before = parseCurrencyValue(beforeValue);
@@ -667,15 +686,13 @@ app.get('/api/solar-calculation', async (req, res) => {
           return before - after;
         };
 
-        const beforeBreakdown = buildBillBreakdown(tariff);
-        const afterBreakdown = buildBillBreakdown(afterTariff);
-
         const breakdownItems = [
           { key: 'usage', label: 'Usage' },
           { key: 'network', label: 'Network' },
           { key: 'capacity', label: 'Capacity Fee' },
           { key: 'sst', label: 'SST' },
-          { key: 'eei', label: 'EEI' }
+          { key: 'eei', label: 'EEI' },
+          { key: 'afa', label: 'AFA Charge' }
         ].map((item) => {
           const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
           const afterValue = afterBreakdown ? afterBreakdown[item.key] : null;
@@ -699,6 +716,8 @@ app.get('/api/solar-calculation', async (req, res) => {
         const savingsBreakdown = {
           billReduction: Number(billReduction.toFixed(2)),
           exportCredit: Number(exportSaving.toFixed(2)),
+          afaImpact: Number(afaSaving.toFixed(2)),
+          baseBillReduction: Number(baseBillReduction.toFixed(2)),
           total: Number((billReduction + exportSaving).toFixed(2))
         };
 
@@ -792,6 +811,7 @@ app.get('/api/solar-calculation', async (req, res) => {
             morningUsage: morningPercent,
             panelType: panelWattage,
             smpPrice: smp,
+            afaRate: afaRate,
             batterySize: batterySizeVal
           },
           // PANEL RECOMMENDATION RESULTS
@@ -853,21 +873,23 @@ app.get('/api/solar-calculation', async (req, res) => {
               baseline: {
                  billReduction: billReductionBaseline.toFixed(2),
                  exportCredit: exportSavingBaseline.toFixed(2),
+                 afaImpact: ((monthlyUsageKwh - (afterUsageMatchedBaseline || netUsageBaseline)) * afaRate).toFixed(2),
+                 baseBillReduction: (billReductionBaseline - ((monthlyUsageKwh - (afterUsageMatchedBaseline || netUsageBaseline)) * afaRate)).toFixed(2),
                  totalSavings: totalMonthlySavingsBaseline.toFixed(2),
                  billAfter: afterBillBaseline !== null ? afterBillBaseline.toFixed(2) : null,
                  usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null,
                  billBreakdown: {
                     before: beforeBreakdown,
-                    after: buildBillBreakdown(baselineTariff),
+                    after: baselineBreakdown,
                     items: [
                       { key: 'usage', label: 'Usage' },
                       { key: 'network', label: 'Network' },
                       { key: 'capacity', label: 'Capacity Fee' },
                       { key: 'sst', label: 'SST' },
-                      { key: 'eei', label: 'EEI' }
+                      { key: 'eei', label: 'EEI' },
+                      { key: 'afa', label: 'AFA Charge' }
                     ].map((item) => {
                       const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
-                      const baselineBreakdown = buildBillBreakdown(baselineTariff);
                       const afterValue = baselineBreakdown ? baselineBreakdown[item.key] : null;
                       return {
                         ...item,
@@ -878,10 +900,10 @@ app.get('/api/solar-calculation', async (req, res) => {
                     }),
                     totals: {
                       before: beforeBreakdown ? beforeBreakdown.total : billBefore,
-                      after: baselineTariff && baselineTariff.bill_total_normal !== null ? parseFloat(baselineTariff.bill_total_normal) : null,
+                      after: baselineBreakdown ? baselineBreakdown.total : null,
                       delta: calculateBreakdownDelta(
                         beforeBreakdown ? beforeBreakdown.total : billBefore,
-                        baselineTariff && baselineTariff.bill_total_normal !== null ? parseFloat(baselineTariff.bill_total_normal) : null
+                        baselineBreakdown ? baselineBreakdown.total : null
                       )
                     }
                  }
