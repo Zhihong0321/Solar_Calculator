@@ -336,10 +336,11 @@ app.get('/api/calculate-bill', async (req, res) => {
 
     // Find the closest tariff record by adjusting the stored bill_total_normal with the historical AFA rate
     // Equation: stored_total + (usage_kwh * rate) <= inputAmount
+    // Using COALESCE to handle potential NULL values in calculation
     const query = `
-      SELECT *, (bill_total_normal + (usage_kwh * $2)) as adjusted_total
+      SELECT *, (COALESCE(bill_total_normal, 0) + (COALESCE(usage_kwh, 0) * $2)) as adjusted_total
       FROM tnb_tariff_2025
-      WHERE (bill_total_normal + (usage_kwh * $2)) <= $1
+      WHERE (COALESCE(bill_total_normal, 0) + (COALESCE(usage_kwh, 0) * $2)) <= $1
       ORDER BY adjusted_total DESC
       LIMIT 1
     `;
@@ -349,7 +350,7 @@ app.get('/api/calculate-bill', async (req, res) => {
     if (result.rows.length === 0) {
       // Fallback to lowest
       const fallbackQuery = `
-        SELECT *, (bill_total_normal + (usage_kwh * $2)) as adjusted_total
+        SELECT *, (COALESCE(bill_total_normal, 0) + (COALESCE(usage_kwh, 0) * $1)) as adjusted_total
         FROM tnb_tariff_2025
         ORDER BY adjusted_total ASC
         LIMIT 1
@@ -396,7 +397,8 @@ app.get('/api/solar-calculation', async (req, res) => {
       smpPrice,
       percentDiscount,
       fixedDiscount,
-      afaRate: afaRateRaw
+      afaRate: afaRateRaw,
+      historicalAfaRate: historicalAfaRateRaw
     } = req.query;
 
     // Validate inputs
@@ -411,6 +413,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     const discountPercent = parseFloat(percentDiscount) || 0;
     const discountFixed = parseFloat(fixedDiscount) || 0;
     const afaRate = parseFloat(afaRateRaw) || 0;
+    const historicalAfaRate = parseFloat(historicalAfaRateRaw) || 0;
     const batterySizeVal = parseFloat(req.query.batterySize) || 0;
     const overridePanelsRaw = req.query.overridePanels;
     let overridePanels = null;
@@ -441,16 +444,31 @@ app.get('/api/solar-calculation', async (req, res) => {
     const client = await pool.connect();
     
     try {
+        // Equation: stored_total + (usage_kwh * historicalRate) <= inputAmount
         const query = `
-          SELECT * FROM tnb_tariff_2025
-          WHERE bill_total_normal <= $1
-          ORDER BY bill_total_normal DESC
+          SELECT *, (COALESCE(bill_total_normal, 0) + (COALESCE(usage_kwh, 0) * $2)) as adjusted_total
+          FROM tnb_tariff_2025
+          WHERE (COALESCE(bill_total_normal, 0) + (COALESCE(usage_kwh, 0) * $2)) <= $1
+          ORDER BY adjusted_total DESC
           LIMIT 1
         `;
-        const result = await client.query(query, [billAmount]);
+        const result = await client.query(query, [billAmount, historicalAfaRate]);
 
         if (result.rows.length === 0) {
-          return res.status(404).json({ error: 'No tariff data found for calculation' });
+          // Fallback to lowest if input is extremely low
+          const fallbackQuery = `
+            SELECT *, (COALESCE(bill_total_normal, 0) + (COALESCE(usage_kwh, 0) * $1)) as adjusted_total
+            FROM tnb_tariff_2025
+            ORDER BY adjusted_total ASC
+            LIMIT 1
+          `;
+          const fallbackResult = await client.query(fallbackQuery, [historicalAfaRate]);
+          
+          if (fallbackResult.rows.length === 0) {
+            return res.status(404).json({ error: 'No tariff data found for calculation' });
+          }
+          
+          result.rows = [fallbackResult.rows[0]];
         }
 
         const tariff = result.rows[0];

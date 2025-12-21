@@ -203,6 +203,7 @@
         let latestSolarParams = null;
         let latestSolarData = null;
         let originalSolarData = null;
+        let currentHistoricalAfaRate = 0;
         let panelUpdateInFlight = false;
         const chartInstances = {
             electricity: null,
@@ -265,6 +266,7 @@
 
                 if (response.ok) {
                     displayBillBreakdown(data);
+                    currentHistoricalAfaRate = afaRate;
                     // Update the projection AFA rate to match the historical selection
                     const projectionAfaInput = document.getElementById('afaRate');
                     if (projectionAfaInput) {
@@ -559,6 +561,7 @@
                 panelType: panelRating,
                 smpPrice: smpPrice,
                 afaRate: afaRate,
+                historicalAfaRate: currentHistoricalAfaRate,
                 percentDiscount: percentDiscount,
                 fixedDiscount: fixedDiscount,
                 batterySize: 0 // Default to 0 kWh
