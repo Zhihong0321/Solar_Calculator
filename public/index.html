@@ -1106,6 +1106,12 @@
                 const bar = document.getElementById('floatingPanelBar');
                 if (bar) bar.style.display = '';
                 showNotification('ROI Matrix Generated', 'success');
+
+                // Scroll to beginning of report (Executive Summary)
+                const reportStart = document.getElementById('solarResultsCard');
+                if (reportStart) {
+                    reportStart.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             };
 
             popup.querySelector('#popupViewDetailsBtn').onclick = revealFloatingPanel;
