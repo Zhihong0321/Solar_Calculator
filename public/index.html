@@ -42,33 +42,33 @@
         input[type=number] { -moz-appearance: textfield; }
     </style>
 </head>
-<body class="bg-paper text-fact min-h-screen font-mono selection:bg-black selection:text-white">
-    <div class="mx-auto w-full max-w-4xl px-6 py-12 md:py-20">
-        <header class="mb-16">
-            <div class="flex items-start justify-between">
+<body class="bg-paper text-fact min-h-screen font-mono selection:bg-black selection:text-white overflow-x-hidden">
+    <div class="mx-auto w-full max-w-4xl px-4 py-10 md:px-6 md:py-20">
+        <header class="mb-12 md:mb-16">
+            <div class="flex flex-col sm:flex-row items-start justify-between gap-6">
                 <div>
-                    <h1 class="text-2xl font-bold uppercase tracking-tighter">Solar_Calculator_v2.0</h1>
-                    <p class="mt-2 text-xs tier-3 uppercase tracking-widest">Systematic ROI Analysis & Tariff Pairing</p>
+                    <h1 class="text-xl md:text-2xl font-bold uppercase tracking-tighter">Solar_Calculator_v2.0</h1>
+                    <p class="mt-2 text-[9px] md:text-xs tier-3 uppercase tracking-widest">Systematic ROI Analysis & Tariff Pairing</p>
                 </div>
-                <img src="logo.png" alt="Eternalgy" class="h-10 w-auto grayscale">
+                <img src="logo.png" alt="Eternalgy" class="h-8 md:h-10 w-auto grayscale">
             </div>
-            <div class="mt-8 h-px bg-fact w-full"></div>
+            <div class="mt-6 md:mt-8 h-px bg-fact w-full"></div>
         </header>
 
-        <main class="space-y-24">
+        <main class="space-y-16 md:space-y-24">
             <!-- Phase 01: System Status -->
-            <section id="dbStatus" class="text-[10px] uppercase tracking-widest tier-3 flex items-center gap-4">
+            <section id="dbStatus" class="text-[9px] uppercase tracking-widest tier-3 flex items-center gap-4">
                 <span>[ STATUS: CHECKING_DB ]</span>
                 <div class="h-px grow bg-divider"></div>
             </section>
 
             <!-- Phase 02: Intake -->
             <section id="intake-section">
-                <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">01_BILL_INTAKE</h2>
+                <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">01_BILL_INTAKE</h2>
                 
-                <form id="billForm" class="grid gap-12 md:grid-cols-2 md:gap-20">
+                <form id="billForm" class="grid gap-10 md:grid-cols-2 md:gap-20">
                     <div class="space-y-4">
-                        <label for="billAmount" class="block text-[10px] uppercase tracking-widest tier-3">Monthly_TNB_Bill (RM)</label>
+                        <label for="billAmount" class="block text-[9px] uppercase tracking-widest tier-3">Monthly_TNB_Bill (RM)</label>
                         <div class="flex items-baseline gap-2">
                             <span class="text-sm tier-2">RM</span>
                             <input
@@ -78,18 +78,18 @@
                                 step="0.01"
                                 min="0"
                                 placeholder="000.00"
-                                class="w-full text-xl font-medium tracking-tighter py-1"
+                                class="w-full text-lg md:text-xl font-medium tracking-tighter py-1"
                                 required
                             >
                         </div>
                     </div>
 
                     <div class="space-y-4">
-                        <label for="historicalAfaRate" class="block text-[10px] uppercase tracking-widest tier-3">Historical_AFA_Period</label>
+                        <label for="historicalAfaRate" class="block text-[9px] uppercase tracking-widest tier-3">Historical_AFA_Period</label>
                         <select
                             id="historicalAfaRate"
                             name="historicalAfaRate"
-                            class="w-full text-sm font-medium py-2 cursor-pointer"
+                            class="w-full text-xs md:text-sm font-medium py-2 cursor-pointer"
                         >
                             <option value="0.0000">JUL_2025 (0.00 sen)</option>
                             <option value="-0.0145">AUG_2025 (-1.45 sen)</option>
@@ -103,7 +103,7 @@
                     <div class="md:col-span-2">
                         <button
                             type="submit"
-                            class="text-xs font-bold uppercase tracking-[0.3em] border border-fact px-8 py-4 hover:bg-black hover:text-white transition-colors"
+                            class="text-[10px] md:text-xs font-bold uppercase tracking-[0.3em] border border-fact px-6 py-3 md:px-8 md:py-4 hover:bg-black hover:text-white transition-colors w-full sm:w-auto"
                         >
                             Execute_Bill_Analysis ->
                         </button>
@@ -111,24 +111,24 @@
                 </form>
             </section>
 
-            <section id="calculatorResults" class="space-y-24"></section>
+            <section id="calculatorResults" class="space-y-16 md:space-y-24"></section>
 
             <!-- Diagnostics moved to footer -->
-            <footer class="pt-24 border-t border-divider space-y-12">
+            <footer class="pt-16 md:pt-24 border-t border-divider space-y-10 md:space-y-12">
                 <details class="group">
-                    <summary class="list-none cursor-pointer text-[10px] uppercase tracking-widest tier-3 hover:tier-2 transition-colors">
+                    <summary class="list-none cursor-pointer text-[9px] uppercase tracking-widest tier-3 hover:tier-2 transition-colors">
                         [+] SYSTEM_DIAGNOSTICS
                     </summary>
-                    <div class="mt-8 grid grid-cols-2 gap-4">
-                        <button onclick="testConnection()" class="text-left text-[10px] uppercase tracking-widest tier-2 hover:tier-1">Test_DB_Link</button>
-                        <button onclick="getSchema()" class="text-left text-[10px] uppercase tracking-widest tier-2 hover:tier-1">Dump_Schema</button>
-                        <button onclick="getTnbTariff()" class="text-left text-[10px] uppercase tracking-widest tier-2 hover:tier-1">Fetch_TNB_Data</button>
-                        <button onclick="getPackageInfo()" class="text-left text-[10px] uppercase tracking-widest tier-2 hover:tier-1">Package_Info</button>
+                    <div class="mt-6 md:mt-8 grid grid-cols-2 gap-4">
+                        <button onclick="testConnection()" class="text-left text-[9px] uppercase tracking-widest tier-2 hover:tier-1">Test_DB_Link</button>
+                        <button onclick="getSchema()" class="text-left text-[9px] uppercase tracking-widest tier-2 hover:tier-1">Dump_Schema</button>
+                        <button onclick="getTnbTariff()" class="text-left text-[9px] uppercase tracking-widest tier-2 hover:tier-1">Fetch_TNB_Data</button>
+                        <button onclick="getPackageInfo()" class="text-left text-[9px] uppercase tracking-widest tier-2 hover:tier-1">Package_Info</button>
                     </div>
-                    <div id="results" class="mt-8 text-[10px] tier-3 overflow-x-auto whitespace-pre"></div>
+                    <div id="results" class="mt-6 md:mt-8 text-[9px] tier-3 overflow-x-auto whitespace-pre"></div>
                 </details>
                 
-                <div class="flex justify-between items-center text-[9px] tier-3 uppercase tracking-[0.2em]">
+                <div class="flex justify-between items-center text-[8px] md:text-[9px] tier-3 uppercase tracking-[0.2em]">
                     <span>Eternalgy // Solar Intelligence Suite</span>
                     <span>v2.0_Minimalist_Paper</span>
                 </div>
@@ -221,116 +221,116 @@
             const adjustedTotal = (parseFloat(tariff.bill_total_normal) || 0) + afaCharge;
 
             resultsDiv.innerHTML = `
-                <div class="space-y-12">
+                <div class="space-y-16 md:space-y-24">
                     <section>
-                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">02_BILL_ANALYSIS_LEDGER</h2>
+                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">02_BILL_ANALYSIS_LEDGER</h2>
                         
                         <div class="space-y-2 text-sm">
-                            <div class="flex justify-between tier-3 uppercase text-[10px] tracking-widest mb-4">
+                            <div class="flex justify-between tier-3 uppercase text-[8px] md:text-[10px] tracking-widest mb-4">
                                 <span>Component</span>
                                 <span>Value_(RM)</span>
                             </div>
                             <div class="h-px bg-divider w-full"></div>
                             
-                            <div class="flex justify-between py-2">
-                                <span class="tier-2">Energy_Usage</span>
-                                <span class="tier-1">${formatCurrency(tariff.usage_normal)}</span>
+                            <div class="flex justify-between py-2 gap-4">
+                                <span class="tier-2 truncate">Energy_Usage</span>
+                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.usage_normal)}</span>
                             </div>
-                            <div class="flex justify-between py-2">
-                                <span class="tier-2">Network_Fee</span>
-                                <span class="tier-1">${formatCurrency(tariff.network)}</span>
+                            <div class="flex justify-between py-2 gap-4">
+                                <span class="tier-2 truncate">Network_Fee</span>
+                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.network)}</span>
                             </div>
-                            <div class="flex justify-between py-2">
-                                <span class="tier-2">Capacity_Charge</span>
-                                <span class="tier-1">${formatCurrency(tariff.capacity)}</span>
+                            <div class="flex justify-between py-2 gap-4">
+                                <span class="tier-2 truncate">Capacity_Charge</span>
+                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.capacity)}</span>
                             </div>
-                            <div class="flex justify-between py-2">
-                                <span class="tier-2">Retail_Charge</span>
-                                <span class="tier-1">${formatCurrency(tariff.retail)}</span>
+                            <div class="flex justify-between py-2 gap-4">
+                                <span class="tier-2 truncate">Retail_Charge</span>
+                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.retail)}</span>
                             </div>
-                            <div class="flex justify-between py-2">
-                                <span class="tier-2">EEI_Adjustment</span>
-                                <span class="tier-1">${formatCurrency(tariff.eei)}</span>
+                            <div class="flex justify-between py-2 gap-4">
+                                <span class="tier-2 truncate">EEI_Adjustment</span>
+                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.eei)}</span>
                             </div>
-                            <div class="flex justify-between py-2">
-                                <span class="tier-2">SST_Tax</span>
-                                <span class="tier-1">${formatCurrency(tariff.sst_normal)}</span>
+                            <div class="flex justify-between py-2 gap-4">
+                                <span class="tier-2 truncate">SST_Tax</span>
+                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.sst_normal)}</span>
                             </div>
-                            <div class="flex justify-between py-2">
-                                <span class="tier-2">KWTBB_Fund</span>
-                                <span class="tier-1">${formatCurrency(tariff.kwtbb_normal)}</span>
+                            <div class="flex justify-between py-2 gap-4">
+                                <span class="tier-2 truncate">KWTBB_Fund</span>
+                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.kwtbb_normal)}</span>
                             </div>
-                            <div class="flex justify-between py-2">
-                                <span class="tier-2">AFA_Adjustment</span>
-                                <span class="${afaCharge < 0 ? 'text-emerald-600' : 'tier-1'}">${formatCurrency(afaCharge)}</span>
-                            </div>
-                            
-                            <div class="ledger-double-line pt-4 mt-4 flex justify-between items-baseline">
-                                <span class="text-xs font-bold uppercase tracking-widest">Total_Bill_Matched</span>
-                                <span class="text-2xl font-bold tracking-tighter">RM ${formatCurrency(adjustedTotal)}</span>
+                            <div class="flex justify-between py-2 gap-4">
+                                <span class="tier-2 truncate">AFA_Adjustment</span>
+                                <span class="${afaCharge < 0 ? 'text-emerald-600' : 'tier-1'} whitespace-nowrap">${formatCurrency(afaCharge)}</span>
                             </div>
                             
-                            <div class="mt-8 flex justify-between items-center text-[10px] tier-3 uppercase tracking-widest">
+                            <div class="ledger-double-line pt-4 mt-4 flex justify-between items-baseline gap-4">
+                                <span class="text-[9px] md:text-xs font-bold uppercase tracking-widest">Total_Matched</span>
+                                <span class="text-xl md:text-2xl font-bold tracking-tighter whitespace-nowrap">RM ${formatCurrency(adjustedTotal)}</span>
+                            </div>
+                            
+                            <div class="mt-8 flex justify-between items-center text-[8px] md:text-[10px] tier-3 uppercase tracking-widest gap-4">
                                 <span>Derived_Usage: ${tariff.usage_kwh} kWh</span>
-                                <span>Mapping_Tolerance: +/- 0.01%</span>
+                                <span class="text-right">Tolerance: +/- 0.01%</span>
                             </div>
                         </div>
                     </section>
 
                     <section id="solar-config-section">
-                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">03_SOLAR_MODELING_PARAMS</h2>
+                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">03_MODELING_PARAMS</h2>
                         
-                        <div class="grid gap-12 md:grid-cols-2 md:gap-x-20 md:gap-y-12">
+                        <div class="grid gap-8 md:grid-cols-2 md:gap-x-20 md:gap-y-12">
                             <div class="space-y-2">
-                                <label class="block text-[10px] uppercase tracking-widest tier-3">Sun_Peak_Hours</label>
-                                <input type="number" id="sunPeakHour" step="0.1" min="3.0" max="4.5" value="3.4" class="w-full text-lg py-1">
-                                <p class="text-[9px] tier-3 uppercase">Standard: 3.0 - 4.5 h</p>
+                                <label class="block text-[9px] uppercase tracking-widest tier-3">Sun_Peak_Hours</label>
+                                <input type="number" id="sunPeakHour" step="0.1" min="3.0" max="4.5" value="3.4" class="w-full text-base md:text-lg py-1">
+                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">Standard: 3.0 - 4.5 h</p>
                             </div>
 
                             <div class="space-y-2">
-                                <label class="block text-[10px] uppercase tracking-widest tier-3">Daytime_Usage_Share (%)</label>
-                                <input type="number" id="morningUsage" min="1" max="100" value="30" class="w-full text-lg py-1">
-                                <p class="text-[9px] tier-3 uppercase">Range: 1% - 100%</p>
+                                <label class="block text-[9px] uppercase tracking-widest tier-3">Day_Usage_Share (%)</label>
+                                <input type="number" id="morningUsage" min="1" max="100" value="30" class="w-full text-base md:text-lg py-1">
+                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">Range: 1% - 100%</p>
                             </div>
 
                             <div class="space-y-2">
-                                <label class="block text-[10px] uppercase tracking-widest tier-3">Panel_Output_Rating (W)</label>
-                                <input type="number" id="panelRating" step="1" min="450" max="850" value="620" class="w-full text-lg py-1">
-                                <p class="text-[9px] tier-3 uppercase">Range: 450W - 850W</p>
+                                <label class="block text-[9px] uppercase tracking-widest tier-3">Panel_Rating (W)</label>
+                                <input type="number" id="panelRating" step="1" min="450" max="850" value="620" class="w-full text-base md:text-lg py-1">
+                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">Range: 450W - 850W</p>
                             </div>
 
                             <div class="space-y-2">
-                                <label class="block text-[10px] uppercase tracking-widest tier-3">AFA_Projection (RM/kWh)</label>
-                                <input type="number" id="afaRate" step="0.0001" value="0.0000" class="w-full text-lg py-1">
-                                <p class="text-[9px] tier-3 uppercase">Automatic Fuel Adjustment</p>
+                                <label class="block text-[9px] uppercase tracking-widest tier-3">AFA_Projection (RM)</label>
+                                <input type="number" id="afaRate" step="0.0001" value="0.0000" class="w-full text-base md:text-lg py-1">
+                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">Fuel Adjustment</p>
                             </div>
 
                             <div class="space-y-2">
-                                <label class="block text-[10px] uppercase tracking-widest tier-3">NEM_Export_Rate (RM/kWh)</label>
-                                <input type="number" id="smpPrice" step="0.0001" min="0.19" max="0.2703" value="0.2703" class="w-full text-lg py-1">
-                                <p class="text-[9px] tier-3 uppercase">SMP Market Price</p>
+                                <label class="block text-[9px] uppercase tracking-widest tier-3">Export_Rate (RM)</label>
+                                <input type="number" id="smpPrice" step="0.0001" min="0.19" max="0.2703" value="0.2703" class="w-full text-base md:text-lg py-1">
+                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">NEM SMP Price</p>
                             </div>
 
                             <div class="md:col-span-2 mt-4">
-                                <div class="p-6 border border-divider">
-                                    <h4 class="text-[10px] font-bold uppercase tracking-widest tier-3 mb-6">Discount_Protocol</h4>
-                                    <div class="grid gap-8 md:grid-cols-2">
+                                <div class="p-4 md:p-6 border border-divider">
+                                    <h4 class="text-[8px] md:text-[10px] font-bold uppercase tracking-widest tier-3 mb-6">Discount_Protocol</h4>
+                                    <div class="grid gap-6 md:grid-cols-2">
                                         <div class="space-y-2">
-                                            <label class="block text-[10px] uppercase tracking-widest tier-3">Percentage_Disc (%)</label>
-                                            <input type="number" id="percentDiscount" step="0.01" min="0" max="100" value="0" class="w-full text-sm py-1">
+                                            <label class="block text-[9px] uppercase tracking-widest tier-3">Percentage (%)</label>
+                                            <input type="number" id="percentDiscount" step="0.01" min="0" max="100" value="0" class="w-full text-xs md:text-sm py-1">
                                         </div>
                                         <div class="space-y-2">
-                                            <label class="block text-[10px] uppercase tracking-widest tier-3">Fixed_Amount_Disc (RM)</label>
-                                            <input type="number" id="fixedDiscount" step="0.01" min="0" value="0" class="w-full text-sm py-1">
+                                            <label class="block text-[9px] uppercase tracking-widest tier-3">Fixed (RM)</label>
+                                            <input type="number" id="fixedDiscount" step="0.01" min="0" value="0" class="w-full text-xs md:text-sm py-1">
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="md:col-span-2 pt-8">
+                            <div class="md:col-span-2 pt-4 md:pt-8">
                                 <button
                                     onclick="calculateSolarSavings()"
-                                    class="text-xs font-bold uppercase tracking-[0.3em] border border-fact px-8 py-4 hover:bg-black hover:text-white transition-colors"
+                                    class="text-[10px] md:text-xs font-bold uppercase tracking-[0.3em] border border-fact px-6 py-3 md:px-8 md:py-4 hover:bg-black hover:text-white transition-colors w-full sm:w-auto"
                                 >
                                     Generate_ROI_Matrix ->
                                 </button>
@@ -546,58 +546,58 @@
             }
 
             solarDiv.innerHTML = `
-                <div class="space-y-24">
+                <div class="space-y-16 md:space-y-24">
                     <!-- 04 ROI SUMMARY -->
                     <section>
-                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">04_ROI_MATRIX_SUMMARY</h2>
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-12 py-12 border-y border-fact">
+                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">04_ROI_MATRIX_SUMMARY</h2>
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-10 md:gap-12 py-10 md:py-12 border-y border-fact">
                             <div class="space-y-2">
-                                <span class="text-[10px] uppercase tracking-[0.2em] tier-3">Monthly_Savings_Est</span>
-                                <div class="text-4xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</div>
+                                <span class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] tier-3">Monthly_Savings_Est</span>
+                                <div class="text-3xl md:text-4xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</div>
                             </div>
                             <div class="h-px md:h-12 w-full md:w-px bg-divider"></div>
                             <div class="space-y-2">
-                                <span class="text-[10px] uppercase tracking-[0.2em] tier-3">ROI_Percentage</span>
-                                <div class="text-4xl font-bold tracking-tighter">${roiDisplay}</div>
+                                <span class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] tier-3">ROI_Percentage</span>
+                                <div class="text-3xl md:text-4xl font-bold tracking-tighter">${roiDisplay}</div>
                             </div>
                             <div class="h-px md:h-12 w-full md:w-px bg-divider"></div>
                             <div class="space-y-2">
-                                <span class="text-[10px] uppercase tracking-[0.2em] tier-3">Payback_Period</span>
-                                <div class="text-4xl font-bold tracking-tighter">${paybackDisplay}</div>
+                                <span class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] tier-3">Payback_Period</span>
+                                <div class="text-3xl md:text-4xl font-bold tracking-tighter">${paybackDisplay}</div>
                             </div>
                         </div>
                     </section>
 
                     <!-- 05 SYSTEM CONFIG -->
                     <section>
-                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">05_SYSTEM_CONFIGURATION</h2>
-                        <div class="grid gap-12 md:grid-cols-2">
-                            <div class="space-y-6">
+                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">05_SYSTEM_CONFIGURATION</h2>
+                        <div class="grid gap-10 md:grid-cols-2">
+                            <div class="space-y-4 md:space-y-6">
                                 <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[10px] uppercase tracking-widest tier-3">System_Size</span>
-                                    <span class="text-sm font-bold">${data.solarConfig}</span>
+                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">System_Size</span>
+                                    <span class="text-xs md:text-sm font-bold">${data.solarConfig}</span>
                                 </div>
                                 <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[10px] uppercase tracking-widest tier-3">Panel_Qty</span>
-                                    <span class="text-sm font-bold">${data.actualPanels} UNIT</span>
+                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Panel_Qty</span>
+                                    <span class="text-xs md:text-sm font-bold">${data.actualPanels} UNIT</span>
                                 </div>
                                 <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[10px] uppercase tracking-widest tier-3">Monthly_Yield</span>
-                                    <span class="text-sm font-bold">${data.details.totalGeneration} kWh</span>
+                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Monthly_Yield</span>
+                                    <span class="text-xs md:text-sm font-bold">${data.details.totalGeneration} kWh</span>
                                 </div>
                             </div>
-                            <div class="space-y-6">
+                            <div class="space-y-4 md:space-y-6">
                                 <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[10px] uppercase tracking-widest tier-3">Base_System_Cost</span>
-                                    <span class="text-sm font-bold">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
+                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Base_System_Cost</span>
+                                    <span class="text-xs md:text-sm font-bold">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
                                 </div>
                                 <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[10px] uppercase tracking-widest tier-3">Applied_Discounts</span>
-                                    <span class="text-sm font-bold text-emerald-600">-RM ${formatCurrency(data.totalDiscountAmount)}</span>
+                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Applied_Discounts</span>
+                                    <span class="text-xs md:text-sm font-bold text-emerald-600">-RM ${formatCurrency(data.totalDiscountAmount)}</span>
                                 </div>
                                 <div class="flex justify-between items-center py-2 border-b border-divider bg-black/5 px-2 -mx-2">
-                                    <span class="text-[10px] uppercase tracking-widest tier-3 font-bold">Net_Investment</span>
-                                    <span class="text-sm font-bold">RM ${formatCurrency(data.finalSystemCost)}</span>
+                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3 font-bold">Net_Investment</span>
+                                    <span class="text-xs md:text-sm font-bold">RM ${formatCurrency(data.finalSystemCost)}</span>
                                 </div>
                             </div>
                         </div>
@@ -605,38 +605,42 @@
 
                     <!-- 06 LEDGER COMPARISON -->
                     <section>
-                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">06_SAVINGS_LEDGER_LEDGER</h2>
+                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">06_SAVINGS_LEDGER</h2>
                         <div class="space-y-4">
-                            <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 tier-3 uppercase text-[9px] tracking-widest pb-4">
-                                <span>Component</span>
-                                <span class="text-right">Baseline</span>
-                                <span class="text-right">Post_Solar</span>
-                                <span class="text-right">Delta</span>
-                            </div>
-                            <div class="ledger-line"></div>
-                            ${buildLedgerRows(baselineStats.billBreakdown)}
-                            <div class="ledger-double-line pt-4 mt-2 flex justify-between items-baseline">
-                                <span class="text-[10px] font-bold uppercase tracking-widest tier-2">Monthly_Bill_Subtotal</span>
-                                <div class="flex items-baseline gap-4">
-                                    <span class="text-lg font-bold">RM ${baselineStats.billAfter}</span>
-                                    <span class="text-sm tier-3">(${baselineStats.billReduction} Reduction)</span>
+                            <div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                                <div class="min-w-[320px] space-y-4">
+                                    <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-2 md:gap-4 tier-3 uppercase text-[8px] md:text-[9px] tracking-widest pb-4">
+                                        <span>Component</span>
+                                        <span class="text-right">Baseline</span>
+                                        <span class="text-right">Post_Solar</span>
+                                        <span class="text-right">Delta</span>
+                                    </div>
+                                    <div class="ledger-line"></div>
+                                    ${buildLedgerRows(baselineStats.billBreakdown)}
                                 </div>
                             </div>
-                            <div class="flex justify-between items-baseline py-2">
-                                <span class="text-[10px] font-bold uppercase tracking-widest tier-2">NEM_Export_Earnings</span>
-                                <span class="text-lg font-bold text-emerald-600">+RM ${baselineStats.exportCredit}</span>
+                            <div class="ledger-double-line pt-4 mt-2 flex justify-between items-baseline gap-4">
+                                <span class="text-[9px] md:text-[10px] font-bold uppercase tracking-widest tier-2">Monthly_Bill</span>
+                                <div class="flex flex-col items-end sm:flex-row sm:items-baseline gap-1 md:gap-4">
+                                    <span class="text-base md:text-lg font-bold">RM ${baselineStats.billAfter}</span>
+                                    <span class="text-[9px] md:text-sm tier-3">(${baselineStats.billReduction} Reduced)</span>
+                                </div>
                             </div>
-                            <div class="ledger-double-line pt-6 mt-6 flex justify-between items-baseline bg-black text-white p-6 -mx-6">
-                                <span class="text-xs font-bold uppercase tracking-[0.3em]">Net_Monthly_Savings</span>
-                                <span class="text-3xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</span>
+                            <div class="flex justify-between items-baseline py-2 gap-4">
+                                <span class="text-[9px] md:text-[10px] font-bold uppercase tracking-widest tier-2">NEM_Export_Earnings</span>
+                                <span class="text-base md:text-lg font-bold text-emerald-600">+RM ${baselineStats.exportCredit}</span>
+                            </div>
+                            <div class="ledger-double-line pt-6 mt-6 flex justify-between items-baseline bg-black text-white p-4 md:p-6 -mx-4 md:-mx-6">
+                                <span class="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] md:tracking-[0.3em]">Net_Monthly_Savings</span>
+                                <span class="text-2xl md:text-3xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</span>
                             </div>
                         </div>
                     </section>
 
                     <!-- 07 FOOTNOTES -->
                     <section class="opacity-60">
-                        <h2 class="text-[9px] font-bold uppercase tracking-widest mb-6 tier-3">07_AFA_METHODOLOGY_FOOTNOTES</h2>
-                        <div class="space-y-4 text-[10px] leading-relaxed tier-3 max-w-2xl">
+                        <h2 class="text-[8px] md:text-[9px] font-bold uppercase tracking-widest mb-6 tier-3">07_AFA_METHODOLOGY</h2>
+                        <div class="space-y-4 text-[9px] md:text-[10px] leading-relaxed tier-3 max-w-2xl">
                             <p>[*] AFA_IMPACT: Solar reduces grid consumption, lowering fuel adjustment charges by RM ${baselineStats.afaImpact}. 
                             ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 
                                 ? 'In surcharge periods, this scales as a direct saving.' 
@@ -646,32 +650,32 @@
                         </div>
                     </section>
 
-                    <!-- BATTERY INTEGRATION (CLEANED) -->
+                    <!-- BATTERY INTEGRATION -->
                     ${data.config.batterySize > 0 ? `
-                    <section class="pt-24 border-t border-divider">
-                        <h2 class="text-xs font-bold uppercase tracking-widest mb-10 tier-2">08_BATTERY_STORAGE_INTEGRATION</h2>
-                        <div class="grid gap-12 md:grid-cols-3">
+                    <section class="pt-16 md:pt-24 border-t border-divider">
+                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">08_BATTERY_STORAGE_INTEGRATION</h2>
+                        <div class="grid gap-10 md:grid-cols-3">
                             <div class="space-y-2">
-                                <span class="text-[10px] uppercase tracking-widest tier-3">Storage_Capacity</span>
+                                <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Storage_Capacity</span>
                                 <div class="flex items-center gap-4">
-                                    <button onclick="adjustBatterySize(-5)" class="text-xl border border-divider w-10 h-10 hover:bg-black hover:text-white">-</button>
-                                    <span class="text-xl font-bold">${data.config.batterySize} kWh</span>
-                                    <button onclick="adjustBatterySize(5)" class="text-xl border border-divider w-10 h-10 hover:bg-black hover:text-white">+</button>
+                                    <button onclick="adjustBatterySize(-5)" class="text-lg border border-divider w-8 h-8 md:w-10 md:h-10 hover:bg-black hover:text-white transition-colors">-</button>
+                                    <span class="text-lg md:text-xl font-bold">${data.config.batterySize} kWh</span>
+                                    <button onclick="adjustBatterySize(5)" class="text-lg border border-divider w-8 h-8 md:w-10 md:h-10 hover:bg-black hover:text-white transition-colors">+</button>
                                 </div>
                             </div>
                             <div class="space-y-2">
-                                <span class="text-[10px] uppercase tracking-widest tier-3">Battery_Value_Add</span>
-                                <div class="text-xl font-bold text-emerald-600">+RM ${(Number(data.details.savingsBreakdown.total) - Number(data.monthlySavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2})} / mo</div>
+                                <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Value_Add</span>
+                                <div class="text-lg md:text-xl font-bold text-emerald-600">+RM ${(Number(data.details.savingsBreakdown.total) - Number(data.monthlySavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2})} / mo</div>
                             </div>
                             <div class="space-y-2">
-                                <span class="text-[10px] uppercase tracking-widest tier-3">Net_Battery_Saving</span>
-                                <div class="text-xl font-bold tracking-tighter">RM ${formatCurrency(batteryTotalSaving)}</div>
+                                <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Net_Battery_Saving</span>
+                                <div class="text-lg md:text-xl font-bold tracking-tighter">RM ${formatCurrency(batteryTotalSaving)}</div>
                             </div>
                         </div>
                     </section>
                     ` : `
-                    <section class="pt-12 text-center tier-3 text-[10px] uppercase tracking-widest">
-                        <button onclick="adjustBatterySize(5)" class="hover:tier-1 underline">[+]_SIMULATE_BATTERY_STORAGE_STORAGE</button>
+                    <section class="pt-8 md:pt-12 text-center tier-3 text-[9px] md:text-[10px] uppercase tracking-widest">
+                        <button onclick="adjustBatterySize(5)" class="hover:tier-1 underline">[+]_SIMULATE_BATTERY_STORAGE</button>
                     </section>
                     `}
                 </div>
@@ -912,7 +916,7 @@
             if (!bar) {
                 bar = document.createElement('div');
                 bar.id = 'floatingPanelBar';
-                bar.className = 'fixed bottom-0 left-0 right-0 z-[10000] px-6 py-8';
+                bar.className = 'fixed bottom-0 left-0 right-0 z-[10000] px-4 py-6 md:px-6 md:py-8';
                 document.body.appendChild(bar);
             }
 
@@ -921,22 +925,22 @@
                 const diff = Number(data.selectedPackage.price) - Number(originalSolarData.selectedPackage.price);
                 if (Math.abs(diff) > 0.01) {
                     const colorClass = diff > 0 ? 'text-rose-600' : 'text-emerald-600';
-                    priceDiffHtml = `<div class="text-[9px] uppercase tracking-widest ${colorClass}">INVESTMENT_DELTA: ${diff > 0 ? '+' : '-'}RM ${Math.abs(diff).toFixed(0)}</div>`;
+                    priceDiffHtml = `<div class="text-[8px] md:text-[9px] uppercase tracking-widest ${colorClass}">INVESTMENT_DELTA: ${diff > 0 ? '+' : '-'}RM ${Math.abs(diff).toFixed(0)}</div>`;
                 }
             }
 
             bar.innerHTML = `
-                <div class="mx-auto max-w-4xl border border-fact bg-paper p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div class="space-y-1 text-center md:text-left">
-                        <div class="text-[10px] font-bold uppercase tracking-[0.2em]">PANEL_MODULATION_CONTROL</div>
-                        <div class="text-[9px] tier-3 uppercase tracking-widest">Recommended: ${data.recommendedPanels} Units</div>
+                <div class="mx-auto max-w-4xl border border-fact bg-paper p-4 md:p-6 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 md:gap-6">
+                    <div class="space-y-1 text-center sm:text-left">
+                        <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em]">PANEL_MODULATION</div>
+                        <div class="text-[8px] md:text-[9px] tier-3 uppercase tracking-widest">Recommended: ${data.recommendedPanels} Units</div>
                         ${priceDiffHtml}
                     </div>
-                    <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-4 md:gap-6">
                         <div class="flex items-center border border-divider">
-                            <button onclick="adjustPanelCount(-1)" class="w-10 h-10 hover:bg-black hover:text-white transition-colors">-</button>
-                            <input type="number" id="panelQtyInputFloating" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-16 text-center text-sm font-bold border-none py-0">
-                            <button onclick="adjustPanelCount(1)" class="w-10 h-10 hover:bg-black hover:text-white transition-colors">+</button>
+                            <button onclick="adjustPanelCount(-1)" class="w-8 h-8 md:w-10 md:h-10 hover:bg-black hover:text-white transition-colors">-</button>
+                            <input type="number" id="panelQtyInputFloating" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-12 md:w-16 text-center text-xs md:text-sm font-bold border-none py-0">
+                            <button onclick="adjustPanelCount(1)" class="w-8 h-8 md:w-10 md:h-10 hover:bg-black hover:text-white transition-colors">+</button>
                         </div>
                         <div id="panelAdjustSpinnerFloating" class="hidden w-4 h-4 border-2 border-fact border-t-transparent animate-spin"></div>
                     </div>
