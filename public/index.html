@@ -43,18 +43,20 @@
     </style>
 </head>
 <body class="bg-paper text-fact min-h-screen font-mono selection:bg-black selection:text-white overflow-x-hidden">
-    <div class="mx-auto w-full max-w-4xl px-4 py-10 md:px-6 md:py-20">
-        <header class="mb-12 md:mb-16">
+    <!-- DARK HEADER ZONE -->
+    <header class="bg-black text-white py-12 md:py-16 mb-12 md:mb-16 -mt-10 md:-mt-20">
+        <div class="mx-auto w-full max-w-4xl px-4 md:px-6">
             <div class="flex flex-col sm:flex-row items-start justify-between gap-6">
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold uppercase tracking-tighter">Solar_Calculator_v2.0</h1>
-                    <p class="mt-2 text-[9px] md:text-xs tier-3 uppercase tracking-widest">Systematic ROI Analysis & Tariff Pairing</p>
+                    <p class="mt-2 text-[9px] md:text-xs opacity-50 uppercase tracking-widest">Systematic ROI Analysis & Tariff Pairing</p>
                 </div>
-                <img src="logo.png" alt="Eternalgy" class="h-8 md:h-10 w-auto grayscale">
+                <img src="logo.png" alt="Eternalgy" class="h-8 md:h-10 w-auto brightness-0 invert">
             </div>
-            <div class="mt-6 md:mt-8 h-px bg-fact w-full"></div>
-        </header>
+        </div>
+    </header>
 
+    <div class="mx-auto w-full max-w-4xl px-4 pb-10 md:px-6 md:pb-20">
         <main class="space-y-16 md:space-y-24">
             <!-- Phase 01: System Status -->
             <section id="dbStatus" class="text-[9px] uppercase tracking-widest tier-3 flex items-center gap-4">
