@@ -19,9 +19,9 @@
                     colors: {
                         paper: '#FAF9F6',
                         fact: '#000000',
-                        label: '#525252',
-                        context: '#A3A3A3',
-                        divider: '#E5E7EB',
+                        label: '#404040',
+                        context: '#666666',
+                        divider: '#D1D5DB',
                         primary: '#000000'
                     }
                 }
@@ -29,14 +29,14 @@
         }
     </script>
     <style>
-        body { font-family: 'Roboto Mono', monospace; background-color: #FAF9F6; color: #000000; }
+        body { font-family: 'Roboto Mono', monospace; background-color: #FAF9F6; color: #000000; line-height: 1.6; }
         .tier-1 { color: #000000; }
-        .tier-2 { color: #525252; }
-        .tier-3 { color: #A3A3A3; }
-        input, select { background: transparent; border: none; border-bottom: 1px solid #E5E7EB; border-radius: 0; outline: none; }
+        .tier-2 { color: #404040; }
+        .tier-3 { color: #666666; }
+        input, select { background: transparent; border: none; border-bottom: 1px solid #D1D5DB; border-radius: 0; outline: none; }
         input:focus, select:focus { border-bottom: 1px solid #000000; }
-        .ledger-line { border-top: 1px solid #E5E7EB; }
-        .ledger-double-line { border-top: 3px double #E5E7EB; }
+        .ledger-line { border-top: 1px solid #D1D5DB; }
+        .ledger-double-line { border-top: 3px double #D1D5DB; }
         /* Hide arrows from number input */
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
@@ -49,7 +49,7 @@
             <div class="flex flex-col sm:flex-row items-start justify-between gap-6">
                 <div>
                     <h1 class="text-xl md:text-2xl font-bold uppercase tracking-tighter">Solar_Calculator_v2.0</h1>
-                    <p class="mt-2 text-[9px] md:text-xs opacity-50 uppercase tracking-widest">Systematic ROI Analysis & Tariff Pairing</p>
+                    <p class="mt-2 text-[11px] md:text-xs opacity-50 uppercase tracking-widest">Systematic ROI Analysis & Tariff Pairing</p>
                 </div>
                 <img src="logo.png" alt="Eternalgy" class="h-8 md:h-10 w-auto brightness-0 invert">
             </div>
@@ -57,22 +57,22 @@
     </header>
 
     <div class="mx-auto w-full max-w-4xl px-4 pb-10 md:px-6 md:pb-20">
-        <main class="space-y-16 md:space-y-24">
+        <main class="space-y-20 md:space-y-32">
             <!-- Phase 01: System Status -->
-            <section id="dbStatus" class="text-[9px] uppercase tracking-widest tier-3 flex items-center gap-4">
+            <section id="dbStatus" class="text-xs uppercase tracking-widest tier-3 flex items-center gap-4">
                 <span>[ STATUS: CHECKING_DB ]</span>
-                <div class="h-px grow bg-divider"></div>
+                <div class="h-[2px] grow bg-divider"></div>
             </section>
 
             <!-- Phase 02: Intake -->
-            <section id="intake-section">
-                <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">01_BILL_INTAKE</h2>
+            <section id="intake-section" class="pt-4">
+                <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">01_BILL_INTAKE</h2>
                 
-                <form id="billForm" class="grid gap-10 md:grid-cols-2 md:gap-20">
-                    <div class="space-y-4">
-                        <label for="billAmount" class="block text-[9px] uppercase tracking-widest tier-3">Monthly_TNB_Bill (RM)</label>
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-sm tier-2">RM</span>
+                <form id="billForm" class="grid gap-12 md:grid-cols-2 md:gap-x-24 md:gap-y-16">
+                    <div class="space-y-6">
+                        <label for="billAmount" class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Monthly_TNB_Bill (RM)</label>
+                        <div class="flex items-baseline gap-3 border-b-2 border-divider focus-within:border-fact transition-colors pb-2">
+                            <span class="text-lg tier-2 font-bold">RM</span>
                             <input
                                 type="number"
                                 id="billAmount"
@@ -80,32 +80,34 @@
                                 step="0.01"
                                 min="0"
                                 placeholder="000.00"
-                                class="w-full text-lg md:text-xl font-medium tracking-tighter py-1"
+                                class="w-full text-2xl md:text-3xl font-bold tracking-tighter bg-transparent border-none outline-none"
                                 required
                             >
                         </div>
                     </div>
 
-                    <div class="space-y-4">
-                        <label for="historicalAfaRate" class="block text-[9px] uppercase tracking-widest tier-3">Historical_AFA_Period</label>
-                        <select
-                            id="historicalAfaRate"
-                            name="historicalAfaRate"
-                            class="w-full text-xs md:text-sm font-medium py-2 cursor-pointer"
-                        >
-                            <option value="0.0000">JUL_2025 (0.00 sen)</option>
-                            <option value="-0.0145">AUG_2025 (-1.45 sen)</option>
-                            <option value="-0.0110">SEP_2025 (-1.10 sen)</option>
-                            <option value="-0.0650">OCT_2025 (-6.50 sen)</option>
-                            <option value="-0.0891">NOV_2025 (-8.91 sen)</option>
-                            <option value="-0.0642">DEC_2025 (-6.42 sen)</option>
-                        </select>
+                    <div class="space-y-6">
+                        <label for="historicalAfaRate" class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Historical_AFA_Period</label>
+                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-2">
+                            <select
+                                id="historicalAfaRate"
+                                name="historicalAfaRate"
+                                class="w-full text-sm md:text-base font-bold py-2 cursor-pointer bg-transparent border-none outline-none"
+                            >
+                                <option value="0.0000">JUL_2025 (0.00 sen)</option>
+                                <option value="-0.0145">AUG_2025 (-1.45 sen)</option>
+                                <option value="-0.0110">SEP_2025 (-1.10 sen)</option>
+                                <option value="-0.0650">OCT_2025 (-6.50 sen)</option>
+                                <option value="-0.0891">NOV_2025 (-8.91 sen)</option>
+                                <option value="-0.0642">DEC_2025 (-6.42 sen)</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div class="md:col-span-2">
+                    <div class="md:col-span-2 pt-4">
                         <button
                             type="submit"
-                            class="text-[10px] md:text-xs font-bold uppercase tracking-[0.3em] border border-fact px-6 py-3 md:px-8 md:py-4 hover:bg-black hover:text-white transition-colors w-full sm:w-auto"
+                            class="text-xs md:text-sm font-bold uppercase tracking-[0.3em] border-2 border-fact px-10 py-4 md:px-12 md:py-5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
                         >
                             Execute_Bill_Analysis ->
                         </button>
@@ -113,24 +115,24 @@
                 </form>
             </section>
 
-            <section id="calculatorResults" class="space-y-16 md:space-y-24"></section>
+            <section id="calculatorResults" class="space-y-20 md:space-y-32"></section>
 
             <!-- Diagnostics moved to footer -->
-            <footer class="pt-16 md:pt-24 border-t border-divider space-y-10 md:space-y-12">
+            <footer class="pt-20 md:pt-32 border-t-2 border-divider space-y-12 md:space-y-16">
                 <details class="group">
-                    <summary class="list-none cursor-pointer text-[9px] uppercase tracking-widest tier-3 hover:tier-2 transition-colors">
+                    <summary class="list-none cursor-pointer text-xs uppercase tracking-[0.2em] tier-3 hover:tier-2 transition-colors font-bold">
                         [+] SYSTEM_DIAGNOSTICS
                     </summary>
-                    <div class="mt-6 md:mt-8 grid grid-cols-2 gap-4">
-                        <button onclick="testConnection()" class="text-left text-[9px] uppercase tracking-widest tier-2 hover:tier-1">Test_DB_Link</button>
-                        <button onclick="getSchema()" class="text-left text-[9px] uppercase tracking-widest tier-2 hover:tier-1">Dump_Schema</button>
-                        <button onclick="getTnbTariff()" class="text-left text-[9px] uppercase tracking-widest tier-2 hover:tier-1">Fetch_TNB_Data</button>
-                        <button onclick="getPackageInfo()" class="text-left text-[9px] uppercase tracking-widest tier-2 hover:tier-1">Package_Info</button>
+                    <div class="mt-8 md:mt-10 grid grid-cols-2 sm:grid-cols-4 gap-6">
+                        <button onclick="testConnection()" class="text-left text-xs uppercase tracking-widest tier-2 hover:tier-1 font-bold border border-divider p-3 hover:bg-black hover:text-white transition-all">Test_DB</button>
+                        <button onclick="getSchema()" class="text-left text-xs uppercase tracking-widest tier-2 hover:tier-1 font-bold border border-divider p-3 hover:bg-black hover:text-white transition-all">Dump_Schema</button>
+                        <button onclick="getTnbTariff()" class="text-left text-xs uppercase tracking-widest tier-2 hover:tier-1 font-bold border border-divider p-3 hover:bg-black hover:text-white transition-all">TNB_Data</button>
+                        <button onclick="getPackageInfo()" class="text-left text-xs uppercase tracking-widest tier-2 hover:tier-1 font-bold border border-divider p-3 hover:bg-black hover:text-white transition-all">Pkg_Info</button>
                     </div>
-                    <div id="results" class="mt-6 md:mt-8 text-[9px] tier-3 overflow-x-auto whitespace-pre"></div>
+                    <div id="results" class="mt-8 md:mt-10 text-xs tier-3 overflow-x-auto whitespace-pre bg-black/5 p-4 border border-divider"></div>
                 </details>
                 
-                <div class="flex justify-between items-center text-[8px] md:text-[9px] tier-3 uppercase tracking-[0.2em]">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-xs tier-3 uppercase tracking-[0.2em] font-bold">
                     <span>Eternalgy // Solar Intelligence Suite</span>
                     <span>v2.0_Minimalist_Paper</span>
                 </div>
@@ -139,10 +141,269 @@
     </div>
 
     <script>
+        let tariffs = [];
+        let packages = [];
+
         // Initialize
         window.onload = function() {
             testConnection();
+            fetchAllData();
         };
+
+        async function fetchAllData() {
+            try {
+                const response = await fetch('/api/all-data');
+                const data = await response.json();
+                if (response.ok) {
+                    tariffs = data.tariffs;
+                    packages = data.packages;
+                    console.log('Sync complete:', tariffs.length, 'tariffs,', packages.length, 'packages');
+                }
+            } catch (err) {
+                console.error('Data sync failed:', err);
+            }
+        }
+
+        function triggerSpontaneousUpdate() {
+            if (!latestSolarParams) return;
+            
+            // Update params from UI
+            latestSolarParams.sunPeakHour = parseFloat(document.getElementById('sunPeakHour').value) || 3.4;
+            latestSolarParams.morningUsage = parseFloat(document.getElementById('morningUsage').value) || 30;
+            latestSolarParams.panelType = parseInt(document.getElementById('panelRating').value) || 620;
+            latestSolarParams.afaRate = parseFloat(document.getElementById('afaRate').value) || 0;
+            latestSolarParams.smpPrice = parseFloat(document.getElementById('smpPrice').value) || 0.2703;
+            latestSolarParams.percentDiscount = parseFloat(document.getElementById('percentDiscount')?.value) || 0;
+            latestSolarParams.fixedDiscount = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
+
+            saving_calculation_function();
+        }
+
+        function saving_calculation_function() {
+            if (!latestSolarParams || !tariffs.length) return;
+
+            const p = latestSolarParams;
+            const billAmount = Math.max(0, parseFloat(p.amount) || 0);
+            const peakHour = Math.max(0.1, parseFloat(p.sunPeakHour) || 3.4);
+            const morningPercent = Math.max(0, Math.min(100, parseFloat(p.morningUsage) || 30));
+            const panelWattage = Math.max(1, parseInt(p.panelType) || 620);
+            const afaRate = parseFloat(p.afaRate) || 0;
+            const smp = Math.max(0, parseFloat(p.smpPrice) || 0.2703);
+            const batterySizeVal = Math.max(0, parseFloat(p.batterySize) || 0);
+            const overridePanels = p.overridePanels !== null ? Math.max(1, parseInt(p.overridePanels)) : null;
+            const historicalAfa = 0.019; // Current historical AFA rate for bill lookup
+
+            // Find base tariff matching server's findClosestTariff logic
+            const baseTariff = [...tariffs].reverse().find(t => {
+                const adjustedTotal = parseFloat(t.bill_total_normal) + (parseFloat(t.usage_kwh) * historicalAfa);
+                return adjustedTotal <= billAmount;
+            }) || tariffs[0];
+            
+            const monthlyUsageKwh = parseFloat(baseTariff.usage_kwh);
+
+            // Panel recommendation
+            const recommendedPanelsRaw = Math.ceil(monthlyUsageKwh / peakHour / 30 / 0.62);
+            const recommendedPanels = Math.max(1, recommendedPanelsRaw);
+            const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
+
+            // Package lookup - align with server (check qty and wattage)
+            const selectedPackage = packages.find(pkg => 
+                pkg.panel_qty === actualPanelQty && pkg.panel_wattage === panelWattage
+            ) || packages.find(pkg => pkg.panel_qty === actualPanelQty) || null;
+
+            // Solar generation
+            const dailySolarGeneration = (actualPanelQty * panelWattage * peakHour) / 1000;
+            const monthlySolarGeneration = dailySolarGeneration * 30;
+
+            // Morning usage
+            const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
+            const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
+
+            // Helper for breakdown (aligned with server.js)
+            const buildBreakdown = (t) => {
+                if (!t) return null;
+                const usage = parseFloat(t.usage_normal) || 0;
+                const network = parseFloat(t.network) || 0;
+                const capacity = parseFloat(t.capacity) || 0;
+                const sst = parseFloat(t.sst_normal) || 0;
+                const eei = parseFloat(t.eei) || 0;
+                const afa = (parseFloat(t.usage_kwh) || 0) * afaRate;
+                const total = usage + network + capacity + sst + eei + afa;
+                return {
+                    usage, network, capacity, sst, eei, afa,
+                    total,
+                    totalBase: total - afa
+                };
+            };
+
+            const beforeBreakdown = buildBreakdown(baseTariff);
+
+            // Tariff lookup helper
+            const lookupTariff = (usage) => {
+                const val = Math.max(0, Math.floor(usage));
+                return [...tariffs].reverse().find(t => t.usage_kwh <= val) || tariffs[0];
+            };
+
+            // Baseline (No Battery)
+            const netUsageBaseline = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
+            const afterTariffBaseline = lookupTariff(netUsageBaseline);
+            const afterBreakdownBaseline = buildBreakdown(afterTariffBaseline);
+            const exportKwhBaseline = Math.max(0, monthlySolarGeneration - morningSelfConsumption);
+            const exportSavingBaseline = exportKwhBaseline * smp;
+            const totalMonthlySavingsBaseline = (beforeBreakdown.total - afterBreakdownBaseline.total) + exportSavingBaseline;
+            const billReductionBaseline = beforeBreakdown.total - afterBreakdownBaseline.total;
+
+            // Battery logic - aligned with server
+            const dailyExcessSolar = Math.max(0, (monthlySolarGeneration - morningUsageKwh) / 30);
+            const dailyNightUsage = Math.max(0, (monthlyUsageKwh - morningUsageKwh) / 30);
+            const dailyBatteryCap = batterySizeVal; // Server uses direct value
+            const dailyMaxDischarge = Math.min(dailyExcessSolar, dailyNightUsage, dailyBatteryCap);
+            const monthlyMaxDischarge = dailyMaxDischarge * 30;
+
+            // Net usage after solar + battery
+            const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption - monthlyMaxDischarge);
+            const exportKwh = Math.max(0, (monthlySolarGeneration - morningSelfConsumption) - monthlyMaxDischarge);
+            const exportSaving = exportKwh * smp;
+
+            const afterTariff = lookupTariff(netUsageKwh);
+            const afterBreakdown = buildBreakdown(afterTariff);
+
+            // Total Savings (Bill Reduction + Export Saving)
+            const totalMonthlySavings = (beforeBreakdown.total - afterBreakdown.total) + exportSaving;
+
+            // System cost with discounts (Percent first, then fixed)
+            let systemCostBeforeDiscount = null;
+            let finalSystemCost = null;
+            let totalDiscountAmount = 0;
+            if (selectedPackage) {
+                systemCostBeforeDiscount = parseFloat(selectedPackage.price);
+                const afterPercent = systemCostBeforeDiscount * (1 - p.percentDiscount / 100);
+                finalSystemCost = Math.max(0, afterPercent - p.fixedDiscount);
+                totalDiscountAmount = systemCostBeforeDiscount - finalSystemCost;
+            }
+
+            // Generate Patterns (REPLICATING SERVER LOGIC)
+            const dailyUsageKwh = monthlyUsageKwh / 30;
+            const electricityUsagePattern = [];
+            for (let hour = 0; hour < 24; hour++) {
+                let usageMultiplier;
+                if (hour >= 6 && hour <= 9) usageMultiplier = 1.8 * (morningPercent / 100);
+                else if (hour >= 18 && hour <= 22) usageMultiplier = 2.2;
+                else if (hour >= 10 && hour <= 17) usageMultiplier = 0.8 * (1 - (morningPercent / 100) * 0.3);
+                else usageMultiplier = 0.3;
+                electricityUsagePattern.push({ hour, usage: (dailyUsageKwh * usageMultiplier / 10).toFixed(3) });
+            }
+
+            const solarGenerationPattern = [];
+            for (let hour = 0; hour < 24; hour++) {
+                let generationMultiplier = 0;
+                const sunriseHour = 7, sunsetHour = 19, peakHourVal = 12;
+                if (hour >= sunriseHour && hour <= sunsetHour) {
+                    const hoursFromPeak = Math.abs(hour - peakHourVal);
+                    generationMultiplier = Math.max(0, Math.cos((hoursFromPeak / 5) * (Math.PI / 2)));
+                }
+                solarGenerationPattern.push({ hour, generation: (dailySolarGeneration * generationMultiplier / 8).toFixed(3) });
+            }
+
+            // Savings Breakdown for UI compatibility
+            const savingsBreakdown = {
+                billReduction: billReductionBaseline,
+                exportCredit: exportSavingBaseline,
+                afaImpact: (monthlyUsageKwh - netUsageBaseline) * afaRate,
+                baseBillReduction: billReductionBaseline - ((monthlyUsageKwh - netUsageBaseline) * afaRate),
+                total: totalMonthlySavingsBaseline
+            };
+
+            // Final data structure
+            const data = {
+                recommendedPanels,
+                actualPanels: actualPanelQty,
+                solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${(actualPanelQty * panelWattage / 1000).toFixed(1)} kW system)`,
+                monthlySavings: totalMonthlySavings.toFixed(2),
+                paybackPeriod: finalSystemCost && totalMonthlySavings > 0 ? (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1) : 'N/A',
+                finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : 'N/A',
+                systemCostBeforeDiscount: systemCostBeforeDiscount !== null ? systemCostBeforeDiscount.toFixed(2) : null,
+                totalDiscountAmount: totalDiscountAmount !== null ? totalDiscountAmount.toFixed(2) : null,
+                selectedPackage: selectedPackage ? {
+                    packageName: selectedPackage.package_name,
+                    price: selectedPackage.price,
+                    panelWattage: panelWattage,
+                    type: selectedPackage.type,
+                    maxDiscount: selectedPackage.max_discount,
+                    special: selectedPackage.special,
+                    invoiceDesc: selectedPackage.invoice_desc,
+                    id: selectedPackage.id
+                } : null,
+                details: {
+                    billBefore: beforeBreakdown.total.toFixed(2),
+                    billAfter: afterBreakdown.total.toFixed(2),
+                    billReduction: (beforeBreakdown.total - afterBreakdown.total).toFixed(2),
+                    monthlyUsageKwh: monthlyUsageKwh,
+                    monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
+                    morningUsageKwh: morningUsageKwh.toFixed(2),
+                    exportKwh: exportKwh.toFixed(2),
+                    exportSaving: exportSaving.toFixed(2),
+                    afterUsageKwh: netUsageKwh.toFixed(2),
+                    totalGeneration: monthlySolarGeneration.toFixed(2),
+                    billBreakdown: {
+                        before: beforeBreakdown,
+                        after: afterBreakdown,
+                        items: ['usage', 'network', 'capacity', 'sst', 'eei', 'afa'].map(key => {
+                            const labels = { usage: 'Usage', network: 'Network', capacity: 'Capacity Fee', sst: 'SST', eei: 'EEI', afa: 'AFA Charge' };
+                            const b = beforeBreakdown ? beforeBreakdown[key] : 0;
+                            const a = afterBreakdown ? afterBreakdown[key] : 0;
+                            return { key, label: labels[key], before: b, after: a, delta: b - a };
+                        }),
+                        totals: { before: beforeBreakdown.total, after: afterBreakdown.total, delta: beforeBreakdown.total - afterBreakdown.total }
+                    },
+                    savingsBreakdown: savingsBreakdown,
+                    battery: {
+                        size: batterySizeVal,
+                        dailyDischarge: dailyMaxDischarge.toFixed(2),
+                        monthlyDischarge: monthlyMaxDischarge.toFixed(2),
+                        baseline: {
+                            billReduction: billReductionBaseline,
+                            exportCredit: exportSavingBaseline,
+                            afaImpact: (monthlyUsageKwh - netUsageBaseline) * afaRate,
+                            baseBillReduction: billReductionBaseline - ((monthlyUsageKwh - netUsageBaseline) * afaRate),
+                            totalSavings: totalMonthlySavingsBaseline,
+                            billAfter: afterBreakdownBaseline.total,
+                            billBreakdown: {
+                                before: beforeBreakdown,
+                                after: afterBreakdownBaseline,
+                                items: ['usage', 'network', 'capacity', 'sst', 'eei', 'afa'].map(key => {
+                                    const labels = { usage: 'Usage', network: 'Network', capacity: 'Capacity Fee', sst: 'SST', eei: 'EEI', afa: 'AFA Charge' };
+                                    const b = beforeBreakdown ? beforeBreakdown[key] : 0;
+                                    const a = afterBreakdownBaseline ? afterBreakdownBaseline[key] : 0;
+                                    return { key, label: labels[key], before: b, after: a, delta: b - a };
+                                }),
+                                totals: { before: beforeBreakdown.total, after: afterBreakdownBaseline.total, delta: beforeBreakdown.total - afterBreakdownBaseline.total }
+                            }
+                        }
+                    }
+                },
+                config: {
+                    sunPeakHour: peakHour,
+                    morningUsage: morningPercent,
+                    panelType: panelWattage,
+                    smpPrice: smp,
+                    afaRate: afaRate,
+                    batterySize: batterySizeVal
+                },
+                batteryCaps: {
+                    excessSolar: dailyExcessSolar.toFixed(2),
+                    nightUsage: dailyNightUsage.toFixed(2),
+                    batterySize: batterySizeVal.toFixed(2)
+                },
+                charts: {
+                    electricityUsagePattern,
+                    solarGenerationPattern
+                }
+            };
+
+            latestSolarData = data;
+            displaySolarCalculation(data);
+        }
 
         let latestSolarParams = null;
         let latestSolarData = null;
@@ -192,7 +453,7 @@
         // Bill breakdown calculation
         async function calculateBillBreakdown(billAmount, afaRate = 0) {
             const resultsDiv = document.getElementById('calculatorResults');
-            resultsDiv.innerHTML = `<div class="text-[10px] tier-3 uppercase tracking-[0.3em] animate-pulse">PROCESSING_QUERY...</div>`;
+            resultsDiv.innerHTML = `<div class="text-xs tier-3 uppercase tracking-[0.3em] animate-pulse">PROCESSING_QUERY...</div>`;
 
             try {
                 const response = await fetch(`/api/calculate-bill?amount=${billAmount}&afaRate=${afaRate}`);
@@ -223,116 +484,129 @@
             const adjustedTotal = (parseFloat(tariff.bill_total_normal) || 0) + afaCharge;
 
             resultsDiv.innerHTML = `
-                <div class="space-y-16 md:space-y-24">
-                    <section>
-                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">02_BILL_ANALYSIS_LEDGER</h2>
+                <div class="space-y-20 md:space-y-32">
+                    <section class="pt-4">
+                        <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">02_BILL_ANALYSIS_LEDGER</h2>
                         
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between tier-3 uppercase text-[8px] md:text-[10px] tracking-widest mb-4">
+                        <div class="space-y-4 text-sm md:text-base">
+                            <div class="flex justify-between tier-3 uppercase text-xs md:text-xs tracking-widest mb-6 border-b border-divider pb-2">
                                 <span>Component</span>
                                 <span>Value_(RM)</span>
                             </div>
-                            <div class="h-px bg-divider w-full"></div>
                             
-                            <div class="flex justify-between py-2 gap-4">
+                            <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
                                 <span class="tier-2 truncate">Energy_Usage</span>
-                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.usage_normal)}</span>
+                                <span class="tier-1 font-medium whitespace-nowrap">${formatCurrency(tariff.usage_normal)}</span>
                             </div>
-                            <div class="flex justify-between py-2 gap-4">
+                            <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
                                 <span class="tier-2 truncate">Network_Fee</span>
-                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.network)}</span>
+                                <span class="tier-1 font-medium whitespace-nowrap">${formatCurrency(tariff.network)}</span>
                             </div>
-                            <div class="flex justify-between py-2 gap-4">
+                            <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
                                 <span class="tier-2 truncate">Capacity_Charge</span>
-                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.capacity)}</span>
+                                <span class="tier-1 font-medium whitespace-nowrap">${formatCurrency(tariff.capacity)}</span>
                             </div>
-                            <div class="flex justify-between py-2 gap-4">
+                            <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
                                 <span class="tier-2 truncate">Retail_Charge</span>
-                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.retail)}</span>
+                                <span class="tier-1 font-medium whitespace-nowrap">${formatCurrency(tariff.retail)}</span>
                             </div>
-                            <div class="flex justify-between py-2 gap-4">
+                            <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
                                 <span class="tier-2 truncate">EEI_Adjustment</span>
-                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.eei)}</span>
+                                <span class="tier-1 font-medium whitespace-nowrap">${formatCurrency(tariff.eei)}</span>
                             </div>
-                            <div class="flex justify-between py-2 gap-4">
+                            <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
                                 <span class="tier-2 truncate">SST_Tax</span>
-                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.sst_normal)}</span>
+                                <span class="tier-1 font-medium whitespace-nowrap">${formatCurrency(tariff.sst_normal)}</span>
                             </div>
-                            <div class="flex justify-between py-2 gap-4">
+                            <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
                                 <span class="tier-2 truncate">KWTBB_Fund</span>
-                                <span class="tier-1 whitespace-nowrap">${formatCurrency(tariff.kwtbb_normal)}</span>
+                                <span class="tier-1 font-medium whitespace-nowrap">${formatCurrency(tariff.kwtbb_normal)}</span>
                             </div>
-                            <div class="flex justify-between py-2 gap-4">
+                            <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
                                 <span class="tier-2 truncate">AFA_Adjustment</span>
-                                <span class="${afaCharge < 0 ? 'text-emerald-600' : 'tier-1'} whitespace-nowrap">${formatCurrency(afaCharge)}</span>
+                                <span class="${afaCharge < 0 ? 'text-emerald-600' : 'tier-1'} font-medium whitespace-nowrap">${formatCurrency(afaCharge)}</span>
                             </div>
                             
-                            <div class="ledger-double-line pt-4 mt-4 flex justify-between items-baseline gap-4">
-                                <span class="text-[9px] md:text-xs font-bold uppercase tracking-widest">Total_Matched</span>
-                                <span class="text-xl md:text-2xl font-bold tracking-tighter whitespace-nowrap">RM ${formatCurrency(adjustedTotal)}</span>
+                            <div class="ledger-double-line pt-6 mt-8 flex justify-between items-baseline gap-4">
+                                <span class="text-xs md:text-sm font-bold uppercase tracking-[0.2em]">Total_Matched</span>
+                                <span class="text-3xl md:text-4xl font-bold tracking-tighter whitespace-nowrap">RM ${formatCurrency(adjustedTotal)}</span>
                             </div>
                             
-                            <div class="mt-8 flex justify-between items-center text-[8px] md:text-[10px] tier-3 uppercase tracking-widest gap-4">
+                            <div class="mt-10 flex justify-between items-center text-xs md:text-xs tier-3 uppercase tracking-widest gap-4 border-t border-divider pt-4">
                                 <span>Derived_Usage: ${tariff.usage_kwh} kWh</span>
                                 <span class="text-right">Tolerance: +/- 0.01%</span>
                             </div>
                         </div>
                     </section>
 
-                    <section id="solar-config-section">
-                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">03_MODELING_PARAMS</h2>
+                    <section id="solar-config-section" class="pt-4">
+                        <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">03_MODELING_PARAMS</h2>
                         
-                        <div class="grid gap-8 md:grid-cols-2 md:gap-x-20 md:gap-y-12">
-                            <div class="space-y-2">
-                                <label class="block text-[9px] uppercase tracking-widest tier-3">Sun_Peak_Hours</label>
-                                <input type="number" id="sunPeakHour" step="0.1" min="3.0" max="4.5" value="3.4" class="w-full text-base md:text-lg py-1">
-                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">Standard: 3.0 - 4.5 h</p>
+                        <div class="grid gap-12 md:grid-cols-2 md:gap-x-24 md:gap-y-16">
+                            <div class="space-y-4">
+                                <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Sun_Peak_Hours</label>
+                                <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
+                                    <input type="number" id="sunPeakHour" step="0.1" min="3.0" max="4.5" value="3.4" oninput="triggerSpontaneousUpdate()" class="w-full text-xl md:text-2xl font-bold bg-transparent border-none outline-none py-1">
+                                </div>
+                                <p class="text-xs md:text-xs tier-3 uppercase opacity-70">Standard: 3.0 - 4.5 h</p>
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="block text-[9px] uppercase tracking-widest tier-3">Day_Usage_Share (%)</label>
-                                <input type="number" id="morningUsage" min="1" max="100" value="30" class="w-full text-base md:text-lg py-1">
-                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">Range: 1% - 100%</p>
+                            <div class="space-y-4">
+                                <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Day_Usage_Share (%)</label>
+                                <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
+                                    <input type="number" id="morningUsage" min="1" max="100" value="30" oninput="triggerSpontaneousUpdate()" class="w-full text-xl md:text-2xl font-bold bg-transparent border-none outline-none py-1">
+                                </div>
+                                <p class="text-xs md:text-xs tier-3 uppercase opacity-70">Range: 1% - 100%</p>
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="block text-[9px] uppercase tracking-widest tier-3">Panel_Rating (W)</label>
-                                <input type="number" id="panelRating" step="1" min="450" max="850" value="620" class="w-full text-base md:text-lg py-1">
-                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">Range: 450W - 850W</p>
+                            <div class="space-y-4">
+                                <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Panel_Rating (W)</label>
+                                <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
+                                    <input type="number" id="panelRating" step="1" min="450" max="850" value="620" oninput="triggerSpontaneousUpdate()" class="w-full text-xl md:text-2xl font-bold bg-transparent border-none outline-none py-1">
+                                </div>
+                                <p class="text-xs md:text-xs tier-3 uppercase opacity-70">Range: 450W - 850W</p>
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="block text-[9px] uppercase tracking-widest tier-3">AFA_Projection (RM)</label>
-                                <input type="number" id="afaRate" step="0.0001" value="0.0000" class="w-full text-base md:text-lg py-1">
-                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">Fuel Adjustment</p>
+                            <div class="space-y-4">
+                                <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">AFA_Projection (RM)</label>
+                                <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
+                                    <input type="number" id="afaRate" step="0.0001" value="0.0000" oninput="triggerSpontaneousUpdate()" class="w-full text-xl md:text-2xl font-bold bg-transparent border-none outline-none py-1">
+                                </div>
+                                <p class="text-xs md:text-xs tier-3 uppercase opacity-70">Fuel Adjustment</p>
                             </div>
 
-                            <div class="space-y-2">
-                                <label class="block text-[9px] uppercase tracking-widest tier-3">Export_Rate (RM)</label>
-                                <input type="number" id="smpPrice" step="0.0001" min="0.19" max="0.2703" value="0.2703" class="w-full text-base md:text-lg py-1">
-                                <p class="text-[8px] md:text-[9px] tier-3 uppercase">NEM SMP Price</p>
+                            <div class="space-y-4">
+                                <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Export_Rate (RM)</label>
+                                <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
+                                    <input type="number" id="smpPrice" step="0.0001" min="0.19" max="0.2703" value="0.2703" oninput="triggerSpontaneousUpdate()" class="w-full text-xl md:text-2xl font-bold bg-transparent border-none outline-none py-1">
+                                </div>
+                                <p class="text-xs md:text-xs tier-3 uppercase opacity-70">NEM SMP Price</p>
                             </div>
 
                             <div class="md:col-span-2 mt-4">
-                                <div class="p-4 md:p-6 border border-divider">
-                                    <h4 class="text-[8px] md:text-[10px] font-bold uppercase tracking-widest tier-3 mb-6">Discount_Protocol</h4>
-                                    <div class="grid gap-6 md:grid-cols-2">
-                                        <div class="space-y-2">
-                                            <label class="block text-[9px] uppercase tracking-widest tier-3">Percentage (%)</label>
-                                            <input type="number" id="percentDiscount" step="0.01" min="0" max="100" value="0" class="w-full text-xs md:text-sm py-1">
+                                <div class="p-8 md:p-10 border-2 border-divider bg-white/30">
+                                    <h4 class="text-xs md:text-xs font-bold uppercase tracking-[0.2em] tier-3 mb-10 border-b border-divider pb-2 inline-block">Discount_Protocol</h4>
+                                    <div class="grid gap-8 md:grid-cols-2">
+                                        <div class="space-y-4">
+                                            <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Percentage (%)</label>
+                                            <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
+                                                <input type="number" id="percentDiscount" step="0.01" min="0" max="100" value="0" oninput="triggerSpontaneousUpdate()" class="w-full text-lg font-bold bg-transparent border-none outline-none py-1">
+                                            </div>
                                         </div>
-                                        <div class="space-y-2">
-                                            <label class="block text-[9px] uppercase tracking-widest tier-3">Fixed (RM)</label>
-                                            <input type="number" id="fixedDiscount" step="0.01" min="0" value="0" class="w-full text-xs md:text-sm py-1">
+                                        <div class="space-y-4">
+                                            <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Fixed (RM)</label>
+                                            <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
+                                                <input type="number" id="fixedDiscount" step="0.01" min="0" value="0" oninput="triggerSpontaneousUpdate()" class="w-full text-lg font-bold bg-transparent border-none outline-none py-1">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="md:col-span-2 pt-4 md:pt-8">
+                            <div class="md:col-span-2 pt-8">
                                 <button
                                     onclick="calculateSolarSavings()"
-                                    class="text-[10px] md:text-xs font-bold uppercase tracking-[0.3em] border border-fact px-6 py-3 md:px-8 md:py-4 hover:bg-black hover:text-white transition-colors w-full sm:w-auto"
+                                    class="text-xs md:text-sm font-bold uppercase tracking-[0.3em] border-2 border-fact px-10 py-4 md:px-12 md:py-5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
                                 >
                                     Generate_ROI_Matrix ->
                                 </button>
@@ -531,7 +805,7 @@
                 const items = Array.isArray(breakdownData.items) ? breakdownData.items : [];
                 return items.map((item) => `
                     <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 py-2 border-b border-divider/50">
-                        <span class="tier-2 uppercase text-[10px] tracking-widest">${item.label.replace(' ', '_')}</span>
+                        <span class="tier-2 uppercase text-xs tracking-widest">${item.label.replace(' ', '_')}</span>
                         <span class="tier-1 text-right">${formatCurrency(item.before)}</span>
                         <span class="tier-1 text-right">${item.after !== null ? formatCurrency(item.after) : '---'}</span>
                         <span class="${item.delta >= 0 ? 'text-emerald-600' : 'text-rose-600'} text-right font-bold">${item.delta >= 0 ? '-' : '+'}${formatCurrency(Math.abs(item.delta))}</span>
@@ -548,27 +822,39 @@
             }
 
             solarDiv.innerHTML = `
-                <div class="space-y-16 md:space-y-24">
+                <div class="space-y-20 md:space-y-32">
                     <!-- 04 EXECUTIVE SUMMARY (HIGH CONTRAST) -->
-                    <section class="bg-black text-white p-8 md:p-12 -mx-4 md:-mx-6">
-                        <h2 class="text-[10px] font-bold uppercase tracking-[0.4em] mb-8 opacity-70">ROI_EXECUTIVE_SUMMARY</h2>
+                    <section class="bg-black text-white p-10 md:p-16 -mx-4 md:-mx-6 shadow-2xl">
+                        <h2 class="text-xs font-bold uppercase tracking-[0.4em] mb-12 opacity-70 border-b border-white/20 pb-2 inline-block">ROI_EXECUTIVE_SUMMARY</h2>
                         
-                        <div class="space-y-8 text-sm md:text-base">
-                            <div class="space-y-2">
-                                <p class="opacity-70 uppercase text-[9px] tracking-widest">Baseline_Consumption</p>
-                                <p class="font-medium">Original_Bill: <span class="text-white">RM ${formatCurrency(data.details.billBefore)}</span></p>
-                                <p class="font-medium">Monthly_Usage: <span class="text-white">${data.details.monthlyUsageKwh} kWh</span></p>
+                        <div class="space-y-10 text-base md:text-lg">
+                            <div class="space-y-4">
+                                <p class="opacity-70 uppercase text-xs tracking-widest">Baseline_Consumption</p>
+                                <div class="flex flex-col sm:flex-row justify-between gap-4">
+                                    <p class="font-medium">Original_Bill: <span class="text-white">RM ${formatCurrency(data.details.billBefore)}</span></p>
+                                    <p class="font-medium">Monthly_Usage: <span class="text-white">${data.details.monthlyUsageKwh} kWh</span></p>
+                                </div>
                             </div>
 
                             <div class="h-px bg-white/20 w-full"></div>
 
                             <div class="space-y-4">
-                                <p class="opacity-70 uppercase text-[9px] tracking-widest">Projected_Outcome</p>
-                                <div class="flex justify-between items-baseline">
+                                <p class="opacity-70 uppercase text-xs tracking-widest">System_Specifications</p>
+                                <div class="flex flex-col sm:flex-row justify-between gap-4">
+                                    <p class="font-medium">Panel_Quantity: <span class="text-white">${data.actualPanels} Units</span></p>
+                                    <p class="font-medium">System_Size: <span class="text-white">${((data.actualPanels * data.config.panelType) / 1000).toFixed(2)} kWp</span></p>
+                                </div>
+                            </div>
+
+                            <div class="h-px bg-white/20 w-full"></div>
+
+                            <div class="space-y-6">
+                                <p class="opacity-70 uppercase text-xs tracking-widest">Projected_Outcome</p>
+                                <div class="flex justify-between items-baseline border-b border-white/10 pb-2">
                                     <span>New_Monthly_Bill:</span>
                                     <span class="font-bold">RM ${baselineStats.billAfter}</span>
                                 </div>
-                                <div class="flex justify-between items-baseline text-emerald-400">
+                                <div class="flex justify-between items-baseline text-emerald-400 border-b border-white/10 pb-2">
                                     <span>Bill_Reduction:</span>
                                     <span class="font-bold">RM ${baselineStats.billReduction}</span>
                                 </div>
@@ -576,13 +862,13 @@
                                     <span>Export_Credit (${data.actualPanels}_Panels):</span>
                                     <span class="font-bold">RM ${baselineStats.exportCredit}</span>
                                 </div>
-                                <p class="text-[8px] text-white/40 uppercase tracking-tighter text-right">@ NEM_Rate: RM ${data.config.smpPrice}/kWh</p>
+                                <p class="text-xs text-white/40 uppercase tracking-tighter text-right">@ NEM_Rate: RM ${data.config.smpPrice}/kWh</p>
                             </div>
 
-                            <div class="pt-8 border-t border-white/40">
-                                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-baseline gap-2">
-                                    <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Total_Monthly_Savings:</span>
-                                    <span class="text-4xl md:text-5xl font-bold tracking-tighter text-emerald-400">RM ${baselineStats.totalSavings}</span>
+                            <div class="pt-10 border-t-2 border-white/40">
+                                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-baseline gap-4">
+                                    <span class="text-xs font-bold uppercase tracking-[0.2em] text-white/70">Total_Monthly_Savings:</span>
+                                    <span class="text-5xl md:text-6xl font-bold tracking-tighter text-emerald-400">RM ${baselineStats.totalSavings}</span>
                                 </div>
                             </div>
                         </div>
@@ -591,22 +877,22 @@
                     <div class="h-1 md:h-2 bg-black/10 -mx-4 md:-mx-6"></div>
 
                     <!-- 05 ROI SUMMARY -->
-                    <section>
-                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">05_ROI_MATRIX_SUMMARY</h2>
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-10 md:gap-12 py-10 md:py-12 border-y border-fact">
-                            <div class="space-y-2">
-                                <span class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] tier-3">Monthly_Savings_Est</span>
-                                <div class="text-3xl md:text-4xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</div>
+                    <section class="pt-4">
+                        <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">05_ROI_MATRIX_SUMMARY</h2>
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-10 md:gap-16 py-12 md:py-16 border-y-2 border-fact">
+                            <div class="space-y-4">
+                                <span class="text-xs md:text-sm uppercase tracking-[0.2em] tier-3 font-semibold">Monthly_Savings_Est</span>
+                                <div class="text-4xl md:text-5xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</div>
                             </div>
-                            <div class="h-px md:h-12 w-full md:w-px bg-divider"></div>
-                            <div class="space-y-2">
-                                <span class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] tier-3">ROI_Percentage</span>
-                                <div class="text-3xl md:text-4xl font-bold tracking-tighter">${roiDisplay}</div>
+                            <div class="h-px md:h-16 w-full md:w-px bg-divider"></div>
+                            <div class="space-y-4">
+                                <span class="text-xs md:text-sm uppercase tracking-[0.2em] tier-3 font-semibold">ROI_Percentage</span>
+                                <div class="text-4xl md:text-5xl font-bold tracking-tighter text-emerald-600">${roiDisplay}</div>
                             </div>
-                            <div class="h-px md:h-12 w-full md:w-px bg-divider"></div>
-                            <div class="space-y-2">
-                                <span class="text-[9px] md:text-[10px] uppercase tracking-[0.2em] tier-3">Payback_Period</span>
-                                <div class="text-3xl md:text-4xl font-bold tracking-tighter">${paybackDisplay}</div>
+                            <div class="h-px md:h-16 w-full md:w-px bg-divider"></div>
+                            <div class="space-y-4">
+                                <span class="text-xs md:text-sm uppercase tracking-[0.2em] tier-3 font-semibold">Payback_Period</span>
+                                <div class="text-4xl md:text-5xl font-bold tracking-tighter">${paybackDisplay}</div>
                             </div>
                         </div>
                     </section>
@@ -614,35 +900,35 @@
                     <div class="h-1 md:h-2 bg-black/10 -mx-4 md:-mx-6"></div>
 
                     <!-- 06 SYSTEM CONFIG -->
-                    <section>
-                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">06_SYSTEM_CONFIGURATION</h2>
-                        <div class="grid gap-10 md:grid-cols-2">
-                            <div class="space-y-4 md:space-y-6">
-                                <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">System_Size</span>
-                                    <span class="text-xs md:text-sm font-bold">${data.solarConfig}</span>
+                    <section class="pt-4">
+                        <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">06_SYSTEM_CONFIGURATION</h2>
+                        <div class="grid gap-12 md:grid-cols-2">
+                            <div class="space-y-6 md:space-y-8">
+                                <div class="flex justify-between items-center py-3 border-b border-divider">
+                                    <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">System_Size</span>
+                                    <span class="text-sm md:text-base font-bold">${data.solarConfig}</span>
                                 </div>
-                                <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Panel_Qty</span>
-                                    <span class="text-xs md:text-sm font-bold">${data.actualPanels} UNIT</span>
+                                <div class="flex justify-between items-center py-3 border-b border-divider">
+                                    <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Panel_Qty</span>
+                                    <span class="text-sm md:text-base font-bold">${data.actualPanels} UNIT</span>
                                 </div>
-                                <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Monthly_Yield</span>
-                                    <span class="text-xs md:text-sm font-bold">${data.details.totalGeneration} kWh</span>
+                                <div class="flex justify-between items-center py-3 border-b border-divider">
+                                    <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Monthly_Yield</span>
+                                    <span class="text-sm md:text-base font-bold">${data.details.totalGeneration} kWh</span>
                                 </div>
                             </div>
-                            <div class="space-y-4 md:space-y-6">
-                                <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Base_System_Cost</span>
-                                    <span class="text-xs md:text-sm font-bold">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
+                            <div class="space-y-6 md:space-y-8">
+                                <div class="flex justify-between items-center py-3 border-b border-divider">
+                                    <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Base_System_Cost</span>
+                                    <span class="text-sm md:text-base font-bold">RM ${formatCurrency(data.systemCostBeforeDiscount)}</span>
                                 </div>
-                                <div class="flex justify-between items-center py-2 border-b border-divider">
-                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Applied_Discounts</span>
-                                    <span class="text-xs md:text-sm font-bold text-emerald-600">-RM ${formatCurrency(data.totalDiscountAmount)}</span>
+                                <div class="flex justify-between items-center py-3 border-b border-divider">
+                                    <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Applied_Discounts</span>
+                                    <span class="text-sm md:text-base font-bold text-emerald-600">-RM ${formatCurrency(data.totalDiscountAmount)}</span>
                                 </div>
-                                <div class="flex justify-between items-center py-2 border-b border-divider bg-black/5 px-2 -mx-2">
-                                    <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3 font-bold">Net_Investment</span>
-                                    <span class="text-xs md:text-sm font-bold">RM ${formatCurrency(data.finalSystemCost)}</span>
+                                <div class="flex justify-between items-center py-4 border-b-2 border-fact bg-black/5 px-4 -mx-4">
+                                    <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-bold">Net_Investment</span>
+                                    <span class="text-base md:text-lg font-bold">RM ${formatCurrency(data.finalSystemCost)}</span>
                                 </div>
                             </div>
                         </div>
@@ -651,35 +937,34 @@
                     <div class="h-1 md:h-2 bg-black/10 -mx-4 md:-mx-6"></div>
 
                     <!-- 07 LEDGER COMPARISON -->
-                    <section>
-                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">07_SAVINGS_LEDGER</h2>
-                        <div class="space-y-4">
+                    <section class="pt-4">
+                        <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">07_SAVINGS_LEDGER</h2>
+                        <div class="space-y-6">
                             <div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                                <div class="min-w-[320px] space-y-4">
-                                    <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-2 md:gap-4 tier-3 uppercase text-[8px] md:text-[9px] tracking-widest pb-4">
+                                <div class="min-w-[400px] space-y-4">
+                                    <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-2 md:gap-4 tier-3 uppercase text-xs md:text-xs tracking-widest pb-4 border-b border-divider">
                                         <span>Component</span>
                                         <span class="text-right">Baseline</span>
                                         <span class="text-right">Post_Solar</span>
                                         <span class="text-right">Delta</span>
                                     </div>
-                                    <div class="ledger-line"></div>
                                     ${buildLedgerRows(baselineStats.billBreakdown)}
                                 </div>
                             </div>
-                            <div class="ledger-double-line pt-4 mt-2 flex justify-between items-baseline gap-4">
-                                <span class="text-[9px] md:text-[10px] font-bold uppercase tracking-widest tier-2">Monthly_Bill</span>
-                                <div class="flex flex-col items-end sm:flex-row sm:items-baseline gap-1 md:gap-4">
-                                    <span class="text-base md:text-lg font-bold">RM ${baselineStats.billAfter}</span>
-                                    <span class="text-[9px] md:text-sm tier-3">(${baselineStats.billReduction} Reduced)</span>
+                            <div class="ledger-double-line pt-8 mt-6 flex justify-between items-baseline gap-4">
+                                <span class="text-xs md:text-sm font-bold uppercase tracking-[0.2em] tier-2">Monthly_Bill</span>
+                                <div class="flex flex-col items-end sm:flex-row sm:items-baseline gap-2 md:gap-6">
+                                    <span class="text-2xl md:text-3xl font-bold">RM ${baselineStats.billAfter}</span>
+                                    <span class="text-xs md:text-base tier-3">(${baselineStats.billReduction} Reduced)</span>
                                 </div>
                             </div>
-                            <div class="flex justify-between items-baseline py-2 gap-4">
-                                <span class="text-[9px] md:text-[10px] font-bold uppercase tracking-widest tier-2">NEM_Export_Earnings</span>
-                                <span class="text-base md:text-lg font-bold text-emerald-600">+RM ${baselineStats.exportCredit}</span>
+                            <div class="flex justify-between items-baseline py-4 gap-4 border-b border-divider/50">
+                                <span class="text-xs md:text-sm font-bold uppercase tracking-[0.2em] tier-2">NEM_Export_Earnings</span>
+                                <span class="text-2xl md:text-3xl font-bold text-emerald-600">+RM ${baselineStats.exportCredit}</span>
                             </div>
-                            <div class="ledger-double-line pt-6 mt-6 flex justify-between items-baseline bg-black text-white p-4 md:p-6 -mx-4 md:-mx-6">
-                                <span class="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] md:tracking-[0.3em]">Net_Monthly_Savings</span>
-                                <span class="text-2xl md:text-3xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</span>
+                            <div class="ledger-double-line pt-10 mt-10 flex justify-between items-baseline bg-black text-white p-8 md:p-12 -mx-4 md:-mx-6 shadow-xl">
+                                <span class="text-xs md:text-sm font-bold uppercase tracking-[0.3em]">Net_Monthly_Savings</span>
+                                <span class="text-4xl md:text-5xl font-bold tracking-tighter">RM ${baselineStats.totalSavings}</span>
                             </div>
                         </div>
                     </section>
@@ -687,9 +972,9 @@
                     <div class="h-1 md:h-2 bg-black/10 -mx-4 md:-mx-6"></div>
 
                     <!-- 08 FOOTNOTES -->
-                    <section class="opacity-60">
-                        <h2 class="text-[8px] md:text-[9px] font-bold uppercase tracking-widest mb-6 tier-3">08_AFA_METHODOLOGY</h2>
-                        <div class="space-y-4 text-[9px] md:text-[10px] leading-relaxed tier-3 max-w-2xl">
+                    <section class="pt-4 opacity-70">
+                        <h2 class="text-xs md:text-sm font-bold uppercase tracking-[0.2em] mb-6 tier-3">08_AFA_METHODOLOGY</h2>
+                        <div class="space-y-4 text-xs md:text-sm leading-relaxed tier-3 max-w-2xl">
                             <p>[*] AFA_IMPACT: Solar reduces grid consumption, lowering fuel adjustment charges by RM ${baselineStats.afaImpact}. 
                             ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 
                                 ? 'In surcharge periods, this scales as a direct saving.' 
@@ -701,30 +986,30 @@
 
                     <!-- BATTERY INTEGRATION -->
                     ${data.config.batterySize > 0 ? `
-                    <section class="pt-16 md:pt-24 border-t border-divider">
-                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest mb-8 md:mb-10 tier-2">08_BATTERY_STORAGE_INTEGRATION</h2>
-                        <div class="grid gap-10 md:grid-cols-3">
-                            <div class="space-y-2">
-                                <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Storage_Capacity</span>
-                                <div class="flex items-center gap-4">
-                                    <button onclick="adjustBatterySize(-5)" class="text-lg border border-divider w-8 h-8 md:w-10 md:h-10 hover:bg-black hover:text-white transition-colors">-</button>
-                                    <span class="text-lg md:text-xl font-bold">${data.config.batterySize} kWh</span>
-                                    <button onclick="adjustBatterySize(5)" class="text-lg border border-divider w-8 h-8 md:w-10 md:h-10 hover:bg-black hover:text-white transition-colors">+</button>
+                    <section class="pt-16 md:pt-24 border-t-2 border-divider">
+                        <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">08_BATTERY_STORAGE_INTEGRATION</h2>
+                        <div class="grid gap-12 md:grid-cols-3">
+                            <div class="space-y-4">
+                                <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Storage_Capacity</span>
+                                <div class="flex items-center gap-6">
+                                    <button onclick="adjustBatterySize(-5)" class="text-xl border-2 border-divider w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors">-</button>
+                                    <span class="text-xl md:text-2xl font-bold">${data.config.batterySize} kWh</span>
+                                    <button onclick="adjustBatterySize(5)" class="text-xl border-2 border-divider w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors">+</button>
                                 </div>
                             </div>
-                            <div class="space-y-2">
-                                <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Value_Add</span>
-                                <div class="text-lg md:text-xl font-bold text-emerald-600">+RM ${(Number(data.details.savingsBreakdown.total) - Number(data.monthlySavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2})} / mo</div>
+                            <div class="space-y-4">
+                                <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Battery_Value_Add</span>
+                                <div class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${(Number(data.monthlySavings.replace(/,/g,'')) - Number(data.details.savingsBreakdown.total)).toLocaleString('en-MY', {minimumFractionDigits: 2})} / mo</div>
                             </div>
-                            <div class="space-y-2">
-                                <span class="text-[9px] md:text-[10px] uppercase tracking-widest tier-3">Net_Battery_Saving</span>
-                                <div class="text-lg md:text-xl font-bold tracking-tighter">RM ${formatCurrency(batteryTotalSaving)}</div>
+                            <div class="space-y-4">
+                                <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Total_Monthly_Savings</span>
+                                <div class="text-xl md:text-2xl font-bold tracking-tighter">RM ${data.monthlySavings}</div>
                             </div>
                         </div>
                     </section>
                     ` : `
-                    <section class="pt-8 md:pt-12 text-center tier-3 text-[9px] md:text-[10px] uppercase tracking-widest">
-                        <button onclick="adjustBatterySize(5)" class="hover:tier-1 underline">[+]_SIMULATE_BATTERY_STORAGE</button>
+                    <section class="pt-12 md:pt-16 text-center tier-3 text-xs md:text-sm uppercase tracking-widest border-t border-divider">
+                        <button onclick="adjustBatterySize(5)" class="hover:tier-1 underline font-bold">[+]_SIMULATE_BATTERY_STORAGE</button>
                     </section>
                     `}
                 </div>
@@ -895,6 +1180,15 @@
                 return;
             }
 
+            // Update parameters
+            latestSolarParams.overridePanels = newCount;
+            
+            // If we have local data, use it for instant update
+            if (tariffs.length && packages.length) {
+                saving_calculation_function();
+                return;
+            }
+
             if (panelUpdateInFlight) {
                 return;
             }
@@ -932,6 +1226,12 @@
             
             latestSolarParams.batterySize = newSize;
             
+            // If we have local data, use it for instant update
+            if (tariffs.length && packages.length) {
+                saving_calculation_function();
+                return;
+            }
+
             // Re-fetch calculation with new battery size
             // Note: this will re-render the whole results section
             const resultsDiv = document.getElementById('calculatorResults');
@@ -965,7 +1265,7 @@
             if (!bar) {
                 bar = document.createElement('div');
                 bar.id = 'floatingPanelBar';
-                bar.className = 'fixed bottom-0 left-0 right-0 z-[10000] px-4 py-6 md:px-6 md:py-8';
+                bar.className = 'fixed bottom-0 left-0 right-0 z-[10000] px-4 py-8 md:px-8 md:py-10 pointer-events-none';
                 document.body.appendChild(bar);
             }
 
@@ -974,24 +1274,24 @@
                 const diff = Number(data.selectedPackage.price) - Number(originalSolarData.selectedPackage.price);
                 if (Math.abs(diff) > 0.01) {
                     const colorClass = diff > 0 ? 'text-rose-600' : 'text-emerald-600';
-                    priceDiffHtml = `<div class="text-[8px] md:text-[9px] uppercase tracking-widest ${colorClass}">INVESTMENT_DELTA: ${diff > 0 ? '+' : '-'}RM ${Math.abs(diff).toFixed(0)}</div>`;
+                    priceDiffHtml = `<div class="text-xs md:text-sm font-bold uppercase tracking-widest ${colorClass}">INVESTMENT_DELTA: ${diff > 0 ? '+' : '-'}RM ${Math.abs(diff).toFixed(0)}</div>`;
                 }
             }
 
             bar.innerHTML = `
-                <div class="mx-auto max-w-4xl border border-fact bg-paper p-4 md:p-6 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 md:gap-6">
-                    <div class="space-y-1 text-center sm:text-left">
-                        <div class="text-[9px] md:text-[10px] font-bold uppercase tracking-[0.2em]">PANEL_MODULATION</div>
-                        <div class="text-[8px] md:text-[9px] tier-3 uppercase tracking-widest">Recommended: ${data.recommendedPanels} Units</div>
+                <div class="mx-auto max-w-4xl border-2 border-fact bg-paper p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-center justify-between gap-6 md:gap-8 pointer-events-auto transition-transform hover:translate-x-[-2px] hover:translate-y-[-2px]">
+                    <div class="space-y-2 text-center sm:text-left">
+                        <div class="text-xs md:text-sm font-bold uppercase tracking-[0.3em] border-b border-fact pb-1">PANEL_MODULATION</div>
+                        <div class="text-xs md:text-sm tier-3 uppercase tracking-widest font-bold">Recommended: ${data.recommendedPanels} Units</div>
                         ${priceDiffHtml}
                     </div>
-                    <div class="flex items-center gap-4 md:gap-6">
-                        <div class="flex items-center border border-divider">
-                            <button onclick="adjustPanelCount(-1)" class="w-8 h-8 md:w-10 md:h-10 hover:bg-black hover:text-white transition-colors">-</button>
-                            <input type="number" id="panelQtyInputFloating" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-12 md:w-16 text-center text-xs md:text-sm font-bold border-none py-0">
-                            <button onclick="adjustPanelCount(1)" class="w-8 h-8 md:w-10 md:h-10 hover:bg-black hover:text-white transition-colors">+</button>
+                    <div class="flex items-center gap-6 md:gap-10">
+                        <div class="flex items-center border-2 border-fact bg-white">
+                            <button onclick="adjustPanelCount(-1)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-xl font-bold">-</button>
+                            <input type="number" id="panelQtyInputFloating" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-16 md:w-20 text-center text-lg md:text-xl font-bold border-none py-0 bg-transparent">
+                            <button onclick="adjustPanelCount(1)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-xl font-bold">+</button>
                         </div>
-                        <div id="panelAdjustSpinnerFloating" class="hidden w-4 h-4 border-2 border-fact border-t-transparent animate-spin"></div>
+                        <div id="panelAdjustSpinnerFloating" class="hidden w-6 h-6 border-4 border-fact border-t-transparent animate-spin"></div>
                     </div>
                 </div>
             `;
@@ -1064,14 +1364,14 @@
 
             const packageInfo = data.selectedPackage ?
                 `<div class="mt-8 p-6 border border-fact bg-black text-white">
-                    <div class="text-[10px] uppercase tracking-widest opacity-70 mb-4">SELECTED_PACKAGE</div>
+                    <div class="text-xs uppercase tracking-widest opacity-70 mb-4">SELECTED_PACKAGE</div>
                     <div class="text-lg font-bold tracking-tighter mb-2">${data.selectedPackage.packageName}</div>
-                    <div class="text-[10px] uppercase tracking-widest opacity-70 space-y-1">
+                    <div class="text-xs uppercase tracking-widest opacity-70 space-y-1">
                         <div>Price: RM ${parseFloat(data.selectedPackage.price).toLocaleString('en-MY', {minimumFractionDigits: 2})}</div>
                         <div>Config: ${data.actualPanels} UNIT x ${data.config.panelType}W</div>
                     </div>
                 </div>` :
-                `<div class="mt-8 p-6 border border-divider tier-3 text-[10px] uppercase tracking-widest text-center">
+                `<div class="mt-8 p-6 border border-divider tier-3 text-xs uppercase tracking-widest text-center">
                     [ NO_MATCHING_PACKAGE_FOUND ]
                 </div>`;
 
@@ -1084,18 +1384,18 @@
 
                     <div class="text-center">
                         <div class="text-6xl font-bold tracking-tighter mb-2">${data.recommendedPanels}</div>
-                        <div class="text-[10px] uppercase tracking-[0.3em] tier-3">Recommended_Panel_Units</div>
+                        <div class="text-xs uppercase tracking-[0.3em] tier-3">Recommended_Panel_Units</div>
                     </div>
 
-                    <div class="text-[9px] leading-relaxed tier-3 uppercase tracking-widest text-center border-y border-divider py-6">
+                    <div class="text-[11px] leading-relaxed tier-3 uppercase tracking-widest text-center border-y border-divider py-6">
                         Basis: ${data.details.monthlyUsageKwh}kWh / ${data.config.sunPeakHour}h / 30 / 0.62 Efficiency
                     </div>
 
                     ${packageInfo}
 
                     <div class="grid grid-cols-2 gap-4">
-                        <button id="popupCloseBtn" class="border border-divider py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-divider transition-colors">Close</button>
-                        <button id="popupViewDetailsBtn" class="bg-black text-white py-4 text-[10px] font-bold uppercase tracking-widest hover:opacity-80 transition-colors">View_Full_Report</button>
+                        <button id="popupCloseBtn" class="border border-divider py-4 text-xs font-bold uppercase tracking-widest hover:bg-divider transition-colors">Close</button>
+                        <button id="popupViewDetailsBtn" class="bg-black text-white py-4 text-xs font-bold uppercase tracking-widest hover:opacity-80 transition-colors">View_Full_Report</button>
                     </div>
                 </div>
             `;

@@ -15,8 +15,8 @@ app.use(express.static('public'));
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:tkaYtCcfkqfsWKjQguFMqIcANbJNcNZA@shinkansen.proxy.rlwy.net:34999/railway',
+  ssl: { rejectUnauthorized: false }
 });
 
 // Helper function to find the closest tariff based on adjusted total (bill + afa)
@@ -937,6 +937,31 @@ app.get('/api/solar-calculation', async (req, res) => {
   } catch (err) {
     console.error('Solar calculation error:', err);
     res.status(500).json({ error: 'Failed to calculate solar savings', details: err.message });
+  }
+});
+
+app.get('/api/all-data', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    const tariffs = await client.query('SELECT usage_kwh, usage_normal, network, capacity, sst_normal, eei, bill_total_normal, retail, kwtbb_normal FROM tnb_tariff_2025 ORDER BY usage_kwh ASC');
+    const packages = await client.query(`
+      SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special, p.max_discount, p.invoice_desc,
+             pr.bubble_id, pr.solar_output_rating
+      FROM package p
+      JOIN product pr ON (
+        CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+        OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+      )
+      WHERE p.active = true AND p.type = 'Residential'
+    `);
+    client.release();
+    res.json({
+      tariffs: tariffs.rows,
+      packages: packages.rows
+    });
+  } catch (err) {
+    console.error('All data fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch all data', details: err.message });
   }
 });
 
