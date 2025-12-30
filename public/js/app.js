@@ -369,7 +369,7 @@ class SolarCalculator {
             recommendedPanels, actualPanels: actualPanelQty,
             panelAdjustment: actualPanelQty - recommendedPanels,
             overrideApplied: overridePanels !== null,
-            selectedPackage: selectedPackage ? { packageName: selectedPackage.package_name, price: selectedPackage.price, panelWattage: panelType } : null,
+            selectedPackage: selectedPackage ? { packageName: selectedPackage.package_name, price: selectedPackage.price, panelWattage: panelType, bubbleId: selectedPackage.bubble_id } : null,
             solarConfig: `${actualPanelQty} x ${panelType}W panels (${(actualPanelQty * panelType / 1000).toFixed(1)} kW system)`,
             monthlySavings: totalMonthlySavings.toFixed(2),
             confidenceLevel: confidenceLevel.toFixed(1),
@@ -513,6 +513,42 @@ window.syncAndTrigger = function(id, value) {
     }
 };
 
+window.generateInvoiceLink = function() {
+    if (!latestSolarData || !latestSolarData.selectedPackage || !latestSolarData.selectedPackage.bubbleId) {
+        showNotification('No valid package selected for invoice. Please ensure a package is matched.', 'error');
+        return;
+    }
+
+    const baseUrl = 'https://ee-invoicing-v2-production.railway.app/create-invoice';
+    const params = new URLSearchParams();
+    
+    // Required
+    params.set('package_id', latestSolarData.selectedPackage.bubbleId);
+
+    // Optional: Discount
+    // Access params from latestSolarParams
+    const pDisc = latestSolarParams.percentDiscount || 0;
+    const fDisc = latestSolarParams.fixedDiscount || 0;
+    let discountStr = '';
+
+    if (fDisc > 0) discountStr += `${fDisc}`;
+    if (pDisc > 0) {
+        if (discountStr) discountStr += ' '; // Space separator for combined
+        discountStr += `${pDisc}%`;
+    }
+    
+    if (discountStr) params.set('discount_given', discountStr);
+
+    // Optional: Customer Default
+    params.set('customer_name', 'Sample Quotation');
+    
+    // Optional: Panel Info (for reference)
+    if (latestSolarData.actualPanels) params.set('panel_qty', latestSolarData.actualPanels);
+    if (latestSolarData.config.panelType) params.set('panel_rating', `${latestSolarData.config.panelType}W`);
+
+    window.open(`${baseUrl}?${params.toString()}`, '_blank');
+};
+
 // --- UI Rendering ---
 
 function displayBillBreakdown(data) {
@@ -628,6 +664,13 @@ function displaySolarCalculation(data) {
                     </div>
                 </div>
             </section>
+
+            <div class="flex justify-center -mt-10 mb-10 relative z-10">
+                 <button onclick="generateInvoiceLink()" class="bg-white text-black font-bold uppercase tracking-[0.2em] text-xs md:text-sm px-8 py-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[4px] hover:translate-y-[4px] transition-all border-2 border-black flex items-center gap-3">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Create_Invoice_Link
+                 </button>
+            </div>
 
             <section class="pt-4 border-y-2 border-fact py-12 md:py-16">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
