@@ -48,17 +48,17 @@ The Invoice Creation Page is a web-based form that allows sales agents to create
 ### Production URL
 
 ```
-https://your-domain.com/create-invoice
+https://ee-inv-v2-production.up.railway.app/create-invoice
 ```
 
-**Note:** Replace `your-domain.com` with your actual production domain (e.g., `ee-invoicing-v2-production.railway.app`)
+**Note:** Replace `ee-inv-v2-production.up.railway.app` with your actual production domain (e.g., `ee-inv-v2-production.up.railway.app`)
 
 **How to Find Your Production Domain:**
 1. Go to Railway Dashboard: https://railway.app
 2. Select your project → Your Invoicing Service
 3. Go to Settings → Public Domain
 4. Copy the domain (e.g., `ee-invoicing-v2-production-xxxx`)
-5. Your base URL: `https://ee-invoicing-v2-production-xxxx.railway.app/create-invoice`
+5. Your base URL: `https://ee-inv-v2-production-xxxx.up.railway.app/create-invoice`
 
 ### Localhost/Development URL
 
@@ -101,11 +101,11 @@ http://localhost:8080/create-invoice
 
 **Basic Format:**
 ```
-https://your-domain.com/create-invoice?package_id=PACKAGE_ID&parameter1=value1&parameter2=value2
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=PACKAGE_ID&parameter1=value1&parameter2=value2
 ```
 
 **Steps:**
-1. Start with base URL: `https://your-domain.com/create-invoice`
+1. Start with base URL: `https://ee-inv-v2-production.up.railway.app/create-invoice`
 2. Add `?` to start query parameters
 3. Add `package_id=PACKAGE_ID` (required)
 4. Add additional parameters with `&` separator
@@ -113,7 +113,7 @@ https://your-domain.com/create-invoice?package_id=PACKAGE_ID&parameter1=value1&p
 
 **Example:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500&customer_name=John%20Doe
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500&customer_name=John%20Doe
 ```
 
 ### Method 2: Using URL Builder (JavaScript/TypeScript)
@@ -138,7 +138,7 @@ function buildInvoiceLink(baseUrl, params) {
 }
 
 // Usage
-const link = buildInvoiceLink('https://your-domain.com/create-invoice', {
+const link = buildInvoiceLink('https://ee-inv-v2-production.up.railway.app/create-invoice', {
     packageId: '1703833647950x572894707690242050',
     discountGiven: '500',
     customerName: 'John Doe',
@@ -156,7 +156,7 @@ def build_invoice_link(base_url, package_id, **kwargs):
     Build invoice creation link with parameters.
     
     Args:
-        base_url: Base URL (e.g., 'https://your-domain.com/create-invoice')
+        base_url: Base URL (e.g., 'https://ee-inv-v2-production.up.railway.app/create-invoice')
         package_id: Required package ID
         **kwargs: Optional parameters (discount_given, customer_name, etc.)
     
@@ -181,7 +181,7 @@ def build_invoice_link(base_url, package_id, **kwargs):
 
 # Usage
 link = build_invoice_link(
-    'https://your-domain.com/create-invoice',
+    'https://ee-inv-v2-production.up.railway.app/create-invoice',
     package_id='1703833647950x572894707690242050',
     discount_given='500',
     customer_name='John Doe',
@@ -205,7 +205,7 @@ Use online URL builders or query string generators:
 
 **Link:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1703833647950x572894707690242050
 ```
 
 **What Happens:**
@@ -222,7 +222,7 @@ https://your-domain.com/create-invoice?package_id=1703833647950x5728947076902420
 
 **Link:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500
 ```
 
 **Discount Formats Supported:**
@@ -251,7 +251,7 @@ discount_given=500%2010%25
 
 **Link:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&customer_name=John%20Doe&customer_phone=60123456789&customer_address=123%20Main%20St%2C%20City
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1703833647950x572894707690242050&customer_name=John%20Doe&customer_phone=60123456789&customer_address=123%20Main%20St%2C%20City
 ```
 
 **URL Encoding:**
@@ -267,7 +267,7 @@ const params = new URLSearchParams({
     customer_phone: '60123456789',
     customer_address: '123 Main St, City'
 });
-const url = `https://your-domain.com/create-invoice?${params}`;
+const url = `https://ee-inv-v2-production.up.railway.app/create-invoice?${params}`;
 ```
 
 ---
@@ -278,7 +278,7 @@ const url = `https://your-domain.com/create-invoice?${params}`;
 
 **Link:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&panel_qty=8&panel_rating=450W&discount_given=500%2010%25&customer_name=John%20Doe&customer_phone=60123456789&customer_address=123%20Main%20St&template_id=template_123
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1703833647950x572894707690242050&panel_qty=8&panel_rating=450W&discount_given=500%2010%25&customer_name=John%20Doe&customer_phone=60123456789&customer_address=123%20Main%20St&template_id=template_123
 ```
 
 ---
@@ -293,7 +293,7 @@ https://your-domain.com/create-invoice?package_id=1703833647950x5728947076902420
 
 **Link:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1703833647950x572894707690242050&discount_given=500
 ```
 
 ---
@@ -308,7 +308,7 @@ https://your-domain.com/create-invoice?package_id=1703833647950x5728947076902420
 
 **Link:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833688009x793606512485335000&discount_given=10%25&customer_name=ABC%20Company&customer_phone=60123456789
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1703833688009x793606512485335000&discount_given=10%25&customer_name=ABC%20Company&customer_phone=60123456789
 ```
 
 ---
@@ -321,7 +321,7 @@ https://your-domain.com/create-invoice?package_id=1703833688009x7936065124853350
 
 **Link:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833788622x969335742275256300
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1703833788622x969335742275256300
 ```
 
 **Note:** Customer name will default to "Sample Quotation" if not provided.
@@ -338,7 +338,7 @@ https://your-domain.com/create-invoice?package_id=1703833788622x9693357422752563
 
 **Link:**
 ```
-https://your-domain.com/create-invoice?package_id=1703833647950x572894707690242050&panel_qty=8&panel_rating=450W&discount_given=1000
+https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=1703833647950x572894707690242050&panel_qty=8&panel_rating=450W&discount_given=1000
 ```
 
 ---
@@ -606,7 +606,7 @@ def generate_invoice_link_from_order(order):
     Returns:
         Complete invoice creation URL
     """
-    base_url = "https://your-domain.com/create-invoice"
+    base_url = "https://ee-inv-v2-production.up.railway.app/create-invoice"
     params = {
         'package_id': order.package_id,
     }
@@ -649,7 +649,7 @@ order = Order(
 )
 
 invoice_link = generate_invoice_link_from_order(order)
-# Returns: https://your-domain.com/create-invoice?package_id=...&discount_given=500%2010%25&...
+# Returns: https://ee-inv-v2-production.up.railway.app/create-invoice?package_id=...&discount_given=500%2010%25&...
 ```
 
 ---

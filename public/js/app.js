@@ -519,7 +519,7 @@ window.generateInvoiceLink = function() {
         return;
     }
 
-    const baseUrl = 'https://ee-invoicing-v2-production.railway.app/create-invoice';
+    const baseUrl = 'https://ee-inv-v2-production.up.railway.app/create-invoice';
     const params = new URLSearchParams();
     
     // Required
