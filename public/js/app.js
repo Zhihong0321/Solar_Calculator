@@ -511,52 +511,52 @@ function renderFloatingPanelModulation(data) {
     if (!bar) {
         bar = document.createElement('div');
         bar.id = 'floatingPanelBar';
-        bar.className = 'fixed bottom-0 left-0 right-0 z-[10000] px-4 py-8 pointer-events-none';
+        bar.className = 'fixed bottom-4 left-0 right-0 z-[10000] flex justify-center pointer-events-none';
         document.body.appendChild(bar);
     }
     const delta = originalSolarData ? parseFloat(data.selectedPackage?.price || 0) - parseFloat(originalSolarData.selectedPackage?.price || 0) : 0;
     
+    // Minimalist "Pill" Design
     bar.innerHTML = `
-        <div class="mx-auto max-w-5xl border-2 border-fact bg-paper p-4 md:p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] pointer-events-auto">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
-                
-                <!-- Quick Tune: Sun Peak -->
-                <div class="flex flex-col items-center md:items-start gap-1">
-                    <span class="text-[10px] font-bold uppercase tracking-widest tier-3">Sun_Peak_(hr)</span>
-                    <div class="flex items-center border-b-2 border-fact bg-white/50">
-                        <button onclick="syncAndTrigger('sunPeakHour', (parseFloat(${data.config.sunPeakHour}) - 0.1).toFixed(1))" class="w-8 h-8 hover:bg-black hover:text-white transition-colors font-bold">-</button>
-                        <span class="w-12 text-center font-bold text-sm">${data.config.sunPeakHour}</span>
-                        <button onclick="syncAndTrigger('sunPeakHour', (parseFloat(${data.config.sunPeakHour}) + 0.1).toFixed(1))" class="w-8 h-8 hover:bg-black hover:text-white transition-colors font-bold">+</button>
-                    </div>
+        <div class="bg-paper border-2 border-fact shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] pointer-events-auto flex items-center gap-4 px-4 py-2">
+            
+            <!-- Sun Peak -->
+            <div class="flex items-center gap-1">
+                <span class="text-[9px] font-bold uppercase tracking-wider tier-3">Sun</span>
+                <div class="flex items-center bg-white border border-fact">
+                    <button onclick="syncAndTrigger('sunPeakHour', (parseFloat(${data.config.sunPeakHour}) - 0.1).toFixed(1))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">-</button>
+                    <span class="w-8 text-center font-bold text-xs leading-none">${data.config.sunPeakHour}</span>
+                    <button onclick="syncAndTrigger('sunPeakHour', (parseFloat(${data.config.sunPeakHour}) + 0.1).toFixed(1))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">+</button>
                 </div>
-
-                <!-- Quick Tune: Morning Usage -->
-                <div class="flex flex-col items-center md:items-start gap-1">
-                    <span class="text-[10px] font-bold uppercase tracking-widest tier-3">Day_Use_(%)</span>
-                    <div class="flex items-center border-b-2 border-fact bg-white/50">
-                        <button onclick="syncAndTrigger('morningUsage', Math.max(1, ${data.config.morningUsage} - 5))" class="w-8 h-8 hover:bg-black hover:text-white transition-colors font-bold">-</button>
-                        <span class="w-12 text-center font-bold text-sm">${data.config.morningUsage}%</span>
-                        <button onclick="syncAndTrigger('morningUsage', Math.min(100, ${data.config.morningUsage} + 5))" class="w-8 h-8 hover:bg-black hover:text-white transition-colors font-bold">+</button>
-                    </div>
-                </div>
-
-                <!-- Existing: Panel Modulation -->
-                <div class="flex flex-col items-center md:items-end gap-1 flex-grow">
-                    <div class="text-[10px] font-bold uppercase tracking-widest border-b border-fact pb-0.5 mb-1">Panel_Count</div>
-                    <div class="flex items-center gap-4">
-                        <div class="text-right hidden sm:block">
-                            <div class="text-[10px] tier-3 uppercase font-bold">Rec: ${data.recommendedPanels}</div>
-                            ${Math.abs(delta) > 1 ? `<div class="text-[10px] font-bold ${delta>0?'text-rose-600':'text-emerald-600'}">${delta>0?'+':'-'}RM ${formatCurrency(Math.abs(delta))}</div>` : ''}
-                        </div>
-                        <div class="flex items-center border-2 border-fact bg-white">
-                            <button onclick="adjustPanelCount(-1)" class="w-10 h-10 hover:bg-black hover:text-white transition-colors text-xl font-bold">-</button>
-                            <input type="number" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-14 text-center font-bold border-none bg-transparent outline-none">
-                            <button onclick="adjustPanelCount(1)" class="w-10 h-10 hover:bg-black hover:text-white transition-colors text-xl font-bold">+</button>
-                        </div>
-                    </div>
-                </div>
-
             </div>
+
+            <div class="h-4 w-px bg-divider"></div>
+
+            <!-- Morning Usage -->
+            <div class="flex items-center gap-1">
+                <span class="text-[9px] font-bold uppercase tracking-wider tier-3">Use</span>
+                <div class="flex items-center bg-white border border-fact">
+                    <button onclick="syncAndTrigger('morningUsage', Math.max(1, ${data.config.morningUsage} - 5))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">-</button>
+                    <span class="w-8 text-center font-bold text-xs leading-none">${data.config.morningUsage}%</span>
+                    <button onclick="syncAndTrigger('morningUsage', Math.min(100, ${data.config.morningUsage} + 5))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">+</button>
+                </div>
+            </div>
+
+            <div class="h-4 w-px bg-divider"></div>
+
+            <!-- Panels -->
+            <div class="flex items-center gap-1">
+                <div class="flex flex-col items-end leading-none">
+                    <span class="text-[9px] font-bold uppercase tracking-wider tier-3">Panel</span>
+                    ${Math.abs(delta) > 1 ? `<span class="text-[8px] font-bold ${delta>0?'text-rose-600':'text-emerald-600'}">${delta>0?'+':'-'}RM${Math.round(Math.abs(delta)/1000)}k</span>` : ''}
+                </div>
+                <div class="flex items-center bg-white border border-fact">
+                    <button onclick="adjustPanelCount(-1)" class="w-6 h-6 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">-</button>
+                    <input type="number" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-8 text-center font-bold text-xs border-none bg-transparent outline-none p-0 appearance-none leading-none">
+                    <button onclick="adjustPanelCount(1)" class="w-6 h-6 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">+</button>
+                </div>
+            </div>
+
         </div>
     `;
 }
