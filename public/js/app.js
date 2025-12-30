@@ -620,6 +620,11 @@ function displaySolarCalculation(data) {
         resultsDiv.appendChild(solarDiv);
     }
 
+    // Visual Feedback for "On The Spot" Update
+    solarDiv.classList.remove('opacity-50');
+    void solarDiv.offsetWidth; // Trigger reflow
+    solarDiv.classList.add('transition-opacity', 'duration-200');
+
     solarDiv.innerHTML = `
         <div class="space-y-20 md:space-y-32">
             <!-- 04 EXECUTIVE SUMMARY -->
