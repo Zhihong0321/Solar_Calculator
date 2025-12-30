@@ -945,7 +945,7 @@ app.get('/api/all-data', async (req, res) => {
     const client = await pool.connect();
     const tariffs = await client.query('SELECT usage_kwh, usage_normal, network, capacity, sst_normal, eei, bill_total_normal, retail, kwtbb_normal FROM tnb_tariff_2025 ORDER BY usage_kwh ASC');
     const packages = await client.query(`
-      SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special, p.max_discount, p.invoice_desc,
+      SELECT p.id, p.name as package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special, p.max_discount, p.invoice_desc,
              pr.bubble_id, pr.solar_output_rating
       FROM package p
       JOIN product pr ON (
