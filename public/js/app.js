@@ -67,6 +67,40 @@ function initReversePage() {
     });
 }
 
+function updateScenarioUI(id, status, value, desc, sunPeak = null, morningUsage = null) {
+    const statusEl = document.getElementById(id + '_status');
+    const valEl = document.getElementById(id + '_value');
+    const descEl = document.getElementById(id + '_desc');
+    
+    if (statusEl) {
+        statusEl.innerText = status;
+        statusEl.className = `px-3 py-1 text-xs font-bold uppercase tracking-widest ${
+            status === 'REALISTIC' ? 'bg-emerald-100 text-emerald-800' : 
+            (status === 'IMPOSSIBLE' || status === 'RIDICULOUS' ? 'bg-rose-100 text-rose-800' : 'bg-orange-100 text-orange-800')
+        }`;
+    }
+    
+    // Calculate and append Confidence Level if sunPeak is provided
+    let valueHtml = value;
+    if (sunPeak !== null && sunPeak > 3.4) {
+        let confidence = 90;
+        const diff = sunPeak - 3.4;
+        const penalty = (diff / 0.1) * 7;
+        confidence = Math.max(0, 90 - penalty).toFixed(1);
+        valueHtml += ` <span class="text-xs font-bold ${confidence < 50 ? 'text-rose-600' : 'text-orange-500'}">[Confidence: ${confidence}%]</span>`;
+    }
+    
+    if (valEl) valEl.innerHTML = valueHtml;
+    
+    // Add Warning Note for high morning usage
+    let finalDesc = desc || '';
+    if (morningUsage !== null && morningUsage > 50) {
+        finalDesc += `<br><span class="text-[10px] text-rose-600 font-bold mt-2 block leading-tight">NOTE: In a typical residential scenario, daytime usage is usually low as occupants are often away from home. Please be cautious of high morning offset estimations.</span>`;
+    }
+    
+    if (descEl) descEl.innerHTML = finalDesc;
+}
+
 function runReverseSimulation() {
     const systemSizeKwp = parseFloat(document.getElementById('systemSize').value);
     const billAmount = parseFloat(document.getElementById('billAmount').value);
@@ -83,10 +117,9 @@ function runReverseSimulation() {
     setTimeout(() => resultsDiv.classList.remove('opacity-0'), 50);
 
     // Common params
-    // Treat system as 1 panel of X watts to simplify math
     const baseParams = {
         amount: billAmount,
-        smpPrice: 0.2703, // Standard export rate
+        smpPrice: 0.2703,
         afaRate: 0,
         historicalAfaRate: 0,
         percentDiscount: 0,
@@ -96,7 +129,6 @@ function runReverseSimulation() {
         panelType: systemSizeKwp * 1000
     };
 
-    // Helper to run calc and get savings
     const getSavings = (p) => {
         try {
             const res = calculator.calculate(p);
@@ -104,13 +136,12 @@ function runReverseSimulation() {
         } catch (e) { return 0; }
     };
 
-    // Binary Search Helper
     const solve = (paramName, min, max, fixedParams) => {
         let low = min, high = max;
         let bestVal = low;
         let bestDiff = Infinity;
 
-        for (let i = 0; i < 20; i++) { // 20 iterations is enough precision
+        for (let i = 0; i < 20; i++) {
             const mid = (low + high) / 2;
             const p = { ...baseParams, ...fixedParams, [paramName]: mid };
             const savings = getSavings(p);
@@ -121,8 +152,6 @@ function runReverseSimulation() {
             }
 
             if (savings < promisedSaving) {
-                // If savings are too low, we need to increase the parameter 
-                // (assuming positive correlation for SunPeak and MorningUsage in most cases)
                 low = mid; 
             } else {
                 high = mid;
@@ -138,7 +167,9 @@ function runReverseSimulation() {
         updateScenarioUI('s1', 
             s1.val > 8 ? 'RIDICULOUS' : (s1.val > 4.5 ? 'OPTIMISTIC' : 'REALISTIC'),
             s1.val.toFixed(2) + ' h',
-            `Achieves RM ${s1.achieved.toFixed(2)}`
+            `Achieves RM ${s1.achieved.toFixed(2)}`,
+            s1.val,
+            30
         );
     }, 100);
 
@@ -146,13 +177,14 @@ function runReverseSimulation() {
     updateScenarioUI('s2', 'Testing...', '--');
     setTimeout(() => {
         const s2 = solve('morningUsage', 0, 100, { sunPeakHour: 3.4 });
-        // If we maxed out at 100% and still didn't reach it
         const isMaxed = s2.val > 99 && s2.achieved < promisedSaving - 5;
         
         updateScenarioUI('s2',
             isMaxed ? 'IMPOSSIBLE' : (s2.val > 70 ? 'UNREALISTIC' : 'REALISTIC'),
             isMaxed ? '> 100%' : s2.val.toFixed(1) + '%',
-            isMaxed ? `Max possible: RM ${s2.achieved.toFixed(2)}` : `Achieves RM ${s2.achieved.toFixed(2)}`
+            isMaxed ? `Max possible: RM ${s2.achieved.toFixed(2)}` : `Achieves RM ${s2.achieved.toFixed(2)}`,
+            3.4,
+            s2.val
         );
     }, 300);
 
@@ -163,17 +195,17 @@ function runReverseSimulation() {
         updateScenarioUI('s3',
             s3.val > 8 ? 'RIDICULOUS' : (s3.val > 4.5 ? 'OPTIMISTIC' : 'REALISTIC'),
             s3.val.toFixed(2) + ' h',
-            `Achieves RM ${s3.achieved.toFixed(2)}`
+            `Achieves RM ${s3.achieved.toFixed(2)}`,
+            s3.val,
+            70
         );
-        
-        // Final Verdict Logic
-        // If Scenario 1 requires > 4.5h OR Scenario 2 is Impossible/Unrealistic
-        const verdictTitle = document.getElementById('verdictTitle');
-        const verdictDesc = document.getElementById('verdictDesc');
-        const verdictBanner = document.getElementById('verdictBanner');
         
         const isRidiculous = s1.val > 5.0 || (s2.val > 99 && s2.achieved < promisedSaving);
         const isOptimistic = !isRidiculous && (s1.val > 4.0 || s2.val > 60);
+        
+        const verdictTitle = document.getElementById('verdictTitle');
+        const verdictDesc = document.getElementById('verdictDesc');
+        const verdictBanner = document.getElementById('verdictBanner');
         
         if (isRidiculous) {
             verdictTitle.innerText = "UNREALISTIC";
@@ -189,22 +221,6 @@ function runReverseSimulation() {
             verdictBanner.className = "bg-emerald-800 text-white p-8 md:p-12 shadow-2xl relative overflow-hidden";
         }
     }, 600);
-}
-
-function updateScenarioUI(id, status, value, desc) {
-    const statusEl = document.getElementById(id + '_status');
-    const valEl = document.getElementById(id + '_value');
-    const descEl = document.getElementById(id + '_desc');
-    
-    if (statusEl) {
-        statusEl.innerText = status;
-        statusEl.className = `px-3 py-1 text-xs font-bold uppercase tracking-widest ${
-            status === 'REALISTIC' ? 'bg-emerald-100 text-emerald-800' : 
-            (status === 'IMPOSSIBLE' || status === 'RIDICULOUS' ? 'bg-rose-100 text-rose-800' : 'bg-orange-100 text-orange-800')
-        }`;
-    }
-    if (valEl) valEl.innerText = value;
-    if (descEl && desc) descEl.innerText = desc;
 }
 
 // --- Logic Engine (The Authoritative Source) ---
