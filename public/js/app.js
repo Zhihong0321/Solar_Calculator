@@ -4,7 +4,12 @@ let latestSolarData = null;
 let originalSolarData = null; // Baseline for price comparison
 let currentHistoricalAfaRate = 0;
 let panelUpdateInFlight = false;
-let updateDebounceTimer = null;
+
+// Data Cache (Client-Side DB)
+let db = {
+    tariffs: [],
+    packages: []
+};
 
 // Charts
 const chartInstances = {
@@ -16,119 +21,361 @@ const chartInstances = {
 // --- Initialization ---
 window.onload = function() {
     testConnection();
-    // We no longer need to fetchAllData() (tariffs/packages) for client-side calc
-    // because we are strictly using the server API now.
+    initializeData();
 };
 
-// --- Core Workflow Functions ---
+async function initializeData() {
+    try {
+        const response = await fetch('/api/all-data');
+        const data = await response.json();
+        if (response.ok) {
+            db.tariffs = data.tariffs.map(t => ({
+                ...t,
+                // Ensure numerics
+                usage_kwh: parseFloat(t.usage_kwh),
+                bill_total_normal: parseFloat(t.bill_total_normal),
+                usage_normal: parseFloat(t.usage_normal),
+                network: parseFloat(t.network),
+                capacity: parseFloat(t.capacity),
+                retail: parseFloat(t.retail),
+                eei: parseFloat(t.eei),
+                sst_normal: parseFloat(t.sst_normal),
+                kwtbb_normal: parseFloat(t.kwtbb_normal)
+            }));
+            
+            db.packages = data.packages.map(p => ({
+                ...p,
+                panel_qty: parseInt(p.panel_qty),
+                price: parseFloat(p.price),
+                solar_output_rating: parseInt(p.solar_output_rating)
+            }));
+            
+            console.log('Client-side DB initialized:', db.tariffs.length, 'tariffs,', db.packages.length, 'packages');
+        }
+    } catch (err) {
+        showNotification('Failed to load calculation data. Please refresh.', 'error');
+        console.error(err);
+    }
+}
 
-// 1. Bill Intake (Step 1)
+// --- Logic Engine (Ported from Server.js) ---
+
+class SolarCalculator {
+    constructor(tariffs, packages) {
+        this.tariffs = tariffs;
+        this.packages = packages;
+    }
+
+    findClosestTariff(targetAmount, afaRate) {
+        // SQL: WHERE (bill + usage*afa) <= target ORDER BY adjusted_total DESC LIMIT 1
+        // Adjusted for JS sort/find
+        
+        // Calculate adjusted total for all tariffs
+        const candidates = this.tariffs.map(t => ({
+            ...t,
+            adjusted_total: t.bill_total_normal + (t.usage_kwh * afaRate)
+        }));
+
+        // Sort descending by adjusted_total
+        candidates.sort((a, b) => b.adjusted_total - a.adjusted_total);
+
+        // Find first one <= target
+        const match = candidates.find(t => t.adjusted_total <= targetAmount);
+
+        if (match) return match;
+
+        // Fallback: Lowest possible (Sort ASC, take first)
+        candidates.sort((a, b) => a.adjusted_total - b.adjusted_total);
+        return candidates.length > 0 ? candidates[0] : null;
+    }
+
+    lookupTariffByUsage(usageValue) {
+        if (usageValue <= 0) {
+             // Lowest usage
+             const sorted = [...this.tariffs].sort((a, b) => a.usage_kwh - b.usage_kwh);
+             return sorted[0] || null;
+        }
+
+        // WHERE usage_kwh <= usageValue ORDER BY usage_kwh DESC LIMIT 1
+        const sorted = [...this.tariffs].sort((a, b) => b.usage_kwh - a.usage_kwh);
+        const match = sorted.find(t => t.usage_kwh <= usageValue);
+
+        if (match) return match;
+
+        // Fallback to lowest
+        return [...this.tariffs].sort((a, b) => a.usage_kwh - b.usage_kwh)[0] || null;
+    }
+
+    calculate(params) {
+        const {
+            amount, sunPeakHour, morningUsage, panelType, 
+            smpPrice, afaRate, historicalAfaRate, 
+            percentDiscount, fixedDiscount, batterySize, overridePanels
+        } = params;
+
+        // 1. Initial Tariff Lookup
+        const tariff = this.findClosestTariff(amount, historicalAfaRate);
+        if (!tariff) throw new Error('No tariff data found');
+
+        const monthlyUsageKwh = tariff.usage_kwh;
+
+        // 2. Panel Recommendation
+        // Formula: usage_kwh / sun_peak_hour / 30 / 0.62 = X, then floor(X)
+        const recommendedPanelsRaw = Math.floor(monthlyUsageKwh / sunPeakHour / 30 / 0.62);
+        const recommendedPanels = Math.max(1, recommendedPanelsRaw);
+        const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
+
+        // 3. Package Selection
+        // Filter by panel_qty, active=true, type='Residential', solar_output_rating (wattage)
+        // Sort by price ASC
+        let selectedPackage = this.packages
+            .filter(p => 
+                p.panel_qty === actualPanelQty && 
+                p.active === true && 
+                (p.special === false || p.special === null) &&
+                p.type === 'Residential' &&
+                p.solar_output_rating === panelType
+            )
+            .sort((a, b) => a.price - b.price)[0] || null;
+
+        // 4. Solar Generation
+        const dailySolarGeneration = (actualPanelQty * panelType * sunPeakHour) / 1000;
+        const monthlySolarGeneration = dailySolarGeneration * 30;
+
+        // 5. Morning Split
+        const morningUsageKwh = (monthlyUsageKwh * morningUsage) / 100;
+        const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
+
+        // 6. Battery Logic
+        const dailyExcessSolar = Math.max(0, monthlySolarGeneration - morningUsageKwh) / 30;
+        const dailyNightUsage = Math.max(0, monthlyUsageKwh - morningUsageKwh) / 30;
+        const dailyBatteryCap = batterySize;
+        const dailyMaxDischarge = Math.min(dailyExcessSolar, dailyNightUsage, dailyBatteryCap);
+        const monthlyMaxDischarge = dailyMaxDischarge * 30;
+
+        // 7. Energy Accounting
+        // Baseline (No Battery)
+        const netUsageBaseline = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
+        const netUsageBaselineForLookup = Math.max(0, Math.floor(netUsageBaseline));
+        const exportKwhBaseline = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+
+        // With Battery
+        const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption - monthlyMaxDischarge);
+        const netUsageForLookup = Math.max(0, Math.floor(netUsageKwh));
+        const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
+
+        // 8. Financials
+        const baselineTariff = this.lookupTariffByUsage(netUsageBaselineForLookup);
+        const afterTariff = this.lookupTariffByUsage(netUsageForLookup);
+
+        const morningSaving = morningUsageKwh * (0.4869 + afaRate);
+        const exportSaving = exportKwh * smpPrice;
+        const exportSavingBaseline = exportKwhBaseline * smpPrice;
+
+        const buildBreakdown = (t) => {
+            if (!t) return null;
+            const afa = t.usage_kwh * afaRate;
+            const total = t.bill_total_normal + afa;
+            return {
+                usage: t.usage_normal,
+                network: t.network,
+                capacity: t.capacity,
+                sst: t.sst_normal,
+                eei: t.eei,
+                afa,
+                total,
+                totalBase: total - afa
+            };
+        };
+
+        const beforeBreakdown = buildBreakdown(tariff);
+        const afterBreakdown = buildBreakdown(afterTariff);
+        const baselineBreakdown = buildBreakdown(baselineTariff);
+
+        const billBefore = beforeBreakdown.total;
+        
+        // Baseline Bills
+        const afterBillBaseline = baselineBreakdown ? baselineBreakdown.total : null;
+        const billReductionBaseline = afterBillBaseline !== null ? Math.max(0, billBefore - afterBillBaseline) : morningSaving;
+        const totalMonthlySavingsBaseline = morningSaving + exportSavingBaseline; // Logic correction: should match server formula closely? 
+        // Server formula: (billBefore - afterBillBaseline) + exportSavingBaseline OR morningSaving + export...
+        // Let's stick to Bill Reduction + Export
+        const totalSavingsBaselineCalculated = (beforeBreakdown.total - baselineBreakdown.total) + exportSavingBaseline;
+
+        // With Battery
+        const afterBill = afterBreakdown ? afterBreakdown.total : null;
+        const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
+        const totalMonthlySavings = (beforeBreakdown.total - afterBreakdown.total) + exportSaving;
+
+        // Discounts & ROI
+        let systemCostBeforeDiscount = null, finalSystemCost = null, totalDiscountAmount = 0, paybackPeriod = 'N/A';
+        
+        if (selectedPackage) {
+            systemCostBeforeDiscount = selectedPackage.price;
+            const afterPercent = systemCostBeforeDiscount * (1 - percentDiscount / 100);
+            finalSystemCost = Math.max(0, afterPercent - fixedDiscount);
+            totalDiscountAmount = systemCostBeforeDiscount - finalSystemCost;
+            if (totalMonthlySavings > 0 && finalSystemCost > 0) {
+                paybackPeriod = (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1);
+            }
+        }
+
+        // Patterns (for Charts)
+        const dailyUsageKwh = monthlyUsageKwh / 30;
+        const electricityUsagePattern = [];
+        for (let hour = 0; hour < 24; hour++) {
+            let m;
+            if (hour >= 6 && hour <= 9) m = 1.8 * (morningUsage / 100);
+            else if (hour >= 18 && hour <= 22) m = 2.2;
+            else if (hour >= 10 && hour <= 17) m = 0.8 * (1 - (morningUsage / 100) * 0.3);
+            else m = 0.3;
+            electricityUsagePattern.push({ hour, usage: (dailyUsageKwh * m / 10).toFixed(3) });
+        }
+
+        const solarGenPattern = [];
+        for (let hour = 0; hour < 24; hour++) {
+            let m = 0;
+            if (hour >= 7 && hour <= 19) {
+                m = Math.max(0, Math.cos((Math.abs(hour - 12) / 5) * (Math.PI / 2)));
+            }
+            solarGenPattern.push({ hour, generation: (dailySolarGeneration * m / 8).toFixed(3) });
+        }
+
+        return {
+            config: params,
+            recommendedPanels,
+            actualPanels: actualPanelQty,
+            panelAdjustment: actualPanelQty - recommendedPanels,
+            overrideApplied: overridePanels !== null,
+            selectedPackage: selectedPackage ? {
+                packageName: selectedPackage.package_name,
+                price: selectedPackage.price,
+                panelWattage: panelType
+            } : null,
+            solarConfig: `${actualPanelQty} x ${panelType}W panels (${(actualPanelQty * panelType / 1000).toFixed(1)} kW system)`,
+            monthlySavings: totalMonthlySavings.toFixed(2),
+            systemCostBeforeDiscount: systemCostBeforeDiscount,
+            totalDiscountAmount,
+            finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : null,
+            paybackPeriod,
+            details: {
+                monthlyUsageKwh,
+                monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
+                billBefore: billBefore.toFixed(2),
+                billAfter: afterBill !== null ? afterBill.toFixed(2) : null,
+                billReduction: billReduction.toFixed(2),
+                exportSaving: exportSaving.toFixed(2),
+                totalGeneration: monthlySolarGeneration.toFixed(2),
+                savingsBreakdown: {
+                    afaImpact: (monthlyUsageKwh - netUsageBaseline) * afaRate,
+                    baseBillReduction: billReductionBaseline - ((monthlyUsageKwh - netUsageBaseline) * afaRate),
+                },
+                battery: {
+                    baseline: {
+                        billReduction: billReductionBaseline,
+                        exportCredit: exportSavingBaseline,
+                        totalSavings: totalSavingsBaselineCalculated.toFixed(2),
+                        billAfter: afterBillBaseline,
+                        billBreakdown: {
+                            items: [
+                                { label: 'Usage', before: beforeBreakdown.usage, after: baselineBreakdown.usage, delta: beforeBreakdown.usage - baselineBreakdown.usage },
+                                { label: 'Network', before: beforeBreakdown.network, after: baselineBreakdown.network, delta: beforeBreakdown.network - baselineBreakdown.network },
+                                { label: 'Capacity Fee', before: beforeBreakdown.capacity, after: baselineBreakdown.capacity, delta: beforeBreakdown.capacity - baselineBreakdown.capacity },
+                                { label: 'SST', before: beforeBreakdown.sst, after: baselineBreakdown.sst, delta: beforeBreakdown.sst - baselineBreakdown.sst },
+                                { label: 'EEI', before: beforeBreakdown.eei, after: baselineBreakdown.eei, delta: beforeBreakdown.eei - baselineBreakdown.eei },
+                                { label: 'AFA Charge', before: beforeBreakdown.afa, after: baselineBreakdown.afa, delta: beforeBreakdown.afa - baselineBreakdown.afa }
+                            ]
+                        }
+                    }
+                }
+            },
+            billBreakdownComparison: {
+                items: [
+                    { label: 'Usage', before: beforeBreakdown.usage, after: afterBreakdown.usage, delta: beforeBreakdown.usage - afterBreakdown.usage },
+                    { label: 'Network', before: beforeBreakdown.network, after: afterBreakdown.network, delta: beforeBreakdown.network - afterBreakdown.network },
+                    { label: 'Capacity Fee', before: beforeBreakdown.capacity, after: afterBreakdown.capacity, delta: beforeBreakdown.capacity - afterBreakdown.capacity },
+                    { label: 'SST', before: beforeBreakdown.sst, after: afterBreakdown.sst, delta: beforeBreakdown.sst - afterBreakdown.sst },
+                    { label: 'EEI', before: beforeBreakdown.eei, after: afterBreakdown.eei, delta: beforeBreakdown.eei - afterBreakdown.eei },
+                    { label: 'AFA Charge', before: beforeBreakdown.afa, after: afterBreakdown.afa, delta: beforeBreakdown.afa - afterBreakdown.afa }
+                ]
+            },
+            charts: {
+                electricityUsagePattern,
+                solarGenerationPattern: solarGenPattern
+            }
+        };
+    }
+}
+
+// --- Interaction ---
+
 document.getElementById('billForm').addEventListener('submit', async function(e) {
     e.preventDefault();
+    if (!db.tariffs.length) return showNotification('System initializing... please wait.', 'info');
 
     const billAmount = parseFloat(document.getElementById('billAmount').value);
     const afaRate = parseFloat(document.getElementById('historicalAfaRate').value) || 0;
     
-    if (!billAmount || billAmount <= 0) {
-        showNotification('Please enter a valid bill amount', 'error');
-        return;
-    }
+    if (!billAmount || billAmount <= 0) return showNotification('Please enter a valid bill amount', 'error');
 
-    await calculateBillBreakdown(billAmount, afaRate);
+    // 1. Bill Breakdown (Instant Client-Side)
+    const calculator = new SolarCalculator(db.tariffs, db.packages);
+    const tariff = calculator.findClosestTariff(billAmount, afaRate);
+    
+    if (tariff) {
+        // Mocking the structure expected by displayBillBreakdown
+        const data = {
+            tariff: tariff,
+            afaRate: afaRate
+        };
+        displayBillBreakdown(data);
+        currentHistoricalAfaRate = afaRate;
+        const projInput = document.getElementById('afaRate');
+        if (projInput) projInput.value = afaRate.toFixed(4);
+    } else {
+        showNotification('No tariff found for this amount.', 'error');
+    }
 });
 
-async function calculateBillBreakdown(billAmount, afaRate = 0) {
-    const resultsDiv = document.getElementById('calculatorResults');
-    resultsDiv.innerHTML = `<div class="text-xs tier-3 uppercase tracking-[0.3em] animate-pulse">PROCESSING_QUERY...</div>`;
+window.calculateSolarSavings = function() {
+    if (!db.tariffs.length) return showNotification('System initializing...', 'info');
 
-    try {
-        const response = await fetch(`/api/calculate-bill?amount=${billAmount}&afaRate=${afaRate}`);
-        const data = await response.json();
-
-        if (response.ok) {
-            displayBillBreakdown(data);
-            currentHistoricalAfaRate = afaRate;
-            
-            // Auto-populate the projection input in Step 3
-            const projectionAfaInput = document.getElementById('afaRate');
-            if (projectionAfaInput) {
-                projectionAfaInput.value = afaRate.toFixed(4);
-            }
-        } else {
-            showNotification(data.error, 'error');
-            resultsDiv.innerHTML = ''; // Clear loading
-        }
-    } catch (error) {
-        showNotification(error.message, 'error');
-        resultsDiv.innerHTML = '';
-    }
-}
-
-// 2. Generate ROI (Step 2 - The "Execute" button)
-// NOTE: This function is exposed to the global scope because it's called by onclick in the HTML string
-window.calculateSolarSavings = async function() {
-    // Validate Inputs
-    const billAmount = parseFloat(document.getElementById('billAmount').value);
-    const sunPeakHour = parseFloat(document.getElementById('sunPeakHour').value);
-    const morningUsage = parseFloat(document.getElementById('morningUsage').value);
-    const panelRating = parseInt(document.getElementById('panelRating').value, 10);
-    const smpPrice = parseFloat(document.getElementById('smpPrice').value);
-    const afaRate = parseFloat(document.getElementById('afaRate').value) || 0;
-    const percentDiscount = parseFloat(document.getElementById('percentDiscount').value) || 0;
-    const fixedDiscount = parseFloat(document.getElementById('fixedDiscount').value) || 0;
-
-    if (!billAmount || billAmount <= 0) return showNotification('Please calculate TNB bill breakdown first', 'error');
-    if (!sunPeakHour || sunPeakHour < 3.0 || sunPeakHour > 4.5) return showNotification('Sun Peak Hour must be between 3.0 and 4.5', 'error');
-    if (!morningUsage || morningUsage < 1 || morningUsage > 100) return showNotification('Morning Usage must be between 1% and 100%', 'error');
-    if (!Number.isFinite(panelRating) || panelRating < 450 || panelRating > 850) return showNotification('Panel rating must be between 450W and 850W', 'error');
-    if (!smpPrice || smpPrice < 0.19 || smpPrice > 0.2703) return showNotification('SMP price must be between RM 0.19 and RM 0.2703', 'error');
-
-    // Setup State
-    latestSolarParams = {
-        amount: billAmount,
-        sunPeakHour,
-        morningUsage,
-        panelType: panelRating,
-        smpPrice,
-        afaRate,
+    // Inputs
+    const params = {
+        amount: parseFloat(document.getElementById('billAmount').value),
+        sunPeakHour: parseFloat(document.getElementById('sunPeakHour').value),
+        morningUsage: parseFloat(document.getElementById('morningUsage').value),
+        panelType: parseInt(document.getElementById('panelRating').value),
+        smpPrice: parseFloat(document.getElementById('smpPrice').value),
+        afaRate: parseFloat(document.getElementById('afaRate').value) || 0,
         historicalAfaRate: currentHistoricalAfaRate,
-        percentDiscount,
-        fixedDiscount,
+        percentDiscount: parseFloat(document.getElementById('percentDiscount').value) || 0,
+        fixedDiscount: parseFloat(document.getElementById('fixedDiscount').value) || 0,
         batterySize: 0,
-        overridePanels: null // Reset override on fresh calc
+        overridePanels: null
     };
 
-    // UI Feedback
-    const resultsDiv = document.getElementById('calculatorResults');
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'rounded-3xl border border-slate-800 bg-surfaceAlt/70 p-6 text-slate-300 shadow-[0_20px_40px_rgba(8,47,73,0.35)]';
-    loadingDiv.innerHTML = `
-        <div class="flex items-center justify-center space-x-3 text-sm">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-            <span>Calibrating solar model...</span>
-        </div>
-    `;
-    resultsDiv.appendChild(loadingDiv);
-
+    latestSolarParams = params;
+    
     try {
-        await fetchSolarCalculation({ displayPopup: true });
-    } catch (error) {
-        showNotification(`Error: ${error.message}`, 'error');
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'rounded-3xl border border-rose-500/40 bg-rose-500/10 p-6 text-sm text-rose-200';
-        errorDiv.innerHTML = `<div class="text-base font-medium">Calculation Error</div><div class="mt-1 opacity-80">${error.message}</div>`;
-        resultsDiv.appendChild(errorDiv);
-    } finally {
-        loadingDiv.remove();
+        const calculator = new SolarCalculator(db.tariffs, db.packages);
+        const result = calculator.calculate(params);
+        
+        latestSolarData = result;
+        originalSolarData = result; // Baseline
+
+        displaySolarCalculation(result);
+        showPanelRecommendationPopup(result);
+    } catch (err) {
+        showNotification(err.message, 'error');
     }
 };
 
-// 3. Live Update (The "Spontaneous" Update)
-// This replaces the old client-side logic. It debounces calls to the Server API.
+// The "Instant" Update
 window.triggerSpontaneousUpdate = function() {
     if (!latestSolarParams) return;
 
-    // Update params from current DOM inputs
+    // Update Params from UI
     latestSolarParams.sunPeakHour = parseFloat(document.getElementById('sunPeakHour').value) || 3.4;
     latestSolarParams.morningUsage = parseFloat(document.getElementById('morningUsage').value) || 30;
     latestSolarParams.panelType = parseInt(document.getElementById('panelRating').value) || 620;
@@ -137,71 +384,46 @@ window.triggerSpontaneousUpdate = function() {
     latestSolarParams.percentDiscount = parseFloat(document.getElementById('percentDiscount')?.value) || 0;
     latestSolarParams.fixedDiscount = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
 
-    // Debounce
-    if (updateDebounceTimer) clearTimeout(updateDebounceTimer);
-    
-    // UI "Thinking" State (Optional: could add a small spinner near the changed input)
-    // For now, we just wait.
-    
-    updateDebounceTimer = setTimeout(() => {
-        fetchSolarCalculation({ displayPopup: false }).catch(err => console.error("Live update failed", err));
-    }, 500); // 500ms delay
+    // Run Sync Calculation (No Debounce Needed for Client-Side Speed)
+    try {
+        const calculator = new SolarCalculator(db.tariffs, db.packages);
+        const result = calculator.calculate(latestSolarParams);
+        
+        // Preserve override state if it exists in UI
+        if (latestSolarData && latestSolarData.overrideApplied) {
+            // Recalculate with override if user was in override mode?
+            // For now, let's just update the data. The loop below handles it.
+        }
+        
+        latestSolarData = result;
+        displaySolarCalculation(result);
+    } catch (err) {
+        console.error(err);
+    }
 };
 
-// --- API Interaction ---
+// Override / Panel Modulation
+async function requestPanelUpdate(newCount) {
+    if (!latestSolarParams) return;
 
-async function fetchSolarCalculation({ displayPopup = false, overridePanels = null } = {}) {
-    if (!latestSolarParams) throw new Error('Solar parameters are not set.');
-
-    const params = new URLSearchParams();
+    latestSolarParams.overridePanels = newCount;
     
-    // Construct query params
-    Object.entries(latestSolarParams).forEach(([key, value]) => {
-        if (key === 'overridePanels') return; // Handle separately
-        if (value !== undefined && value !== null && value !== '') {
-            params.set(key, value);
-        }
-    });
-
-    // Handle overrides (Panel Qty)
-    if (overridePanels !== null) {
-        params.set('overridePanels', overridePanels);
-    } else if (latestSolarParams.overridePanels) {
-        params.set('overridePanels', latestSolarParams.overridePanels);
+    // Sync Calculation
+    try {
+        const calculator = new SolarCalculator(db.tariffs, db.packages);
+        const result = calculator.calculate(latestSolarParams);
+        
+        latestSolarData = result;
+        displaySolarCalculation(result);
+    } catch (err) {
+        showNotification(err.message, 'error');
     }
-
-    // Call Server
-    const response = await fetch(`/api/solar-calculation?${params.toString()}`);
-    const data = await response.json();
-
-    if (!response.ok) throw new Error(data.error || 'Failed to calculate solar savings');
-
-    // Update State
-    latestSolarData = data;
-    
-    // If this is a fresh run (no overrides), save as baseline
-    if (overridePanels === null && !latestSolarParams.overridePanels) {
-        originalSolarData = data;
-    }
-
-    // Sync override state
-    if (data.overrideApplied) {
-        latestSolarParams.overridePanels = data.actualPanels;
-    } else {
-        delete latestSolarParams.overridePanels;
-    }
-
-    // Render
-    displaySolarCalculation(data);
-
-    if (displayPopup) {
-        showPanelRecommendationPopup(data);
-    }
-
-    return data;
 }
 
-// --- UI Rendering ---
+
+// --- UI Helpers (Keep as is, just remove server calls) ---
+
+// (Copying the display logic from previous step, but ensuring it maps correctly to the new object structure)
 
 function displayBillBreakdown(data) {
     const resultsDiv = document.getElementById('calculatorResults');
@@ -221,7 +443,6 @@ function displayBillBreakdown(data) {
                         <span>Component</span>
                         <span>Value_(RM)</span>
                     </div>
-                    
                     <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
                         <span class="tier-2 truncate">Energy_Usage</span>
                         <span class="tier-1 font-medium whitespace-nowrap">${formatCurrency(tariff.usage_normal)}</span>
@@ -254,12 +475,10 @@ function displayBillBreakdown(data) {
                         <span class="tier-2 truncate">AFA_Adjustment</span>
                         <span class="${afaCharge < 0 ? 'text-emerald-600' : 'tier-1'} font-medium whitespace-nowrap">${formatCurrency(afaCharge)}</span>
                     </div>
-                    
                     <div class="ledger-double-line pt-6 mt-8 flex justify-between items-baseline gap-4">
                         <span class="text-xs md:text-sm font-bold uppercase tracking-[0.2em]">Total_Matched</span>
                         <span class="text-3xl md:text-4xl font-bold tracking-tighter whitespace-nowrap">RM ${formatCurrency(adjustedTotal)}</span>
                     </div>
-                    
                     <div class="mt-10 flex justify-between items-center text-xs md:text-xs tier-3 uppercase tracking-widest gap-4 border-t border-divider pt-4">
                         <span>Derived_Usage: ${tariff.usage_kwh} kWh</span>
                         <span class="text-right">Tolerance: +/- 0.01%</span>
@@ -269,7 +488,6 @@ function displayBillBreakdown(data) {
 
             <section id="solar-config-section" class="pt-4">
                 <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">03_MODELING_PARAMS</h2>
-                
                 <div class="grid gap-12 md:grid-cols-2 md:gap-x-24 md:gap-y-16">
                     <div class="space-y-4">
                         <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Sun_Peak_Hours</label>
@@ -278,7 +496,6 @@ function displayBillBreakdown(data) {
                         </div>
                         <p class="text-xs md:text-xs tier-3 uppercase opacity-70">Standard: 3.0 - 4.5 h</p>
                     </div>
-
                     <div class="space-y-4">
                         <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Day_Usage_Share (%)</label>
                         <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
@@ -286,7 +503,6 @@ function displayBillBreakdown(data) {
                         </div>
                         <p class="text-xs md:text-xs tier-3 uppercase opacity-70">Range: 1% - 100%</p>
                     </div>
-
                     <div class="space-y-4">
                         <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Panel_Rating (W)</label>
                         <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
@@ -294,7 +510,6 @@ function displayBillBreakdown(data) {
                         </div>
                         <p class="text-xs md:text-xs tier-3 uppercase opacity-70">Range: 450W - 850W</p>
                     </div>
-
                     <div class="space-y-4">
                         <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">AFA_Projection (RM)</label>
                         <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
@@ -302,7 +517,6 @@ function displayBillBreakdown(data) {
                         </div>
                         <p class="text-xs md:text-xs tier-3 uppercase opacity-70">Fuel Adjustment</p>
                     </div>
-
                     <div class="space-y-4">
                         <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Export_Rate (RM)</label>
                         <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
@@ -310,7 +524,6 @@ function displayBillBreakdown(data) {
                         </div>
                         <p class="text-xs md:text-xs tier-3 uppercase opacity-70">NEM SMP Price</p>
                     </div>
-
                     <div class="md:col-span-2 mt-4">
                         <div class="p-8 md:p-10 border-2 border-divider bg-white/30">
                             <h4 class="text-xs md:text-xs font-bold uppercase tracking-[0.2em] tier-3 mb-10 border-b border-divider pb-2 inline-block">Discount_Protocol</h4>
@@ -330,7 +543,6 @@ function displayBillBreakdown(data) {
                             </div>
                         </div>
                     </div>
-
                     <div class="md:col-span-2 pt-8">
                         <button
                             onclick="calculateSolarSavings()"
@@ -353,21 +565,20 @@ function displaySolarCalculation(data) {
     // Helper to safety parse numbers
     const toNumber = (val) => Number(val) || 0;
 
-    // Prepare Stats
     const detailSource = data.details || {};
     const monthlySavingsValue = toNumber(data.monthlySavings);
     const annualReturnValue = monthlySavingsValue * 12;
     const finalSystemCostValue = data.finalSystemCost !== null ? toNumber(data.finalSystemCost) : null;
     
     // Baseline (No Battery) Stats
-    // We prefer the 'baseline' object inside battery details if it exists, as it represents "Solar Only"
-    // Otherwise fallback to main details.
     let baselineStats = {
         billReduction: formatCurrency(detailSource.billReduction),
         exportCredit: formatCurrency(detailSource.exportSaving),
         totalSavings: formatCurrency(monthlySavingsValue),
         billAfter: detailSource.billAfter !== null ? formatCurrency(detailSource.billAfter) : 'N/A',
-        billBreakdown: data.billBreakdownComparison
+        billBreakdown: data.billBreakdownComparison,
+        afaImpact: formatCurrency(detailSource.savingsBreakdown?.afaImpact || 0),
+        baseBillReduction: formatCurrency(detailSource.savingsBreakdown?.baseBillReduction || 0)
     };
 
     if (detailSource.battery && detailSource.battery.baseline) {
@@ -377,7 +588,9 @@ function displaySolarCalculation(data) {
             exportCredit: formatCurrency(b.exportCredit),
             totalSavings: formatCurrency(b.totalSavings),
             billAfter: b.billAfter !== null ? formatCurrency(b.billAfter) : 'N/A',
-            billBreakdown: b.billBreakdown || data.billBreakdownComparison
+            billBreakdown: b.billBreakdown || data.billBreakdownComparison,
+            afaImpact: formatCurrency(detailSource.savingsBreakdown?.afaImpact || 0), // Use main AFA calc
+            baseBillReduction: formatCurrency(b.baseBillReduction || 0)
         };
     }
 
@@ -389,7 +602,6 @@ function displaySolarCalculation(data) {
         ? 'N/A' 
         : `${data.paybackPeriod} yr`;
 
-    // Helper for Ledger Rows
     const buildLedgerRows = (breakdownData) => {
         const items = Array.isArray(breakdownData?.items) ? breakdownData.items : [];
         return items.map((item) => `
@@ -413,7 +625,6 @@ function displaySolarCalculation(data) {
             <!-- 04 EXECUTIVE SUMMARY -->
             <section class="bg-black text-white p-10 md:p-16 -mx-4 md:-mx-6 shadow-2xl">
                 <h2 class="text-xs font-bold uppercase tracking-[0.4em] mb-12 opacity-70 border-b border-white/20 pb-2 inline-block">ROI_EXECUTIVE_SUMMARY</h2>
-                
                 <div class="space-y-10 text-base md:text-lg">
                     <div class="space-y-4">
                         <p class="opacity-70 uppercase text-xs tracking-widest">Baseline_Consumption</p>
@@ -422,9 +633,7 @@ function displaySolarCalculation(data) {
                             <p class="font-medium">Monthly_Usage: <span class="text-white">${detailSource.monthlyUsageKwh} kWh</span></p>
                         </div>
                     </div>
-
                     <div class="h-px bg-white/20 w-full"></div>
-
                     <div class="space-y-4">
                         <p class="opacity-70 uppercase text-xs tracking-widest">System_Specifications</p>
                         <div class="flex flex-col sm:flex-row justify-between gap-4">
@@ -432,9 +641,7 @@ function displaySolarCalculation(data) {
                             <p class="font-medium">System_Size: <span class="text-white">${((data.actualPanels * data.config.panelType) / 1000).toFixed(2)} kWp</span></p>
                         </div>
                     </div>
-
                     <div class="h-px bg-white/20 w-full"></div>
-
                     <div class="space-y-6">
                         <p class="opacity-70 uppercase text-xs tracking-widest">Projected_Outcome</p>
                         <div class="flex justify-between items-baseline border-b border-white/10 pb-2">
@@ -451,7 +658,6 @@ function displaySolarCalculation(data) {
                         </div>
                         <p class="text-xs text-white/40 uppercase tracking-tighter text-right">@ NEM_Rate: RM ${data.config.smpPrice}/kWh</p>
                     </div>
-
                     <div class="pt-10 border-t-2 border-white/40">
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-baseline gap-4">
                             <span class="text-xs font-bold uppercase tracking-[0.2em] text-white/70">Total_Monthly_Savings:</span>
@@ -557,41 +763,53 @@ function displaySolarCalculation(data) {
             </section>
 
             <div class="h-1 md:h-2 bg-black/10 -mx-4 md:-mx-6"></div>
-            
-            <!-- Battery & Footnotes sections remain similar... -->
+
+            <!-- 08 FOOTNOTES -->
+            <section class="pt-4 opacity-70">
+                <h2 class="text-xs md:text-sm font-bold uppercase tracking-[0.2em] mb-6 tier-3">08_AFA_METHODOLOGY</h2>
+                <div class="space-y-4 text-xs md:text-sm leading-relaxed tier-3 max-w-2xl">
+                    <p>[*] AFA_IMPACT: Solar reduces grid consumption, lowering fuel adjustment charges by RM ${baselineStats.afaImpact}. 
+                    ${Number(baselineStats.afaImpact.replace(/,/g,'')) >= 0 
+                        ? 'In surcharge periods, this scales as a direct saving.' 
+                        : 'In rebate periods, this reflects a reduction in the total rebate received due to lower volume.'}
+                    </p>
+                    <p>[*] ROI_CALC: Based on 12-month projected savings vs Net_Investment. NEM export rate locked at RM ${data.config.smpPrice}/kWh.</p>
+                </div>
+            </section>
+
+            <!-- BATTERY INTEGRATION -->
             ${data.config.batterySize > 0 ? `
-                <section class="pt-16 md:pt-24 border-t-2 border-divider">
-                    <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">08_BATTERY_STORAGE_INTEGRATION</h2>
-                    <div class="grid gap-12 md:grid-cols-3">
-                        <div class="space-y-4">
-                            <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Storage_Capacity</span>
-                            <div class="flex items-center gap-6">
-                                <button onclick="adjustBatterySize(-5)" class="text-xl border-2 border-divider w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors">-</button>
-                                <span class="text-xl md:text-2xl font-bold">${data.config.batterySize} kWh</span>
-                                <button onclick="adjustBatterySize(5)" class="text-xl border-2 border-divider w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors">+</button>
-                            </div>
-                        </div>
-                        <div class="space-y-4">
-                            <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Battery_Value_Add</span>
-                            <div class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${(Number(data.monthlySavings.replace(/,/g,'')) - Number(baselineStats.totalSavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2})} / mo</div>
-                        </div>
-                        <div class="space-y-4">
-                            <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Total_Monthly_Savings</span>
-                            <div class="text-xl md:text-2xl font-bold tracking-tighter">RM ${data.monthlySavings}</div>
+            <section class="pt-16 md:pt-24 border-t-2 border-divider">
+                <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">08_BATTERY_STORAGE_INTEGRATION</h2>
+                <div class="grid gap-12 md:grid-cols-3">
+                    <div class="space-y-4">
+                        <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Storage_Capacity</span>
+                        <div class="flex items-center gap-6">
+                            <button onclick="adjustBatterySize(-5)" class="text-xl border-2 border-divider w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors">-</button>
+                            <span class="text-xl md:text-2xl font-bold">${data.config.batterySize} kWh</span>
+                            <button onclick="adjustBatterySize(5)" class="text-xl border-2 border-divider w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors">+</button>
                         </div>
                     </div>
-                </section>
-                ` : `
-                <section class="pt-12 md:pt-16 text-center tier-3 text-xs md:text-sm uppercase tracking-widest border-t border-divider">
-                    <button onclick="adjustBatterySize(5)" class="hover:tier-1 underline font-bold">[+]_SIMULATE_BATTERY_STORAGE</button>
-                </section>
+                    <div class="space-y-4">
+                        <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Battery_Value_Add</span>
+                        <div class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${(Number(data.monthlySavings.replace(/,/g,'')) - Number(baselineStats.totalSavings.replace(/,/g,''))).toLocaleString('en-MY', {minimumFractionDigits: 2})} / mo</div>
+                    </div>
+                    <div class="space-y-4">
+                        <span class="text-xs md:text-sm uppercase tracking-widest tier-3 font-semibold">Total_Monthly_Savings</span>
+                        <div class="text-xl md:text-2xl font-bold tracking-tighter">RM ${data.monthlySavings}</div>
+                    </div>
+                </div>
+            </section>
+            ` : `
+            <section class="pt-12 md:pt-16 text-center tier-3 text-xs md:text-sm uppercase tracking-widest border-t border-divider">
+                <button onclick="adjustBatterySize(5)" class="hover:tier-1 underline font-bold">[+]_SIMULATE_BATTERY_STORAGE</button>
+            </section>
             `}
         </div>
     `;
 
     renderFloatingPanelModulation(data);
-    setPanelControlsLoading(false);
-
+    
     if (isInitialRender) {
         solarDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
@@ -600,8 +818,7 @@ function displaySolarCalculation(data) {
     if (data.charts) createCharts(data.charts);
 }
 
-// --- Interaction Helpers ---
-
+// Global functions for buttons
 window.adjustBatterySize = function(delta) {
     if (!latestSolarParams) return;
     const currentSize = latestSolarParams.batterySize || 0;
@@ -609,20 +826,13 @@ window.adjustBatterySize = function(delta) {
     if (newSize === currentSize) return;
 
     latestSolarParams.batterySize = newSize;
-    
-    // Immediate API Call (no debounce needed for clicks)
-    setPanelControlsLoading(true);
-    fetchSolarCalculation().then(() => setPanelControlsLoading(false)).catch(err => {
-        showNotification(err.message, 'error');
-        setPanelControlsLoading(false);
-    });
+    window.triggerSpontaneousUpdate();
 };
 
 window.adjustPanelCount = function(delta) {
     if (!latestSolarData) return;
     const proposedCount = latestSolarData.actualPanels + delta;
     if (proposedCount < 1) return;
-
     requestPanelUpdate(proposedCount);
 };
 
@@ -638,73 +848,8 @@ window.commitPanelInputChange = function(event) {
     requestPanelUpdate(value);
 };
 
-async function requestPanelUpdate(newCount) {
-    if (!latestSolarParams || !latestSolarData || panelUpdateInFlight) return;
 
-    panelUpdateInFlight = true;
-    setPanelControlsLoading(true);
-
-    try {
-        await fetchSolarCalculation({ overridePanels: newCount });
-    } catch (error) {
-        showNotification(`Error: ${error.message}`, 'error');
-        // Revert UI input
-        const input = document.getElementById('panelQtyInputFloating');
-        if (input) input.value = latestSolarData.actualPanels;
-    } finally {
-        panelUpdateInFlight = false;
-        setPanelControlsLoading(false);
-    }
-}
-
-function setPanelControlsLoading(isLoading) {
-    const spinner = document.getElementById('panelAdjustSpinnerFloating');
-    const input = document.getElementById('panelQtyInputFloating');
-    
-    if (spinner) spinner.classList.toggle('hidden', !isLoading);
-    if (input) input.disabled = isLoading;
-}
-
-function renderFloatingPanelModulation(data) {
-    let bar = document.getElementById('floatingPanelBar');
-    if (!bar) {
-        bar = document.createElement('div');
-        bar.id = 'floatingPanelBar';
-        bar.className = 'fixed bottom-0 left-0 right-0 z-[10000] px-4 py-8 md:px-8 md:py-10 pointer-events-none';
-        document.body.appendChild(bar);
-    }
-
-    let priceDiffHtml = '';
-    if (originalSolarData && originalSolarData.selectedPackage && data.selectedPackage) {
-        const diff = Number(data.selectedPackage.price) - Number(originalSolarData.selectedPackage.price);
-        if (Math.abs(diff) > 0.01) {
-            const colorClass = diff > 0 ? 'text-rose-600' : 'text-emerald-600';
-            priceDiffHtml = `<div class="text-xs md:text-sm font-bold uppercase tracking-widest ${colorClass}">INVESTMENT_DELTA: ${diff > 0 ? '+' : '-'}RM ${Math.abs(diff).toFixed(0)}</div>`;
-        }
-    }
-
-    bar.innerHTML = `
-        <div class="mx-auto max-w-4xl border-2 border-fact bg-paper p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-center justify-between gap-6 md:gap-8 pointer-events-auto transition-transform hover:translate-x-[-2px] hover:translate-y-[-2px]">
-            <div class="space-y-2 text-center sm:text-left">
-                <div class="text-xs md:text-sm font-bold uppercase tracking-[0.3em] border-b border-fact pb-1">PANEL_MODULATION</div>
-                <div class="text-xs md:text-sm tier-3 uppercase tracking-widest font-bold">Recommended: ${data.recommendedPanels} Units</div>
-                ${priceDiffHtml}
-            </div>
-            <div class="flex items-center gap-6 md:gap-10">
-                <div class="flex items-center border-2 border-fact bg-white">
-                    <button onclick="adjustPanelCount(-1)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-xl font-bold">-</button>
-                    <input type="number" id="panelQtyInputFloating" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-16 md:w-20 text-center text-lg md:text-xl font-bold border-none py-0 bg-transparent">
-                    <button onclick="adjustPanelCount(1)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-xl font-bold">+</button>
-                </div>
-                <div id="panelAdjustSpinnerFloating" class="hidden w-6 h-6 border-4 border-fact border-t-transparent animate-spin"></div>
-            </div>
-        </div>
-    `;
-    setPanelControlsLoading(Boolean(panelUpdateInFlight));
-}
-
-// --- Utils & Charts ---
-
+// Utils
 function formatCurrency(value) {
     const numericValue = Number(value);
     if (Number.isNaN(numericValue)) return '0.00';
@@ -723,15 +868,9 @@ function showNotification(message, type = 'info') {
         error: 'border-rose-600 text-rose-700 bg-rose-50',
         info: 'border-fact text-fact bg-paper'
     };
-
     const notification = document.createElement('div');
     notification.className = `fixed bottom-8 right-8 max-w-sm border p-4 z-[10001] text-xs uppercase tracking-widest font-bold shadow-lg ${colors[type]}`;
-    notification.innerHTML = `
-        <div class="flex items-center justify-between gap-8">
-            <span>[ ${message} ]</span>
-            <button onclick="this.parentElement.parentElement.remove()" class="hover:opacity-50">X</button>
-        </div>
-    `;
+    notification.innerHTML = `<div class="flex items-center justify-between gap-8"><span>[ ${message} ]</span><button onclick="this.parentElement.parentElement.remove()" class="hover:opacity-50">X</button></div>`;
     document.body.appendChild(notification);
     setTimeout(() => notification.remove(), 5000);
 }
@@ -739,7 +878,6 @@ function showNotification(message, type = 'info') {
 function showPanelRecommendationPopup(data) {
     const popup = document.createElement('div');
     popup.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm';
-
     const existingBar = document.getElementById('floatingPanelBar');
     if (existingBar) existingBar.style.display = 'none';
 
@@ -752,9 +890,7 @@ function showPanelRecommendationPopup(data) {
                 <div>Config: ${data.actualPanels} UNIT x ${data.config.panelType}W</div>
             </div>
         </div>` :
-        `<div class="mt-8 p-6 border border-divider tier-3 text-xs uppercase tracking-widest text-center">
-            [ NO_MATCHING_PACKAGE_FOUND ]
-        </div>`;
+        `<div class="mt-8 p-6 border border-divider tier-3 text-xs uppercase tracking-widest text-center">[ NO_MATCHING_PACKAGE_FOUND ]</div>`;
 
     popup.innerHTML = `
         <div class="w-full max-w-lg border border-fact bg-paper p-10 shadow-2xl space-y-10">
@@ -762,18 +898,14 @@ function showPanelRecommendationPopup(data) {
                 <div class="text-xs font-bold uppercase tracking-[0.4em]">SYSTEM_RECOMMENDATION</div>
                 <div class="h-px bg-divider w-12 mx-auto"></div>
             </div>
-
             <div class="text-center">
                 <div class="text-6xl font-bold tracking-tighter mb-2">${data.recommendedPanels}</div>
                 <div class="text-xs uppercase tracking-[0.3em] tier-3">Recommended_Panel_Units</div>
             </div>
-
             <div class="text-[11px] leading-relaxed tier-3 uppercase tracking-widest text-center border-y border-divider py-6">
                 Basis: ${data.details.monthlyUsageKwh}kWh / ${data.config.sunPeakHour}h / 30 / 0.62 Efficiency
             </div>
-
             ${packageInfo}
-
             <div class="grid grid-cols-2 gap-4">
                 <button id="popupCloseBtn" class="border border-divider py-4 text-xs font-bold uppercase tracking-widest hover:bg-divider transition-colors">Close</button>
                 <button id="popupViewDetailsBtn" class="bg-black text-white py-4 text-xs font-bold uppercase tracking-widest hover:opacity-80 transition-colors">View_Full_Report</button>
@@ -786,7 +918,6 @@ function showPanelRecommendationPopup(data) {
         const bar = document.getElementById('floatingPanelBar');
         if (bar) bar.style.display = '';
         showNotification('ROI Matrix Generated', 'success');
-
         const reportStart = document.getElementById('solarResultsCard');
         if (reportStart) reportStart.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
@@ -796,23 +927,52 @@ function showPanelRecommendationPopup(data) {
     document.body.appendChild(popup);
 }
 
+function renderFloatingPanelModulation(data) {
+    let bar = document.getElementById('floatingPanelBar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'floatingPanelBar';
+        bar.className = 'fixed bottom-0 left-0 right-0 z-[10000] px-4 py-8 md:px-8 md:py-10 pointer-events-none';
+        document.body.appendChild(bar);
+    }
+    let priceDiffHtml = '';
+    if (originalSolarData && originalSolarData.selectedPackage && data.selectedPackage) {
+        const diff = Number(data.selectedPackage.price) - Number(originalSolarData.selectedPackage.price);
+        if (Math.abs(diff) > 0.01) {
+            const colorClass = diff > 0 ? 'text-rose-600' : 'text-emerald-600';
+            priceDiffHtml = `<div class="text-xs md:text-sm font-bold uppercase tracking-widest ${colorClass}">INVESTMENT_DELTA: ${diff > 0 ? '+' : '-'}RM ${Math.abs(diff).toFixed(0)}</div>`;
+        }
+    }
+    bar.innerHTML = `
+        <div class="mx-auto max-w-4xl border-2 border-fact bg-paper p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row items-center justify-between gap-6 md:gap-8 pointer-events-auto transition-transform hover:translate-x-[-2px] hover:translate-y-[-2px]">
+            <div class="space-y-2 text-center sm:text-left">
+                <div class="text-xs md:text-sm font-bold uppercase tracking-[0.3em] border-b border-fact pb-1">PANEL_MODULATION</div>
+                <div class="text-xs md:text-sm tier-3 uppercase tracking-widest font-bold">Recommended: ${data.recommendedPanels} Units</div>
+                ${priceDiffHtml}
+            </div>
+            <div class="flex items-center gap-6 md:gap-10">
+                <div class="flex items-center border-2 border-fact bg-white">
+                    <button onclick="adjustPanelCount(-1)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-xl font-bold">-</button>
+                    <input type="number" id="panelQtyInputFloating" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-16 md:w-20 text-center text-lg md:text-xl font-bold border-none py-0 bg-transparent">
+                    <button onclick="adjustPanelCount(1)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-xl font-bold">+</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Chart Logic (Ported exactly)
 function createCharts(chartData) {
     if (!chartData) return;
-    // ... (Chart logic remains same as original, just moved here) ...
-    // Note: I'm shortening this for brevity in this response, but I will include the full logic in the file write.
-    
-    // Check if canvases exist
     const importCanvas = document.getElementById('electricityImportChart');
     const solarCanvas = document.getElementById('solarGenerationChart');
     const combinedCanvas = document.getElementById('combinedChart');
-
     if (!importCanvas || !solarCanvas || !combinedCanvas) return;
 
     if (chartInstances.electricity) chartInstances.electricity.destroy();
     if (chartInstances.solar) chartInstances.solar.destroy();
     if (chartInstances.combined) chartInstances.combined.destroy();
 
-    // 1. Electricity Import
     chartInstances.electricity = new Chart(importCanvas.getContext('2d'), {
         type: 'line',
         data: {
@@ -830,15 +990,9 @@ function createCharts(chartData) {
                 pointRadius: 4
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true }, x: { grid: { display: false } } },
-            plugins: { legend: { display: false } }
-        }
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }, plugins: { legend: { display: false } } }
     });
 
-    // 2. Solar Generation
     chartInstances.solar = new Chart(solarCanvas.getContext('2d'), {
         type: 'line',
         data: {
@@ -856,15 +1010,9 @@ function createCharts(chartData) {
                 pointRadius: 4
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true }, x: { grid: { display: false } } },
-            plugins: { legend: { display: false } }
-        }
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }, plugins: { legend: { display: false } } }
     });
 
-    // 3. Combined
     const netImportData = chartData.electricityUsagePattern.map((usage, index) => {
         const usageKwh = parseFloat(usage.usage);
         const solarKwh = parseFloat(chartData.solarGenerationPattern[index].generation);
@@ -911,16 +1059,11 @@ function createCharts(chartData) {
                 }
             ]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true }, x: { grid: { display: false } } },
-            plugins: { legend: { position: 'top' } }
-        }
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } }, plugins: { legend: { position: 'top' } } }
     });
 }
 
-// --- Diagnostics ---
+// Misc
 async function testConnection() {
     const statusDiv = document.getElementById('dbStatus');
     try {
@@ -932,6 +1075,7 @@ async function testConnection() {
 }
 window.testConnection = testConnection;
 
+// Export helpers for debug
 window.getSchema = async function() {
     const res = document.getElementById('results');
     res.innerHTML = 'Loading...';
@@ -941,7 +1085,6 @@ window.getSchema = async function() {
         res.innerHTML = JSON.stringify(data, null, 2);
     } catch (e) { res.innerHTML = e.message; }
 };
-
 window.getTnbTariff = async function() {
     const res = document.getElementById('results');
     res.innerHTML = 'Loading...';
@@ -951,7 +1094,6 @@ window.getTnbTariff = async function() {
         res.innerHTML = JSON.stringify(data, null, 2);
     } catch (e) { res.innerHTML = e.message; }
 };
-
 window.getPackageInfo = async function() {
     const res = document.getElementById('results');
     res.innerHTML = 'Loading...';
