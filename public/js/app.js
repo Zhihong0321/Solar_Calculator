@@ -20,7 +20,11 @@ const chartInstances = {
 // --- Initialization ---
 window.onload = function() {
     testConnection();
-    initializeData();
+    initializeData().then(() => {
+        if (document.getElementById('reverseCalcForm')) {
+            initReversePage();
+        }
+    });
 };
 
 async function initializeData() {
@@ -54,6 +58,153 @@ async function initializeData() {
         showNotification('Failed to load calculation data. Please refresh.', 'error');
         console.error(err);
     }
+}
+
+function initReversePage() {
+    document.getElementById('reverseCalcForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        runReverseSimulation();
+    });
+}
+
+function runReverseSimulation() {
+    const systemSizeKwp = parseFloat(document.getElementById('systemSize').value);
+    const billAmount = parseFloat(document.getElementById('billAmount').value);
+    const promisedSaving = parseFloat(document.getElementById('promisedSaving').value);
+
+    if (!systemSizeKwp || !billAmount || !promisedSaving) {
+        return showNotification('Please fill all fields', 'error');
+    }
+
+    const calculator = new SolarCalculator(db.tariffs, db.packages);
+    const resultsDiv = document.getElementById('reverseResults');
+    resultsDiv.classList.remove('hidden');
+    // Fade in animation
+    setTimeout(() => resultsDiv.classList.remove('opacity-0'), 50);
+
+    // Common params
+    // Treat system as 1 panel of X watts to simplify math
+    const baseParams = {
+        amount: billAmount,
+        smpPrice: 0.2703, // Standard export rate
+        afaRate: 0,
+        historicalAfaRate: 0,
+        percentDiscount: 0,
+        fixedDiscount: 0,
+        batterySize: 0,
+        overridePanels: 1, 
+        panelType: systemSizeKwp * 1000
+    };
+
+    // Helper to run calc and get savings
+    const getSavings = (p) => {
+        try {
+            const res = calculator.calculate(p);
+            return parseFloat(res.monthlySavings);
+        } catch (e) { return 0; }
+    };
+
+    // Binary Search Helper
+    const solve = (paramName, min, max, fixedParams) => {
+        let low = min, high = max;
+        let bestVal = low;
+        let bestDiff = Infinity;
+
+        for (let i = 0; i < 20; i++) { // 20 iterations is enough precision
+            const mid = (low + high) / 2;
+            const p = { ...baseParams, ...fixedParams, [paramName]: mid };
+            const savings = getSavings(p);
+            
+            if (Math.abs(savings - promisedSaving) < bestDiff) {
+                bestDiff = Math.abs(savings - promisedSaving);
+                bestVal = mid;
+            }
+
+            if (savings < promisedSaving) {
+                // If savings are too low, we need to increase the parameter 
+                // (assuming positive correlation for SunPeak and MorningUsage in most cases)
+                low = mid; 
+            } else {
+                high = mid;
+            }
+        }
+        return { val: bestVal, achieved: getSavings({ ...baseParams, ...fixedParams, [paramName]: bestVal }) };
+    };
+
+    // Scenario 1: Fixed Morning 30%, Find Sun Peak
+    updateScenarioUI('s1', 'Testing...', '--');
+    setTimeout(() => {
+        const s1 = solve('sunPeakHour', 0, 12, { morningUsage: 30 });
+        updateScenarioUI('s1', 
+            s1.val > 8 ? 'RIDICULOUS' : (s1.val > 4.5 ? 'OPTIMISTIC' : 'REALISTIC'),
+            s1.val.toFixed(2) + ' h',
+            `Achieves RM ${s1.achieved.toFixed(2)}`
+        );
+    }, 100);
+
+    // Scenario 2: Fixed Sun Peak 3.4, Find Morning Usage
+    updateScenarioUI('s2', 'Testing...', '--');
+    setTimeout(() => {
+        const s2 = solve('morningUsage', 0, 100, { sunPeakHour: 3.4 });
+        // If we maxed out at 100% and still didn't reach it
+        const isMaxed = s2.val > 99 && s2.achieved < promisedSaving - 5;
+        
+        updateScenarioUI('s2',
+            isMaxed ? 'IMPOSSIBLE' : (s2.val > 70 ? 'UNREALISTIC' : 'REALISTIC'),
+            isMaxed ? '> 100%' : s2.val.toFixed(1) + '%',
+            isMaxed ? `Max possible: RM ${s2.achieved.toFixed(2)}` : `Achieves RM ${s2.achieved.toFixed(2)}`
+        );
+    }, 300);
+
+    // Scenario 3: Max Morning 70%, Find Sun Peak
+    updateScenarioUI('s3', 'Testing...', '--');
+    setTimeout(() => {
+        const s3 = solve('sunPeakHour', 0, 12, { morningUsage: 70 });
+        updateScenarioUI('s3',
+            s3.val > 8 ? 'RIDICULOUS' : (s3.val > 4.5 ? 'OPTIMISTIC' : 'REALISTIC'),
+            s3.val.toFixed(2) + ' h',
+            `Achieves RM ${s3.achieved.toFixed(2)}`
+        );
+        
+        // Final Verdict Logic
+        // If Scenario 1 requires > 4.5h OR Scenario 2 is Impossible/Unrealistic
+        const verdictTitle = document.getElementById('verdictTitle');
+        const verdictDesc = document.getElementById('verdictDesc');
+        const verdictBanner = document.getElementById('verdictBanner');
+        
+        const isRidiculous = s1.val > 5.0 || (s2.val > 99 && s2.achieved < promisedSaving);
+        const isOptimistic = !isRidiculous && (s1.val > 4.0 || s2.val > 60);
+        
+        if (isRidiculous) {
+            verdictTitle.innerText = "UNREALISTIC";
+            verdictDesc.innerText = "The promised savings are likely inflated. Required sun hours or self-consumption rates exceed typical Malaysian standards.";
+            verdictBanner.className = "bg-rose-900 text-white p-8 md:p-12 shadow-2xl relative overflow-hidden";
+        } else if (isOptimistic) {
+            verdictTitle.innerText = "OPTIMISTIC";
+            verdictDesc.innerText = "The offer is theoretically possible but relies on ideal conditions (high self-consumption or perfect roof orientation).";
+            verdictBanner.className = "bg-orange-600 text-white p-8 md:p-12 shadow-2xl relative overflow-hidden";
+        } else {
+            verdictTitle.innerText = "REALISTIC";
+            verdictDesc.innerText = "The promised savings align with standard modeling parameters and TNB tariffs.";
+            verdictBanner.className = "bg-emerald-800 text-white p-8 md:p-12 shadow-2xl relative overflow-hidden";
+        }
+    }, 600);
+}
+
+function updateScenarioUI(id, status, value, desc) {
+    const statusEl = document.getElementById(id + '_status');
+    const valEl = document.getElementById(id + '_value');
+    const descEl = document.getElementById(id + '_desc');
+    
+    if (statusEl) {
+        statusEl.innerText = status;
+        statusEl.className = `px-3 py-1 text-xs font-bold uppercase tracking-widest ${
+            status === 'REALISTIC' ? 'bg-emerald-100 text-emerald-800' : 
+            (status === 'IMPOSSIBLE' || status === 'RIDICULOUS' ? 'bg-rose-100 text-rose-800' : 'bg-orange-100 text-orange-800')
+        }`;
+    }
+    if (valEl) valEl.innerText = value;
+    if (descEl && desc) descEl.innerText = desc;
 }
 
 // --- Logic Engine (The Authoritative Source) ---
