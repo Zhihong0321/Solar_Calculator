@@ -148,6 +148,16 @@ class SolarCalculator {
         const afterBreakdown = buildBreakdown(afterTariff);
         const baselineBreakdown = buildBreakdown(baselineTariff);
 
+        // Confidence Level Calculation
+        // Base 90%, -7% for every 0.1h above 3.4h
+        let confidenceLevel = 90;
+        if (sunPeakHour > 3.4) {
+            const diff = sunPeakHour - 3.4;
+            // (diff / 0.1) * 7
+            const penalty = (diff / 0.1) * 7;
+            confidenceLevel = Math.max(0, 90 - penalty);
+        }
+
         // Final Savings Logic
         const billReduction = beforeBreakdown.total - afterBreakdown.total;
         const exportSaving = exportKwh * smpPrice;
@@ -195,6 +205,7 @@ class SolarCalculator {
             selectedPackage: selectedPackage ? { packageName: selectedPackage.package_name, price: selectedPackage.price, panelWattage: panelType } : null,
             solarConfig: `${actualPanelQty} x ${panelType}W panels (${(actualPanelQty * panelType / 1000).toFixed(1)} kW system)`,
             monthlySavings: totalMonthlySavings.toFixed(2),
+            confidenceLevel: confidenceLevel.toFixed(1),
             systemCostBeforeDiscount, totalDiscountAmount, finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : null,
             paybackPeriod,
             details: {
@@ -434,6 +445,7 @@ function displaySolarCalculation(data) {
                         <div class="flex justify-between items-baseline"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(ds.billReduction)}</span></div>
                         <div class="flex justify-between items-baseline"><span>Export_Savings:</span><span class="font-bold">RM ${formatCurrency(ds.exportSaving)}</span></div>
                         <div class="flex justify-between items-baseline text-emerald-400"><span>Net_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
+                        <div class="flex justify-between items-baseline text-orange-400"><span>Confidence_Level:</span><span class="font-bold">${data.confidenceLevel}%</span></div>
                     </div>
                     <div class="pt-10 border-t-2 border-white/40 flex justify-between items-baseline">
                         <span class="text-xs font-bold uppercase tracking-[0.2em] text-white/70">Total_Savings (Inc. Export):</span>
