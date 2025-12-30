@@ -273,7 +273,10 @@ window.calculateSolarSavings = function() {
     };
     latestSolarParams = params;
     runAndDisplay();
-    showPanelRecommendationPopup(latestSolarData);
+    // Scroll to results
+    const solarDiv = document.getElementById('solarResultsCard');
+    if (solarDiv) solarDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
     originalSolarData = JSON.parse(JSON.stringify(latestSolarData)); // Capture baseline for Investment Delta
 };
 
@@ -428,6 +431,8 @@ function displaySolarCalculation(data) {
                     <div class="h-px bg-white/20"></div>
                     <div class="space-y-6">
                         <div class="flex justify-between items-baseline"><span>New_Monthly_Bill:</span><span class="font-bold">RM ${formatCurrency(b.billAfter)}</span></div>
+                        <div class="flex justify-between items-baseline"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(ds.billReduction)}</span></div>
+                        <div class="flex justify-between items-baseline"><span>Export_Savings:</span><span class="font-bold">RM ${formatCurrency(ds.exportSaving)}</span></div>
                         <div class="flex justify-between items-baseline text-emerald-400"><span>Net_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
                     </div>
                     <div class="pt-10 border-t-2 border-white/40 flex justify-between items-baseline">
@@ -477,7 +482,7 @@ function displaySolarCalculation(data) {
     `;
 
     renderFloatingPanelModulation(data);
-    if (isInitialRender) solarDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Scroll handled in calculateSolarSavings
     if (data.charts) createCharts(data.charts);
 }
 
