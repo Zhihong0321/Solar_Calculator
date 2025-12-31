@@ -29,53 +29,79 @@
         }
     </script>
     <style>
-        body { font-family: 'Roboto Mono', monospace; background-color: #FAF9F6; color: #000000; line-height: 1.6; }
-        .tier-1 { color: #000000; }
-        .tier-2 { color: #404040; }
-        .tier-3 { color: #666666; }
-        input, select { background: transparent; border: none; border-bottom: 1px solid #D1D5DB; border-radius: 0; outline: none; }
-        input:focus, select:focus { border-bottom: 1px solid #000000; }
+        body { 
+            font-family: 'Roboto Mono', monospace; 
+            background-color: #FAF9F6; 
+            color: #000000; 
+            line-height: 1.5; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .tier-1 { color: #000000; font-weight: 600; }
+        .tier-2 { color: #2D2D2D; font-weight: 500; }
+        .tier-3 { color: #5A5A5A; font-weight: 400; }
+        input, select { 
+            background: transparent; 
+            border: none; 
+            border-bottom: 1px solid #D1D5DB; 
+            border-radius: 0; 
+            outline: none; 
+            font-size: 1.125rem;
+            padding: 0.5rem 0;
+        }
+        input:focus, select:focus { 
+            border-bottom: 2px solid #000000; 
+        }
         .ledger-line { border-top: 1px solid #D1D5DB; }
-        .ledger-double-line { border-top: 3px double #D1D5DB; }
+        .ledger-double-line { border-top: 2px solid #000000; }
         /* Hide arrows from number input */
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }
+        input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+        /* Better touch targets for mobile */
+        button, a { 
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Optimize text rendering */
+        h1, h2, h3, h4 { letter-spacing: -0.02em; }
     </style>
 </head>
 <body class="bg-paper text-fact min-h-screen font-mono selection:bg-black selection:text-white overflow-x-hidden">
     <!-- DARK HEADER ZONE -->
-    <header class="bg-black text-white py-12 md:py-16 mb-12 md:mb-16 -mt-10 md:-mt-20">
+    <header class="bg-black text-white py-6 md:py-8 mb-8 md:mb-10 -mt-4 md:-mt-6">
         <div class="mx-auto w-full max-w-4xl px-4 md:px-6">
-            <div class="flex flex-col sm:flex-row items-start justify-between gap-6">
+            <div class="flex flex-col sm:flex-row items-start justify-between gap-4">
                 <div>
-                    <h1 class="text-xl md:text-2xl font-bold uppercase tracking-tighter">Solar_Calculator_v2.0</h1>
-                    <p class="mt-2 text-[11px] md:text-xs opacity-50 uppercase tracking-widest">Systematic ROI Analysis & Tariff Pairing</p>
-                    <a href="/reverse.html" class="mt-6 inline-block text-[10px] font-bold uppercase tracking-[0.2em] border border-white/30 px-4 py-2 hover:bg-white hover:text-black transition-colors">
+                    <h1 class="text-lg md:text-xl font-bold uppercase tracking-tight">Solar_Calculator_v2.0</h1>
+                    <p class="mt-1.5 text-[10px] md:text-xs opacity-60 uppercase tracking-wide">Systematic ROI Analysis & Tariff Pairing</p>
+                    <a href="/reverse.html" class="mt-4 inline-block text-[10px] font-semibold uppercase tracking-wide border border-white/30 px-3 py-1.5 hover:bg-white hover:text-black transition-colors">
                         Analyze_Competitor ->
                     </a>
                 </div>
-                <img src="logo.png" alt="Eternalgy" class="h-8 md:h-10 w-auto brightness-0 invert">
+                <img src="logo.png" alt="Eternalgy" class="h-7 md:h-9 w-auto brightness-0 invert mt-1">
             </div>
         </div>
     </header>
 
-    <div class="mx-auto w-full max-w-4xl px-4 pb-10 md:px-6 md:pb-20">
-        <main class="space-y-20 md:space-y-32">
+    <div class="mx-auto w-full max-w-4xl px-4 pb-8 md:px-6 md:pb-12">
+        <main class="space-y-10 md:space-y-16">
             <!-- Phase 01: System Status -->
-            <section id="dbStatus" class="text-xs uppercase tracking-widest tier-3 flex items-center gap-4">
+            <section id="dbStatus" class="text-[10px] md:text-xs uppercase tracking-wide tier-3 flex items-center gap-3">
                 <span>[ STATUS: CHECKING_DB ]</span>
-                <div class="h-[2px] grow bg-divider"></div>
+                <div class="h-px grow bg-divider"></div>
             </section>
 
             <!-- Phase 02: Intake -->
-            <section id="intake-section" class="pt-4">
-                <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">01_BILL_INTAKE</h2>
+            <section id="intake-section" class="pt-2">
+                <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">01_BILL_INTAKE</h2>
                 
-                <form id="billForm" class="grid gap-12 md:grid-cols-2 md:gap-x-24 md:gap-y-16">
-                    <div class="space-y-6">
-                        <label for="billAmount" class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Monthly_TNB_Bill (RM)</label>
-                        <div class="flex items-baseline gap-3 border-b-2 border-divider focus-within:border-fact transition-colors pb-2">
-                            <span class="text-lg tier-2 font-bold">RM</span>
+                <form id="billForm" class="grid gap-6 md:grid-cols-2 md:gap-x-8 md:gap-y-6">
+                    <div class="space-y-3">
+                        <label for="billAmount" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Monthly_TNB_Bill (RM)</label>
+                        <div class="flex items-baseline gap-2 border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                            <span class="text-base md:text-lg tier-2 font-semibold">RM</span>
                             <input
                                 type="number"
                                 id="billAmount"
@@ -83,19 +109,19 @@
                                 step="0.01"
                                 min="0"
                                 placeholder="000.00"
-                                class="w-full text-2xl md:text-3xl font-bold tracking-tighter bg-transparent border-none outline-none"
+                                class="w-full text-xl md:text-2xl font-bold tracking-tight bg-transparent border-none outline-none"
                                 required
                             >
                         </div>
                     </div>
 
-                    <div class="space-y-6">
-                        <label for="historicalAfaRate" class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Historical_AFA_Period</label>
-                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-2">
+                    <div class="space-y-3">
+                        <label for="historicalAfaRate" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Historical_AFA_Period</label>
+                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
                             <select
                                 id="historicalAfaRate"
                                 name="historicalAfaRate"
-                                class="w-full text-sm md:text-base font-bold py-2 cursor-pointer bg-transparent border-none outline-none"
+                                class="w-full text-sm md:text-base font-semibold py-1.5 cursor-pointer bg-transparent border-none outline-none"
                             >
                                 <option value="0.0000">JUL_2025 (0.00 sen)</option>
                                 <option value="-0.0145">AUG_2025 (-1.45 sen)</option>
@@ -107,10 +133,10 @@
                         </div>
                     </div>
 
-                    <div class="md:col-span-2 pt-4">
+                    <div class="md:col-span-2 pt-2">
                         <button
                             type="submit"
-                            class="text-xs md:text-sm font-bold uppercase tracking-[0.3em] border-2 border-fact px-10 py-4 md:px-12 md:py-5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
+                            class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
                         >
                             Execute_Bill_Analysis ->
                         </button>
@@ -121,21 +147,21 @@
             <section id="calculatorResults" class="space-y-20 md:space-y-32"></section>
 
             <!-- Diagnostics moved to footer -->
-            <footer class="pt-20 md:pt-32 border-t-2 border-divider space-y-12 md:space-y-16">
+            <footer class="pt-10 md:pt-16 border-t border-divider space-y-8 md:space-y-10">
                 <details class="group">
-                    <summary class="list-none cursor-pointer text-xs uppercase tracking-[0.2em] tier-3 hover:tier-2 transition-colors font-bold">
+                    <summary class="list-none cursor-pointer text-[10px] md:text-xs uppercase tracking-wide tier-3 hover:tier-2 transition-colors font-semibold">
                         [+] SYSTEM_DIAGNOSTICS
                     </summary>
-                    <div class="mt-8 md:mt-10 grid grid-cols-2 sm:grid-cols-4 gap-6">
-                        <button onclick="testConnection()" class="text-left text-xs uppercase tracking-widest tier-2 hover:tier-1 font-bold border border-divider p-3 hover:bg-black hover:text-white transition-all">Test_DB</button>
-                        <button onclick="getSchema()" class="text-left text-xs uppercase tracking-widest tier-2 hover:tier-1 font-bold border border-divider p-3 hover:bg-black hover:text-white transition-all">Dump_Schema</button>
-                        <button onclick="getTnbTariff()" class="text-left text-xs uppercase tracking-widest tier-2 hover:tier-1 font-bold border border-divider p-3 hover:bg-black hover:text-white transition-all">TNB_Data</button>
-                        <button onclick="getPackageInfo()" class="text-left text-xs uppercase tracking-widest tier-2 hover:tier-1 font-bold border border-divider p-3 hover:bg-black hover:text-white transition-all">Pkg_Info</button>
+                    <div class="mt-5 md:mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+                        <button onclick="testConnection()" class="text-left text-[10px] md:text-xs uppercase tracking-wide tier-2 hover:tier-1 font-semibold border border-divider p-2.5 md:p-3 hover:bg-black hover:text-white transition-all">Test_DB</button>
+                        <button onclick="getSchema()" class="text-left text-[10px] md:text-xs uppercase tracking-wide tier-2 hover:tier-1 font-semibold border border-divider p-2.5 md:p-3 hover:bg-black hover:text-white transition-all">Dump_Schema</button>
+                        <button onclick="getTnbTariff()" class="text-left text-[10px] md:text-xs uppercase tracking-wide tier-2 hover:tier-1 font-semibold border border-divider p-2.5 md:p-3 hover:bg-black hover:text-white transition-all">TNB_Data</button>
+                        <button onclick="getPackageInfo()" class="text-left text-[10px] md:text-xs uppercase tracking-wide tier-2 hover:tier-1 font-semibold border border-divider p-2.5 md:p-3 hover:bg-black hover:text-white transition-all">Pkg_Info</button>
                     </div>
-                    <div id="results" class="mt-8 md:mt-10 text-xs tier-3 overflow-x-auto whitespace-pre bg-black/5 p-4 border border-divider"></div>
+                    <div id="results" class="mt-5 md:mt-6 text-[10px] md:text-xs tier-3 overflow-x-auto whitespace-pre bg-black/5 p-3 md:p-4 border border-divider"></div>
                 </details>
                 
-                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-xs tier-3 uppercase tracking-[0.2em] font-bold">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-3 text-[10px] md:text-xs tier-3 uppercase tracking-wide font-semibold">
                     <span>Eternalgy // Solar Intelligence Suite</span>
                     <span>v2.0_Minimalist_Paper</span>
                 </div>

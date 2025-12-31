@@ -8,71 +8,97 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Space Mono', monospace; background-color: #f3f4f6; }
-        .tier-1 { color: #000000; }
-        .tier-2 { color: #4b5563; }
-        .tier-3 { color: #9ca3af; }
-        .bg-paper { background-color: #ffffff; }
+        body { 
+            font-family: 'Space Mono', monospace; 
+            background-color: #FAF9F6; 
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .tier-1 { color: #000000; font-weight: 600; }
+        .tier-2 { color: #2D2D2D; font-weight: 500; }
+        .tier-3 { color: #5A5A5A; font-weight: 400; }
+        .bg-paper { background-color: #FAF9F6; }
         .border-fact { border-color: #000000; }
-        .border-divider { border-color: #e5e7eb; }
+        .border-divider { border-color: #D1D5DB; }
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        input, select { 
+            background: transparent; 
+            border: none; 
+            border-bottom: 1px solid #D1D5DB; 
+            border-radius: 0; 
+            outline: none; 
+            font-size: 1.125rem;
+            padding: 0.5rem 0;
+        }
+        input:focus, select:focus { 
+            border-bottom: 2px solid #000000; 
+        }
+        button, a { 
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        h1, h2, h3, h4 { letter-spacing: -0.02em; }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
     
     <!-- Header -->
-    <header class="bg-black text-white py-12 md:py-16 mb-12 md:mb-16 -mx-4 md:-mx-8 -mt-4 md:-mt-8">
+    <header class="bg-black text-white py-6 md:py-8 mb-8 md:mb-10 -mx-4 md:-mx-8 -mt-4 md:-mt-6">
         <div class="mx-auto w-full max-w-7xl px-4 md:px-8">
-            <div class="flex flex-col sm:flex-row items-start justify-between gap-6">
+            <div class="flex flex-col sm:flex-row items-start justify-between gap-4">
                 <div>
-                    <h1 class="text-xl md:text-3xl font-bold uppercase tracking-tighter">COMPETITOR_ANALYSIS</h1>
-                    <p class="mt-2 text-[11px] md:text-xs opacity-50 uppercase tracking-widest">Reverse_Engineering_Protocol // v1.0</p>
-                    <a href="/" class="mt-6 inline-block text-[10px] font-bold uppercase tracking-[0.2em] border border-white/30 px-4 py-2 hover:bg-white hover:text-black transition-colors">
+                    <h1 class="text-lg md:text-xl font-bold uppercase tracking-tight">COMPETITOR_ANALYSIS</h1>
+                    <p class="mt-1.5 text-[10px] md:text-xs opacity-60 uppercase tracking-wide">Reverse_Engineering_Protocol // v1.0</p>
+                    <a href="/" class="mt-4 inline-block text-[10px] font-semibold uppercase tracking-wide border border-white/30 px-3 py-1.5 hover:bg-white hover:text-black transition-colors">
                         <- Return_To_Base
                     </a>
                 </div>
-                <img src="logo.png" alt="Eternalgy" class="h-8 md:h-10 w-auto brightness-0 invert">
+                <img src="logo.png" alt="Eternalgy" class="h-7 md:h-9 w-auto brightness-0 invert mt-1">
             </div>
         </div>
     </header>
 
-    <div id="dbStatus" class="mb-8 font-mono text-xs text-gray-400 flex items-center gap-4">
+    <div id="dbStatus" class="mb-6 font-mono text-[10px] md:text-xs tier-3 flex items-center gap-3">
         <span>[ SYSTEM_INIT... ]</span>
-        <div class="h-px grow bg-gray-200"></div>
+        <div class="h-px grow bg-divider"></div>
     </div>
 
-    <div class="grid lg:grid-cols-12 gap-8 md:gap-16">
+    <div class="grid lg:grid-cols-12 gap-6 md:gap-8">
         
         <!-- Input Section -->
-        <div class="lg:col-span-4 space-y-12">
+        <div class="lg:col-span-4 space-y-8">
             <section>
-                <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-8 tier-2 border-b-2 border-black inline-block pb-1">01_INPUT_PARAMETERS</h2>
+                <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-black inline-block pb-1">01_INPUT_PARAMETERS</h2>
                 
-                <form id="reverseCalcForm" class="space-y-8">
-                    <div class="space-y-4">
-                        <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Competitor_System_Size (kWp)</label>
-                        <div class="border-b-2 border-gray-200 focus-within:border-black transition-colors pb-1">
-                            <input type="number" id="systemSize" step="0.1" required class="w-full text-2xl font-bold bg-transparent border-none outline-none py-1" placeholder="e.g. 6.6">
+                <form id="reverseCalcForm" class="space-y-6">
+                    <div class="space-y-3">
+                        <label class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Competitor_System_Size (kWp)</label>
+                        <div class="border-b-2 border-divider focus-within:border-black transition-colors pb-1.5">
+                            <input type="number" id="systemSize" step="0.1" required class="w-full text-xl md:text-2xl font-bold bg-transparent border-none outline-none py-1" placeholder="e.g. 6.6">
                         </div>
                     </div>
 
-                    <div class="space-y-4">
-                        <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Original_Bill_Amount (RM)</label>
-                        <div class="border-b-2 border-gray-200 focus-within:border-black transition-colors pb-1">
-                            <input type="number" id="billAmount" step="0.01" required class="w-full text-2xl font-bold bg-transparent border-none outline-none py-1" placeholder="e.g. 500">
+                    <div class="space-y-3">
+                        <label class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Original_Bill_Amount (RM)</label>
+                        <div class="border-b-2 border-divider focus-within:border-black transition-colors pb-1.5">
+                            <input type="number" id="billAmount" step="0.01" required class="w-full text-xl md:text-2xl font-bold bg-transparent border-none outline-none py-1" placeholder="e.g. 500">
                         </div>
                     </div>
 
-                    <div class="space-y-4">
-                        <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">Promised_Monthly_Saving (RM)</label>
-                        <div class="border-b-2 border-gray-200 focus-within:border-black transition-colors pb-1">
-                            <input type="number" id="promisedSaving" step="0.01" required class="w-full text-2xl font-bold bg-transparent border-none outline-none py-1" placeholder="e.g. 450">
+                    <div class="space-y-3">
+                        <label class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Promised_Monthly_Saving (RM)</label>
+                        <div class="border-b-2 border-divider focus-within:border-black transition-colors pb-1.5">
+                            <input type="number" id="promisedSaving" step="0.01" required class="w-full text-xl md:text-2xl font-bold bg-transparent border-none outline-none py-1" placeholder="e.g. 450">
                         </div>
                     </div>
 
-                    <div class="pt-8">
-                        <button type="submit" class="w-full text-sm font-bold uppercase tracking-[0.3em] border-2 border-black bg-black text-white px-8 py-5 hover:bg-white hover:text-black transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">Run_Simulation -></button>
+                    <div class="pt-2">
+                        <button type="submit" class="w-full text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-black bg-black text-white px-6 py-3 md:px-8 md:py-3.5 hover:bg-white hover:text-black transition-all shadow-[3px_3px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]">Run_Simulation -></button>
                     </div>
                 </form>
             </section>
@@ -80,81 +106,81 @@
 
         <!-- Results Section -->
         <div class="lg:col-span-8">
-            <div id="reverseResults" class="hidden space-y-16 opacity-0 transition-opacity duration-500">
+            <div id="reverseResults" class="hidden space-y-10 md:space-y-12 opacity-0 transition-opacity duration-500">
                 
                 <!-- Verdict Banner -->
-                <div id="verdictBanner" class="bg-black text-white p-8 md:p-12 shadow-2xl relative overflow-hidden">
+                <div id="verdictBanner" class="bg-black text-white p-6 md:p-8 shadow-xl relative overflow-hidden">
                     <div class="relative z-10">
-                        <h2 class="text-xs font-bold uppercase tracking-[0.4em] mb-4 opacity-70">VERDICT_ANALYSIS</h2>
-                        <div id="verdictTitle" class="text-4xl md:text-6xl font-bold tracking-tighter mb-4">UNREALISTIC</div>
-                        <p id="verdictDesc" class="text-sm md:text-base opacity-80 max-w-2xl">The promised savings require parameters that exceed physical possibilities or standard behavioral patterns.</p>
+                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-wide mb-3 md:mb-4 opacity-70">VERDICT_ANALYSIS</h2>
+                        <div id="verdictTitle" class="text-2xl md:text-4xl font-bold tracking-tight mb-3 md:mb-4">UNREALISTIC</div>
+                        <p id="verdictDesc" class="text-sm md:text-base opacity-80 max-w-2xl leading-relaxed">The promised savings require parameters that exceed physical possibilities or standard behavioral patterns.</p>
                     </div>
                 </div>
 
                 <!-- Scenarios Grid -->
                 <section>
-                    <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 tier-2 border-b-2 border-black inline-block pb-1">02_SCENARIO_SIMULATION</h2>
+                    <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-black inline-block pb-1">02_SCENARIO_SIMULATION</h2>
                     
-                    <div class="grid gap-8">
+                    <div class="grid gap-5 md:gap-6">
                         
                         <!-- Scenario 1 -->
-                        <div class="bg-white border-2 border-gray-200 p-8 hover:border-black transition-colors group">
-                            <div class="flex justify-between items-start mb-6">
+                        <div class="bg-white border-2 border-divider p-5 md:p-6 hover:border-black transition-colors group">
+                            <div class="flex flex-col sm:flex-row justify-between items-start mb-4 md:mb-5 gap-3">
                                 <div>
-                                    <div class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Scenario_01</div>
-                                    <h3 class="text-xl font-bold">Standard_Behavior (30% Morning)</h3>
+                                    <div class="text-[9px] md:text-[10px] font-semibold uppercase tracking-wide tier-3 mb-1">Scenario_01</div>
+                                    <h3 class="text-base md:text-lg font-bold">Standard_Behavior (30% Morning)</h3>
                                 </div>
-                                <div id="s1_status" class="px-3 py-1 bg-gray-100 text-xs font-bold uppercase tracking-widest">Testing...</div>
+                                <div id="s1_status" class="px-2.5 md:px-3 py-1 bg-gray-100 text-[10px] md:text-xs font-semibold uppercase tracking-wide">Testing...</div>
                             </div>
-                            <div class="grid md:grid-cols-2 gap-8">
+                            <div class="grid md:grid-cols-2 gap-5 md:gap-6">
                                 <div>
-                                    <div class="text-xs uppercase tracking-wider text-gray-500 mb-2">Required_Sun_Peak</div>
-                                    <div class="text-3xl font-bold" id="s1_value">--</div>
-                                    <div class="text-xs text-gray-400 mt-1">Standard: 3.4 hours</div>
+                                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 mb-1.5">Required_Sun_Peak</div>
+                                    <div class="text-2xl md:text-3xl font-bold" id="s1_value">--</div>
+                                    <div class="text-[10px] md:text-xs tier-3 mt-1">Standard: 3.4 hours</div>
                                 </div>
-                                <div class="text-sm text-gray-600 border-l-2 border-gray-100 pl-4 flex items-center">
+                                <div class="text-sm text-gray-600 border-l-2 border-divider pl-3 md:pl-4 flex items-center">
                                     <span id="s1_desc">Calculating...</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Scenario 2 -->
-                        <div class="bg-white border-2 border-gray-200 p-8 hover:border-black transition-colors group">
-                            <div class="flex justify-between items-start mb-6">
+                        <div class="bg-white border-2 border-divider p-5 md:p-6 hover:border-black transition-colors group">
+                            <div class="flex flex-col sm:flex-row justify-between items-start mb-4 md:mb-5 gap-3">
                                 <div>
-                                    <div class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Scenario_02</div>
-                                    <h3 class="text-xl font-bold">Standard_Sun_Peak (3.4h)</h3>
+                                    <div class="text-[9px] md:text-[10px] font-semibold uppercase tracking-wide tier-3 mb-1">Scenario_02</div>
+                                    <h3 class="text-base md:text-lg font-bold">Standard_Sun_Peak (3.4h)</h3>
                                 </div>
-                                <div id="s2_status" class="px-3 py-1 bg-gray-100 text-xs font-bold uppercase tracking-widest">Testing...</div>
+                                <div id="s2_status" class="px-2.5 md:px-3 py-1 bg-gray-100 text-[10px] md:text-xs font-semibold uppercase tracking-wide">Testing...</div>
                             </div>
-                            <div class="grid md:grid-cols-2 gap-8">
+                            <div class="grid md:grid-cols-2 gap-5 md:gap-6">
                                 <div>
-                                    <div class="text-xs uppercase tracking-wider text-gray-500 mb-2">Required_Morning_Usage</div>
-                                    <div class="text-3xl font-bold" id="s2_value">--</div>
-                                    <div class="text-xs text-gray-400 mt-1">Realistic Cap: 70%</div>
+                                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 mb-1.5">Required_Morning_Usage</div>
+                                    <div class="text-2xl md:text-3xl font-bold" id="s2_value">--</div>
+                                    <div class="text-[10px] md:text-xs tier-3 mt-1">Realistic Cap: 70%</div>
                                 </div>
-                                <div class="text-sm text-gray-600 border-l-2 border-gray-100 pl-4 flex items-center">
+                                <div class="text-sm text-gray-600 border-l-2 border-divider pl-3 md:pl-4 flex items-center">
                                     <span id="s2_desc">Calculating...</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Scenario 3 -->
-                        <div class="bg-white border-2 border-gray-200 p-8 hover:border-black transition-colors group">
-                            <div class="flex justify-between items-start mb-6">
+                        <div class="bg-white border-2 border-divider p-5 md:p-6 hover:border-black transition-colors group">
+                            <div class="flex flex-col sm:flex-row justify-between items-start mb-4 md:mb-5 gap-3">
                                 <div>
-                                    <div class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Scenario_03</div>
-                                    <h3 class="text-xl font-bold">Optimized_User (70% Morning)</h3>
+                                    <div class="text-[9px] md:text-[10px] font-semibold uppercase tracking-wide tier-3 mb-1">Scenario_03</div>
+                                    <h3 class="text-base md:text-lg font-bold">Optimized_User (70% Morning)</h3>
                                 </div>
-                                <div id="s3_status" class="px-3 py-1 bg-gray-100 text-xs font-bold uppercase tracking-widest">Testing...</div>
+                                <div id="s3_status" class="px-2.5 md:px-3 py-1 bg-gray-100 text-[10px] md:text-xs font-semibold uppercase tracking-wide">Testing...</div>
                             </div>
-                            <div class="grid md:grid-cols-2 gap-8">
+                            <div class="grid md:grid-cols-2 gap-5 md:gap-6">
                                 <div>
-                                    <div class="text-xs uppercase tracking-wider text-gray-500 mb-2">Required_Sun_Peak</div>
-                                    <div class="text-3xl font-bold" id="s3_value">--</div>
-                                    <div class="text-xs text-gray-400 mt-1">Standard: 3.4 hours</div>
+                                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 mb-1.5">Required_Sun_Peak</div>
+                                    <div class="text-2xl md:text-3xl font-bold" id="s3_value">--</div>
+                                    <div class="text-[10px] md:text-xs tier-3 mt-1">Standard: 3.4 hours</div>
                                 </div>
-                                <div class="text-sm text-gray-600 border-l-2 border-gray-100 pl-4 flex items-center">
+                                <div class="text-sm text-gray-600 border-l-2 border-divider pl-3 md:pl-4 flex items-center">
                                     <span id="s3_desc">Calculating...</span>
                                 </div>
                             </div>

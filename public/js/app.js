@@ -74,7 +74,7 @@ function updateScenarioUI(id, status, value, desc, sunPeak = null, morningUsage 
     
     if (statusEl) {
         statusEl.innerText = status;
-        statusEl.className = `px-3 py-1 text-xs font-bold uppercase tracking-widest ${
+        statusEl.className = `px-2.5 md:px-3 py-1 text-[10px] md:text-xs font-semibold uppercase tracking-wide ${
             status === 'REALISTIC' ? 'bg-emerald-100 text-emerald-800' : 
             (status === 'IMPOSSIBLE' || status === 'RIDICULOUS' ? 'bg-rose-100 text-rose-800' : 'bg-orange-100 text-orange-800')
         }`;
@@ -87,7 +87,7 @@ function updateScenarioUI(id, status, value, desc, sunPeak = null, morningUsage 
         const diff = sunPeak - 3.4;
         const penalty = (diff / 0.1) * 7;
         confidence = Math.max(0, 90 - penalty).toFixed(1);
-        valueHtml += ` <span class="text-xs font-bold ${confidence < 50 ? 'text-rose-600' : 'text-orange-500'}">[Confidence: ${confidence}%]</span>`;
+        valueHtml += ` <span class="text-[10px] md:text-xs font-semibold ${confidence < 50 ? 'text-rose-600' : 'text-orange-500'}">[Confidence: ${confidence}%]</span>`;
     }
     
     if (valEl) valEl.innerHTML = valueHtml;
@@ -95,7 +95,7 @@ function updateScenarioUI(id, status, value, desc, sunPeak = null, morningUsage 
     // Add Warning Note for high morning usage
     let finalDesc = desc || '';
     if (morningUsage !== null && morningUsage > 50) {
-        finalDesc += `<br><span class="text-[10px] text-rose-600 font-bold mt-2 block leading-tight">NOTE: In a typical residential scenario, daytime usage is usually low as occupants are often away from home. Please be cautious of high morning offset estimations.</span>`;
+        finalDesc += `<br><span class="text-[9px] md:text-[10px] text-rose-600 font-semibold mt-1.5 block leading-relaxed">NOTE: In a typical residential scenario, daytime usage is usually low as occupants are often away from home. Please be cautious of high morning offset estimations.</span>`;
     }
     
     if (descEl) descEl.innerHTML = finalDesc;
@@ -210,15 +210,15 @@ function runReverseSimulation() {
         if (isRidiculous) {
             verdictTitle.innerText = "UNREALISTIC";
             verdictDesc.innerText = "The promised savings are likely inflated. Required sun hours or self-consumption rates exceed typical Malaysian standards.";
-            verdictBanner.className = "bg-rose-900 text-white p-8 md:p-12 shadow-2xl relative overflow-hidden";
+            verdictBanner.className = "bg-rose-900 text-white p-6 md:p-8 shadow-xl relative overflow-hidden";
         } else if (isOptimistic) {
             verdictTitle.innerText = "OPTIMISTIC";
             verdictDesc.innerText = "The offer is theoretically possible but relies on ideal conditions (high self-consumption or perfect roof orientation).";
-            verdictBanner.className = "bg-orange-600 text-white p-8 md:p-12 shadow-2xl relative overflow-hidden";
+            verdictBanner.className = "bg-orange-600 text-white p-6 md:p-8 shadow-xl relative overflow-hidden";
         } else {
             verdictTitle.innerText = "REALISTIC";
             verdictDesc.innerText = "The promised savings align with standard modeling parameters and TNB tariffs.";
-            verdictBanner.className = "bg-emerald-800 text-white p-8 md:p-12 shadow-2xl relative overflow-hidden";
+            verdictBanner.className = "bg-emerald-800 text-white p-6 md:p-8 shadow-xl relative overflow-hidden";
         }
     }, 600);
 }
@@ -559,51 +559,51 @@ function displayBillBreakdown(data) {
     const adjustedTotal = tariff.bill_total_normal + afaCharge;
 
     resultsDiv.innerHTML = `
-        <div class="space-y-20 md:space-y-32">
-            <section class="pt-4">
-                <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">02_BILL_ANALYSIS_LEDGER</h2>
-                <div class="space-y-4 text-sm md:text-base">
-                    <div class="flex justify-between tier-3 uppercase text-xs tracking-widest mb-6 border-b border-divider pb-2"><span>Component</span><span>Value_(RM)</span></div>
+        <div class="space-y-10 md:space-y-16">
+            <section class="pt-2">
+                <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">02_BILL_ANALYSIS_LEDGER</h2>
+                <div class="space-y-3 text-sm md:text-base">
+                    <div class="flex justify-between tier-3 uppercase text-[10px] md:text-xs tracking-wide mb-4 border-b border-divider pb-1.5"><span>Component</span><span>Value_(RM)</span></div>
                     ${['usage_normal', 'network', 'capacity', 'retail', 'eei', 'sst_normal', 'kwtbb_normal'].map(key => `
-                        <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
-                            <span class="tier-2 truncate">${key.replace('_normal','').toUpperCase()}</span>
-                            <span class="tier-1 font-medium whitespace-nowrap">${formatCurrency(tariff[key])}</span>
+                        <div class="flex justify-between py-1.5 gap-4 border-b border-divider/50">
+                            <span class="tier-2 truncate text-sm">${key.replace('_normal','').toUpperCase()}</span>
+                            <span class="tier-1 font-semibold whitespace-nowrap text-sm">${formatCurrency(tariff[key])}</span>
                         </div>
                     `).join('')}
-                    <div class="flex justify-between py-2 gap-4 border-b border-divider/50">
-                        <span class="tier-2 truncate">AFA_ADJUSTMENT</span>
-                        <span class="${afaCharge < 0 ? 'text-emerald-600' : 'tier-1'} font-medium whitespace-nowrap">${formatCurrency(afaCharge)}</span>
+                    <div class="flex justify-between py-1.5 gap-4 border-b border-divider/50">
+                        <span class="tier-2 truncate text-sm">AFA_ADJUSTMENT</span>
+                        <span class="${afaCharge < 0 ? 'text-emerald-600' : 'tier-1'} font-semibold whitespace-nowrap text-sm">${formatCurrency(afaCharge)}</span>
                     </div>
-                    <div class="ledger-double-line pt-6 mt-8 flex justify-between items-baseline gap-4">
-                        <span class="text-xs md:text-sm font-bold uppercase tracking-[0.2em]">Total_Matched</span>
-                        <span class="text-3xl md:text-4xl font-bold tracking-tighter whitespace-nowrap">RM ${formatCurrency(adjustedTotal)}</span>
+                    <div class="ledger-double-line pt-4 mt-5 flex justify-between items-baseline gap-4">
+                        <span class="text-xs md:text-sm font-bold uppercase tracking-wide">Total_Matched</span>
+                        <span class="text-2xl md:text-3xl font-bold tracking-tight whitespace-nowrap">RM ${formatCurrency(adjustedTotal)}</span>
                     </div>
-                    <div class="mt-10 flex justify-between items-center text-xs tier-3 uppercase tracking-widest gap-4 border-t border-divider pt-4">
+                    <div class="mt-6 flex justify-between items-center text-[10px] md:text-xs tier-3 uppercase tracking-wide gap-4 border-t border-divider pt-3">
                         <span>Derived_Usage: ${tariff.usage_kwh} kWh</span>
                         <span class="text-right">Tolerance: +/- 0.01%</span>
                     </div>
                 </div>
             </section>
 
-            <section id="solar-config-section" class="pt-4">
-                <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 md:mb-14 tier-2 border-b-2 border-fact inline-block pb-1">03_MODELING_PARAMS</h2>
-                <div class="grid gap-12 md:grid-cols-2 md:gap-x-24 md:gap-y-16">
+            <section id="solar-config-section" class="pt-2">
+                <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">03_MODELING_PARAMS</h2>
+                <div class="grid gap-6 md:grid-cols-2 md:gap-x-8 md:gap-y-6">
                     ${renderInput('sunPeakHour', 'Sun_Peak_Hours', 'number', '3.4', '0.1', '3.0', '4.5')}
                     ${renderInput('morningUsage', 'Day_Usage_Share (%)', 'number', '30', '1', '1', '100')}
                     ${renderInput('panelRating', 'Panel_Rating (W)', 'number', '620', '1', '450', '850')}
                     ${renderInput('afaRate', 'AFA_Projection (RM)', 'number', '0.0000', '0.0001')}
                     ${renderInput('smpPrice', 'Export_Rate (RM)', 'number', '0.2703', '0.0001', '0.19', '0.2703')}
-                    <div class="md:col-span-2 mt-4">
-                        <div class="p-8 md:p-10 border-2 border-divider bg-white/30">
-                            <h4 class="text-xs font-bold uppercase tracking-[0.2em] tier-3 mb-10 border-b border-divider pb-2 inline-block">Discount_Protocol</h4>
-                            <div class="grid gap-8 md:grid-cols-2">
+                    <div class="md:col-span-2 mt-2">
+                        <div class="p-5 md:p-6 border-2 border-divider bg-white/30">
+                            <h4 class="text-[10px] md:text-xs font-bold uppercase tracking-wide tier-3 mb-5 md:mb-6 border-b border-divider pb-1.5 inline-block">Discount_Protocol</h4>
+                            <div class="grid gap-5 md:grid-cols-2 md:gap-6">
                                 ${renderInput('percentDiscount', 'Percentage (%)', 'number', '0', '0.01', '0', '100')}
                                 ${renderInput('fixedDiscount', 'Fixed (RM)', 'number', '0', '0.01', '0')}
                             </div>
                         </div>
                     </div>
-                    <div class="md:col-span-2 pt-8">
-                        <button onclick="calculateSolarSavings()" class="text-xs md:text-sm font-bold uppercase tracking-[0.3em] border-2 border-fact px-10 py-4 md:px-12 md:py-5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">Generate_ROI_Matrix -></button>
+                    <div class="md:col-span-2 pt-2">
+                        <button onclick="calculateSolarSavings()" class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]">Generate_ROI_Matrix -></button>
                     </div>
                 </div>
             </section>
@@ -613,10 +613,10 @@ function displayBillBreakdown(data) {
 
 function renderInput(id, label, type, val, step, min, max) {
     return `
-        <div class="space-y-4">
-            <label class="block text-xs uppercase tracking-[0.15em] tier-3 font-semibold">${label}</label>
-            <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1">
-                <input type="${type}" id="${id}" step="${step}" ${min?`min="${min}"`:''} ${max?`max="${max}"`:''} value="${val}" oninput="triggerSpontaneousUpdate()" class="w-full text-xl md:text-2xl font-bold bg-transparent border-none outline-none py-1">
+        <div class="space-y-2.5">
+            <label class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">${label}</label>
+            <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                <input type="${type}" id="${id}" step="${step}" ${min?`min="${min}"`:''} ${max?`max="${max}"`:''} value="${val}" oninput="triggerSpontaneousUpdate()" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
             </div>
         </div>
     `;
@@ -642,51 +642,51 @@ function displaySolarCalculation(data) {
     const b = ds.battery.baseline;
 
     solarDiv.innerHTML = `
-        <div class="space-y-20 md:space-y-32">
-            <section class="bg-black text-white p-10 md:p-16 -mx-4 md:-mx-6 shadow-2xl">
-                <h2 class="text-xs font-bold uppercase tracking-[0.4em] mb-12 opacity-70 border-b border-white/20 pb-2 inline-block">ROI_EXECUTIVE_SUMMARY</h2>
-                <div class="space-y-10 text-base md:text-lg">
-                    <div class="flex flex-col sm:flex-row justify-between gap-4">
-                        <div><p class="opacity-70 text-xs tracking-widest uppercase">Original_Bill</p><p class="font-bold">RM ${formatCurrency(ds.billBefore)}</p></div>
-                        <div><p class="opacity-70 text-xs tracking-widest uppercase">System_Size</p><p class="font-bold">${((data.actualPanels * data.config.panelType)/1000).toFixed(2)} kWp</p></div>
+        <div class="space-y-10 md:space-y-16">
+            <section class="bg-black text-white p-6 md:p-8 -mx-4 md:-mx-6 shadow-xl">
+                <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-wide mb-6 md:mb-8 opacity-70 border-b border-white/20 pb-1.5 inline-block">ROI_EXECUTIVE_SUMMARY</h2>
+                <div class="space-y-6 text-sm md:text-base">
+                    <div class="flex flex-col sm:flex-row justify-between gap-3">
+                        <div><p class="opacity-70 text-[10px] md:text-xs tracking-wide uppercase">Original_Bill</p><p class="font-bold text-base md:text-lg">RM ${formatCurrency(ds.billBefore)}</p></div>
+                        <div><p class="opacity-70 text-[10px] md:text-xs tracking-wide uppercase">System_Size</p><p class="font-bold text-base md:text-lg">${((data.actualPanels * data.config.panelType)/1000).toFixed(2)} kWp</p></div>
                     </div>
                     <div class="h-px bg-white/20"></div>
-                    <div class="space-y-6">
-                        <div class="flex justify-between items-baseline"><span>New_Monthly_Bill:</span><span class="font-bold">RM ${formatCurrency(b.billAfter)}</span></div>
-                        <div class="flex justify-between items-baseline"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(ds.billReduction)}</span></div>
-                        <div class="flex justify-between items-baseline"><span>Export_Savings:</span><span class="font-bold">RM ${formatCurrency(ds.exportSaving)}</span></div>
-                        <div class="flex justify-between items-baseline text-emerald-400"><span>Net_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
-                        <div class="flex justify-between items-baseline text-orange-400"><span>Confidence_Level:</span><span class="font-bold">${data.confidenceLevel}%</span></div>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-baseline text-sm md:text-base"><span>New_Monthly_Bill:</span><span class="font-bold">RM ${formatCurrency(b.billAfter)}</span></div>
+                        <div class="flex justify-between items-baseline text-sm md:text-base"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(ds.billReduction)}</span></div>
+                        <div class="flex justify-between items-baseline text-sm md:text-base"><span>Export_Savings:</span><span class="font-bold">RM ${formatCurrency(ds.exportSaving)}</span></div>
+                        <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
+                        <div class="flex justify-between items-baseline text-sm md:text-base text-orange-400"><span>Confidence_Level:</span><span class="font-bold">${data.confidenceLevel}%</span></div>
                     </div>
-                    <div class="pt-10 border-t-2 border-white/40 flex justify-between items-baseline">
-                        <span class="text-xs font-bold uppercase tracking-[0.2em] text-white/70">Total_Savings (Inc. Export):</span>
-                        <span class="text-5xl md:text-6xl font-bold tracking-tighter text-emerald-400">RM ${data.monthlySavings}</span>
+                    <div class="pt-6 border-t border-white/40 flex justify-between items-baseline">
+                        <span class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-white/70">Total_Savings (Inc. Export):</span>
+                        <span class="text-3xl md:text-4xl font-bold tracking-tight text-emerald-400">RM ${data.monthlySavings}</span>
                     </div>
                 </div>
             </section>
 
-            <div class="flex justify-center -mt-10 mb-10 relative z-10">
-                 <button onclick="generateInvoiceLink()" class="bg-white text-black font-bold uppercase tracking-[0.2em] text-xs md:text-sm px-8 py-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[4px] hover:translate-y-[4px] transition-all border-2 border-black flex items-center gap-3">
-                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+            <div class="flex justify-center -mt-6 mb-6 relative z-10">
+                 <button onclick="generateInvoiceLink()" class="bg-white text-black font-bold uppercase tracking-wide text-xs md:text-sm px-6 py-3 md:px-8 md:py-3.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all border-2 border-black flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                     Create_Invoice_Link
                  </button>
             </div>
 
-            <section class="pt-4 border-y-2 border-fact py-12 md:py-16">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-                    <div><span class="text-xs uppercase tracking-[0.2em] tier-3 font-bold">ROI_Percent</span><div class="text-4xl font-bold text-emerald-600">${formatPercentage((data.monthlySavings*12/data.finalSystemCost)*100,1)}%</div></div>
-                    <div><span class="text-xs uppercase tracking-[0.2em] tier-3 font-bold">Payback</span><div class="text-4xl font-bold">${data.paybackPeriod} yr</div></div>
-                    <div><span class="text-xs uppercase tracking-[0.2em] tier-3 font-bold">Net_Cost</span><div class="text-4xl font-bold">RM ${formatCurrency(data.finalSystemCost)}</div></div>
+            <section class="pt-2 border-y-2 border-fact py-6 md:py-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+                    <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">ROI_Percent</span><div class="text-2xl md:text-3xl font-bold text-emerald-600">${formatPercentage((data.monthlySavings*12/data.finalSystemCost)*100,1)}%</div></div>
+                    <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">Payback</span><div class="text-2xl md:text-3xl font-bold">${data.paybackPeriod} yr</div></div>
+                    <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">Net_Cost</span><div class="text-2xl md:text-3xl font-bold">RM ${formatCurrency(data.finalSystemCost)}</div></div>
                 </div>
             </section>
 
-            <section class="pt-4">
-                <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 tier-2 border-b-2 border-fact inline-block pb-1">07_SAVINGS_LEDGER</h2>
-                <div class="space-y-4">
-                    <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 tier-3 uppercase text-xs tracking-widest pb-4 border-b border-divider"><span>Component</span><span class="text-right">Before</span><span class="text-right">After</span><span class="text-right">Delta</span></div>
+            <section class="pt-2">
+                <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">07_SAVINGS_LEDGER</h2>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 md:gap-4 tier-3 uppercase text-[10px] md:text-xs tracking-wide pb-3 border-b border-divider"><span>Component</span><span class="text-right">Before</span><span class="text-right">After</span><span class="text-right">Delta</span></div>
                     ${data.billBreakdownComparison.items.map(i => `
-                        <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 py-2 border-b border-divider/50 text-sm">
-                            <span class="tier-2 uppercase tracking-tighter">${i.label}</span>
+                        <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 md:gap-4 py-1.5 border-b border-divider/50 text-sm">
+                            <span class="tier-2 uppercase tracking-tight">${i.label}</span>
                             <span class="text-right">${formatCurrency(i.before)}</span>
                             <span class="text-right">${formatCurrency(i.after)}</span>
                             <span class="text-right font-bold ${i.delta>=0?'text-emerald-600':'text-rose-600'}">${i.delta>=0?'-':'+'}${formatCurrency(Math.abs(i.delta))}</span>
@@ -696,18 +696,18 @@ function displaySolarCalculation(data) {
             </section>
 
             ${data.config.batterySize > 0 ? `
-                <section class="pt-16 border-t-2 border-divider">
-                    <h2 class="text-sm font-bold uppercase tracking-[0.2em] mb-10 tier-2 border-b-2 border-fact inline-block pb-1">08_BATTERY_STORAGE</h2>
-                    <div class="flex items-center gap-10">
+                <section class="pt-8 md:pt-10 border-t border-divider">
+                    <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">08_BATTERY_STORAGE</h2>
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                         <div class="flex items-center border-2 border-fact bg-white">
-                            <button onclick="adjustBatterySize(-5)" class="w-12 h-12 hover:bg-black hover:text-white transition-colors text-xl font-bold">-</button>
-                            <span class="w-24 text-center text-xl font-bold">${data.config.batterySize} kWh</span>
-                            <button onclick="adjustBatterySize(5)" class="w-12 h-12 hover:bg-black hover:text-white transition-colors text-xl font-bold">+</button>
+                            <button onclick="adjustBatterySize(-5)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-lg md:text-xl font-bold">-</button>
+                            <span class="w-20 md:w-24 text-center text-lg md:text-xl font-bold">${data.config.batterySize} kWh</span>
+                            <button onclick="adjustBatterySize(5)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-lg md:text-xl font-bold">+</button>
                         </div>
-                        <div><p class="text-xs uppercase tier-3 font-bold">Value_Add</p><p class="text-2xl font-bold text-emerald-600">+RM ${formatCurrency(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings))} / mo</p></div>
+                        <div><p class="text-[10px] md:text-xs uppercase tier-3 font-semibold">Value_Add</p><p class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${formatCurrency(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings))} / mo</p></div>
                     </div>
                 </section>
-            ` : `<div class="text-center"><button onclick="adjustBatterySize(5)" class="text-xs uppercase tracking-widest underline font-bold tier-3 hover:tier-1">[+] Simulate_Battery_Storage</button></div>`}
+            ` : `<div class="text-center pt-4"><button onclick="adjustBatterySize(5)" class="text-[10px] md:text-xs uppercase tracking-wide underline font-semibold tier-3 hover:tier-1">[+] Simulate_Battery_Storage</button></div>`}
         </div>
     `;
 
@@ -728,15 +728,15 @@ function renderFloatingPanelModulation(data) {
     
     // Minimalist "Pill" Design
     bar.innerHTML = `
-        <div class="bg-paper border-2 border-fact shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] pointer-events-auto flex items-center gap-4 px-4 py-2">
+        <div class="bg-paper border-2 border-fact shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] pointer-events-auto flex items-center gap-3 px-3 py-2">
             
             <!-- Sun Peak -->
             <div class="flex items-center gap-1">
-                <span class="text-[9px] font-bold uppercase tracking-wider tier-3">Sun</span>
+                <span class="text-[8px] md:text-[9px] font-semibold uppercase tracking-wide tier-3">Sun</span>
                 <div class="flex items-center bg-white border border-fact">
-                    <button onclick="syncAndTrigger('sunPeakHour', (parseFloat(${data.config.sunPeakHour}) - 0.1).toFixed(1))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">-</button>
-                    <span class="w-8 text-center font-bold text-xs leading-none">${data.config.sunPeakHour}</span>
-                    <button onclick="syncAndTrigger('sunPeakHour', (parseFloat(${data.config.sunPeakHour}) + 0.1).toFixed(1))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">+</button>
+                    <button onclick="syncAndTrigger('sunPeakHour', (parseFloat(${data.config.sunPeakHour}) - 0.1).toFixed(1))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">-</button>
+                    <span class="w-7 md:w-8 text-center font-bold text-[10px] md:text-xs leading-none">${data.config.sunPeakHour}</span>
+                    <button onclick="syncAndTrigger('sunPeakHour', (parseFloat(${data.config.sunPeakHour}) + 0.1).toFixed(1))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">+</button>
                 </div>
             </div>
 
@@ -744,11 +744,11 @@ function renderFloatingPanelModulation(data) {
 
             <!-- Morning Usage -->
             <div class="flex items-center gap-1">
-                <span class="text-[9px] font-bold uppercase tracking-wider tier-3">Use</span>
+                <span class="text-[8px] md:text-[9px] font-semibold uppercase tracking-wide tier-3">Use</span>
                 <div class="flex items-center bg-white border border-fact">
-                    <button onclick="syncAndTrigger('morningUsage', Math.max(1, ${data.config.morningUsage} - 5))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">-</button>
-                    <span class="w-8 text-center font-bold text-xs leading-none">${data.config.morningUsage}%</span>
-                    <button onclick="syncAndTrigger('morningUsage', Math.min(100, ${data.config.morningUsage} + 5))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">+</button>
+                    <button onclick="syncAndTrigger('morningUsage', Math.max(1, ${data.config.morningUsage} - 5))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">-</button>
+                    <span class="w-7 md:w-8 text-center font-bold text-[10px] md:text-xs leading-none">${data.config.morningUsage}%</span>
+                    <button onclick="syncAndTrigger('morningUsage', Math.min(100, ${data.config.morningUsage} + 5))" class="w-5 h-5 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">+</button>
                 </div>
             </div>
 
@@ -757,13 +757,13 @@ function renderFloatingPanelModulation(data) {
             <!-- Panels -->
             <div class="flex items-center gap-1">
                 <div class="flex flex-col items-end leading-none">
-                    <span class="text-[9px] font-bold uppercase tracking-wider tier-3">Panel</span>
-                    ${Math.abs(delta) > 1 ? `<span class="text-[8px] font-bold ${delta>0?'text-rose-600':'text-emerald-600'}">${delta>0?'+':'-'}RM${Math.round(Math.abs(delta)/1000)}k</span>` : ''}
+                    <span class="text-[8px] md:text-[9px] font-semibold uppercase tracking-wide tier-3">Panel</span>
+                    ${Math.abs(delta) > 1 ? `<span class="text-[7px] md:text-[8px] font-bold ${delta>0?'text-rose-600':'text-emerald-600'}">${delta>0?'+':'-'}RM${Math.round(Math.abs(delta)/1000)}k</span>` : ''}
                 </div>
                 <div class="flex items-center bg-white border border-fact">
-                    <button onclick="adjustPanelCount(-1)" class="w-6 h-6 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">-</button>
-                    <input type="number" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-8 text-center font-bold text-xs border-none bg-transparent outline-none p-0 appearance-none leading-none">
-                    <button onclick="adjustPanelCount(1)" class="w-6 h-6 hover:bg-black hover:text-white transition-colors text-xs font-bold flex items-center justify-center">+</button>
+                    <button onclick="adjustPanelCount(-1)" class="w-5 h-5 md:w-6 md:h-6 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">-</button>
+                    <input type="number" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-7 md:w-8 text-center font-bold text-[10px] md:text-xs border-none bg-transparent outline-none p-0 appearance-none leading-none">
+                    <button onclick="adjustPanelCount(1)" class="w-5 h-5 md:w-6 md:h-6 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">+</button>
                 </div>
             </div>
 
@@ -777,8 +777,8 @@ function formatCurrency(v) { return Number(v||0).toLocaleString('en-MY', { minim
 function formatPercentage(v, d=1) { return Number(v||0).toFixed(d); }
 function showNotification(m, t='info') {
     const n = document.createElement('div');
-    n.className = `fixed bottom-8 right-8 border p-4 z-[10001] text-xs uppercase font-bold shadow-lg ${t==='error'?'border-rose-600 bg-rose-50':'border-fact bg-paper'}`;
-    n.innerHTML = `<div class="flex items-center gap-8"><span>[ ${m} ]</span><button onclick="this.parentElement.parentElement.remove()">X</button></div>`;
+    n.className = `fixed bottom-6 right-4 md:bottom-8 md:right-8 border p-3 md:p-4 z-[10001] text-[10px] md:text-xs uppercase font-semibold shadow-lg max-w-[calc(100vw-2rem)] ${t==='error'?'border-rose-600 bg-rose-50':'border-fact bg-paper'}`;
+    n.innerHTML = `<div class="flex items-center gap-4 md:gap-8"><span>[ ${m} ]</span><button onclick="this.parentElement.parentElement.remove()" class="font-bold hover:opacity-70">X</button></div>`;
     document.body.appendChild(n);
     setTimeout(()=>n.remove(), 5000);
 }
@@ -787,13 +787,13 @@ function showPanelRecommendationPopup(data) {
     const p = document.createElement('div');
     p.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm';
     p.innerHTML = `
-        <div class="w-full max-w-lg border border-fact bg-paper p-10 shadow-2xl space-y-8 text-center">
-            <div class="text-xs font-bold uppercase tracking-[0.4em]">SYSTEM_RECOMMENDATION</div>
-            <div class="text-6xl font-bold tracking-tighter">${data.recommendedPanels}</div>
-            <div class="text-xs uppercase tier-3">Recommended_Panel_Units</div>
-            <div class="text-[10px] tier-3 uppercase border-y border-divider py-4">Basis: ${data.details.monthlyUsageKwh}kWh/mo @ ${data.config.sunPeakHour}h Peak Sun</div>
-            ${data.selectedPackage ? `<div class="p-4 bg-black text-white text-left"><div class="text-[10px] opacity-70">SELECTED_PACKAGE</div><div class="font-bold">${data.selectedPackage.packageName}</div><div class="text-[10px] opacity-70">RM ${formatCurrency(data.selectedPackage.price)}</div></div>` : ''}
-            <button onclick="this.parentElement.parentElement.remove()" class="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-widest">View_Full_Report</button>
+        <div class="w-full max-w-lg border border-fact bg-paper p-6 md:p-8 shadow-xl space-y-6 md:space-y-8 text-center">
+            <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide">SYSTEM_RECOMMENDATION</div>
+            <div class="text-4xl md:text-5xl font-bold tracking-tight">${data.recommendedPanels}</div>
+            <div class="text-[10px] md:text-xs uppercase tier-3">Recommended_Panel_Units</div>
+            <div class="text-[9px] md:text-[10px] tier-3 uppercase border-y border-divider py-3 md:py-4">Basis: ${data.details.monthlyUsageKwh}kWh/mo @ ${data.config.sunPeakHour}h Peak Sun</div>
+            ${data.selectedPackage ? `<div class="p-3 md:p-4 bg-black text-white text-left"><div class="text-[9px] md:text-[10px] opacity-70">SELECTED_PACKAGE</div><div class="font-bold text-sm md:text-base">${data.selectedPackage.packageName}</div><div class="text-[9px] md:text-[10px] opacity-70">RM ${formatCurrency(data.selectedPackage.price)}</div></div>` : ''}
+            <button onclick="this.parentElement.parentElement.remove()" class="w-full bg-black text-white py-3 md:py-4 text-[10px] md:text-xs font-bold uppercase tracking-wide">View_Full_Report</button>
         </div>
     `;
     document.body.appendChild(p);
