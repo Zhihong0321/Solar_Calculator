@@ -597,9 +597,11 @@ app.get('/api/solar-calculation', async (req, res) => {
         const morningSaving = morningUsageKwh * (morningUsageRate + afaRate);
 
         // 2. Export calculation
-        const exportRate = smp; // RM per kWh for export (SMP price)
+        // Export rate logic: if reduced bill total kWh usage > 1500 kWh, use 0.3703, otherwise use smp
+        const exportRate = netUsageKwh > 1500 ? 0.3703 : smp; // RM per kWh for export
+        const exportRateBaseline = netUsageBaseline > 1500 ? 0.3703 : smp; // Baseline export rate
         const exportSaving = exportKwh * exportRate;
-        const exportSavingBaseline = exportKwhBaseline * exportRate;
+        const exportSavingBaseline = exportKwhBaseline * exportRateBaseline;
 
         // 3. Total saving
         const totalMonthlySavings = morningSaving + exportSaving;

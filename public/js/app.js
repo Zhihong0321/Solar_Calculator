@@ -327,11 +327,15 @@ class SolarCalculator {
 
         // Final Savings Logic
         const billReduction = beforeBreakdown.total - afterBreakdown.total;
-        const exportSaving = exportKwh * smpPrice;
+        // Export rate logic: if reduced bill total kWh usage > 1500 kWh, use 0.3703, otherwise use smpPrice
+        const effectiveExportRate = netUsageKwh > 1500 ? 0.3703 : smpPrice;
+        const exportSaving = exportKwh * effectiveExportRate;
         const totalMonthlySavings = billReduction + exportSaving;
 
         const billReductionBaseline = beforeBreakdown.total - baselineBreakdown.total;
-        const exportSavingBaseline = exportKwhBaseline * smpPrice;
+        // For baseline, check netUsageBaseline instead
+        const effectiveExportRateBaseline = netUsageBaseline > 1500 ? 0.3703 : smpPrice;
+        const exportSavingBaseline = exportKwhBaseline * effectiveExportRateBaseline;
         const totalMonthlySavingsBaseline = billReductionBaseline + exportSavingBaseline;
 
         // 9. System Costs
