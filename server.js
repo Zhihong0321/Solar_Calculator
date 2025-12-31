@@ -1,14 +1,24 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
+
+const { requireAuth } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json());
+
+// Public routes (if any)
+// app.use('/public', express.static('public')); // If you wanted public assets
+
+// Protected routes
+app.use(requireAuth);
 app.use(express.static('public'));
 
 // Database connection
