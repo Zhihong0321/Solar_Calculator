@@ -383,6 +383,8 @@ class SolarCalculator {
                 monthlyUsageKwh, monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
                 billBefore: beforeBreakdown.total.toFixed(2), billAfter: afterBreakdown.total.toFixed(2),
                 billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2),
+                netUsageKwh: netUsageKwh.toFixed(2), exportKwh: exportKwh.toFixed(2),
+                effectiveExportRate: effectiveExportRate.toFixed(4),
                 totalGeneration: monthlySolarGeneration.toFixed(2),
                 savingsBreakdown: {
                     afaImpact: (monthlyUsageKwh - netUsageBaseline) * afaRate,
@@ -657,8 +659,14 @@ function displaySolarCalculation(data) {
                     <div class="h-px bg-white/20"></div>
                     <div class="space-y-4">
                         <div class="flex justify-between items-baseline text-sm md:text-base"><span>New_Monthly_Bill:</span><span class="font-bold">RM ${formatCurrency(b.billAfter)}</span></div>
-                        <div class="flex justify-between items-baseline text-sm md:text-base"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(ds.billReduction)}</span></div>
-                        <div class="flex justify-between items-baseline text-sm md:text-base"><span>Export_Savings:</span><span class="font-bold">RM ${formatCurrency(ds.exportSaving)}</span></div>
+                        <div class="text-sm md:text-base">
+                            <div class="flex justify-between items-baseline"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(ds.billReduction)}</span></div>
+                            <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">total import ${parseFloat(ds.netUsageKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh</div>
+                        </div>
+                        <div class="text-sm md:text-base">
+                            <div class="flex justify-between items-baseline"><span>Export_Savings:</span><span class="font-bold">RM ${formatCurrency(ds.exportSaving)}</span></div>
+                            <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">exported ${parseFloat(ds.exportKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh @ RM${parseFloat(ds.effectiveExportRate).toFixed(4)}</div>
+                        </div>
                         <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
                         <div class="flex justify-between items-baseline text-sm md:text-base text-orange-400"><span>Confidence_Level:</span><span class="font-bold">${data.confidenceLevel}%</span></div>
                     </div>
