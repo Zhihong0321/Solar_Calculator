@@ -321,7 +321,12 @@ class SolarCalculator {
         // ATAP Solar Malaysia: Max export = reduced import from grid
         const potentialExport = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
         const exportKwh = Math.min(potentialExport, netUsageKwh);
-        const donatedKwh = Math.max(0, potentialExport - exportKwh);
+        
+        // Backup Generation Logic:
+        // Exceeded generation is used as a weather buffer, capped at 10% of reduced import
+        const exceededGeneration = Math.max(0, potentialExport - exportKwh);
+        const backupGenerationKwh = Math.min(exceededGeneration, netUsageKwh * 0.1);
+        const donatedKwh = Math.max(0, exceededGeneration - backupGenerationKwh);
 
         // 8. Financials
         const baselineTariff = this.lookupTariffByUsage(netUsageBaseline);
@@ -410,6 +415,7 @@ class SolarCalculator {
                 billBefore: beforeBreakdown.total.toFixed(2), billAfter: afterBreakdown.total.toFixed(2),
                 billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2),
                 netUsageKwh: netUsageKwh.toFixed(2), exportKwh: exportKwh.toFixed(2),
+                backupGenerationKwh: backupGenerationKwh.toFixed(2),
                 donatedKwh: donatedKwh.toFixed(2),
                 effectiveExportRate: effectiveExportRate.toFixed(4),
                 totalGeneration: monthlySolarGeneration.toFixed(2),
@@ -705,9 +711,14 @@ function displaySolarCalculation(data) {
                         </div>
                         <div class="text-sm md:text-base">
                             <div class="flex justify-between items-baseline"><span>Export_Savings:</span><span class="font-bold">RM ${formatCurrency(ds.exportSaving)}</span></div>
-                            <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">
-                                exported ${parseFloat(ds.exportKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh @ RM${parseFloat(ds.effectiveExportRate).toFixed(4)}
-                                ${parseFloat(ds.donatedKwh) > 0 ? `<br><span class="text-rose-400 font-semibold">⚠ ${parseFloat(ds.donatedKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh Donated to Grid (Capped by reduced import)</span>` : ''}
+                            <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right space-y-1">
+                                <div>exported ${parseFloat(ds.exportKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh @ RM${parseFloat(ds.effectiveExportRate).toFixed(4)}</div>
+                                ${parseFloat(ds.backupGenerationKwh) > 0 ? `
+                                <div class="text-emerald-500 font-semibold">
+                                    + ${parseFloat(ds.backupGenerationKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh BACKUP_GENERATION
+                                    <span class="block text-[8px] opacity-80 uppercase font-normal">(Weather Buffer: Protected against low sun peak days)</span>
+                                </div>` : ''}
+                                ${parseFloat(ds.donatedKwh) > 0 ? `<div class="text-rose-400 font-semibold">⚠ ${parseFloat(ds.donatedKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh Donated to Grid (Capped by limit)</div>` : ''}
                             </div>
                         </div>
                         <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
