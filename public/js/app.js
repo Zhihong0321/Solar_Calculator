@@ -701,14 +701,14 @@ function displaySolarCalculation(data) {
     const ds = data.details;
     const b = ds.battery.baseline;
 
-    solarDiv.innerHTML = `
+        solarDiv.innerHTML = `
         <div class="space-y-10 md:space-y-16">
             <section class="bg-black text-white p-6 md:p-8 -mx-4 md:-mx-6 shadow-xl">
                 <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-wide mb-6 md:mb-8 opacity-70 border-b border-white/20 pb-1.5 inline-block">ROI_EXECUTIVE_SUMMARY</h2>
                 <div class="space-y-6 text-sm md:text-base">
-                    <div class="flex flex-col sm:flex-row justify-between gap-3">
+                    <div class="flex flex-col sm:flex-row justify-between gap-3 text-right sm:text-left">
                         <div><p class="opacity-70 text-[10px] md:text-xs tracking-wide uppercase">Original_Bill</p><p class="font-bold text-base md:text-lg">RM ${formatCurrency(ds.billBefore)}</p></div>
-                        <div><p class="opacity-70 text-[10px] md:text-xs tracking-wide uppercase">System_Size</p><p class="font-bold text-base md:text-lg">${((data.actualPanels * data.config.panelType)/1000).toFixed(2)} kWp</p></div>
+                        <div class="sm:text-right"><p class="opacity-70 text-[10px] md:text-xs tracking-wide uppercase">System_Size</p><p class="font-bold text-base md:text-lg">${((data.actualPanels * data.config.panelType)/1000).toFixed(2)} kWp</p></div>
                     </div>
                     <div class="h-px bg-white/20"></div>
                     <div class="space-y-4">
@@ -732,7 +732,16 @@ function displaySolarCalculation(data) {
                                 ${parseFloat(ds.donatedKwh) > 0 ? `<div class="text-rose-400 font-semibold">⚠ ${parseFloat(ds.donatedKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh Donated to Grid (Capped by limit)</div>` : ''}
                             </div>
                         </div>
-                        <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
+                        
+                        <div class="pt-4 mt-4 border-t border-white/10 space-y-3">
+                            <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Monthly_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
+                            <div class="flex justify-between items-baseline text-lg md:text-xl text-white pt-2 border-t border-white/20">
+                                <span class="text-[10px] md:text-xs font-bold uppercase tracking-wide opacity-80">Estimated_Payable_After_Solar:</span>
+                                <span class="font-bold">RM ${formatCurrency(Math.max(0, b.billAfter - ds.exportSaving))}</span>
+                            </div>
+                            <div class="text-[9px] md:text-[10px] opacity-60 text-right italic">(TNB Bill RM ${formatCurrency(b.billAfter)} - Export Income RM ${formatCurrency(ds.exportSaving)})</div>
+                        </div>
+
                         <div class="flex justify-between items-baseline text-sm md:text-base text-orange-400"><span>Confidence_Level:</span><span class="font-bold">${data.confidenceLevel}%</span></div>
                         ${data.requiresSedaFee ? `
                         <div class="pt-3 mt-3 border-t border-white/20">
