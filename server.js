@@ -572,6 +572,7 @@ app.get('/api/solar-calculation', async (req, res) => {
         // Any generation more than reduced import is considered donation to the grid
         const potentialExportBaseline = Math.max(0, monthlySolarGeneration - morningUsageKwh);
         const exportKwhBaseline = Math.min(potentialExportBaseline, netUsageBaseline);
+        const donatedKwhBaseline = Math.max(0, potentialExportBaseline - exportKwhBaseline);
         
         // --- Battery Logic (With Battery) ---
         const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption - monthlyMaxDischarge);
@@ -582,6 +583,7 @@ app.get('/api/solar-calculation', async (req, res) => {
         // Any generation more than reduced import is considered donation to the grid
         const potentialExport = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
         const exportKwh = Math.min(potentialExport, netUsageKwh);
+        const donatedKwh = Math.max(0, potentialExport - exportKwh);
         // --- Battery Logic End ---
 
         // Calculate the post-solar bill using the reduced usage (excluding export)
@@ -877,6 +879,7 @@ app.get('/api/solar-calculation', async (req, res) => {
             morningUsageKwh: morningUsageKwh.toFixed(2),
             morningSaving: morningSaving.toFixed(2),
             exportKwh: exportKwh.toFixed(2),
+            donatedKwh: donatedKwh.toFixed(2),
             exportSaving: exportSaving.toFixed(2),
             morningUsageRate: morningUsageRate,
             exportRate: exportRate,

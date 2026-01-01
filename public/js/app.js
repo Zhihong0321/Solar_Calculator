@@ -321,6 +321,7 @@ class SolarCalculator {
         // ATAP Solar Malaysia: Max export = reduced import from grid
         const potentialExport = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
         const exportKwh = Math.min(potentialExport, netUsageKwh);
+        const donatedKwh = Math.max(0, potentialExport - exportKwh);
 
         // 8. Financials
         const baselineTariff = this.lookupTariffByUsage(netUsageBaseline);
@@ -409,6 +410,7 @@ class SolarCalculator {
                 billBefore: beforeBreakdown.total.toFixed(2), billAfter: afterBreakdown.total.toFixed(2),
                 billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2),
                 netUsageKwh: netUsageKwh.toFixed(2), exportKwh: exportKwh.toFixed(2),
+                donatedKwh: donatedKwh.toFixed(2),
                 effectiveExportRate: effectiveExportRate.toFixed(4),
                 totalGeneration: monthlySolarGeneration.toFixed(2),
                 savingsBreakdown: {
@@ -703,7 +705,10 @@ function displaySolarCalculation(data) {
                         </div>
                         <div class="text-sm md:text-base">
                             <div class="flex justify-between items-baseline"><span>Export_Savings:</span><span class="font-bold">RM ${formatCurrency(ds.exportSaving)}</span></div>
-                            <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">exported ${parseFloat(ds.exportKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh @ RM${parseFloat(ds.effectiveExportRate).toFixed(4)}</div>
+                            <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">
+                                exported ${parseFloat(ds.exportKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh @ RM${parseFloat(ds.effectiveExportRate).toFixed(4)}
+                                ${parseFloat(ds.donatedKwh) > 0 ? `<br><span class="text-rose-400 font-semibold">⚠ ${parseFloat(ds.donatedKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh Donated to Grid (Capped by reduced import)</span>` : ''}
+                            </div>
                         </div>
                         <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
                         <div class="flex justify-between items-baseline text-sm md:text-base text-orange-400"><span>Confidence_Level:</span><span class="font-bold">${data.confidenceLevel}%</span></div>
@@ -850,13 +855,25 @@ function showNotification(m, t='info') {
 }
 
 function showPanelRecommendationPopup(data) {
+    const systemSizeKwp = (data.recommendedPanels * (data.config.panelType || 620)) / 1000;
+    const requiresSedaFee = systemSizeKwp > 15;
+
     const p = document.createElement('div');
     p.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm';
     p.innerHTML = `
         <div class="w-full max-w-lg border border-fact bg-paper p-6 md:p-8 shadow-xl space-y-6 md:space-y-8 text-center">
             <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide">SYSTEM_RECOMMENDATION</div>
             <div class="text-4xl md:text-5xl font-bold tracking-tight">${data.recommendedPanels}</div>
-            <div class="text-[10px] md:text-xs uppercase tier-3">Recommended_Panel_Units</div>
+            <div class="text-[10px] md:text-xs uppercase tier-3">Recommended_Panel_Units (${systemSizeKwp.toFixed(2)} kWp)</div>
+            
+            ${requiresSedaFee ? `
+            <div class="bg-rose-50 border-2 border-rose-600 p-4 rounded text-left">
+                <div class="text-[10px] font-bold text-rose-600 uppercase mb-1">⚠ SEDA NOTICE</div>
+                <div class="text-xs font-bold text-rose-900 leading-tight">RM 1,000 Oversize Registration Fee Required.</div>
+                <div class="text-[10px] text-rose-800 mt-1">This recommended system (${systemSizeKwp.toFixed(1)} kWp) exceeds the 15kWp limit.</div>
+            </div>
+            ` : ''}
+
             <div class="text-[9px] md:text-[10px] tier-3 uppercase border-y border-divider py-3 md:py-4">Basis: ${data.details.monthlyUsageKwh}kWh/mo @ ${data.config.sunPeakHour}h Peak Sun</div>
             ${data.selectedPackage ? `<div class="p-3 md:p-4 bg-black text-white text-left"><div class="text-[9px] md:text-[10px] opacity-70">SELECTED_PACKAGE</div><div class="font-bold text-sm md:text-base">${data.selectedPackage.packageName}</div><div class="text-[9px] md:text-[10px] opacity-70">RM ${formatCurrency(data.selectedPackage.price)}</div></div>` : ''}
             <button onclick="this.parentElement.parentElement.remove()" class="w-full bg-black text-white py-3 md:py-4 text-[10px] md:text-xs font-bold uppercase tracking-wide">View_Full_Report</button>

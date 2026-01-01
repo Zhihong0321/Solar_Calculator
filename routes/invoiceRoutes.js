@@ -9,6 +9,7 @@ const { requireAuth } = require('../middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
+const invoicePdfGenerator = require('../services/invoicePdfGenerator');
 
 // Get database pool from environment or create new one
 const pool = new Pool({
@@ -184,8 +185,8 @@ router.get('/view/:shareToken', async (req, res) => {
     // Check accept header for HTML
     const accept = req.get('accept') || '';
     if (accept.includes('text/html')) {
-      // Return HTML
-      const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template);
+      // Return HTML (use sync version for web display)
+      const html = invoiceHtmlGenerator.generateInvoiceHtmlSync(invoice, invoice.template);
       res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.header('Pragma', 'no-cache');
       res.header('Expires', '0');
@@ -209,6 +210,143 @@ router.get('/view/:shareToken', async (req, res) => {
       success: false,
       error: 'Failed to load invoice: ' + err.message
     });
+  }
+});
+
+/**
+ * GET /view/:shareToken/pdf
+ * Download invoice as PDF
+ */
+router.get('/view/:shareToken/pdf', async (req, res) => {
+  const startTime = Date.now();
+  let client = null;
+  
+  try {
+    const { shareToken } = req.params;
+
+    // Validate share token
+    if (!shareToken || shareToken.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid share token provided'
+      });
+    }
+
+    // Get invoice by share token
+    client = await pool.connect();
+    let invoice = null;
+    try {
+      invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
+    } catch (dbError) {
+      console.error('Database error fetching invoice:', dbError);
+      return res.status(500).json({
+        success: false,
+        error: 'Database error while fetching invoice'
+      });
+    } finally {
+      if (client) {
+        client.release();
+        client = null;
+      }
+    }
+
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invoice not found or expired'
+      });
+    }
+
+    // Validate invoice has required data
+    if (!invoice.invoice_number) {
+      return res.status(500).json({
+        success: false,
+        error: 'Invoice data is incomplete'
+      });
+    }
+
+    // Generate HTML optimized for PDF (with embedded resources)
+    let html;
+    try {
+      html = await invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { forPdf: true });
+    } catch (htmlError) {
+      console.error('Error generating HTML for PDF:', htmlError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to generate invoice HTML: ' + htmlError.message
+      });
+    }
+
+    if (!html || html.trim().length === 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'Generated HTML is empty'
+      });
+    }
+
+    // Generate PDF with timeout
+    let pdfBuffer;
+    try {
+      pdfBuffer = await invoicePdfGenerator.generateInvoicePdf(html);
+    } catch (pdfError) {
+      console.error('Error generating PDF:', pdfError);
+      
+      // Provide user-friendly error message
+      let errorMessage = 'Failed to generate PDF';
+      if (pdfError.message.includes('timeout')) {
+        errorMessage = 'PDF generation timed out. Please try again.';
+      } else if (pdfError.message.includes('Browser')) {
+        errorMessage = 'PDF service temporarily unavailable. Please try again later.';
+      } else {
+        errorMessage = 'Failed to generate PDF: ' + pdfError.message;
+      }
+      
+      return res.status(500).json({
+        success: false,
+        error: errorMessage
+      });
+    }
+
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'Generated PDF is empty'
+      });
+    }
+
+    // Generate filename
+    const companyName = invoice.template?.company_name || 'Invoice';
+    const filename = invoicePdfGenerator.sanitizeFilename(companyName, invoice.invoice_number);
+
+    // Set headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    // Log success
+    const generationTime = Date.now() - startTime;
+    console.log(`PDF generated successfully for invoice ${invoice.invoice_number} in ${generationTime}ms`);
+
+    // Send PDF
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('Unexpected error in PDF route:', err);
+    res.status(500).json({
+      success: false,
+      error: 'An unexpected error occurred while generating PDF'
+    });
+  } finally {
+    // Ensure database connection is released
+    if (client) {
+      try {
+        client.release();
+      } catch (releaseError) {
+        console.error('Error releasing database connection:', releaseError);
+      }
+    }
   }
 });
 

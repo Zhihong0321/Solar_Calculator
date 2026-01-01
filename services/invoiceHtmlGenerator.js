@@ -2,14 +2,16 @@
  * HTML Invoice Generator Module
  * Generates HTML for invoice display
  */
+const pdfResources = require('./pdfResources');
 
 /**
  * Generate invoice HTML
  * @param {object} invoice - Invoice object with items
  * @param {object} template - Template data
- * @returns {string} HTML content
+ * @param {object} options - Generation options { forPdf: boolean }
+ * @returns {Promise<string>|string} HTML content (Promise if forPdf=true)
  */
-function generateInvoiceHtml(invoice, template) {
+async function generateInvoiceHtml(invoice, template, options = {}) {
   const items = invoice.items || [];
   const templateData = template || {};
 
@@ -66,6 +68,29 @@ function generateInvoiceHtml(invoice, template) {
     `;
   });
 
+  const { forPdf = false } = options;
+  
+  // Prepare resources for PDF mode
+  let embeddedLogo = logoUrl;
+  let fontCSS = '';
+  let tailwindCSS = '';
+  
+  if (forPdf) {
+    // Download and embed logo if external URL
+    if (logoUrl && logoUrl.startsWith('http')) {
+      try {
+        embeddedLogo = await pdfResources.downloadImageAsBase64(logoUrl);
+      } catch (err) {
+        console.warn('Failed to embed logo, using original URL:', err.message);
+        embeddedLogo = logoUrl;
+      }
+    }
+    
+    // Get embedded fonts and minimal TailwindCSS
+    fontCSS = await pdfResources.getInterFontCSS();
+    tailwindCSS = pdfResources.getMinimalTailwindCSS();
+  }
+
   // Generate HTML - Premium Mobile-Optimized Design
   const html = `
 <!DOCTYPE html>
@@ -77,9 +102,15 @@ function generateInvoiceHtml(invoice, template) {
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Invoice ${invoice.invoice_number}</title>
+  ${forPdf ? `
+  <style>
+    ${fontCSS}
+    ${tailwindCSS}
+  ` : `
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+  `}
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
@@ -154,18 +185,62 @@ function generateInvoiceHtml(invoice, template) {
         padding: 0 !important;
         box-shadow: none !important;
       }
+      .no-print {
+        display: none !important;
+      }
     }
+    ${forPdf ? `
+    /* PDF-specific styles */
+    @page {
+      size: A4;
+      margin: 10mm;
+    }
+    body {
+      background: white !important;
+      padding: 0 !important;
+    }
+    .invoice-container {
+      max-width: 100% !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+    }
+    .invoice-item {
+      page-break-inside: avoid;
+    }
+    section {
+      page-break-inside: avoid;
+    }
+    header {
+      page-break-inside: avoid;
+    }
+    footer {
+      page-break-inside: avoid;
+    }
+    ` : ''}
   </style>
 </head>
 <body>
   <div class="invoice-container">
+    
+    <!-- Download PDF Button (hidden in PDF mode) -->
+    ${!forPdf && invoice.share_token ? `
+    <div class="mb-6 flex justify-end">
+      <a href="/view/${invoice.share_token}/pdf" 
+         class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors no-print">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        Download PDF
+      </a>
+    </div>
+    ` : ''}
     
     <!-- Header Section -->
     <header class="mb-8 pb-6 border-b premium-divider">
       <div class="flex flex-col gap-6">
         <!-- Company Info -->
         <div>
-          ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" class="h-12 sm:h-14 mb-4 object-contain">` : ''}
+          ${embeddedLogo ? `<img src="${embeddedLogo}" alt="${companyName}" class="h-12 sm:h-14 mb-4 object-contain" ${forPdf ? 'style="max-height: 56px;"' : ''}>` : ''}
           <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 leading-tight tracking-tight">
             ${companyName}
           </h1>
@@ -290,7 +365,7 @@ function generateInvoiceHtml(invoice, template) {
     ${terms ? `
     <section class="mb-6 pt-6 border-t premium-divider">
       <h3 class="section-label mb-3">Terms & Conditions</h3>
-      <p class="text-xs text-gray-600 leading-relaxed whitespace-pre-line">${terms}</p>
+      <p class="text-[10px] text-gray-600 leading-relaxed whitespace-pre-line">${terms}</p>
     </section>
     ` : ''}
 
@@ -314,6 +389,12 @@ function generateInvoiceHtml(invoice, template) {
   return html;
 }
 
+// Wrapper for backward compatibility (synchronous when not forPdf)
+function generateInvoiceHtmlSync(invoice, template) {
+  return generateInvoiceHtml(invoice, template, { forPdf: false });
+}
+
 module.exports = {
-  generateInvoiceHtml
+  generateInvoiceHtml,
+  generateInvoiceHtmlSync
 };
