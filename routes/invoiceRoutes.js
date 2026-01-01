@@ -182,7 +182,7 @@ router.get('/view/:shareToken', async (req, res) => {
     }
 
     // Check accept header for HTML
-    const accept = req.headers.get('accept') || '';
+    const accept = req.get('accept') || '';
     if (accept.includes('text/html')) {
       // Return HTML
       const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template);

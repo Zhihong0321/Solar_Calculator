@@ -23,7 +23,7 @@ function parseDiscountString(discountGiven) {
     const parts = discountGiven
       .replace('+', ' ')
       .replace(',', ' ')
-      .split()
+      .split(/\s+/)
       .filter(part => part.trim().length > 0);
 
     for (const part of parts) {
