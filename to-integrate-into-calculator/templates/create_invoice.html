@@ -1,0 +1,812 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Invoice</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
+        <h1 class="text-2xl font-bold mb-6 text-gray-900">Create Invoice</h1>
+        
+        {% if error_message %}
+        <!-- Error Message -->
+        <div class="mb-6 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3 flex-1">
+                    <h3 class="text-sm font-semibold text-red-900 mb-1">Error</h3>
+                    <p class="text-red-800 font-medium">{{ error_message }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if warning_message %}
+        <!-- Warning Message -->
+        <div class="mb-6 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3 flex-1">
+                    <h3 class="text-sm font-semibold text-yellow-900 mb-1">Notice</h3>
+                    <p class="text-yellow-800">{{ warning_message }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if debug_info %}
+        <!-- Debug Information (only show in development or if explicitly enabled) -->
+        <div class="mb-6 p-4 bg-blue-50 border-2 border-blue-300 rounded-lg">
+            <details class="cursor-pointer">
+                <summary class="text-sm font-semibold text-blue-900 mb-2">🔍 Debug Information (Click to expand)</summary>
+                <ul class="list-disc list-inside text-blue-800 text-sm space-y-1 mt-2">
+                    {% for info in debug_info %}
+                    <li>{{ info }}</li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </div>
+        {% endif %}
+        
+        {% if not package %}
+        <!-- Package ID Input Form -->
+        <div class="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded">
+            <p class="text-yellow-900 mb-4 font-medium">Please provide a Package ID to create an invoice.</p>
+            <form method="GET" action="/create-invoice" class="flex gap-2">
+                <input 
+                    type="text" 
+                    name="package_id" 
+                    placeholder="Enter Package ID" 
+                    required
+                    class="flex-1 border-2 border-gray-300 rounded px-4 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                    value="{{ package_id or '' }}"
+                >
+                <button 
+                    type="submit" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded shadow-md transition-colors"
+                >
+                    Load Package
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <!-- Invoice Creation Form -->
+        <div class="space-y-6">
+            <!-- Package Information -->
+            <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300">
+                <h2 class="font-bold text-lg mb-3 text-gray-900">Package Information</h2>
+                <div class="space-y-2 text-gray-800">
+                    <p><strong class="text-gray-900">Name:</strong> <span class="text-gray-800">{% if package.name %}{{ package.name }}{% elif package.invoice_desc %}{{ package.invoice_desc }}{% else %}Package {{ package.bubble_id }}{% endif %}</span></p>
+                    <p><strong class="text-gray-900">Price:</strong> <span class="text-gray-800 font-semibold">RM {{ package.price }}</span></p>
+                    {% if package.invoice_desc %}
+                    <div class="mt-3 pt-3 border-t border-blue-200">
+                        <strong class="text-gray-900 block mb-2">Description:</strong>
+                        <pre class="whitespace-pre-wrap text-sm text-gray-800 bg-white p-3 rounded border border-gray-200 font-sans">{{ package.invoice_desc }}</pre>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Invoice Items Preview -->
+            <div class="bg-gray-50 p-4 rounded-lg border-2 border-gray-300">
+                <h2 class="font-bold text-lg mb-4 text-gray-900">Invoice Items Preview</h2>
+                <div id="invoiceItemsList" class="space-y-2 mb-4">
+                    <!-- Items will be populated by JavaScript -->
+                </div>
+                <div class="border-t-2 border-gray-300 pt-4 mt-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-semibold text-gray-900">Subtotal:</span>
+                        <span class="font-semibold text-gray-900" id="subtotal">RM 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-gray-700">SST (8%):</span>
+                        <span class="text-gray-700" id="sstAmount">RM 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-2 border-t border-gray-300">
+                        <span class="text-xl font-bold text-gray-900">Total Amount:</span>
+                        <span class="text-xl font-bold text-green-600" id="totalAmount">RM 0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invoice Details Form -->
+            <form id="invoiceForm" class="space-y-4">
+                <input type="hidden" name="package_id" value="{{ package.bubble_id }}">
+                <input type="hidden" name="template_id" value="{{ template_id or '' }}">
+                <input type="hidden" id="packagePrice" value="{{ package.price }}">
+                <input type="hidden" id="packageName" value="{% if package.name %}{{ package.name }}{% elif package.invoice_desc %}{{ package.invoice_desc }}{% else %}Package {{ package.bubble_id }}{% endif %}">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Customer Name</label>
+                        <input 
+                            type="text" 
+                            name="customer_name" 
+                            value="{{ customer_name or '' }}"
+                            class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                            placeholder="Optional - leave blank for 'Sample Quotation'"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Customer Phone</label>
+                        <input 
+                            type="text" 
+                            name="customer_phone" 
+                            value="{{ customer_phone or '' }}"
+                            class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                            placeholder="e.g., 60123456789"
+                        >
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-900">Customer Address</label>
+                    <textarea 
+                        name="customer_address" 
+                        rows="3"
+                        class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                        placeholder="Optional"
+                    >{{ customer_address or '' }}</textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-900">Discount Given</label>
+                    <input 
+                        type="text" 
+                        name="discount_given" 
+                        id="discountGiven"
+                        value="{{ discount_given or '' }}"
+                        class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                        placeholder="e.g., '500 10%' for RM500 fixed + 10% discount"
+                    >
+                    <p class="text-xs text-gray-600 mt-1">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p>
+                </div>
+
+                <!-- SST Toggle -->
+                <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+                    <input 
+                        type="checkbox" 
+                        name="apply_sst" 
+                        id="applySST" 
+                        class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                        {% if apply_sst %}checked{% endif %}
+                    >
+                    <label for="applySST" class="text-sm font-semibold text-gray-900">Apply 8% SST (Sales & Service Tax)</label>
+                </div>
+
+                <!-- Payment Methods Section -->
+                <div class="bg-purple-50 p-4 rounded-lg border-2 border-purple-300">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="font-bold text-lg text-gray-900">Payment Methods</h2>
+                        <button 
+                            type="button" 
+                            id="addPaymentMethodBtn"
+                            class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold px-4 py-2 rounded shadow-md transition-colors"
+                        >
+                            + Add Payment Method
+                        </button>
+                    </div>
+                    <div id="paymentMethodsContainer" class="space-y-4">
+                        <!-- Payment method rows will be added here -->
+                    </div>
+                    <div id="paymentSummary" class="mt-4 pt-4 border-t border-purple-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-semibold text-gray-700">Total Payment:</span>
+                            <span class="text-sm font-semibold text-gray-900" id="totalPaymentAmount">RM 0.00 (0%)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold text-gray-700">Total EPP Fees:</span>
+                            <span class="text-sm font-semibold text-purple-700" id="totalEPPFees">RM 0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button 
+                        type="submit" 
+                        class="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-lg shadow-md transition-colors"
+                    >
+                        Create Invoice
+                    </button>
+                    <a 
+                        href="/create-invoice" 
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-8 py-3 rounded-lg shadow-md transition-colors inline-flex items-center"
+                    >
+                        Start Over
+                    </a>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // EPP Rate Configuration
+        const EPP_RATES = {
+            "Maybank": { 6: 2.50, 12: 3.50, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
+            "Public Bank": { 6: 2.50, 12: 3.50, 18: 4.00, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
+            "Hong Leong Bank": { 12: 3.50, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
+            "CIMB": { 6: 2.50, 12: 3.50 },
+            "AM Bank": { 24: 7.00, 36: 9.00 },
+            "UOB": { 6: 2.50, 12: 3.50, 24: 5.50, 48: 8.50, 68: 11.50 },
+            "OCBC": { 6: 4.00, 12: 5.00, 18: 6.00, 24: 7.00, 36: 8.00, 48: 9.00 }
+        };
+
+        const BANKS = Object.keys(EPP_RATES);
+        let paymentMethodCounter = 0;
+
+        // Parse discount string (same logic as backend)
+        function parseDiscount(discountStr) {
+            if (!discountStr || !discountStr.trim()) {
+                return { fixed: 0, percent: 0 };
+            }
+            
+            let discountFixed = 0;
+            let discountPercent = 0;
+            
+            const parts = discountStr.trim().replace('+', ' ').split(/\s+/);
+            
+            for (let part of parts) {
+                part = part.trim();
+                if (part.includes('%')) {
+                    discountPercent = parseFloat(part.replace('%', '')) || 0;
+                } else {
+                    const value = parseFloat(part.replace(/RM|,/g, '')) || 0;
+                    if (value > 0) {
+                        discountFixed = value;
+                    }
+                }
+            }
+            
+            return { fixed: discountFixed, percent: discountPercent };
+        }
+
+        // Get available tenures for a bank
+        function getAvailableTenures(bank) {
+            if (!bank || !EPP_RATES[bank]) return [];
+            return Object.keys(EPP_RATES[bank])
+                .filter(t => t !== 'foreign_card')
+                .map(t => parseInt(t))
+                .sort((a, b) => a - b);
+        }
+
+        // Get EPP rate for bank and tenure
+        function getEPPRate(bank, tenure) {
+            if (!bank || !tenure || !EPP_RATES[bank]) return null;
+            return EPP_RATES[bank][tenure] || null;
+        }
+
+        // Calculate EPP fee
+        function calculateEPPFee(amount, bank, tenure) {
+            const rate = getEPPRate(bank, tenure);
+            if (!rate) return 0;
+            return amount * (rate / 100);
+        }
+
+        // Format amount with commas
+        function formatAmount(amount) {
+            return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
+        // Create payment method row HTML
+        function createPaymentMethodRow(index) {
+            return `
+                <div class="payment-method-row bg-white p-4 rounded border border-purple-200" data-index="${index}">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="font-semibold text-gray-900">Payment Method ${index + 1}:</span>
+                        ${index > 0 ? `<button type="button" class="remove-payment-method text-red-600 hover:text-red-800 text-sm font-medium" data-index="${index}">Remove</button>` : ''}
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs font-semibold mb-1 text-gray-700">Method</label>
+                            <select class="payment-method w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none text-sm" data-index="${index}">
+                                <option value="cash">Cash</option>
+                                <option value="credit_card">Credit Card</option>
+                                <option value="credit_card_epp">Credit Card EPP</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1 text-gray-700">Amount Type</label>
+                            <select class="amount-type w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none text-sm" data-index="${index}">
+                                <option value="percent">%</option>
+                                <option value="amount">RM</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold mb-1 text-gray-700">Amount/Percentage</label>
+                            <input 
+                                type="number" 
+                                step="0.01" 
+                                min="0"
+                                class="amount-value w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none text-sm" 
+                                data-index="${index}"
+                                placeholder="0.00"
+                            >
+                        </div>
+                    </div>
+                    <div class="epp-details hidden" data-index="${index}">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-xs font-semibold mb-1 text-gray-700">Bank</label>
+                                <select class="epp-bank w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none text-sm" data-index="${index}">
+                                    ${BANKS.map(bank => `<option value="${bank}">${bank}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold mb-1 text-gray-700">Tenure (Months)</label>
+                                <select class="epp-tenure w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none text-sm" data-index="${index}">
+                                    <!-- Options will be populated dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                        <div class="epp-info text-sm text-gray-700 space-y-1">
+                            <div class="epp-amount-info"></div>
+                            <div class="epp-rate-info"></div>
+                            <div class="epp-fee-info font-semibold text-purple-700"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Update tenure options based on selected bank
+        function updateTenureOptions(index) {
+            const row = document.querySelector(`.payment-method-row[data-index="${index}"]`);
+            if (!row) return;
+            
+            const bankSelect = row.querySelector('.epp-bank');
+            const tenureSelect = row.querySelector('.epp-tenure');
+            
+            if (!bankSelect || !tenureSelect) return;
+            
+            const bank = bankSelect.value;
+            const tenures = getAvailableTenures(bank);
+            
+            tenureSelect.innerHTML = tenures.map(t => `<option value="${t}">${t} months</option>`).join('');
+            
+            // Trigger update
+            updatePaymentMethodInfo(index);
+        }
+
+        // Update payment method info display
+        function updatePaymentMethodInfo(index) {
+            const row = document.querySelector(`.payment-method-row[data-index="${index}"]`);
+            if (!row) return;
+            
+            const methodSelect = row.querySelector('.payment-method');
+            const amountTypeSelect = row.querySelector('.amount-type');
+            const amountValueInput = row.querySelector('.amount-value');
+            const eppDetails = row.querySelector('.epp-details');
+            const bankSelect = row.querySelector('.epp-bank');
+            const tenureSelect = row.querySelector('.epp-tenure');
+            const amountInfo = row.querySelector('.epp-amount-info');
+            const rateInfo = row.querySelector('.epp-rate-info');
+            const feeInfo = row.querySelector('.epp-fee-info');
+            
+            const method = methodSelect.value;
+            const isEPP = method === 'credit_card_epp';
+            
+            // Show/hide EPP details
+            if (eppDetails) {
+                eppDetails.classList.toggle('hidden', !isEPP);
+            }
+            
+            if (!isEPP) return;
+            
+            const bank = bankSelect?.value;
+            const tenure = tenureSelect ? parseInt(tenureSelect.value) : null;
+            const amountType = amountTypeSelect?.value;
+            const amountValue = parseFloat(amountValueInput?.value || 0);
+            
+            // Calculate package price after discount
+            const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+            const discountInput = document.getElementById('discountGiven')?.value || '';
+            const discount = parseDiscount(discountInput);
+            let subtotalAfterDiscount = packagePrice;
+            if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
+            if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+            if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
+            
+            // Calculate EPP amount
+            let eppAmount = 0;
+            if (amountType === 'percent') {
+                eppAmount = subtotalAfterDiscount * (amountValue / 100);
+            } else {
+                eppAmount = amountValue;
+            }
+            
+            // Get rate and calculate fee
+            const rate = getEPPRate(bank, tenure);
+            const fee = rate ? calculateEPPFee(eppAmount, bank, tenure) : 0;
+            
+            // Update info display
+            if (amountInfo) {
+                amountInfo.textContent = `Amount: RM ${formatAmount(eppAmount)}`;
+            }
+            if (rateInfo && rate) {
+                rateInfo.textContent = `Rate: ${rate}%`;
+            } else if (rateInfo) {
+                rateInfo.textContent = `Rate: Not available`;
+            }
+            if (feeInfo) {
+                feeInfo.textContent = `Estimated Fee: RM ${formatAmount(fee)}`;
+            }
+        }
+
+        // Calculate all EPP fees and create description
+        function calculateAllEPPFees() {
+            const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+            const discountInput = document.getElementById('discountGiven')?.value || '';
+            const discount = parseDiscount(discountInput);
+            let subtotalAfterDiscount = packagePrice;
+            if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
+            if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+            if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
+            
+            const rows = document.querySelectorAll('.payment-method-row');
+            const eppTransactions = [];
+            let totalEPPFee = 0;
+            let totalPayment = 0;
+            
+            rows.forEach((row, index) => {
+                const methodSelect = row.querySelector('.payment-method');
+                const amountTypeSelect = row.querySelector('.amount-type');
+                const amountValueInput = row.querySelector('.amount-value');
+                const bankSelect = row.querySelector('.epp-bank');
+                const tenureSelect = row.querySelector('.epp-tenure');
+                
+                if (!methodSelect || !amountTypeSelect || !amountValueInput) return;
+                
+                const method = methodSelect.value;
+                const amountType = amountTypeSelect.value;
+                const amountValue = parseFloat(amountValueInput.value || 0);
+                
+                if (amountValue <= 0) return;
+                
+                // Calculate payment amount
+                let paymentAmount = 0;
+                if (amountType === 'percent') {
+                    paymentAmount = subtotalAfterDiscount * (amountValue / 100);
+                } else {
+                    paymentAmount = amountValue;
+                }
+                
+                totalPayment += paymentAmount;
+                
+                // If EPP, calculate fee
+                if (method === 'credit_card_epp' && bankSelect && tenureSelect) {
+                    const bank = bankSelect.value;
+                    const tenure = parseInt(tenureSelect.value);
+                    const rate = getEPPRate(bank, tenure);
+                    
+                    if (rate) {
+                        const fee = calculateEPPFee(paymentAmount, bank, tenure);
+                        totalEPPFee += fee;
+                        eppTransactions.push({
+                            bank: bank,
+                            tenure: tenure,
+                            amount: paymentAmount
+                        });
+                    }
+                }
+            });
+            
+            // Format description
+            let description = '';
+            if (eppTransactions.length > 0) {
+                description = eppTransactions.map(t => 
+                    `${t.bank} EPP ${t.tenure} Months - RM${Math.round(t.amount)}`
+                ).join(', ');
+            }
+            
+            return {
+                total_fee: totalEPPFee,
+                description: description,
+                total_payment: totalPayment
+            };
+        }
+
+        // Add payment method row
+        function addPaymentMethodRow() {
+            const container = document.getElementById('paymentMethodsContainer');
+            if (!container) return;
+            
+            const index = paymentMethodCounter++;
+            const rowHTML = createPaymentMethodRow(index);
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = rowHTML;
+            const row = tempDiv.firstElementChild;
+            
+            container.appendChild(row);
+            
+            // Initialize tenure options for EPP
+            if (index === 0) {
+                // Set default for first row: Cash, 100%
+                const methodSelect = row.querySelector('.payment-method');
+                const amountTypeSelect = row.querySelector('.amount-type');
+                const amountValueInput = row.querySelector('.amount-value');
+                if (methodSelect) methodSelect.value = 'cash';
+                if (amountTypeSelect) amountTypeSelect.value = 'percent';
+                if (amountValueInput) amountValueInput.value = '100';
+            } else {
+                // For new rows, initialize tenure if EPP
+                updateTenureOptions(index);
+            }
+            
+            // Attach event listeners
+            attachPaymentMethodListeners(row, index);
+            updateInvoicePreview();
+        }
+
+        // Remove payment method row
+        function removePaymentMethodRow(index) {
+            const row = document.querySelector(`.payment-method-row[data-index="${index}"]`);
+            if (row) {
+                row.remove();
+                updateInvoicePreview();
+            }
+        }
+
+        // Attach event listeners to payment method row
+        function attachPaymentMethodListeners(row, index) {
+            const methodSelect = row.querySelector('.payment-method');
+            const amountTypeSelect = row.querySelector('.amount-type');
+            const amountValueInput = row.querySelector('.amount-value');
+            const bankSelect = row.querySelector('.epp-bank');
+            const tenureSelect = row.querySelector('.epp-tenure');
+            const removeBtn = row.querySelector('.remove-payment-method');
+            
+            if (methodSelect) {
+                methodSelect.addEventListener('change', () => {
+                    updatePaymentMethodInfo(index);
+                    updateInvoicePreview();
+                });
+            }
+            
+            if (amountTypeSelect) {
+                amountTypeSelect.addEventListener('change', () => {
+                    updatePaymentMethodInfo(index);
+                    updateInvoicePreview();
+                });
+            }
+            
+            if (amountValueInput) {
+                amountValueInput.addEventListener('input', () => {
+                    updatePaymentMethodInfo(index);
+                    updateInvoicePreview();
+                });
+            }
+            
+            if (bankSelect) {
+                bankSelect.addEventListener('change', () => {
+                    updateTenureOptions(index);
+                    updatePaymentMethodInfo(index);
+                    updateInvoicePreview();
+                });
+            }
+            
+            if (tenureSelect) {
+                tenureSelect.addEventListener('change', () => {
+                    updatePaymentMethodInfo(index);
+                    updateInvoicePreview();
+                });
+            }
+            
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    removePaymentMethodRow(index);
+                });
+            }
+        }
+
+        // Update invoice items preview
+        function updateInvoicePreview() {
+            const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+            const discountInput = document.getElementById('discountGiven')?.value || '';
+            const discount = parseDiscount(discountInput);
+            
+            const itemsList = document.getElementById('invoiceItemsList');
+            if (!itemsList) return;
+            
+            // Clear existing items
+            itemsList.innerHTML = '';
+            
+            // Add package item
+            const packageName = document.getElementById('packageName')?.value || 'Package Item';
+            const packageItem = document.createElement('div');
+            packageItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+            packageItem.innerHTML = `
+                <div class="flex-1">
+                    <div class="font-medium text-gray-900">${packageName}</div>
+                    <div class="text-sm text-gray-600">1 × RM ${packagePrice.toFixed(2)}</div>
+                </div>
+                <div class="font-semibold text-gray-900">RM ${packagePrice.toFixed(2)}</div>
+            `;
+            itemsList.appendChild(packageItem);
+            
+            // Calculate subtotal (starting with package price)
+            let subtotal = packagePrice;
+            
+            // Add fixed discount item if exists
+            if (discount.fixed > 0) {
+                const fixedDiscountItem = document.createElement('div');
+                fixedDiscountItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+                fixedDiscountItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-red-600">Discount (RM ${discount.fixed.toFixed(2)})</div>
+                    </div>
+                    <div class="font-semibold text-red-600">-RM ${discount.fixed.toFixed(2)}</div>
+                `;
+                itemsList.appendChild(fixedDiscountItem);
+                subtotal -= discount.fixed;
+            }
+            
+            // Add percentage discount item if exists
+            if (discount.percent > 0) {
+                const percentAmount = packagePrice * (discount.percent / 100);
+                const percentDiscountItem = document.createElement('div');
+                percentDiscountItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+                percentDiscountItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-red-600">Discount (${discount.percent}%)</div>
+                    </div>
+                    <div class="font-semibold text-red-600">-RM ${percentAmount.toFixed(2)}</div>
+                `;
+                itemsList.appendChild(percentDiscountItem);
+                subtotal -= percentAmount;
+            }
+            
+            // Ensure subtotal doesn't go negative
+            if (subtotal < 0) subtotal = 0;
+            
+            // Store subtotal after discount for payment calculation
+            const subtotalAfterDiscount = subtotal;
+            
+            // Calculate EPP fees
+            const eppData = calculateAllEPPFees();
+            
+            // Add EPP fee item if exists
+            if (eppData.total_fee > 0 && eppData.description) {
+                const eppFeeItem = document.createElement('div');
+                eppFeeItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+                eppFeeItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-purple-700">Bank Processing Fee</div>
+                        <div class="text-sm text-gray-600">${eppData.description}</div>
+                    </div>
+                    <div class="font-semibold text-purple-700">RM ${eppData.total_fee.toFixed(2)}</div>
+                `;
+                itemsList.appendChild(eppFeeItem);
+                subtotal += eppData.total_fee;
+            }
+            
+            // Update payment summary
+            const totalPaymentDisplay = document.getElementById('totalPaymentAmount');
+            const totalEPPFeesDisplay = document.getElementById('totalEPPFees');
+            if (totalPaymentDisplay) {
+                const paymentPercent = subtotalAfterDiscount > 0 ? (eppData.total_payment / subtotalAfterDiscount * 100) : 0;
+                totalPaymentDisplay.textContent = `RM ${formatAmount(eppData.total_payment)} (${paymentPercent.toFixed(1)}%)`;
+                if (Math.abs(paymentPercent - 100) < 0.01) {
+                    totalPaymentDisplay.classList.add('text-green-600');
+                    totalPaymentDisplay.classList.remove('text-red-600');
+                } else {
+                    totalPaymentDisplay.classList.add('text-red-600');
+                    totalPaymentDisplay.classList.remove('text-green-600');
+                }
+            }
+            if (totalEPPFeesDisplay) {
+                totalEPPFeesDisplay.textContent = `RM ${formatAmount(eppData.total_fee)}`;
+            }
+            
+            // Calculate SST (8%)
+            const applySST = document.getElementById('applySST')?.checked || false;
+            const sstRate = applySST ? 8.0 : 0.0;
+            const sstAmount = subtotal * (sstRate / 100);
+            const totalAmount = subtotal + sstAmount;
+            
+            // Update totals
+            document.getElementById('subtotal').textContent = `RM ${subtotal.toFixed(2)}`;
+            const sstLabel = document.querySelector('label[for="applySST"]');
+            if (sstLabel) sstLabel.textContent = `Apply 8% SST (Sales & Service Tax)${applySST ? ' - RM ' + sstAmount.toFixed(2) : ''}`;
+            document.getElementById('sstAmount').textContent = `RM ${sstAmount.toFixed(2)}`;
+            document.getElementById('totalAmount').textContent = `RM ${totalAmount.toFixed(2)}`;
+        }
+
+        // Initialize preview on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add first payment method row (default: Cash, 100%)
+            addPaymentMethodRow();
+            
+            updateInvoicePreview();
+            
+            // Update preview when SST toggle changes
+            const sstToggle = document.getElementById('applySST');
+            if (sstToggle) {
+                sstToggle.addEventListener('change', updateInvoicePreview);
+            }
+            
+            // Update preview when discount input changes
+            const discountInput = document.getElementById('discountGiven');
+            if (discountInput) {
+                discountInput.addEventListener('input', updateInvoicePreview);
+                discountInput.addEventListener('change', updateInvoicePreview);
+            }
+            
+            // Add payment method button
+            const addBtn = document.getElementById('addPaymentMethodBtn');
+            if (addBtn) {
+                addBtn.addEventListener('click', addPaymentMethodRow);
+            }
+        });
+
+        // Handle form submission
+        document.getElementById('invoiceForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+            
+            // Calculate EPP fees
+            const eppData = calculateAllEPPFees();
+            
+            // Prepare request data
+            const requestData = {
+                package_id: data.package_id,
+                template_id: data.template_id || null,
+                customer_name: data.customer_name || null,
+                customer_phone: data.customer_phone || null,
+                customer_address: data.customer_address || null,
+                discount_given: data.discount_given || null,
+                apply_sst: document.getElementById('applySST')?.checked || false,
+            };
+            
+            // Add EPP fee data if exists
+            if (eppData.total_fee > 0 && eppData.description) {
+                requestData.epp_fee_amount = eppData.total_fee;
+                requestData.epp_fee_description = eppData.description;
+            }
+            
+            // Call the on-the-fly invoice creation API
+            try {
+                const response = await fetch('/api/v1/invoices/on-the-fly', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert('Invoice created successfully! Redirecting to invoice view...');
+                    window.location.href = result.invoice_link;
+                } else {
+                    alert('Error: ' + (result.detail || 'Failed to create invoice'));
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        });
+    </script>
+</body>
+</html>

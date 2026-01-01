@@ -1,0 +1,14 @@
+# Additional dependencies required for invoice creation integration
+# Add these to your calculator app's requirements.txt if not already present
+
+# Required for PDF generation
+weasyprint>=60.0
+
+# These should already be in your calculator app:
+# fastapi>=0.109.0
+# sqlalchemy>=2.0.25
+# pydantic>=2.5.3
+# pydantic-settings>=2.1.0
+# jinja2>=3.1.2
+# psycopg2-binary>=2.9.9
+

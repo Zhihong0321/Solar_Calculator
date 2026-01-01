@@ -14,11 +14,13 @@ app.use(cors());
 app.use(cookieParser());
 app.use(express.json());
 
-// Public routes (if any)
-// app.use('/public', express.static('public')); // If you wanted public assets
+// Import invoice routes
+const invoiceRoutes = require('./routes/invoiceRoutes');
 
-// Protected routes
-app.use(requireAuth);
+// Public routes (invoice routes should be accessible without auth)
+app.use(invoiceRoutes);
+
+// Static files (public routes)
 app.use(express.static('public'));
 
 // Database connection
@@ -75,8 +77,11 @@ app.get('/api/health', async (req, res) => {
 
 // API endpoint to serve environment configuration to frontend
 app.get('/api/config', (req, res) => {
+  // Return local invoice creation URL
+  const protocol = req.protocol;
+  const host = req.get('host');
   res.json({
-    invoiceBaseUrl: process.env.INVOICE_BASE_URL || 'https://quote.atap.solar/create-invoice'
+    invoiceBaseUrl: `${protocol}://${host}/create-invoice`
   });
 });
 
