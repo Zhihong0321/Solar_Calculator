@@ -639,6 +639,7 @@ app.get('/api/solar-calculation', async (req, res) => {
         const exportRate = netUsageKwh > 1500 ? 0.3703 : smp; // RM per kWh for export
         const exportRateBaseline = netUsageBaseline > 1500 ? 0.3703 : smp; // Baseline export rate
         const exportSaving = exportKwh * exportRate;
+        const backupGenerationSaving = backupGenerationKwh * exportRate;
         const exportSavingBaseline = exportKwhBaseline * exportRateBaseline;
 
         // 3. Total saving
@@ -885,6 +886,7 @@ app.get('/api/solar-calculation', async (req, res) => {
             morningSaving: morningSaving.toFixed(2),
             exportKwh: exportKwh.toFixed(2),
             backupGenerationKwh: backupGenerationKwh.toFixed(2),
+            backupGenerationSaving: backupGenerationSaving.toFixed(2),
             donatedKwh: donatedKwh.toFixed(2),
             exportSaving: exportSaving.toFixed(2),
             morningUsageRate: morningUsageRate,

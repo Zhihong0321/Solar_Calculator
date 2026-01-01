@@ -359,6 +359,7 @@ class SolarCalculator {
         // Export rate logic: if reduced bill total kWh usage > 1500 kWh, use 0.3703, otherwise use smpPrice
         const effectiveExportRate = netUsageKwh > 1500 ? 0.3703 : smpPrice;
         const exportSaving = exportKwh * effectiveExportRate;
+        const backupGenerationSaving = backupGenerationKwh * effectiveExportRate;
         const totalMonthlySavings = billReduction + exportSaving;
 
         const billReductionBaseline = beforeBreakdown.total - baselineBreakdown.total;
@@ -416,6 +417,7 @@ class SolarCalculator {
                 billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2),
                 netUsageKwh: netUsageKwh.toFixed(2), exportKwh: exportKwh.toFixed(2),
                 backupGenerationKwh: backupGenerationKwh.toFixed(2),
+                backupGenerationSaving: backupGenerationSaving.toFixed(2),
                 donatedKwh: donatedKwh.toFixed(2),
                 effectiveExportRate: effectiveExportRate.toFixed(4),
                 totalGeneration: monthlySolarGeneration.toFixed(2),
@@ -714,9 +716,12 @@ function displaySolarCalculation(data) {
                             <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right space-y-1">
                                 <div>exported ${parseFloat(ds.exportKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh @ RM${parseFloat(ds.effectiveExportRate).toFixed(4)}</div>
                                 ${parseFloat(ds.backupGenerationKwh) > 0 ? `
-                                <div class="text-emerald-500 font-semibold">
-                                    + ${parseFloat(ds.backupGenerationKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh BACKUP_GENERATION
-                                    <span class="block text-[8px] opacity-80 uppercase font-normal">(Weather Buffer: Protected against low sun peak days)</span>
+                                <div class="flex flex-col items-end">
+                                    <div class="text-[#FFD700] font-bold">RM ${formatCurrency(ds.backupGenerationSaving)}</div>
+                                    <div class="text-emerald-500 font-semibold text-[9px]">
+                                        + ${parseFloat(ds.backupGenerationKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh BACKUP_GENERATION
+                                        <span class="block text-[8px] opacity-80 uppercase font-normal">(Weather Buffer: Protected against low sun peak days)</span>
+                                    </div>
                                 </div>` : ''}
                                 ${parseFloat(ds.donatedKwh) > 0 ? `<div class="text-rose-400 font-semibold">⚠ ${parseFloat(ds.donatedKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh Donated to Grid (Capped by limit)</div>` : ''}
                             </div>
