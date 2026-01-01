@@ -326,7 +326,7 @@
         packageInfo.classList.remove('hidden');
 
         document.getElementById('packageName').textContent = pkg.name || 'N/A';
-        document.getElementById('packagePrice').textContent = (pkg.price || '0').toFixed(2);
+        document.getElementById('packagePrice').textContent = (parseFloat(pkg.price) || 0).toFixed(2);
         document.getElementById('packageType').textContent = pkg.type || 'N/A';
 
         if (pkg.invoice_desc) {
