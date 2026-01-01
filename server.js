@@ -533,8 +533,12 @@ app.get('/api/solar-calculation', async (req, res) => {
 
         // Calculate solar generation using selected panel wattage
         const panelWatts = panelWattage;
+        const systemSizeKwp = (actualPanelQty * panelWatts) / 1000; // System size in kWp
         const dailySolarGeneration = (actualPanelQty * panelWatts * peakHour) / 1000; // kWh per day
         const monthlySolarGeneration = dailySolarGeneration * 30;
+        
+        // Check if SEDA oversize registration fee is required (> 15kWp)
+        const requiresSedaFee = systemSizeKwp > 15;
 
         // Calculate morning usage split
         const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
@@ -563,16 +567,21 @@ app.get('/api/solar-calculation', async (req, res) => {
         // We calculate the baseline separately to preserve "After Solar (No Battery)" values for comparison
         const netUsageBaseline = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
         const netUsageBaselineForLookup = Math.max(0, Math.floor(netUsageBaseline));
-        const exportKwhBaseline = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+        
+        // ATAP Solar Malaysia: Max export = reduced import from grid
+        // Any generation more than reduced import is considered donation to the grid
+        const potentialExportBaseline = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+        const exportKwhBaseline = Math.min(potentialExportBaseline, netUsageBaseline);
         
         // --- Battery Logic (With Battery) ---
         const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption - monthlyMaxDischarge);
         const netUsageForLookup = Math.max(0, Math.floor(netUsageKwh));
 
         // Step 3 (Calc Prep): Export Energy
-        // Original: monthlySolarGeneration - morningUsageKwh
-        // New: (monthlySolarGeneration - morningUsageKwh) - monthlyMaxDischarge
-        const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
+        // ATAP Solar Malaysia: Max export = reduced import from grid
+        // Any generation more than reduced import is considered donation to the grid
+        const potentialExport = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
+        const exportKwh = Math.min(potentialExport, netUsageKwh);
         // --- Battery Logic End ---
 
         // Calculate the post-solar bill using the reduced usage (excluding export)
@@ -852,7 +861,9 @@ app.get('/api/solar-calculation', async (req, res) => {
             id: selectedPackage.id
           } : null,
 
-          solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${(actualPanelQty * panelWatts / 1000).toFixed(1)} kW system)`,
+          solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${systemSizeKwp.toFixed(1)} kW system)`,
+          systemSizeKwp: systemSizeKwp.toFixed(1),
+          requiresSedaFee: requiresSedaFee,
           monthlySavings: totalMonthlySavings.toFixed(2),
           systemCostBeforeDiscount: systemCostBeforeDiscount !== null ? systemCostBeforeDiscount.toFixed(2) : null,
           percentDiscountAmount: percentDiscountAmount !== null ? percentDiscountAmount.toFixed(2) : null,

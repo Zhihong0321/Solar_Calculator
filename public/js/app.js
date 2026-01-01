@@ -279,6 +279,10 @@ class SolarCalculator {
         // 2. Recommendation (Using Server's Math.floor rule)
         const recommendedPanels = Math.max(1, Math.floor(monthlyUsageKwh / sunPeakHour / 30 / 0.62));
         const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
+        
+        // Calculate system size in kWp
+        const systemSizeKwp = (actualPanelQty * panelType) / 1000;
+        const requiresSedaFee = systemSizeKwp > 15;
 
         // 3. Package Lookup
         let selectedPackage = this.packages
@@ -308,10 +312,15 @@ class SolarCalculator {
         // 7. Energy Flows
         // Baseline
         const netUsageBaseline = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
-        const exportKwhBaseline = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+        // ATAP Solar Malaysia: Max export = reduced import from grid
+        // Any generation more than reduced import is considered donation to the grid
+        const potentialExportBaseline = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+        const exportKwhBaseline = Math.min(potentialExportBaseline, netUsageBaseline);
         // With Battery
         const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption - monthlyMaxDischarge);
-        const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
+        // ATAP Solar Malaysia: Max export = reduced import from grid
+        const potentialExport = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
+        const exportKwh = Math.min(potentialExport, netUsageKwh);
 
         // 8. Financials
         const baselineTariff = this.lookupTariffByUsage(netUsageBaseline);
@@ -388,7 +397,9 @@ class SolarCalculator {
             panelAdjustment: actualPanelQty - recommendedPanels,
             overrideApplied: overridePanels !== null,
             selectedPackage: selectedPackage ? { packageName: selectedPackage.package_name, price: selectedPackage.price, panelWattage: panelType, bubbleId: selectedPackage.bubble_id } : null,
-            solarConfig: `${actualPanelQty} x ${panelType}W panels (${(actualPanelQty * panelType / 1000).toFixed(1)} kW system)`,
+            solarConfig: `${actualPanelQty} x ${panelType}W panels (${systemSizeKwp.toFixed(1)} kW system)`,
+            systemSizeKwp: systemSizeKwp.toFixed(1),
+            requiresSedaFee: requiresSedaFee,
             monthlySavings: totalMonthlySavings.toFixed(2),
             confidenceLevel: confidenceLevel.toFixed(1),
             systemCostBeforeDiscount, totalDiscountAmount, finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : null,
@@ -696,6 +707,14 @@ function displaySolarCalculation(data) {
                         </div>
                         <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
                         <div class="flex justify-between items-baseline text-sm md:text-base text-orange-400"><span>Confidence_Level:</span><span class="font-bold">${data.confidenceLevel}%</span></div>
+                        ${data.requiresSedaFee ? `
+                        <div class="pt-3 mt-3 border-t border-white/20">
+                            <div class="bg-yellow-500/20 border border-yellow-500/50 p-3 rounded">
+                                <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-yellow-300 mb-1">⚠ SEDA Registration Fee Required</div>
+                                <div class="text-xs md:text-sm text-yellow-200">RM 1,000 Oversize Registration Fee by SEDA required for systems > 15kWp</div>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                     <div class="pt-6 border-t border-white/40 flex justify-between items-baseline">
                         <span class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-white/70">Total_Savings (Inc. Export):</span>
@@ -717,6 +736,14 @@ function displaySolarCalculation(data) {
                     <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">Payback</span><div class="text-2xl md:text-3xl font-bold">${data.paybackPeriod} yr</div></div>
                     <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">Net_Cost</span><div class="text-2xl md:text-3xl font-bold">RM ${formatCurrency(data.finalSystemCost)}</div></div>
                 </div>
+                ${data.requiresSedaFee ? `
+                <div class="mt-6 pt-6 border-t border-divider">
+                    <div class="bg-yellow-50 border-2 border-yellow-500 p-4 rounded">
+                        <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-yellow-800 mb-2">⚠ SEDA Oversize Registration Fee</div>
+                        <div class="text-xs md:text-sm text-yellow-900">RM 1,000 Oversize Registration Fee by SEDA required for systems > 15kWp (System Size: ${data.systemSizeKwp} kWp)</div>
+                    </div>
+                </div>
+                ` : ''}
             </section>
 
             <section class="pt-2">
