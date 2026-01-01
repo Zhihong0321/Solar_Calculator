@@ -268,7 +268,8 @@ class SolarCalculator {
         const {
             amount, sunPeakHour, morningUsage, panelType, 
             smpPrice, afaRate, historicalAfaRate, 
-            percentDiscount, fixedDiscount, batterySize, overridePanels
+            percentDiscount, fixedDiscount, batterySize, overridePanels,
+            systemPhase = 3
         } = params;
 
         // 1. Initial Tariff
@@ -282,7 +283,10 @@ class SolarCalculator {
         
         // Calculate system size in kWp
         const systemSizeKwp = (actualPanelQty * panelType) / 1000;
-        const requiresSedaFee = systemSizeKwp > 15;
+        
+        // SEDA Fee Logic: >15kWp for 3-phase, >5kWp for 1-phase
+        const sedaLimit = systemPhase == 1 ? 5 : 15;
+        const requiresSedaFee = systemSizeKwp > sedaLimit;
 
         // 3. Package Lookup
         let selectedPackage = this.packages
@@ -488,7 +492,8 @@ window.calculateSolarSavings = function() {
         percentDiscount: parseFloat(document.getElementById('percentDiscount').value) || 0,
         fixedDiscount: parseFloat(document.getElementById('fixedDiscount').value) || 0,
         batterySize: 0,
-        overridePanels: null
+        overridePanels: null,
+        systemPhase: parseInt(document.getElementById('systemPhase').value) || 3
     };
     latestSolarParams = params;
     runAndDisplay();
@@ -518,6 +523,7 @@ window.triggerSpontaneousUpdate = function(source) {
     latestSolarParams.smpPrice = parseFloat(document.getElementById('smpPrice').value) || 0.2703;
     latestSolarParams.percentDiscount = parseFloat(document.getElementById('percentDiscount')?.value) || 0;
     latestSolarParams.fixedDiscount = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
+    latestSolarParams.systemPhase = parseInt(document.getElementById('systemPhase')?.value) || 3;
 
     // If panel rating changed, reset overridePanels to trigger full recalculation
     if (panelRatingChanged) {
@@ -732,7 +738,7 @@ function displaySolarCalculation(data) {
                         <div class="pt-3 mt-3 border-t border-white/20">
                             <div class="bg-yellow-500/20 border border-yellow-500/50 p-3 rounded">
                                 <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-yellow-300 mb-1">⚠ SEDA Registration Fee Required</div>
-                                <div class="text-xs md:text-sm text-yellow-200">RM 1,000 Oversize Registration Fee by SEDA required for systems > 15kWp</div>
+                                <div class="text-xs md:text-sm text-yellow-200">RM 1,000 Oversize Registration Fee by SEDA required for systems > ${data.config.systemPhase == 1 ? 5 : 15}kWp (${data.config.systemPhase}-phase)</div>
                             </div>
                         </div>
                         ` : ''}
@@ -761,7 +767,7 @@ function displaySolarCalculation(data) {
                 <div class="mt-6 pt-6 border-t border-divider">
                     <div class="bg-yellow-50 border-2 border-yellow-500 p-4 rounded">
                         <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-yellow-800 mb-2">⚠ SEDA Oversize Registration Fee</div>
-                        <div class="text-xs md:text-sm text-yellow-900">RM 1,000 Oversize Registration Fee by SEDA required for systems > 15kWp (System Size: ${data.systemSizeKwp} kWp)</div>
+                        <div class="text-xs md:text-sm text-yellow-900">RM 1,000 Oversize Registration Fee by SEDA required for systems > ${data.config.systemPhase == 1 ? 5 : 15}kWp (System: ${data.systemSizeKwp} kWp, ${data.config.systemPhase}-Phase)</div>
                     </div>
                 </div>
                 ` : ''}
@@ -872,7 +878,9 @@ function showNotification(m, t='info') {
 
 function showPanelRecommendationPopup(data) {
     const systemSizeKwp = (data.recommendedPanels * (data.config.panelType || 620)) / 1000;
-    const requiresSedaFee = systemSizeKwp > 15;
+    const systemPhase = data.config.systemPhase || 3;
+    const sedaLimit = systemPhase == 1 ? 5 : 15;
+    const requiresSedaFee = systemSizeKwp > sedaLimit;
 
     const p = document.createElement('div');
     p.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm';
@@ -886,7 +894,7 @@ function showPanelRecommendationPopup(data) {
             <div class="bg-rose-50 border-2 border-rose-600 p-4 rounded text-left">
                 <div class="text-[10px] font-bold text-rose-600 uppercase mb-1">⚠ SEDA NOTICE</div>
                 <div class="text-xs font-bold text-rose-900 leading-tight">RM 1,000 Oversize Registration Fee Required.</div>
-                <div class="text-[10px] text-rose-800 mt-1">This recommended system (${systemSizeKwp.toFixed(1)} kWp) exceeds the 15kWp limit.</div>
+                <div class="text-[10px] text-rose-800 mt-1">This recommended system (${systemSizeKwp.toFixed(1)} kWp) exceeds the ${sedaLimit}kWp limit for ${systemPhase}-phase.</div>
             </div>
             ` : ''}
 

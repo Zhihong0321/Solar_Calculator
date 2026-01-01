@@ -437,6 +437,7 @@ app.get('/api/solar-calculation', async (req, res) => {
     const afaRate = parseFloat(afaRateRaw) || 0;
     const historicalAfaRate = parseFloat(historicalAfaRateRaw) || 0;
     const batterySizeVal = parseFloat(req.query.batterySize) || 0;
+    const systemPhase = parseInt(req.query.systemPhase) || 3;
     const overridePanelsRaw = req.query.overridePanels;
     let overridePanels = null;
     if (overridePanelsRaw !== undefined) {
@@ -537,8 +538,9 @@ app.get('/api/solar-calculation', async (req, res) => {
         const dailySolarGeneration = (actualPanelQty * panelWatts * peakHour) / 1000; // kWh per day
         const monthlySolarGeneration = dailySolarGeneration * 30;
         
-        // Check if SEDA oversize registration fee is required (> 15kWp)
-        const requiresSedaFee = systemSizeKwp > 15;
+        // SEDA Fee Logic: >15kWp for 3-phase, >5kWp for 1-phase
+        const sedaLimit = systemPhase === 1 ? 5 : 15;
+        const requiresSedaFee = systemSizeKwp > sedaLimit;
 
         // Calculate morning usage split
         const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
