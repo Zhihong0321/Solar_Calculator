@@ -249,17 +249,14 @@ router.get('/view/:shareToken', async (req, res) => {
       recordClient.release();
     }
 
-    // Check accept header for HTML
+    // Check accept header - default to HTML for browsers
     const accept = req.get('accept') || '';
-    if (accept.includes('text/html')) {
-      // Return HTML (use sync version for web display)
-      const html = invoiceHtmlGenerator.generateInvoiceHtmlSync(invoice, invoice.template);
-      res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.header('Pragma', 'no-cache');
-      res.header('Expires', '0');
-      res.send(html);
-    } else {
-      // Return JSON for API clients
+    const userAgent = req.get('user-agent') || '';
+    const isBrowser = userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari') || userAgent.includes('Firefox');
+    const wantsJSON = accept.includes('application/json') && !accept.includes('text/html');
+    
+    if (wantsJSON) {
+      // Return JSON for API clients that explicitly want JSON
       const protocol = req.protocol;
       const host = req.get('host');
       const shareUrl = `${protocol}://${host}/view/${shareToken}`;
@@ -270,6 +267,27 @@ router.get('/view/:shareToken', async (req, res) => {
         bubble_id: invoice.bubble_id,
         total_amount: invoice.total_amount
       });
+    } else {
+      // Default to HTML for browsers (even if Accept header doesn't include text/html)
+      try {
+        const html = invoiceHtmlGenerator.generateInvoiceHtmlSync(invoice, invoice.template);
+        res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.header('Pragma', 'no-cache');
+        res.header('Expires', '0');
+        res.header('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
+      } catch (err) {
+        console.error('Error generating HTML:', err);
+        res.status(500).send(`
+          <html>
+          <head><title>Error</title></head>
+          <body style="font-family: sans-serif; padding: 2rem;">
+            <h1>Error Loading Invoice</h1>
+            <p>Failed to generate invoice HTML: ${err.message}</p>
+          </body>
+          </html>
+        `);
+      }
     }
   } catch (err) {
     console.error('Error in /view/:shareToken route:', err);
