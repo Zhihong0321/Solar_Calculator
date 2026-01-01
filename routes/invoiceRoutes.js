@@ -5,6 +5,7 @@
 const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
+const { requireAuth } = require('../middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
@@ -53,8 +54,9 @@ router.get('/api/package/:id', async (req, res) => {
 /**
  * GET /create-invoice
  * Invoice creation page - shows form
+ * Protected: Requires authentication
  */
-router.get('/create-invoice', (req, res) => {
+router.get('/create-invoice', requireAuth, (req, res) => {
     const templatePath = path.join(__dirname, '..', 'public', 'templates', 'create_invoice.html');
     res.sendFile(templatePath);
 });
@@ -62,9 +64,19 @@ router.get('/create-invoice', (req, res) => {
 /**
  * POST /api/v1/invoices/on-the-fly
  * Create invoice on the fly and return shareable link
+ * Protected: Requires authentication - only registered users can create invoices
  */
-router.post('/api/v1/invoices/on-the-fly', async (req, res) => {
+router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
   try {
+    // Validate user is authenticated (requireAuth ensures this, but double-check userId exists)
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication failed: User ID not found. Please login again.'
+      });
+    }
+
+    const userId = req.user.userId;
     const {
       package_id,
       discount_fixed,
@@ -81,8 +93,9 @@ router.post('/api/v1/invoices/on-the-fly', async (req, res) => {
       epp_fee_description
     } = req.body;
 
-    // Create invoice
+    // Create invoice with userId
     const result = await invoiceService.createInvoice(pool, {
+      userId: userId,
       packageId: package_id,
       discountFixed: discount_fixed,
       discountPercent: discount_percent,

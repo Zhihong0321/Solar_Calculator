@@ -144,11 +144,12 @@ async function getVoucherByCode(client, voucherCode) {
 /**
  * Create invoice on the fly
  * @param {object} client - Database client
- * @param {object} data - Invoice data
+ * @param {object} data - Invoice data (must include userId)
  * @returns {Promise<object>} Created invoice with share token
  */
 async function createInvoiceOnTheFly(client, data) {
   const {
+    userId, // REQUIRED - no fallback allowed
     packageId,
     discountFixed = 0,
     discountPercent = 0,
@@ -162,6 +163,11 @@ async function createInvoiceOnTheFly(client, data) {
     eppFeeAmount = 0,
     eppFeeDescription = 'EPP Fee'
   } = data;
+
+  // CRITICAL: Validate userId exists - block creation if missing
+  if (!userId || (typeof userId !== 'number' && typeof userId !== 'string')) {
+    throw new Error('User ID is required. Authentication failed - invoice creation blocked.');
+  }
 
   try {
     // Start transaction
@@ -268,7 +274,7 @@ async function createInvoiceOnTheFly(client, data) {
         shareToken,
         true,
         shareExpiresAt.toISOString(),
-        null // created_by - set to current user if auth is available
+        userId // created_by - REQUIRED: authenticated user ID
       ]
     );
 

@@ -2,6 +2,7 @@
  * Invoice Service Module
  * Business logic for invoice creation
  */
+const invoiceRepo = require('./invoiceRepo');
 
 /**
  * Parse discount_given string into discount_fixed and discount_percent
@@ -53,6 +54,11 @@ function parseDiscountString(discountGiven) {
  */
 function validateInvoiceData(data) {
   const errors = [];
+
+  // CRITICAL: userId is required - no fallback allowed
+  if (!data.userId || (typeof data.userId !== 'number' && typeof data.userId !== 'string')) {
+    errors.push('User ID is required. Authentication failed - please login again.');
+  }
 
   if (!data.packageId || data.packageId.trim().length === 0) {
     errors.push('package_id is required');
@@ -109,22 +115,22 @@ async function createInvoice(pool, data) {
       discountPercent = parsed.discountPercent;
     }
 
-    // Create invoice using repository
-    const invoice = await pool.query('BEGIN').then(() => {
-      return invoiceRepo.createInvoiceOnTheFly(client, {
-        packageId: data.packageId,
-        discountFixed,
-        discountPercent,
-        applySst: data.applySst || false,
-        templateId: data.templateId,
-        voucherCode: data.voucherCode,
-        agentMarkup: data.agentMarkup || 0,
-        customerName: data.customerName,
-        customerPhone: data.customerPhone,
-        customerAddress: data.customerAddress,
-        eppFeeAmount: data.eppFeeAmount,
-        eppFeeDescription: data.eppFeeDescription
-      });
+    // Create invoice using repository (transaction handled inside repo)
+    // userId is required - no fallback allowed
+    const invoice = await invoiceRepo.createInvoiceOnTheFly(client, {
+      userId: data.userId,
+      packageId: data.packageId,
+      discountFixed,
+      discountPercent,
+      applySst: data.applySst || false,
+      templateId: data.templateId,
+      voucherCode: data.voucherCode,
+      agentMarkup: data.agentMarkup || 0,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      customerAddress: data.customerAddress,
+      eppFeeAmount: data.eppFeeAmount,
+      eppFeeDescription: data.eppFeeDescription
     });
 
     return {
@@ -140,7 +146,6 @@ async function createInvoice(pool, data) {
     };
   } catch (err) {
     console.error('Error in invoice service:', err);
-    await pool.query('ROLLBACK').catch(() => {});
     return {
       success: false,
       error: err.message

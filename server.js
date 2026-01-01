@@ -17,7 +17,7 @@ app.use(express.json());
 // Import invoice routes
 const invoiceRoutes = require('./routes/invoiceRoutes');
 
-// Public routes (invoice routes should be accessible without auth)
+// Invoice routes (protected routes require authentication via requireAuth middleware)
 app.use(invoiceRoutes);
 
 // Static files (public routes)
