@@ -73,6 +73,13 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// API endpoint to serve environment configuration to frontend
+app.get('/api/config', (req, res) => {
+  res.json({
+    invoiceBaseUrl: process.env.INVOICE_BASE_URL || 'https://quote.atap.solar/create-invoice'
+  });
+});
+
 // API endpoint to explore database schema and tables
 app.get('/api/schema', async (req, res) => {
   try {

@@ -3,6 +3,7 @@ let latestSolarParams = null;
 let latestSolarData = null;
 let originalSolarData = null; // Baseline for price comparison (the very first recommendation)
 let currentHistoricalAfaRate = 0;
+let invoiceBaseUrl = 'https://quote.atap.solar/create-invoice';
 
 // Data Cache (Client-Side DB)
 let db = {
@@ -20,12 +21,25 @@ const chartInstances = {
 // --- Initialization ---
 window.onload = function() {
     testConnection();
-    initializeData().then(() => {
+    Promise.all([initializeData(), fetchConfig()]).then(() => {
         if (document.getElementById('reverseCalcForm')) {
             initReversePage();
         }
     });
 };
+
+async function fetchConfig() {
+    try {
+        const response = await fetch('/api/config');
+        const config = await response.json();
+        if (response.ok && config.invoiceBaseUrl) {
+            invoiceBaseUrl = config.invoiceBaseUrl;
+            console.log('Invoice base URL configured:', invoiceBaseUrl);
+        }
+    } catch (err) {
+        console.error('Failed to fetch config, using default:', invoiceBaseUrl);
+    }
+}
 
 async function initializeData() {
     try {
@@ -44,14 +58,14 @@ async function initializeData() {
                 sst_normal: parseFloat(t.sst_normal),
                 kwtbb_normal: parseFloat(t.kwtbb_normal)
             }));
-            
+
             db.packages = data.packages.map(p => ({
                 ...p,
                 panel_qty: parseInt(p.panel_qty),
                 price: parseFloat(p.price),
                 solar_output_rating: parseInt(p.solar_output_rating)
             }));
-            
+
             console.log('Client-side DB initialized:', db.tariffs.length, 'tariffs,', db.packages.length, 'packages');
         }
     } catch (err) {
@@ -464,18 +478,32 @@ window.calculateSolarSavings = function() {
     originalSolarData = JSON.parse(JSON.stringify(latestSolarData)); // Capture baseline for Investment Delta
 };
 
-window.triggerSpontaneousUpdate = function() {
+window.triggerSpontaneousUpdate = function(source) {
     if (!latestSolarParams) return;
-    // Update inputs from UI
-    latestSolarParams.sunPeakHour = parseFloat(document.getElementById('sunPeakHour').value) || 3.4;
-    latestSolarParams.morningUsage = parseFloat(document.getElementById('morningUsage').value) || 30;
-    latestSolarParams.panelType = parseInt(document.getElementById('panelRating').value) || 620;
+
+    // Get current values
+    const panelRatingInput = document.getElementById('panelRating');
+    const newPanelRating = panelRatingInput ? parseInt(panelRatingInput.value) : 620;
+    const newSunPeakHour = parseFloat(document.getElementById('sunPeakHour').value) || 3.4;
+    const newMorningUsage = parseFloat(document.getElementById('morningUsage').value) || 30;
+
+    // Check if panel rating changed
+    const panelRatingChanged = latestSolarParams.panelType !== newPanelRating;
+
+    latestSolarParams.sunPeakHour = newSunPeakHour;
+    latestSolarParams.morningUsage = newMorningUsage;
+    latestSolarParams.panelType = newPanelRating;
     latestSolarParams.afaRate = parseFloat(document.getElementById('afaRate').value) || 0;
     latestSolarParams.smpPrice = parseFloat(document.getElementById('smpPrice').value) || 0.2703;
     latestSolarParams.percentDiscount = parseFloat(document.getElementById('percentDiscount')?.value) || 0;
     latestSolarParams.fixedDiscount = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
-    
-    // NOTE: latestSolarParams.overridePanels is preserved here (set by requestPanelUpdate)
+
+    // If panel rating changed, reset overridePanels to trigger full recalculation
+    if (panelRatingChanged) {
+        console.log(`[Panel Rating Change] ${latestSolarParams.panelType}W → ${newPanelRating}W: Recalculating panel count from scratch`);
+        latestSolarParams.overridePanels = null;
+    }
+
     runAndDisplay();
 };
 
@@ -515,7 +543,7 @@ window.syncAndTrigger = function(id, value) {
     const el = document.getElementById(id);
     if (el) {
         el.value = value;
-        triggerSpontaneousUpdate();
+        triggerSpontaneousUpdate(id);
     }
 };
 
@@ -525,9 +553,8 @@ window.generateInvoiceLink = function() {
         return;
     }
 
-    const baseUrl = 'https://ee-inv-v2-production.up.railway.app/create-invoice';
     const params = new URLSearchParams();
-    
+
     // Required
     params.set('package_id', latestSolarData.selectedPackage.bubbleId);
 
@@ -542,17 +569,17 @@ window.generateInvoiceLink = function() {
         if (discountStr) discountStr += ' '; // Space separator for combined
         discountStr += `${pDisc}%`;
     }
-    
+
     if (discountStr) params.set('discount_given', discountStr);
 
     // Optional: Customer Default
     params.set('customer_name', 'Sample Quotation');
-    
+
     // Optional: Panel Info (for reference)
     if (latestSolarData.actualPanels) params.set('panel_qty', latestSolarData.actualPanels);
     if (latestSolarData.config.panelType) params.set('panel_rating', `${latestSolarData.config.panelType}W`);
 
-    window.open(`${baseUrl}?${params.toString()}`, '_blank');
+    window.open(`${invoiceBaseUrl}?${params.toString()}`, '_blank');
 };
 
 // --- UI Rendering ---
@@ -622,7 +649,7 @@ function renderInput(id, label, type, val, step, min, max) {
         <div class="space-y-2.5">
             <label class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">${label}</label>
             <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
-                <input type="${type}" id="${id}" step="${step}" ${min?`min="${min}"`:''} ${max?`max="${max}"`:''} value="${val}" oninput="triggerSpontaneousUpdate()" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
+                <input type="${type}" id="${id}" step="${step}" ${min?`min="${min}"`:''} ${max?`max="${max}"`:''} value="${val}" oninput="triggerSpontaneousUpdate('${id}')" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
             </div>
         </div>
     `;
