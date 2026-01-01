@@ -14,8 +14,7 @@
     </div>
 
     <!-- Error Message -->
-    {% if error_message %}
-    <div class="mx-6 mt-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
+    <div id="errorMessage" class="hidden mx-6 mt-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
       <div class="flex">
         <div class="flex-shrink-0">
           <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
@@ -24,15 +23,13 @@
         </div>
         <div class="ml-3">
           <h3 class="text-sm font-medium text-red-800">Error</h3>
-          <p class="text-sm text-red-700 mt-1">{{ error_message }}</p>
+          <p class="text-sm text-red-700 mt-1" id="errorText"></p>
         </div>
       </div>
     </div>
-    {% endif %}
 
     <!-- Warning Message -->
-    {% if warning_message %}
-    <div class="mx-6 mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+    <div id="warningMessage" class="hidden mx-6 mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
       <div class="flex">
         <div class="flex-shrink-0">
           <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
@@ -41,11 +38,10 @@
         </div>
         <div class="ml-3">
           <h3 class="text-sm font-medium text-yellow-800">Notice</h3>
-          <p class="text-sm text-yellow-700 mt-1">{{ warning_message }}</p>
+          <p class="text-sm text-yellow-700 mt-1" id="warningText"></p>
         </div>
       </div>
     </div>
-    {% endif %}
 
     <!-- Form -->
     <div class="px-6 py-8">
@@ -63,7 +59,6 @@
                 type="text"
                 id="package_id"
                 name="package_id"
-                value="{{ package_id }}"
                 required
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Enter Package ID"
@@ -79,7 +74,6 @@
                 type="text"
                 id="template_id"
                 name="template_id"
-                value="{{ template_id }}"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Enter Template ID (optional)"
               >
@@ -87,17 +81,13 @@
             </div>
           </div>
 
-          {% if package %}
-          <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <div id="packageInfo" class="hidden mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
             <h3 class="text-sm font-semibold text-blue-900 mb-2">Selected Package:</h3>
-            <p class="text-sm text-blue-800"><strong>Name:</strong> {{ package.name || 'N/A' }}</p>
-            <p class="text-sm text-blue-800"><strong>Price:</strong> RM {{ package.price || '0.00' }}</p>
-            <p class="text-sm text-blue-800"><strong>Type:</strong> {{ package.type || 'N/A' }}</p>
-            {% if package.invoice_desc %}
-            <p class="text-sm text-blue-800 mt-2"><strong>Description:</strong> {{ package.invoice_desc }}</p>
-            {% endif %}
+            <p class="text-sm text-blue-800"><strong>Name:</strong> <span id="packageName">N/A</span></p>
+            <p class="text-sm text-blue-800"><strong>Price:</strong> RM <span id="packagePrice">0.00</span></p>
+            <p class="text-sm text-blue-800"><strong>Type:</strong> <span id="packageType">N/A</span></p>
+            <p id="packageDesc" class="hidden text-sm text-blue-800 mt-2"><strong>Description:</strong> <span id="packageDescText"></span></p>
           </div>
-          {% endif %}
         </div>
 
         <!-- Customer Information -->
@@ -113,7 +103,6 @@
                 type="text"
                 id="customer_name"
                 name="customer_name"
-                value="{{ customer_name }}"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Enter customer name"
               >
@@ -127,7 +116,6 @@
                 type="tel"
                 id="customer_phone"
                 name="customer_phone"
-                value="{{ customer_phone }}"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="+60 1-234-56789"
               >
@@ -143,7 +131,7 @@
                 rows="3"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Enter customer address"
-              >{{ customer_address }}</textarea>
+              ></textarea>
             </div>
           </div>
         </div>
@@ -161,7 +149,6 @@
                 type="text"
                 id="discount_given"
                 name="discount_given"
-                value="{{ discount_given }}"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="500, 10%, or 500 10%"
               >
@@ -204,7 +191,6 @@
                   type="checkbox"
                   id="apply_sst"
                   name="apply_sst"
-                  {{ apply_sst === 'true' ? 'checked' : '' }}
                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                 >
                 <span class="ml-2 text-sm font-medium text-gray-700">Apply SST</span>
@@ -246,7 +232,7 @@
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Maybank EPP 60 Months - RM15000, ..."
               >
-              <p class="text-xs text-gray-500 mt-1">Describe the EPP fee terms</p>
+              <p class="text-xs text-gray-500 mt-1">Describe EPP fee terms</p>
             </div>
           </div>
         </div>
@@ -269,7 +255,7 @@
         <div class="flex">
           <div class="flex-shrink-0">
             <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414l2-2a1 1 0 000-1.414z" clip-rule="evenodd"/>
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 101.414 1.414z" clip-rule="evenodd"/>
             </svg>
           </div>
           <div class="ml-3">
@@ -298,6 +284,70 @@
     </div>
 
     <script>
+      // Parse URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+
+      // Set form values from URL
+      document.getElementById('package_id').value = urlParams.get('package_id') || '';
+      document.getElementById('template_id').value = urlParams.get('template_id') || '';
+      document.getElementById('customer_name').value = urlParams.get('customer_name') || '';
+      document.getElementById('customer_phone').value = urlParams.get('customer_phone') || '';
+      document.getElementById('customer_address').value = urlParams.get('customer_address') || '';
+      document.getElementById('discount_given').value = urlParams.get('discount_given') || '';
+      document.getElementById('apply_sst').checked = urlParams.get('apply_sst') === 'true';
+
+      // Fetch package details if package_id is provided
+      const packageId = urlParams.get('package_id');
+      if (packageId) {
+        fetchPackageDetails(packageId);
+      } else {
+        // Show warning if no package_id
+        showWarning('ℹ️ No Package ID provided. You can enter a Package ID below or continue without one.');
+      }
+
+      async function fetchPackageDetails(packageId) {
+        try {
+          const response = await fetch(`/api/package/${packageId}`);
+          const result = await response.json();
+
+          if (result.success && result.package) {
+            showPackage(result.package);
+          } else {
+            showError(`⚠️ Package Not Found: The Package ID '${packageId}' does not exist in database.`);
+          }
+        } catch (err) {
+          console.error('Error fetching package:', err);
+          showError(`⚠️ Database Error: Failed to check package. Error: ${err.message}`);
+        }
+      }
+
+      function showPackage(pkg) {
+        const packageInfo = document.getElementById('packageInfo');
+        packageInfo.classList.remove('hidden');
+
+        document.getElementById('packageName').textContent = pkg.name || 'N/A';
+        document.getElementById('packagePrice').textContent = (pkg.price || '0').toFixed(2);
+        document.getElementById('packageType').textContent = pkg.type || 'N/A';
+
+        if (pkg.invoice_desc) {
+          const descEl = document.getElementById('packageDesc');
+          descEl.classList.remove('hidden');
+          document.getElementById('packageDescText').textContent = pkg.invoice_desc;
+        }
+      }
+
+      function showError(message) {
+        const errorDiv = document.getElementById('errorMessage');
+        errorDiv.classList.remove('hidden');
+        document.getElementById('errorText').textContent = message;
+      }
+
+      function showWarning(message) {
+        const warningDiv = document.getElementById('warningMessage');
+        warningDiv.classList.remove('hidden');
+        document.getElementById('warningText').textContent = message;
+      }
+
       const form = document.getElementById('invoiceForm');
       const loadingSpinner = document.getElementById('loadingSpinner');
       const invoiceResponse = document.getElementById('invoiceResponse');
@@ -343,9 +393,6 @@
             responseTotal.textContent = result.total_amount.toFixed(2);
             invoiceLink.href = result.invoice_link;
             invoiceResponse.classList.remove('hidden');
-
-            // Optionally redirect to invoice
-            // window.location.href = result.invoice_link;
           } else {
             // Show error
             alert('Failed to create invoice: ' + result.error);

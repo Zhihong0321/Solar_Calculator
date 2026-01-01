@@ -18,98 +18,45 @@ const pool = new Pool({
 const router = express.Router();
 
 /**
- * GET /create-invoice
- * Invoice creation page - shows form with pre-filled data
+ * GET /api/package/:id
+ * Get package details by ID
  */
-router.get('/create-invoice', async (req, res) => {
+router.get('/api/package/:id', async (req, res) => {
   try {
-    const {
-      package_id,
-      panel_qty,
-      panel_rating,
-      discount_given,
-      customer_name,
-      customer_phone,
-      customer_address,
-      template_id,
-      apply_sst
-    } = req.query;
-
-    let package = null;
-    let errorMessage = null;
-    let warningMessage = null;
-
-    // Try to fetch package if package_id provided
-    if (package_id) {
-      const client = await pool.connect();
-      try {
-        package = await invoiceRepo.getPackageById(client, package_id);
-        if (!package) {
-          errorMessage = `⚠️ Package Not Found: The Package ID '${package_id}' does not exist in the database.`;
-        }
-      } catch (err) {
-        console.error('Error fetching package:', err);
-        errorMessage = `⚠️ Database Error: Failed to check package. Error: ${err.message}`;
-      } finally {
-        client.release();
+    const { id } = req.params;
+    const client = await pool.connect();
+    try {
+      const pkg = await invoiceRepo.getPackageById(client, id);
+      if (pkg) {
+        res.json({
+          success: true,
+          package: pkg
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          error: `Package with ID '${id}' not found`
+        });
       }
-    } else {
-      warningMessage = 'ℹ️ No Package ID provided. You can enter a Package ID below or continue without one.';
+    } finally {
+      client.release();
     }
-
-    // Render template with data
-    const templatePath = path.join(__dirname, '..', 'public', 'templates', 'create_invoice.html');
-
-    // Check if template exists
-    const fs = require('fs');
-    if (!fs.existsSync(templatePath)) {
-      return res.status(500).send(`
-        <html>
-        <head><title>Template Error</title>
-        <script src="https://cdn.tailwindcss.com"></script></head>
-        <body class="p-8 bg-gray-100">
-          <div class="max-w-2xl mx-auto bg-white rounded-lg shadow p-6">
-            <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Template Not Found</h1>
-            <p class="text-gray-700">Template file not found: ${templatePath}</p>
-            <p class="text-gray-600 text-sm mt-2">Please ensure the template file exists in the correct location.</p>
-          </div>
-        </body>
-        </html>
-      `);
-    }
-
-    // Read template and render
-    const template = fs.readFileSync(templatePath, 'utf8');
-    const html = template
-      .replace(/{{\s*package\s*\|\s*default\(null\)\s*}}/g, package ? JSON.stringify(package) : 'null')
-      .replace(/{{\s*package_id\s*}}/g, package_id || '')
-      .replace(/{{\s*error_message\s*}}/g, errorMessage || '')
-      .replace(/{{\s*warning_message\s*}}/g, warningMessage || '')
-      .replace(/{{\s*panel_qty\s*}}/g, panel_qty || '')
-      .replace(/{{\s*panel_rating\s*}}/g, panel_rating || '')
-      .replace(/{{\s*discount_given\s*}}/g, discount_given || '')
-      .replace(/{{\s*customer_name\s*}}/g, customer_name || '')
-      .replace(/{{\s*customer_phone\s*}}/g, customer_phone || '')
-      .replace(/{{\s*customer_address\s*}}/g, customer_address || '')
-      .replace(/{{\s*template_id\s*}}/g, template_id || '')
-      .replace(/{{\s*apply_sst\s*}}/g, apply_sst || 'false');
-
-    res.send(html);
   } catch (err) {
-    console.error('Error in /create-invoice route:', err);
-    res.status(500).send(`
-      <html>
-      <head><title>Server Error</title>
-      <script src="https://cdn.tailwindcss.com"></script></head>
-      <body class="p-8 bg-gray-100">
-        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow p-6">
-          <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Server Error</h1>
-          <p class="text-gray-700">${err.message}</p>
-        </div>
-      </body>
-      </html>
-    `);
+    console.error('Error fetching package:', err);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
   }
+});
+
+/**
+ * GET /create-invoice
+ * Invoice creation page - shows form
+ */
+router.get('/create-invoice', (req, res) => {
+    const templatePath = path.join(__dirname, '..', 'public', 'templates', 'create_invoice.html');
+    res.sendFile(templatePath);
 });
 
 /**
