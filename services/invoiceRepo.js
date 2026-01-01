@@ -530,6 +530,60 @@ async function recordInvoiceView(client, invoiceId) {
   }
 }
 
+/**
+ * Get invoices by user ID (created_by) - DIRECT POSTGRESQL QUERY
+ * @param {object} client - Database client
+ * @param {string} userId - User ID (VARCHAR/UUID string from JWT)
+ * @param {object} options - Query options (limit, offset)
+ * @returns {Promise<object>} { invoices: Array, total: number }
+ */
+async function getInvoicesByUserId(client, userId, options = {}) {
+  const limit = parseInt(options.limit) || 100;
+  const offset = parseInt(options.offset) || 0;
+
+  // DIRECT POSTGRESQL QUERY - created_by is VARCHAR, userId is string from JWT
+  const query = `
+    SELECT 
+      bubble_id,
+      invoice_number,
+      invoice_date,
+      customer_name_snapshot,
+      package_name_snapshot,
+      subtotal,
+      sst_amount,
+      total_amount,
+      status,
+      share_token,
+      share_enabled,
+      created_at,
+      updated_at,
+      viewed_at,
+      share_access_count
+    FROM invoice_new
+    WHERE created_by = $1::varchar
+    ORDER BY created_at DESC
+    LIMIT $2 OFFSET $3
+  `;
+
+  const countQuery = `
+    SELECT COUNT(*) as total 
+    FROM invoice_new 
+    WHERE created_by = $1::varchar
+  `;
+
+  const [result, countResult] = await Promise.all([
+    client.query(query, [String(userId), limit, offset]),
+    client.query(countQuery, [String(userId)])
+  ]);
+
+  return {
+    invoices: result.rows,
+    total: parseInt(countResult.rows[0].total, 10),
+    limit,
+    offset
+  };
+}
+
 module.exports = {
   generateShareToken,
   generateInvoiceNumber,
@@ -539,5 +593,6 @@ module.exports = {
   getVoucherByCode,
   createInvoiceOnTheFly,
   getInvoiceByShareToken,
-  recordInvoiceView
+  recordInvoiceView,
+  getInvoicesByUserId
 };

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Invoices</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <div class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">My Invoices</h1>
+                <p class="text-gray-600 mt-1">All invoices you've created</p>
+            </div>
+            <a href="/create-invoice" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg">
+                + Create Invoice
+            </a>
+        </div>
+
+        <div id="loading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p class="mt-4 text-gray-600">Loading invoices...</p>
+        </div>
+
+        <div id="error" class="hidden bg-red-50 border-2 border-red-200 rounded-lg p-6">
+            <p class="text-red-800 font-semibold" id="errorMsg"></p>
+            <button onclick="loadInvoices()" class="mt-4 bg-red-600 text-white px-4 py-2 rounded">Retry</button>
+        </div>
+
+        <div id="empty" class="hidden text-center py-12">
+            <p class="text-xl text-gray-600 mb-4">No invoices found</p>
+            <a href="/create-invoice" class="bg-blue-600 text-white px-6 py-3 rounded-lg inline-block">Create Your First Invoice</a>
+        </div>
+
+        <div id="content" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-sm text-gray-600">Total Invoices</div>
+                    <div class="text-3xl font-bold" id="totalCount">0</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-sm text-gray-600">Total Value</div>
+                    <div class="text-3xl font-bold text-green-600" id="totalValue">RM 0.00</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-sm text-gray-600">Last Created</div>
+                    <div class="text-lg font-semibold" id="lastCreated">-</div>
+                </div>
+            </div>
+
+            <div id="invoices" class="space-y-4"></div>
+
+            <div id="pagination" class="hidden mt-8 flex justify-center gap-4">
+                <button id="prevBtn" onclick="changePage(-1)" class="px-4 py-2 bg-white border rounded disabled:opacity-50" disabled>Previous</button>
+                <span class="py-2 text-gray-600">Page <span id="pageNum">1</span> of <span id="totalPages">1</span></span>
+                <button id="nextBtn" onclick="changePage(1)" class="px-4 py-2 bg-white border rounded disabled:opacity-50" disabled>Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let page = 1;
+        const limit = 20;
+        let total = 0;
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(amount || 0);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        function getStatusClass(status) {
+            const s = (status || 'draft').toLowerCase();
+            const classes = {
+                'paid': 'bg-green-100 text-green-800',
+                'sent': 'bg-blue-100 text-blue-800',
+                'cancelled': 'bg-red-100 text-red-800',
+                'draft': 'bg-yellow-100 text-yellow-800'
+            };
+            return classes[s] || classes.draft;
+        }
+
+        async function loadInvoices() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('error').classList.add('hidden');
+            document.getElementById('empty').classList.add('hidden');
+            document.getElementById('content').classList.add('hidden');
+
+            try {
+                const offset = (page - 1) * limit;
+                const res = await fetch(`/api/v1/invoices/my-invoices?limit=${limit}&offset=${offset}`);
+                const data = await res.json();
+
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to load invoices');
+                }
+
+                const invoices = data.data.invoices || [];
+                total = data.data.total || 0;
+
+                document.getElementById('loading').classList.add('hidden');
+
+                if (invoices.length === 0) {
+                    document.getElementById('empty').classList.remove('hidden');
+                    return;
+                }
+
+                document.getElementById('content').classList.remove('hidden');
+
+                // Update stats
+                document.getElementById('totalCount').textContent = total;
+                const totalVal = invoices.reduce((sum, inv) => sum + (parseFloat(inv.total_amount) || 0), 0);
+                document.getElementById('totalValue').textContent = formatCurrency(totalVal);
+                document.getElementById('lastCreated').textContent = invoices[0] ? formatDate(invoices[0].created_at) : '-';
+
+                // Render invoices
+                const container = document.getElementById('invoices');
+                container.innerHTML = invoices.map(inv => `
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="text-lg font-semibold">${inv.invoice_number || 'N/A'}</h3>
+                                    <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatusClass(inv.status)}">${(inv.status || 'draft').toUpperCase()}</span>
+                                </div>
+                                <div class="text-sm text-gray-600 space-y-1">
+                                    <p><strong>Customer:</strong> ${inv.customer_name_snapshot || 'Sample Quotation'}</p>
+                                    <p><strong>Package:</strong> ${inv.package_name_snapshot || 'N/A'}</p>
+                                    <p><strong>Date:</strong> ${formatDate(inv.invoice_date)}</p>
+                                    ${inv.share_access_count > 0 ? `<p><strong>Views:</strong> ${inv.share_access_count}</p>` : ''}
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end gap-3">
+                                <div class="text-right">
+                                    <div class="text-sm text-gray-600">Total</div>
+                                    <div class="text-2xl font-bold">${formatCurrency(inv.total_amount)}</div>
+                                </div>
+                                <div class="flex gap-2">
+                                    ${inv.share_url ? `
+                                        <a href="${inv.share_url}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">View</a>
+                                        <a href="${inv.pdf_url}" target="_blank" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">PDF</a>
+                                    ` : '<span class="bg-gray-400 text-white px-4 py-2 rounded text-sm cursor-not-allowed">Not Shareable</span>'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Update pagination
+                const totalPages = Math.ceil(total / limit);
+                document.getElementById('pageNum').textContent = page;
+                document.getElementById('totalPages').textContent = totalPages;
+                document.getElementById('prevBtn').disabled = page === 1;
+                document.getElementById('nextBtn').disabled = page >= totalPages;
+                document.getElementById('pagination').classList.toggle('hidden', totalPages <= 1);
+
+            } catch (err) {
+                console.error('Error:', err);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('error').classList.remove('hidden');
+                document.getElementById('errorMsg').textContent = err.message || 'Failed to load invoices';
+            }
+        }
+
+        function changePage(delta) {
+            const newPage = page + delta;
+            const totalPages = Math.ceil(total / limit);
+            if (newPage >= 1 && newPage <= totalPages) {
+                page = newPage;
+                loadInvoices();
+                window.scrollTo(0, 0);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadInvoices);
+    </script>
+</body>
+</html>

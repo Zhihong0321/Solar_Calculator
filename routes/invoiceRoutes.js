@@ -63,6 +63,73 @@ router.get('/create-invoice', requireAuth, (req, res) => {
 });
 
 /**
+ * GET /my-invoice
+ * User's invoice management page - DIRECT POSTGRESQL ACCESS
+ * Protected: Requires authentication
+ */
+router.get('/my-invoice', requireAuth, (req, res) => {
+  const templatePath = path.join(__dirname, '..', 'public', 'templates', 'my_invoice.html');
+  res.sendFile(templatePath, (err) => {
+    if (err) {
+      console.error('Error serving my-invoice page:', err);
+      res.status(500).send('Error loading page');
+    }
+  });
+});
+
+/**
+ * GET /api/v1/invoices/my-invoices
+ * Get all invoices created by the logged-in user - DIRECT POSTGRESQL QUERY
+ * Protected: Requires authentication
+ */
+router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication failed'
+      });
+    }
+
+    const userId = req.user.userId;
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
+
+    // DIRECT POSTGRESQL QUERY - No external API calls
+    client = await pool.connect();
+    const result = await invoiceRepo.getInvoicesByUserId(client, userId, { limit, offset });
+
+    // Build URLs
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const invoices = result.invoices.map(inv => ({
+      ...inv,
+      share_url: inv.share_token && inv.share_enabled ? `${protocol}://${host}/view/${inv.share_token}` : null,
+      pdf_url: inv.share_token && inv.share_enabled ? `${protocol}://${host}/view/${inv.share_token}/pdf` : null
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        invoices,
+        total: result.total,
+        limit: result.limit,
+        offset: result.offset
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching user invoices:', err);
+    res.status(500).json({
+      success: false,
+      error: err.message || 'Failed to fetch invoices'
+    });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * POST /api/v1/invoices/on-the-fly
  * Create invoice on the fly and return shareable link
  * Protected: Requires authentication - only registered users can create invoices
