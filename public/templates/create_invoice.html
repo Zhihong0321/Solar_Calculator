@@ -83,8 +83,8 @@
                         <span class="font-semibold text-gray-900">Subtotal:</span>
                         <span class="font-semibold text-gray-900" id="subtotal">RM 0.00</span>
                     </div>
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-gray-700">SST (8%):</span>
+                    <div class="flex justify-between items-center mb-2" id="sstRow" style="display: none;">
+                        <span class="text-gray-700">SST (6%):</span>
                         <span class="text-gray-700" id="sstAmount">RM 0.00</span>
                     </div>
                     <div class="flex justify-between items-center pt-2 border-t border-gray-300">
@@ -155,7 +155,7 @@
                         id="applySST" 
                         class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
                     >
-                    <label for="applySST" class="text-sm font-semibold text-gray-900">Apply 8% SST (Sales & Service Tax)</label>
+                    <label for="applySST" class="text-sm font-semibold text-gray-900">Apply 6% SST (Sales & Service Tax)</label>
                 </div>
 
                 <!-- Payment Methods Section -->
@@ -681,17 +681,26 @@
                 totalEPPFeesDisplay.textContent = `RM ${formatAmount(eppData.total_fee)}`;
             }
             
-            // Calculate SST (8%)
+            // Calculate SST (6%)
             const applySST = document.getElementById('applySST')?.checked || false;
-            const sstRate = applySST ? 8.0 : 0.0;
-            const sstAmount = subtotal * (sstRate / 100);
+            const sstRate = applySST ? 6.0 : 0.0;
+            const sstAmount = applySST ? (subtotal * (sstRate / 100)) : 0;
             const totalAmount = subtotal + sstAmount;
             
             // Update totals
             document.getElementById('subtotal').textContent = `RM ${subtotal.toFixed(2)}`;
             const sstLabel = document.querySelector('label[for="applySST"]');
-            if (sstLabel) sstLabel.textContent = `Apply 8% SST (Sales & Service Tax)${applySST ? ' - RM ' + sstAmount.toFixed(2) : ''}`;
-            document.getElementById('sstAmount').textContent = `RM ${sstAmount.toFixed(2)}`;
+            if (sstLabel) sstLabel.textContent = `Apply 6% SST (Sales & Service Tax)${applySST ? ' - RM ' + sstAmount.toFixed(2) : ''}`;
+            
+            // Show/hide SST row based on checkbox
+            const sstRow = document.getElementById('sstRow');
+            const sstAmountElement = document.getElementById('sstAmount');
+            if (sstRow) {
+                sstRow.style.display = applySST ? 'flex' : 'none';
+            }
+            if (sstAmountElement) {
+                sstAmountElement.textContent = `RM ${sstAmount.toFixed(2)}`;
+            }
             document.getElementById('totalAmount').textContent = `RM ${totalAmount.toFixed(2)}`;
         }
 

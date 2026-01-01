@@ -222,8 +222,8 @@ async function createInvoiceOnTheFly(client, data) {
     // Calculate subtotal (price with markup - discounts)
     const subtotal = Math.max(0, priceWithMarkup - discountAmount - voucherAmount);
 
-    // Calculate SST
-    const sstRate = template.apply_sst ? (parseFloat(template.sst_registration_no) || 8) : 0;
+    // Calculate SST (6% rate)
+    const sstRate = applySst ? 6.0 : 0;
     const sstAmount = applySst ? (subtotal * sstRate) / 100 : 0;
 
     // Calculate total
@@ -245,10 +245,9 @@ async function createInvoiceOnTheFly(client, data) {
         invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
         discount_amount, discount_fixed, discount_percent, voucher_code,
         voucher_amount, total_amount, status, share_token, share_enabled,
-        share_expires_at, created_by, created_at)
+        share_expires_at, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-               $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24,
-               $25, NOW())
+               $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
        RETURNING *`,
       [
         bubbleId,

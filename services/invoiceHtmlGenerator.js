@@ -154,7 +154,7 @@ function generateInvoiceHtml(invoice, template) {
           ` : ''}
           ${sstAmount > 0 ? `
           <div class="flex justify-between py-2">
-            <span>SST (${invoice.sst_rate || 8}%):</span>
+            <span>SST (${invoice.sst_rate || 6}%):</span>
             <span class="font-semibold">RM ${sstAmount.toFixed(2)}</span>
           </div>
           ` : ''}
