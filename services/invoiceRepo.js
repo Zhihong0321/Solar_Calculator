@@ -210,17 +210,9 @@ async function createInvoiceOnTheFly(client, data) {
     // Start transaction
     await client.query('BEGIN');
 
-    // 0. Verify userId exists in legacy_data_01 (required for FK constraint)
-    let finalCreatedBy = null;
-    const userCheck = await client.query(
-      'SELECT user_id FROM legacy_data_01 WHERE user_id = $1 LIMIT 1',
-      [userId]
-    );
-    if (userCheck.rows.length > 0) {
-      finalCreatedBy = userCheck.rows[0].user_id;
-    } else {
-      console.warn(`User ID ${userId} not found in legacy_data_01. Setting created_by to NULL to avoid FK violation.`);
-    }
+    // Store userId directly from JWT token (created_by is VARCHAR, no FK constraint)
+    // This ensures invoices are properly linked to the user who created them
+    const finalCreatedBy = String(userId);
 
     // 1. Get package details
     const package = await getPackageById(client, packageId);
