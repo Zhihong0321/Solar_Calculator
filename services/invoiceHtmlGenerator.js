@@ -7,10 +7,9 @@
  * Generate invoice HTML
  * @param {object} invoice - Invoice object with items
  * @param {object} template - Template data
- * @param {string} shareToken - Share token (optional)
  * @returns {string} HTML content
  */
-function generateInvoiceHtml(invoice, template, shareToken = null) {
+function generateInvoiceHtml(invoice, template) {
   const items = invoice.items || [];
   const templateData = template || {};
 
@@ -190,18 +189,6 @@ function generateInvoiceHtml(invoice, template, shareToken = null) {
     <div class="p-6 border-t border-gray-200 bg-yellow-50">
       <h3 class="text-lg font-semibold text-yellow-900 mb-3">Disclaimer</h3>
       <p class="text-yellow-800 text-sm">${disclaimer}</p>
-    </div>
-    ` : ''}
-
-    <!-- Footer with Share Link (only if viewing via share token) -->
-    ${shareToken ? `
-    <div class="p-6 border-t border-gray-200 bg-gray-100 text-center">
-      <p class="text-gray-600 text-sm mb-3">Share this invoice:</p>
-      <div class="flex justify-center gap-4">
-        <a href="/view/${shareToken}/pdf" target="_blank" class="inline-block px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700">
-          Download PDF
-        </a>
-      </div>
     </div>
     ` : ''}
   </div>

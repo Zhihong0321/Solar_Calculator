@@ -91,13 +91,7 @@ The invoice creation functionality has been successfully rewritten from Python/F
 - Expiration tracking (7 days default)
 - Public access without authentication
 - View count tracking
-- HTML and PDF formats
-
-### ✅ PDF Generation
-- Professional invoice PDF
-- A4 format
-- Downloadable with meaningful filename
-- Company branding from template
+- HTML format only
 
 ---
 
@@ -108,8 +102,6 @@ The invoice creation functionality has been successfully rewritten from Python/F
 cd "E:\Solar Calculator v2"
 npm install
 ```
-
-This will install the new `html-pdf` dependency.
 
 ### Step 2: Start Server
 ```bash
@@ -170,15 +162,8 @@ Replace `SHARE_TOKEN` with the token from created invoice.
 - Bill to customer details
 - Package and item details
 - Totals calculation
-- Download PDF button
 
-### Step 7: Test PDF Download
-On the invoice view page, click "Download PDF" button.
-
-**Expected result:**
-- PDF file downloads
-- Filename format: `CompanyName_INV-000123.pdf`
-- A4 format, professional layout
+---
 
 ---
 
@@ -329,4 +314,4 @@ If you encounter issues:
 
 **Implementation Date:** 2025-01-30
 **Version:** 1.0.0 (Node.js version)
-**Tech Stack:** Node.js 18+, Express 4, PostgreSQL 13+, html-pdf 3.0+
+**Tech Stack:** Node.js 18+, Express 4, PostgreSQL 13+

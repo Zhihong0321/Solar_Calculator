@@ -8,7 +8,6 @@ const { Pool } = require('pg');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
-const invoicePdfGenerator = require('../services/invoicePdfGenerator');
 
 // Get database pool from environment or create new one
 const pool = new Pool({
@@ -226,7 +225,7 @@ router.get('/view/:shareToken', async (req, res) => {
     const accept = req.headers.get('accept') || '';
     if (accept.includes('text/html')) {
       // Return HTML
-      const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, shareToken);
+      const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template);
       res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.header('Pragma', 'no-cache');
       res.header('Expires', '0');
@@ -250,53 +249,6 @@ router.get('/view/:shareToken', async (req, res) => {
       success: false,
       error: 'Failed to load invoice: ' + err.message
     });
-  }
-});
-
-/**
- * GET /view/:shareToken/pdf
- * Download invoice as PDF via share token
- */
-router.get('/view/:shareToken/pdf', async (req, res) => {
-  try {
-    const { shareToken } = req.params;
-
-    // Get invoice by share token
-    const client = await pool.connect();
-    let invoice = null;
-    try {
-      invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
-    } finally {
-      client.release();
-    }
-
-    if (!invoice) {
-      return res.status(404).send('Invoice not found or link expired');
-    }
-
-    // Generate HTML
-    const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, null);
-
-    // Generate PDF
-    const pdfBuffer = await invoicePdfGenerator.generateInvoicePdf(html);
-
-    // Generate filename
-    const filename = invoicePdfGenerator.sanitizeFilename(
-      invoice.template?.company_name || 'Atap Solar',
-      invoice.invoice_number
-    );
-
-    // Send PDF as response
-    res.header('Content-Type', 'application/pdf');
-    res.header('Content-Disposition', `attachment; filename="${filename}"`);
-    res.header('Content-Length', pdfBuffer.length);
-    res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.header('Pragma', 'no-cache');
-    res.header('Expires', '0');
-    res.send(pdfBuffer);
-  } catch (err) {
-    console.error('Error in /view/:shareToken/pdf route:', err);
-    res.status(500).send('Failed to generate PDF: ' + err.message);
   }
 });
 
