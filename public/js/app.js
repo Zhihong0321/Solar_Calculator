@@ -482,20 +482,21 @@ const EPP_RATES = {
     "OCBC": { 6: 4.00, 12: 5.00, 18: 6.00, 24: 7.00, 36: 8.00, 48: 9.00 }
 };
 
-window.updateEPPCalculation = function() {
+window.updateEPPCalculation = function(event) {
     const bankSelect = document.getElementById('eppBank');
     const tenureSelect = document.getElementById('eppTenure');
     const resultDiv = document.getElementById('eppResult');
     const feeDiv = document.getElementById('eppFee');
     const netDiv = document.getElementById('eppNet');
+    const noteDiv = document.getElementById('eppNote');
     
     if (!bankSelect || !tenureSelect || !latestSolarData || !latestSolarData.finalSystemCost) return;
 
     const bank = bankSelect.value;
-    const price = parseFloat(latestSolarData.finalSystemCost);
+    const fullPrice = parseFloat(latestSolarData.finalSystemCost);
     
-    // Update tenure options if bank changed
-    if (event && event.target.id === 'eppBank') {
+    // Update tenure options ONLY if bank changed or tenure is empty
+    if (!event || (event && event.target.id === 'eppBank') || tenureSelect.options.length === 0) {
         const rates = EPP_RATES[bank] || {};
         const tenures = Object.keys(rates).sort((a,b) => parseInt(a)-parseInt(b));
         const currentTenure = tenureSelect.value;
@@ -513,13 +514,46 @@ window.updateEPPCalculation = function() {
     const tenure = parseInt(tenureSelect.value);
     const rate = EPP_RATES[bank]?.[tenure] || 0;
     
-    const monthlyInstallment = price / tenure;
-    const feeAmount = price * (rate / 100);
-    const netProceeds = price - feeAmount;
+    // 5% Downpayment Rule
+    const downpayment = fullPrice * 0.05;
+    const financedAmount = fullPrice * 0.95; // 95% is financed via EPP
+
+    const monthlyInstallment = financedAmount / tenure;
+    const feeAmount = financedAmount * (rate / 100);
+    const netProceeds = financedAmount - feeAmount;
 
     if (resultDiv) resultDiv.textContent = `RM ${formatCurrency(monthlyInstallment)}`;
-    if (feeDiv) feeDiv.innerHTML = `<span class="text-xs text-gray-500">Merchant Fee (${rate}%):</span> <span class="text-rose-600 font-semibold">-RM ${formatCurrency(feeAmount)}</span>`;
-    if (netDiv) netDiv.innerHTML = `<span class="text-xs text-gray-500">Net Receivable:</span> <span class="text-emerald-600 font-semibold">RM ${formatCurrency(netProceeds)}</span>`;
+    
+    if (feeDiv) {
+        feeDiv.innerHTML = `
+            <div class="space-y-1">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">System Price</span>
+                    <span>RM ${formatCurrency(fullPrice)}</span>
+                </div>
+                <div class="flex justify-between text-rose-600 font-medium">
+                    <span>Downpayment (5%)</span>
+                    <span>-RM ${formatCurrency(downpayment)}</span>
+                </div>
+                <div class="flex justify-between border-t border-gray-100 pt-1 mt-1">
+                    <span class="text-gray-500">Financed Amount</span>
+                    <span class="font-semibold">RM ${formatCurrency(financedAmount)}</span>
+                </div>
+                <div class="flex justify-between text-[10px] mt-1">
+                    <span class="text-gray-500">Merchant Fee (${rate}%)</span>
+                    <span class="text-rose-600">-RM ${formatCurrency(feeAmount)}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    if (netDiv) {
+        netDiv.innerHTML = `<span class="text-gray-500">Net Receivable (95%):</span> <span class="text-emerald-600 font-bold ml-2">RM ${formatCurrency(netProceeds)}</span>`;
+    }
+
+    if (noteDiv) {
+        noteDiv.innerHTML = `<span class="text-rose-600 font-bold">IMPORTANT:</span> 1st 5% Downpayment (RM ${formatCurrency(downpayment)}) must be paid via Cash/Credit Card. EPP applies to remaining 95%.`;
+    }
 };
 
 // --- Interaction Handlers ---
@@ -855,30 +889,31 @@ function displaySolarCalculation(data) {
                 <!-- EPP Calculator Section -->
                 <div class="mt-8 pt-6 border-t border-divider bg-gray-50/50 p-4 -mx-4 md:rounded-lg md:mx-0">
                     <h4 class="text-[10px] md:text-xs font-bold uppercase tracking-wide tier-3 mb-4">Estimated_Monthly_Installment</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-[9px] uppercase tracking-wide text-gray-500 mb-1">Bank</label>
-                                <select id="eppBank" onchange="updateEPPCalculation()" class="w-full text-sm font-semibold bg-white border border-gray-300 rounded px-2 py-1.5 focus:border-black outline-none">
-                                    ${Object.keys(EPP_RATES).map(b => `<option value="${b}">${b}</option>`).join('')}
-                                </select>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[9px] uppercase tracking-wide text-gray-500 mb-1">Bank</label>
+                                    <select id="eppBank" onchange="updateEPPCalculation(event)" class="w-full text-sm font-semibold bg-white border border-gray-300 rounded px-2 py-1.5 focus:border-black outline-none">
+                                        ${Object.keys(EPP_RATES).map(b => `<option value="${b}">${b}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] uppercase tracking-wide text-gray-500 mb-1">Tenure</label>
+                                    <select id="eppTenure" onchange="updateEPPCalculation(event)" class="w-full text-sm font-semibold bg-white border border-gray-300 rounded px-2 py-1.5 focus:border-black outline-none">
+                                        <!-- Populated by JS -->
+                                    </select>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-[9px] uppercase tracking-wide text-gray-500 mb-1">Tenure</label>
-                                <select id="eppTenure" onchange="updateEPPCalculation()" class="w-full text-sm font-semibold bg-white border border-gray-300 rounded px-2 py-1.5 focus:border-black outline-none">
-                                    <!-- Populated by JS -->
-                                </select>
-                            </div>
+                            <div id="eppNote" class="text-[10px] bg-yellow-50 border border-yellow-200 p-2 rounded text-yellow-800 leading-tight"></div>
                         </div>
                         <div class="bg-white border border-gray-200 rounded p-3 flex flex-col justify-between h-full">
-                            <div class="flex justify-between items-baseline mb-1">
+                            <div class="flex justify-between items-baseline mb-2 pb-2 border-b border-gray-100">
                                 <span class="text-[10px] uppercase tracking-wide text-gray-500">Monthly_Payment</span>
                                 <span id="eppResult" class="text-lg font-bold text-black">RM 0.00</span>
                             </div>
-                            <div class="flex justify-between items-center text-[10px] border-t border-gray-100 pt-1 mt-1">
-                                <div id="eppFee"></div>
-                                <div id="eppNet"></div>
-                            </div>
+                            <div id="eppFee" class="text-[10px] space-y-1 mb-2"></div>
+                            <div id="eppNet" class="text-[10px] pt-2 border-t border-gray-100 flex justify-between items-center"></div>
                         </div>
                     </div>
                 </div>
