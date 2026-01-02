@@ -679,7 +679,7 @@
             
             if (totalPaymentDisplay) {
                 const paymentPercent = subtotalAfterDiscount > 0 ? (eppData.total_payment / subtotalAfterDiscount * 100) : 0;
-                totalPaymentDisplay.textContent = `RM ${formatAmount(eppData.total_payment)} (${paymentPercent.toFixed(1)}%)`;
+                totalPaymentDisplay.textContent = `RM ${formatAmount(eppData.total_payment)} (${paymentPercent.toFixed(2)}%)`;
                 
                 if (Math.abs(paymentPercent - 100) < 0.01) {
                     totalPaymentDisplay.classList.add('text-green-600');
@@ -694,7 +694,7 @@
                     const unpaidAmount = Math.max(0, subtotalAfterDiscount - eppData.total_payment);
                     const unpaidPercent = Math.max(0, 100 - paymentPercent);
                     
-                    unpaidBalanceDisplay.textContent = `RM ${formatAmount(unpaidAmount)} (${unpaidPercent.toFixed(1)}%)`;
+                    unpaidBalanceDisplay.textContent = `RM ${formatAmount(unpaidAmount)} (${unpaidPercent.toFixed(2)}%)`;
                     
                     if (unpaidAmount < 0.01) {
                          unpaidBalanceDisplay.classList.add('text-green-600');
