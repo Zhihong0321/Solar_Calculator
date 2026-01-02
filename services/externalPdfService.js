@@ -5,11 +5,14 @@
 
 require('dotenv').config();
 
-// Clean up URL from environment variable (remove quotes and whitespace)
+// Clean up URL from environment variable (remove all quote types and whitespace)
 const rawPdfUrl = process.env.PDF_API_URL || 'https://your-app.railway.app';
 const PDF_API_URL = rawPdfUrl
-  .replace(/^["'|"']|["'|"']$/g, '') // Remove quotes (straight and curly) from start/end
+  .replace(/[""''""']/g, '') // Remove all quote types (straight, curly, smart)
   .trim(); // Remove whitespace
+
+// Debug: Log the final URL
+console.log('[PDF Service] PDF_API_URL after cleaning:', JSON.stringify(PDF_API_URL));
 
 /**
  * Generate PDF from HTML using external API
