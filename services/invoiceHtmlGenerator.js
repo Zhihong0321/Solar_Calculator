@@ -11,6 +11,12 @@
  * @returns {string} HTML content
  */
 function generateInvoiceHtml(invoice, template, options = {}) {
+  // Debug: Check share_token value
+  if (invoice.share_token) {
+    console.log('[HTML Generator] share_token type:', typeof invoice.share_token);
+    console.log('[HTML Generator] share_token length:', invoice.share_token.length);
+    console.log('[HTML Generator] share_token value:', invoice.share_token.substring(0, 30) + '...');
+  }
   const items = invoice.items || [];
   const templateData = template || {};
 

@@ -310,6 +310,11 @@ router.get('/view/:shareToken/pdf', async (req, res) => {
   try {
     const { shareToken } = req.params;
 
+    // Debug: Log what Express captured
+    console.log('[PDF Route] Express req.params.shareToken:', shareToken);
+    console.log('[PDF Route] Share token length:', shareToken.length);
+    console.log('[PDF Route] Full URL:', req.originalUrl);
+
     // Get invoice by share token
     const client = await pool.connect();
     let invoice = null;
