@@ -422,6 +422,15 @@
 
         // Calculate all EPP fees and create description
         function calculateAllEPPFees() {
+            // Calculate package price after discount
+            const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+            const discountInput = document.getElementById('discountGiven')?.value || '';
+            const discount = parseDiscount(discountInput);
+            let subtotalAfterDiscount = packagePrice;
+            if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
+            if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+            if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
+
             const rows = document.querySelectorAll('.payment-method-row');
             const eppTransactions = [];
             const allPayments = [];
