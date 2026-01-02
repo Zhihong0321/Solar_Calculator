@@ -18,29 +18,39 @@ console.log('[PDF Service] PDF_API_URL after cleaning:', JSON.stringify(PDF_API_
  * Generate PDF from HTML using external API
  * @param {string} html - HTML content to convert to PDF
  * @param {object} options - PDF generation options
+ * @param {string} baseUrl - Base URL for resolving relative paths (e.g., https://calculator.atap.solar)
  * @returns {Promise<object>} PDF generation result
  */
-async function generatePdf(html, options = {}) {
+async function generatePdf(html, options = {}, baseUrl = null) {
   try {
+    // Prepare request body
+    const requestBody = {
+      html,
+      options: {
+        format: options.format || 'A4',
+        printBackground: options.printBackground !== false,
+        margin: options.margin || {
+          top: '1cm',
+          right: '1cm',
+          bottom: '1cm',
+          left: '1cm'
+        },
+        preferCSSPageSize: options.preferCSSPageSize !== true
+      }
+    };
+
+    // Add baseUrl if provided (for resolving relative image paths)
+    if (baseUrl) {
+      requestBody.baseUrl = baseUrl;
+      console.log('[PDF Service] Using baseUrl:', baseUrl);
+    }
+
     const requestOptions = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        html,
-        options: {
-          format: options.format || 'A4',
-          printBackground: options.printBackground !== false,
-          margin: options.margin || {
-            top: '1cm',
-            right: '1cm',
-            bottom: '1cm',
-            left: '1cm'
-          },
-          preferCSSPageSize: options.preferCSSPageSize !== true
-        }
-      })
+      body: JSON.stringify(requestBody)
     };
 
     console.log(`[PDF Service] Generating PDF via ${PDF_API_URL}/api/generate-pdf`);
@@ -87,16 +97,17 @@ async function generatePdf(html, options = {}) {
  * Generate PDF with retry logic
  * @param {string} html - HTML content to convert to PDF
  * @param {object} options - PDF generation options
+ * @param {string} baseUrl - Base URL for resolving relative paths
  * @param {number} maxRetries - Maximum number of retry attempts
  * @returns {Promise<object>} PDF generation result
  */
-async function generatePdfWithRetry(html, options = {}, maxRetries = 2) {
+async function generatePdfWithRetry(html, options = {}, baseUrl = null, maxRetries = 2) {
   let lastError;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`[PDF Service] Attempt ${attempt}/${maxRetries}`);
-      return await generatePdf(html, options);
+      return await generatePdf(html, options, baseUrl);
     } catch (err) {
       lastError = err;
       console.error(`[PDF Service] Attempt ${attempt} failed:`, err.message);

@@ -334,7 +334,7 @@ router.get('/view/:shareToken/pdf', async (req, res) => {
     // Generate HTML with forPdf option (removes download button)
     const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { forPdf: true });
 
-    // Generate PDF using external API
+    // Generate PDF using external API with baseUrl for resolving relative image paths
     const pdfResult = await externalPdfService.generatePdfWithRetry(html, {
       format: 'A4',
       printBackground: true,
@@ -344,7 +344,7 @@ router.get('/view/:shareToken/pdf', async (req, res) => {
         bottom: '1cm',
         left: '1cm'
       }
-    });
+    }, 'https://calculator.atap.solar'); // Always use https://calculator.atap.solar as baseUrl
 
     // Return JSON with download URL (instead of redirect)
     console.log(`[PDF Route] Generated PDF: ${pdfResult.pdfId}`);
