@@ -61,12 +61,20 @@ async function generatePdf(html, options = {}) {
 
     console.log(`[PDF Service] PDF generated successfully: ${result.pdfId}`);
     console.log(`[PDF Service] Download URL: ${result.downloadUrl}`);
+    console.log(`[PDF Service] Download URL starts with https://: ${result.downloadUrl.startsWith('https://')}`);
     console.log(`[PDF Service] Expires at: ${result.expiresAt}`);
+
+    // Validate download URL has protocol
+    let downloadUrl = result.downloadUrl;
+    if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) {
+      console.warn(`[PDF Service] Download URL missing protocol, adding https://`);
+      downloadUrl = 'https://' + downloadUrl;
+    }
 
     return {
       success: true,
       pdfId: result.pdfId,
-      downloadUrl: result.downloadUrl,
+      downloadUrl: downloadUrl,
       expiresAt: result.expiresAt
     };
   } catch (err) {

@@ -201,8 +201,19 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           const data = await response.json();
 
           if (data.success && data.downloadUrl) {
+            console.log('[PDF Download] Received download URL:', data.downloadUrl);
+
+            // Ensure URL has protocol
+            let downloadUrl = data.downloadUrl;
+            if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) {
+              console.log('[PDF Download] Adding https:// protocol to URL');
+              downloadUrl = 'https://' + downloadUrl;
+            }
+
+            console.log('[PDF Download] Opening URL:', downloadUrl);
+
             // Open PDF download URL in new tab
-            window.open(data.downloadUrl, '_blank');
+            window.open(downloadUrl, '_blank');
 
             // Reset button state
             button.disabled = false;
@@ -210,6 +221,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
             buttonText.textContent = 'Download PDF';
           } else {
             // Handle error
+            console.error('[PDF Download] API returned error:', data.error);
             button.disabled = false;
             button.classList.remove('opacity-50', 'cursor-not-allowed');
             buttonText.textContent = 'Error - Try Again';
