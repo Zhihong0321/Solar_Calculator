@@ -74,6 +74,9 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   });
 
   // Generate HTML - Premium Mobile-Optimized Design
+  // Use the specific requested logo
+  const displayLogoUrl = '/logo-08.png';
+  
   const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -84,98 +87,97 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Invoice ${invoice.invoice_number}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              800: '#1e293b',
+              900: '#0f172a',
+            }
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-      color: #111827; 
-      -webkit-tap-highlight-color: transparent;
+      font-family: 'Inter', sans-serif; 
+      color: #0f172a; 
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      background-color: #fafafa;
-      letter-spacing: -0.01em;
+      background-color: #f1f5f9;
     }
     .invoice-container {
       max-width: 100%;
       margin: 0 auto;
-      padding: 20px 16px;
       background-color: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      /* Reduced padding as requested for mobile optimization */
+      padding: 16px 12px; 
     }
     @media (min-width: 640px) {
       .invoice-container {
-        padding: 32px 24px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-      }
-    }
-    @media (min-width: 768px) {
-      .invoice-container {
         max-width: 720px;
-        padding: 48px 40px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        padding: 40px;
+        margin: 20px auto;
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
       }
     }
-    .section-label {
-      font-size: 10px;
-      font-weight: 600;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 10px;
-    }
-    .invoice-item {
-      transition: background-color 0.15s ease;
-    }
-    .invoice-item:hover {
-      background-color: #f9fafb;
-    }
-    .premium-border {
-      border-color: #e5e7eb;
-    }
-    .premium-divider {
-      border-color: #d1d5db;
-    }
-    .status-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      font-size: 10px;
-      font-weight: 600;
+    .label-text {
+      font-size: 9px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      border-radius: 4px;
+      color: #64748b;
+      font-weight: 600;
+      margin-bottom: 2px;
     }
-    .status-draft {
-      background-color: #fef3c7;
-      color: #92400e;
-      border: 1px solid #fde68a;
+    .data-text {
+      font-size: 14px;
+      color: #0f172a;
+      font-weight: 500;
     }
+    /* Terms text specifically targeted for 6px size */
+    .terms-text {
+      font-size: 6px !important; 
+      line-height: 1.4;
+      color: #64748b;
+      text-align: justify;
+    }
+    .divider {
+      border-bottom: 1px solid #e2e8f0;
+      margin: 16px 0;
+    }
+    /* Print optimizations */
     @media print {
-      body { 
-        background: white;
-        padding: 0;
-      }
+      body { background: white; }
       .invoice-container {
-        max-width: 100% !important;
-        padding: 0 !important;
-        box-shadow: none !important;
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+        max-width: 100%;
       }
-      .no-print {
-        display: none !important;
-      }
+      .no-print { display: none !important; }
+      .terms-text { font-size: 6px !important; } /* Force print size */
     }
   </style>
 </head>
 <body>
-  <div class="invoice-container">
+  <div class="invoice-container relative">
     
-    <!-- Download PDF Button (only shown in web view, not in PDF mode) -->
+    <!-- Download PDF Button (Web View Only) -->
     ${!options.forPdf && invoice.share_token ? `
-    <div class="mb-6 flex justify-end">
+    <div class="mb-4 flex justify-end no-print">
       <button onclick="downloadInvoicePdf('${invoice.share_token}')"
-         class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors no-print">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+         class="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
         </svg>
         <span id="pdfButtonText">Download PDF</span>
@@ -183,211 +185,186 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     </div>
     ` : ''}
 
-    <!-- JavaScript for PDF download (only included in web view) -->
     ${!options.forPdf ? `
     <script>
       async function downloadInvoicePdf(shareToken) {
         const button = document.querySelector('button[onclick*="downloadInvoicePdf"]');
         const buttonText = document.getElementById('pdfButtonText');
-
         try {
-          // Update button state
           button.disabled = true;
-          button.classList.add('opacity-50', 'cursor-not-allowed');
-          buttonText.textContent = 'Generating...';
-
-          // Call PDF API endpoint
+          button.classList.add('opacity-75', 'cursor-not-allowed');
+          buttonText.textContent = 'Preparing...';
           const response = await fetch('/view/' + shareToken + '/pdf');
           const data = await response.json();
-
           if (data.success && data.downloadUrl) {
-            console.log('[PDF Download] Received download URL:', data.downloadUrl);
-
-            // Ensure URL has protocol
             let downloadUrl = data.downloadUrl;
-            if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) {
-              console.log('[PDF Download] Adding https:// protocol to URL');
-              downloadUrl = 'https://' + downloadUrl;
-            }
-
-            console.log('[PDF Download] Opening URL:', downloadUrl);
-
-            // Open PDF download URL in new tab
+            if (!downloadUrl.startsWith('http')) downloadUrl = 'https://' + downloadUrl;
             window.open(downloadUrl, '_blank');
-
-            // Reset button state
-            button.disabled = false;
-            button.classList.remove('opacity-50', 'cursor-not-allowed');
-            buttonText.textContent = 'Download PDF';
           } else {
-            // Handle error
-            console.error('[PDF Download] API returned error:', data.error);
-            button.disabled = false;
-            button.classList.remove('opacity-50', 'cursor-not-allowed');
-            buttonText.textContent = 'Error - Try Again';
-
-            alert('Failed to generate PDF: ' + (data.error || 'Unknown error'));
+            alert('Failed: ' + (data.error || 'Unknown error'));
           }
         } catch (err) {
-          console.error('Error generating PDF:', err);
-
-          // Reset button state on error
-          button.disabled = false;
-          button.classList.remove('opacity-50', 'cursor-not-allowed');
-          buttonText.textContent = 'Error - Try Again';
-
           alert('Error: ' + err.message);
+        } finally {
+            button.disabled = false;
+            button.classList.remove('opacity-75', 'cursor-not-allowed');
+            buttonText.textContent = 'Download PDF';
         }
       }
     </script>
     ` : ''}
     
-    <!-- Header Section -->
-    <header class="mb-8 pb-6 border-b premium-divider">
-      <div class="flex flex-col gap-6">
-        <!-- Company Info -->
-        <div>
-          ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" class="h-12 sm:h-14 mb-4 object-contain">` : ''}
-          <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 leading-tight tracking-tight">
-            ${companyName}
-          </h1>
-          <div class="text-sm text-gray-600 leading-relaxed space-y-1">
-            ${companyAddress ? `<div class="font-normal whitespace-pre-line">${companyAddress}</div>` : ''}
-            ${companyPhone || companyEmail ? `<div class="mt-2 space-y-1">` : ''}
-            ${companyPhone ? `<div class="font-medium">Tel: <span class="font-normal">${companyPhone}</span></div>` : ''}
-            ${companyEmail ? `<div class="font-medium">Email: <span class="font-normal">${companyEmail}</span></div>` : ''}
-            ${companyPhone || companyEmail ? `</div>` : ''}
-            ${sstRegNo ? `<div class="mt-2 font-semibold text-gray-900 text-sm">SST Reg No: <span class="font-normal">${sstRegNo}</span></div>` : ''}
+    <!-- Header -->
+    <header class="flex flex-col gap-4 mb-6">
+      <div class="flex justify-between items-start">
+        <img src="${displayLogoUrl}" alt="${companyName}" class="h-16 object-contain">
+        <div class="text-right">
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">INVOICE</h1>
+          <p class="text-sm font-medium text-slate-500">#${invoice.invoice_number}</p>
+          <div class="mt-1 inline-block px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-700 uppercase tracking-wide">
+            ${invoice.status}
           </div>
         </div>
-        
-        <!-- Invoice Meta -->
-        <div class="flex flex-row justify-between items-start pt-4 border-t premium-border sm:border-t-0 sm:pt-0 sm:flex-col sm:items-end sm:gap-4">
-          <div class="flex-1 sm:flex-none">
-            <p class="section-label mb-1">Invoice Number</p>
-            <p class="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">${invoice.invoice_number}</p>
+      </div>
+      
+      <div class="flex flex-col sm:flex-row justify-between gap-4 text-sm text-slate-600 mt-2">
+        <!-- From -->
+        <div>
+           <p class="font-bold text-slate-900">${companyName}</p>
+           ${companyAddress ? `<p class="whitespace-pre-line text-xs leading-relaxed">${companyAddress}</p>` : ''}
+           <div class="mt-1 text-xs">
+             ${companyPhone ? `<span>Tel: ${companyPhone}</span><br>` : ''}
+             ${companyEmail ? `<span>Email: ${companyEmail}</span>` : ''}
+           </div>
+        </div>
+        <!-- Dates -->
+        <div class="sm:text-right flex flex-col sm:items-end gap-1">
+          <div>
+            <span class="label-text block">Date Issued</span>
+            <span class="font-medium text-slate-900">${invoice.invoice_date}</span>
           </div>
-          <div class="text-right sm:text-right">
-            <p class="section-label mb-1">Date</p>
-            <p class="text-base sm:text-lg font-semibold text-gray-900">${invoice.invoice_date}</p>
-            ${invoice.due_date ? `<p class="text-sm text-gray-600 mt-1">Due: ${invoice.due_date}</p>` : ''}
-            <p class="mt-2">
-              <span class="status-badge status-draft">${invoice.status.toUpperCase()}</span>
-            </p>
-          </div>
+          ${invoice.due_date ? `
+          <div>
+            <span class="label-text block">Due Date</span>
+            <span class="font-medium text-slate-900">${invoice.due_date}</span>
+          </div>` : ''}
         </div>
       </div>
     </header>
 
-    <!-- Bill To Section -->
-    <section class="mb-8">
-      <p class="section-label">Bill To</p>
-      <p class="text-lg sm:text-xl font-bold text-gray-900 mb-2 leading-tight">
-        ${invoice.customer_name_snapshot || 'Customer'}
+    <div class="divider"></div>
+
+    <!-- Bill To -->
+    <section class="mb-6">
+      <p class="label-text mb-1">Bill To</p>
+      <p class="text-lg font-bold text-slate-900 leading-none mb-1">
+        ${invoice.customer_name_snapshot || 'Valued Customer'}
       </p>
-      ${invoice.customer_address_snapshot ? `<p class="text-sm text-gray-600 leading-relaxed font-normal whitespace-pre-line">${invoice.customer_address_snapshot}</p>` : ''}
-      ${invoice.customer_phone_snapshot ? `<p class="text-sm text-gray-600 mt-1">Tel: ${invoice.customer_phone_snapshot}</p>` : ''}
-      ${invoice.customer_email_snapshot ? `<p class="text-sm text-gray-600 mt-1">Email: ${invoice.customer_email_snapshot}</p>` : ''}
-    </section>
-
-    <!-- Package Info (if applicable) -->
-    ${invoice.package_name_snapshot ? `
-    <section class="mb-8 pb-6 border-b premium-divider">
-      <p class="section-label">Package Information</p>
-      <p class="text-base font-semibold text-gray-900">${invoice.package_name_snapshot}</p>
-    </section>
-    ` : ''}
-
-    <!-- Items Section -->
-    <section class="mb-8">
-      <div class="mb-4 pb-2 border-b premium-divider">
-        <p class="section-label">Items</p>
-      </div>
-      <div class="space-y-0">
-        ${itemsHtml}
+      ${invoice.customer_address_snapshot ? `<p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">${invoice.customer_address_snapshot}</p>` : ''}
+      <div class="text-xs text-slate-500">
+        ${invoice.customer_phone_snapshot ? `<span class="mr-3">Tel: ${invoice.customer_phone_snapshot}</span>` : ''}
+        ${invoice.customer_email_snapshot ? `<span>${invoice.customer_email_snapshot}</span>` : ''}
       </div>
     </section>
 
-    <!-- Totals Section -->
-    <section class="mb-8">
-      <div class="flex flex-col sm:flex-row sm:justify-between gap-6">
-        <!-- Totals -->
-        <div class="flex-1 space-y-3 sm:max-w-xs">
-          <div class="flex justify-between items-center text-sm sm:text-base text-gray-700">
-            <span class="font-medium">Subtotal</span>
-            <span class="font-semibold text-gray-900">RM ${subtotal.toFixed(2)}</span>
+    <!-- Line Items -->
+    <section class="mb-6">
+      <div class="bg-slate-50 rounded-t-lg border-b border-slate-200 px-3 py-2 flex text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+        <div class="flex-1">Description</div>
+        <div class="text-right w-24">Amount</div>
+      </div>
+      <div class="divide-y divide-slate-100 border-b border-slate-100">
+        ${items.map(item => {
+          const isDiscount = item.item_type === 'discount' || item.item_type === 'voucher';
+          const priceClass = isDiscount ? 'text-red-600' : 'text-slate-900';
+          return `
+          <div class="px-3 py-3 flex gap-3 items-start">
+            <div class="flex-1">
+              <p class="text-sm font-medium text-slate-900 leading-snug">${item.description}</p>
+              ${!isDiscount && item.qty ? `<p class="text-[10px] text-slate-400 mt-0.5">Qty: ${parseFloat(item.qty)}</p>` : ''}
+            </div>
+            <div class="text-right w-24">
+              <p class="text-sm font-semibold ${priceClass}">${isDiscount ? '-' : ''}RM ${Math.abs(parseFloat(item.total_price)).toFixed(2)}</p>
+            </div>
           </div>
-          ${discountAmount > 0 ? `
-          <div class="flex justify-between items-center text-sm sm:text-base text-red-600">
-            <span class="font-medium">Discount</span>
-            <span class="font-semibold">-RM ${Math.abs(discountAmount).toFixed(2)}</span>
-          </div>
-          ` : ''}
-          ${voucherAmount > 0 ? `
-          <div class="flex justify-between items-center text-sm sm:text-base text-red-600">
-            <span class="font-medium">Voucher</span>
-            <span class="font-semibold">-RM ${Math.abs(voucherAmount).toFixed(2)}</span>
-          </div>
-          ` : ''}
-          ${sstAmount > 0 ? `
-          <div class="flex justify-between items-center text-sm sm:text-base text-gray-700">
-            <span class="font-medium">SST (${invoice.sst_rate || 6}%)</span>
-            <span class="font-semibold text-gray-900">RM ${sstAmount.toFixed(2)}</span>
-          </div>
-          ` : ''}
-          <div class="flex justify-between items-center pt-4 mt-4 border-t-2 border-gray-900">
-            <span class="text-lg font-bold text-gray-900">Total</span>
-            <span class="text-xl sm:text-2xl font-bold text-gray-900">RM ${totalAmount.toFixed(2)}</span>
-          </div>
-        </div>
+          `;
+        }).join('')}
+      </div>
+    </section>
 
-        <!-- Payment Info -->
+    <!-- Summary & Payment -->
+    <div class="flex flex-col sm:flex-row gap-8 mb-8">
+      
+      <!-- Payment Details (Left on Desktop, Bottom on Mobile) -->
+      <div class="flex-1 order-2 sm:order-1">
         ${bankName ? `
-        <div class="flex-1 pt-6 border-t premium-divider sm:border-t-0 sm:pt-0 sm:pl-6 sm:border-l premium-divider">
-          <p class="section-label mb-4">Payment Information</p>
-          <div class="space-y-3 text-sm sm:text-base">
-            <div>
-              <span class="text-gray-500 font-medium block mb-1">Bank</span>
-              <span class="text-gray-900 font-semibold text-base">${bankName}</span>
+        <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
+          <p class="label-text mb-2">Payment Details</p>
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-500">Bank</span>
+              <span class="font-medium text-slate-900 text-right">${bankName}</span>
             </div>
             ${bankAccountNo ? `
-            <div>
-              <span class="text-gray-500 font-medium block mb-1">Account Number</span>
-              <span class="text-gray-900 font-semibold text-base">${bankAccountNo}</span>
-            </div>
-            ` : ''}
-            ${bankAccountName ? `
-            <div>
-              <span class="text-gray-500 font-medium block mb-1">Account Holder</span>
-              <span class="text-gray-900 font-semibold text-base">${bankAccountName}</span>
-            </div>
-            ` : ''}
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-500">Account No.</span>
+              <span class="font-medium text-slate-900 text-right">${bankAccountNo}</span>
+            </div>` : ''}
+             ${bankAccountName ? `
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-500">Account Name</span>
+              <span class="font-medium text-slate-900 text-right">${bankAccountName}</span>
+            </div>` : ''}
           </div>
         </div>
         ` : ''}
       </div>
-    </section>
 
-    <!-- Terms & Conditions -->
+      <!-- Totals (Right on Desktop, Top on Mobile) -->
+      <div class="flex-1 sm:max-w-xs order-1 sm:order-2">
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between text-slate-600">
+            <span>Subtotal</span>
+            <span>RM ${subtotal.toFixed(2)}</span>
+          </div>
+          ${discountAmount > 0 ? `
+          <div class="flex justify-between text-red-600">
+            <span>Discount</span>
+            <span>-RM ${Math.abs(discountAmount).toFixed(2)}</span>
+          </div>` : ''}
+           ${voucherAmount > 0 ? `
+          <div class="flex justify-between text-red-600">
+            <span>Voucher</span>
+            <span>-RM ${Math.abs(voucherAmount).toFixed(2)}</span>
+          </div>` : ''}
+          ${sstAmount > 0 ? `
+          <div class="flex justify-between text-slate-600">
+            <span>SST (${invoice.sst_rate || 6}%)</span>
+            <span>RM ${sstAmount.toFixed(2)}</span>
+          </div>` : ''}
+          <div class="border-t border-slate-900 pt-3 mt-1 flex justify-between items-end">
+            <span class="font-bold text-slate-900">Total</span>
+            <span class="text-2xl font-bold text-slate-900 leading-none">RM ${totalAmount.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Terms (40% smaller request applied here: text-[6px]) -->
     ${terms ? `
-    <section class="mb-6 pt-6 border-t premium-divider">
-      <h3 class="section-label mb-3">Terms & Conditions</h3>
-      <p class="text-[10px] text-gray-600 leading-relaxed whitespace-pre-line">${terms}</p>
+    <section class="mb-4 pt-4 border-t border-slate-200">
+      <p class="label-text mb-1">Terms & Conditions</p>
+      <div class="terms-text">
+        ${terms.replace(/\n/g, '<br>')}
+      </div>
     </section>
     ` : ''}
-
-    <!-- Disclaimer -->
-    ${disclaimer ? `
-    <section class="mb-6 pt-6 border-t premium-divider bg-yellow-50 -mx-4 px-4 py-4 sm:-mx-6 sm:px-6">
-      <h3 class="text-xs font-semibold text-yellow-900 mb-2 uppercase tracking-wide">Disclaimer</h3>
-      <p class="text-xs text-yellow-800 leading-relaxed">${disclaimer}</p>
-    </section>
-    ` : ''}
-
+    
     <!-- Footer -->
-    <footer class="mt-8 pt-6 border-t premium-divider text-center">
-      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Official Digital Document</p>
+    <footer class="mt-8 text-center">
+      <p class="text-[8px] text-slate-400 uppercase tracking-widest">Thank you for your business</p>
     </footer>
+
   </div>
 </body>
 </html>
