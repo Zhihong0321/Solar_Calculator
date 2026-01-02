@@ -178,6 +178,10 @@
                             <span class="text-sm font-semibold text-gray-700">Total Payment:</span>
                             <span class="text-sm font-semibold text-gray-900" id="totalPaymentAmount">RM 0.00 (0%)</span>
                         </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-semibold text-gray-700">Unpaid Balance:</span>
+                            <span class="text-sm font-semibold text-red-600" id="unpaidBalanceAmount">RM 0.00 (100%)</span>
+                        </div>
                         <div class="flex justify-between items-center">
                             <span class="text-sm font-semibold text-gray-700">Total EPP Fees:</span>
                             <span class="text-sm font-semibold text-purple-700" id="totalEPPFees">RM 0.00</span>
@@ -665,16 +669,35 @@
             
             // Update payment summary
             const totalPaymentDisplay = document.getElementById('totalPaymentAmount');
+            const unpaidBalanceDisplay = document.getElementById('unpaidBalanceAmount');
             const totalEPPFeesDisplay = document.getElementById('totalEPPFees');
+            
             if (totalPaymentDisplay) {
                 const paymentPercent = subtotalAfterDiscount > 0 ? (eppData.total_payment / subtotalAfterDiscount * 100) : 0;
                 totalPaymentDisplay.textContent = `RM ${formatAmount(eppData.total_payment)} (${paymentPercent.toFixed(1)}%)`;
+                
                 if (Math.abs(paymentPercent - 100) < 0.01) {
                     totalPaymentDisplay.classList.add('text-green-600');
                     totalPaymentDisplay.classList.remove('text-red-600');
                 } else {
                     totalPaymentDisplay.classList.add('text-red-600');
                     totalPaymentDisplay.classList.remove('text-green-600');
+                }
+
+                // Calculate and display Unpaid Balance
+                if (unpaidBalanceDisplay) {
+                    const unpaidAmount = Math.max(0, subtotalAfterDiscount - eppData.total_payment);
+                    const unpaidPercent = Math.max(0, 100 - paymentPercent);
+                    
+                    unpaidBalanceDisplay.textContent = `RM ${formatAmount(unpaidAmount)} (${unpaidPercent.toFixed(1)}%)`;
+                    
+                    if (unpaidAmount < 0.01) {
+                         unpaidBalanceDisplay.classList.add('text-green-600');
+                         unpaidBalanceDisplay.classList.remove('text-red-600');
+                    } else {
+                         unpaidBalanceDisplay.classList.add('text-red-600');
+                         unpaidBalanceDisplay.classList.remove('text-green-600');
+                    }
                 }
             }
             if (totalEPPFeesDisplay) {
