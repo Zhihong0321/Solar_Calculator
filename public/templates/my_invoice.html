@@ -142,7 +142,9 @@
                                 <div class="flex gap-2">
                                     ${inv.share_url ? `
                                         <a href="${inv.share_url}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">View</a>
-                                        <a href="${inv.pdf_url}" target="_blank" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">PDF</a>
+                                        <button onclick="downloadInvoicePdf('${inv.share_token}')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">
+                                            <span class="pdf-button-text-${inv.bubble_id.replace(/-/g, '')}">PDF</span>
+                                        </button>
                                     ` : '<span class="bg-gray-400 text-white px-4 py-2 rounded text-sm cursor-not-allowed">Not Shareable</span>'}
                                 </div>
                             </div>
@@ -173,6 +175,62 @@
                 page = newPage;
                 loadInvoices();
                 window.scrollTo(0, 0);
+            }
+        }
+
+        async function downloadInvoicePdf(shareToken) {
+            const button = document.querySelector(`button[onclick*="downloadInvoicePdf('${shareToken}')"]`);
+            const buttonText = document.querySelector(`.pdf-button-text-${shareToken.replace(/-/g, '')}`);
+
+            try {
+                // Update button state
+                button.disabled = true;
+                button.classList.add('opacity-50', 'cursor-not-allowed');
+                buttonText.textContent = 'Generating...';
+
+                console.log('[My-Invoices PDF] Generating PDF for token:', shareToken);
+
+                // Call PDF API endpoint
+                const response = await fetch('/view/' + shareToken + '/pdf');
+                const data = await response.json();
+
+                console.log('[My-Invoices PDF] Response:', data);
+
+                if (data.success && data.downloadUrl) {
+                    console.log('[My-Invoices PDF] Opening URL:', data.downloadUrl);
+
+                    // Ensure URL has protocol
+                    let downloadUrl = data.downloadUrl;
+                    if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) {
+                        console.log('[My-Invoices PDF] Adding https:// protocol');
+                        downloadUrl = 'https://' + downloadUrl;
+                    }
+
+                    // Open PDF download URL in new tab
+                    window.open(downloadUrl, '_blank');
+
+                    // Reset button state
+                    button.disabled = false;
+                    button.classList.remove('opacity-50', 'cursor-not-allowed');
+                    buttonText.textContent = 'PDF';
+                } else {
+                    // Handle error
+                    console.error('[My-Invoices PDF] Error:', data.error);
+                    button.disabled = false;
+                    button.classList.remove('opacity-50', 'cursor-not-allowed');
+                    buttonText.textContent = 'Error - Try Again';
+
+                    alert('Failed to generate PDF: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('[My-Invoices PDF] Error:', err);
+
+                // Reset button state on error
+                button.disabled = false;
+                button.classList.remove('opacity-50', 'cursor-not-allowed');
+                buttonText.textContent = 'Error - Try Again';
+
+                alert('Error: ' + err.message);
             }
         }
 
