@@ -376,12 +376,22 @@ class SolarCalculator {
         let systemCostBeforeDiscount = null, finalSystemCost = null, totalDiscountAmount = 0, paybackPeriod = 'N/A';
         if (selectedPackage) {
             systemCostBeforeDiscount = selectedPackage.price;
-            const afterPercent = systemCostBeforeDiscount * (1 - percentDiscount / 100);
-            finalSystemCost = Math.max(0, afterPercent - fixedDiscount);
+            const afterPercent = systemCostBeforeDiscount * (1 - (percentDiscount || 0) / 100);
+            finalSystemCost = Math.max(0, afterPercent - (fixedDiscount || 0));
             totalDiscountAmount = systemCostBeforeDiscount - finalSystemCost;
+            
+            console.log('[Calculator] System Cost:', {
+                base: systemCostBeforeDiscount,
+                percentDiscount: percentDiscount,
+                fixedDiscount: fixedDiscount,
+                final: finalSystemCost
+            });
+
             if (totalMonthlySavings > 0 && finalSystemCost > 0) {
                 paybackPeriod = (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1);
             }
+        } else {
+            console.warn('[Calculator] No package selected, cannot calculate costs/discounts');
         }
 
         // 10. Chart Data
@@ -505,7 +515,12 @@ window.calculateSolarSavings = function() {
 };
 
 window.triggerSpontaneousUpdate = function(source) {
-    if (!latestSolarParams) return;
+    if (!latestSolarParams) {
+        console.warn('[triggerSpontaneousUpdate] latestSolarParams is null/undefined');
+        return;
+    }
+
+    console.log(`[triggerSpontaneousUpdate] Triggered by: ${source}`);
 
     // Get current values
     const panelRatingInput = document.getElementById('panelRating');
@@ -524,6 +539,11 @@ window.triggerSpontaneousUpdate = function(source) {
     latestSolarParams.percentDiscount = parseFloat(document.getElementById('percentDiscount')?.value) || 0;
     latestSolarParams.fixedDiscount = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
     latestSolarParams.systemPhase = parseInt(document.getElementById('systemPhase')?.value) || 3;
+
+    console.log('[triggerSpontaneousUpdate] Updated params:', {
+        percentDiscount: latestSolarParams.percentDiscount,
+        fixedDiscount: latestSolarParams.fixedDiscount
+    });
 
     // If panel rating changed, reset overridePanels to trigger full recalculation
     if (panelRatingChanged) {
@@ -676,7 +696,7 @@ function renderInput(id, label, type, val, step, min, max) {
         <div class="space-y-2.5">
             <label class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">${label}</label>
             <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
-                <input type="${type}" id="${id}" step="${step}" ${min?`min="${min}"`:''} ${max?`max="${max}"`:''} value="${val}" oninput="triggerSpontaneousUpdate('${id}')" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
+                <input type="${type}" id="${id}" step="${step}" ${min?`min="${min}"`:''} ${max?`max="${max}"`:''} value="${val}" oninput="triggerSpontaneousUpdate('${id}')" onchange="triggerSpontaneousUpdate('${id}')" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
             </div>
         </div>
     `;
