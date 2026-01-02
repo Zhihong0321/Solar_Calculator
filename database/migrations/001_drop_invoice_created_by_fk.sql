@@ -9,3 +9,4 @@ DROP CONSTRAINT IF EXISTS invoice_new_created_by_fkey;
 -- Note: created_by column remains as VARCHAR to store userId string from JWT token
 -- No foreign key constraint needed - we're just storing user identifiers
 
+
