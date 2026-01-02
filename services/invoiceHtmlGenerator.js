@@ -144,10 +144,10 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       color: #0f172a;
       font-weight: 500;
     }
-    /* Terms text specifically targeted for 6px size */
+    /* Terms text specifically targeted for readable fine print */
     .terms-text {
-      font-size: 6px !important; 
-      line-height: 1.4;
+      font-size: 8px !important; 
+      line-height: 1.15;
       color: #64748b;
       text-align: justify;
     }
