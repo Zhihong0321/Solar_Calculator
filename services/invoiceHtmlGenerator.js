@@ -173,14 +173,61 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     <!-- Download PDF Button (only shown in web view, not in PDF mode) -->
     ${!options.forPdf && invoice.share_token ? `
     <div class="mb-6 flex justify-end">
-      <a href="/view/${invoice.share_token}/pdf"
+      <button onclick="downloadInvoicePdf('${invoice.share_token}')"
          class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors no-print">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
         </svg>
-        Download PDF
-      </a>
+        <span id="pdfButtonText">Download PDF</span>
+      </button>
     </div>
+    ` : ''}
+
+    <!-- JavaScript for PDF download (only included in web view) -->
+    ${!options.forPdf ? `
+    <script>
+      async function downloadInvoicePdf(shareToken) {
+        const button = document.querySelector('button[onclick*="downloadInvoicePdf"]');
+        const buttonText = document.getElementById('pdfButtonText');
+
+        try {
+          // Update button state
+          button.disabled = true;
+          button.classList.add('opacity-50', 'cursor-not-allowed');
+          buttonText.textContent = 'Generating...';
+
+          // Call PDF API endpoint
+          const response = await fetch('/view/' + shareToken + '/pdf');
+          const data = await response.json();
+
+          if (data.success && data.downloadUrl) {
+            // Open PDF download URL in new tab
+            window.open(data.downloadUrl, '_blank');
+
+            // Reset button state
+            button.disabled = false;
+            button.classList.remove('opacity-50', 'cursor-not-allowed');
+            buttonText.textContent = 'Download PDF';
+          } else {
+            // Handle error
+            button.disabled = false;
+            button.classList.remove('opacity-50', 'cursor-not-allowed');
+            buttonText.textContent = 'Error - Try Again';
+
+            alert('Failed to generate PDF: ' + (data.error || 'Unknown error'));
+          }
+        } catch (err) {
+          console.error('Error generating PDF:', err);
+
+          // Reset button state on error
+          button.disabled = false;
+          button.classList.remove('opacity-50', 'cursor-not-allowed');
+          buttonText.textContent = 'Error - Try Again';
+
+          alert('Error: ' + err.message);
+        }
+      }
+    </script>
     ` : ''}
     
     <!-- Header Section -->
