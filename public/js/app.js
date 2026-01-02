@@ -847,7 +847,7 @@ function displaySolarCalculation(data) {
 
             <section class="pt-2 border-y-2 border-fact py-6 md:py-8">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                    <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">ROI_Percent</span><div class="text-2xl md:text-3xl font-bold text-emerald-600">${formatPercentage((data.monthlySavings*12/data.finalSystemCost)*100,1)}%</div></div>
+                    <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">ROI_Percent</span><div class="text-2xl md:text-3xl font-bold text-emerald-600">${formatPercentage((data.monthlySavings*12/data.finalSystemCost)*100,2)}%</div></div>
                     <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">Payback</span><div class="text-2xl md:text-3xl font-bold">${data.paybackPeriod} yr</div></div>
                     <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">Net_Cost</span><div class="text-2xl md:text-3xl font-bold">RM ${formatCurrency(data.finalSystemCost)}</div></div>
                 </div>
