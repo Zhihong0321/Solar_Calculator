@@ -422,16 +422,9 @@
 
         // Calculate all EPP fees and create description
         function calculateAllEPPFees() {
-            const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
-            const discountInput = document.getElementById('discountGiven')?.value || '';
-            const discount = parseDiscount(discountInput);
-            let subtotalAfterDiscount = packagePrice;
-            if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
-            if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
-            if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
-            
             const rows = document.querySelectorAll('.payment-method-row');
             const eppTransactions = [];
+            const allPayments = [];
             let totalEPPFee = 0;
             let totalPayment = 0;
             
@@ -460,6 +453,13 @@
                 
                 totalPayment += paymentAmount;
                 
+                // Store payment info for structure notice
+                let methodLabel = method === 'cash' ? 'Cash' : (method === 'credit_card' ? 'Credit Card' : 'Credit Card EPP');
+                if (method === 'credit_card_epp' && bankSelect && tenureSelect) {
+                    methodLabel = `${bankSelect.value} ${tenureSelect.value}mths`;
+                }
+                allPayments.push(`Payment ${allPayments.length + 1}: RM ${formatAmount(paymentAmount)} (${methodLabel})`);
+                
                 // If EPP, calculate fee
                 if (method === 'credit_card_epp' && bankSelect && tenureSelect) {
                     const bank = bankSelect.value;
@@ -469,11 +469,6 @@
                     if (rate) {
                         const fee = calculateEPPFee(paymentAmount, bank, tenure);
                         totalEPPFee += fee;
-                        
-                        // For EPP, Effective Payment = Amount - Fee
-                        // The Fee goes to the bank, so it doesn't pay down the principal
-                        totalPayment -= fee; 
-
                         eppTransactions.push({
                             bank: bank,
                             tenure: tenure,
@@ -483,7 +478,7 @@
                 }
             });
             
-            // Format description
+            // Format EPP fee description for the "Bank Processing Fee" item
             let description = '';
             if (eppTransactions.length > 0) {
                 description = eppTransactions.map(t => 
@@ -494,7 +489,8 @@
             return {
                 total_fee: totalEPPFee,
                 description: description,
-                total_payment: totalPayment
+                total_payment: totalPayment,
+                payment_structure: allPayments.join(' | ')
             };
         }
 
@@ -870,6 +866,7 @@
                 customer_address: data.customer_address || null,
                 discount_given: data.discount_given || null,
                 apply_sst: document.getElementById('applySST')?.checked || false,
+                payment_structure: eppData.payment_structure
             };
             
             // Add EPP fee data if exists

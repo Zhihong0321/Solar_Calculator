@@ -162,7 +162,8 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
       customer_phone,
       customer_address,
       epp_fee_amount,
-      epp_fee_description
+      epp_fee_description,
+      payment_structure
     } = req.body;
 
     // Create invoice with userId
@@ -180,7 +181,8 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
       customerPhone: customer_phone,
       customerAddress: customer_address,
       eppFeeAmount: epp_fee_amount,
-      eppFeeDescription: epp_fee_description
+      eppFeeDescription: epp_fee_description,
+      paymentStructure: payment_structure
     });
 
     if (!result.success) {

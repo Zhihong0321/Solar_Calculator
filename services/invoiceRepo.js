@@ -198,7 +198,8 @@ async function createInvoiceOnTheFly(client, data) {
     customerPhone,
     customerAddress,
     eppFeeAmount = 0,
-    eppFeeDescription = 'EPP Fee'
+    eppFeeDescription = 'EPP Fee',
+    paymentStructure = null
   } = data;
 
   // Validate userId exists
@@ -428,6 +429,27 @@ async function createInvoiceOnTheFly(client, data) {
           eppFeeAmount,
           'epp_fee',
           200
+        ]
+      );
+    }
+
+    // 16. Insert Payment Structure Notice (RM0)
+    if (paymentStructure) {
+      await client.query(
+        `INSERT INTO invoice_new_item
+         (bubble_id, invoice_id, description, qty, unit_price,
+          discount_percent, total_price, item_type, sort_order, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        [
+          `item_${crypto.randomBytes(8).toString('hex')}`,
+          bubbleId,
+          paymentStructure,
+          1,
+          0,
+          0,
+          0,
+          'notice',
+          250
         ]
       );
     }

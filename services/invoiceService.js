@@ -130,7 +130,8 @@ async function createInvoice(pool, data) {
       customerPhone: data.customerPhone,
       customerAddress: data.customerAddress,
       eppFeeAmount: data.eppFeeAmount,
-      eppFeeDescription: data.eppFeeDescription
+      eppFeeDescription: data.eppFeeDescription,
+      paymentStructure: data.paymentStructure
     });
 
     return {
