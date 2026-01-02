@@ -9,6 +9,7 @@ const { requireAuth } = require('../middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
+const externalPdfService = require('../services/externalPdfService');
 
 // Get database pool from environment or create new one
 const pool = new Pool({
@@ -109,7 +110,7 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
     const invoices = result.invoices.map(inv => ({
       ...inv,
       share_url: inv.share_token && inv.share_enabled ? `${protocol}://${host}/view/${inv.share_token}` : null,
-      pdf_url: null // PDF generation handled by external service
+      pdf_url: inv.share_token && inv.share_enabled ? `${protocol}://${host}/view/${inv.share_token}/pdf` : null
     }));
 
     res.json({
@@ -298,6 +299,75 @@ router.get('/view/:shareToken', async (req, res) => {
       success: false,
       error: 'Failed to load invoice: ' + err.message
     });
+  }
+});
+
+/**
+ * GET /view/:shareToken/pdf
+ * Generate and redirect to PDF download link
+ */
+router.get('/view/:shareToken/pdf', async (req, res) => {
+  try {
+    const { shareToken } = req.params;
+
+    // Get invoice by share token
+    const client = await pool.connect();
+    let invoice = null;
+    try {
+      invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
+    } finally {
+      client.release();
+    }
+
+    if (!invoice) {
+      return res.status(404).send(`
+        <html>
+        <head><title>Invoice Not Found</title>
+        <script src="https://cdn.tailwindcss.com"></script></head>
+        <body class="p-8 bg-gray-100">
+          <div class="max-w-2xl mx-auto bg-white rounded-lg shadow p-6 text-center">
+            <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Invoice Not Found</h1>
+            <p class="text-gray-700">The invoice you're looking for doesn't exist or has expired.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // Generate HTML with forPdf option (removes download button)
+    const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { forPdf: true });
+
+    // Generate PDF using external API
+    const pdfResult = await externalPdfService.generatePdfWithRetry(html, {
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '1cm',
+        right: '1cm',
+        bottom: '1cm',
+        left: '1cm'
+      }
+    });
+
+    // Redirect to external PDF download URL
+    console.log(`[PDF Route] Redirecting to PDF: ${pdfResult.downloadUrl}`);
+    return res.redirect(302, pdfResult.downloadUrl);
+
+  } catch (err) {
+    console.error('Error in /view/:shareToken/pdf route:', err);
+    res.status(500).send(`
+      <html>
+      <head><title>Error</title>
+      <script src="https://cdn.tailwindcss.com"></script></head>
+      <body class="p-8 bg-gray-100">
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow p-6 text-center">
+          <h1 class="text-2xl font-bold text-red-600 mb-4">Error Generating PDF</h1>
+          <p class="text-gray-700 mb-4">Failed to generate PDF: ${err.message}</p>
+          <a href="/view/${req.params.shareToken}" class="bg-blue-600 text-white px-4 py-2 rounded">Back to Invoice</a>
+        </div>
+      </body>
+      </html>
+    `);
   }
 });
 

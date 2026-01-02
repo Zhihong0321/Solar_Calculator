@@ -7,9 +7,10 @@
  * Generate invoice HTML
  * @param {object} invoice - Invoice object with items
  * @param {object} template - Template data
+ * @param {object} options - Generation options
  * @returns {string} HTML content
  */
-function generateInvoiceHtml(invoice, template) {
+function generateInvoiceHtml(invoice, template, options = {}) {
   const items = invoice.items || [];
   const templateData = template || {};
 
@@ -163,10 +164,10 @@ function generateInvoiceHtml(invoice, template) {
 <body>
   <div class="invoice-container">
     
-    <!-- Download PDF Button -->
-    ${invoice.share_token ? `
+    <!-- Download PDF Button (only shown in web view, not in PDF mode) -->
+    ${!options.forPdf && invoice.share_token ? `
     <div class="mb-6 flex justify-end">
-      <a href="/view/${invoice.share_token}/pdf" 
+      <a href="/view/${invoice.share_token}/pdf"
          class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-md transition-colors no-print">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -331,8 +332,8 @@ function generateInvoiceHtml(invoice, template) {
 }
 
 // Alias for backward compatibility
-function generateInvoiceHtmlSync(invoice, template) {
-  return generateInvoiceHtml(invoice, template);
+function generateInvoiceHtmlSync(invoice, template, options) {
+  return generateInvoiceHtml(invoice, template, options);
 }
 
 module.exports = {
