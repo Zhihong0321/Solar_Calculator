@@ -283,10 +283,10 @@ class SolarCalculator {
         
         // Calculate system size in kWp
         const systemSizeKwp = (actualPanelQty * panelType) / 1000;
-        
-        // SEDA Fee Logic: >15kWp for 3-phase, >5kWp for 1-phase
-        const sedaLimit = systemPhase == 1 ? 5 : 15;
-        const requiresSedaFee = systemSizeKwp > sedaLimit;
+
+        // SEDA Fee Logic: >=15.01kW for 3-phase, >=5.01kW for 1-phase
+        const sedaLimit = systemPhase == 1 ? 5.01 : 15.01;
+        const requiresSedaFee = systemSizeKwp >= sedaLimit;
 
         // 3. Package Lookup
         let selectedPackage = this.packages
@@ -864,7 +864,7 @@ function displaySolarCalculation(data) {
                         <div class="pt-3 mt-3 border-t border-white/20">
                             <div class="bg-yellow-500/20 border border-yellow-500/50 p-3 rounded">
                                 <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-yellow-300 mb-1">⚠ SEDA Registration Fee Required</div>
-                                <div class="text-xs md:text-sm text-yellow-200">RM 1,000 Oversize Registration Fee by SEDA required for systems > ${data.config.systemPhase == 1 ? 5 : 15}kWp (${data.config.systemPhase}-phase)</div>
+                                <div class="text-xs md:text-sm text-yellow-200">RM 1,000 Oversize Registration Fee by SEDA required for systems >= ${data.config.systemPhase == 1 ? 5.01 : 15.01}kW Inverter output (${data.config.systemPhase}-phase)</div>
                             </div>
                         </div>
                         ` : ''}
@@ -926,7 +926,7 @@ function displaySolarCalculation(data) {
                 <div class="mt-6 pt-6 border-t border-divider">
                     <div class="bg-yellow-50 border-2 border-yellow-500 p-4 rounded">
                         <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-yellow-800 mb-2">⚠ SEDA Oversize Registration Fee</div>
-                        <div class="text-xs md:text-sm text-yellow-900">RM 1,000 Oversize Registration Fee by SEDA required for systems > ${data.config.systemPhase == 1 ? 5 : 15}kWp (System: ${data.systemSizeKwp} kWp, ${data.config.systemPhase}-Phase)</div>
+                        <div class="text-xs md:text-sm text-yellow-900">RM 1,000 Oversize Registration Fee by SEDA required for systems >= ${data.config.systemPhase == 1 ? 5.01 : 15.01}kW Inverter output (System: ${data.systemSizeKwp} kWp, ${data.config.systemPhase}-Phase)</div>
                     </div>
                 </div>
                 ` : ''}
@@ -1053,7 +1053,7 @@ function showPanelRecommendationPopup(data) {
             <div class="bg-rose-50 border-2 border-rose-600 p-4 rounded text-left">
                 <div class="text-[10px] font-bold text-rose-600 uppercase mb-1">⚠ SEDA NOTICE</div>
                 <div class="text-xs font-bold text-rose-900 leading-tight">RM 1,000 Oversize Registration Fee Required.</div>
-                <div class="text-[10px] text-rose-800 mt-1">This recommended system (${systemSizeKwp.toFixed(1)} kWp) exceeds the ${sedaLimit}kWp limit for ${systemPhase}-phase.</div>
+                <div class="text-[10px] text-rose-800 mt-1">This recommended system (${systemSizeKwp.toFixed(1)} kWp) requires SEDA fee (${sedaLimit}kW Inverter output limit for ${systemPhase}-phase).</div>
             </div>
             ` : ''}
 
