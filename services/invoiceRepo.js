@@ -554,15 +554,28 @@ async function getInvoiceByShareToken(client, shareToken) {
     }
 
     // Fetch user name who created the invoice
-    if (invoice.created_by) {
-      const userResult = await client.query(
-        `SELECT name FROM users WHERE id = $1 LIMIT 1`,
-        [invoice.created_by]
-      );
-      if (userResult.rows.length > 0) {
-        invoice.created_by_user_name = userResult.rows[0].name;
+    try {
+      if (invoice.created_by) {
+        // Try to fetch from users table (if exists) or fallback
+        try {
+            const userResult = await client.query(
+            `SELECT name FROM users WHERE id = $1 LIMIT 1`,
+            [invoice.created_by]
+            );
+            if (userResult.rows.length > 0) {
+            invoice.created_by_user_name = userResult.rows[0].name;
+            } else {
+                invoice.created_by_user_name = 'System';
+            }
+        } catch (tableErr) {
+            console.warn('Could not fetch user name (users table might be missing):', tableErr.message);
+            invoice.created_by_user_name = 'System';
+        }
+      } else {
+        invoice.created_by_user_name = 'System';
       }
-    } else {
+    } catch (err) {
+      console.warn('Error setting created_by_user_name:', err);
       invoice.created_by_user_name = 'System';
     }
 

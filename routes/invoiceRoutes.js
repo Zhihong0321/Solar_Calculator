@@ -451,12 +451,17 @@ router.get('/proposal/:shareToken', async (req, res) => {
     // Fetch user name who created the invoice
     let createdBy = 'System';
     if (invoice.created_by) {
-      const userResult = await client.query(
-        `SELECT name FROM users WHERE id = $1 LIMIT 1`,
-        [invoice.created_by]
-      );
-      if (userResult.rows.length > 0) {
-        createdBy = userResult.rows[0].name;
+      try {
+        const userResult = await client.query(
+            `SELECT name FROM users WHERE id = $1 LIMIT 1`,
+            [invoice.created_by]
+        );
+        if (userResult.rows.length > 0) {
+            createdBy = userResult.rows[0].name;
+        }
+      } catch (err) {
+        console.warn('Could not fetch user name for proposal (users table might be missing):', err.message);
+        // Keep createdBy as 'System'
       }
     }
 
