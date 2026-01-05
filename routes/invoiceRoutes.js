@@ -583,6 +583,11 @@ router.get('/proposal/:shareToken', async (req, res) => {
       `var SYSTEM_SIZE = "${systemSize}";`
     );
 
+    proposalHtml = proposalHtml.replace(
+      /var OVERLAY_POSITION_TOP\s*=\s*"[^"]*";/,
+      `var OVERLAY_POSITION_TOP = "28%";`
+    );
+
     // Send the combined HTML
     res.header('Content-Type', 'text/html; charset=utf-8');
     res.send(proposalHtml);
