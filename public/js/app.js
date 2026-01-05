@@ -518,7 +518,7 @@ window.updateEPPCalculation = function(event) {
     const downpayment = fullPrice * 0.05;
     const financedAmount = fullPrice * 0.95; // 95% is financed via EPP
 
-    const monthlyInstallment = (fullPrice * 0.95 * (rate / 100)) / tenure;
+    const monthlyInstallment = (fullPrice * 0.95 * (1 + rate / 100)) / tenure;
     const feeAmount = financedAmount * (rate / 100);
     const netProceeds = financedAmount - feeAmount;
 
@@ -545,7 +545,7 @@ window.updateEPPCalculation = function(event) {
                 </div>
                 <div class="flex justify-between text-[10px] border-t border-gray-100 pt-1 mt-1">
                     <span class="text-gray-500">Monthly Payment</span>
-                    <span class="text-gray-500 text-[9px]">RM ${formatCurrency(financedAmount)} × ${rate}% ÷ ${tenure}</span>
+                    <span class="text-gray-500 text-[9px]">RM ${formatCurrency(financedAmount)} × (100% + ${rate}%) ÷ ${tenure}</span>
                 </div>
             </div>
         `;
