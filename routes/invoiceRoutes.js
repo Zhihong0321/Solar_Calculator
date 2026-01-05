@@ -533,7 +533,12 @@ router.get('/proposal/:shareToken', async (req, res) => {
       `;
     });
 
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const proposalUrl = `${protocol}://${host}/proposal/${shareToken}`;
+
     // Replace all placeholders
+    proposalHtml = proposalHtml.replace(/{{PROPOSAL_URL}}/g, proposalUrl);
     proposalHtml = proposalHtml.replace(/{{COMPANY_NAME}}/g, companyName);
     proposalHtml = proposalHtml.replace(/{{COMPANY_ADDRESS}}/g, companyAddress);
     proposalHtml = proposalHtml.replace(/{{COMPANY_PHONE}}/g, companyPhone);
