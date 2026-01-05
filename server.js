@@ -36,6 +36,9 @@ app.use(invoiceRoutes);
 // Static files (public routes)
 app.use(express.static('public'));
 
+// Portable proposal static files (serve images)
+app.use('/proposal', express.static('portable-proposal'));
+
 // Database connection
 const { Pool } = require('pg');
 
