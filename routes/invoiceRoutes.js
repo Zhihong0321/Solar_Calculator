@@ -401,7 +401,7 @@ router.get('/proposal/:shareToken', async (req, res) => {
     }
 
     // Generate invoice HTML (native, not via fetch)
-    const invoiceHtml = invoiceHtmlGenerator.generateInvoiceHtmlSync(invoice, invoice.template || {});
+    const invoiceHtml = await invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template || {}, { forPdf: false });
 
     // Read proposal template
     const templatePath = path.join(__dirname, '..', 'portable-proposal', 'index.html');
