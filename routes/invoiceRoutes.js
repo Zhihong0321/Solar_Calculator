@@ -400,6 +400,18 @@ router.get('/proposal/:shareToken', async (req, res) => {
       `);
     }
 
+    // Fetch user name who created the invoice
+    let createdBy = 'System';
+    if (invoice.created_by) {
+      const userResult = await client.query(
+        `SELECT name FROM users WHERE id = $1 LIMIT 1`,
+        [invoice.created_by]
+      );
+      if (userResult.rows.length > 0) {
+        createdBy = userResult.rows[0].name;
+      }
+    }
+
     // Read proposal template
     const templatePath = path.join(__dirname, '..', 'portable-proposal', 'index.html');
     const fs = require('fs');

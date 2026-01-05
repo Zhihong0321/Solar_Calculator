@@ -370,7 +370,12 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       </div>
     </section>
     ` : ''}
-    
+
+    <!-- Created By -->
+    <div class="text-right text-xs text-slate-400 mb-4">
+      Invoice Created by: <span class="font-medium text-slate-600">${invoice.created_by_user_name || 'System'}</span>
+    </div>
+
     <!-- Footer -->
     <footer class="mt-8 text-center">
       <p class="text-[8px] text-slate-400 uppercase tracking-widest">Thank you for your business</p>
