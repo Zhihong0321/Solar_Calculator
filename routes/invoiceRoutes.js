@@ -20,6 +20,18 @@ const pool = new Pool({
 const router = express.Router();
 
 /**
+ * GET /api/user/me
+ * Get current user profile
+ * Protected: Requires authentication
+ */
+router.get('/api/user/me', requireAuth, (req, res) => {
+    res.json({
+        success: true,
+        user: req.user
+    });
+});
+
+/**
  * GET /api/package/:id
  * Get package details by ID
  */

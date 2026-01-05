@@ -8,6 +8,11 @@
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
+        <!-- User Welcome Section -->
+        <div id="userWelcome" class="hidden mb-4 flex items-center justify-between bg-blue-50 px-4 py-2 rounded-lg border border-blue-100">
+            <span class="text-sm font-medium text-blue-800">Welcome, <span id="userNameDisplay" class="font-bold">User</span></span>
+        </div>
+
         <h1 class="text-2xl font-bold mb-6 text-gray-900">Create Invoice</h1>
         
         <div id="errorMessage" class="hidden mb-6 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
@@ -958,6 +963,9 @@
 
         // Initialize preview on page load
         document.addEventListener('DOMContentLoaded', function() {
+            // Fetch User Profile
+            fetchUserProfile();
+
             // Parse URL parameters
             const urlParams = new URLSearchParams(window.location.search);
             const packageId = urlParams.get('package_id');
@@ -1015,6 +1023,26 @@
                 addBtn.addEventListener('click', addPaymentMethodRow);
             }
         });
+
+        async function fetchUserProfile() {
+            try {
+                const response = await fetch('/api/user/me');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.user) {
+                        const welcomeDiv = document.getElementById('userWelcome');
+                        const nameSpan = document.getElementById('userNameDisplay');
+                        
+                        if (welcomeDiv && nameSpan) {
+                            nameSpan.textContent = data.user.name || 'User';
+                            welcomeDiv.classList.remove('hidden');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching user profile:', err);
+            }
+        }
 
         async function fetchPackageDetails(packageId) {
             try {
