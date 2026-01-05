@@ -278,7 +278,7 @@ class SolarCalculator {
         const monthlyUsageKwh = tariff.usage_kwh;
 
         // 2. Recommendation (Using Server's Math.floor rule)
-        const recommendedPanels = Math.max(1, Math.floor(monthlyUsageKwh / sunPeakHour / 30 / 0.62));
+        const recommendedPanels = Math.max(1, Math.floor(monthlyUsageKwh / sunPeakHour / 30 / 0.62)) + 1;
         const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
         
         // Calculate system size in kWp
