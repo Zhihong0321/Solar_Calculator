@@ -38,7 +38,6 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const bankAccountName = templateData.bank_account_name || '';
   const logoUrl = templateData.logo_url || '';
   const terms = templateData.terms_and_conditions || '';
-  const disclaimer = templateData.disclaimer || '';
 
   // Generate items HTML - Mobile optimized without unit price column
   let itemsHtml = '';

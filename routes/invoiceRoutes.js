@@ -565,12 +565,6 @@ router.get('/proposal/:shareToken', async (req, res) => {
         proposalHtml = proposalHtml.replace(/{{TERMS_AND_CONDITIONS}}/g,
             termsAndConditions.replace(/\n/g, '<br>'));
     }
-    if (disclaimer) {
-        proposalHtml = proposalHtml.replace(/{{DISCLAIMER}}/g,
-            `<div class="bg-yellow-50 p-3 rounded border border-yellow-200 mb-8">
-                <p class="text-xs text-yellow-800 leading-relaxed">${disclaimer.replace(/\n/g, '<br>')}</p>
-            </div>`);
-    }
 
     // Replace overlay variables
     proposalHtml = proposalHtml.replace(
