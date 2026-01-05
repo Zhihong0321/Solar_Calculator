@@ -465,14 +465,18 @@ router.get('/proposal/:shareToken', async (req, res) => {
     if (invoice.created_by) {
       try {
         const userResult = await client.query(
-            `SELECT name FROM users WHERE id = $1 LIMIT 1`,
+            `SELECT a.name 
+             FROM "user" u 
+             JOIN agent a ON u.linked_agent_profile = a.bubble_id 
+             WHERE u.id = $1 
+             LIMIT 1`,
             [invoice.created_by]
         );
         if (userResult.rows.length > 0) {
             createdBy = userResult.rows[0].name;
         }
       } catch (err) {
-        console.warn('Could not fetch user name for proposal (users table might be missing):', err.message);
+        console.warn('Could not fetch user name for proposal:', err.message);
         // Keep createdBy as 'System'
       }
     }

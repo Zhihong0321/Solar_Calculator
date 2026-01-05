@@ -556,10 +556,15 @@ async function getInvoiceByShareToken(client, shareToken) {
     // Fetch user name who created the invoice
     try {
       if (invoice.created_by) {
-        // Try to fetch from users table (if exists) or fallback
+        // Fetch name from agent table linked to user table
+        // user.id -> user.linked_agent_profile (bubble_id) -> agent.bubble_id -> agent.name
         try {
             const userResult = await client.query(
-            `SELECT name FROM users WHERE id = $1 LIMIT 1`,
+            `SELECT a.name 
+             FROM "user" u 
+             JOIN agent a ON u.linked_agent_profile = a.bubble_id 
+             WHERE u.id = $1 
+             LIMIT 1`,
             [invoice.created_by]
             );
             if (userResult.rows.length > 0) {
@@ -568,7 +573,7 @@ async function getInvoiceByShareToken(client, shareToken) {
                 invoice.created_by_user_name = 'System';
             }
         } catch (tableErr) {
-            console.warn('Could not fetch user name (users table might be missing):', tableErr.message);
+            console.warn('Could not fetch user name:', tableErr.message);
             invoice.created_by_user_name = 'System';
         }
       } else {
