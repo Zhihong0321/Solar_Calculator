@@ -148,16 +148,34 @@
                 </div>
 
                 <!-- Voucher Section -->
-                <div>
-                    <label class="block text-sm font-semibold mb-2 text-gray-900">Voucher</label>
-                    <select 
-                        name="voucher_code" 
-                        id="voucherSelect"
-                        class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
-                    >
-                        <option value="">-- Select a Voucher --</option>
-                    </select>
-                    <div id="voucherInfo" class="hidden mt-2 p-3 bg-green-50 rounded border border-green-200">
+                <div class="bg-green-50 p-4 rounded-lg border-2 border-green-200">
+                    <label class="block text-sm font-semibold mb-2 text-gray-900">Vouchers</label>
+                    <div class="flex gap-2 mb-3">
+                        <select 
+                            id="voucherSelectDropdown"
+                            class="flex-1 border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-green-500 focus:outline-none"
+                        >
+                            <option value="">-- Select a Voucher --</option>
+                        </select>
+                        <button 
+                            type="button" 
+                            id="addVoucherBtn"
+                            class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded shadow-sm transition-colors"
+                        >
+                            Add
+                        </button>
+                    </div>
+                    
+                    <!-- Selected Vouchers List -->
+                    <div id="selectedVouchersContainer" class="hidden space-y-2 mb-2">
+                        <h4 class="text-xs font-semibold text-green-800 uppercase tracking-wide">Applied Vouchers:</h4>
+                        <div id="selectedVouchersList" class="space-y-2">
+                            <!-- Items populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Voucher Info Preview (for the currently selected item in dropdown) -->
+                    <div id="voucherInfo" class="hidden mt-2 p-3 bg-white rounded border border-green-100 shadow-sm">
                         <p class="text-sm font-semibold text-green-800" id="voucherTitle"></p>
                         <p class="text-xs text-green-700 mt-1" id="voucherDesc"></p>
                         <p class="text-xs text-green-600 mt-1 italic" id="voucherTerms"></p>
@@ -239,6 +257,7 @@
         const BANKS = Object.keys(EPP_RATES);
         let paymentMethodCounter = 0;
         let availableVouchers = [];
+        let selectedVouchers = [];
 
         // Fetch available vouchers
         async function fetchVouchers() {
@@ -257,7 +276,7 @@
 
         // Populate voucher dropdown
         function populateVoucherSelect() {
-            const select = document.getElementById('voucherSelect');
+            const select = document.getElementById('voucherSelectDropdown');
             if (!select) return;
             
             // Keep first option
@@ -272,26 +291,88 @@
                 option.textContent = text;
                 select.appendChild(option);
             });
-
-            // Restore selection if any (from URL)
-            const urlParams = new URLSearchParams(window.location.search);
-            const voucherCode = urlParams.get('voucher_code');
-            if (voucherCode) {
-                select.value = voucherCode;
-                updateVoucherInfo();
-            }
         }
 
-        // Get selected voucher object
-        function getSelectedVoucher() {
-            const select = document.getElementById('voucherSelect');
+        // Get currently previewed voucher (in dropdown)
+        function getPreviewVoucher() {
+            const select = document.getElementById('voucherSelectDropdown');
             if (!select || !select.value) return null;
             return availableVouchers.find(v => v.voucher_code === select.value) || null;
         }
 
-        // Update voucher info display
+        // Add voucher to selection
+        function addVoucher() {
+            const voucher = getPreviewVoucher();
+            if (!voucher) return;
+
+            // Check if already added
+            if (selectedVouchers.find(v => v.voucher_code === voucher.voucher_code)) {
+                alert('This voucher is already added.');
+                return;
+            }
+
+            // Check conflicts (simple logic for now: if user selects one, it just adds. 
+            // If explicit "auto_cancel" logic is needed, it goes here. 
+            // For now, we assume user knows what they are doing or backend validates)
+            
+            selectedVouchers.push(voucher);
+            renderSelectedVouchers();
+            updateInvoicePreview();
+            
+            // Reset dropdown
+            const select = document.getElementById('voucherSelectDropdown');
+            if (select) select.value = "";
+            updateVoucherInfo();
+        }
+
+        // Remove voucher from selection
+        function removeVoucher(code) {
+            selectedVouchers = selectedVouchers.filter(v => v.voucher_code !== code);
+            renderSelectedVouchers();
+            updateInvoicePreview();
+        }
+
+        // Render selected vouchers list
+        function renderSelectedVouchers() {
+            const container = document.getElementById('selectedVouchersContainer');
+            const list = document.getElementById('selectedVouchersList');
+            if (!container || !list) return;
+
+            if (selectedVouchers.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            list.innerHTML = '';
+
+            selectedVouchers.forEach(v => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-white p-2 rounded border border-green-200 shadow-sm';
+                
+                let valText = '';
+                if (v.discount_amount) valText = `RM ${v.discount_amount}`;
+                else if (v.discount_percent) valText = `${v.discount_percent}%`;
+
+                item.innerHTML = `
+                    <div class="flex-1">
+                        <div class="text-sm font-semibold text-gray-900">${v.title || v.voucher_code}</div>
+                        <div class="text-xs text-gray-600">${v.invoice_description || ''}</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-bold text-green-600">${valText}</span>
+                        <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="removeVoucher('${v.voucher_code}')" title="Remove">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Update voucher info display (dropdown preview)
         function updateVoucherInfo() {
-            const voucher = getSelectedVoucher();
+            const voucher = getPreviewVoucher();
             const infoDiv = document.getElementById('voucherInfo');
             const titleEl = document.getElementById('voucherTitle');
             const descEl = document.getElementById('voucherDesc');
@@ -475,21 +556,22 @@
             const discountInput = document.getElementById('discountGiven')?.value || '';
             const discount = parseDiscount(discountInput);
             
-            // Calculate voucher amount
-            const voucher = getSelectedVoucher();
-            let voucherAmount = 0;
-            if (voucher) {
+            // Calculate total voucher amount
+            let totalVoucherAmount = 0;
+            selectedVouchers.forEach(voucher => {
+                let amount = 0;
                 if (voucher.discount_amount) {
-                    voucherAmount = parseFloat(voucher.discount_amount);
+                    amount = parseFloat(voucher.discount_amount);
                 } else if (voucher.discount_percent) {
-                    voucherAmount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
+                    amount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
                 }
-            }
+                totalVoucherAmount += amount;
+            });
 
             let subtotalAfterDiscount = packagePrice;
             if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
             if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
-            subtotalAfterDiscount -= voucherAmount; // Deduct voucher
+            subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
 
             if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
             
@@ -526,21 +608,22 @@
             const discountInput = document.getElementById('discountGiven')?.value || '';
             const discount = parseDiscount(discountInput);
             
-            // Calculate voucher amount
-            const voucher = getSelectedVoucher();
-            let voucherAmount = 0;
-            if (voucher) {
+            // Calculate total voucher amount
+            let totalVoucherAmount = 0;
+            selectedVouchers.forEach(voucher => {
+                let amount = 0;
                 if (voucher.discount_amount) {
-                    voucherAmount = parseFloat(voucher.discount_amount);
+                    amount = parseFloat(voucher.discount_amount);
                 } else if (voucher.discount_percent) {
-                    voucherAmount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
+                    amount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
                 }
-            }
+                totalVoucherAmount += amount;
+            });
 
             let subtotalAfterDiscount = packagePrice;
             if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
             if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
-            subtotalAfterDiscount -= voucherAmount; // Deduct voucher
+            subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
 
             if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 
@@ -767,9 +850,9 @@
                 subtotal -= percentAmount;
             }
             
-            // Add Voucher Item
-            let voucherAmount = 0;
-            if (voucher) {
+            // Add Voucher Items
+            selectedVouchers.forEach(voucher => {
+                let voucherAmount = 0;
                 if (voucher.discount_amount) {
                     voucherAmount = parseFloat(voucher.discount_amount);
                 } else if (voucher.discount_percent) {
@@ -788,7 +871,7 @@
                     itemsList.appendChild(voucherItem);
                     subtotal -= voucherAmount;
                 }
-            }
+            });
 
             // Ensure subtotal doesn't go negative
             if (subtotal < 0) subtotal = 0;
@@ -898,13 +981,18 @@
             // Fetch vouchers
             fetchVouchers();
 
-            // Voucher select listener
-            const voucherSelect = document.getElementById('voucherSelect');
+            // Voucher listeners
+            const voucherSelect = document.getElementById('voucherSelectDropdown');
             if (voucherSelect) {
                 voucherSelect.addEventListener('change', () => {
                     updateVoucherInfo();
-                    updateInvoicePreview();
+                    // Do not update invoice preview on selection change, only on Add
                 });
+            }
+            
+            const addVoucherBtn = document.getElementById('addVoucherBtn');
+            if (addVoucherBtn) {
+                addVoucherBtn.addEventListener('click', addVoucher);
             }
 
             updateInvoicePreview();
@@ -1023,7 +1111,7 @@
                 customer_phone: data.customer_phone || null,
                 customer_address: data.customer_address || null,
                 discount_given: data.discount_given || null,
-                voucher_code: data.voucher_code || null,
+                voucher_codes: selectedVouchers.map(v => v.voucher_code),
                 apply_sst: document.getElementById('applySST')?.checked || false,
                 payment_structure: eppData.payment_structure
             };

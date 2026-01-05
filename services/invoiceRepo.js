@@ -192,7 +192,8 @@ async function createInvoiceOnTheFly(client, data) {
     discountPercent = 0,
     applySst = false,
     templateId,
-    voucherCode,
+    voucherCode,       // Legacy single voucher
+    voucherCodes = [], // New multiple vouchers
     agentMarkup = 0,
     customerName,
     customerPhone,
@@ -243,18 +244,44 @@ async function createInvoiceOnTheFly(client, data) {
     const markupAmount = parseFloat(agentMarkup) || 0;
     const priceWithMarkup = packagePrice + markupAmount;
 
-    // 5. Check voucher
-    let voucherAmount = 0;
-    let voucherDescription = '';
-    if (voucherCode) {
-      const voucher = await getVoucherByCode(client, voucherCode);
+    // 5. Check vouchers (Multiple)
+    // Consolidate codes: prefer voucherCodes array, fallback to voucherCode string
+    let finalVoucherCodes = [];
+    if (Array.isArray(voucherCodes) && voucherCodes.length > 0) {
+      finalVoucherCodes = [...voucherCodes];
+    } else if (voucherCode) {
+      finalVoucherCodes = [voucherCode];
+    }
+
+    // Remove duplicates
+    finalVoucherCodes = [...new Set(finalVoucherCodes)];
+
+    let totalVoucherAmount = 0;
+    const voucherItemsToCreate = [];
+    const validVoucherCodes = [];
+
+    for (const code of finalVoucherCodes) {
+      const voucher = await getVoucherByCode(client, code);
       if (voucher) {
+        let amount = 0;
+        let desc = '';
+        
         if (voucher.discount_amount) {
-          voucherAmount = parseFloat(voucher.discount_amount) || 0;
-          voucherDescription = voucher.invoice_description || `Voucher: ${voucherCode}`;
+          amount = parseFloat(voucher.discount_amount) || 0;
+          desc = voucher.invoice_description || `Voucher: ${code}`;
         } else if (voucher.discount_percent) {
-          voucherAmount = (packagePrice * parseFloat(voucher.discount_percent)) / 100;
-          voucherDescription = voucher.invoice_description || `Voucher: ${voucherCode}`;
+          amount = (packagePrice * parseFloat(voucher.discount_percent)) / 100;
+          desc = voucher.invoice_description || `Voucher: ${code}`;
+        }
+        
+        if (amount > 0) {
+          totalVoucherAmount += amount;
+          validVoucherCodes.push(code);
+          voucherItemsToCreate.push({
+            description: desc,
+            amount: amount,
+            code: code
+          });
         }
       }
     }
@@ -270,7 +297,7 @@ async function createInvoiceOnTheFly(client, data) {
     
     // Subtotal after ALL adjustments (discounts, vouchers, epp fees)
     // taxable subtotal = package + markup - discounts - vouchers
-    const taxableSubtotal = Math.max(0, priceWithMarkup - discountFixed - percentDiscountVal - voucherAmount);
+    const taxableSubtotal = Math.max(0, priceWithMarkup - discountFixed - percentDiscountVal - totalVoucherAmount);
     
     // 8. Calculate SST (6% rate)
     const sstRate = applySst ? 6.0 : 0;
@@ -314,8 +341,8 @@ async function createInvoiceOnTheFly(client, data) {
         discountFixed + percentDiscountVal, // discount_amount is sum
         discountFixed,
         discountPercent,
-        voucherCode || null,
-        voucherAmount,
+        validVoucherCodes.join(', ') || null,
+        totalVoucherAmount,
         finalTotalAmount,
         'draft',
         shareToken,
@@ -391,8 +418,8 @@ async function createInvoiceOnTheFly(client, data) {
       );
     }
 
-    // 14. Insert voucher item
-    if (voucherAmount > 0) {
+    // 14. Insert voucher items (Loop)
+    for (const vItem of voucherItemsToCreate) {
       await client.query(
         `INSERT INTO invoice_new_item
          (bubble_id, invoice_id, description, qty, unit_price,
@@ -401,13 +428,13 @@ async function createInvoiceOnTheFly(client, data) {
         [
           `item_${crypto.randomBytes(8).toString('hex')}`,
           bubbleId,
-          voucherDescription || `Voucher (${voucherCode})`,
+          vItem.description,
           1,
-          -voucherAmount,
+          -vItem.amount,
           0,
-          -voucherAmount,
+          -vItem.amount,
           'voucher',
-          101
+          101 // We keep same sort order or increment? Keeping same groups them.
         ]
       );
     }

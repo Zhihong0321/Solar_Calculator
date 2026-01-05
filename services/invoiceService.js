@@ -125,6 +125,7 @@ async function createInvoice(pool, data) {
       applySst: data.applySst || false,
       templateId: data.templateId,
       voucherCode: data.voucherCode,
+      voucherCodes: data.voucherCodes,
       agentMarkup: data.agentMarkup || 0,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
