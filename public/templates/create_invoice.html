@@ -147,6 +147,23 @@
                     <p class="text-xs text-gray-600 mt-1">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p>
                 </div>
 
+                <!-- Voucher Section -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-900">Voucher</label>
+                    <select 
+                        name="voucher_code" 
+                        id="voucherSelect"
+                        class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                    >
+                        <option value="">-- Select a Voucher --</option>
+                    </select>
+                    <div id="voucherInfo" class="hidden mt-2 p-3 bg-green-50 rounded border border-green-200">
+                        <p class="text-sm font-semibold text-green-800" id="voucherTitle"></p>
+                        <p class="text-xs text-green-700 mt-1" id="voucherDesc"></p>
+                        <p class="text-xs text-green-600 mt-1 italic" id="voucherTerms"></p>
+                    </div>
+                </div>
+
                 <!-- SST Toggle (default: OFF) -->
                 <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
                     <input 
@@ -221,6 +238,74 @@
 
         const BANKS = Object.keys(EPP_RATES);
         let paymentMethodCounter = 0;
+        let availableVouchers = [];
+
+        // Fetch available vouchers
+        async function fetchVouchers() {
+            try {
+                const response = await fetch('/api/vouchers');
+                const result = await response.json();
+                
+                if (result.success) {
+                    availableVouchers = result.vouchers;
+                    populateVoucherSelect();
+                }
+            } catch (err) {
+                console.error('Error fetching vouchers:', err);
+            }
+        }
+
+        // Populate voucher dropdown
+        function populateVoucherSelect() {
+            const select = document.getElementById('voucherSelect');
+            if (!select) return;
+            
+            // Keep first option
+            select.innerHTML = '<option value="">-- Select a Voucher --</option>';
+            
+            availableVouchers.forEach(v => {
+                const option = document.createElement('option');
+                option.value = v.voucher_code;
+                let text = v.title || v.voucher_code;
+                if (v.discount_amount) text += ` (RM ${v.discount_amount})`;
+                if (v.discount_percent) text += ` (${v.discount_percent}%)`;
+                option.textContent = text;
+                select.appendChild(option);
+            });
+
+            // Restore selection if any (from URL)
+            const urlParams = new URLSearchParams(window.location.search);
+            const voucherCode = urlParams.get('voucher_code');
+            if (voucherCode) {
+                select.value = voucherCode;
+                updateVoucherInfo();
+            }
+        }
+
+        // Get selected voucher object
+        function getSelectedVoucher() {
+            const select = document.getElementById('voucherSelect');
+            if (!select || !select.value) return null;
+            return availableVouchers.find(v => v.voucher_code === select.value) || null;
+        }
+
+        // Update voucher info display
+        function updateVoucherInfo() {
+            const voucher = getSelectedVoucher();
+            const infoDiv = document.getElementById('voucherInfo');
+            const titleEl = document.getElementById('voucherTitle');
+            const descEl = document.getElementById('voucherDesc');
+            const termsEl = document.getElementById('voucherTerms');
+            
+            if (voucher) {
+                infoDiv.classList.remove('hidden');
+                titleEl.textContent = voucher.title || voucher.voucher_code;
+                descEl.textContent = voucher.invoice_description || '';
+                termsEl.textContent = voucher.terms_conditions || '';
+            } else {
+                infoDiv.classList.add('hidden');
+            }
+        }
 
         // Parse discount string (same logic as backend)
         function parseDiscount(discountStr) {
@@ -385,13 +470,27 @@
             const amountType = amountTypeSelect?.value;
             const amountValue = parseFloat(amountValueInput?.value || 0);
             
-            // Calculate package price after discount
+            // Calculate package price after discount and voucher
             const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
             const discountInput = document.getElementById('discountGiven')?.value || '';
             const discount = parseDiscount(discountInput);
+            
+            // Calculate voucher amount
+            const voucher = getSelectedVoucher();
+            let voucherAmount = 0;
+            if (voucher) {
+                if (voucher.discount_amount) {
+                    voucherAmount = parseFloat(voucher.discount_amount);
+                } else if (voucher.discount_percent) {
+                    voucherAmount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
+                }
+            }
+
             let subtotalAfterDiscount = packagePrice;
             if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
             if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+            subtotalAfterDiscount -= voucherAmount; // Deduct voucher
+
             if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
             
             // Calculate EPP amount
@@ -422,13 +521,27 @@
 
         // Calculate all EPP fees and create description
         function calculateAllEPPFees() {
-            // Calculate package price after discount
+            // Calculate package price after discount and voucher
             const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
             const discountInput = document.getElementById('discountGiven')?.value || '';
             const discount = parseDiscount(discountInput);
+            
+            // Calculate voucher amount
+            const voucher = getSelectedVoucher();
+            let voucherAmount = 0;
+            if (voucher) {
+                if (voucher.discount_amount) {
+                    voucherAmount = parseFloat(voucher.discount_amount);
+                } else if (voucher.discount_percent) {
+                    voucherAmount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
+                }
+            }
+
             let subtotalAfterDiscount = packagePrice;
             if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
             if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+            subtotalAfterDiscount -= voucherAmount; // Deduct voucher
+
             if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 
             const rows = document.querySelectorAll('.payment-method-row');
@@ -601,6 +714,7 @@
             const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
             const discountInput = document.getElementById('discountGiven')?.value || '';
             const discount = parseDiscount(discountInput);
+            const voucher = getSelectedVoucher();
             
             const itemsList = document.getElementById('invoiceItemsList');
             if (!itemsList) return;
@@ -653,6 +767,29 @@
                 subtotal -= percentAmount;
             }
             
+            // Add Voucher Item
+            let voucherAmount = 0;
+            if (voucher) {
+                if (voucher.discount_amount) {
+                    voucherAmount = parseFloat(voucher.discount_amount);
+                } else if (voucher.discount_percent) {
+                    voucherAmount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
+                }
+                
+                if (voucherAmount > 0) {
+                     const voucherItem = document.createElement('div');
+                    voucherItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+                    voucherItem.innerHTML = `
+                        <div class="flex-1">
+                            <div class="font-medium text-green-600">${voucher.title || 'Voucher'} (${voucher.voucher_code})</div>
+                        </div>
+                        <div class="font-semibold text-green-600">-RM ${voucherAmount.toFixed(2)}</div>
+                    `;
+                    itemsList.appendChild(voucherItem);
+                    subtotal -= voucherAmount;
+                }
+            }
+
             // Ensure subtotal doesn't go negative
             if (subtotal < 0) subtotal = 0;
             
@@ -758,6 +895,18 @@
             // Add first payment method row (default: Cash, 100%)
             addPaymentMethodRow();
             
+            // Fetch vouchers
+            fetchVouchers();
+
+            // Voucher select listener
+            const voucherSelect = document.getElementById('voucherSelect');
+            if (voucherSelect) {
+                voucherSelect.addEventListener('change', () => {
+                    updateVoucherInfo();
+                    updateInvoicePreview();
+                });
+            }
+
             updateInvoicePreview();
             
             // Update preview when SST toggle changes
@@ -874,6 +1023,7 @@
                 customer_phone: data.customer_phone || null,
                 customer_address: data.customer_address || null,
                 discount_given: data.discount_given || null,
+                voucher_code: data.voucher_code || null,
                 apply_sst: document.getElementById('applySST')?.checked || false,
                 payment_structure: eppData.payment_structure
             };

@@ -634,6 +634,39 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   };
 }
 
+/**
+ * Get all public, active vouchers
+ * @param {object} client - Database client
+ * @returns {Promise<Array>} List of vouchers
+ */
+async function getPublicVouchers(client) {
+  try {
+    const result = await client.query(
+      `SELECT * FROM voucher 
+       WHERE public = true 
+         AND active = true 
+         AND (delete = false OR delete IS NULL)
+       ORDER BY sort_order ASC, created_at DESC`
+    );
+    return result.rows;
+  } catch (err) {
+    // If sort_order doesn't exist, try without it
+    try {
+        const result = await client.query(
+            `SELECT * FROM voucher 
+             WHERE public = true 
+               AND active = true 
+               AND (delete = false OR delete IS NULL)
+             ORDER BY created_at DESC`
+          );
+          return result.rows;
+    } catch (retryErr) {
+        console.error('Error fetching public vouchers:', retryErr);
+        return [];
+    }
+  }
+}
+
 module.exports = {
   generateShareToken,
   generateInvoiceNumber,
@@ -644,5 +677,6 @@ module.exports = {
   createInvoiceOnTheFly,
   getInvoiceByShareToken,
   recordInvoiceView,
-  getInvoicesByUserId
+  getInvoicesByUserId,
+  getPublicVouchers
 };

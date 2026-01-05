@@ -53,6 +53,52 @@ router.get('/api/package/:id', async (req, res) => {
 });
 
 /**
+ * GET /api/vouchers
+ * Get list of public active vouchers
+ * Protected: Requires authentication
+ */
+router.get('/api/vouchers', requireAuth, async (req, res) => {
+  try {
+    const client = await pool.connect();
+    try {
+      const vouchers = await invoiceRepo.getPublicVouchers(client);
+      
+      // Filter out expired vouchers if available_until is set
+      const now = new Date();
+      const validVouchers = vouchers.filter(v => {
+        if (!v.available_until) return true;
+        
+        // Try to parse date
+        try {
+            const expiryDate = new Date(v.available_until);
+            // Check if valid date
+            if (isNaN(expiryDate.getTime())) return true; // Keep if invalid date string (assume valid)
+            
+            // Set end of day for expiry
+            expiryDate.setHours(23, 59, 59, 999);
+            return now <= expiryDate;
+        } catch (e) {
+            return true; // Keep on error
+        }
+      });
+
+      res.json({
+        success: true,
+        vouchers: validVouchers
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error fetching vouchers:', err);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+/**
  * GET /create-invoice
  * Invoice creation page - shows form
  * Protected: Requires authentication
