@@ -513,12 +513,12 @@ window.updateEPPCalculation = function(event) {
 
     const tenure = parseInt(tenureSelect.value);
     const rate = EPP_RATES[bank]?.[tenure] || 0;
-    
+
     // 5% Downpayment Rule
     const downpayment = fullPrice * 0.05;
     const financedAmount = fullPrice * 0.95; // 95% is financed via EPP
 
-    const monthlyInstallment = financedAmount / tenure;
+    const monthlyInstallment = (fullPrice * 0.95 * (rate / 100)) / tenure;
     const feeAmount = financedAmount * (rate / 100);
     const netProceeds = financedAmount - feeAmount;
 
@@ -536,12 +536,16 @@ window.updateEPPCalculation = function(event) {
                     <span>-RM ${formatCurrency(downpayment)}</span>
                 </div>
                 <div class="flex justify-between border-t border-gray-100 pt-1 mt-1">
-                    <span class="text-gray-500">Financed Amount</span>
+                    <span class="text-gray-500">Financed Amount (95%)</span>
                     <span class="font-semibold">RM ${formatCurrency(financedAmount)}</span>
                 </div>
                 <div class="flex justify-between text-[10px] mt-1">
-                    <span class="text-gray-500">Merchant Fee (${rate}%)</span>
-                    <span class="text-rose-600">-RM ${formatCurrency(feeAmount)}</span>
+                    <span class="text-gray-500">EPP Interest (${rate}%)</span>
+                    <span class="text-purple-700">RM ${formatCurrency(financedAmount * (rate / 100))}</span>
+                </div>
+                <div class="flex justify-between text-[10px] border-t border-gray-100 pt-1 mt-1">
+                    <span class="text-gray-500">Monthly Payment</span>
+                    <span class="text-gray-500 text-[9px]">RM ${formatCurrency(financedAmount)} × ${rate}% ÷ ${tenure}</span>
                 </div>
             </div>
         `;
@@ -552,7 +556,7 @@ window.updateEPPCalculation = function(event) {
     }
 
     if (noteDiv) {
-        noteDiv.innerHTML = `<span class="text-rose-600 font-bold">IMPORTANT:</span> 1st 5% Downpayment (RM ${formatCurrency(downpayment)}) must be paid via Cash/Credit Card. EPP applies to remaining 95%.`;
+        noteDiv.innerHTML = `<span class="text-rose-600 font-bold">IMPORTANT:</span> 1st 5% Downpayment (RM ${formatCurrency(downpayment)}) must be paid via Cash/Credit Card. EPP interest (${rate}%) applies to remaining 95% financed amount.`;
     }
 };
 
@@ -1006,7 +1010,7 @@ function renderFloatingPanelModulation(data) {
             <div class="flex items-center gap-1">
                 <div class="flex flex-col items-end leading-none">
                     <span class="text-[8px] md:text-[9px] font-semibold uppercase tracking-wide tier-3">Panel</span>
-                    ${Math.abs(delta) > 1 ? `<span class="text-[7px] md:text-[8px] font-bold ${delta>0?'text-rose-600':'text-emerald-600'}">${delta>0?'+':'-'}RM${Math.round(Math.abs(delta)/1000)}k</span>` : ''}
+                    ${Math.abs(delta) > 1 ? `<span class="text-[8px] md:text-[9px] font-bold ${delta>0?'text-rose-600':'text-emerald-600'}">${delta>0?'+':'-'}RM${Math.round(Math.abs(delta)).toLocaleString('en-MY')}</span>` : ''}
                 </div>
                 <div class="flex items-center bg-white border border-fact">
                     <button onclick="adjustPanelCount(-1)" class="w-5 h-5 md:w-6 md:h-6 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">-</button>
