@@ -154,7 +154,12 @@
             border-bottom: 1px solid #e2e8f0;
             margin: 16px 0;
         }
-
+        .terms-text {
+            font-size: 8px !important;
+            line-height: 1.15;
+            color: #64748b;
+            text-align: justify;
+        }
         @media print {
             body { background: white; }
         }
@@ -280,6 +285,17 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Terms & Conditions -->
+            <section class="mb-4 pt-4 border-t border-slate-200">
+                <p class="label-text mb-1">Terms & Conditions</p>
+                <div class="terms-text">
+                    {{TERMS_AND_CONDITIONS}}
+                </div>
+            </section>
+
+            <!-- Disclaimer -->
+            {{DISCLAIMER}}
 
         </div>
     </div>
