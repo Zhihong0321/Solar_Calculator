@@ -429,37 +429,9 @@ router.get('/view/:shareToken/pdf', async (req, res) => {
 });
 
 /**
- * GET /proposal/:shareToken
- * View proposal with customer data and invoice HTML embedded
+ * Helper to generate Proposal HTML
  */
-router.get('/proposal/:shareToken', async (req, res) => {
-  try {
-    const { shareToken } = req.params;
-
-    // Get invoice by share token
-    const client = await pool.connect();
-    let invoice = null;
-    try {
-      invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
-    } finally {
-      client.release();
-    }
-
-    if (!invoice) {
-      return res.status(404).send(`
-        <html>
-        <head><title>Proposal Not Found</title>
-        <script src="https://cdn.tailwindcss.com"></script></head>
-        <body class="p-8 bg-gray-100">
-          <div class="max-w-2xl mx-auto bg-white rounded-lg shadow p-6 text-center">
-            <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Proposal Not Found</h1>
-            <p class="text-gray-700">The invoice for this proposal doesn't exist or has expired.</p>
-          </div>
-        </body>
-        </html>
-      `);
-    }
-
+async function generateProposalHtml(client, invoice, req, forPdf = false) {
     // Fetch user name who created the invoice
     let createdBy = 'System';
     if (invoice.created_by) {
@@ -477,7 +449,6 @@ router.get('/proposal/:shareToken', async (req, res) => {
         }
       } catch (err) {
         console.warn('Could not fetch user name for proposal:', err.message);
-        // Keep createdBy as 'System'
       }
     }
 
@@ -503,7 +474,6 @@ router.get('/proposal/:shareToken', async (req, res) => {
     const bankAccountNo = templateData.bank_account_no || '';
     const bankAccountName = templateData.bank_account_name || '';
     const termsAndConditions = templateData.terms_and_conditions || '';
-    const disclaimer = templateData.disclaimer || '';
     const items = invoice.items || [];
 
     // Calculate totals
@@ -535,7 +505,7 @@ router.get('/proposal/:shareToken', async (req, res) => {
 
     const protocol = req.protocol;
     const host = req.get('host');
-    const proposalUrl = `${protocol}://${host}/proposal/${shareToken}`;
+    const proposalUrl = `${protocol}://${host}/proposal/${invoice.share_token}`;
 
     // Replace all placeholders
     proposalHtml = proposalHtml.replace(/{{PROPOSAL_URL}}/g, proposalUrl);
@@ -560,10 +530,12 @@ router.get('/proposal/:shareToken', async (req, res) => {
     proposalHtml = proposalHtml.replace(/{{BANK_ACCOUNT_NAME}}/g, bankAccountName);
     proposalHtml = proposalHtml.replace(/{{CREATED_BY}}/g, createdBy);
 
-    // Replace terms and disclaimer
+    // Replace terms
     if (termsAndConditions) {
         proposalHtml = proposalHtml.replace(/{{TERMS_AND_CONDITIONS}}/g,
             termsAndConditions.replace(/\n/g, '<br>'));
+    } else {
+        proposalHtml = proposalHtml.replace(/{{TERMS_AND_CONDITIONS}}/g, '');
     }
 
     // Replace overlay variables
@@ -587,9 +559,56 @@ router.get('/proposal/:shareToken', async (req, res) => {
       `var OVERLAY_POSITION_TOP = "28%";`
     );
 
+    // Inject PDF-specific styles/scripts if needed
+    if (forPdf) {
+        // Hide elements with 'no-print' class or id 'downloadPdfBtn'
+        proposalHtml = proposalHtml.replace(
+            '</head>',
+            '<style>.no-print, #downloadPdfBtn { display: none !important; }</style></head>'
+        );
+        // Also ensure images are loaded? The PDF generator waits for network idle usually.
+    }
+
+    return proposalHtml;
+}
+
+/**
+ * GET /proposal/:shareToken
+ * View proposal with customer data and invoice HTML embedded
+ */
+router.get('/proposal/:shareToken', async (req, res) => {
+  try {
+    const { shareToken } = req.params;
+
+    // Get invoice by share token
+    const client = await pool.connect();
+    let invoice = null;
+    try {
+      invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
+    } finally {
+      client.release();
+    }
+
+    if (!invoice) {
+      return res.status(404).send(`
+        <html>
+        <head><title>Proposal Not Found</title>
+        <script src="https://cdn.tailwindcss.com"></script></head>
+        <body class="p-8 bg-gray-100">
+          <div class="max-w-2xl mx-auto bg-white rounded-lg shadow p-6 text-center">
+            <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Proposal Not Found</h1>
+            <p class="text-gray-700">The invoice for this proposal doesn't exist or has expired.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    const html = await generateProposalHtml(client, invoice, req, false);
+
     // Send the combined HTML
     res.header('Content-Type', 'text/html; charset=utf-8');
-    res.send(proposalHtml);
+    res.send(html);
 
   } catch (err) {
     console.error('Error in /proposal/:shareToken route:', err);
@@ -602,6 +621,61 @@ router.get('/proposal/:shareToken', async (req, res) => {
       </body>
       </html>
     `);
+  }
+});
+
+/**
+ * GET /proposal/:shareToken/pdf
+ * Generate PDF of the proposal
+ */
+router.get('/proposal/:shareToken/pdf', async (req, res) => {
+  try {
+    const { shareToken } = req.params;
+
+    const client = await pool.connect();
+    let invoice = null;
+    try {
+      invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
+    } finally {
+      client.release();
+    }
+
+    if (!invoice) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invoice not found or has expired'
+      });
+    }
+
+    // Generate HTML for PDF (hides buttons)
+    const html = await generateProposalHtml(client, invoice, req, true);
+
+    // Generate PDF using external API
+    // Use the same baseUrl as the invoice PDF
+    const pdfResult = await externalPdfService.generatePdfWithRetry(html, {
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '0cm', // Proposal usually needs full bleed or custom margins
+        right: '0cm',
+        bottom: '0cm',
+        left: '0cm'
+      }
+    }, 'https://calculator.atap.solar');
+
+    return res.json({
+      success: true,
+      pdfId: pdfResult.pdfId,
+      downloadUrl: pdfResult.downloadUrl,
+      expiresAt: pdfResult.expiresAt
+    });
+
+  } catch (err) {
+    console.error('Error in /proposal/:shareToken/pdf route:', err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || 'Failed to generate PDF'
+    });
   }
 });
 
