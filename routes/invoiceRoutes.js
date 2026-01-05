@@ -400,9 +400,6 @@ router.get('/proposal/:shareToken', async (req, res) => {
       `);
     }
 
-    // Generate invoice HTML (native, not via fetch)
-    const invoiceHtml = await invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template || {}, { forPdf: false });
-
     // Read proposal template
     const templatePath = path.join(__dirname, '..', 'portable-proposal', 'index.html');
     const fs = require('fs');
@@ -415,7 +412,66 @@ router.get('/proposal/:shareToken', async (req, res) => {
       ? `${invoice.system_size_kwp.toFixed(1)} kWp System`
       : 'Solar System';
 
-    // Replace configuration variables
+    // Get template data
+    const templateData = invoice.template || {};
+    const companyName = templateData.company_name || 'Atap Solar';
+    const companyAddress = templateData.company_address || '';
+    const companyPhone = templateData.company_phone || '';
+    const companyEmail = templateData.company_email || '';
+    const bankName = templateData.bank_name || '';
+    const bankAccountNo = templateData.bank_account_no || '';
+    const bankAccountName = templateData.bank_account_name || '';
+    const items = invoice.items || [];
+
+    // Calculate totals
+    const subtotal = parseFloat(invoice.subtotal) || 0;
+    const sstAmount = parseFloat(invoice.sst_amount) || 0;
+    const totalAmount = parseFloat(invoice.total_amount) || 0;
+    const sstRate = parseFloat(invoice.sst_rate) || 0;
+
+    // Generate items HTML
+    let itemsHtml = '';
+    items.forEach(item => {
+      const isDiscount = item.item_type === 'discount' || item.item_type === 'voucher';
+      const priceClass = isDiscount ? 'text-red-600' : 'text-slate-900';
+      const displayPrice = isDiscount ? '-' : '';
+      const qty = item.qty ? parseFloat(item.qty) : 1;
+
+      itemsHtml += `
+        <div class="px-3 py-3 flex gap-3 items-start">
+            <div class="flex-1">
+                <p class="text-sm font-medium text-slate-900 leading-snug">${item.description}</p>
+                ${!isDiscount && item.qty ? `<p class="text-[10px] text-slate-400 mt-0.5">Qty: ${qty.toFixed(2)}</p>` : ''}
+            </div>
+            <div class="text-right w-24">
+                <p class="text-sm font-semibold ${priceClass}">${displayPrice}RM ${Math.abs(parseFloat(item.total_price)).toFixed(2)}</p>
+            </div>
+        </div>
+      `;
+    });
+
+    // Replace all placeholders
+    proposalHtml = proposalHtml.replace(/{{COMPANY_NAME}}/g, companyName);
+    proposalHtml = proposalHtml.replace(/{{COMPANY_ADDRESS}}/g, companyAddress);
+    proposalHtml = proposalHtml.replace(/{{COMPANY_PHONE}}/g, companyPhone);
+    proposalHtml = proposalHtml.replace(/{{COMPANY_EMAIL}}/g, companyEmail);
+    proposalHtml = proposalHtml.replace(/{{INVOICE_NUMBER}}/g, invoice.invoice_number);
+    proposalHtml = proposalHtml.replace(/{{INVOICE_STATUS}}/g, invoice.status);
+    proposalHtml = proposalHtml.replace(/{{INVOICE_DATE}}/g, invoice.invoice_date);
+    proposalHtml = proposalHtml.replace(/{{CUSTOMER_NAME}}/g, customerName);
+    proposalHtml = proposalHtml.replace(/{{CUSTOMER_ADDRESS}}/g, customerAddress);
+    proposalHtml = proposalHtml.replace(/{{CUSTOMER_PHONE}}/g, invoice.customer_phone_snapshot || '');
+    proposalHtml = proposalHtml.replace(/{{CUSTOMER_EMAIL}}/g, invoice.customer_email_snapshot || '');
+    proposalHtml = proposalHtml.replace(/{{INVOICE_ITEMS}}/g, itemsHtml);
+    proposalHtml = proposalHtml.replace(/{{SUBTOTAL}}/g, subtotal.toFixed(2));
+    proposalHtml = proposalHtml.replace(/{{SST_RATE}}/g, sstRate.toFixed(0));
+    proposalHtml = proposalHtml.replace(/{{SST_AMOUNT}}/g, sstAmount.toFixed(2));
+    proposalHtml = proposalHtml.replace(/{{TOTAL_AMOUNT}}/g, totalAmount.toFixed(2));
+    proposalHtml = proposalHtml.replace(/{{BANK_NAME}}/g, bankName);
+    proposalHtml = proposalHtml.replace(/{{BANK_ACCOUNT}}/g, bankAccountNo);
+    proposalHtml = proposalHtml.replace(/{{BANK_ACCOUNT_NAME}}/g, bankAccountName);
+
+    // Replace overlay variables
     proposalHtml = proposalHtml.replace(
       /var CUSTOMER_NAME\s*=\s*"[^"]*";/,
       `var CUSTOMER_NAME = "${customerName}";`
@@ -429,13 +485,6 @@ router.get('/proposal/:shareToken', async (req, res) => {
     proposalHtml = proposalHtml.replace(
       /var SYSTEM_SIZE\s*=\s*"[^"]*";/,
       `var SYSTEM_SIZE = "${systemSize}";`
-    );
-
-    // Embed the native invoice HTML directly into proposal
-    // Replace the invoice section with actual invoice HTML
-    proposalHtml = proposalHtml.replace(
-      /<div class="invoice-section">[\s\S]*?<\/div>/s,
-      `<div class="invoice-section">${invoiceHtml}</div>`
     );
 
     // Send the combined HTML

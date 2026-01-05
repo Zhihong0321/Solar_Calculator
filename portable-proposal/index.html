@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solar Presentation - Eternalgy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Reset and Base Styles */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -13,13 +14,12 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: #ffffff;
             color: #1a202c;
             line-height: 1.5;
         }
 
-        /* Layout */
         .container {
             width: 100%;
             max-width: 896px;
@@ -29,7 +29,6 @@
             position: relative;
         }
 
-        /* Header */
         header {
             position: sticky;
             top: 0;
@@ -60,7 +59,6 @@
             letter-spacing: 0.05em;
         }
 
-        /* Images */
         .image-stack {
             display: flex;
             flex-direction: column;
@@ -73,22 +71,18 @@
             height: auto;
         }
 
-        /* Overlay Wrapper for the first image */
         .relative-wrapper {
             position: relative;
             width: 100%;
         }
 
-        /* CUSTOMER OVERLAY STYLES */
         .customer-overlay {
             position: absolute;
             top: 12%;
             left: 50%;
             transform: translateX(-50%);
-            
             width: 80%;
             max-width: 600px;
-            
             background-color: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(4px);
             padding: 1.5rem;
@@ -135,7 +129,16 @@
             height: 4rem;
         }
 
-        /* Invoice Section (Native HTML embedded) */
+        /* Invoice Section Styles - Copied from invoiceHtmlGenerator */
+        .label-text {
+            font-size: 10px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
         .invoice-section {
             background-color: #ffffff;
             border-top: 3px solid #2563eb;
@@ -145,6 +148,15 @@
 
         .invoice-section * {
             box-sizing: border-box;
+        }
+
+        .divider {
+            border-bottom: 1px solid #e2e8f0;
+            margin: 16px 0;
+        }
+
+        @media print {
+            body { background: white; }
         }
     </style>
 </head>
@@ -164,9 +176,112 @@
         <div class="footer-spacer"></div>
     </div>
 
-    <!-- Invoice Section - Native invoice HTML will be injected here server-side -->
+    <!-- INVOICE HTML TEMPLATE - Server replaces placeholders with actual data -->
     <div class="invoice-section">
-        <!-- Server will replace this with actual invoice HTML -->
+        <div class="invoice-container relative" style="padding: 1.5rem; max-width: 1024px; margin: 0 auto;">
+            
+            <!-- Header -->
+            <header class="flex flex-col gap-4 mb-6">
+                <div class="flex justify-between items-start">
+                    <img src="images/logo-08.png" alt="{{COMPANY_NAME}}" style="height: 4rem; object-contain;">
+                    <div class="text-right">
+                        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">INVOICE</h1>
+                        <p class="text-sm font-medium text-slate-500">#{{INVOICE_NUMBER}}</p>
+                        <div class="mt-1 inline-block px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-700 uppercase tracking-wide">
+                            {{INVOICE_STATUS}}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row justify-between gap-4 text-sm text-slate-600 mt-2">
+                    <!-- From -->
+                    <div>
+                       <p class="font-bold text-slate-900">{{COMPANY_NAME}}</p>
+                       <p class="whitespace-pre-line text-xs leading-relaxed">{{COMPANY_ADDRESS}}</p>
+                       <div class="mt-1 text-xs">
+                         <span>Tel: {{COMPANY_PHONE}}</span><br>
+                         <span>Email: {{COMPANY_EMAIL}}</span>
+                       </div>
+                    </div>
+                    
+                    <!-- Dates -->
+                    <div class="sm:text-right flex flex-col sm:items-end gap-1">
+                        <div>
+                            <span class="label-text block">Date Issued</span>
+                            <span class="font-medium text-slate-900">{{INVOICE_DATE}}</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="divider"></div>
+
+            <!-- Bill To -->
+            <section class="mb-6">
+                <p class="label-text mb-1">Bill To</p>
+                <p class="text-lg font-bold text-slate-900 leading-none mb-1">
+                    {{CUSTOMER_NAME}}
+                </p>
+                <p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">{{CUSTOMER_ADDRESS}}</p>
+                <div class="text-xs text-slate-500">
+                    {{CUSTOMER_PHONE}}<br>
+                    {{CUSTOMER_EMAIL}}
+                </div>
+            </section>
+
+            <!-- Line Items -->
+            <section class="mb-6">
+                <div class="bg-slate-50 rounded-t-lg border-b border-slate-200 px-3 py-2 flex text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div class="flex-1">Description</div>
+                    <div class="text-right w-24">Amount</div>
+                </div>
+                <div class="divide-y divide-slate-100 border-b border-slate-100">
+                    {{INVOICE_ITEMS}}
+                </div>
+            </section>
+
+            <!-- Summary & Payment -->
+            <div class="flex flex-col sm:flex-row gap-8 mb-8">
+                
+                <!-- Totals (Right on Desktop, Top on Mobile) -->
+                <div class="flex-1 sm:max-w-xs order-1 sm:order-2" style="margin-left: auto;">
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between text-slate-600">
+                            <span>Subtotal</span>
+                            <span>RM {{SUBTOTAL}}</span>
+                        </div>
+                        <div class="flex justify-between text-slate-600">
+                            <span>SST ({{SST_RATE}}%)</span>
+                            <span>RM {{SST_AMOUNT}}</span>
+                        </div>
+                        <div class="flex justify-between font-bold text-lg text-slate-900 pt-2">
+                            <span>Total</span>
+                            <span>RM {{TOTAL_AMOUNT}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Details -->
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-8">
+                <p class="label-text mb-2">Payment Details</p>
+                <div class="space-y-1 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Bank</span>
+                        <span class="font-medium text-slate-900 text-right">{{BANK_NAME}}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Account No.</span>
+                        <span class="font-medium text-slate-900 text-right">{{BANK_ACCOUNT}}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Account Name</span>
+                        <span class="font-medium text-slate-900 text-right">{{BANK_ACCOUNT_NAME}}</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
 
     <!-- TEMPLATE FOR THE OVERLAY (Hidden by default, cloned by JS) -->
@@ -192,7 +307,7 @@
         var CUSTOMER_ADDRESS = "88 Sunny Side Avenue, California"; // Target: Full address line
         var SYSTEM_SIZE      = "12.5 kWp System";                  // Target: System capacity (e.g. 10 kW)
         var SHOW_OVERLAY     = true;                               // Target: true or false
-
+        
         // Advanced Layout Config (Optional)
         var OVERLAY_POSITION_TOP = "18%";                          // Target: Vertical position on the first image
 
