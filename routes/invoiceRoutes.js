@@ -370,7 +370,7 @@ router.get('/view/:shareToken/pdf', async (req, res) => {
 
 /**
  * GET /proposal/:shareToken
- * View proposal with customer data injected into portable-proposal template
+ * View proposal with customer data and invoice HTML embedded
  */
 router.get('/proposal/:shareToken', async (req, res) => {
   try {
@@ -400,6 +400,9 @@ router.get('/proposal/:shareToken', async (req, res) => {
       `);
     }
 
+    // Generate invoice HTML (native, not via fetch)
+    const invoiceHtml = invoiceHtmlGenerator.generateInvoiceHtmlSync(invoice, invoice.template || {});
+
     // Read proposal template
     const templatePath = path.join(__dirname, '..', 'portable-proposal', 'index.html');
     const fs = require('fs');
@@ -428,12 +431,14 @@ router.get('/proposal/:shareToken', async (req, res) => {
       `var SYSTEM_SIZE = "${systemSize}";`
     );
 
+    // Embed the native invoice HTML directly into proposal
+    // Replace the invoice action section with actual invoice HTML
     proposalHtml = proposalHtml.replace(
-      /var INVOICE_SHARE_TOKEN\s*=\s*"[^"]*";/,
-      `var INVOICE_SHARE_TOKEN = "${shareToken}";`
+      /<div class="invoice-action-section">[\s\S]*?<\/div>\s*<\/div>/s,
+      `<div class="invoice-section">${invoiceHtml}</div>`
     );
 
-    // Send the modified proposal HTML
+    // Send the combined HTML
     res.header('Content-Type', 'text/html; charset=utf-8');
     res.send(proposalHtml);
 
