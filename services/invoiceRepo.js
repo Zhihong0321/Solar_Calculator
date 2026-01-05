@@ -58,7 +58,7 @@ async function generateInvoiceNumber(client) {
 async function getPackageById(client, packageId) {
   try {
     const result = await client.query(
-      `SELECT bubble_id, name, price, panel, panel_qty, invoice_desc, type
+      `SELECT bubble_id, package_name as name, price, panel, panel_qty, invoice_desc, type
        FROM package
        WHERE bubble_id = $1`,
       [packageId]
