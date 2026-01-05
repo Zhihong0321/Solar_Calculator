@@ -503,6 +503,29 @@ async function getInvoiceByShareToken(client, shareToken) {
 
     invoice.items = itemsResult.rows;
 
+    // Get package data for system size calculation
+    if (invoice.package_id) {
+      const packageResult = await client.query(
+        `SELECT p.panel_qty, p.panel, pr.solar_output_rating
+         FROM package p
+         LEFT JOIN product pr ON (
+           CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+           OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+         )
+         WHERE p.bubble_id = $1`,
+        [invoice.package_id]
+      );
+      if (packageResult.rows.length > 0) {
+        const packageData = packageResult.rows[0];
+        invoice.panel_qty = packageData.panel_qty;
+        invoice.panel_rating = packageData.solar_output_rating;
+        // Calculate system size in kWp
+        if (packageData.panel_qty && packageData.solar_output_rating) {
+          invoice.system_size_kwp = (packageData.panel_qty * packageData.solar_output_rating) / 1000;
+        }
+      }
+    }
+
     // Get template
     if (invoice.template_id) {
       const templateResult = await client.query(

@@ -172,9 +172,16 @@ function generateInvoiceHtml(invoice, template, options = {}) {
 <body>
   <div class="invoice-container relative">
     
-    <!-- Download PDF Button (Web View Only) -->
+    <!-- Action Buttons (Web View Only) -->
     ${!options.forPdf && invoice.share_token ? `
-    <div class="mb-4 flex justify-end no-print">
+    <div class="mb-4 flex justify-end gap-2 no-print">
+      <button onclick="viewProposal('${invoice.share_token}')"
+         class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <span>View Proposal</span>
+      </button>
       <button onclick="downloadInvoicePdf('${invoice.share_token}')"
          class="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,6 +217,10 @@ function generateInvoiceHtml(invoice, template, options = {}) {
             button.classList.remove('opacity-75', 'cursor-not-allowed');
             buttonText.textContent = 'Download PDF';
         }
+      }
+
+      function viewProposal(shareToken) {
+        window.open('/proposal/' + shareToken, '_blank');
       }
     </script>
     ` : ''}

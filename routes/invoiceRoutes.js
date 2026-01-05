@@ -368,4 +368,87 @@ router.get('/view/:shareToken/pdf', async (req, res) => {
   }
 });
 
+/**
+ * GET /proposal/:shareToken
+ * View proposal with customer data injected into portable-proposal template
+ */
+router.get('/proposal/:shareToken', async (req, res) => {
+  try {
+    const { shareToken } = req.params;
+
+    // Get invoice by share token
+    const client = await pool.connect();
+    let invoice = null;
+    try {
+      invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
+    } finally {
+      client.release();
+    }
+
+    if (!invoice) {
+      return res.status(404).send(`
+        <html>
+        <head><title>Proposal Not Found</title>
+        <script src="https://cdn.tailwindcss.com"></script></head>
+        <body class="p-8 bg-gray-100">
+          <div class="max-w-2xl mx-auto bg-white rounded-lg shadow p-6 text-center">
+            <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Proposal Not Found</h1>
+            <p class="text-gray-700">The invoice for this proposal doesn't exist or has expired.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // Read proposal template
+    const templatePath = path.join(__dirname, '..', 'portable-proposal', 'index.html');
+    const fs = require('fs');
+    let proposalHtml = fs.readFileSync(templatePath, 'utf8');
+
+    // Prepare data for proposal
+    const customerName = invoice.customer_name_snapshot || 'Valued Customer';
+    const customerAddress = invoice.customer_address_snapshot || 'Malaysia';
+    const systemSize = invoice.system_size_kwp
+      ? `${invoice.system_size_kwp.toFixed(1)} kWp System`
+      : 'Solar System';
+
+    // Replace configuration variables
+    proposalHtml = proposalHtml.replace(
+      /var CUSTOMER_NAME\s*=\s*"[^"]*";/,
+      `var CUSTOMER_NAME = "${customerName}";`
+    );
+
+    proposalHtml = proposalHtml.replace(
+      /var CUSTOMER_ADDRESS\s*=\s*"[^"]*";/,
+      `var CUSTOMER_ADDRESS = "${customerAddress}";`
+    );
+
+    proposalHtml = proposalHtml.replace(
+      /var SYSTEM_SIZE\s*=\s*"[^"]*";/,
+      `var SYSTEM_SIZE = "${systemSize}";`
+    );
+
+    proposalHtml = proposalHtml.replace(
+      /var INVOICE_SHARE_TOKEN\s*=\s*"[^"]*";/,
+      `var INVOICE_SHARE_TOKEN = "${shareToken}";`
+    );
+
+    // Send the modified proposal HTML
+    res.header('Content-Type', 'text/html; charset=utf-8');
+    res.send(proposalHtml);
+
+  } catch (err) {
+    console.error('Error in /proposal/:shareToken route:', err);
+    res.status(500).send(`
+      <html>
+      <head><title>Error</title></head>
+      <body style="font-family: sans-serif; padding: 2rem;">
+        <h1>Error Loading Proposal</h1>
+        <p>Failed to generate proposal: ${err.message}</p>
+      </body>
+      </html>
+    `);
+  }
+});
+
 module.exports = router;
