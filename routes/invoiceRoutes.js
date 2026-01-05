@@ -432,9 +432,9 @@ router.get('/proposal/:shareToken', async (req, res) => {
     );
 
     // Embed the native invoice HTML directly into proposal
-    // Replace the invoice action section with actual invoice HTML
+    // Replace the invoice section with actual invoice HTML
     proposalHtml = proposalHtml.replace(
-      /<div class="invoice-action-section">[\s\S]*?<\/div>\s*<\/div>/s,
+      /<div class="invoice-section">[\s\S]*?<\/div>/s,
       `<div class="invoice-section">${invoiceHtml}</div>`
     );
 
