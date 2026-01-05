@@ -553,6 +553,7 @@ router.get('/proposal/:shareToken', async (req, res) => {
     proposalHtml = proposalHtml.replace(/{{BANK_NAME}}/g, bankName);
     proposalHtml = proposalHtml.replace(/{{BANK_ACCOUNT}}/g, bankAccountNo);
     proposalHtml = proposalHtml.replace(/{{BANK_ACCOUNT_NAME}}/g, bankAccountName);
+    proposalHtml = proposalHtml.replace(/{{CREATED_BY}}/g, createdBy);
 
     // Replace terms and disclaimer
     if (termsAndConditions) {
