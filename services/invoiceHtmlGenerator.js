@@ -85,7 +85,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Invoice ${invoice.invoice_number}</title>
+  <title>Quotation ${invoice.invoice_number}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -229,7 +229,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       <div class="flex justify-between items-start">
         <img src="${displayLogoUrl}" alt="${companyName}" class="h-16 object-contain">
         <div class="text-right">
-          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">INVOICE</h1>
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">QUOTATION</h1>
           <p class="text-sm font-medium text-slate-500">#${invoice.invoice_number}</p>
           <div class="mt-1 inline-block px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-700 uppercase tracking-wide">
             ${invoice.status}
@@ -372,7 +372,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
 
     <!-- Created By -->
     <div class="text-right text-xs text-slate-400 mb-4">
-      Invoice Created by: <span class="font-medium text-slate-600">${invoice.created_by_user_name || 'System'}</span>
+      Quotation Created by: <span class="font-medium text-slate-600">${invoice.created_by_user_name || 'System'}</span>
     </div>
 
     <!-- Footer -->
