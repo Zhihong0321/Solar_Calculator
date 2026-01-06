@@ -129,7 +129,7 @@
             height: 4rem;
         }
 
-        /* Invoice Section Styles - Copied from invoiceHtmlGenerator */
+        /* Quotation Section Styles - Copied from invoiceHtmlGenerator */
         .label-text {
             font-size: 10px;
             font-weight: 600;
@@ -139,14 +139,14 @@
             margin-bottom: 0.25rem;
         }
 
-        .invoice-section {
+        .quotation-section {
             background-color: #ffffff;
             border-top: 3px solid #2563eb;
             margin-top: 3rem;
             padding: 0;
         }
 
-        .invoice-section * {
+        .quotation-section * {
             box-sizing: border-box;
         }
 
@@ -187,16 +187,16 @@
         <div class="footer-spacer"></div>
     </div>
 
-    <!-- INVOICE HTML TEMPLATE - Server replaces placeholders with actual data -->
-    <div class="invoice-section">
-        <div class="invoice-container relative" style="padding: 1.5rem; max-width: 1024px; margin: 0 auto;">
-            
+    <!-- QUOTATION HTML TEMPLATE - Server replaces placeholders with actual data -->
+    <div class="quotation-section">
+        <div class="quotation-container relative" style="padding: 1.5rem; max-width: 1024px; margin: 0 auto;">
+
             <!-- Header -->
             <header class="flex flex-col gap-4 mb-6">
                 <div class="flex justify-between items-start">
                     <img src="images/logo-08.png" alt="{{COMPANY_NAME}}" style="height: 4rem; object-contain;">
                     <div class="text-right">
-                        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">INVOICE</h1>
+                        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">QUOTATION</h1>
                         <p class="text-sm font-medium text-slate-500">#{{INVOICE_NUMBER}}</p>
                         <div class="mt-1 inline-block px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-700 uppercase tracking-wide">
                             {{INVOICE_STATUS}}
@@ -294,7 +294,7 @@
 
             <!-- Created By -->
             <div class="text-right text-xs text-slate-400 mb-4">
-                Invoice Created by: <span class="font-medium text-slate-600">{{CREATED_BY}}</span>
+                Quotation Created by: <span class="font-medium text-slate-600">{{CREATED_BY}}</span>
             </div>
 
             <!-- Terms & Conditions -->

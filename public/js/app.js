@@ -685,7 +685,7 @@ window.syncAndTrigger = function(id, value) {
 
 window.generateInvoiceLink = function() {
     if (!latestSolarData || !latestSolarData.selectedPackage || !latestSolarData.selectedPackage.bubbleId) {
-        showNotification('No valid package selected for invoice. Please ensure a package is matched.', 'error');
+        showNotification('No valid package selected for quotation. Please ensure a package is matched.', 'error');
         return;
     }
 
@@ -879,7 +879,7 @@ function displaySolarCalculation(data) {
             <div class="flex justify-center -mt-6 mb-6 relative z-10">
                  <button onclick="generateInvoiceLink()" class="bg-white text-black font-bold uppercase tracking-wide text-xs md:text-sm px-6 py-3 md:px-8 md:py-3.5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all border-2 border-black flex items-center gap-2">
                     <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                    Create_Invoice_Link
+                    Create_Quotation_Link
                  </button>
             </div>
 
