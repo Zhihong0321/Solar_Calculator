@@ -748,7 +748,7 @@ function displayBillBreakdown(data) {
                         <span class="text-2xl md:text-3xl font-bold tracking-tight whitespace-nowrap">RM ${formatCurrency(adjustedTotal)}</span>
                     </div>
                     <div class="mt-6 flex justify-between items-center text-[10px] md:text-xs tier-3 uppercase tracking-wide gap-4 border-t border-divider pt-3">
-                        <span>Derived_Usage: ${tariff.usage_kwh} kWh</span>
+                        <span class="bg-yellow-100 px-3 py-1.5 rounded font-bold text-xs md:text-sm border-2 border-yellow-400">Derived_Usage: ${tariff.usage_kwh} kWh</span>
                         <span class="text-right">Tolerance: +/- 0.01%</span>
                     </div>
                 </div>
