@@ -101,6 +101,10 @@ function validateInvoiceData(invoiceRequestPayload) {
     errors.push('epp_fee_amount must be non-negative');
   }
 
+  if (p.extraItems && !Array.isArray(p.extraItems)) {
+    errors.push('extra_items must be an array');
+  }
+
   return {
     valid: errors.length === 0,
     errors
@@ -157,7 +161,8 @@ async function createInvoice(pool, invoiceRequestPayload) {
       customerAddress: invoiceRequestPayload.customerAddress,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
-      paymentStructure: invoiceRequestPayload.paymentStructure
+      paymentStructure: invoiceRequestPayload.paymentStructure,
+      extraItems: invoiceRequestPayload.extraItems || []
     };
 
     // Transaction handled inside repo

@@ -152,6 +152,37 @@
                     <p class="text-xs text-gray-600 mt-1">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p>
                 </div>
 
+                <!-- Hybrid Inverter Setup -->
+                <div class="bg-indigo-50 p-4 rounded-lg border-2 border-indigo-200">
+                    <h2 class="font-bold text-lg mb-3 text-gray-900">Hybrid Inverter Setup</h2>
+                    <div class="space-y-4">
+                        <!-- Item 1: SAJ Microinverter M2 1.8K -->
+                        <div class="flex justify-between items-center bg-white p-3 rounded border border-indigo-100 shadow-sm">
+                            <div class="flex-1">
+                                <div class="text-sm font-semibold text-gray-900">SAJ Microinverter M2 1.8K</div>
+                                <div class="text-xs text-gray-600">RM 1,000.00 each</div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button type="button" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold hover:bg-indigo-200 flex items-center justify-center transition-colors" onclick="updateExtraItemQty('inverter_1.8k', -1)">-</button>
+                                <span class="w-8 text-center font-bold text-gray-900" id="qty_inverter_1.8k">0</span>
+                                <button type="button" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold hover:bg-indigo-200 flex items-center justify-center transition-colors" onclick="updateExtraItemQty('inverter_1.8k', 1)">+</button>
+                            </div>
+                        </div>
+                        <!-- Item 2: SAJ Microinverter M2 1.0K -->
+                         <div class="flex justify-between items-center bg-white p-3 rounded border border-indigo-100 shadow-sm">
+                            <div class="flex-1">
+                                <div class="text-sm font-semibold text-gray-900">SAJ Microinverter M2 1.0K</div>
+                                <div class="text-xs text-gray-600">RM 500.00 each</div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button type="button" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold hover:bg-indigo-200 flex items-center justify-center transition-colors" onclick="updateExtraItemQty('inverter_1.0k', -1)">-</button>
+                                <span class="w-8 text-center font-bold text-gray-900" id="qty_inverter_1.0k">0</span>
+                                <button type="button" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold hover:bg-indigo-200 flex items-center justify-center transition-colors" onclick="updateExtraItemQty('inverter_1.0k', 1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Voucher Section -->
                 <div class="bg-green-50 p-4 rounded-lg border-2 border-green-200">
                     <label class="block text-sm font-semibold mb-2 text-gray-900">Vouchers</label>
@@ -263,6 +294,26 @@
         let paymentMethodCounter = 0;
         let availableVouchers = [];
         let selectedVouchers = [];
+
+        // Extra Items Configuration
+        const EXTRA_ITEMS_CONFIG = {
+            'inverter_1.8k': { name: 'SAJ Microinverter M2 1.8K', price: 1000.00 },
+            'inverter_1.0k': { name: 'SAJ Microinverter M2 1.0K', price: 500.00 }
+        };
+        const extraItemsState = {
+            'inverter_1.8k': 0,
+            'inverter_1.0k': 0
+        };
+
+        // Update extra item quantity
+        window.updateExtraItemQty = function(id, delta) {
+            if (!extraItemsState.hasOwnProperty(id)) return;
+            const newQty = Math.max(0, extraItemsState[id] + delta);
+            extraItemsState[id] = newQty;
+            const qtyEl = document.getElementById(`qty_${id}`);
+            if (qtyEl) qtyEl.textContent = newQty;
+            updateInvoicePreview();
+        };
 
         // Fetch available vouchers
         async function fetchVouchers() {
@@ -573,7 +624,16 @@
                 totalVoucherAmount += amount;
             });
 
-            let subtotalAfterDiscount = packagePrice;
+            // Calculate extra items total
+            let extraItemsTotal = 0;
+            Object.keys(extraItemsState).forEach(key => {
+                const qty = extraItemsState[key];
+                if (qty > 0) {
+                    extraItemsTotal += qty * EXTRA_ITEMS_CONFIG[key].price;
+                }
+            });
+
+            let subtotalAfterDiscount = packagePrice + extraItemsTotal;
             if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
             if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
             subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
@@ -625,7 +685,16 @@
                 totalVoucherAmount += amount;
             });
 
-            let subtotalAfterDiscount = packagePrice;
+            // Calculate extra items total
+            let extraItemsTotal = 0;
+            Object.keys(extraItemsState).forEach(key => {
+                const qty = extraItemsState[key];
+                if (qty > 0) {
+                    extraItemsTotal += qty * EXTRA_ITEMS_CONFIG[key].price;
+                }
+            });
+
+            let subtotalAfterDiscount = packagePrice + extraItemsTotal;
             if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
             if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
             subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
@@ -824,6 +893,26 @@
             
             // Calculate subtotal (starting with package price)
             let subtotal = packagePrice;
+
+            // Add Extra Items
+            Object.keys(extraItemsState).forEach(key => {
+                const qty = extraItemsState[key];
+                if (qty > 0) {
+                    const config = EXTRA_ITEMS_CONFIG[key];
+                    const itemTotal = qty * config.price;
+                    const item = document.createElement('div');
+                    item.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+                    item.innerHTML = `
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-900">${config.name}</div>
+                            <div class="text-sm text-gray-600">${qty} × RM ${config.price.toFixed(2)}</div>
+                        </div>
+                        <div class="font-semibold text-gray-900">RM ${itemTotal.toFixed(2)}</div>
+                    `;
+                    itemsList.appendChild(item);
+                    subtotal += itemTotal;
+                }
+            });
             
             // Add fixed discount item if exists
             if (discount.fixed > 0) {
@@ -1130,6 +1219,21 @@
             // Calculate EPP fees
             const eppData = calculateAllEPPFees();
             
+            // Prepare extra items
+            const extraItems = [];
+            Object.keys(extraItemsState).forEach(key => {
+                const qty = extraItemsState[key];
+                if (qty > 0) {
+                    const config = EXTRA_ITEMS_CONFIG[key];
+                    extraItems.push({
+                        description: config.name,
+                        qty: qty,
+                        unit_price: config.price,
+                        total_price: qty * config.price
+                    });
+                }
+            });
+
             // Prepare request data
             const requestData = {
                 package_id: data.package_id,
@@ -1140,7 +1244,8 @@
                 discount_given: data.discount_given || null,
                 voucher_codes: selectedVouchers.map(v => v.voucher_code),
                 apply_sst: document.getElementById('applySST')?.checked || false,
-                payment_structure: eppData.payment_structure
+                payment_structure: eppData.payment_structure,
+                extra_items: extraItems
             };
             
             // Add EPP fee data if exists

@@ -265,10 +265,16 @@ async function _processVouchers(client, { voucherCodes, voucherCode }, packagePr
  * @private
  */
 function _calculateFinancials(data, packagePrice, totalVoucherAmount) {
-  const { agentMarkup = 0, discountFixed = 0, discountPercent = 0, applySst = false, eppFeeAmount = 0 } = data;
+  const { agentMarkup = 0, discountFixed = 0, discountPercent = 0, applySst = false, eppFeeAmount = 0, extraItems = [] } = data;
 
   const markupAmount = parseFloat(agentMarkup) || 0;
   const priceWithMarkup = packagePrice + markupAmount;
+
+  // Calculate total of extra items
+  let extraItemsTotal = 0;
+  if (Array.isArray(extraItems)) {
+      extraItemsTotal = extraItems.reduce((sum, item) => sum + (parseFloat(item.total_price) || 0), 0);
+  }
 
   // Calculate discount amount from percent
   let percentDiscountVal = 0;
@@ -276,9 +282,9 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount) {
     percentDiscountVal = (packagePrice * discountPercent) / 100;
   }
   
-  // Subtotal after ALL adjustments (discounts, vouchers, epp fees)
-  // taxable subtotal = package + markup - discounts - vouchers
-  const taxableSubtotal = Math.max(0, priceWithMarkup - discountFixed - percentDiscountVal - totalVoucherAmount);
+  // Subtotal after ALL adjustments (discounts, vouchers, epp fees, extra items)
+  // taxable subtotal = package + markup + extra items - discounts - vouchers
+  const taxableSubtotal = Math.max(0, priceWithMarkup + extraItemsTotal - discountFixed - percentDiscountVal - totalVoucherAmount);
   
   // Calculate SST (6% rate)
   const sstRate = applySst ? 6.0 : 0;
@@ -391,6 +397,31 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
       0
     ]
   );
+
+  // 1.5 Extra Items
+  if (Array.isArray(data.extraItems) && data.extraItems.length > 0) {
+    let extraItemSortOrder = 50;
+    for (const item of data.extraItems) {
+        const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+        await client.query(
+            `INSERT INTO invoice_new_item
+             (bubble_id, invoice_id, description, qty, unit_price,
+              discount_percent, total_price, item_type, sort_order, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+            [
+                itemBubbleId,
+                invoiceId,
+                item.description || 'Extra Item',
+                item.qty || 1,
+                item.unit_price || 0,
+                0, // discount_percent
+                item.total_price || 0,
+                'extra',
+                extraItemSortOrder++
+            ]
+        );
+    }
+  }
 
   // 2. Discount Items
   let sortOrder = 100;
