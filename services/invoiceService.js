@@ -48,35 +48,56 @@ function parseDiscountString(discountGiven) {
 }
 
 /**
+ * @typedef {Object} InvoiceCreationPayload
+ * @property {number|string} userId - The unique identifier of the user creating the invoice.
+ * @property {string} packageId - The bubble_id of the selected solar package.
+ * @property {number} [discountFixed] - Fixed currency discount amount.
+ * @property {number} [discountPercent] - Percentage discount (0-100).
+ * @property {string} [discountGiven] - Raw string input for discount (e.g. "10%").
+ * @property {boolean} [applySst] - Whether to apply Sales and Service Tax.
+ * @property {string} [templateId] - Optional specific template ID.
+ * @property {string} [voucherCode] - Single voucher code (legacy).
+ * @property {string[]} [voucherCodes] - Array of voucher codes.
+ * @property {number} [agentMarkup] - Markup added by the agent.
+ * @property {string} [customerName] - Customer's full name.
+ * @property {string} [customerPhone] - Customer's contact number.
+ * @property {string} [customerAddress] - Customer's physical address.
+ * @property {number} [eppFeeAmount] - Extra processing fee amount.
+ * @property {string} [eppFeeDescription] - Description for the extra fee.
+ * @property {string} [paymentStructure] - Payment terms text.
+ */
+
+/**
  * Validate invoice request data
- * @param {object} data - Invoice data
+ * @param {InvoiceCreationPayload} invoiceRequestPayload - The raw input data from the controller
  * @returns {object} { valid, errors }
  */
-function validateInvoiceData(data) {
+function validateInvoiceData(invoiceRequestPayload) {
   const errors = [];
+  const p = invoiceRequestPayload; // Alias for brevity in validation checks
 
   // CRITICAL: userId is required - no fallback allowed
-  if (!data.userId || (typeof data.userId !== 'number' && typeof data.userId !== 'string')) {
+  if (!p.userId || (typeof p.userId !== 'number' && typeof p.userId !== 'string')) {
     errors.push('User ID is required. Authentication failed - please login again.');
   }
 
-  if (!data.packageId || data.packageId.trim().length === 0) {
+  if (!p.packageId || p.packageId.trim().length === 0) {
     errors.push('package_id is required');
   }
 
-  if (data.discountFixed && data.discountFixed < 0) {
+  if (p.discountFixed && p.discountFixed < 0) {
     errors.push('discount_fixed must be non-negative');
   }
 
-  if (data.discountPercent && (data.discountPercent < 0 || data.discountPercent > 100)) {
+  if (p.discountPercent && (p.discountPercent < 0 || p.discountPercent > 100)) {
     errors.push('discount_percent must be between 0 and 100');
   }
 
-  if (data.agentMarkup && data.agentMarkup < 0) {
+  if (p.agentMarkup && p.agentMarkup < 0) {
     errors.push('agent_markup must be non-negative');
   }
 
-  if (data.eppFeeAmount && data.eppFeeAmount < 0) {
+  if (p.eppFeeAmount && p.eppFeeAmount < 0) {
     errors.push('epp_fee_amount must be non-negative');
   }
 
@@ -88,16 +109,18 @@ function validateInvoiceData(data) {
 
 /**
  * Create invoice with validation and error handling
+ * Acts as the Anti-Corruption Layer between the HTTP Controller and the Data Repository.
+ * 
  * @param {object} pool - Database pool
- * @param {object} data - Invoice data
+ * @param {InvoiceCreationPayload} invoiceRequestPayload - Normalized data from the route
  * @returns {Promise<object>} Result with success, data or error
  */
-async function createInvoice(pool, data) {
+async function createInvoice(pool, invoiceRequestPayload) {
   const client = await pool.connect();
 
   try {
-    // Validate data
-    const validation = validateInvoiceData(data);
+    // 1. Validation Layer
+    const validation = validateInvoiceData(invoiceRequestPayload);
     if (!validation.valid) {
       return {
         success: false,
@@ -105,35 +128,40 @@ async function createInvoice(pool, data) {
       };
     }
 
-    // Parse discount string if provided
-    let discountFixed = data.discountFixed || 0;
-    let discountPercent = data.discountPercent || 0;
+    // 2. Data Normalization Layer
+    // [AI Context] We map inputs to explicit variables to avoid "mystery data" passing.
+    let discountFixed = invoiceRequestPayload.discountFixed || 0;
+    let discountPercent = invoiceRequestPayload.discountPercent || 0;
 
-    if (data.discountGiven) {
-      const parsed = parseDiscountString(data.discountGiven);
+    // Logic: If a raw string was provided (e.g. from a text input), parse it to override numbers
+    if (invoiceRequestPayload.discountGiven) {
+      const parsed = parseDiscountString(invoiceRequestPayload.discountGiven);
       discountFixed = parsed.discountFixed;
       discountPercent = parsed.discountPercent;
     }
 
-    // Create invoice using repository (transaction handled inside repo)
-    // userId is required - no fallback allowed
-    const invoice = await invoiceRepo.createInvoiceOnTheFly(client, {
-      userId: data.userId,
-      packageId: data.packageId,
-      discountFixed,
-      discountPercent,
-      applySst: data.applySst || false,
-      templateId: data.templateId,
-      voucherCode: data.voucherCode,
-      voucherCodes: data.voucherCodes,
-      agentMarkup: data.agentMarkup || 0,
-      customerName: data.customerName,
-      customerPhone: data.customerPhone,
-      customerAddress: data.customerAddress,
-      eppFeeAmount: data.eppFeeAmount,
-      eppFeeDescription: data.eppFeeDescription,
-      paymentStructure: data.paymentStructure
-    });
+    // 3. Repository Delegation
+    // We construct a pure object for the repo, ensuring it only gets what it needs.
+    const repoPayload = {
+      userId: invoiceRequestPayload.userId,
+      packageId: invoiceRequestPayload.packageId,
+      discountFixed: discountFixed,
+      discountPercent: discountPercent,
+      applySst: invoiceRequestPayload.applySst || false,
+      templateId: invoiceRequestPayload.templateId,
+      voucherCode: invoiceRequestPayload.voucherCode,
+      voucherCodes: invoiceRequestPayload.voucherCodes,
+      agentMarkup: invoiceRequestPayload.agentMarkup || 0,
+      customerName: invoiceRequestPayload.customerName,
+      customerPhone: invoiceRequestPayload.customerPhone,
+      customerAddress: invoiceRequestPayload.customerAddress,
+      eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
+      eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
+      paymentStructure: invoiceRequestPayload.paymentStructure
+    };
+
+    // Transaction handled inside repo
+    const invoice = await invoiceRepo.createInvoiceOnTheFly(client, repoPayload);
 
     return {
       success: true,

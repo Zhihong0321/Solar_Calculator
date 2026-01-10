@@ -179,32 +179,334 @@ async function findOrCreateCustomer(client, data) {
 }
 
 /**
+ * Helper: Fetch all necessary dependencies for invoice creation
+ * @private
+ */
+async function _fetchDependencies(client, data) {
+  const { userId, packageId, customerName, customerPhone, customerAddress, templateId } = data;
+
+  // 1. Get package details
+  const pkg = await getPackageById(client, packageId);
+  if (!pkg) {
+    throw new Error(`Package with ID '${packageId}' not found`);
+  }
+
+  // 2. Handle Customer
+  const internalCustomerId = await findOrCreateCustomer(client, {
+    name: customerName,
+    phone: customerPhone,
+    address: customerAddress,
+    createdBy: userId
+  });
+
+  // 3. Get template
+  let template;
+  if (templateId) {
+    template = await getTemplateById(client, templateId);
+  }
+  if (!template) {
+    template = await getDefaultTemplate(client);
+  }
+
+  return { pkg, internalCustomerId, template };
+}
+
+/**
+ * Helper: Process vouchers and calculate total voucher amount
+ * @private
+ */
+async function _processVouchers(client, { voucherCodes, voucherCode }, packagePrice) {
+  // Consolidate codes: prefer voucherCodes array, fallback to voucherCode string
+  let finalVoucherCodes = [];
+  if (Array.isArray(voucherCodes) && voucherCodes.length > 0) {
+    finalVoucherCodes = [...voucherCodes];
+  } else if (voucherCode) {
+    finalVoucherCodes = [voucherCode];
+  }
+
+  // Remove duplicates
+  finalVoucherCodes = [...new Set(finalVoucherCodes)];
+
+  let totalVoucherAmount = 0;
+  const voucherItemsToCreate = [];
+  const validVoucherCodes = [];
+
+  for (const code of finalVoucherCodes) {
+    const voucher = await getVoucherByCode(client, code);
+    if (voucher) {
+      let amount = 0;
+      let desc = '';
+      
+      if (voucher.discount_amount) {
+        amount = parseFloat(voucher.discount_amount) || 0;
+        desc = voucher.invoice_description || `Voucher: ${code}`;
+      } else if (voucher.discount_percent) {
+        amount = (packagePrice * parseFloat(voucher.discount_percent)) / 100;
+        desc = voucher.invoice_description || `Voucher: ${code}`;
+      }
+      
+      if (amount > 0) {
+        totalVoucherAmount += amount;
+        validVoucherCodes.push(code);
+        voucherItemsToCreate.push({
+          description: desc,
+          amount: amount,
+          code: code
+        });
+      }
+    }
+  }
+
+  return { totalVoucherAmount, voucherItemsToCreate, validVoucherCodes };
+}
+
+/**
+ * Helper: Calculate all financial totals
+ * @private
+ */
+function _calculateFinancials(data, packagePrice, totalVoucherAmount) {
+  const { agentMarkup = 0, discountFixed = 0, discountPercent = 0, applySst = false, eppFeeAmount = 0 } = data;
+
+  const markupAmount = parseFloat(agentMarkup) || 0;
+  const priceWithMarkup = packagePrice + markupAmount;
+
+  // Calculate discount amount from percent
+  let percentDiscountVal = 0;
+  if (discountPercent > 0) {
+    percentDiscountVal = (packagePrice * discountPercent) / 100;
+  }
+  
+  // Subtotal after ALL adjustments (discounts, vouchers, epp fees)
+  // taxable subtotal = package + markup - discounts - vouchers
+  const taxableSubtotal = Math.max(0, priceWithMarkup - discountFixed - percentDiscountVal - totalVoucherAmount);
+  
+  // Calculate SST (6% rate)
+  const sstRate = applySst ? 6.0 : 0;
+  const sstAmount = applySst ? (taxableSubtotal * sstRate) / 100 : 0;
+
+  // Total amount including SST and EPP fees
+  const finalTotalAmount = taxableSubtotal + sstAmount + parseFloat(eppFeeAmount);
+
+  return {
+    markupAmount,
+    priceWithMarkup,
+    percentDiscountVal,
+    taxableSubtotal,
+    sstRate,
+    sstAmount,
+    finalTotalAmount
+  };
+}
+
+/**
+ * Helper: Insert the main invoice record
+ * @private
+ */
+async function _createInvoiceRecord(client, data, financials, deps, voucherInfo) {
+  const {
+    taxableSubtotal, markupAmount, sstRate, sstAmount, 
+    percentDiscountVal, finalTotalAmount 
+  } = financials;
+  
+  const { pkg, internalCustomerId, template } = deps;
+  const { validVoucherCodes, totalVoucherAmount } = voucherInfo;
+  const { discountFixed = 0, discountPercent = 0, userId, customerName, customerAddress, customerPhone } = data;
+
+  const invoiceNumber = await generateInvoiceNumber(client);
+  const bubbleId = crypto.randomUUID().toString();
+  const shareToken = generateShareToken();
+  const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const finalCreatedBy = String(userId);
+
+  const invoiceResult = await client.query(
+    `INSERT INTO invoice_new
+     (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
+      customer_phone_snapshot, package_id, package_name_snapshot, invoice_number,
+      invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
+      discount_amount, discount_fixed, discount_percent, voucher_code,
+      voucher_amount, total_amount, status, share_token, share_enabled,
+      share_expires_at, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+     RETURNING *`,
+    [
+      bubbleId,
+      template.bubble_id || null, // Use template.bubble_id, not templateId passed in
+      internalCustomerId,
+      customerName || "Sample Quotation",
+      customerAddress || null,
+      customerPhone || null,
+      pkg.bubble_id,
+      pkg.name || null,
+      invoiceNumber,
+      new Date().toISOString().split('T')[0],
+      taxableSubtotal,
+      markupAmount,
+      sstRate,
+      sstAmount,
+      discountFixed + percentDiscountVal,
+      discountFixed,
+      discountPercent,
+      validVoucherCodes.join(', ') || null,
+      totalVoucherAmount,
+      finalTotalAmount,
+      'draft',
+      shareToken,
+      true,
+      shareExpiresAt.toISOString(),
+      finalCreatedBy
+    ]
+  );
+
+  return invoiceResult.rows[0];
+}
+
+/**
+ * Helper: Insert all line items
+ * @private
+ */
+async function _createLineItems(client, invoiceId, data, financials, deps, voucherInfo) {
+  const { priceWithMarkup, percentDiscountVal } = financials;
+  const { pkg } = deps;
+  const { voucherItemsToCreate } = voucherInfo;
+  const { discountFixed = 0, discountPercent = 0, eppFeeAmount = 0, eppFeeDescription = 'EPP Fee', paymentStructure } = data;
+
+  // 1. Package Item
+  const packageItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+  await client.query(
+    `INSERT INTO invoice_new_item
+     (bubble_id, invoice_id, product_id, product_name_snapshot, description,
+      qty, unit_price, discount_percent, total_price, item_type, sort_order, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
+    [
+      packageItemBubbleId,
+      invoiceId,
+      pkg.panel || null,
+      pkg.name || null,
+      pkg.invoice_desc || pkg.name || 'Solar Package',
+      1,
+      priceWithMarkup,
+      0,
+      priceWithMarkup,
+      'package',
+      0
+    ]
+  );
+
+  // 2. Discount Items
+  let sortOrder = 100;
+  if (discountFixed > 0) {
+    await client.query(
+      `INSERT INTO invoice_new_item
+       (bubble_id, invoice_id, description, qty, unit_price,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        `item_${crypto.randomBytes(8).toString('hex')}`,
+        invoiceId,
+        `Discount (RM ${discountFixed})`,
+        1,
+        -discountFixed,
+        0,
+        -discountFixed,
+        'discount',
+        sortOrder++
+      ]
+    );
+  }
+
+  if (discountPercent > 0) {
+    await client.query(
+      `INSERT INTO invoice_new_item
+       (bubble_id, invoice_id, description, qty, unit_price,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        `item_${crypto.randomBytes(8).toString('hex')}`,
+        invoiceId,
+        `Discount (${discountPercent}%)`,
+        1,
+        -percentDiscountVal,
+        discountPercent,
+        -percentDiscountVal,
+        'discount',
+        sortOrder++
+      ]
+    );
+  }
+
+  // 3. Voucher Items
+  for (const vItem of voucherItemsToCreate) {
+    await client.query(
+      `INSERT INTO invoice_new_item
+       (bubble_id, invoice_id, description, qty, unit_price,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        `item_${crypto.randomBytes(8).toString('hex')}`,
+        invoiceId,
+        vItem.description,
+        1,
+        -vItem.amount,
+        0,
+        -vItem.amount,
+        'voucher',
+        101 
+      ]
+    );
+  }
+
+  // 4. EPP Fee Item
+  if (eppFeeAmount > 0) {
+    await client.query(
+      `INSERT INTO invoice_new_item
+       (bubble_id, invoice_id, description, qty, unit_price,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        `item_${crypto.randomBytes(8).toString('hex')}`,
+        invoiceId,
+        `Bank Processing Fee (${eppFeeDescription})`,
+        1,
+        eppFeeAmount,
+        0,
+        eppFeeAmount,
+        'epp_fee',
+        200
+      ]
+    );
+  }
+
+  // 5. Payment Structure Notice
+  if (paymentStructure) {
+    await client.query(
+      `INSERT INTO invoice_new_item
+       (bubble_id, invoice_id, description, qty, unit_price,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      [
+        `item_${crypto.randomBytes(8).toString('hex')}`,
+        invoiceId,
+        paymentStructure,
+        1,
+        0,
+        0,
+        0,
+        'notice',
+        250
+      ]
+    );
+  }
+}
+
+/**
  * Create invoice on the fly
  * @param {object} client - Database client
  * @param {object} data - Invoice data (must include userId)
  * @returns {Promise<object>} Created invoice with share token
  */
 async function createInvoiceOnTheFly(client, data) {
-  const {
-    userId, 
-    packageId,
-    discountFixed = 0,
-    discountPercent = 0,
-    applySst = false,
-    templateId,
-    voucherCode,       // Legacy single voucher
-    voucherCodes = [], // New multiple vouchers
-    agentMarkup = 0,
-    customerName,
-    customerPhone,
-    customerAddress,
-    eppFeeAmount = 0,
-    eppFeeDescription = 'EPP Fee',
-    paymentStructure = null
-  } = data;
-
   // Validate userId exists
-  if (!userId) {
+  if (!data.userId) {
     throw new Error('User ID is required.');
   }
 
@@ -212,274 +514,21 @@ async function createInvoiceOnTheFly(client, data) {
     // Start transaction
     await client.query('BEGIN');
 
-    // Store userId directly from JWT token (created_by is VARCHAR, no FK constraint)
-    // This ensures invoices are properly linked to the user who created them
-    const finalCreatedBy = String(userId);
+    // 1. Fetch Dependencies (Package, Customer, Template)
+    const deps = await _fetchDependencies(client, data);
 
-    // 1. Get package details
-    const package = await getPackageById(client, packageId);
-    if (!package) {
-      throw new Error(`Package with ID '${packageId}' not found`);
-    }
+    // 2. Process Vouchers
+    const packagePrice = parseFloat(deps.pkg.price) || 0;
+    const voucherInfo = await _processVouchers(client, data, packagePrice);
 
-    // 2. Handle Customer
-    const internalCustomerId = await findOrCreateCustomer(client, {
-      name: customerName,
-      phone: customerPhone,
-      address: customerAddress,
-      createdBy: userId
-    });
+    // 3. Calculate Financials
+    const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
 
-    // 3. Get template
-    let template;
-    if (templateId) {
-      template = await getTemplateById(client, templateId);
-    }
-    if (!template) {
-      template = await getDefaultTemplate(client);
-    }
+    // 4. Create Invoice Header
+    const invoice = await _createInvoiceRecord(client, data, financials, deps, voucherInfo);
 
-    // 4. Calculate prices
-    const packagePrice = parseFloat(package.price) || 0;
-    const markupAmount = parseFloat(agentMarkup) || 0;
-    const priceWithMarkup = packagePrice + markupAmount;
-
-    // 5. Check vouchers (Multiple)
-    // Consolidate codes: prefer voucherCodes array, fallback to voucherCode string
-    let finalVoucherCodes = [];
-    if (Array.isArray(voucherCodes) && voucherCodes.length > 0) {
-      finalVoucherCodes = [...voucherCodes];
-    } else if (voucherCode) {
-      finalVoucherCodes = [voucherCode];
-    }
-
-    // Remove duplicates
-    finalVoucherCodes = [...new Set(finalVoucherCodes)];
-
-    let totalVoucherAmount = 0;
-    const voucherItemsToCreate = [];
-    const validVoucherCodes = [];
-
-    for (const code of finalVoucherCodes) {
-      const voucher = await getVoucherByCode(client, code);
-      if (voucher) {
-        let amount = 0;
-        let desc = '';
-        
-        if (voucher.discount_amount) {
-          amount = parseFloat(voucher.discount_amount) || 0;
-          desc = voucher.invoice_description || `Voucher: ${code}`;
-        } else if (voucher.discount_percent) {
-          amount = (packagePrice * parseFloat(voucher.discount_percent)) / 100;
-          desc = voucher.invoice_description || `Voucher: ${code}`;
-        }
-        
-        if (amount > 0) {
-          totalVoucherAmount += amount;
-          validVoucherCodes.push(code);
-          voucherItemsToCreate.push({
-            description: desc,
-            amount: amount,
-            code: code
-          });
-        }
-      }
-    }
-
-    // 6. Base items subtotal (package + markup)
-    let runningSubtotal = priceWithMarkup;
-
-    // 7. Calculate discount amount from percent
-    let percentDiscountVal = 0;
-    if (discountPercent > 0) {
-      percentDiscountVal = (packagePrice * discountPercent) / 100;
-    }
-    
-    // Subtotal after ALL adjustments (discounts, vouchers, epp fees)
-    // taxable subtotal = package + markup - discounts - vouchers
-    const taxableSubtotal = Math.max(0, priceWithMarkup - discountFixed - percentDiscountVal - totalVoucherAmount);
-    
-    // 8. Calculate SST (6% rate)
-    const sstRate = applySst ? 6.0 : 0;
-    const sstAmount = applySst ? (taxableSubtotal * sstRate) / 100 : 0;
-
-    // 9. Total amount including SST and EPP fees
-    const finalTotalAmount = taxableSubtotal + sstAmount + parseFloat(eppFeeAmount);
-
-    // 10. Generate basic invoice info
-    const invoiceNumber = await generateInvoiceNumber(client);
-    const bubbleId = crypto.randomUUID().toString();
-    const shareToken = generateShareToken();
-    const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    // 11. Insert invoice header
-    const invoiceResult = await client.query(
-      `INSERT INTO invoice_new
-       (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
-        customer_phone_snapshot, package_id, package_name_snapshot, invoice_number,
-        invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
-        discount_amount, discount_fixed, discount_percent, voucher_code,
-        voucher_amount, total_amount, status, share_token, share_enabled,
-        share_expires_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
-       RETURNING *`,
-      [
-        bubbleId,
-        templateId || null,
-        internalCustomerId,
-        customerName || "Sample Quotation",
-        customerAddress || null,
-        customerPhone || null,
-        packageId,
-        package.name || null,
-        invoiceNumber,
-        new Date().toISOString().split('T')[0],
-        taxableSubtotal, // subtotal in DB is taxable subtotal
-        markupAmount,
-        sstRate,
-        sstAmount,
-        discountFixed + percentDiscountVal, // discount_amount is sum
-        discountFixed,
-        discountPercent,
-        validVoucherCodes.join(', ') || null,
-        totalVoucherAmount,
-        finalTotalAmount,
-        'draft',
-        shareToken,
-        true,
-        shareExpiresAt.toISOString(),
-        finalCreatedBy
-      ]
-    );
-
-    const invoice = invoiceResult.rows[0];
-
-    // 12. Insert package item
-    const packageItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_new_item
-       (bubble_id, invoice_id, product_id, product_name_snapshot, description,
-        qty, unit_price, discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
-      [
-        packageItemBubbleId,
-        bubbleId,
-        package.panel || null,
-        package.name || null,
-        package.invoice_desc || package.name || 'Solar Package',
-        1,
-        priceWithMarkup,
-        0, // discount is handled as separate item
-        priceWithMarkup,
-        'package',
-        0
-      ]
-    );
-
-    // 13. Insert discount items
-    let sortOrder = 100;
-    if (discountFixed > 0) {
-      await client.query(
-        `INSERT INTO invoice_new_item
-         (bubble_id, invoice_id, description, qty, unit_price,
-          discount_percent, total_price, item_type, sort_order, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-        [
-          `item_${crypto.randomBytes(8).toString('hex')}`,
-          bubbleId,
-          `Discount (RM ${discountFixed})`,
-          1,
-          -discountFixed,
-          0,
-          -discountFixed,
-          'discount',
-          sortOrder++
-        ]
-      );
-    }
-
-    if (discountPercent > 0) {
-      await client.query(
-        `INSERT INTO invoice_new_item
-         (bubble_id, invoice_id, description, qty, unit_price,
-          discount_percent, total_price, item_type, sort_order, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-        [
-          `item_${crypto.randomBytes(8).toString('hex')}`,
-          bubbleId,
-          `Discount (${discountPercent}%)`,
-          1,
-          -percentDiscountVal,
-          discountPercent,
-          -percentDiscountVal,
-          'discount',
-          sortOrder++
-        ]
-      );
-    }
-
-    // 14. Insert voucher items (Loop)
-    for (const vItem of voucherItemsToCreate) {
-      await client.query(
-        `INSERT INTO invoice_new_item
-         (bubble_id, invoice_id, description, qty, unit_price,
-          discount_percent, total_price, item_type, sort_order, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-        [
-          `item_${crypto.randomBytes(8).toString('hex')}`,
-          bubbleId,
-          vItem.description,
-          1,
-          -vItem.amount,
-          0,
-          -vItem.amount,
-          'voucher',
-          101 // We keep same sort order or increment? Keeping same groups them.
-        ]
-      );
-    }
-
-    // 15. Insert EPP fee item
-    if (eppFeeAmount > 0) {
-      await client.query(
-        `INSERT INTO invoice_new_item
-         (bubble_id, invoice_id, description, qty, unit_price,
-          discount_percent, total_price, item_type, sort_order, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-        [
-          `item_${crypto.randomBytes(8).toString('hex')}`,
-          bubbleId,
-          `Bank Processing Fee (${eppFeeDescription})`,
-          1,
-          eppFeeAmount,
-          0,
-          eppFeeAmount,
-          'epp_fee',
-          200
-        ]
-      );
-    }
-
-    // 16. Insert Payment Structure Notice (RM0)
-    if (paymentStructure) {
-      await client.query(
-        `INSERT INTO invoice_new_item
-         (bubble_id, invoice_id, description, qty, unit_price,
-          discount_percent, total_price, item_type, sort_order, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
-        [
-          `item_${crypto.randomBytes(8).toString('hex')}`,
-          bubbleId,
-          paymentStructure,
-          1,
-          0,
-          0,
-          0,
-          'notice',
-          250
-        ]
-      );
-    }
+    // 5. Create Line Items
+    await _createLineItems(client, invoice.bubble_id, data, financials, deps, voucherInfo);
 
     // Commit transaction
     await client.query('COMMIT');
@@ -487,7 +536,7 @@ async function createInvoiceOnTheFly(client, data) {
     return {
       ...invoice,
       items: [],
-      template: template
+      template: deps.template
     };
   } catch (err) {
     // Rollback on error
