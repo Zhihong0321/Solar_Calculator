@@ -29,9 +29,11 @@ app.use(express.json());
 
 // Import invoice routes
 const invoiceRoutes = require('./routes/invoiceRoutes');
+const customerRoutes = require('./routes/customerRoutes');
 
 // Invoice routes (protected routes require authentication via requireAuth middleware)
 app.use(invoiceRoutes);
+app.use(customerRoutes);
 
 // Static files (public routes)
 app.use(express.static('public'));

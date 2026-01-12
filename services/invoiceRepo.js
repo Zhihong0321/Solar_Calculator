@@ -170,9 +170,10 @@ async function findOrCreateCustomer(client, data) {
           `UPDATE customer 
            SET phone = COALESCE($1, phone), 
                address = COALESCE($2, address),
-               updated_at = NOW()
+               updated_at = NOW(),
+               updated_by = $4
            WHERE id = $3`,
-          [phone, address, id]
+          [phone, address, id, String(createdBy)]
         );
       }
       return id;
