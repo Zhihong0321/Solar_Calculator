@@ -435,14 +435,21 @@ router.get('/submit-payment', (req, res) => {
         }
         const invoice = invoiceCheck.rows[0];
 
-        // 2. Fetch User's Linked Agent
-        const userCheck = await client.query(
-            'SELECT linked_agent_profile FROM "user" WHERE id = $1',
-            [userId]
-        );
+        // 2. Fetch User's Linked Agent AND Customer Bubble ID
+        // Run queries in parallel
+        const [userCheck, customerCheck] = await Promise.all([
+            client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]),
+            client.query('SELECT customer_id FROM customer WHERE id = $1', [invoice.customer_id])
+        ]);
+
         let linkedAgent = null;
         if (userCheck.rows.length > 0) {
             linkedAgent = userCheck.rows[0].linked_agent_profile;
+        }
+
+        let linkedCustomerBubbleId = null;
+        if (customerCheck.rows.length > 0) {
+            linkedCustomerBubbleId = customerCheck.rows[0].customer_id;
         }
 
         // 3. Prepare Data for Staging (submitted_payment)
@@ -458,8 +465,8 @@ router.get('/submit-payment', (req, res) => {
 
         // Prepare Attachment (Store Base64 directly for now as requested by "proof" handling logic)
         // Note: In a real prod env, upload to S3 first. 
-        // We use the 'attachment' column which is TEXT in our staging table.
-        const attachmentData = proof ? proof.data : null; 
+        // We use the 'attachment' column which is TEXT[] (ARRAY) in our staging table.
+        const attachmentData = proof ? [proof.data] : null; 
 
         await client.query(
             `INSERT INTO submitted_payment 
@@ -473,23 +480,24 @@ router.get('/submit-payment', (req, res) => {
                 remark, 
                 issuer_bank, epp_month, epp_type,
                 attachment,
-                terminal
+                terminal,
+                status
             )
-            VALUES ($1, NOW(), NOW(), NOW(), NOW(), $2, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+            VALUES ($1, NOW(), NOW(), NOW(), NOW(), $2, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'pending')`,
             [
                 paymentId,
                 standardMethod,             // payment_method & v2
                 invoice.total_amount,       // amount
                 date,                       // payment_date
                 bubbleId,                   // linked_invoice
-                invoice.customer_id,        // linked_customer
+                linkedCustomerBubbleId,     // linked_customer (Bubble ID)
                 linkedAgent,                // linked_agent
                 String(userId),             // created_by
                 remark,                     // remark
                 paymentBank || (epp ? epp.bank : null), // issuer_bank
                 epp ? parseInt(epp.tenure) : null,      // epp_month
                 epp ? 'EPP' : null,                     // epp_type
-                attachmentData,                         // attachment
+                attachmentData,                         // attachment (Array)
                 null                                    // terminal (not captured yet)
             ]
         );
