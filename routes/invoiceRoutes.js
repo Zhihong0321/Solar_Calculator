@@ -544,7 +544,7 @@ router.get('/submit-payment', (req, res) => {
         } else {
             // Insert New Payment
             const newPaymentId = `pay_${crypto.randomBytes(8).toString('hex')}`;
-            const attachmentData = attachmentUrl ? [attachmentData] : null;
+            const attachmentData = attachmentUrl ? [attachmentUrl] : null;
 
             await client.query(
                 `INSERT INTO submitted_payment 
