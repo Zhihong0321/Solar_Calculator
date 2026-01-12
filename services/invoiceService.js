@@ -190,8 +190,82 @@ async function createInvoice(pool, invoiceRequestPayload) {
   }
 }
 
+/**
+ * Create a new version of an existing invoice
+ * @param {object} pool - Database pool
+ * @param {string} originalBubbleId - The bubble_id of the invoice to version
+ * @param {InvoiceCreationPayload} invoiceRequestPayload - Normalized data
+ * @returns {Promise<object>} Result
+ */
+async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayload) {
+  const client = await pool.connect();
+
+  try {
+    // 1. Validation (Same as createInvoice but packageId is optional as we fetch from original)
+    // We relax packageId check here as it comes from original invoice
+    if (!invoiceRequestPayload.userId) {
+      return { success: false, error: 'User ID is required.' };
+    }
+
+    // 2. Data Normalization
+    let discountFixed = invoiceRequestPayload.discountFixed || 0;
+    let discountPercent = invoiceRequestPayload.discountPercent || 0;
+
+    if (invoiceRequestPayload.discountGiven) {
+      const parsed = parseDiscountString(invoiceRequestPayload.discountGiven);
+      discountFixed = parsed.discountFixed;
+      discountPercent = parsed.discountPercent;
+    }
+
+    const repoPayload = {
+      userId: invoiceRequestPayload.userId,
+      originalBubbleId: originalBubbleId, // CRITICAL: This triggers version logic
+      // packageId: We don't pass packageId, repo fetches from original
+      discountFixed: discountFixed,
+      discountPercent: discountPercent,
+      applySst: invoiceRequestPayload.applySst || false,
+      // templateId: We reuse original
+      voucherCode: invoiceRequestPayload.voucherCode,
+      voucherCodes: invoiceRequestPayload.voucherCodes,
+      agentMarkup: invoiceRequestPayload.agentMarkup || 0,
+      customerName: invoiceRequestPayload.customerName, // Updates name if provided
+      customerPhone: invoiceRequestPayload.customerPhone,
+      customerAddress: invoiceRequestPayload.customerAddress,
+      eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
+      eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
+      paymentStructure: invoiceRequestPayload.paymentStructure,
+      extraItems: invoiceRequestPayload.extraItems || []
+    };
+
+    // 3. Repository Delegation
+    const invoice = await invoiceRepo.createInvoiceVersionTransaction(client, repoPayload);
+
+    return {
+      success: true,
+      data: {
+        bubbleId: invoice.bubble_id,
+        invoiceNumber: invoice.invoice_number,
+        totalAmount: invoice.total_amount,
+        subtotal: invoice.subtotal,
+        sstAmount: invoice.sst_amount,
+        shareToken: invoice.share_token
+      }
+    };
+
+  } catch (err) {
+    console.error('Error in createInvoiceVersion service:', err);
+    return {
+      success: false,
+      error: err.message
+    };
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   parseDiscountString,
   validateInvoiceData,
-  createInvoice
+  createInvoice,
+  createInvoiceVersion
 };

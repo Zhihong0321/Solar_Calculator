@@ -305,6 +305,75 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount) {
 }
 
 /**
+ * Reconstruct viewable invoice from action snapshot
+ * @param {object} actionDetails - The JSON object stored in invoice_action.details
+ * @returns {object} The viewable invoice object
+ */
+function reconstructInvoiceFromSnapshot(actionDetails) {
+  if (!actionDetails || !actionDetails.snapshot) {
+    return null;
+  }
+  return actionDetails.snapshot;
+}
+
+/**
+ * Get single invoice by bubble_id including items
+ * @param {object} client - Database client
+ * @param {string} bubbleId - Invoice bubble_id
+ * @returns {Promise<object|null>} Invoice with items or null
+ */
+async function getInvoiceByBubbleId(client, bubbleId) {
+  try {
+    const invoiceResult = await client.query(
+      `SELECT * FROM invoice_new WHERE bubble_id = $1`,
+      [bubbleId]
+    );
+
+    if (invoiceResult.rows.length === 0) return null;
+    const invoice = invoiceResult.rows[0];
+
+    const itemsResult = await client.query(
+      `SELECT * FROM invoice_new_item WHERE invoice_id = $1 ORDER BY sort_order ASC, created_at ASC`,
+      [bubbleId]
+    );
+    invoice.items = itemsResult.rows;
+
+    return invoice;
+  } catch (err) {
+    console.error('Error in getInvoiceByBubbleId:', err);
+    throw err;
+  }
+}
+
+/**
+ * Helper: Log invoice action with full snapshot
+ * @private
+ */
+async function _logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
+  // Fetch full snapshot (Header + Items)
+  const snapshot = await getInvoiceByBubbleId(client, invoiceId);
+  
+  if (!snapshot) {
+    console.error(`Failed to capture snapshot for invoice ${invoiceId}`);
+    return;
+  }
+
+  const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
+  
+  // Merge snapshot into details
+  const details = {
+    ...extraDetails,
+    snapshot: snapshot
+  };
+
+  await client.query(
+    `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, details, created_by, created_at)`,
+    `VALUES ($1, $2, $3, $4, $5, NOW())`,
+    [actionId, invoiceId, actionType, JSON.stringify(details), createdBy]
+  );
+}
+
+/**
  * Helper: Insert the main invoice record
  * @private
  */
@@ -331,9 +400,8 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
-      share_expires_at, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
-     RETURNING *`,
+      share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)`,
+    `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 1, $1, true, NOW(), NOW())`,
     [
       bubbleId,
       template.bubble_id || null, // Use template.bubble_id, not templateId passed in
@@ -381,8 +449,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   await client.query(
     `INSERT INTO invoice_new_item
      (bubble_id, invoice_id, product_id, product_name_snapshot, description,
-      qty, unit_price, discount_percent, total_price, item_type, sort_order, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
+      qty, unit_price, discount_percent, total_price, item_type, sort_order, created_at)`,
+    `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
     [
       packageItemBubbleId,
       invoiceId,
@@ -406,8 +474,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         await client.query(
             `INSERT INTO invoice_new_item
              (bubble_id, invoice_id, description, qty, unit_price,
-              discount_percent, total_price, item_type, sort_order, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+              discount_percent, total_price, item_type, sort_order, created_at)`,
+            `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
             [
                 itemBubbleId,
                 invoiceId,
@@ -429,8 +497,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)`,
+      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -449,8 +517,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)`,
+      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -470,8 +538,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)`,
+      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -491,8 +559,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)`,
+      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -512,8 +580,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)`,
+      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -560,6 +628,9 @@ async function createInvoiceOnTheFly(client, data) {
 
     // 5. Create Line Items
     await _createLineItems(client, invoice.bubble_id, data, financials, deps, voucherInfo);
+
+    // 6. Log Action with Snapshot
+    await _logInvoiceAction(client, invoice.bubble_id, 'INVOICE_CREATED', String(data.userId), { description: 'Initial creation' });
 
     // Commit transaction
     await client.query('COMMIT');
@@ -717,6 +788,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   const offset = parseInt(options.offset) || 0;
 
   // DIRECT POSTGRESQL QUERY - created_by is VARCHAR, userId is string from JWT
+  // Filter by is_latest = true
   const query = `
     SELECT 
       bubble_id,
@@ -725,7 +797,14 @@ async function getInvoicesByUserId(client, userId, options = {}) {
       customer_name_snapshot,
       package_name_snapshot,
       subtotal,
+      agent_markup,
+      sst_rate,
       sst_amount,
+      discount_amount,
+      discount_fixed,
+      discount_percent,
+      voucher_code,
+      voucher_amount,
       total_amount,
       status,
       share_token,
@@ -733,9 +812,10 @@ async function getInvoicesByUserId(client, userId, options = {}) {
       created_at,
       updated_at,
       viewed_at,
-      share_access_count
+      share_access_count,
+      version
     FROM invoice_new
-    WHERE created_by = $1::varchar
+    WHERE created_by = $1::varchar AND is_latest = true
     ORDER BY created_at DESC
     LIMIT $2 OFFSET $3
   `;
@@ -743,7 +823,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   const countQuery = `
     SELECT COUNT(*) as total 
     FROM invoice_new 
-    WHERE created_by = $1::varchar
+    WHERE created_by = $1::varchar AND is_latest = true
   `;
 
   const [result, countResult] = await Promise.all([
@@ -792,6 +872,217 @@ async function getPublicVouchers(client) {
   }
 }
 
+/**
+ * Create invoice version transaction
+ * @param {object} client - Database client
+ * @param {object} data - Invoice data
+ * @returns {Promise<object>} Created invoice
+ */
+async function createInvoiceVersionTransaction(client, data) {
+  // Validate userId exists
+  if (!data.userId) {
+    throw new Error('User ID is required.');
+  }
+
+  if (!data.originalBubbleId) {
+    throw new Error('Original Invoice ID is required for versioning.');
+  }
+
+  try {
+    // Start transaction
+    await client.query('BEGIN');
+
+    // 1. Fetch original invoice to get package & base details
+    const orgResult = await client.query(
+      `SELECT * FROM invoice_new WHERE bubble_id = $1`,
+      [data.originalBubbleId]
+    );
+    if (orgResult.rows.length === 0) throw new Error('Original invoice not found');
+    const org = orgResult.rows[0];
+
+    // Mark OLD versions as not latest
+    const rootId = org.root_id || org.bubble_id;
+    await client.query(
+        `UPDATE invoice_new SET is_latest = false WHERE root_id = $1`,
+        [rootId]
+    );
+
+    // 2. Fetch Dependencies (Package from Original)
+    const pkg = await getPackageById(client, org.package_id);
+    if (!pkg) throw new Error(`Original package ${org.package_id} not found`);
+
+    // 3. Process Vouchers (New or empty)
+    const packagePrice = parseFloat(pkg.price) || 0;
+    const voucherInfo = await _processVouchers(client, data, packagePrice);
+
+    // 4. Calculate Financials
+    const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
+
+    // 5. Create Invoice Header (Versioned)
+    const newInvoice = await _createInvoiceVersionRecord(client, org, data, financials, voucherInfo);
+
+    // 6. Create Line Items
+    await _createLineItems(client, newInvoice.bubble_id, data, financials, { pkg }, voucherInfo);
+
+    // 7. Log Action with Snapshot
+    const details = {
+        change_summary: `Created version ${newInvoice.version} from ${org.invoice_number}`,
+        discount_fixed: data.discountFixed,
+        discount_percent: data.discountPercent,
+        total_amount: financials.finalTotalAmount
+    };
+    await _logInvoiceAction(client, newInvoice.bubble_id, 'INVOICE_VERSIONED', String(data.userId), details);
+
+    // Commit transaction
+    await client.query('COMMIT');
+
+    return {
+      ...newInvoice,
+      items: [],
+    };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error creating invoice version:', err);
+    throw err;
+  }
+}
+
+/**
+ * Helper: Insert the VERSIONED invoice record
+ * @private
+ */
+async function _createInvoiceVersionRecord(client, org, data, financials, voucherInfo) {
+  const {
+    taxableSubtotal, markupAmount, sstRate, sstAmount, 
+    percentDiscountVal, finalTotalAmount 
+  } = financials;
+  
+  const { validVoucherCodes, totalVoucherAmount } = voucherInfo;
+  const { discountFixed = 0, discountPercent = 0, userId } = data;
+
+  // Versioning Logic
+  let newInvoiceNumber = org.invoice_number;
+  const revMatch = newInvoiceNumber.match(/-R(\d+)$/);
+  if (revMatch) {
+    const currentRev = parseInt(revMatch[1]);
+    newInvoiceNumber = newInvoiceNumber.replace(/-R\d+$/, `-R${currentRev + 1}`);
+  } else {
+    newInvoiceNumber = `${newInvoiceNumber}-R1`;
+  }
+
+  const bubbleId = crypto.randomUUID().toString();
+  const shareToken = generateShareToken();
+  const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); 
+  const finalCreatedBy = String(userId);
+  const version = (org.version || 1) + 1;
+  const rootId = org.root_id || org.bubble_id;
+
+  const invoiceResult = await client.query(
+    `INSERT INTO invoice_new
+     (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
+      customer_phone_snapshot, package_id, package_name_snapshot, invoice_number,
+      invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
+      discount_amount, discount_fixed, discount_percent, voucher_code,
+      voucher_amount, total_amount, status, share_token, share_enabled,
+      share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)`,
+    `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW(), $26, $27, $28, true)`,
+    [
+      bubbleId,
+      org.template_id,
+      org.customer_id,
+      org.customer_name_snapshot,
+      org.customer_address_snapshot,
+      org.customer_phone_snapshot,
+      org.package_id,
+      org.package_name_snapshot,
+      newInvoiceNumber,
+      new Date().toISOString().split('T')[0],
+      taxableSubtotal,
+      markupAmount,
+      sstRate,
+      sstAmount,
+      discountFixed + percentDiscountVal,
+      discountFixed,
+      discountPercent,
+      validVoucherCodes.join(', ') || null,
+      totalVoucherAmount,
+      finalTotalAmount,
+      'draft',
+      shareToken,
+      true,
+      shareExpiresAt.toISOString(),
+      finalCreatedBy,
+      version,
+      rootId,
+      org.bubble_id
+    ]
+  );
+
+  return invoiceResult.rows[0];
+}
+
+/**
+ * Get full history of actions for an invoice family
+ * @param {object} client - Database client
+ * @param {string} bubbleId - Invoice bubble_id
+ * @returns {Promise<Array>} List of actions
+ */
+async function getInvoiceHistory(client, bubbleId) {
+  try {
+    // 1. Get root_id of the requested invoice
+    const invoiceRes = await client.query(
+      `SELECT root_id, bubble_id FROM invoice_new WHERE bubble_id = $1`,
+      [bubbleId]
+    );
+    
+    if (invoiceRes.rows.length === 0) return [];
+    
+    const rootId = invoiceRes.rows[0].root_id || invoiceRes.rows[0].bubble_id;
+
+    // 2. Fetch actions for all invoices in this family (sharing root_id)
+    // We join with invoice_new to get the version number for context
+    const query = `
+      SELECT 
+        ia.bubble_id as action_id,
+        ia.action_type,
+        ia.details,
+        ia.created_by,
+        ia.created_at,
+        inv.invoice_number,
+        inv.version
+      FROM invoice_action ia
+      JOIN invoice_new inv ON ia.invoice_id = inv.bubble_id
+      WHERE inv.root_id = $1 OR inv.bubble_id = $1
+      ORDER BY ia.created_at DESC
+    `;
+    
+    const result = await client.query(query, [rootId]);
+    return result.rows;
+  } catch (err) {
+    console.error('Error getting invoice history:', err);
+    return [];
+  }
+}
+
+/**
+ * Get specific invoice action by ID
+ * @param {object} client - Database client
+ * @param {string} actionId - Action bubble_id
+ * @returns {Promise<object|null>} Action record
+ */
+async function getInvoiceActionById(client, actionId) {
+  try {
+    const result = await client.query(
+      `SELECT * FROM invoice_action WHERE bubble_id = $1`,
+      [actionId]
+    );
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (err) {
+    console.error('Error getting invoice action:', err);
+    return null;
+  }
+}
+
 module.exports = {
   generateShareToken,
   generateInvoiceNumber,
@@ -803,5 +1094,10 @@ module.exports = {
   getInvoiceByShareToken,
   recordInvoiceView,
   getInvoicesByUserId,
-  getPublicVouchers
+  getPublicVouchers,
+  createInvoiceVersionTransaction,
+  getInvoiceByBubbleId,
+  reconstructInvoiceFromSnapshot,
+  getInvoiceHistory,
+  getInvoiceActionById
 };

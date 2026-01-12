@@ -192,6 +192,38 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/v1/invoices/:bubbleId
+ * Get single invoice details with items
+ * Protected: Requires authentication
+ */
+router.get('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const { bubbleId } = req.params;
+    const userId = req.user.userId;
+
+    client = await pool.connect();
+    const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
+
+    if (!invoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+
+    // Security: Check ownership
+    if (String(invoice.created_by) !== String(userId)) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    res.json({ success: true, data: invoice });
+  } catch (err) {
+    console.error('Error fetching single invoice:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * POST /api/v1/invoices/on-the-fly
  * Create invoice on the fly and return shareable link
  * Protected: Requires authentication - only registered users can create invoices
@@ -272,6 +304,185 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
       success: false,
       error: 'Failed to create invoice: ' + err.message
     });
+  }
+});
+
+/**
+ * POST /api/v1/invoices/:bubbleId/version
+ * Create a new version of an existing invoice
+ * Protected: Requires authentication
+ */
+router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) => {
+  try {
+    if (!req.user || !req.user.userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication failed'
+      });
+    }
+
+    const { bubbleId } = req.params;
+    const userId = req.user.userId;
+    
+    // Extract editable fields
+    const {
+      discount_fixed,
+      discount_percent,
+      discount_given,
+      apply_sst,
+      voucher_code,
+      voucher_codes,
+      agent_markup,
+      epp_fee_amount,
+      epp_fee_description,
+      payment_structure,
+      extra_items,
+      // We can also allow updating customer details if needed
+      customer_name,
+      customer_phone,
+      customer_address
+    } = req.body;
+
+    const result = await invoiceService.createInvoiceVersion(pool, bubbleId, {
+      userId: userId,
+      discountFixed: discount_fixed,
+      discountPercent: discount_percent,
+      discountGiven: discount_given,
+      applySst: apply_sst,
+      voucherCode: voucher_code,
+      voucherCodes: voucher_codes,
+      agentMarkup: agent_markup,
+      eppFeeAmount: epp_fee_amount,
+      eppFeeDescription: epp_fee_description,
+      paymentStructure: payment_structure,
+      extraItems: extra_items,
+      customerName: customer_name,
+      customerPhone: customer_phone,
+      customerAddress: customer_address
+    });
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+
+    // Build share URL
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const shareUrl = `${protocol}://${host}/view/${result.data.shareToken}`;
+
+    res.json({
+      success: true,
+      invoice_link: shareUrl,
+      invoice_number: result.data.invoiceNumber,
+      bubble_id: result.data.bubbleId,
+      total_amount: result.data.totalAmount
+    });
+
+  } catch (err) {
+    console.error('Error creating invoice version:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update invoice: ' + err.message
+    });
+  }
+});
+
+/**
+ * GET /api/v1/invoices/:bubbleId/history
+ * Get invoice action history
+ * Protected: Requires authentication
+ */
+router.get('/api/v1/invoices/:bubbleId/history', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const { bubbleId } = req.params;
+    client = await pool.connect();
+    
+    // Check access rights implicitly? 
+    // getInvoiceHistory gets generic info, but maybe we should check ownership of the invoice first?
+    // For now, assuming if they have the bubbleId they can see history if authenticated.
+    // Or better: check one invoice in the chain for ownership.
+    
+    const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
+    if (!invoice) {
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+    }
+    
+    // Security check
+    if (String(invoice.created_by) !== String(req.user.userId)) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    const history = await invoiceRepo.getInvoiceHistory(client, bubbleId);
+    
+    res.json({
+      success: true,
+      data: history
+    });
+  } catch (err) {
+    console.error('Error fetching invoice history:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
+ * GET /api/v1/invoices/actions/:actionId/snapshot
+ * View invoice snapshot from history
+ * Protected: Requires authentication
+ */
+router.get('/api/v1/invoices/actions/:actionId/snapshot', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const { actionId } = req.params;
+    client = await pool.connect();
+
+    const action = await invoiceRepo.getInvoiceActionById(client, actionId);
+    if (!action) {
+      return res.status(404).send('Action record not found');
+    }
+
+    // Check ownership of the created_by on the action OR the linked invoice
+    if (String(action.created_by) !== String(req.user.userId)) {
+         return res.status(403).send('Access denied');
+    }
+
+    const details = action.details || {};
+    const invoiceSnapshot = details.snapshot;
+
+    if (!invoiceSnapshot) {
+      return res.status(404).send('No snapshot available for this action');
+    }
+
+    // Determine output format
+    const accept = req.get('accept') || '';
+    const wantsJSON = accept.includes('application/json');
+
+    if (wantsJSON) {
+      return res.json({ success: true, data: invoiceSnapshot });
+    }
+
+    // Render HTML
+    // We need to ensure the template object is present. 
+    // If snapshot.template is missing, fetch default.
+    let template = invoiceSnapshot.template;
+    if (!template) {
+        template = await invoiceRepo.getDefaultTemplate(client);
+    }
+
+    const html = invoiceHtmlGenerator.generateInvoiceHtmlSync(invoiceSnapshot, template);
+    res.header('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+
+  } catch (err) {
+    console.error('Error fetching invoice snapshot:', err);
+    res.status(500).send('Error loading snapshot');
+  } finally {
+    if (client) client.release();
   }
 });
 
