@@ -484,7 +484,8 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 1, $1, true, NOW(), NOW())`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 1, $1, true, NOW(), NOW())
+     RETURNING *`,
     [
       bubbleId,
       template.bubble_id || null, // Use template.bubble_id, not templateId passed in
@@ -1068,7 +1069,8 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW(), $26, $27, $28, true)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW(), $26, $27, $28, true)
+     RETURNING *`,
     [
       bubbleId,
       org.template_id,
