@@ -415,7 +415,7 @@ router.get('/submit-payment', (req, res) => {
  router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
     const { method, date, referenceNo, notes, proof, epp, paymentBank, paymentId } = req.body;
-    const userId = req.user.id; 
+    const userId = req.user.userId; // Fixed: Matches jwt payload structure
 
     if (!method || !date) {
         return res.status(400).json({ success: false, error: 'Payment method and date are required.' });
@@ -461,7 +461,7 @@ router.get('/submit-payment', (req, res) => {
         const remark = `${notes || ''} [Ref: ${referenceNo || 'N/A'}]`.trim();
 
         // Handle Proof File Upload (Save to Disk)
-        let attachmentPath = null;
+        let attachmentUrl = null;
         if (proof && proof.data) {
             try {
                 const storageRoot = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../storage');
@@ -478,7 +478,11 @@ router.get('/submit-payment', (req, res) => {
                     const filename = `payment_${bubbleId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${fileExt}`;
                     const filePath = path.join(uploadDir, filename);
                     fs.writeFileSync(filePath, buffer);
-                    attachmentPath = `/uploads/${filename}`;
+                    
+                    // Generate Full Absolute URL
+                    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+                    const host = req.get('host');
+                    attachmentUrl = `${protocol}://${host}/uploads/${filename}`;
                 }
             } catch (fileErr) {
                 console.error('[Payment] File save error:', fileErr);
@@ -489,12 +493,7 @@ router.get('/submit-payment', (req, res) => {
         // UPDATE or INSERT
         if (paymentId) {
             // Update Existing Payment
-            // Note: We use COALESCE for attachment to keep existing if new one is null
-            let attachmentUpdateSql = "";
-            let attachmentParams = [];
-            
-            // Build dynamic query for attachment
-            if (attachmentPath) {
+            if (attachmentUrl) {
                 // If new file, update it
                 await client.query(
                     `UPDATE submitted_payment 
@@ -510,7 +509,7 @@ router.get('/submit-payment', (req, res) => {
                         paymentBank || (epp ? epp.bank : null),
                         epp ? parseInt(epp.tenure) : null,
                         epp ? 'EPP' : null,
-                        [attachmentPath], // New file
+                        [attachmentUrl], // New file URL
                         paymentId,
                         String(userId)
                     ]
@@ -545,7 +544,7 @@ router.get('/submit-payment', (req, res) => {
         } else {
             // Insert New Payment
             const newPaymentId = `pay_${crypto.randomBytes(8).toString('hex')}`;
-            const attachmentData = attachmentPath ? [attachmentPath] : null;
+            const attachmentData = attachmentUrl ? [attachmentUrl] : null;
 
             await client.query(
                 `INSERT INTO submitted_payment 
@@ -581,7 +580,7 @@ router.get('/submit-payment', (req, res) => {
                 ]
             );
 
-            // Update Invoice Status only on new creation (or always? harmless to set again)
+            // Update Invoice Status only on new creation
             await client.query(
                 "UPDATE invoice_new SET status = 'payment_submitted', updated_at = NOW() WHERE bubble_id = $1",
                 [bubbleId]
