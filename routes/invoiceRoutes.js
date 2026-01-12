@@ -4,6 +4,7 @@
  */
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { requireAuth } = require('../middleware/auth');
@@ -463,10 +464,49 @@ router.get('/submit-payment', (req, res) => {
         // Prepare Remark
         const remark = `${notes || ''} [Ref: ${referenceNo || 'N/A'}]`.trim();
 
-        // Prepare Attachment (Store Base64 directly for now as requested by "proof" handling logic)
-        // Note: In a real prod env, upload to S3 first. 
-        // We use the 'attachment' column which is TEXT[] (ARRAY) in our staging table.
-        const attachmentData = proof ? [proof.data] : null; 
+        // Handle Proof File Upload (Save to Disk)
+        let attachmentData = null;
+        if (proof && proof.data) {
+            try {
+                const storageRoot = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../storage');
+                const uploadDir = path.join(storageRoot, 'uploaded_payment');
+                
+                // Ensure directory exists
+                if (!fs.existsSync(uploadDir)) {
+                    fs.mkdirSync(uploadDir, { recursive: true });
+                }
+
+                // Decode Base64
+                // Format: "data:image/png;base64,iVBORw0KGgo..."
+                const matches = proof.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+                
+                if (matches && matches.length === 3) {
+                    const fileExt = proof.name ? path.extname(proof.name) : '.jpg'; // Default to jpg if unknown
+                    const buffer = Buffer.from(matches[2], 'base64');
+                    
+                    // Generate unique filename: payment_{invoiceId}_{timestamp}_{random}.ext
+                    const filename = `payment_${bubbleId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${fileExt}`;
+                    const filePath = path.join(uploadDir, filename);
+
+                    // Write file
+                    fs.writeFileSync(filePath, buffer);
+
+                    // Store relative path or URL - we'll store the filename to be safe/flexible
+                    // When serving, we can prepend the base URL
+                    // The 'attachment' column is TEXT[], so we wrap in array
+                    // Using format that frontend can use: '/uploads/filename'
+                    attachmentData = [`/uploads/${filename}`];
+                    
+                    console.log(`[Payment] Saved proof to ${filePath}`);
+                } else {
+                   console.warn('[Payment] Invalid Base64 format');
+                }
+            } catch (fileErr) {
+                console.error('[Payment] File save error:', fileErr);
+                // Non-blocking error? Maybe we should block.
+                throw new Error('Failed to save proof of payment file.');
+            }
+        }
 
         await client.query(
             `INSERT INTO submitted_payment 
@@ -497,7 +537,7 @@ router.get('/submit-payment', (req, res) => {
                 paymentBank || (epp ? epp.bank : null), // issuer_bank
                 epp ? parseInt(epp.tenure) : null,      // epp_month
                 epp ? 'EPP' : null,                     // epp_type
-                attachmentData,                         // attachment (Array)
+                attachmentData,                         // attachment (Array of paths)
                 null                                    // terminal (not captured yet)
             ]
         );

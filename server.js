@@ -41,6 +41,10 @@ app.use(express.static('public'));
 // Portable proposal static files (serve images)
 app.use('/proposal', express.static('portable-proposal'));
 
+// Serve uploaded payment proofs
+const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'storage');
+app.use('/uploads', express.static(path.join(storagePath, 'uploaded_payment')));
+
 // Database connection
 const { Pool } = require('pg');
 
