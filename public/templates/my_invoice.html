@@ -59,71 +59,6 @@
         </div>
     </div>
 
-    <!-- Edit Invoice Modal -->
-    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div class="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white">
-                <h2 class="text-xl font-bold text-gray-900">Edit Quotation Version</h2>
-                <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            
-            <form id="editForm" class="p-6 space-y-6">
-                <input type="hidden" id="editBubbleId">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Payment Method -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-                        <select id="editPaymentMethod" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2">
-                            <option value="Cash">Cash</option>
-                            <option value="EPP 6 Months">EPP 6 Months</option>
-                            <option value="EPP 12 Months">EPP 12 Months</option>
-                            <option value="EPP 24 Months">EPP 24 Months</option>
-                            <option value="EPP 36 Months">EPP 36 Months</option>
-                        </select>
-                    </div>
-
-                    <!-- Discount -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Discount (e.g. 500 or 10%)</label>
-                        <input type="text" id="editDiscount" placeholder="0" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2">
-                    </div>
-                </div>
-
-                <!-- Voucher -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Voucher Code</label>
-                    <input type="text" id="editVoucher" placeholder="Enter code" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2">
-                </div>
-
-                <!-- Hybrid Setting -->
-                <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h4 class="font-semibold text-blue-900">Mixed with Microinverter (Hybrid)</h4>
-                            <p class="text-sm text-blue-700">Add SAJ Microinverter to the system</p>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="editHybridToggle" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                    </div>
-                    <div id="hybridPriceContainer" class="mt-3 hidden">
-                        <label class="block text-xs font-medium text-blue-800 mb-1">Microinverter Add-on Price (RM)</label>
-                        <input type="number" id="editHybridPrice" value="800" class="w-full border-blue-200 rounded-lg shadow-sm p-2 text-sm">
-                    </div>
-                </div>
-
-                <div class="pt-4 border-t border-gray-100 flex justify-end gap-3">
-                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium">Cancel</button>
-                    <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-lg shadow-blue-200 transition-all">Save New Version</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- History Modal -->
     <div id="historyModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -229,122 +164,6 @@
             document.getElementById('historyModal').classList.add('hidden');
         }
 
-        async function openEditModal(bubbleId) {
-            try {
-                // Show loading state if needed
-                const res = await fetch(`/api/v1/invoices/${bubbleId}`);
-                const data = await res.json();
-                
-                if (!data.success) throw new Error(data.error);
-                const inv = data.data;
-
-                document.getElementById('editBubbleId').value = bubbleId;
-                
-                // Populate Discount
-                let discountVal = '0';
-                if (inv.discount_fixed > 0 && inv.discount_percent > 0) {
-                    discountVal = `${inv.discount_fixed} ${inv.discount_percent}%`;
-                } else if (inv.discount_fixed > 0) {
-                    discountVal = inv.discount_fixed;
-                } else if (inv.discount_percent > 0) {
-                    discountVal = `${inv.discount_percent}%`;
-                }
-                document.getElementById('editDiscount').value = discountVal;
-                
-                // Populate Voucher
-                document.getElementById('editVoucher').value = inv.voucher_code || '';
-                
-                // Detect Hybrid (Microinverter)
-                const hasMicro = inv.items.some(item => item.item_type === 'extra' && item.description.includes('Microinverter'));
-                const hybridToggle = document.getElementById('editHybridToggle');
-                hybridToggle.checked = hasMicro;
-                document.getElementById('hybridPriceContainer').classList.toggle('hidden', !hasMicro);
-                
-                if (hasMicro) {
-                    const microItem = inv.items.find(item => item.item_type === 'extra' && item.description.includes('Microinverter'));
-                    document.getElementById('editHybridPrice').value = microItem.unit_price;
-                }
-
-                // Detect Payment Method from 'notice' items
-                const paymentItem = inv.items.find(item => item.item_type === 'notice' && item.description.includes('Payment Method:'));
-                if (paymentItem) {
-                    const method = paymentItem.description.replace('Payment Method: ', '').trim();
-                    const select = document.getElementById('editPaymentMethod');
-                    // Check if value exists in options
-                    if ([...select.options].some(opt => opt.value === method)) {
-                        select.value = method;
-                    }
-                } else {
-                    document.getElementById('editPaymentMethod').value = "Cash";
-                }
-                
-                // Store markup to preserve it
-                window.currentEditMarkup = inv.agent_markup || 0;
-                
-                document.getElementById('editModal').classList.remove('hidden');
-            } catch (err) {
-                alert('Failed to load invoice details: ' + err.message);
-            }
-        }
-
-        function closeEditModal() {
-            document.getElementById('editModal').classList.add('hidden');
-        }
-
-        document.getElementById('editHybridToggle').addEventListener('change', function(e) {
-            document.getElementById('hybridPriceContainer').classList.toggle('hidden', !e.target.checked);
-        });
-
-        document.getElementById('editForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const btn = e.target.querySelector('button[type="submit"]');
-            const originalText = btn.textContent;
-            
-            try {
-                btn.disabled = true;
-                btn.textContent = 'Saving...';
-
-                const bubbleId = document.getElementById('editBubbleId').value;
-                const extraItems = [];
-
-                if (document.getElementById('editHybridToggle').checked) {
-                    extraItems.push({
-                        description: 'Mixed System: SAJ Microinverter Add-on',
-                        qty: 1,
-                        unit_price: parseFloat(document.getElementById('editHybridPrice').value) || 800,
-                        total_price: parseFloat(document.getElementById('editHybridPrice').value) || 800
-                    });
-                }
-
-                const payload = {
-                    discount_given: document.getElementById('editDiscount').value,
-                    voucher_code: document.getElementById('editVoucher').value,
-                    payment_structure: `Payment Method: ${document.getElementById('editPaymentMethod').value}`,
-                    extra_items: extraItems,
-                    agent_markup: window.currentEditMarkup || 0
-                };
-
-                const res = await fetch(`/api/v1/invoices/${bubbleId}/version`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await res.json();
-                if (result.success) {
-                    closeEditModal();
-                    loadQuotations(); // Refresh list
-                } else {
-                    alert('Error: ' + result.error);
-                }
-            } catch (err) {
-                alert('Failed to save: ' + err.message);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = originalText;
-            }
-        });
-
         async function loadQuotations() {
             // ... (keep original loadQuotations start)
             document.getElementById('loading').classList.remove('hidden');
@@ -404,7 +223,7 @@
                                 </div>
                                 <div class="flex gap-2">
                                     <button onclick="openHistoryModal('${inv.bubble_id}')" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm">History</button>
-                                    <button onclick="openEditModal('${inv.bubble_id}')" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded text-sm">Edit</button>
+                                    <button onclick="window.location.href='/create-invoice?edit_invoice_id=${inv.bubble_id}'" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded text-sm">Edit</button>
                                     ${inv.share_url ? `
                                         <a href="${inv.share_url}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">View</a>
                                         <button onclick="downloadQuotationPdf('${inv.share_token}')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">
