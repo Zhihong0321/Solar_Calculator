@@ -435,48 +435,78 @@ router.get('/submit-payment', (req, res) => {
         }
         const invoice = invoiceCheck.rows[0];
 
-        // 2. Insert into submitted_payment
+        // 2. Fetch User's Linked Agent
+        const userCheck = await client.query(
+            'SELECT linked_agent_profile FROM "user" WHERE id = $1',
+            [userId]
+        );
+        let linkedAgent = null;
+        if (userCheck.rows.length > 0) {
+            linkedAgent = userCheck.rows[0].linked_agent_profile;
+        }
+
+        // 3. Prepare Data for Staging (submitted_payment)
         const paymentId = `pay_${crypto.randomBytes(8).toString('hex')}`;
-        const proofJson = proof ? {
-            name: proof.name,
-            type: proof.type,
-            data: proof.data // storing full data for prototype
-        } : null;
+        
+        // Map Method to Standard Strings
+        let standardMethod = 'CASH';
+        if (method === 'credit_card') standardMethod = 'CREDIT CARD';
+        if (method === 'epp') standardMethod = 'EPP';
+
+        // Prepare Remark
+        const remark = `${notes || ''} [Ref: ${referenceNo || 'N/A'}]`.trim();
+
+        // Prepare Attachment (Store Base64 directly for now as requested by "proof" handling logic)
+        // Note: In a real prod env, upload to S3 first. 
+        // We use the 'attachment' column which is TEXT in our staging table.
+        const attachmentData = proof ? proof.data : null; 
 
         await client.query(
             `INSERT INTO submitted_payment 
-            (bubble_id, invoice_id, user_id, payment_method, payment_bank, epp_bank, epp_tenure, amount, reference_no, payment_date, proof_file, status, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', NOW(), NOW())`,
+            (
+                bubble_id, 
+                created_at, updated_at, created_date, modified_date,
+                payment_method, payment_method_v2,
+                amount, 
+                payment_date, 
+                linked_invoice, linked_customer, linked_agent, created_by,
+                remark, 
+                issuer_bank, epp_month, epp_type,
+                attachment,
+                terminal
+            )
+            VALUES ($1, NOW(), NOW(), NOW(), NOW(), $2, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
             [
                 paymentId,
-                bubbleId,
-                String(userId),
-                method,
-                paymentBank || null,
-                epp ? epp.bank : null,
-                epp ? parseInt(epp.tenure) : null,
-                invoice.total_amount,
-                referenceNo || null,
-                date,
-                proofJson
+                standardMethod,             // payment_method & v2
+                invoice.total_amount,       // amount
+                date,                       // payment_date
+                bubbleId,                   // linked_invoice
+                invoice.customer_id,        // linked_customer
+                linkedAgent,                // linked_agent
+                String(userId),             // created_by
+                remark,                     // remark
+                paymentBank || (epp ? epp.bank : null), // issuer_bank
+                epp ? parseInt(epp.tenure) : null,      // epp_month
+                epp ? 'EPP' : null,                     // epp_type
+                attachmentData,                         // attachment
+                null                                    // terminal (not captured yet)
             ]
         );
 
-        // 3. Update Invoice Status
+        // 4. Update Invoice Status
         await client.query(
             "UPDATE invoice_new SET status = 'payment_submitted', updated_at = NOW() WHERE bubble_id = $1",
             [bubbleId]
         );
 
-        // 4. Log Action
+        // 5. Log Action
         const paymentDetails = {
-            method,
+            method: standardMethod,
             payment_date: date,
             reference_no: referenceNo,
-            notes,
-            payment_bank: paymentBank,
-            epp_details: epp,
-            amount: invoice.total_amount
+            amount: invoice.total_amount,
+            bank: paymentBank || (epp ? epp.bank : null)
         };
 
         const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
