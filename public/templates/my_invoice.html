@@ -61,7 +61,7 @@
 
     <!-- Edit Invoice Modal -->
     <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh) overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white">
                 <h2 class="text-xl font-bold text-gray-900">Edit Quotation Version</h2>
                 <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
@@ -206,6 +206,8 @@
         function closeHistoryModal() {
             document.getElementById('historyModal').classList.add('hidden');
         }
+
+        async function openEditModal(bubbleId) {
             try {
                 // Show loading state if needed
                 const res = await fetch(`/api/v1/invoices/${bubbleId}`);
