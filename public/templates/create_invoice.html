@@ -1051,31 +1051,127 @@
         }
 
         // Initialize preview on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // Fetch User Profile
             fetchUserProfile();
 
             // Parse URL parameters
             const urlParams = new URLSearchParams(window.location.search);
             const packageId = urlParams.get('package_id');
+            const editInvoiceId = urlParams.get('edit_invoice_id');
             
-            if (packageId) {
-                // Hide package ID form and show loading
+            // Store edit mode state
+            if (editInvoiceId) {
+                window.isEditMode = true;
+                window.editInvoiceId = editInvoiceId;
+                document.querySelector('h1').textContent = 'Edit Quotation';
+                const submitBtn = document.querySelector('button[type="submit"]');
+                if (submitBtn) submitBtn.textContent = 'Save New Version';
+                
+                // Hide package form initially while loading
+                document.getElementById('packageIdForm').classList.add('hidden');
+                
+                // Load Invoice Data
+                try {
+                    const res = await fetch(`/api/v1/invoices/${editInvoiceId}`);
+                    const json = await res.json();
+                    
+                    if (json.success && json.data) {
+                        const inv = json.data;
+                        
+                        // 1. Load Package
+                        if (inv.package_id) {
+                            await fetchPackageDetails(inv.package_id);
+                        }
+                        
+                        // 2. Pre-fill Customer Info
+                        if (inv.customer_name_snapshot) document.getElementById('customerName').value = inv.customer_name_snapshot;
+                        // Note: Phone/Address might not be in snapshot if nullable, check keys
+                        if (inv.customer_phone_snapshot) document.getElementById('customerPhone').value = inv.customer_phone_snapshot;
+                        if (inv.customer_address_snapshot) document.getElementById('customerAddress').value = inv.customer_address_snapshot;
+                        
+                        // 3. Discount
+                        let discountVal = '';
+                        if (inv.discount_fixed > 0) discountVal += inv.discount_fixed;
+                        if (inv.discount_percent > 0) discountVal += (discountVal ? ' ' : '') + `${inv.discount_percent}%`;
+                        document.getElementById('discountGiven').value = discountVal;
+                        
+                        // 4. SST
+                        if (inv.sst_amount > 0) document.getElementById('applySST').checked = true;
+                        
+                        // 5. Markup (Preserve)
+                        window.currentAgentMarkup = inv.agent_markup || 0;
+
+                        // 6. Extra Items (Microinverters)
+                        if (inv.items) {
+                            inv.items.forEach(item => {
+                                if (item.item_type === 'extra') {
+                                    // Match by description or price
+                                    if (item.description.includes('1.8K')) {
+                                        updateExtraItemQty('inverter_1.8k', parseFloat(item.qty));
+                                    } else if (item.description.includes('1.0K')) {
+                                        updateExtraItemQty('inverter_1.0k', parseFloat(item.qty));
+                                    }
+                                }
+                                // 7. Vouchers
+                                if (item.item_type === 'voucher') {
+                                    // We need to reconstruct the voucher object to push to selectedVouchers
+                                    // Ideally we fetch full voucher details, but for now we mock it enough for display
+                                    // The code is usually in item.product_id or we have to guess/extract
+                                    // Wait, `voucher_code` column exists in invoice_new!
+                                }
+                            });
+                        }
+                        
+                        // Load Vouchers from column
+                        if (inv.voucher_code) {
+                            const codes = inv.voucher_code.split(',').map(s => s.trim());
+                            // We need to fetch available vouchers first to match them
+                            await fetchVouchers(); 
+                            
+                            codes.forEach(code => {
+                                const v = availableVouchers.find(av => av.voucher_code === code);
+                                if (v && !selectedVouchers.find(sv => sv.voucher_code === v.voucher_code)) {
+                                    selectedVouchers.push(v);
+                                }
+                            });
+                            renderSelectedVouchers();
+                        } else {
+                             await fetchVouchers();
+                        }
+
+                        // Trigger updates
+                        updateInvoicePreview();
+                        
+                    } else {
+                        showError('Failed to load invoice for editing.');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showError('Error loading invoice: ' + err.message);
+                }
+                
+            } else if (packageId) {
+                // Create Mode
                 document.getElementById('packageIdForm').classList.add('hidden');
                 document.getElementById('packageIdInput').value = packageId;
-                
-                // Fetch package details
                 fetchPackageDetails(packageId);
+                
+                // Add first payment method row (default: Cash, 100%)
+                addPaymentMethodRow();
+                
+                // Fetch vouchers
+                fetchVouchers();
             } else {
                 // Show warning if no package_id
                 showWarning('ℹ️ No Package ID provided. You can enter a Package ID above or continue without one.');
+                
+                // Add first payment method row (default: Cash, 100%)
+                addPaymentMethodRow();
+                
+                // Fetch vouchers
+                fetchVouchers();
             }
-            
-            // Add first payment method row (default: Cash, 100%)
-            addPaymentMethodRow();
-            
-            // Fetch vouchers
-            fetchVouchers();
 
             // Voucher listeners
             const voucherSelect = document.getElementById('voucherSelectDropdown');
@@ -1253,10 +1349,18 @@
                 requestData.epp_fee_amount = eppData.total_fee;
                 requestData.epp_fee_description = eppData.description;
             }
+
+            // Handle Edit Mode vs Create Mode
+            let endpoint = '/api/v1/invoices/on-the-fly';
+            if (window.isEditMode && window.editInvoiceId) {
+                endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;
+                // Preserve markup
+                requestData.agent_markup = window.currentAgentMarkup || 0;
+            }
             
-            // Call the on-the-fly invoice creation API
+            // Call the API
             try {
-                const response = await fetch('/api/v1/invoices/on-the-fly', {
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1267,10 +1371,11 @@
                 const result = await response.json();
                 
                 if (response.ok && result.success) {
-                    alert('Quotation created successfully! Redirecting to quotation view...');
+                    const action = window.isEditMode ? 'updated' : 'created';
+                    alert(`Quotation ${action} successfully! Redirecting to quotation view...`);
                     window.location.href = result.invoice_link;
                 } else {
-                    alert('Error: ' + (result.error || result.detail || 'Failed to create quotation'));
+                    alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
                     submitBtn.disabled = false;
                     submitBtn.textContent = originalText;
                 }
