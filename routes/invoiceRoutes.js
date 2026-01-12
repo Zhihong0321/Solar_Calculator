@@ -414,7 +414,7 @@ router.get('/submit-payment', (req, res) => {
  */
  router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const { method, date, referenceNo, notes, proof, epp, paymentBank } = req.body;
+    const { method, date, referenceNo, notes, proof, epp, paymentBank, paymentId } = req.body;
     const userId = req.user.id; 
 
     if (!method || !date) {
@@ -437,7 +437,6 @@ router.get('/submit-payment', (req, res) => {
         const invoice = invoiceCheck.rows[0];
 
         // 2. Fetch User's Linked Agent AND Customer Bubble ID
-        // Run queries in parallel
         const [userCheck, customerCheck] = await Promise.all([
             client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]),
             client.query('SELECT customer_id FROM customer WHERE id = $1', [invoice.customer_id])
@@ -453,9 +452,6 @@ router.get('/submit-payment', (req, res) => {
             linkedCustomerBubbleId = customerCheck.rows[0].customer_id;
         }
 
-        // 3. Prepare Data for Staging (submitted_payment)
-        const paymentId = `pay_${crypto.randomBytes(8).toString('hex')}`;
-        
         // Map Method to Standard Strings
         let standardMethod = 'CASH';
         if (method === 'credit_card') standardMethod = 'CREDIT CARD';
@@ -465,107 +461,140 @@ router.get('/submit-payment', (req, res) => {
         const remark = `${notes || ''} [Ref: ${referenceNo || 'N/A'}]`.trim();
 
         // Handle Proof File Upload (Save to Disk)
-        let attachmentData = null;
+        let attachmentPath = null;
         if (proof && proof.data) {
             try {
                 const storageRoot = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../storage');
                 const uploadDir = path.join(storageRoot, 'uploaded_payment');
                 
-                // Ensure directory exists
                 if (!fs.existsSync(uploadDir)) {
                     fs.mkdirSync(uploadDir, { recursive: true });
                 }
 
-                // Decode Base64
-                // Format: "data:image/png;base64,iVBORw0KGgo..."
                 const matches = proof.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-                
                 if (matches && matches.length === 3) {
-                    const fileExt = proof.name ? path.extname(proof.name) : '.jpg'; // Default to jpg if unknown
+                    const fileExt = proof.name ? path.extname(proof.name) : '.jpg';
                     const buffer = Buffer.from(matches[2], 'base64');
-                    
-                    // Generate unique filename: payment_{invoiceId}_{timestamp}_{random}.ext
                     const filename = `payment_${bubbleId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${fileExt}`;
                     const filePath = path.join(uploadDir, filename);
-
-                    // Write file
                     fs.writeFileSync(filePath, buffer);
-
-                    // Store relative path or URL - we'll store the filename to be safe/flexible
-                    // When serving, we can prepend the base URL
-                    // The 'attachment' column is TEXT[], so we wrap in array
-                    // Using format that frontend can use: '/uploads/filename'
-                    attachmentData = [`/uploads/${filename}`];
-                    
-                    console.log(`[Payment] Saved proof to ${filePath}`);
-                } else {
-                   console.warn('[Payment] Invalid Base64 format');
+                    attachmentPath = `/uploads/${filename}`;
                 }
             } catch (fileErr) {
                 console.error('[Payment] File save error:', fileErr);
-                // Non-blocking error? Maybe we should block.
                 throw new Error('Failed to save proof of payment file.');
             }
         }
 
-        await client.query(
-            `INSERT INTO submitted_payment 
-            (
-                bubble_id, 
-                created_at, updated_at, created_date, modified_date,
-                payment_method, payment_method_v2,
-                amount, 
-                payment_date, 
-                linked_invoice, linked_customer, linked_agent, created_by,
-                remark, 
-                issuer_bank, epp_month, epp_type,
-                attachment,
-                terminal,
-                status
-            )
-            VALUES ($1, NOW(), NOW(), NOW(), NOW(), $2, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'pending')`,
-            [
-                paymentId,
-                standardMethod,             // payment_method & v2
-                invoice.total_amount,       // amount
-                date,                       // payment_date
-                bubbleId,                   // linked_invoice
-                linkedCustomerBubbleId,     // linked_customer (Bubble ID)
-                linkedAgent,                // linked_agent
-                String(userId),             // created_by
-                remark,                     // remark
-                paymentBank || (epp ? epp.bank : null), // issuer_bank
-                epp ? parseInt(epp.tenure) : null,      // epp_month
-                epp ? 'EPP' : null,                     // epp_type
-                attachmentData,                         // attachment (Array of paths)
-                null                                    // terminal (not captured yet)
-            ]
-        );
+        // UPDATE or INSERT
+        if (paymentId) {
+            // Update Existing Payment
+            // Note: We use COALESCE for attachment to keep existing if new one is null
+            let attachmentUpdateSql = "";
+            let attachmentParams = [];
+            
+            // Build dynamic query for attachment
+            if (attachmentPath) {
+                // If new file, update it
+                await client.query(
+                    `UPDATE submitted_payment 
+                     SET payment_method = $1, payment_method_v2 = $1, amount = $2, payment_date = $3, 
+                         remark = $4, issuer_bank = $5, epp_month = $6, epp_type = $7,
+                         attachment = $8, modified_date = NOW(), updated_at = NOW()
+                     WHERE bubble_id = $9 AND created_by = $10`,
+                    [
+                        standardMethod,
+                        invoice.total_amount,
+                        date,
+                        remark,
+                        paymentBank || (epp ? epp.bank : null),
+                        epp ? parseInt(epp.tenure) : null,
+                        epp ? 'EPP' : null,
+                        [attachmentPath], // New file
+                        paymentId,
+                        String(userId)
+                    ]
+                );
+            } else {
+                // No new file, keep existing
+                await client.query(
+                    `UPDATE submitted_payment 
+                     SET payment_method = $1, payment_method_v2 = $1, amount = $2, payment_date = $3, 
+                         remark = $4, issuer_bank = $5, epp_month = $6, epp_type = $7,
+                         modified_date = NOW(), updated_at = NOW()
+                     WHERE bubble_id = $8 AND created_by = $9`,
+                    [
+                        standardMethod,
+                        invoice.total_amount,
+                        date,
+                        remark,
+                        paymentBank || (epp ? epp.bank : null),
+                        epp ? parseInt(epp.tenure) : null,
+                        epp ? 'EPP' : null,
+                        paymentId,
+                        String(userId)
+                    ]
+                );
+            }
 
-        // 4. Update Invoice Status
-        await client.query(
-            "UPDATE invoice_new SET status = 'payment_submitted', updated_at = NOW() WHERE bubble_id = $1",
-            [bubbleId]
-        );
+            // Log Action
+            await _logInvoiceAction(client, bubbleId, 'PAYMENT_UPDATED', String(userId), {
+                paymentId, amount: invoice.total_amount, method: standardMethod
+            });
 
-        // 5. Log Action
-        const paymentDetails = {
-            method: standardMethod,
-            payment_date: date,
-            reference_no: referenceNo,
-            amount: invoice.total_amount,
-            bank: paymentBank || (epp ? epp.bank : null)
-        };
+        } else {
+            // Insert New Payment
+            const newPaymentId = `pay_${crypto.randomBytes(8).toString('hex')}`;
+            const attachmentData = attachmentPath ? [attachmentPath] : null;
 
-        const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
-        await client.query(
-            `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, details, created_by, created_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())`,
-            [actionId, bubbleId, 'PAYMENT_SUBMITTED', JSON.stringify(paymentDetails), String(userId)]
-        );
+            await client.query(
+                `INSERT INTO submitted_payment 
+                (
+                    bubble_id, 
+                    created_at, updated_at, created_date, modified_date,
+                    payment_method, payment_method_v2,
+                    amount, 
+                    payment_date, 
+                    linked_invoice, linked_customer, linked_agent, created_by,
+                    remark, 
+                    issuer_bank, epp_month, epp_type,
+                    attachment,
+                    terminal,
+                    status
+                )
+                VALUES ($1, NOW(), NOW(), NOW(), NOW(), $2, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'pending')`,
+                [
+                    newPaymentId,
+                    standardMethod,
+                    invoice.total_amount,
+                    date,
+                    bubbleId,
+                    linkedCustomerBubbleId,
+                    linkedAgent,
+                    String(userId),
+                    remark,
+                    paymentBank || (epp ? epp.bank : null),
+                    epp ? parseInt(epp.tenure) : null,
+                    epp ? 'EPP' : null,
+                    attachmentData,
+                    null
+                ]
+            );
+
+            // Update Invoice Status only on new creation (or always? harmless to set again)
+            await client.query(
+                "UPDATE invoice_new SET status = 'payment_submitted', updated_at = NOW() WHERE bubble_id = $1",
+                [bubbleId]
+            );
+
+            // Log Action
+            await _logInvoiceAction(client, bubbleId, 'PAYMENT_SUBMITTED', String(userId), {
+                paymentId: newPaymentId, amount: invoice.total_amount, method: standardMethod
+            });
+        }
 
         await client.query('COMMIT');
-        res.json({ success: true, message: 'Payment submitted successfully' });
+        res.json({ success: true, message: paymentId ? 'Payment updated successfully' : 'Payment submitted successfully' });
 
     } catch (err) {
         await client.query('ROLLBACK');
@@ -1071,6 +1100,45 @@ router.get('/proposal/:shareToken/pdf', async (req, res) => {
       error: err.message || 'Failed to generate PDF'
     });
   }
+});
+
+/**
+ * GET /api/v1/submitted-payments/:bubbleId
+ * Get submitted payment details
+ */
+router.get('/api/v1/submitted-payments/:bubbleId', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const userId = req.user.id;
+
+    const client = await pool.connect();
+    try {
+        const result = await client.query(
+            `SELECT * FROM submitted_payment WHERE bubble_id = $1`,
+            [bubbleId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Payment record not found' });
+        }
+
+        const payment = result.rows[0];
+
+        // Ensure user owns this payment (via created_by) or owns the linked invoice
+        // Checking created_by is safer
+        if (String(payment.created_by) !== String(userId)) {
+             // Optional: Allow if user is admin or linked agent? 
+             // For now strict check
+             return res.status(403).json({ success: false, error: 'Unauthorized access to this payment' });
+        }
+
+        res.json({ success: true, data: payment });
+
+    } catch (err) {
+        console.error('Error fetching submitted payment:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
 });
 
 module.exports = router;

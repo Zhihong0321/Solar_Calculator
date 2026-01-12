@@ -915,7 +915,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
       i.share_access_count,
       i.version,
       (SELECT COALESCE(SUM(p.amount), 0) FROM payment p WHERE p.linked_invoice = i.bubble_id) as total_received,
-      (SELECT COALESCE(JSON_AGG(sp.amount), '[]') FROM submitted_payment sp WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending') as pending_amounts
+      (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('id', sp.bubble_id, 'amount', sp.amount)), '[]') FROM submitted_payment sp WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending') as pending_payments
     FROM invoice_new i
     WHERE i.created_by = $1::varchar AND i.is_latest = true
     ORDER BY i.created_at DESC
