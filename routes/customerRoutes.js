@@ -141,4 +141,29 @@ router.delete('/api/customers/:id', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/customers/:id/history
+ * Get customer history
+ */
+router.get('/api/customers/:id/history', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const userId = req.user.userId;
+    const { id } = req.params;
+
+    client = await pool.connect();
+    const history = await customerRepo.getCustomerHistory(client, id, userId);
+    
+    res.json({
+      success: true,
+      data: history
+    });
+  } catch (err) {
+    console.error('Error fetching customer history:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 module.exports = router;

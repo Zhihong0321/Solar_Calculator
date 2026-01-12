@@ -132,10 +132,39 @@ async function deleteCustomer(client, id, userId) {
   }
 }
 
+/**
+ * Get customer history from customer_history table
+ * @param {object} client - Database client
+ * @param {number} id - Customer internal ID (id from customer table)
+ * @param {string} userId - User ID who owns the customer
+ */
+async function getCustomerHistory(client, id, userId) {
+  // First verify ownership of the customer
+  const ownershipCheck = await client.query(
+    'SELECT id FROM customer WHERE id = $1 AND created_by = $2',
+    [id, String(userId)]
+  );
+  
+  if (ownershipCheck.rows.length === 0) {
+    return [];
+  }
+
+  // Fetch history
+  const result = await client.query(
+    `SELECT * FROM customer_history 
+     WHERE customer_id = $1 
+     ORDER BY changed_at DESC`,
+    [id]
+  );
+  
+  return result.rows;
+}
+
 module.exports = {
   getCustomersByUserId,
   getCustomerById,
   createCustomer,
   updateCustomer,
-  deleteCustomer
+  deleteCustomer,
+  getCustomerHistory
 };
