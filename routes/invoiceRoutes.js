@@ -537,14 +537,14 @@ router.get('/submit-payment', (req, res) => {
             }
 
             // Log Action
-            await _logInvoiceAction(client, bubbleId, 'PAYMENT_UPDATED', String(userId), {
+            await invoiceRepo.logInvoiceAction(client, bubbleId, 'PAYMENT_UPDATED', String(userId), {
                 paymentId, amount: invoice.total_amount, method: standardMethod
             });
 
         } else {
             // Insert New Payment
             const newPaymentId = `pay_${crypto.randomBytes(8).toString('hex')}`;
-            const attachmentData = attachmentUrl ? [attachmentUrl] : null;
+            const attachmentData = attachmentUrl ? [attachmentData] : null;
 
             await client.query(
                 `INSERT INTO submitted_payment 
@@ -587,7 +587,7 @@ router.get('/submit-payment', (req, res) => {
             );
 
             // Log Action
-            await _logInvoiceAction(client, bubbleId, 'PAYMENT_SUBMITTED', String(userId), {
+            await invoiceRepo.logInvoiceAction(client, bubbleId, 'PAYMENT_SUBMITTED', String(userId), {
                 paymentId: newPaymentId, amount: invoice.total_amount, method: standardMethod
             });
         }

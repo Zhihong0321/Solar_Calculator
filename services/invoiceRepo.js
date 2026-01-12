@@ -441,9 +441,9 @@ async function getInvoiceByBubbleId(client, bubbleId) {
 
 /**
  * Helper: Log invoice action with full snapshot
- * @private
+ * @public
  */
-async function _logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
+async function logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
   try {
     // Fetch full snapshot (Header + Items)
     const snapshot = await getInvoiceByBubbleId(client, invoiceId);
@@ -733,7 +733,7 @@ async function createInvoiceOnTheFly(client, data) {
     await client.query('COMMIT');
 
     // 6. Log Action with Snapshot (after commit)
-    await _logInvoiceAction(client, invoice.bubble_id, 'INVOICE_CREATED', String(data.userId), { description: 'Initial creation' });
+    await logInvoiceAction(client, invoice.bubble_id, 'INVOICE_CREATED', String(data.userId), { description: 'Initial creation' });
 
     return {
       ...invoice,
@@ -1068,7 +1068,7 @@ async function createInvoiceVersionTransaction(client, data) {
         discount_percent: data.discountPercent,
         total_amount: financials.finalTotalAmount
     };
-    await _logInvoiceAction(client, newInvoice.bubble_id, 'INVOICE_VERSIONED', String(data.userId), details);
+    await logInvoiceAction(client, newInvoice.bubble_id, 'INVOICE_VERSIONED', String(data.userId), details);
 
     return {
       ...newInvoice,
@@ -1235,5 +1235,6 @@ module.exports = {
   getInvoiceByBubbleId,
   reconstructInvoiceFromSnapshot,
   getInvoiceHistory,
-  getInvoiceActionById
+  getInvoiceActionById,
+  logInvoiceAction
 };
