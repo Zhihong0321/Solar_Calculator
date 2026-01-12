@@ -1074,14 +1074,42 @@
                 // Load Invoice Data
                 try {
                     const res = await fetch(`/api/v1/invoices/${editInvoiceId}`);
+
+                    // Check response status before parsing JSON
+                    if (!res.ok) {
+                        if (res.status === 404) {
+                            showError(`⚠️ Invoice Not Found: The invoice '${editInvoiceId}' does not exist.`);
+                        } else if (res.status === 403) {
+                            showError(`⚠️ Access Denied: You don't have permission to edit this invoice.`);
+                        } else if (res.status === 400) {
+                            showError(`⚠️ Bad Request: '${editInvoiceId}' is not a valid invoice ID.`);
+                        } else {
+                            showError(`⚠️ Server Error: Failed to load invoice. Status: ${res.status}`);
+                        }
+                        document.getElementById('packageIdForm').classList.remove('hidden');
+                        window.isEditMode = false;
+                        window.editInvoiceId = null;
+                        return;
+                    }
+
                     const json = await res.json();
                     
                     if (json.success && json.data) {
                         const inv = json.data;
                         
-                        // 1. Load Package
-                        if (inv.package_id) {
-                            await fetchPackageDetails(inv.package_id);
+                        // 1. Load Package (with validation)
+                        if (inv.package_id && typeof inv.package_id === 'string' && inv.package_id.length > 0) {
+                            try {
+                                await fetchPackageDetails(inv.package_id);
+                            } catch (pkgErr) {
+                                console.error('Failed to load package:', pkgErr);
+                                showWarning(`⚠️ Failed to load package '${inv.package_id}'. You may need to select a different package manually.`);
+                                document.getElementById('packageIdForm').classList.remove('hidden');
+                            }
+                        } else {
+                            // No package in invoice, show package selector
+                            showWarning(`⚠️ This invoice doesn't have a package. Please select a package manually to continue.`);
+                            document.getElementById('packageIdForm').classList.remove('hidden');
                         }
                         
                         // 2. Pre-fill Customer Info
@@ -1232,6 +1260,20 @@
         async function fetchPackageDetails(packageId) {
             try {
                 const response = await fetch(`/api/package/${packageId}`);
+
+                // Check response status before parsing JSON
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        showError(`⚠️ Package Not Found: The Package ID '${packageId}' does not exist in database.`);
+                    } else if (response.status === 400) {
+                        showError(`⚠️ Invalid Package ID: '${packageId}' is not a valid ID format.`);
+                    } else {
+                        showError(`⚠️ Server Error: Failed to fetch package. Status: ${response.status}`);
+                    }
+                    document.getElementById('packageIdForm').classList.remove('hidden');
+                    return;
+                }
+
                 const result = await response.json();
 
                 if (result.success && result.package) {
@@ -1250,7 +1292,15 @@
         function showPackage(pkg) {
             const packageInfo = document.getElementById('quotationFormContainer');
             packageInfo.classList.remove('hidden');
-            
+
+            // Safety check for null/undefined pkg
+            if (!pkg || typeof pkg !== 'object') {
+                showError('⚠️ Package data is missing or invalid. Please try again.');
+                document.getElementById('packageIdForm').classList.remove('hidden');
+                packageInfo.classList.add('hidden');
+                return;
+            }
+
             document.getElementById('packageNameDisplay').textContent = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
             document.getElementById('packagePriceDisplay').textContent = `RM ${(parseFloat(pkg.price) || 0).toFixed(2)}`;
             
