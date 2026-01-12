@@ -891,32 +891,34 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   // Filter by is_latest = true
   const query = `
     SELECT 
-      bubble_id,
-      invoice_number,
-      invoice_date,
-      customer_name_snapshot,
-      package_name_snapshot,
-      subtotal,
-      agent_markup,
-      sst_rate,
-      sst_amount,
-      discount_amount,
-      discount_fixed,
-      discount_percent,
-      voucher_code,
-      voucher_amount,
-      total_amount,
-      status,
-      share_token,
-      share_enabled,
-      created_at,
-      updated_at,
-      viewed_at,
-      share_access_count,
-      version
-    FROM invoice_new
-    WHERE created_by = $1::varchar AND is_latest = true
-    ORDER BY created_at DESC
+      i.bubble_id,
+      i.invoice_number,
+      i.invoice_date,
+      i.customer_name_snapshot,
+      i.package_name_snapshot,
+      i.subtotal,
+      i.agent_markup,
+      i.sst_rate,
+      i.sst_amount,
+      i.discount_amount,
+      i.discount_fixed,
+      i.discount_percent,
+      i.voucher_code,
+      i.voucher_amount,
+      i.total_amount,
+      i.status,
+      i.share_token,
+      i.share_enabled,
+      i.created_at,
+      i.updated_at,
+      i.viewed_at,
+      i.share_access_count,
+      i.version,
+      (SELECT COALESCE(SUM(p.amount), 0) FROM payment p WHERE p.linked_invoice = i.bubble_id) as total_received,
+      (SELECT COALESCE(JSON_AGG(sp.amount), '[]') FROM submitted_payment sp WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending') as pending_amounts
+    FROM invoice_new i
+    WHERE i.created_by = $1::varchar AND i.is_latest = true
+    ORDER BY i.created_at DESC
     LIMIT $2 OFFSET $3
   `;
 
