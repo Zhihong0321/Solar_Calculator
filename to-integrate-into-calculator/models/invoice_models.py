@@ -84,27 +84,7 @@ class InvoiceNewItem(Base):
     invoice = relationship("InvoiceNew", back_populates="items")
 
 
-class InvoicePaymentNew(Base):
-    """Invoice payment model - matches invoice_payment_new table"""
-    __tablename__ = "invoice_payment_new"
 
-    id = Column(Integer, primary_key=True, index=True)
-    bubble_id = Column(String, unique=True, nullable=False, index=True)
-    invoice_id = Column(String, ForeignKey("invoice_new.bubble_id", ondelete="CASCADE"), index=True)
-    amount = Column(Numeric(15, 2), nullable=False)
-    payment_method = Column(String)
-    payment_date = Column(String, nullable=False)
-    reference_no = Column(String)
-    bank_name = Column(String)
-    notes = Column(Text)
-    status = Column(String, default="pending")
-    verified_by = Column(Integer, ForeignKey("user.id"))
-    verified_at = Column(DateTime(timezone=True))
-    attachment_urls = Column(ARRAY(String))
-    created_by = Column(Integer, ForeignKey("user.id"))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    invoice = relationship("InvoiceNew", back_populates="payments")
 
 
 class Package(Base):

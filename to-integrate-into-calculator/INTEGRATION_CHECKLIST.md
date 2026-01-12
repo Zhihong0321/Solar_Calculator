@@ -73,7 +73,7 @@ Use this checklist to ensure a complete and successful integration.
 - [ ] Verify `voucher` table exists and is accessible
 - [ ] Verify `invoice_new` table exists and is accessible
 - [ ] Verify `invoice_new_item` table exists and is accessible
-- [ ] Verify `invoice_payment_new` table exists and is accessible
+
 - [ ] Install `weasyprint` dependency: `pip install weasyprint` (for PDF generation)
 
 ## Production Deployment

@@ -86,7 +86,7 @@ The code reads from these existing tables:
 - `voucher` - Voucher codes
 - `invoice_new` - Invoice records
 - `invoice_new_item` - Invoice line items
-- `invoice_payment_new` - Payment records
+
 
 All tables should already exist in your shared PostgreSQL database.
 

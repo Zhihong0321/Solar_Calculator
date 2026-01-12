@@ -52,7 +52,7 @@ The code reads from these existing tables (should already exist):
 - `voucher` - Voucher codes
 - `invoice_new` - Invoice records
 - `invoice_new_item` - Invoice line items
-- `invoice_payment_new` - Payment records
+
 
 ## Integration Steps Overview
 
