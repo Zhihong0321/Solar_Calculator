@@ -56,20 +56,20 @@
             <!-- Payment Form -->
             <form id="paymentForm" class="bg-white rounded-lg shadow p-6 space-y-6">
                 
-                <!-- Method -->
+                <!-- Method Selection -->
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Payment Method</label>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Payment Method Type</label>
                     <div class="grid grid-cols-3 gap-3">
                         <label class="cursor-pointer">
-                            <input type="radio" name="method" value="transfer" class="peer sr-only" checked onchange="toggleSections()">
+                            <input type="radio" name="method" value="cash" class="peer sr-only" checked onchange="toggleSections()">
                             <div class="rounded-lg border-2 border-gray-200 p-4 text-center peer-checked:border-blue-600 peer-checked:bg-blue-50 hover:bg-gray-50">
                                 <span class="block text-sm font-bold">Cash / Transfer</span>
                             </div>
                         </label>
                         <label class="cursor-pointer">
-                            <input type="radio" name="method" value="cheque" class="peer sr-only" onchange="toggleSections()">
+                            <input type="radio" name="method" value="credit_card" class="peer sr-only" onchange="toggleSections()">
                             <div class="rounded-lg border-2 border-gray-200 p-4 text-center peer-checked:border-blue-600 peer-checked:bg-blue-50 hover:bg-gray-50">
-                                <span class="block text-sm font-bold">Cheque</span>
+                                <span class="block text-sm font-bold">Credit Card</span>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -81,49 +81,33 @@
                     </div>
                 </div>
 
+                <!-- Cash/Card Bank Section -->
+                <div id="generalBankSection" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Payment Bank</label>
+                        <input type="text" name="paymentBank" id="paymentBank" placeholder="e.g. Maybank, CIMB" class="w-full border border-gray-300 rounded-lg p-2.5">
+                        <p class="text-xs text-gray-500 mt-1">Enter the bank used for payment.</p>
+                    </div>
+                </div>
+
                 <!-- EPP Section -->
                 <div id="eppSection" class="hidden space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <h3 class="font-bold text-gray-800 border-b pb-2">EPP Calculator & Details</h3>
+                    <h3 class="font-bold text-gray-800 border-b pb-2">EPP Details</h3>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Bank</label>
-                            <select id="eppBank" class="w-full border-gray-300 rounded-lg p-2.5 text-sm" onchange="updateEPPCalc()">
+                            <label class="block text-xs font-bold uppercase text-gray-500 mb-1">EPP Bank</label>
+                            <select id="eppBank" name="eppBank" class="w-full border-gray-300 rounded-lg p-2.5 text-sm" onchange="updateTenureOptions()">
                                 <!-- Populated by JS -->
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Tenure</label>
-                            <select id="eppTenure" class="w-full border-gray-300 rounded-lg p-2.5 text-sm" onchange="updateEPPCalc()">
+                            <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Tenure (Months)</label>
+                            <select id="eppTenure" name="eppTenure" class="w-full border-gray-300 rounded-lg p-2.5 text-sm">
                                 <!-- Populated by JS -->
                             </select>
                         </div>
                     </div>
-
-                    <div class="bg-white p-3 rounded border border-gray-200">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm text-gray-600">Monthly Payment</span>
-                            <span class="text-lg font-bold text-blue-600" id="monthlyInstallment">RM 0.00</span>
-                        </div>
-                        <div class="text-xs text-gray-500 space-y-1">
-                            <div class="flex justify-between">
-                                <span>Financed Amount (95%):</span>
-                                <span id="financedAmount">RM 0.00</span>
-                            </div>
-                            <div class="flex justify-between text-orange-600 font-medium">
-                                <span>Downpayment (5% Cash):</span>
-                                <span id="downpaymentAmount">RM 0.00</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Processing Fee:</span>
-                                <span id="processingFee">RM 0.00</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <p class="text-xs text-orange-800 bg-orange-100 p-2 rounded">
-                        <strong>Note:</strong> Please ensure you have paid the 5% downpayment separately. Select 'Cash/Transfer' for that receipt if needed, or upload both here.
-                    </p>
                 </div>
 
                 <!-- Reference & Notes -->
@@ -133,7 +117,7 @@
                         <input type="date" name="paymentDate" id="paymentDate" required class="w-full border border-gray-300 rounded-lg p-2.5">
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Reference No. / Cheque No.</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Reference No.</label>
                         <input type="text" name="referenceNo" placeholder="e.g. DUITNOW-123456" class="w-full border border-gray-300 rounded-lg p-2.5">
                     </div>
                 </div>
@@ -168,7 +152,7 @@
     </div>
 
     <script>
-        // EPP Rates (Copied from app.js)
+        // EPP Rates (Copied from app.js) - Used only for tenure dropdown population
         const EPP_RATES = {
             "Maybank": { 6: 2.50, 12: 3.50, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
             "Public Bank": { 6: 2.50, 12: 3.50, 18: 4.00, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
@@ -241,38 +225,19 @@
             const tenures = Object.keys(rates).sort((a,b) => parseInt(a)-parseInt(b));
             
             tenureSelect.innerHTML = tenures.map(t => `<option value="${t}">${t} Months</option>`).join('');
-            updateEPPCalc();
-        }
-
-        // Attach event listener for bank change to update tenure options first
-        document.getElementById('eppBank').addEventListener('change', updateTenureOptions);
-
-        function updateEPPCalc() {
-            if (!invoiceData) return;
-
-            const bank = document.getElementById('eppBank').value;
-            const tenure = parseInt(document.getElementById('eppTenure').value);
-            const rate = EPP_RATES[bank]?.[tenure] || 0;
-            const fullPrice = parseFloat(invoiceData.total_amount);
-
-            const downpayment = fullPrice * 0.05;
-            const financedAmount = fullPrice * 0.95;
-            const feeAmount = financedAmount * (rate / 100);
-            const monthlyInstallment = (financedAmount * (1 + rate / 100)) / tenure;
-
-            document.getElementById('monthlyInstallment').textContent = formatCurrency(monthlyInstallment);
-            document.getElementById('financedAmount').textContent = formatCurrency(financedAmount);
-            document.getElementById('downpaymentAmount').textContent = `- ${formatCurrency(downpayment)}`;
-            document.getElementById('processingFee').textContent = formatCurrency(feeAmount);
         }
 
         function toggleSections() {
             const method = document.querySelector('input[name="method"]:checked').value;
             const eppSection = document.getElementById('eppSection');
+            const generalBankSection = document.getElementById('generalBankSection');
+
             if (method === 'epp') {
                 eppSection.classList.remove('hidden');
+                generalBankSection.classList.add('hidden');
             } else {
                 eppSection.classList.add('hidden');
+                generalBankSection.classList.remove('hidden');
             }
         }
 
@@ -318,8 +283,10 @@
 
             try {
                 const formData = new FormData(e.target);
+                const method = formData.get('method');
+                
                 const payload = {
-                    method: formData.get('method'),
+                    method: method,
                     date: formData.get('paymentDate'),
                     referenceNo: formData.get('referenceNo'),
                     notes: formData.get('notes'),
@@ -328,9 +295,10 @@
                         name: formData.get('fileName'),
                         type: formData.get('fileType')
                     },
-                    epp: formData.get('method') === 'epp' ? {
-                        bank: document.getElementById('eppBank').value,
-                        tenure: document.getElementById('eppTenure').value
+                    paymentBank: method !== 'epp' ? formData.get('paymentBank') : null,
+                    epp: method === 'epp' ? {
+                        bank: formData.get('eppBank'),
+                        tenure: formData.get('eppTenure')
                     } : null
                 };
 

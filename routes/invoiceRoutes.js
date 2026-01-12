@@ -411,10 +411,10 @@ router.get('/submit-payment', (req, res) => {
  * POST /api/v1/invoices/:bubbleId/payment
  * Submit payment details
  */
-router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) => {
+ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const { method, date, referenceNo, notes, proof, epp } = req.body;
-    const userId = req.user.id; // From requireAuth
+    const { method, date, referenceNo, notes, proof, epp, paymentBank } = req.body;
+    const userId = req.user.id; 
 
     if (!method || !date) {
         return res.status(400).json({ success: false, error: 'Payment method and date are required.' });
@@ -424,7 +424,7 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
     try {
         await client.query('BEGIN');
 
-        // 1. Verify invoice exists and belongs to agent (or is visible)
+        // 1. Verify invoice exists
         const invoiceCheck = await client.query(
             'SELECT * FROM invoice_new WHERE bubble_id = $1',
             [bubbleId]
@@ -435,39 +435,50 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
         }
         const invoice = invoiceCheck.rows[0];
 
-        // 2. Update Invoice Status
+        // 2. Insert into submitted_payment
+        const paymentId = `pay_${crypto.randomBytes(8).toString('hex')}`;
+        const proofJson = proof ? {
+            name: proof.name,
+            type: proof.type,
+            data: proof.data // storing full data for prototype
+        } : null;
+
+        await client.query(
+            `INSERT INTO submitted_payment 
+            (bubble_id, invoice_id, user_id, payment_method, payment_bank, epp_bank, epp_tenure, amount, reference_no, payment_date, proof_file, status, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', NOW(), NOW())`,
+            [
+                paymentId,
+                bubbleId,
+                String(userId),
+                method,
+                paymentBank || null,
+                epp ? epp.bank : null,
+                epp ? parseInt(epp.tenure) : null,
+                invoice.total_amount,
+                referenceNo || null,
+                date,
+                proofJson
+            ]
+        );
+
+        // 3. Update Invoice Status
         await client.query(
             "UPDATE invoice_new SET status = 'payment_submitted', updated_at = NOW() WHERE bubble_id = $1",
             [bubbleId]
         );
 
-        // 3. Log Action with Details
+        // 4. Log Action
         const paymentDetails = {
             method,
             payment_date: date,
             reference_no: referenceNo,
             notes,
-            proof_file: proof ? {
-                name: proof.name,
-                type: proof.type,
-                // Note: We are storing Base64 data in the JSONB column for now as a prototype.
-                // Ideally, this should be uploaded to object storage and only the URL stored.
-                data_snippet: proof.data ? proof.data.substring(0, 50) + '...' : null, 
-                full_data: proof.data // WARNING: Large payload potential
-            } : null,
-            epp_details: epp || null,
-            amount: invoice.total_amount // Assuming full payment for now
+            payment_bank: paymentBank,
+            epp_details: epp,
+            amount: invoice.total_amount
         };
 
-        // Reuse _logInvoiceAction logic but manually since we are in a route
-        // We can't import private methods easily, so we duplicate the insert logic or expose it.
-        // invoiceRepo is imported as 'invoiceRepo' (assumed based on context, checking require at top)
-        
-        // Let's assume invoiceRepo is available in scope or we import it
-        // Checking file content... it seems I need to import it if I haven't.
-        // The file usually has `const invoiceRepo = require('../services/invoiceRepo');` at top.
-        // Since I'm editing the file, I'll use direct SQL for safety if I can't confirm imports.
-        
         const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
         await client.query(
             `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, details, created_by, created_at)
@@ -476,7 +487,6 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
         );
 
         await client.query('COMMIT');
-
         res.json({ success: true, message: 'Payment submitted successfully' });
 
     } catch (err) {
@@ -487,7 +497,6 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
         client.release();
     }
 });
-
 // GET /api/v1/invoices/:bubbleId/history
 router.get('/api/v1/invoices/:bubbleId/history', requireAuth, async (req, res) => {
   let client = null;
