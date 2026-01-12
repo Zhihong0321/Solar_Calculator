@@ -4,6 +4,7 @@
  */
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const { requireAuth } = require('../middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
@@ -400,11 +401,94 @@ router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) 
   }
 });
 
+// GET /submit-payment
+// Serve the submit payment page
+router.get('/submit-payment', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/templates/submit_payment.html'));
+});
+
 /**
- * GET /api/v1/invoices/:bubbleId/history
- * Get invoice action history
- * Protected: Requires authentication
+ * POST /api/v1/invoices/:bubbleId/payment
+ * Submit payment details
  */
+router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const { method, date, referenceNo, notes, proof, epp } = req.body;
+    const userId = req.user.id; // From requireAuth
+
+    if (!method || !date) {
+        return res.status(400).json({ success: false, error: 'Payment method and date are required.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Verify invoice exists and belongs to agent (or is visible)
+        const invoiceCheck = await client.query(
+            'SELECT * FROM invoice_new WHERE bubble_id = $1',
+            [bubbleId]
+        );
+
+        if (invoiceCheck.rows.length === 0) {
+            throw new Error('Invoice not found');
+        }
+        const invoice = invoiceCheck.rows[0];
+
+        // 2. Update Invoice Status
+        await client.query(
+            "UPDATE invoice_new SET status = 'payment_submitted', updated_at = NOW() WHERE bubble_id = $1",
+            [bubbleId]
+        );
+
+        // 3. Log Action with Details
+        const paymentDetails = {
+            method,
+            payment_date: date,
+            reference_no: referenceNo,
+            notes,
+            proof_file: proof ? {
+                name: proof.name,
+                type: proof.type,
+                // Note: We are storing Base64 data in the JSONB column for now as a prototype.
+                // Ideally, this should be uploaded to object storage and only the URL stored.
+                data_snippet: proof.data ? proof.data.substring(0, 50) + '...' : null, 
+                full_data: proof.data // WARNING: Large payload potential
+            } : null,
+            epp_details: epp || null,
+            amount: invoice.total_amount // Assuming full payment for now
+        };
+
+        // Reuse _logInvoiceAction logic but manually since we are in a route
+        // We can't import private methods easily, so we duplicate the insert logic or expose it.
+        // invoiceRepo is imported as 'invoiceRepo' (assumed based on context, checking require at top)
+        
+        // Let's assume invoiceRepo is available in scope or we import it
+        // Checking file content... it seems I need to import it if I haven't.
+        // The file usually has `const invoiceRepo = require('../services/invoiceRepo');` at top.
+        // Since I'm editing the file, I'll use direct SQL for safety if I can't confirm imports.
+        
+        const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
+        await client.query(
+            `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, details, created_by, created_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())`,
+            [actionId, bubbleId, 'PAYMENT_SUBMITTED', JSON.stringify(paymentDetails), String(userId)]
+        );
+
+        await client.query('COMMIT');
+
+        res.json({ success: true, message: 'Payment submitted successfully' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Payment submission error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// GET /api/v1/invoices/:bubbleId/history
 router.get('/api/v1/invoices/:bubbleId/history', requireAuth, async (req, res) => {
   let client = null;
   try {

@@ -101,6 +101,7 @@
             const classes = {
                 'paid': 'bg-green-100 text-green-800',
                 'sent': 'bg-blue-100 text-blue-800',
+                'payment_submitted': 'bg-purple-100 text-purple-800',
                 'cancelled': 'bg-red-100 text-red-800',
                 'draft': 'bg-yellow-100 text-yellow-800'
             };
@@ -230,6 +231,12 @@
                                 <div class="flex gap-2">
                                     <button onclick="openHistoryModal('${inv.bubble_id}')" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm">History</button>
                                     <button onclick="window.location.href='/edit-invoice?id=${inv.bubble_id}'" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded text-sm">Edit</button>
+                                    ${inv.status !== 'cancelled' ? `
+                                        <button onclick="window.location.href='/submit-payment?id=${inv.bubble_id}'" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm flex items-center gap-1">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                                            Submit Payment
+                                        </button>
+                                    ` : ''}
                                     ${inv.share_url ? `
                                         <a href="${inv.share_url}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">View</a>
                                         <button onclick="downloadQuotationPdf('${inv.share_token}')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">
