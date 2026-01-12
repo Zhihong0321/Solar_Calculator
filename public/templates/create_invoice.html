@@ -1113,7 +1113,17 @@
                         }
                         
                         // 2. Pre-fill Customer Info
-                        if (inv.customer_name_snapshot) document.getElementById('customerName').value = inv.customer_name_snapshot;
+                        if (inv.customer_name_snapshot) {
+                            const nameInput = document.getElementById('customerName');
+                            nameInput.value = inv.customer_name_snapshot;
+                            
+                            // If customer exists (and isn't the default "Sample Quotation"), disable name editing
+                            if (inv.customer_name_snapshot !== 'Sample Quotation') {
+                                nameInput.readOnly = true;
+                                nameInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+                                nameInput.title = "Customer name cannot be changed for existing customers. Please create a new quotation for a different customer.";
+                            }
+                        }
                         // Note: Phone/Address might not be in snapshot if nullable, check keys
                         if (inv.customer_phone_snapshot) document.getElementById('customerPhone').value = inv.customer_phone_snapshot;
                         if (inv.customer_address_snapshot) document.getElementById('customerAddress').value = inv.customer_address_snapshot;

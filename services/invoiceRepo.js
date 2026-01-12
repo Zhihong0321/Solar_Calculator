@@ -156,11 +156,26 @@ async function findOrCreateCustomer(client, data) {
   try {
     // 1. Try to find by name
     const findRes = await client.query(
-      'SELECT id FROM customer WHERE name = $1 LIMIT 1',
+      'SELECT id, phone, address FROM customer WHERE name = $1 LIMIT 1',
       [name]
     );
+    
     if (findRes.rows.length > 0) {
-      return findRes.rows[0].id;
+      const customer = findRes.rows[0];
+      const id = customer.id;
+      
+      // Update if phone or address changed
+      if ((phone && phone !== customer.phone) || (address && address !== customer.address)) {
+        await client.query(
+          `UPDATE customer 
+           SET phone = COALESCE($1, phone), 
+               address = COALESCE($2, address),
+               updated_at = NOW()
+           WHERE id = $3`,
+          [phone, address, id]
+        );
+      }
+      return id;
     }
 
     // 2. Create new if not found
@@ -995,6 +1010,38 @@ async function createInvoiceVersionTransaction(client, data) {
     const pkg = await getPackageById(client, org.package_id);
     if (!pkg) throw new Error(`Original package ${org.package_id} not found`);
 
+    // 2.5 Resolve Customer
+    // Use new data if provided, otherwise fallback to original
+    // IMPORTANT: If user clears the name, data.customerName might be null, but we usually keep original if not provided.
+    // However, the service layer passes what it gets.
+    
+    let customerName = data.customerName;
+    if (customerName === undefined) customerName = org.customer_name_snapshot;
+    
+    let customerPhone = data.customerPhone;
+    if (customerPhone === undefined) customerPhone = org.customer_phone_snapshot;
+
+    let customerAddress = data.customerAddress;
+    if (customerAddress === undefined) customerAddress = org.customer_address_snapshot;
+
+    // Resolve internal ID and update record if needed
+    let internalCustomerId = org.customer_id;
+    if (customerName) {
+        internalCustomerId = await findOrCreateCustomer(client, {
+            name: customerName,
+            phone: customerPhone,
+            address: customerAddress,
+            createdBy: data.userId
+        });
+    }
+
+    const customerData = {
+        id: internalCustomerId,
+        name: customerName,
+        phone: customerPhone,
+        address: customerAddress
+    };
+
     // 3. Process Vouchers (New or empty)
     const packagePrice = parseFloat(pkg.price) || 0;
     const voucherInfo = await _processVouchers(client, data, packagePrice);
@@ -1003,7 +1050,7 @@ async function createInvoiceVersionTransaction(client, data) {
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
 
     // 5. Create Invoice Header (Versioned)
-    const newInvoice = await _createInvoiceVersionRecord(client, org, data, financials, voucherInfo);
+    const newInvoice = await _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData);
 
     // 6. Create Line Items
     await _createLineItems(client, newInvoice.bubble_id, data, financials, { pkg }, voucherInfo);
@@ -1035,7 +1082,7 @@ async function createInvoiceVersionTransaction(client, data) {
  * Helper: Insert the VERSIONED invoice record
  * @private
  */
-async function _createInvoiceVersionRecord(client, org, data, financials, voucherInfo) {
+async function _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData) {
   const {
     taxableSubtotal, markupAmount, sstRate, sstAmount, 
     percentDiscountVal, finalTotalAmount 
@@ -1043,6 +1090,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
   
   const { validVoucherCodes, totalVoucherAmount } = voucherInfo;
   const { discountFixed = 0, discountPercent = 0, userId } = data;
+  const { id: customerId, name: customerName, address: customerAddress, phone: customerPhone } = customerData;
 
   // Versioning Logic
   let newInvoiceNumber = org.invoice_number;
@@ -1074,10 +1122,10 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
     [
       bubbleId,
       org.template_id,
-      org.customer_id,
-      org.customer_name_snapshot,
-      org.customer_address_snapshot,
-      org.customer_phone_snapshot,
+      customerId,
+      customerName || "Sample Quotation",
+      customerAddress || null,
+      customerPhone || null,
       org.package_id,
       org.package_name_snapshot,
       newInvoiceNumber,
