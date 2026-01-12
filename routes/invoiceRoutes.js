@@ -121,6 +121,16 @@ router.get('/create-invoice', requireAuth, (req, res) => {
 });
 
 /**
+ * GET /edit-invoice
+ * Invoice edit page - loads existing invoice for editing
+ * Protected: Requires authentication
+ */
+router.get('/edit-invoice', requireAuth, (req, res) => {
+    const templatePath = path.join(__dirname, '..', 'public', 'templates', 'edit_invoice.html');
+    res.sendFile(templatePath);
+});
+
+/**
  * GET /my-invoice
  * User's invoice management page - DIRECT POSTGRESQL ACCESS
  * Protected: Requires authentication

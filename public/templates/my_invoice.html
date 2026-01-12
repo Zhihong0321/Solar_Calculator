@@ -223,7 +223,7 @@
                                 </div>
                                 <div class="flex gap-2">
                                     <button onclick="openHistoryModal('${inv.bubble_id}')" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm">History</button>
-                                    <button onclick="window.location.href='/create-invoice?edit_invoice_id=${inv.bubble_id}'" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded text-sm">Edit</button>
+                                    <button onclick="window.location.href='/edit-invoice?id=${inv.bubble_id}'" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded text-sm">Edit</button>
                                     ${inv.share_url ? `
                                         <a href="${inv.share_url}" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">View</a>
                                         <button onclick="downloadQuotationPdf('${inv.share_token}')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">

@@ -324,6 +324,7 @@ function reconstructInvoiceFromSnapshot(actionDetails) {
  */
 async function getInvoiceByBubbleId(client, bubbleId) {
   try {
+    // Query 1: Get invoice
     const invoiceResult = await client.query(
       `SELECT * FROM invoice_new WHERE bubble_id = $1`,
       [bubbleId]
@@ -332,11 +333,88 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     if (invoiceResult.rows.length === 0) return null;
     const invoice = invoiceResult.rows[0];
 
+    // Query 2: Get items
     const itemsResult = await client.query(
       `SELECT * FROM invoice_new_item WHERE invoice_id = $1 ORDER BY sort_order ASC, created_at ASC`,
       [bubbleId]
     );
     invoice.items = itemsResult.rows;
+
+    // Queries 3-6: Run in parallel if possible
+    const parallelQueries = [];
+
+    // Query 3: Get package data for system size calculation
+    if (invoice.package_id) {
+      parallelQueries.push(
+        (async () => {
+          const packageResult = await client.query(
+            `SELECT p.panel_qty, p.panel, pr.solar_output_rating
+             FROM package p
+             LEFT JOIN product pr ON (
+               CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+               OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+             )
+             WHERE p.bubble_id = $1`,
+            [invoice.package_id]
+          );
+          if (packageResult.rows.length > 0) {
+            const packageData = packageResult.rows[0];
+            invoice.panel_qty = packageData.panel_qty;
+            invoice.panel_rating = packageData.solar_output_rating;
+            if (packageData.panel_qty && packageData.solar_output_rating) {
+              invoice.system_size_kwp = (packageData.panel_qty * packageData.solar_output_rating) / 1000;
+            }
+          }
+        })()
+      );
+    }
+
+    // Query 4: Fetch user name who created invoice
+    if (invoice.created_by) {
+      parallelQueries.push(
+        client.query(
+          `SELECT a.name 
+           FROM "user" u 
+           JOIN agent a ON u.linked_agent_profile = a.bubble_id 
+           WHERE u.id = $1 
+           LIMIT 1`,
+          [invoice.created_by]
+        ).then(userResult => {
+          if (userResult.rows.length > 0) {
+            invoice.created_by_user_name = userResult.rows[0].name;
+          } else {
+            invoice.created_by_user_name = 'System';
+          }
+        }).catch(err => {
+          console.warn('Could not fetch user name:', err.message);
+          invoice.created_by_user_name = 'System';
+        })
+      );
+    }
+
+    // Query 5: Get template
+    if (invoice.template_id) {
+      parallelQueries.push(
+        client.query(
+          `SELECT * FROM invoice_template WHERE bubble_id = $1`,
+          [invoice.template_id]
+        ).then(templateResult => {
+          if (templateResult.rows.length > 0) {
+            invoice.template = templateResult.rows[0];
+          }
+        })
+      );
+    }
+
+    // Query 6: Get default template (if needed)
+    const getTemplatePromise = (async () => {
+      if (!invoice.template) {
+        invoice.template = await getDefaultTemplate(client);
+      }
+    })();
+
+    // Wait for all parallel queries to complete
+    await Promise.all([...parallelQueries, getTemplatePromise]);
 
     return invoice;
   } catch (err) {
@@ -350,27 +428,32 @@ async function getInvoiceByBubbleId(client, bubbleId) {
  * @private
  */
 async function _logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
-  // Fetch full snapshot (Header + Items)
-  const snapshot = await getInvoiceByBubbleId(client, invoiceId);
-  
-  if (!snapshot) {
-    console.error(`Failed to capture snapshot for invoice ${invoiceId}`);
-    return;
+  try {
+    // Fetch full snapshot (Header + Items)
+    const snapshot = await getInvoiceByBubbleId(client, invoiceId);
+
+    if (!snapshot) {
+      console.error(`Failed to capture snapshot for invoice ${invoiceId}`);
+      throw new Error(`Snapshot not found for invoice ${invoiceId}`);
+    }
+
+    const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
+
+    // Merge snapshot into details
+    const details = {
+      ...extraDetails,
+      snapshot: snapshot
+    };
+
+    await client.query(
+      `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, details, created_by, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [actionId, invoiceId, actionType, JSON.stringify(details), createdBy]
+    );
+  } catch (err) {
+    console.error('Error logging invoice action:', err);
+    throw new Error(`Failed to log invoice action: ${err.message}`);
   }
-
-  const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
-  
-  // Merge snapshot into details
-  const details = {
-    ...extraDetails,
-    snapshot: snapshot
-  };
-
-  await client.query(
-    `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, details, created_by, created_at)`,
-    `VALUES ($1, $2, $3, $4, $5, NOW())`,
-    [actionId, invoiceId, actionType, JSON.stringify(details), createdBy]
-  );
 }
 
 /**
@@ -400,8 +483,8 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
-      share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)`,
-    `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 1, $1, true, NOW(), NOW())`,
+      share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 1, $1, true, NOW(), NOW())`,
     [
       bubbleId,
       template.bubble_id || null, // Use template.bubble_id, not templateId passed in
@@ -449,8 +532,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   await client.query(
     `INSERT INTO invoice_new_item
      (bubble_id, invoice_id, product_id, product_name_snapshot, description,
-      qty, unit_price, discount_percent, total_price, item_type, sort_order, created_at)`,
-    `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
+      qty, unit_price, discount_percent, total_price, item_type, sort_order, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
     [
       packageItemBubbleId,
       invoiceId,
@@ -474,8 +557,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         await client.query(
             `INSERT INTO invoice_new_item
              (bubble_id, invoice_id, description, qty, unit_price,
-              discount_percent, total_price, item_type, sort_order, created_at)`,
-            `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+              discount_percent, total_price, item_type, sort_order, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
             [
                 itemBubbleId,
                 invoiceId,
@@ -497,8 +580,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)`,
-      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -517,8 +600,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)`,
-      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -538,8 +621,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)`,
-      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -559,8 +642,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)`,
-      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -580,8 +663,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_new_item
        (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)`,
-      `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        discount_percent, total_price, item_type, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
       [
         `item_${crypto.randomBytes(8).toString('hex')}`,
         invoiceId,
@@ -629,11 +712,11 @@ async function createInvoiceOnTheFly(client, data) {
     // 5. Create Line Items
     await _createLineItems(client, invoice.bubble_id, data, financials, deps, voucherInfo);
 
-    // 6. Log Action with Snapshot
-    await _logInvoiceAction(client, invoice.bubble_id, 'INVOICE_CREATED', String(data.userId), { description: 'Initial creation' });
-
     // Commit transaction
     await client.query('COMMIT');
+
+    // 6. Log Action with Snapshot (after commit)
+    await _logInvoiceAction(client, invoice.bubble_id, 'INVOICE_CREATED', String(data.userId), { description: 'Initial creation' });
 
     return {
       ...invoice,
@@ -924,7 +1007,10 @@ async function createInvoiceVersionTransaction(client, data) {
     // 6. Create Line Items
     await _createLineItems(client, newInvoice.bubble_id, data, financials, { pkg }, voucherInfo);
 
-    // 7. Log Action with Snapshot
+    // Commit transaction
+    await client.query('COMMIT');
+
+    // 7. Log Action with Snapshot (after commit)
     const details = {
         change_summary: `Created version ${newInvoice.version} from ${org.invoice_number}`,
         discount_fixed: data.discountFixed,
@@ -932,9 +1018,6 @@ async function createInvoiceVersionTransaction(client, data) {
         total_amount: financials.finalTotalAmount
     };
     await _logInvoiceAction(client, newInvoice.bubble_id, 'INVOICE_VERSIONED', String(data.userId), details);
-
-    // Commit transaction
-    await client.query('COMMIT');
 
     return {
       ...newInvoice,
@@ -984,8 +1067,8 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
-      share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)`,
-    `VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW(), $26, $27, $28, true)`,
+      share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW(), $26, $27, $28, true)`,
     [
       bubbleId,
       org.template_id,
