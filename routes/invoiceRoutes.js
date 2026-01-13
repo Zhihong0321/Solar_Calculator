@@ -1140,4 +1140,30 @@ router.get('/api/v1/submitted-payments/:bubbleId', requireAuth, async (req, res)
     }
 });
 
+/**
+ * DELETE /api/v1/invoices/cleanup-samples
+ * Remove all invoices with "Sample Quotation" customer name
+ * Protected: Requires authentication
+ */
+router.delete('/api/v1/invoices/cleanup-samples', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const userId = req.user.userId;
+    client = await pool.connect();
+    
+    const count = await invoiceRepo.deleteSampleInvoices(client, userId);
+    
+    res.json({
+      success: true,
+      message: `Successfully deleted ${count} sample invoice(s).`,
+      count
+    });
+  } catch (err) {
+    console.error('Error cleaning up invoices:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 module.exports = router;

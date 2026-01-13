@@ -132,6 +132,10 @@
                     <p class="text-sm text-gray-500 mt-1 font-medium">Manage and track all your quotations</p>
                 </div>
                 <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <button onclick="cleanupSamples()" class="btn-secondary px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        <span class="hidden sm:inline">Cleanup Samples</span>
+                    </button>
                     <a href="/my-customers" class="btn-secondary px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                         <span class="hidden sm:inline">Customers</span>
@@ -261,6 +265,28 @@
                 'draft': 'bg-amber-100 text-amber-800 border-amber-200'
             };
             return classes[s] || classes.draft;
+        }
+
+        async function cleanupSamples() {
+            if (!confirm('Are you sure you want to delete ALL invoices named "Sample Quotation"? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/v1/invoices/cleanup-samples', { method: 'DELETE' });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    // Reload current page
+                    loadQuotations();
+                } else {
+                    throw new Error(data.error || 'Failed to cleanup invoices');
+                }
+            } catch (err) {
+                console.error('Cleanup Error:', err);
+                alert('Error: ' + err.message);
+            }
         }
 
         async function openHistoryModal(bubbleId) {

@@ -1248,6 +1248,71 @@ async function getInvoiceHistory(client, bubbleId) {
 }
 
 /**
+ * Delete all "Sample Quotation" invoices for a user
+ * @param {object} client - Database client
+ * @param {string} userId - User ID
+ * @returns {Promise<number>} Count of deleted invoices
+ */
+async function deleteSampleInvoices(client, userId) {
+  try {
+    await client.query('BEGIN');
+
+    // 1. Find target invoices (created by user AND named 'Sample Quotation')
+    // We also check for linked_agent_profile to be thorough
+    let userBubbleId = null;
+    try {
+      const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]);
+      if (userRes.rows.length > 0) userBubbleId = userRes.rows[0].linked_agent_profile;
+    } catch (e) {}
+
+    const params = [String(userId)];
+    let whereClause = `(created_by = $1::varchar`;
+    if (userBubbleId) {
+      whereClause += ` OR created_by = $2::varchar`;
+      params.push(userBubbleId);
+    }
+    whereClause += `)`;
+
+    // Find IDs first
+    const findQuery = `
+      SELECT bubble_id, id 
+      FROM invoice 
+      WHERE ${whereClause} AND customer_name_snapshot = 'Sample Quotation'
+    `;
+    
+    const targets = await client.query(findQuery, params);
+    
+    if (targets.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return 0;
+    }
+
+    const bubbleIds = targets.rows.map(r => r.bubble_id);
+    const intIds = targets.rows.map(r => r.id);
+
+    // 2. Delete Linked Items (invoice_new_item)
+    await client.query(`DELETE FROM invoice_new_item WHERE invoice_id = ANY($1)`, [bubbleIds]);
+
+    // 3. Delete Snapshots (invoice_snapshot)
+    await client.query(`DELETE FROM invoice_snapshot WHERE invoice_id = ANY($1)`, [intIds]);
+
+    // 4. Delete Actions (invoice_action)
+    await client.query(`DELETE FROM invoice_action WHERE invoice_id = ANY($1)`, [bubbleIds]);
+
+    // 5. Delete Invoices
+    await client.query(`DELETE FROM invoice WHERE bubble_id = ANY($1)`, [bubbleIds]);
+
+    await client.query('COMMIT');
+    return targets.rows.length;
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting sample invoices:', err);
+    throw err;
+  }
+}
+
+/**
  * Get specific invoice action by ID
  * @param {object} client - Database client
  * @param {string} actionId - Action bubble_id
@@ -1283,5 +1348,6 @@ module.exports = {
   reconstructInvoiceFromSnapshot,
   getInvoiceHistory,
   getInvoiceActionById,
-  logInvoiceAction
+  logInvoiceAction,
+  deleteSampleInvoices
 };
