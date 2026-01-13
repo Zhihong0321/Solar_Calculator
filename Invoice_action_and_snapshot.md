@@ -6,17 +6,30 @@ The Invoice Action system tracks all changes made to invoices (creation, version
 
 ## Database Schema
 
-### invoice_action Table
+### 1. invoice_action Table (Legacy Log)
 
 | Column | Type | Description |
 |---------|-------|-------------|
 | id | integer | Auto-increment primary key |
 | bubble_id | varchar(255) | Action record ID (format: `act_XXXXXXXXXXXX`) |
-| invoice_id | varchar(255) | Reference to invoice_new.bubble_id |
+| invoice_id | varchar(255) | Reference to invoice.bubble_id |
 | action_type | varchar(50) | Type of action: `INVOICE_CREATED`, `INVOICE_VERSIONED` |
 | details | jsonb | JSONB field containing action metadata and full snapshot |
 | created_by | varchar(255) | User ID who performed the action |
 | created_at | timestamp | When the action occurred |
+
+### 2. invoice_snapshot Table (New Architecture)
+
+This table stores the high-integrity version history of every invoice.
+
+| Column | Type | Description |
+|---------|-------|-------------|
+| id | integer | Auto-increment primary key |
+| invoice_id | integer | Foreign Key to `invoice.id` |
+| version | integer | Version number (1, 2, 3...) |
+| snapshot_data | jsonb | Full JSON object of the invoice state |
+| created_by | varchar(255) | User ID who created this snapshot |
+| created_at | timestamp | When the snapshot was taken |
 
 ## JSON Structure
 
@@ -42,14 +55,16 @@ The `snapshot` field is a complete representation of the invoice state including
 
 ```json
 {
+  "id": 158,
   "bubble_id": "inv_9f34474630192402",
   "invoice_number": "INV-000001",
+  "customer_id": 49,
   "customer_name_snapshot": "Test User",
   "customer_phone_snapshot": null,
   "customer_address_snapshot": null,
   "package_id": "1703833647950x572894707690242050",
   "package_name_snapshot": "STRING SAJ JINKO 8 PCS",
-  "invoice_date": "2025-12-29",
+  "invoice_date": "2025-12-29T00:00:00.000Z",
   "subtotal": "18276.00",
   "sst_rate": "0.00",
   "sst_amount": "0.00",
@@ -100,18 +115,19 @@ The `snapshot` field is a complete representation of the invoice state including
 
 ## Snapshot Field Types
 
-### Header Fields (invoice_new table)
+### Header Fields (invoice table)
 
 | Field | Type | Description |
 |--------|-------|-------------|
 | bubble_id | string | Invoice unique ID |
 | invoice_number | string | Human-readable invoice number |
-| customer_name_snapshot | string/null | Customer name at time of action |
-| customer_phone_snapshot | string/null | Customer phone at time of action |
-| customer_address_snapshot | string/null | Customer address at time of action |
+| customer_id | integer | Link to Customer table |
+| customer_name_snapshot | text/null | Customer name at time of action |
+| customer_phone_snapshot | text/null | Customer phone at time of action |
+| customer_address_snapshot | text/null | Customer address at time of action |
 | package_id | string/null | Package bubble_id |
-| package_name_snapshot | string/null | Package name at time of action |
-| invoice_date | string | Invoice date (YYYY-MM-DD) |
+| package_name_snapshot | text/null | Package name at time of action |
+| invoice_date | timestamp | Invoice date |
 | subtotal | numeric | Base amount before discounts/SST |
 | sst_rate | numeric | SST percentage (e.g., 6.00) |
 | sst_amount | numeric | SST amount calculated |
@@ -125,8 +141,8 @@ The `snapshot` field is a complete representation of the invoice state including
 | share_token | string | Public share token |
 | agent_markup | numeric | Agent markup amount |
 | version | integer | Invoice version number |
-| root_id | string | Root invoice bubble_id (first in chain) |
-| parent_id | string/null | Parent invoice bubble_id |
+| root_id | text | Root invoice bubble_id (first in chain) |
+| parent_id | text/null | Parent invoice bubble_id |
 | is_latest | boolean | Whether this is the latest version |
 
 ### Calculated Fields (added during snapshot creation)
@@ -293,10 +309,10 @@ Accept: application/json
 
 ### Creating Invoice Action
 
-**Location:** `services/invoiceRepo.js` - `_logInvoiceAction()`
+**Location:** `services/invoiceRepo.js` - `logInvoiceAction()`
 
 ```javascript
-async function _logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
+async function logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
   // 1. Fetch full snapshot (Header + Items)
   const snapshot = await getInvoiceByBubbleId(client, invoiceId);
   
@@ -313,239 +329,22 @@ async function _logInvoiceAction(client, invoiceId, actionType, createdBy, extra
     snapshot: snapshot
   };
 
-  // 3. Insert action record
+  // 3. Insert action record (Legacy)
   await client.query(
     `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, details, created_by, created_at)`,
     `VALUES ($1, $2, $3, $4, $5, NOW())`,
     [actionId, invoiceId, actionType, JSON.stringify(details), createdBy]
   );
-}
-```
-
-### Creating Invoice Version (with action logging)
-
-**Location:** `services/invoiceRepo.js` - `createInvoiceVersionTransaction()`
-
-```javascript
-async function createInvoiceVersionTransaction(client, data) {
-  // 1. Fetch original invoice
-  // 2. Create new version record
-  const newInvoice = await _createInvoiceVersionRecord(client, org, data, financials, voucherInfo);
-
-  // 3. Create line items
-  await _createLineItems(client, newInvoice.bubble_id, data, financials, { pkg }, voucherInfo);
-
-  // 4. Log Action with Snapshot
-  const details = {
-    change_summary: `Created version ${newInvoice.version} from ${org.invoice_number}`,
-    discount_fixed: data.discountFixed,
-    discount_percent: data.discountPercent,
-    total_amount: financials.finalTotalAmount
-  };
-  await _logInvoiceAction(client, newInvoice.bubble_id, 'INVOICE_VERSIONED', String(data.userId), details);
-
-  // 5. Commit transaction
-  await client.query('COMMIT');
-}
-```
-
-## Frontend Usage
-
-### History Modal (my_invoice.html)
-
-```javascript
-async function openHistoryModal(bubbleId) {
-  const res = await fetch(`/api/v1/invoices/${bubbleId}/history`);
-  const json = await res.json();
   
-  if (json.success) {
-    const actions = json.data;
-    
-    // Render history items
-    actions.forEach(action => {
-      const details = action.details || {};
-      const hasSnapshot = !!details.snapshot;
-      
-      // Show "View Snapshot" button if snapshot exists
-      if (hasSnapshot) {
-        // Link to snapshot view (opens in new tab)
-        const snapshotUrl = `/api/v1/invoices/actions/${action.bubble_id}/snapshot`;
-        
-        // Render button
-        renderButton({
-          text: 'View Snapshot',
-          href: snapshotUrl,
-          target: '_blank',
-          className: 'bg-emerald-100 text-emerald-700'
-        });
-      }
-    });
-  }
+  // 4. Insert Snapshot Record (New)
+  const invoiceIntId = snapshot.id;
+  const version = snapshot.version || 1;
+  await client.query(
+    `INSERT INTO invoice_snapshot (invoice_id, version, snapshot_data, created_by, created_at)`,
+    `VALUES ($1, $2, $3, $4, NOW())`,
+    [invoiceIntId, version, JSON.stringify(snapshot), createdBy]
+  );
 }
-```
-
-### Snapshot View Button
-
-```html
-<a href="/api/v1/invoices/actions/${action.action_id}/snapshot" 
-   target="_blank" 
-   class="ml-auto text-xs bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-semibold">
-   View Snapshot
-</a>
-```
-
-- **Opens in new tab** (`target="_blank"`)
-- **Renders full HTML invoice** using snapshot data
-- **Preserves exact invoice state** at time of action
-- **Cannot be modified** - snapshots are read-only
-
-## Important Notes
-
-### 1. Snapshot Completeness
-
-Snapshots MUST include:
-- ✓ All invoice_new header fields
-- ✓ All invoice_new_item records (sorted by sort_order)
-- ✓ Template object (for rendering HTML)
-- ✓ Package data (panel_qty, panel_rating for system size)
-- ✓ Created by user name
-
-### 2. Template Handling
-
-When viewing snapshot:
-- If `snapshot.template` exists → Use it
-- If `snapshot.template` is null → Fetch default template
-- This ensures snapshot can always be rendered even if template was deleted
-
-### 3. Security
-
-- Users can only view snapshots of invoices they created (`created_by` check)
-- Snapshot IDs (`bubble_id` in invoice_action) are separate from invoice IDs
-- Use `act_` prefix to avoid confusion
-
-### 4. Data Types in Database
-
-**Important:** PostgreSQL numeric types are returned as strings in some cases. Always parse to number before calculations:
-
-```javascript
-const totalAmount = parseFloat(snapshot.total_amount) || 0;
-const subtotal = parseFloat(snapshot.subtotal) || 0;
-```
-
-### 5. Item Types
-
-The `items` array can contain multiple item types:
-
-| Type | Description | Example |
-|-------|-------------|----------|
-| package | Main package item | "STRING SAJ JINKO 8 PCS" |
-| discount | Discount item | "-RM 500.00" |
-| voucher | Voucher discount | "-RM 1000.00" |
-| extra | Additional items (inverters) | "SAJ Microinverter M2 1.8K" |
-| bank_processing_fee | EPP fee | "RM 500.00" |
-| sst | SST amount | "RM 1036.56" |
-| subtotal | Subtotal line item | "RM 18276.00" |
-
-## Testing Snapshots
-
-### Test 1: Create Invoice and Check Snapshot
-
-```bash
-# Create invoice via API
-curl -X POST http://localhost:3000/api/v1/invoices/on-the-fly \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"package_id": "...", "customer_name": "Test"}'
-
-# Check action was created
-SELECT * FROM invoice_action 
-WHERE invoice_id = '<returned_bubble_id>';
-
-# Verify snapshot structure
-SELECT details->'snapshot'->'invoice_number' as invoice_number,
-       jsonb_array_length(details->'snapshot'->'items') as item_count
-FROM invoice_action;
-```
-
-### Test 2: Create Version and Check Snapshot
-
-```bash
-# Create version
-curl -X POST http://localhost:3000/api/v1/invoices/<bubble_id>/version \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"discount_given": "500 10%"}'
-
-# View history
-curl http://localhost:3000/api/v1/invoices/<bubble_id>/history \
-  -H "Authorization: Bearer <token>"
-
-# View specific snapshot (HTML)
-curl http://localhost:3000/api/v1/invoices/actions/<action_bubble_id>/snapshot \
-  -H "Authorization: Bearer <token>"
-```
-
-### Test 3: Verify Snapshot Template Rendering
-
-```bash
-# Get snapshot as JSON
-curl http://localhost:3000/api/v1/invoices/actions/<action_bubble_id>/snapshot \
-  -H "Authorization: Bearer <token>" \
-  -H "Accept: application/json"
-
-# Check if template is present
-# Expected: { "success": true, "data": { ..., "template": { ... } } }
-```
-
-## Common Issues and Solutions
-
-### Issue: Snapshot missing template
-
-**Problem:** `snapshot.template` is null, invoice renders with default template.
-
-**Solution:** `getInvoiceByBubbleId` must fetch template object:
-
-```javascript
-// WRONG - doesn't include template
-const snapshot = await getInvoiceByBubbleId(client, invoiceId);
-
-// CORRECT - getInvoiceByShareToken includes template
-// OR - modify getInvoiceByBubbleId to fetch template
-```
-
-**Fix:** Ensure `getInvoiceByBubbleId` fetches template like `getInvoiceByShareToken` does.
-
-### Issue: Items not sorted
-
-**Problem:** Items appear in random order.
-
-**Solution:** Always fetch with ORDER BY:
-
-```javascript
-ORDER BY sort_order ASC, created_at ASC
-```
-
-### Issue: Missing calculated fields
-
-**Problem:** `system_size_kwp` not in snapshot.
-
-**Solution:** Calculate during snapshot creation:
-
-```javascript
-if (packageData.panel_qty && packageData.solar_output_rating) {
-  invoice.system_size_kwp = (packageData.panel_qty * packageData.solar_output_rating) / 1000;
-}
-```
-
-### Issue: Date parsing
-
-**Problem:** Timestamps don't match database format.
-
-**Solution:** Use `toISOString()` for database, format strings for display:
-
-```javascript
-invoiceDate: new Date().toISOString().split('T')[0]  // For DB
-invoiceDate: '2025-12-29'  // For display
 ```
 
 ## Summary

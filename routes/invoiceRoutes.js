@@ -427,7 +427,7 @@ router.get('/submit-payment', (req, res) => {
 
         // 1. Verify invoice exists
         const invoiceCheck = await client.query(
-            'SELECT * FROM invoice_new WHERE bubble_id = $1',
+            'SELECT * FROM invoice WHERE bubble_id = $1',
             [bubbleId]
         );
 
@@ -582,7 +582,7 @@ router.get('/submit-payment', (req, res) => {
 
             // Update Invoice Status only on new creation
             await client.query(
-                "UPDATE invoice_new SET status = 'payment_submitted', updated_at = NOW() WHERE bubble_id = $1",
+                "UPDATE invoice SET status = 'payment_submitted', updated_at = NOW() WHERE bubble_id = $1",
                 [bubbleId]
             );
 

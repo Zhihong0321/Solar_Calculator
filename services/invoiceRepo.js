@@ -22,7 +22,7 @@ async function generateInvoiceNumber(client) {
     // Get last invoice number
     const lastInvoiceResult = await client.query(
       `SELECT invoice_number
-       FROM invoice_new
+       FROM invoice
        WHERE invoice_number LIKE 'INV-%'
        ORDER BY invoice_number DESC
        LIMIT 1`
@@ -342,7 +342,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
   try {
     // Query 1: Get invoice
     const invoiceResult = await client.query(
-      `SELECT * FROM invoice_new WHERE bubble_id = $1`,
+      `SELECT * FROM invoice WHERE bubble_id = $1`,
       [bubbleId]
     );
 
@@ -455,7 +455,7 @@ async function logInvoiceAction(client, invoiceId, actionType, createdBy, extraD
 
     const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
 
-    // Merge snapshot into details
+    // 1. Log to legacy invoice_action (existing logic)
     const details = {
       ...extraDetails,
       snapshot: snapshot
@@ -466,6 +466,18 @@ async function logInvoiceAction(client, invoiceId, actionType, createdBy, extraD
        VALUES ($1, $2, $3, $4, $5, NOW())`,
       [actionId, invoiceId, actionType, JSON.stringify(details), createdBy]
     );
+
+    // 2. Log to NEW invoice_snapshot table (New Architecture)
+    // We get the real integer ID from the snapshot
+    const invoiceIntId = snapshot.id;
+    const version = snapshot.version || 1;
+
+    await client.query(
+      `INSERT INTO invoice_snapshot (invoice_id, version, snapshot_data, created_by, created_at)
+       VALUES ($1, $2, $3, $4, NOW())`,
+      [invoiceIntId, version, JSON.stringify(snapshot), createdBy]
+    );
+
   } catch (err) {
     console.error('Error logging invoice action:', err);
     throw new Error(`Failed to log invoice action: ${err.message}`);
@@ -493,7 +505,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const finalCreatedBy = String(userId);
 
   const invoiceResult = await client.query(
-    `INSERT INTO invoice_new
+    `INSERT INTO invoice
      (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, package_id, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
@@ -757,7 +769,7 @@ async function createInvoiceOnTheFly(client, data) {
 async function getInvoiceByShareToken(client, shareToken) {
   try {
     const invoiceResult = await client.query(
-      `SELECT * FROM invoice_new
+      `SELECT * FROM invoice
        WHERE share_token = $1
          AND share_enabled = true
          AND (share_expires_at IS NULL OR share_expires_at > NOW())
@@ -865,7 +877,7 @@ async function getInvoiceByShareToken(client, shareToken) {
 async function recordInvoiceView(client, invoiceId) {
   try {
     await client.query(
-      `UPDATE invoice_new
+      `UPDATE invoice
        SET viewed_at = NOW(),
            share_access_count = COALESCE(share_access_count, 0) + 1
        WHERE bubble_id = $1`,
@@ -887,7 +899,28 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   const limit = parseInt(options.limit) || 100;
   const offset = parseInt(options.offset) || 0;
 
-  // DIRECT POSTGRESQL QUERY - created_by is VARCHAR, userId is string from JWT
+  // 1. Fetch the user's Bubble ID (linked_agent_profile)
+  let userBubbleId = null;
+  try {
+    const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]);
+    if (userRes.rows.length > 0) {
+      userBubbleId = userRes.rows[0].linked_agent_profile;
+    }
+  } catch (e) {
+    console.warn('Could not fetch linked_agent_profile for user', userId);
+  }
+
+  // 2. Build Query to check BOTH IDs
+  const params = [String(userId)];
+  let whereClause = `(i.created_by = $1::varchar`;
+  
+  if (userBubbleId) {
+    whereClause += ` OR i.created_by = $2::varchar`;
+    params.push(userBubbleId);
+  }
+  whereClause += `)`;
+
+  // DIRECT POSTGRESQL QUERY
   // Filter by is_latest = true
   const query = `
     SELECT 
@@ -916,21 +949,24 @@ async function getInvoicesByUserId(client, userId, options = {}) {
       i.version,
       (SELECT COALESCE(SUM(p.amount), 0) FROM payment p WHERE p.linked_invoice = i.bubble_id) as total_received,
       (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('id', sp.bubble_id, 'amount', sp.amount)), '[]') FROM submitted_payment sp WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending') as pending_payments
-    FROM invoice_new i
-    WHERE i.created_by = $1::varchar AND i.is_latest = true
+    FROM invoice i
+    WHERE ${whereClause} AND i.is_latest = true
     ORDER BY i.created_at DESC
-    LIMIT $2 OFFSET $3
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2}
   `;
 
   const countQuery = `
     SELECT COUNT(*) as total 
-    FROM invoice_new 
-    WHERE created_by = $1::varchar AND is_latest = true
+    FROM invoice i
+    WHERE ${whereClause} AND i.is_latest = true
   `;
 
+  // Add limit/offset to params for the main query
+  const queryParams = [...params, limit, offset];
+
   const [result, countResult] = await Promise.all([
-    client.query(query, [String(userId), limit, offset]),
-    client.query(countQuery, [String(userId)])
+    client.query(query, queryParams),
+    client.query(countQuery, params)
   ]);
 
   return {
@@ -996,7 +1032,7 @@ async function createInvoiceVersionTransaction(client, data) {
 
     // 1. Fetch original invoice to get package & base details
     const orgResult = await client.query(
-      `SELECT * FROM invoice_new WHERE bubble_id = $1`,
+      `SELECT * FROM invoice WHERE bubble_id = $1`,
       [data.originalBubbleId]
     );
     if (orgResult.rows.length === 0) throw new Error('Original invoice not found');
@@ -1005,7 +1041,7 @@ async function createInvoiceVersionTransaction(client, data) {
     // Mark OLD versions as not latest
     const rootId = org.root_id || org.bubble_id;
     await client.query(
-        `UPDATE invoice_new SET is_latest = false WHERE root_id = $1`,
+        `UPDATE invoice SET is_latest = false WHERE root_id = $1`,
         [rootId]
     );
 
@@ -1113,7 +1149,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
   const rootId = org.root_id || org.bubble_id;
 
   const invoiceResult = await client.query(
-    `INSERT INTO invoice_new
+    `INSERT INTO invoice
      (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, package_id, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
@@ -1167,7 +1203,7 @@ async function getInvoiceHistory(client, bubbleId) {
   try {
     // 1. Get root_id of the requested invoice
     const invoiceRes = await client.query(
-      `SELECT root_id, bubble_id FROM invoice_new WHERE bubble_id = $1`,
+      `SELECT root_id, bubble_id FROM invoice WHERE bubble_id = $1`,
       [bubbleId]
     );
     
@@ -1176,7 +1212,7 @@ async function getInvoiceHistory(client, bubbleId) {
     const rootId = invoiceRes.rows[0].root_id || invoiceRes.rows[0].bubble_id;
 
     // 2. Fetch actions for all invoices in this family (sharing root_id)
-    // We join with invoice_new to get the version number for context
+    // We join with invoice to get the version number for context
     const query = `
       SELECT 
         ia.bubble_id as action_id,
@@ -1187,7 +1223,7 @@ async function getInvoiceHistory(client, bubbleId) {
         inv.invoice_number,
         inv.version
       FROM invoice_action ia
-      JOIN invoice_new inv ON ia.invoice_id = inv.bubble_id
+      JOIN invoice inv ON ia.invoice_id = inv.bubble_id
       WHERE inv.root_id = $1 OR inv.bubble_id = $1
       ORDER BY ia.created_at DESC
     `;
