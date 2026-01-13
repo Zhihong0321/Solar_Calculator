@@ -899,25 +899,36 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   const limit = parseInt(options.limit) || 100;
   const offset = parseInt(options.offset) || 0;
 
-  // 1. Fetch the user's Bubble ID (linked_agent_profile)
+  // 1. Fetch the user's Bubble ID and Agent Profile
   let userBubbleId = null;
+  let linkedAgentId = null;
   try {
-    const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]);
+    const userRes = await client.query('SELECT bubble_id, linked_agent_profile FROM "user" WHERE id = $1', [userId]);
     if (userRes.rows.length > 0) {
-      userBubbleId = userRes.rows[0].linked_agent_profile;
+      userBubbleId = userRes.rows[0].bubble_id;
+      linkedAgentId = userRes.rows[0].linked_agent_profile;
     }
   } catch (e) {
-    console.warn('Could not fetch linked_agent_profile for user', userId);
+    console.warn('Could not fetch user details for user', userId);
   }
 
-  // 2. Build Query to check BOTH IDs
+  // 2. Build Query to check ALL possible IDs
   const params = [String(userId)];
   let whereClause = `(i.created_by = $1::varchar`;
-  
+  let paramIndex = 2;
+
   if (userBubbleId) {
-    whereClause += ` OR i.created_by = $2::varchar`;
+    whereClause += ` OR i.created_by = $${paramIndex}::varchar`;
     params.push(userBubbleId);
+    paramIndex++;
   }
+
+  if (linkedAgentId) {
+    whereClause += ` OR i.created_by = $${paramIndex}::varchar`;
+    params.push(linkedAgentId);
+    paramIndex++;
+  }
+  
   whereClause += `)`;
 
   // DIRECT POSTGRESQL QUERY
@@ -952,7 +963,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
     FROM invoice i
     WHERE ${whereClause} AND i.is_latest = true
     ORDER BY i.created_at DESC
-    LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `;
 
   const countQuery = `
