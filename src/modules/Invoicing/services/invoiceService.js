@@ -3,6 +3,7 @@
  * Business logic for invoice creation
  */
 const invoiceRepo = require('./invoiceRepo');
+const sedaService = require('./sedaService');
 
 /**
  * Parse discount_given string into discount_fixed and discount_percent
@@ -168,6 +169,28 @@ async function createInvoice(pool, invoiceRequestPayload) {
     // Transaction handled inside repo
     const invoice = await invoiceRepo.createInvoiceOnTheFly(client, repoPayload);
 
+    console.log('[InvoiceService] Invoice Created:', invoice.bubble_id);
+    console.log('[InvoiceService] Customer Bubble ID:', invoice.customerBubbleId);
+
+    // [New Requirement] Create SEDA Registration if customer info is present
+    if (invoice.customerBubbleId) {
+        try {
+            console.log('[InvoiceService] Attempting SEDA creation...');
+            await sedaService.ensureSedaRegistration(
+                client, 
+                invoice.bubble_id, 
+                invoice.customerBubbleId, 
+                String(repoPayload.userId)
+            );
+            console.log('[InvoiceService] SEDA creation success/ensured.');
+        } catch (sedaErr) {
+            console.error('Failed to auto-create SEDA registration:', sedaErr);
+            // Non-blocking: We don't fail the invoice creation if SEDA fails
+        }
+    } else {
+        console.log('[InvoiceService] No Customer Bubble ID, skipping SEDA.');
+    }
+
     return {
       success: true,
       data: {
@@ -239,6 +262,20 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
 
     // 3. Repository Delegation
     const invoice = await invoiceRepo.createInvoiceVersionTransaction(client, repoPayload);
+
+    // [New Requirement] Ensure SEDA Registration exists for versioned invoice
+    if (invoice.customerBubbleId) {
+        try {
+            await sedaService.ensureSedaRegistration(
+                client, 
+                invoice.bubble_id, 
+                invoice.customerBubbleId, 
+                String(repoPayload.userId)
+            );
+        } catch (sedaErr) {
+            console.error('Failed to auto-create SEDA registration for version:', sedaErr);
+        }
+    }
 
     return {
       success: true,
