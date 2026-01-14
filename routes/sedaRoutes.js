@@ -21,10 +21,15 @@ const router = express.Router();
  * Query Params: ?id=SEDA_BUBBLE_ID
  */
 router.get('/seda-register', requireAuth, (req, res) => {
+    console.log('Serving SEDA Register Page V2 - No Cache');
     // Check if ID is provided
     if (!req.query.id) {
         return res.status(400).send('Missing SEDA Registration ID');
     }
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     const templatePath = path.join(__dirname, '..', 'public', 'templates', 'seda_register.html');
     res.sendFile(templatePath);
 });
