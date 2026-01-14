@@ -36,9 +36,14 @@
         .progress-bar-container { width: 300px; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 1rem; }
         .progress-bar-fill { height: 100%; background: #0f172a; width: 0%; transition: width 0.1s linear; }
 
-        /* Modal */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 60; }
-        .modal-card { background: white; padding: 2rem; border-radius: 0.75rem; width: 90%; max-width: 500px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        /* Extracted Data Box */
+        .extracted-data-box { margin-top: 1rem; padding: 1rem; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 0.5rem; }
+        .extracted-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #dcfce7; }
+        .extracted-item:last-child { border-bottom: none; }
+        .extracted-label { font-size: 0.75rem; color: #166534; font-weight: 600; text-transform: uppercase; }
+        .extracted-value { font-size: 0.875rem; color: #14532d; font-weight: 500; margin-top: 0.125rem; }
+        .btn-insert { font-size: 0.75rem; background-color: white; border: 1px solid #86efac; color: #166534; padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-weight: 600; cursor: pointer; transition: all 0.1s; }
+        .btn-insert:hover { background-color: #dcfce7; }
     </style>
 </head>
 <body class="py-10 px-4 sm:px-6 lg:px-8">
@@ -51,20 +56,6 @@
                 <div id="progressBar" class="progress-bar-fill"></div>
             </div>
             <div class="text-xs text-slate-500 mt-2">This may take up to 25 seconds</div>
-        </div>
-    </div>
-
-    <!-- Extraction Result Modal -->
-    <div id="resultModal" class="modal-overlay">
-        <div class="modal-card">
-            <h3 class="text-lg font-bold text-slate-900 mb-4">Data Extracted</h3>
-            <div id="resultContent" class="space-y-3 mb-6 text-sm text-slate-600">
-                <!-- Injected via JS -->
-            </div>
-            <div class="flex justify-end gap-3">
-                <button onclick="closeResultModal()" class="px-4 py-2 border border-slate-300 rounded text-slate-700 hover:bg-slate-50">Cancel</button>
-                <button id="btnApplyData" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-medium">Apply Data</button>
-            </div>
         </div>
     </div>
 
@@ -350,7 +341,133 @@
             reader.readAsDataURL(file);
         }
 
-        // --- Logic for Extraction ---
+        // --- Extraction Logic ---
+        function parseExtractionData(json) {
+            let extracted = {};
+            
+            // Check for new format (Perplexity)
+            const data = (json.success && json.data) ? json.data : json;
+
+            if (data.text) {
+                // 1. Try to find the FINAL step which contains the structured answer
+                const finalStep = data.text.find(s => s.step_type === 'FINAL');
+                if (finalStep && finalStep.content && finalStep.content.answer) {
+                    try {
+                        const parsed = JSON.parse(finalStep.content.answer);
+                        if (parsed.answer) {
+                            const text = parsed.answer;
+                            if (!extracted.tnb_account) extracted.tnb_account = (text.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i) || [])[1];
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse final answer as JSON');
+                    }
+                }
+                
+                // 2. Fallback: Check SEARCH_RESULTS for snippets
+                const searchStep = data.text.find(s => s.step_type === 'SEARCH_RESULTS');
+                if (searchStep && searchStep.content && searchStep.content.web_results) {
+                    const snippet = searchStep.content.web_results[0]?.snippet || '';
+                    
+                    if (!extracted.tnb_account) {
+                        const accMatch = snippet.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i);
+                        if (accMatch) extracted.tnb_account = accMatch[1];
+                    }
+
+                    if (!extracted.address || !extracted.customer_name) {
+                        const addrMatch = snippet.match(/ALAMAT POS\s*\n([\s\S]+?)(?=\n\s*\n|\nSila|\nTENAGA)/i);
+                        if (addrMatch) {
+                            const lines = addrMatch[1].split('\n').map(l => l.trim()).filter(l => l);
+                            if (lines.length > 0) {
+                                extracted.customer_name = lines[0]; 
+                                extracted.address = lines.slice(1).join(', ');
+                            }
+                        }
+                    }
+                    
+                    // Attempt IC Number extraction (for MyKad) if not TNB
+                    if (!extracted.mykad_id) {
+                         const icMatch = snippet.match(/(\d{6}-\d{2}-\d{4})/);
+                         if (icMatch) extracted.mykad_id = icMatch[1];
+                    }
+                }
+            } else {
+                // Legacy or direct format
+                extracted = data;
+            }
+            return extracted;
+        }
+
+        function renderInlineResults(input, type, data) {
+            // Remove existing result box if any
+            const container = input.closest('.input-group');
+            const existing = container.querySelector('.extracted-data-box');
+            if (existing) existing.remove();
+
+            const extracted = parseExtractionData(data);
+            let itemsHtml = '';
+
+            if (type === 'tnb') {
+                if (extracted.tnb_account) itemsHtml += createItemHtml('TNB Account', extracted.tnb_account, 'tnbAccount');
+                if (extracted.customer_name) itemsHtml += createItemHtml('Customer Name', extracted.customer_name, 'applicantName'); // Optional target
+                if (extracted.address) itemsHtml += createItemHtml('Address', extracted.address, 'installAddress');
+            } else {
+                const name = extracted.customer_name || extracted.name;
+                if (name) itemsHtml += createItemHtml('Name', name, 'applicantName');
+                if (extracted.mykad_id) itemsHtml += createItemHtml('IC No', extracted.mykad_id, 'applicantIC');
+                if (extracted.address) itemsHtml += createItemHtml('Address', extracted.address, 'applicantAddress');
+            }
+
+            if (!itemsHtml) {
+                // Show "No data found" message
+                itemsHtml = `<div class="text-sm text-slate-500 italic p-2">No structured data found in this document.</div>`;
+            }
+
+            const box = document.createElement('div');
+            box.className = 'extracted-data-box';
+            box.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-sm font-bold text-emerald-800 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Detected Data
+                    </h4>
+                    <button type="button" onclick="this.closest('.extracted-data-box').remove()" class="text-xs text-emerald-600 hover:text-emerald-800">Dismiss</button>
+                </div>
+                <div class="space-y-1">
+                    ${itemsHtml}
+                </div>
+            `;
+            
+            container.appendChild(box);
+        }
+
+        function createItemHtml(label, value, targetId) {
+            // Escape value for attribute to prevent XSS issues in onclick
+            const safeValue = value.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+            return `
+                <div class="extracted-item">
+                    <div>
+                        <div class="extracted-label">${label}</div>
+                        <div class="extracted-value">${value}</div>
+                    </div>
+                    <button type="button" class="btn-insert" onclick="insertValue('${targetId}', '${safeValue}')">
+                        Insert
+                    </button>
+                </div>
+            `;
+        }
+
+        function insertValue(targetId, value) {
+            const el = document.getElementById(targetId);
+            if (el) {
+                el.value = value;
+                // Optional: visual feedback
+                el.style.borderColor = '#16a34a'; // Green flash
+                setTimeout(() => el.style.borderColor = '', 1000);
+            } else {
+                console.warn('Target input not found:', targetId);
+            }
+        }
+
         async function handleExtraction(input, type) {
             console.log('handleExtraction triggered for:', type);
             const file = input.files[0];
@@ -397,11 +514,8 @@
                     const json = await res.json();
                     stopLoading();
                     
-                    // Check for old format (success: true) OR new format (has text/uuid)
                     if ((json.success && json.data) || json.text || json.uuid) {
-                        // Pass the whole json if it's the new format, or data if old
-                        const payload = (json.success && json.data) ? json.data : json;
-                        showResultModal(type, payload);
+                        renderInlineResults(input, type, json);
                     } else {
                         console.warn('Extraction returned no data or error:', json);
                         alert('Extraction failed: ' + (json.error || 'Unknown error from server'));
@@ -420,119 +534,6 @@
             };
 
             reader.readAsDataURL(file);
-        }
-
-        function showResultModal(type, data) {
-            const modal = document.getElementById('resultModal');
-            const content = document.getElementById('resultContent');
-            const btnApply = document.getElementById('btnApplyData');
-            
-            modal.style.display = 'flex';
-            
-            // Handle the new query_with_file response format
-            let extracted = {};
-            
-            if (data.text) {
-                // 1. Try to find the FINAL step which contains the structured answer
-                const finalStep = data.text.find(s => s.step_type === 'FINAL');
-                if (finalStep && finalStep.content && finalStep.content.answer) {
-                    try {
-                        const parsed = JSON.parse(finalStep.content.answer);
-                        // The answer might be a JSON string containing the data
-                        if (parsed.answer) {
-                            const text = parsed.answer;
-                            // Attempt extraction from summary text (if present)
-                            if (!extracted.tnb_account) extracted.tnb_account = (text.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i) || [])[1];
-                        }
-                    } catch (e) {
-                        console.warn('Failed to parse final answer as JSON');
-                    }
-                }
-                
-                // 2. Fallback: Check SEARCH_RESULTS for snippets (Often contains the raw header info)
-                // Use robust regex to handle newlines and variations
-                const searchStep = data.text.find(s => s.step_type === 'SEARCH_RESULTS');
-                if (searchStep && searchStep.content && searchStep.content.web_results) {
-                    const snippet = searchStep.content.web_results[0]?.snippet || '';
-                    
-                    // Account No: "NO. AKAUN" followed by digits, possibly separated by newline
-                    if (!extracted.tnb_account) {
-                        const accMatch = snippet.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i);
-                        if (accMatch) extracted.tnb_account = accMatch[1];
-                    }
-
-                    // Address Block: Capture text between "ALAMAT POS" and the next section (double newline or keywords)
-                    // Snippet example: "ALAMAT POS\nNAME\nADDR1\nADDR2...\n\nNextSection"
-                    if (!extracted.address || !extracted.customer_name) {
-                        const addrMatch = snippet.match(/ALAMAT POS\s*\n([\s\S]+?)(?=\n\s*\n|\nSila|\nTENAGA)/i);
-                        if (addrMatch) {
-                            const lines = addrMatch[1].split('\n').map(l => l.trim()).filter(l => l);
-                            if (lines.length > 0) {
-                                // Assume first line is Name, rest is Address
-                                extracted.customer_name = lines[0]; 
-                                extracted.address = lines.slice(1).join(', ');
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Fallback to old format if server reverts or for direct data
-                extracted = data;
-            }
-
-            // Build content
-            let html = '';
-            let applyFn = null;
-
-            if (type === 'tnb') {
-                html = `
-                    <div class="grid grid-cols-[1fr_2fr] gap-2">
-                        <span class="font-semibold">Account No:</span>
-                        <span>${extracted.tnb_account || '-'}</span>
-                        <span class="font-semibold">Customer Name:</span>
-                        <span>${extracted.customer_name || '-'}</span>
-                        <span class="font-semibold">Address:</span>
-                        <span>${extracted.address || '-'}</span>
-                    </div>
-                `;
-                applyFn = () => {
-                    if (extracted.tnb_account) document.getElementById('tnbAccount').value = extracted.tnb_account;
-                    if (extracted.address && !document.getElementById('installAddress').value) {
-                        document.getElementById('installAddress').value = extracted.address;
-                    }
-                };
-            } else {
-                // MyKad
-                html = `
-                    <div class="grid grid-cols-[1fr_2fr] gap-2">
-                        <span class="font-semibold">Name:</span>
-                        <span>${extracted.customer_name || extracted.name || '-'}</span>
-                        <span class="font-semibold">IC No:</span>
-                        <span>${extracted.mykad_id || '-'}</span>
-                        <span class="font-semibold">Address:</span>
-                        <span>${extracted.address || '-'}</span>
-                    </div>
-                `;
-                applyFn = () => {
-                    if (extracted.customer_name || extracted.name) document.getElementById('applicantName').value = extracted.customer_name || extracted.name;
-                    if (extracted.mykad_id) document.getElementById('applicantIC').value = extracted.mykad_id;
-                    if (extracted.address) document.getElementById('applicantAddress').value = extracted.address;
-                };
-            }
-
-            content.innerHTML = html;
-            
-            // Re-bind apply button
-            const newBtn = btnApply.cloneNode(true);
-            btnApply.parentNode.replaceChild(newBtn, btnApply);
-            newBtn.addEventListener('click', () => {
-                applyFn();
-                closeResultModal();
-            });
-        }
-
-        function closeResultModal() {
-            document.getElementById('resultModal').style.display = 'none';
         }
 
         function copyAddress() {
@@ -621,13 +622,6 @@
                 e_contact_relationship: document.getElementById('emergencyRel').value,
                 e_contact_no: document.getElementById('emergencyPhone').value,
                 // Add new fields
-                // Wait, DB columns for Applicant Name/IC might not be in seda_registration if we rely on linked_customer?
-                // But I added input fields. If I want to save them to seda_registration, I need columns or update customer.
-                // The prompt said: "applied the return data and insert into the form".
-                // And "update existing customer profile".
-                // I will NOT save applicantName/IC back to SEDA table if columns don't exist.
-                // I should probably update the CUSTOMER table if these change?
-                // For now, I'll just save what I can map to seda_registration columns.
                 ...fileData 
             };
 
