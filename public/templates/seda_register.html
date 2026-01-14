@@ -397,8 +397,11 @@
                     const json = await res.json();
                     stopLoading();
                     
-                    if (json.success && json.data) {
-                        showResultModal(type, json.data);
+                    // Check for old format (success: true) OR new format (has text/uuid)
+                    if ((json.success && json.data) || json.text || json.uuid) {
+                        // Pass the whole json if it's the new format, or data if old
+                        const payload = (json.success && json.data) ? json.data : json;
+                        showResultModal(type, payload);
                     } else {
                         console.warn('Extraction returned no data or error:', json);
                         alert('Extraction failed: ' + (json.error || 'Unknown error from server'));
