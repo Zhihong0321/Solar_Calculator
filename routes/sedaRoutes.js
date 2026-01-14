@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
 const { requireAuth } = require('../middleware/auth');
-const sedaRepo = require('../services/sedaRepo');
+const sedaRepo = require('../src/modules/Invoicing/services/sedaRepo');
 
 // Get database pool
 const pool = new Pool({
