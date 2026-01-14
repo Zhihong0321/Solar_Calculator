@@ -44,6 +44,12 @@
         .extracted-value { font-size: 0.875rem; color: #14532d; font-weight: 500; margin-top: 0.125rem; }
         .btn-insert { font-size: 0.75rem; background-color: white; border: 1px solid #86efac; color: #166534; padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-weight: 600; cursor: pointer; transition: all 0.1s; }
         .btn-insert:hover { background-color: #dcfce7; }
+
+        /* Input Status Indicators */
+        .input-wrapper { position: relative; width: 100%; }
+        .input-status-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; transition: all 0.2s; opacity: 0; }
+        .input-status-icon.valid { opacity: 1; color: #10b981; }
+        .input-status-icon.invalid { opacity: 1; color: #ef4444; }
     </style>
 </head>
 <body class="py-10 px-4 sm:px-6 lg:px-8">
@@ -750,7 +756,28 @@
             }
         });
 
-        // --- Progress Logic ---
+        // --- Progress & Validation Logic ---
+        function injectStatusIndicators() {
+            const inputs = document.querySelectorAll('.input-field');
+            inputs.forEach(input => {
+                if (input.parentNode.classList.contains('input-wrapper')) return;
+                
+                // Create wrapper
+                const wrapper = document.createElement('div');
+                wrapper.className = 'input-wrapper';
+                input.parentNode.insertBefore(wrapper, input);
+                wrapper.appendChild(input);
+                
+                // Create icon container
+                const icon = document.createElement('div');
+                icon.className = 'input-status-icon';
+                icon.id = 'status-icon-' + input.id;
+                // Default to checkmark, but hidden
+                icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+                wrapper.appendChild(icon);
+            });
+        }
+
         function updateFormProgress() {
             const steps = [
                 { id: 'step1', fields: ['applicantName', 'applicantIC', 'applicantPhone', 'applicantEmail'] },
@@ -767,60 +794,70 @@
             steps.forEach(step => {
                 let isComplete = true;
                 
-                // Check fields
+                // Check fields and update individual icons
                 step.fields.forEach(fid => {
                     const el = document.getElementById(fid);
-                    if (!el || !el.value.trim()) isComplete = false;
+                    const icon = document.getElementById('status-icon-' + fid);
+                    
+                    if (el && el.value.trim()) {
+                        // Valid
+                        if (icon) {
+                            icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+                            icon.className = 'input-status-icon valid';
+                        }
+                    } else {
+                        // Invalid / Empty
+                        isComplete = false;
+                        if (icon) {
+                            // Optional: Show red '!' or just hide checkmark
+                            // User wants to see what is NOT complete. 
+                            // Showing red '!' for empty fields might be too aggressive initially?
+                            // Let's just hide the checkmark for empty, but maybe show a red dot if touched?
+                            // For now: Hide checkmark. 
+                            // BUT user said "cannot see which input still not complete".
+                            // So an EMPTY field should perhaps have a subtle indicator?
+                            // Or relying on the absence of a green check is enough?
+                            // I'll stick to: Green = Done. No Green = Not Done.
+                            icon.className = 'input-status-icon';
+                        }
+                    }
                 });
 
-                // Check files
+                // Check files (UI feedback for files is usually the preview image itself)
                 if (step.files && step.files.length > 0) {
                     if (step.id === 'step3') {
-                        // Special logic for MyKad: PDF OR (Front AND Back)
                         const hasPdf = fileData.mykad_pdf || document.getElementById('previewMyKadPdf').style.display === 'block';
                         const hasFront = fileData.mykad_front || document.getElementById('previewMyKadFront').style.display === 'block';
                         const hasBack = fileData.mykad_back || document.getElementById('previewMyKadBack').style.display === 'block';
                         if (!hasPdf && (!hasFront || !hasBack)) isComplete = false;
                     } else if (step.id === 'step6') {
-                         // Property Proof AND TNB Meter
-                         // Wait, are they mandatory? Let's assume yes for progress.
-                         // But for now, let's just check if ANY file is uploaded for that key?
-                         // fileData key mapping: 
-                         // property_proof -> filePropertyProof
-                         // tnb_meter -> fileTnbMeter
-                         // My storeFile uses specific keys.
-                         
                          const hasProof = fileData.property_proof || (document.getElementById('previewPropertyProof') && document.getElementById('previewPropertyProof').style.display === 'block');
                          const hasMeter = fileData.tnb_meter || (document.getElementById('previewTnbMeter') && document.getElementById('previewTnbMeter').style.display === 'block');
-                         
                          if (!hasProof || !hasMeter) isComplete = false;
                     } else {
-                        // Standard file check (any one of list? No, usually all required)
-                        // For Step 4 (TNB), we need tnb_bill_1 (latest) at least.
                         step.files.forEach(fKey => {
-                            // Map file key to preview ID or fileData
                             let previewId = '';
                             if (fKey === 'tnb_bill_1') previewId = 'previewTnb1';
-                            
                             const hasFile = fileData[fKey] || (document.getElementById(previewId) && document.getElementById(previewId).style.display === 'block');
                             if (!hasFile) isComplete = false;
                         });
                     }
                 }
 
-                // Update UI
+                // Update Stepper UI
                 const stepEl = document.getElementById(step.id);
-                const circle = stepEl.querySelector('.step-circle');
-                if (isComplete) {
-                    completedSteps++;
-                    circle.className = 'step-circle w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 flex items-center justify-center transition-all';
-                    circle.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
-                    stepEl.querySelector('span').classList.add('text-emerald-600');
-                } else {
-                    // Reset to number
-                    circle.className = 'step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all';
-                    circle.innerHTML = step.id.replace('step', '');
-                    stepEl.querySelector('span').classList.remove('text-emerald-600');
+                if (stepEl) {
+                    const circle = stepEl.querySelector('.step-circle');
+                    if (isComplete) {
+                        completedSteps++;
+                        circle.className = 'step-circle w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 flex items-center justify-center transition-all';
+                        circle.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
+                        stepEl.querySelector('span').classList.add('text-emerald-600');
+                    } else {
+                        circle.className = 'step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all';
+                        circle.innerHTML = step.id.replace('step', '');
+                        stepEl.querySelector('span').classList.remove('text-emerald-600');
+                    }
                 }
             });
 
@@ -834,6 +871,11 @@
         }
 
         // Attach listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            injectStatusIndicators();
+            updateFormProgress();
+        });
+
         document.querySelectorAll('input, select, textarea').forEach(el => {
             el.addEventListener('change', updateFormProgress);
             el.addEventListener('input', updateFormProgress);
@@ -850,6 +892,8 @@
         const originalLoadData = loadData;
         loadData = async function() {
             await originalLoadData();
+            // Ensure elements are injected before updating status
+            injectStatusIndicators(); 
             updateFormProgress();
         };
 
