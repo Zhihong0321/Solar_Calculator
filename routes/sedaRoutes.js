@@ -127,18 +127,18 @@ router.post('/api/v1/seda/:id', requireAuth, async (req, res) => {
         // If `mykad_front` is provided (string), try save. If save returns null (e.g. invalid base64), treat as keeping existing if undefined?
         // Let's rely on COALESCE in SQL. We pass `undefined` to SQL params if we want to skip update.
         
-        const process = (input, prefix) => {
+        const processFile = (input, prefix) => {
             if (input === undefined) return undefined; // Keep existing
             if (input === null || input === '') return null; // Clear file
             return saveFile(input, prefix); // Save new or return existing URL
         };
 
-        url_mykad_front = process(mykad_front, 'mykad_front');
-        url_mykad_back = process(mykad_back, 'mykad_back');
-        url_mykad_pdf = process(mykad_pdf, 'mykad_pdf');
-        url_tnb_1 = process(tnb_bill_1, 'tnb_bill_1');
-        url_tnb_2 = process(tnb_bill_2, 'tnb_bill_2');
-        url_tnb_3 = process(tnb_bill_3, 'tnb_bill_3');
+        url_mykad_front = processFile(mykad_front, 'mykad_front');
+        url_mykad_back = processFile(mykad_back, 'mykad_back');
+        url_mykad_pdf = processFile(mykad_pdf, 'mykad_pdf');
+        url_tnb_1 = processFile(tnb_bill_1, 'tnb_bill_1');
+        url_tnb_2 = processFile(tnb_bill_2, 'tnb_bill_2');
+        url_tnb_3 = processFile(tnb_bill_3, 'tnb_bill_3');
 
         // Update DB
         await client.query(
