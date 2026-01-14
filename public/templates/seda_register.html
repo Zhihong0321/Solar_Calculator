@@ -428,18 +428,19 @@
         function parseExtractionData(json) {
             let extracted = {};
             
+            // Unwrap the outer layer from our own backend (sedaRoutes.js)
+            const root = (json.success && json.data) ? json.data : json;
+
             // 1. New TNB API (Structured Response)
-            if (json.status === 'success' && json.data) {
-                return json.data;
+            // The API returns { status: "success", data: { ...fields... } }
+            if (root.status === 'success' && root.data) {
+                return root.data;
             }
 
             // 2. Perplexity / MyKad Logic (Complex Text Response)
-            // Check for new format (Perplexity)
-            const data = (json.success && json.data) ? json.data : json;
-
-            if (data.text) {
+            if (root.text) {
                 // 1. Try to find the FINAL step which contains the structured answer
-                const finalStep = data.text.find(s => s.step_type === 'FINAL');
+                const finalStep = root.text.find(s => s.step_type === 'FINAL');
                 if (finalStep && finalStep.content && finalStep.content.answer) {
                     try {
                         const parsed = JSON.parse(finalStep.content.answer);
@@ -453,7 +454,7 @@
                 }
                 
                 // 2. Fallback: Check SEARCH_RESULTS for snippets
-                const searchStep = data.text.find(s => s.step_type === 'SEARCH_RESULTS');
+                const searchStep = root.text.find(s => s.step_type === 'SEARCH_RESULTS');
                 if (searchStep && searchStep.content && searchStep.content.web_results) {
                     const snippet = searchStep.content.web_results[0]?.snippet || '';
                     
@@ -495,8 +496,8 @@
                     }
                 }
             } else {
-                // Legacy or direct format
-                extracted = data;
+                // Legacy or direct format (fallback)
+                extracted = root;
             }
             return extracted;
         }
