@@ -4,18 +4,28 @@
  */
 
 /**
+ * Sanitize filename to prevent header parsing errors in external API
+ * Replaces non-alphanumeric chars (except . - _) with _
+ */
+function sanitizeFilename(filename) {
+    if (!filename) return 'file';
+    return filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+/**
  * Extract data from TNB Bill
  * @param {Buffer} fileBuffer 
  * @param {string} filename 
  */
 async function extractTnb(fileBuffer, filename) {
     try {
+        const safeFilename = sanitizeFilename(filename || 'tnb_bill.pdf');
         const formData = new FormData();
         // Explicitly set MIME type for PDF to ensure API recognizes it
         const blob = new Blob([fileBuffer], { type: 'application/pdf' });
-        formData.append('file', blob, filename || 'tnb_bill.pdf');
+        formData.append('file', blob, safeFilename);
 
-        console.log(`[ExtractionService] Sending TNB Bill: ${filename} (${fileBuffer.length} bytes)`);
+        console.log(`[ExtractionService] Sending TNB Bill: ${safeFilename} (Original: ${filename}, ${fileBuffer.length} bytes)`);
 
         const res = await fetch('https://ee-perplexity-wrapper-production.up.railway.app/api/extract-tnb', {
             method: 'POST',
@@ -45,13 +55,14 @@ async function extractTnb(fileBuffer, filename) {
  */
 async function extractMykad(fileBuffer, filename) {
     try {
+        const safeFilename = sanitizeFilename(filename || 'mykad.jpg');
         const formData = new FormData();
         // Explicitly set MIME type based on extension or default to image/jpeg
-        const mimeType = filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+        const mimeType = safeFilename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
         const blob = new Blob([fileBuffer], { type: mimeType });
-        formData.append('file', blob, filename || 'mykad.jpg');
+        formData.append('file', blob, safeFilename);
 
-        console.log(`[ExtractionService] Sending MyKad: ${filename} (${fileBuffer.length} bytes)`);
+        console.log(`[ExtractionService] Sending MyKad: ${safeFilename} (Original: ${filename}, ${fileBuffer.length} bytes)`);
 
         const res = await fetch('https://ee-perplexity-wrapper-production.up.railway.app/api/extract-mykad', {
             method: 'POST',
