@@ -241,6 +241,29 @@
                 </div>
             </div>
 
+            <!-- Supporting Documents -->
+            <div>
+                <h2 class="section-title">06. Supporting Documents</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="input-group">
+                        <label class="input-label">Property Ownership Proof (PDF/Image)</label>
+                        <div class="file-upload-box" onclick="document.getElementById('filePropertyProof').click()">
+                            <p class="text-xs text-slate-500">Click to upload document</p>
+                            <input type="file" id="filePropertyProof" accept="application/pdf,image/*" class="hidden" onchange="handleFile(this, 'previewPropertyProof')">
+                            <div id="previewPropertyProof" class="file-preview"></div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">TNB Meter Image</label>
+                        <div class="file-upload-box" onclick="document.getElementById('fileTnbMeter').click()">
+                            <p class="text-xs text-slate-500">Click to upload photo</p>
+                            <input type="file" id="fileTnbMeter" accept="image/*" class="hidden" onchange="handleFile(this, 'previewTnbMeter')">
+                            <div id="previewTnbMeter" class="file-preview"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Action Buttons -->
             <div class="pt-6 border-t border-slate-200 flex justify-end gap-4">
                 <button type="button" onclick="window.close()" class="px-6 py-3 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors">Close</button>
@@ -334,6 +357,8 @@
                     'fileTnb1': 'tnb_bill_1',
                     'fileTnb2': 'tnb_bill_2',
                     'fileTnb3': 'tnb_bill_3',
+                    'filePropertyProof': 'property_proof',
+                    'fileTnbMeter': 'tnb_meter'
                 };
                 const key = keyMap[inputId];
                 if (key) fileData[key] = e.target.result;
@@ -595,6 +620,8 @@
                     showExisting(data.tnb_bill_1, 'previewTnb1');
                     showExisting(data.tnb_bill_2, 'previewTnb2');
                     showExisting(data.tnb_bill_3, 'previewTnb3');
+                    showExisting(data.property_ownership_prove, 'previewPropertyProof');
+                    showExisting(data.tnb_meter, 'previewTnbMeter');
 
                     if (data.mykad_pdf) setMyKadMode('pdf');
                     else setMyKadMode('images');

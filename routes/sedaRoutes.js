@@ -145,7 +145,8 @@ router.post('/api/v1/seda/:id', requireAuth, async (req, res) => {
         e_contact_name, e_contact_relationship, e_contact_no,
         // Files (Base64)
         mykad_front, mykad_back, mykad_pdf,
-        tnb_bill_1, tnb_bill_2, tnb_bill_3
+        tnb_bill_1, tnb_bill_2, tnb_bill_3,
+        property_proof, tnb_meter
     } = req.body;
 
     const client = await pool.connect();
@@ -180,17 +181,10 @@ router.post('/api/v1/seda/:id', requireAuth, async (req, res) => {
         };
 
         // Process Files
-        // Only update if a new file is provided (Base64) or keep existing if not (we handle this via COALESCE if undefined, but if passed as null/empty string, we might clear it.
-        // For now, let's assume the frontend sends the URL back if unchanged, or null if cleared. 
-        // If frontend sends nothing (undefined), COALESCE keeps DB value.
-        
         let url_mykad_front, url_mykad_back, url_mykad_pdf;
         let url_tnb_1, url_tnb_2, url_tnb_3;
+        let url_property_proof, url_tnb_meter;
 
-        // Note: Logic here: 
-        // If `mykad_front` is provided (string), try save. If save returns null (e.g. invalid base64), treat as keeping existing if undefined?
-        // Let's rely on COALESCE in SQL. We pass `undefined` to SQL params if we want to skip update.
-        
         const processFile = (input, prefix) => {
             if (input === undefined) return undefined; // Keep existing
             if (input === null || input === '') return null; // Clear file
@@ -203,6 +197,8 @@ router.post('/api/v1/seda/:id', requireAuth, async (req, res) => {
         url_tnb_1 = processFile(tnb_bill_1, 'tnb_bill_1');
         url_tnb_2 = processFile(tnb_bill_2, 'tnb_bill_2');
         url_tnb_3 = processFile(tnb_bill_3, 'tnb_bill_3');
+        url_property_proof = processFile(property_proof, 'property_proof');
+        url_tnb_meter = processFile(tnb_meter, 'tnb_meter');
 
         // Update DB
         await client.query(
@@ -221,14 +217,17 @@ router.post('/api/v1/seda/:id', requireAuth, async (req, res) => {
                  tnb_bill_1 = COALESCE($12, tnb_bill_1),
                  tnb_bill_2 = COALESCE($13, tnb_bill_2),
                  tnb_bill_3 = COALESCE($14, tnb_bill_3),
+                 property_ownership_prove = COALESCE($15, property_ownership_prove),
+                 tnb_meter = COALESCE($16, tnb_meter),
                  modified_date = NOW(),
                  updated_at = NOW()
-             WHERE bubble_id = $15`,
+             WHERE bubble_id = $17`,
             [
                 installation_address, city, state, tnb_account_no, phase_type,
                 e_contact_name, e_contact_relationship, e_contact_no,
                 url_mykad_front, url_mykad_back, url_mykad_pdf,
                 url_tnb_1, url_tnb_2, url_tnb_3,
+                url_property_proof, url_tnb_meter,
                 id
             ]
         );
