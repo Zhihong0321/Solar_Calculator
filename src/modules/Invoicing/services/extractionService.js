@@ -4,30 +4,25 @@
  */
 
 /**
- * Sanitize filename to prevent header parsing errors in external API
- * Replaces non-alphanumeric chars (except . - _) with _
- */
-function sanitizeFilename(filename) {
-    if (!filename) return 'file';
-    return filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
-
-/**
  * Extract data from TNB Bill
  * @param {Buffer} fileBuffer 
  * @param {string} filename 
  */
 async function extractTnb(fileBuffer, filename) {
     try {
-        const safeFilename = sanitizeFilename(filename || 'tnb_bill.pdf');
         const formData = new FormData();
         // Explicitly set MIME type for PDF to ensure API recognizes it
         const blob = new Blob([fileBuffer], { type: 'application/pdf' });
-        formData.append('file', blob, safeFilename);
+        
+        // Match the working format from image.png
+        formData.append('account_name', 'yamal');
+        formData.append('query', 'analyze');
+        formData.append('file', blob, filename || 'tnb_bill.pdf');
 
-        console.log(`[ExtractionService] Sending TNB Bill: ${safeFilename} (Original: ${filename}, ${fileBuffer.length} bytes)`);
+        console.log(`[ExtractionService] Sending TNB Bill via query_with_file: ${filename} (${fileBuffer.length} bytes)`);
 
-        const res = await fetch('https://ee-perplexity-wrapper-production.up.railway.app/api/extract-tnb', {
+        // Switch to the confirmed working endpoint
+        const res = await fetch('https://ee-perplexity-wrapper-production.up.railway.app/api/query_with_file', {
             method: 'POST',
             body: formData
         });
@@ -38,9 +33,17 @@ async function extractTnb(fileBuffer, filename) {
             throw new Error(`Extraction API Error: ${res.status} - ${errText}`);
         }
         
-        const data = await res.json();
-        console.log('[ExtractionService] TNB Extraction Success');
-        return data;
+        const json = await res.json();
+        console.log('[ExtractionService] API Request Success');
+
+        // Note: query_with_file returns a complex object with search results and an answer.
+        // We need to parse this to match the expected format for our frontend.
+        // Based on the successful test, the data is in json.text (array of steps).
+        // The last step or the search results contains the snippet.
+        
+        // I will return the raw JSON for now, but we might need a mapper to extract 
+        // specific fields (account_no, address, etc.) from the text answer.
+        return json;
 
     } catch (err) {
         console.error('[ExtractionService] TNB Error:', err);
@@ -55,16 +58,18 @@ async function extractTnb(fileBuffer, filename) {
  */
 async function extractMykad(fileBuffer, filename) {
     try {
-        const safeFilename = sanitizeFilename(filename || 'mykad.jpg');
         const formData = new FormData();
-        // Explicitly set MIME type based on extension or default to image/jpeg
-        const mimeType = safeFilename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+        // Match the working format from image.png (assuming similar for MyKad)
+        const mimeType = filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
         const blob = new Blob([fileBuffer], { type: mimeType });
-        formData.append('file', blob, safeFilename);
+        
+        formData.append('account_name', 'yamal');
+        formData.append('query', 'analyze');
+        formData.append('file', blob, filename || 'mykad.jpg');
 
-        console.log(`[ExtractionService] Sending MyKad: ${safeFilename} (Original: ${filename}, ${fileBuffer.length} bytes)`);
+        console.log(`[ExtractionService] Sending MyKad via query_with_file: ${filename} (${fileBuffer.length} bytes)`);
 
-        const res = await fetch('https://ee-perplexity-wrapper-production.up.railway.app/api/extract-mykad', {
+        const res = await fetch('https://ee-perplexity-wrapper-production.up.railway.app/api/query_with_file', {
             method: 'POST',
             body: formData
         });
@@ -75,9 +80,9 @@ async function extractMykad(fileBuffer, filename) {
             throw new Error(`Extraction API Error: ${res.status} - ${errText}`);
         }
         
-        const data = await res.json();
-        console.log('[ExtractionService] MyKad Extraction Success');
-        return data;
+        const json = await res.json();
+        console.log('[ExtractionService] MyKad Request Success');
+        return json;
 
     } catch (err) {
         console.error('[ExtractionService] MyKad Error:', err);

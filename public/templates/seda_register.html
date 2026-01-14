@@ -426,6 +426,43 @@
             
             modal.style.display = 'flex';
             
+            // Handle the new query_with_file response format
+            let extracted = {};
+            
+            if (data.text) {
+                // Try to find the FINAL step which contains the structured answer
+                const finalStep = data.text.find(s => s.step_type === 'FINAL');
+                if (finalStep && finalStep.content && finalStep.content.answer) {
+                    try {
+                        const parsed = JSON.parse(finalStep.content.answer);
+                        // The answer might be a JSON string containing the data
+                        if (parsed.answer) {
+                            // Simple heuristic extraction from the summary text
+                            const text = parsed.answer;
+                            extracted.tnb_account = (text.match(/NO\. AKAUN\s*(\d+)/i) || [])[1] || (text.match(/Account No:\s*(\d+)/i) || [])[1];
+                            extracted.customer_name = (text.match(/account holder,\s*([^,]+)/i) || [])[1] || (text.match(/Name:\s*([^,]+)/i) || [])[1];
+                            extracted.address = (text.match(/premise in\s*([^.]+)/i) || [])[1] || (text.match(/Address:\s*([^.]+)/i) || [])[1];
+                        }
+                    } catch (e) {
+                        console.warn('Failed to parse final answer as JSON, using raw text');
+                    }
+                }
+                
+                // Fallback: check SEARCH_RESULTS for snippets
+                if (!extracted.tnb_account) {
+                    const searchStep = data.text.find(s => s.step_type === 'SEARCH_RESULTS');
+                    if (searchStep && searchStep.content && searchStep.content.web_results) {
+                        const snippet = searchStep.content.web_results[0]?.snippet || '';
+                        extracted.tnb_account = (snippet.match(/NO\. AKAUN\s*\n\s*(\d+)/i) || [])[1];
+                        extracted.customer_name = (snippet.match(/ALAMAT POS\s*\n\s*([^ \n]+ [^ \n]+)/i) || [])[1];
+                        extracted.address = (snippet.match(/ALAMAT POS\s*\n\s*(.*?\d{5}.*?SELANGOR)/is) || [])[1]?.replace(/\n/g, ', ');
+                    }
+                }
+            } else {
+                // Fallback to old format if server reverts or for direct data
+                extracted = data;
+            }
+
             // Build content
             let html = '';
             let applyFn = null;
@@ -434,19 +471,17 @@
                 html = `
                     <div class="grid grid-cols-[1fr_2fr] gap-2">
                         <span class="font-semibold">Account No:</span>
-                        <span>${data.tnb_account || '-'}</span>
+                        <span>${extracted.tnb_account || '-'}</span>
                         <span class="font-semibold">Customer Name:</span>
-                        <span>${data.customer_name || '-'}</span>
+                        <span>${extracted.customer_name || '-'}</span>
                         <span class="font-semibold">Address:</span>
-                        <span>${data.address || '-'}</span>
+                        <span>${extracted.address || '-'}</span>
                     </div>
                 `;
                 applyFn = () => {
-                    if (data.tnb_account) document.getElementById('tnbAccount').value = data.tnb_account;
-                    // If we want to overwrite name? Maybe ask. For now just TNB specifics.
-                    // If address is better? 
-                    if (data.address && !document.getElementById('installAddress').value) {
-                        document.getElementById('installAddress').value = data.address;
+                    if (extracted.tnb_account) document.getElementById('tnbAccount').value = extracted.tnb_account;
+                    if (extracted.address && !document.getElementById('installAddress').value) {
+                        document.getElementById('installAddress').value = extracted.address;
                     }
                 };
             } else {
@@ -454,17 +489,17 @@
                 html = `
                     <div class="grid grid-cols-[1fr_2fr] gap-2">
                         <span class="font-semibold">Name:</span>
-                        <span>${data.name || '-'}</span>
+                        <span>${extracted.customer_name || extracted.name || '-'}</span>
                         <span class="font-semibold">IC No:</span>
-                        <span>${data.mykad_id || '-'}</span>
+                        <span>${extracted.mykad_id || '-'}</span>
                         <span class="font-semibold">Address:</span>
-                        <span>${data.address || '-'}</span>
+                        <span>${extracted.address || '-'}</span>
                     </div>
                 `;
                 applyFn = () => {
-                    if (data.name) document.getElementById('applicantName').value = data.name;
-                    if (data.mykad_id) document.getElementById('applicantIC').value = data.mykad_id;
-                    if (data.address) document.getElementById('applicantAddress').value = data.address;
+                    if (extracted.customer_name || extracted.name) document.getElementById('applicantName').value = extracted.customer_name || extracted.name;
+                    if (extracted.mykad_id) document.getElementById('applicantIC').value = extracted.mykad_id;
+                    if (extracted.address) document.getElementById('applicantAddress').value = extracted.address;
                 };
             }
 
