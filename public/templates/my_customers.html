@@ -6,275 +6,216 @@
     <title>My Customers</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
+        :root {
+            --primary: #0f172a; /* Slate 900 */
+            --primary-hover: #1e293b; /* Slate 800 */
+        }
         * {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
-            min-height: 100vh;
+            background-color: #f8fafc; /* Slate 50 */
+            color: #0f172a;
         }
-        .premium-card {
-            background: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Business Card Style */
+        .biz-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease-in-out;
         }
-        .premium-card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.1);
-        }
+        /* Buttons */
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            background-color: var(--primary);
+            color: white;
+            transition: all 0.2s;
         }
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
-        }
-        .btn-secondary {
-            background: #ffffff;
-            border: 1.5px solid #e2e8f0;
-            transition: all 0.3s ease;
-        }
-        .btn-secondary:hover {
-            background: #f8fafc;
-            border-color: #cbd5e1;
+            background-color: var(--primary-hover);
             transform: translateY(-1px);
         }
-        .customer-card {
-            transition: all 0.2s ease;
+        .btn-secondary {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            transition: all 0.2s;
         }
-        .customer-card:hover {
-            background: #f8fafc;
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+            border-color: #cbd5e1;
+            color: #1e293b;
         }
-        .action-btn {
-            min-height: 44px;
-            padding: 8px 14px;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 13px;
-            transition: all 0.2s ease;
-            touch-action: manipulation;
+        .input-field {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
         }
-        .modal-overlay {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
+        .input-field:focus {
+            border-color: #94a3b8;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.2);
         }
-        .modal-content {
-            animation: slideUp 0.3s ease-out;
+        .loading-spinner {
+            border: 2px solid #f3f4f6;
+            border-top-color: var(--primary);
+            animation: spin 0.8s linear infinite;
         }
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .search-input {
-            background: #ffffff;
-            border: 2px solid #e2e8f0;
-            transition: all 0.2s ease;
-        }
-        .search-input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        .avatar {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            font-weight: 700;
-        }
-        /* Mobile optimizations */
-        @media (max-width: 640px) {
-            .table-container {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-            .action-btn {
-                font-size: 12px;
-                padding: 8px 12px;
-            }
-        }
-        /* Touch-friendly */
-        button, a {
-            -webkit-tap-highlight-color: transparent;
-        }
-        .loading { opacity: 0.5; pointer-events: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="min-h-screen">
+    
     <!-- Navbar -->
-    <nav class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <div class="flex items-center gap-3 sm:gap-4">
-                    <img src="../logo.png" alt="Logo" class="h-8 w-auto">
-                    <span class="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">My Customers</span>
+            <div class="flex justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-lg">A</div>
+                    <span class="text-lg font-bold tracking-tight text-slate-900">ATAP Solar</span>
                 </div>
-                <div class="flex items-center gap-3 sm:gap-4">
-                    <a href="/my-invoice" class="btn-secondary px-4 sm:px-5 py-2 rounded-xl font-semibold text-sm flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                        <span class="hidden sm:inline">Back</span>
-                    </a>
-                    <div id="userProfile" class="hidden md:flex items-center gap-3 pl-4 border-l border-gray-200">
-                        <div class="text-right">
-                            <p id="navUserName" class="text-sm font-semibold text-gray-900 leading-none"></p>
-                            <p id="navUserRole" class="text-xs text-gray-500 mt-1"></p>
-                        </div>
-                        <div class="h-9 w-9 rounded-full avatar flex items-center justify-center text-sm">
-                            <span id="navUserInitials"></span>
-                        </div>
+                <div class="flex items-center gap-4">
+                    <a href="/my-invoice" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Quotations</a>
+                    <div class="h-4 w-px bg-slate-200"></div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-600" id="navUserInitials">?</div>
                     </div>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <!-- Header Actions -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Customer Management</h1>
-                <p class="text-sm text-gray-500 mt-1.5 font-medium">View and manage your customer database</p>
-            </div>
-            <button onclick="openModal()" class="btn-primary px-6 py-3 rounded-xl text-white font-semibold text-sm flex items-center gap-2 w-full sm:w-auto justify-center">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                Add Customer
-            </button>
-        </div>
-
-        <!-- Search -->
-        <div class="premium-card p-4 sm:p-5 mb-6">
-            <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+    <!-- Header -->
+    <div class="bg-white border-b border-slate-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Customers</h1>
+                    <p class="text-slate-500 text-sm mt-1">Directory of your clients and leads.</p>
                 </div>
-                <input type="text" id="searchInput" placeholder="Search customers by name, phone or email..." 
-                    class="search-input block w-full pl-12 pr-4 py-3 rounded-xl text-sm font-medium placeholder-gray-400 focus:outline-none">
+                <button onclick="openModal()" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Add Customer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Search -->
+        <div class="max-w-2xl mb-8">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <input type="text" id="searchInput" placeholder="Search by name, email, or phone..." 
+                    class="input-field block w-full pl-10 pr-4 py-2.5 rounded-lg text-sm text-slate-900 placeholder-slate-400">
             </div>
         </div>
 
-        <!-- Customer List -->
-        <div class="premium-card overflow-hidden">
-            <div class="table-container">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+        <!-- Table Container -->
+        <div class="biz-card rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
                         <tr>
-                            <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Name</th>
-                            <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Contact</th>
-                            <th scope="col" class="px-4 sm:px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider hidden md:table-cell">Location</th>
-                            <th scope="col" class="px-4 sm:px-6 py-4 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">Actions</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Name / ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Location</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="customerTableBody" class="bg-white divide-y divide-gray-200">
-                        <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-gray-500 font-medium">Loading customers...</td>
-                        </tr>
+                    <tbody id="customerTableBody" class="bg-white divide-y divide-slate-200">
+                        <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-slate-500">Loading directory...</td></tr>
                     </tbody>
                 </table>
             </div>
+            
             <!-- Pagination -->
-            <div id="pagination" class="bg-gray-50 px-4 sm:px-6 py-4 border-t border-gray-200"></div>
+            <div id="pagination" class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+                <!-- Injected via JS -->
+            </div>
         </div>
-    </main>
+    </div>
 
-    <!-- History Modal -->
-    <div id="historyModal" class="fixed inset-0 z-50 hidden overflow-y-auto modal-overlay" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div class="fixed inset-0 transition-opacity" aria-hidden="true" onclick="closeHistoryModal()"></div>
-            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div class="modal-content inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl w-full">
-                <div class="bg-white px-6 py-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-xl font-bold text-gray-900">Customer Version History</h3>
-                        <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600 transition-colors p-2 -mr-2">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
+    <!-- History Slide-over Modal -->
+    <div id="historyModal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeHistoryModal()"></div>
+        <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+            <div class="pointer-events-auto w-screen max-w-md transform transition ease-in-out duration-300 sm:duration-500 translate-x-0">
+                <div class="flex h-full flex-col overflow-y-scroll bg-white shadow-xl">
+                    <div class="px-6 py-6 border-b border-slate-100 bg-slate-50">
+                        <div class="flex items-start justify-between">
+                            <h2 class="text-lg font-semibold text-slate-900">Change History</h2>
+                            <button onclick="closeHistoryModal()" class="ml-3 flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-600">
+                                <span class="sr-only">Close panel</span>
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
                     </div>
-                    <div id="historyList" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                        <!-- History Items populated by JS -->
+                    <div class="relative flex-1 px-6 py-6 sm:px-8">
+                        <div id="historyList" class="space-y-8"></div>
                     </div>
-                </div>
-                <div class="bg-gray-50 px-6 py-4 flex justify-end">
-                    <button type="button" onclick="closeHistoryModal()" class="action-btn bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
-                        Close
-                    </button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Add/Edit Modal -->
-    <div id="customerModal" class="fixed inset-0 z-50 hidden overflow-y-auto modal-overlay" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div class="fixed inset-0 transition-opacity" aria-hidden="true" onclick="closeModal()"></div>
-            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div class="modal-content inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
-                <form id="customerForm" onsubmit="handleFormSubmit(event)">
-                    <div class="bg-white px-5 pt-6 pb-4 sm:p-6 sm:pb-4">
-                        <div class="sm:flex sm:items-start">
-                            <div class="w-full">
-                                <h3 class="text-xl leading-6 font-bold text-gray-900 mb-6" id="modalTitle">Add Customer</h3>
-                                <input type="hidden" id="customerId">
-                                
-                                <div class="space-y-5">
-                                    <div>
-                                        <label class="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
-                                        <input type="text" id="customerName" required class="search-input block w-full py-3 px-4 rounded-xl text-sm font-medium focus:outline-none">
-                                    </div>
-                                    
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">Phone</label>
-                                            <input type="text" id="customerPhone" class="search-input block w-full py-3 px-4 rounded-xl text-sm font-medium focus:outline-none">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-                                            <input type="email" id="customerEmail" class="search-input block w-full py-3 px-4 rounded-xl text-sm font-medium focus:outline-none">
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-sm font-semibold text-gray-700 mb-2">Address</label>
-                                        <textarea id="customerAddress" rows="3" class="search-input block w-full py-3 px-4 rounded-xl text-sm font-medium focus:outline-none resize-none"></textarea>
-                                    </div>
-
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">City</label>
-                                            <input type="text" id="customerCity" class="search-input block w-full py-3 px-4 rounded-xl text-sm font-medium focus:outline-none">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-semibold text-gray-700 mb-2">Postcode</label>
-                                            <input type="text" id="customerPostcode" class="search-input block w-full py-3 px-4 rounded-xl text-sm font-medium focus:outline-none">
-                                        </div>
-                                    </div>
-                                    
-                                    <div>
-                                        <label class="block text-sm font-semibold text-gray-700 mb-2">State</label>
-                                        <input type="text" id="customerState" class="search-input block w-full py-3 px-4 rounded-xl text-sm font-medium focus:outline-none">
-                                    </div>
-                                </div>
+    <div id="customerModal" class="fixed inset-0 z-50 hidden overflow-y-auto" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div class="relative w-full max-w-lg transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all">
+                <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-900" id="modalTitle">Add Customer</h3>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                </div>
+                
+                <form id="customerForm" onsubmit="handleFormSubmit(event)" class="p-6">
+                    <input type="hidden" id="customerId">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Full Name</label>
+                            <input type="text" id="customerName" required class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Phone</label>
+                                <input type="text" id="customerPhone" class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                                <input type="email" id="customerEmail" class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900">
                             </div>
                         </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Address</label>
+                            <textarea id="customerAddress" rows="2" class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900 resize-none"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">City</label>
+                                <input type="text" id="customerCity" class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Postcode</label>
+                                <input type="text" id="customerPostcode" class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">State</label>
+                            <input type="text" id="customerState" class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900">
+                        </div>
                     </div>
-                    <div class="bg-gray-50 px-5 py-4 sm:px-6 sm:flex sm:flex-row-reverse gap-3">
-                        <button type="submit" class="btn-primary w-full sm:w-auto px-6 py-3 rounded-xl text-white font-semibold text-sm">
-                            Save
-                        </button>
-                        <button type="button" onclick="closeModal()" class="btn-secondary w-full sm:w-auto px-6 py-3 rounded-xl text-gray-700 font-semibold text-sm mt-3 sm:mt-0">
-                            Cancel
-                        </button>
+                    <div class="mt-8 flex justify-end gap-3">
+                        <button type="button" onclick="closeModal()" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium">Cancel</button>
+                        <button type="submit" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Save Customer</button>
                     </div>
                 </form>
             </div>
@@ -284,20 +225,18 @@
     <script>
         let currentLimit = 10;
         let currentOffset = 0;
-        let isSearching = false;
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchUserProfile();
             loadCustomers();
             
-            // Search debounce
-            let timeout = null;
-            document.getElementById('searchInput').addEventListener('input', function(e) {
+            let timeout;
+            document.getElementById('searchInput').addEventListener('input', (e) => {
                 clearTimeout(timeout);
                 timeout = setTimeout(() => {
                     currentOffset = 0;
                     loadCustomers(e.target.value);
-                }, 500);
+                }, 400);
             });
         });
 
@@ -306,18 +245,15 @@
                 const res = await fetch('/api/user/me');
                 const data = await res.json();
                 if (data.success && data.user) {
-                    document.getElementById('navUserName').textContent = data.user.name;
-                    document.getElementById('navUserRole').textContent = data.user.role || 'Agent';
-                    document.getElementById('navUserInitials').textContent = data.user.name.charAt(0).toUpperCase();
+                    const i = data.user.name ? data.user.name.charAt(0).toUpperCase() : 'U';
+                    document.getElementById('navUserInitials').textContent = i;
                 }
-            } catch (err) {
-                console.error(err);
-            }
+            } catch (e) { console.error(e); }
         }
 
         async function loadCustomers(search = '') {
             const tbody = document.getElementById('customerTableBody');
-            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-12 text-center text-gray-500 font-medium">Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-sm text-slate-500">Updating list...</td></tr>';
 
             try {
                 const res = await fetch(`/api/customers?limit=${currentLimit}&offset=${currentOffset}&search=${encodeURIComponent(search)}`);
@@ -325,178 +261,138 @@
 
                 if (!result.success) throw new Error(result.error);
 
-                renderTable(result.data.customers);
-                renderPagination(result.data.total, result.data.limit, result.data.offset);
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center text-red-500 font-medium">Error: ${err.message}</td></tr>`;
-            }
-        }
+                const list = result.data.customers;
+                const total = result.data.total;
 
-        function renderTable(customers) {
-            const tbody = document.getElementById('customerTableBody');
-            if (customers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-12 text-center text-gray-500 font-medium">No customers found.</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = customers.map(c => `
-                <tr class="customer-card">
-                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 h-11 w-11 rounded-full avatar flex items-center justify-center text-sm font-bold">
-                                ${c.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div class="ml-4">
-                                <div class="text-sm font-bold text-gray-900">${c.name}</div>
-                                <div class="text-xs text-gray-500 font-medium">ID: ${c.id}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                        <div class="text-sm font-medium text-gray-900">${c.phone || '-'}</div>
-                        <div class="text-sm text-gray-500">${c.email || '-'}</div>
-                    </td>
-                    <td class="px-4 sm:px-6 py-4 hidden md:table-cell">
-                        <div class="text-sm font-medium text-gray-900 truncate max-w-xs" title="${c.address || ''}">
-                            ${c.city || ''} ${c.state || ''}
-                        </div>
-                        <div class="text-xs text-gray-500">${c.postcode || ''}</div>
-                    </td>
-                    <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div class="flex flex-wrap justify-end gap-2">
-                            <button onclick="openHistoryModal(${c.id})" class="action-btn bg-gray-100 hover:bg-gray-200 text-gray-700">History</button>
-                            <button onclick='openModal(${JSON.stringify(c).replace(/'/g, "&#39;")})' class="action-btn bg-blue-600 hover:bg-blue-700 text-white">Edit</button>
-                            <button onclick="deleteCustomer(${c.id})" class="action-btn bg-red-600 hover:bg-red-700 text-white">Delete</button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        // History Modal Logic
-        async function openHistoryModal(customerId) {
-            const modal = document.getElementById('historyModal');
-            const list = document.getElementById('historyList');
-            
-            list.innerHTML = '<p class="text-center py-8 text-gray-500 font-medium">Loading history...</p>';
-            modal.classList.remove('hidden');
-
-            try {
-                const res = await fetch(`/api/customers/${customerId}/history`);
-                const result = await res.json();
-
-                if (!result.success) throw new Error(result.error);
-
-                if (result.data.length === 0) {
-                    list.innerHTML = '<p class="text-center py-12 text-gray-500 font-medium">No history found for this customer.</p>';
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-16 text-center text-sm text-slate-500">No customers found matching your criteria.</td></tr>';
+                    document.getElementById('pagination').innerHTML = '';
                     return;
                 }
 
-                list.innerHTML = result.data.map(h => `
-                    <div class="premium-card p-5 border border-gray-100 relative overflow-hidden">
-                        <div class="absolute top-0 right-0 px-3 py-1 bg-gray-100 text-[10px] font-bold text-gray-600 uppercase rounded-bl-lg">
-                            Version ${h.version}
-                        </div>
-                        <div class="flex flex-col sm:flex-row justify-between items-start gap-2 mb-3">
-                            <div class="flex items-center gap-2">
-                                <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${h.change_operation === 'UPDATE' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}">
-                                    ${h.change_operation}
-                                </span>
-                                <span class="text-xs text-gray-500 font-medium">${new Date(h.changed_at).toLocaleString('en-MY')}</span>
+                tbody.innerHTML = list.map(c => `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="h-9 w-9 rounded bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 uppercase border border-slate-200">
+                                    ${c.name.charAt(0)}
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-semibold text-slate-900">${c.name}</div>
+                                    <div class="text-xs text-slate-400 font-mono">ID: ${c.id}</div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm mt-4">
-                            <div>
-                                <p class="text-[10px] text-gray-400 uppercase font-bold mb-1">Name</p>
-                                <p class="text-gray-700 font-semibold">${h.name || '-'}</p>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-slate-900">${c.phone || '-'}</div>
+                            <div class="text-xs text-slate-500">${c.email || ''}</div>
+                        </td>
+                        <td class="px-6 py-4 hidden md:table-cell">
+                            <div class="text-sm text-slate-600 truncate max-w-xs" title="${c.address || ''}">
+                                ${c.city ? c.city + ', ' : ''} ${c.state || ''}
                             </div>
-                            <div>
-                                <p class="text-[10px] text-gray-400 uppercase font-bold mb-1">Phone</p>
-                                <p class="text-gray-700 font-semibold">${h.phone || '-'}</p>
-                            </div>
-                            <div class="sm:col-span-2">
-                                <p class="text-[10px] text-gray-400 uppercase font-bold mb-1">Email</p>
-                                <p class="text-gray-700 font-semibold">${h.email || '-'}</p>
-                            </div>
-                            <div class="sm:col-span-2">
-                                <p class="text-[10px] text-gray-400 uppercase font-bold mb-1">Address</p>
-                                <p class="text-gray-700 font-semibold">${h.address || '-'} ${h.city || ''} ${h.postcode || ''} ${h.state || ''}</p>
-                            </div>
-                        </div>
-                        <div class="mt-4 pt-3 border-t border-gray-200">
-                            <p class="text-[10px] text-gray-400 italic">Changed by: ${h.changed_by || 'System'}</p>
-                        </div>
-                    </div>
+                            <div class="text-xs text-slate-400">${c.postcode || ''}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick='openModal(${JSON.stringify(c).replace(/'/g, "&#39;")})' class="text-slate-600 hover:text-slate-900 mr-3 text-xs font-semibold uppercase">Edit</button>
+                            <button onclick="openHistoryModal(${c.id})" class="text-slate-600 hover:text-slate-900 mr-3 text-xs font-semibold uppercase">History</button>
+                            <button onclick="deleteCustomer(${c.id})" class="text-red-600 hover:text-red-900 text-xs font-semibold uppercase">Delete</button>
+                        </td>
+                    </tr>
                 `).join('');
+
+                // Pagination
+                const start = currentOffset + 1;
+                const end = Math.min(currentOffset + currentLimit, total);
+                const hasPrev = currentOffset > 0;
+                const hasNext = end < total;
+
+                document.getElementById('pagination').innerHTML = `
+                    <p class="text-sm text-slate-500">Showing <span class="font-medium text-slate-900">${start}</span> to <span class="font-medium text-slate-900">${end}</span> of <span class="font-medium text-slate-900">${total}</span> results</p>
+                    <div class="flex gap-2">
+                        <button onclick="changePage(-1)" ${!hasPrev ? 'disabled' : ''} class="btn-secondary px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50">Previous</button>
+                        <button onclick="changePage(1)" ${!hasNext ? 'disabled' : ''} class="btn-secondary px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50">Next</button>
+                    </div>
+                `;
+
             } catch (err) {
-                list.innerHTML = `<p class="text-center py-12 text-red-500 font-medium">Error: ${err.message}</p>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-red-500 text-sm">Error: ${err.message}</td></tr>`;
             }
+        }
+
+        function changePage(d) {
+            const newOffset = currentOffset + (d * currentLimit);
+            if (newOffset >= 0) {
+                currentOffset = newOffset;
+                loadCustomers(document.getElementById('searchInput').value);
+            }
+        }
+
+        async function openHistoryModal(id) {
+            const modal = document.getElementById('historyModal');
+            const list = document.getElementById('historyList');
+            modal.classList.remove('hidden');
+            list.innerHTML = '<p class="text-center text-sm text-slate-500">Loading history...</p>';
+            
+            try {
+                const res = await fetch(`/api/customers/${id}/history`);
+                const r = await res.json();
+                if(r.success) {
+                    if(r.data.length === 0) list.innerHTML = '<p class="text-center text-sm text-slate-500">No changes recorded.</p>';
+                    else {
+                        list.innerHTML = r.data.map((h, i) => `
+                            <div class="relative pb-8">
+                                ${i !== r.data.length - 1 ? '<span class="absolute top-4 left-4 -ml-px h-full w-0.5 bg-slate-200"></span>' : ''}
+                                <div class="relative flex space-x-3">
+                                    <div>
+                                        <span class="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center ring-8 ring-white">
+                                            <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        </span>
+                                    </div>
+                                    <div class="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                                        <div>
+                                            <p class="text-sm text-slate-500">${h.change_operation} <span class="font-medium text-slate-900">v${h.version}</span></p>
+                                        </div>
+                                        <div class="whitespace-nowrap text-right text-xs text-slate-500">
+                                            ${new Date(h.changed_at).toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="ml-12 mt-2 bg-slate-50 rounded p-3 text-xs text-slate-600 border border-slate-100">
+                                    <p><strong>Name:</strong> ${h.name}</p>
+                                    <p><strong>Phone:</strong> ${h.phone}</p>
+                                    <p class="truncate"><strong>Email:</strong> ${h.email}</p>
+                                    <p class="truncate"><strong>Address:</strong> ${h.address} ${h.city} ${h.state}</p>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch(e) { list.innerHTML = 'Error loading history.'; }
         }
 
         function closeHistoryModal() {
             document.getElementById('historyModal').classList.add('hidden');
         }
 
-        function renderPagination(total, limit, offset) {
-            const pagination = document.getElementById('pagination');
-            const totalPages = Math.ceil(total / limit);
-            const currentPage = Math.floor(offset / limit) + 1;
-
-            if (totalPages <= 1) {
-                pagination.innerHTML = '';
-                return;
-            }
-
-            pagination.innerHTML = `
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <p class="text-sm text-gray-700 font-medium">
-                            Showing <span class="font-bold">${offset + 1}</span> to <span class="font-bold">${Math.min(offset + limit, total)}</span> of <span class="font-bold">${total}</span> results
-                        </p>
-                    </div>
-                    <div>
-                        <nav class="relative z-0 inline-flex rounded-xl shadow-sm -space-x-px" aria-label="Pagination">
-                            <button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="action-btn relative inline-flex items-center px-4 py-2 rounded-l-xl border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}">
-                                Previous
-                            </button>
-                            <button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="action-btn relative inline-flex items-center px-4 py-2 rounded-r-xl border border-gray-300 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}">
-                                Next
-                            </button>
-                        </nav>
-                    </div>
-                </div>
-            `;
-        }
-
-        function changePage(page) {
-            currentOffset = (page - 1) * currentLimit;
-            loadCustomers(document.getElementById('searchInput').value);
-        }
-
-        // Modal Logic
-        function openModal(customer = null) {
-            const modal = document.getElementById('customerModal');
-            const form = document.getElementById('customerForm');
-            const title = document.getElementById('modalTitle');
-            
-            form.reset();
-            
-            if (customer) {
-                title.textContent = 'Edit Customer';
-                document.getElementById('customerId').value = customer.id;
-                document.getElementById('customerName').value = customer.name;
-                document.getElementById('customerPhone').value = customer.phone || '';
-                document.getElementById('customerEmail').value = customer.email || '';
-                document.getElementById('customerAddress').value = customer.address || '';
-                document.getElementById('customerCity').value = customer.city || '';
-                document.getElementById('customerState').value = customer.state || '';
-                document.getElementById('customerPostcode').value = customer.postcode || '';
+        function openModal(c = null) {
+            document.getElementById('customerModal').classList.remove('hidden');
+            const f = document.getElementById('customerForm');
+            f.reset();
+            if(c) {
+                document.getElementById('modalTitle').textContent = 'Edit Customer';
+                document.getElementById('customerId').value = c.id;
+                document.getElementById('customerName').value = c.name;
+                document.getElementById('customerPhone').value = c.phone || '';
+                document.getElementById('customerEmail').value = c.email || '';
+                document.getElementById('customerAddress').value = c.address || '';
+                document.getElementById('customerCity').value = c.city || '';
+                document.getElementById('customerPostcode').value = c.postcode || '';
+                document.getElementById('customerState').value = c.state || '';
             } else {
-                title.textContent = 'Add Customer';
+                document.getElementById('modalTitle').textContent = 'Add Customer';
                 document.getElementById('customerId').value = '';
             }
-            
-            modal.classList.remove('hidden');
         }
 
         function closeModal() {
@@ -525,84 +421,31 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
-                const result = await res.json();
-
-                if (result.success) {
+                const r = await res.json();
+                if(r.success) {
                     closeModal();
                     loadCustomers(document.getElementById('searchInput').value);
                     Swal.fire({
                         icon: 'success',
-                        title: 'Success',
-                        text: `Customer ${id ? 'updated' : 'created'} successfully`,
-                        timer: 1500,
+                        title: 'Saved',
+                        toast: true,
+                        position: 'top-end',
                         showConfirmButton: false,
-                        customClass: {
-                            popup: 'rounded-2xl',
-                            title: 'font-bold'
-                        }
+                        timer: 2000
                     });
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (err) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: err.message,
-                    customClass: {
-                        popup: 'rounded-2xl',
-                        title: 'font-bold'
-                    }
-                });
-            }
+                } else throw new Error(r.error);
+            } catch (err) { alert(err.message); }
         }
 
         async function deleteCustomer(id) {
-            const result = await Swal.fire({
-                title: 'Are you sure?',
-                text: "You won't be able to revert this! If this customer has invoices, delete might fail.",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Yes, delete it!',
-                customClass: {
-                    popup: 'rounded-2xl',
-                    title: 'font-bold'
-                }
-            });
-
-            if (result.isConfirmed) {
-                try {
-                    const res = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
-                    const data = await res.json();
-
-                    if (data.success) {
-                        Swal.fire({
-                            title: 'Deleted!',
-                            text: 'Customer has been deleted.',
-                            icon: 'success',
-                            customClass: {
-                                popup: 'rounded-2xl',
-                                title: 'font-bold'
-                            }
-                        });
-                        loadCustomers(document.getElementById('searchInput').value);
-                    } else {
-                        throw new Error(data.error);
-                    }
-                } catch (err) {
-                    Swal.fire({
-                        title: 'Error',
-                        text: err.message,
-                        icon: 'error',
-                        customClass: {
-                            popup: 'rounded-2xl',
-                            title: 'font-bold'
-                        }
-                    });
-                }
-            }
+            if(!confirm('Are you sure you want to delete this customer?')) return;
+            try {
+                const res = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
+                const r = await res.json();
+                if(r.success) {
+                    loadCustomers();
+                } else throw new Error(r.error);
+            } catch(e) { alert(e.message); }
         }
     </script>
 </body>

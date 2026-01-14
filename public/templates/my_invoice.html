@@ -6,237 +6,179 @@
     <title>My Quotations</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        :root {
+            --primary: #0f172a; /* Slate 900 */
+            --primary-hover: #1e293b; /* Slate 800 */
+        }
         * {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
-            min-height: 100vh;
+            background-color: #f8fafc; /* Slate 50 */
         }
-        .premium-card {
-            background: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Business Card Style */
+        .biz-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease-in-out;
         }
-        .premium-card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.1);
-            transform: translateY(-2px);
+        .biz-card:hover {
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
         }
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .stat-card:nth-child(2) {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        .stat-card:nth-child(3) {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
+        /* Buttons */
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            background-color: var(--primary);
+            color: white;
+            transition: all 0.2s;
         }
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
-        }
-        .btn-secondary {
-            background: #ffffff;
-            border: 1.5px solid #e2e8f0;
-            transition: all 0.3s ease;
-        }
-        .btn-secondary:hover {
-            background: #f8fafc;
-            border-color: #cbd5e1;
+            background-color: var(--primary-hover);
             transform: translateY(-1px);
         }
-        .status-badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 11px;
+        .btn-secondary {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            transition: all 0.2s;
+        }
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+            border-color: #cbd5e1;
+            color: #1e293b;
+        }
+        /* Status Badges */
+        .badge {
+            font-size: 0.75rem;
             font-weight: 600;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            letter-spacing: 0.025em;
         }
-        .invoice-card {
-            border-left: 4px solid transparent;
-            transition: all 0.3s ease;
-        }
-        .invoice-card:hover {
-            border-left-color: #667eea;
-        }
-        .action-btn {
-            min-height: 44px;
-            padding: 10px 16px;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 13px;
-            transition: all 0.2s ease;
-            touch-action: manipulation;
-        }
-        .modal-overlay {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-        }
-        .modal-content {
-            animation: slideUp 0.3s ease-out;
-        }
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+        .badge-draft { background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
+        .badge-sent { background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; }
+        .badge-paid { background: #f0fdf4; color: #15803d; border: 1px solid #dcfce7; }
+        .badge-cancelled { background: #fef2f2; color: #b91c1c; border: 1px solid #fee2e2; }
+        .badge-payment_submitted { background: #faf5ff; color: #7e22ce; border: 1px solid #f3e8ff; }
+
         .loading-spinner {
-            border: 3px solid #f3f4f6;
-            border-top-color: #667eea;
+            border: 2px solid #f3f4f6;
+            border-top-color: var(--primary);
             animation: spin 0.8s linear infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        /* Mobile optimizations */
-        @media (max-width: 640px) {
-            .stat-card {
-                padding: 20px !important;
-            }
-            .action-btn {
-                font-size: 12px;
-                padding: 10px 14px;
-            }
-        }
-        /* Touch-friendly */
-        button, a {
-            -webkit-tap-highlight-color: transparent;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="min-h-screen pb-8">
-    <!-- Header -->
-    <div class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">My Quotations</h1>
-                    <p class="text-sm text-gray-500 mt-1 font-medium">Manage and track all your quotations</p>
+<body class="min-h-screen text-slate-900">
+    
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-lg">A</div>
+                    <span class="text-lg font-bold tracking-tight text-slate-900">ATAP Solar</span>
                 </div>
-                <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                    <button onclick="cleanupSamples()" class="btn-secondary px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        <span class="hidden sm:inline">Cleanup Samples</span>
-                    </button>
-                    <a href="/my-customers" class="btn-secondary px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                        <span class="hidden sm:inline">Customers</span>
+                <div class="flex items-center gap-4">
+                    <a href="/my-customers" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Customers</a>
+                    <div class="h-4 w-px bg-slate-200"></div>
+                    <button onclick="cleanupSamples()" class="text-sm font-medium text-red-600 hover:text-red-700 transition-colors">Cleanup</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <div class="bg-white border-b border-slate-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Quotations</h1>
+                    <p class="text-slate-500 text-sm mt-1">Manage your pipeline and sales activity.</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="/create-invoice" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        New Quotation
                     </a>
-                    <a href="/create-invoice" class="btn-primary px-6 py-2.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        Create Quotation
-                    </a>
+                </div>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Count</p>
+                    <p class="text-2xl font-bold text-slate-900 mt-1" id="totalCount">0</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pipeline Value</p>
+                    <p class="text-2xl font-bold text-slate-900 mt-1" id="totalValue">RM 0.00</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Latest Activity</p>
+                    <p class="text-xl font-bold text-slate-900 mt-1 truncate" id="lastCreated">-</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <!-- Loading State -->
-        <div id="loading" class="text-center py-16">
-            <div class="inline-block loading-spinner rounded-full h-14 w-14"></div>
-            <p class="mt-6 text-gray-600 font-medium">Loading quotations...</p>
-        </div>
-
-        <!-- Error State -->
-        <div id="error" class="hidden premium-card p-6 border-l-4 border-red-500">
-            <div class="flex items-start gap-4">
-                <div class="flex-shrink-0">
-                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-                <div class="flex-1">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-1">Error Loading Quotations</h3>
-                    <p class="text-red-700 font-medium" id="errorMsg"></p>
-                    <button onclick="loadQuotations()" class="mt-4 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors">
-                        Try Again
-                    </button>
-                </div>
-            </div>
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Loading -->
+        <div id="loading" class="flex flex-col items-center justify-center py-20">
+            <div class="loading-spinner h-8 w-8 rounded-full mb-4"></div>
+            <p class="text-slate-500 text-sm font-medium">Loading data...</p>
         </div>
 
         <!-- Empty State -->
-        <div id="empty" class="hidden text-center py-16">
-            <div class="max-w-md mx-auto">
-                <div class="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                </div>
-                <h3 class="text-xl font-bold text-gray-900 mb-2">No quotations yet</h3>
-                <p class="text-gray-600 mb-6">Get started by creating your first quotation</p>
-                <a href="/create-invoice" class="btn-primary px-8 py-3 rounded-xl text-white font-semibold inline-flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    Create Your First Quotation
-                </a>
+        <div id="empty" class="hidden flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+            <div class="h-12 w-12 bg-white rounded-full border border-slate-200 flex items-center justify-center mb-4 shadow-sm">
+                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </div>
+            <h3 class="text-lg font-medium text-slate-900">No quotations found</h3>
+            <p class="text-slate-500 text-sm mt-1 mb-6">Create a new quotation to get started.</p>
+            <a href="/create-invoice" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium">Create Quotation</a>
         </div>
 
         <!-- Content -->
         <div id="content" class="hidden">
-            <!-- Stats Cards -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-                <div class="stat-card premium-card p-6 rounded-2xl">
-                    <div class="text-sm font-medium opacity-90 mb-2">Total Quotations</div>
-                    <div class="text-3xl sm:text-4xl font-bold" id="totalCount">0</div>
-                </div>
-                <div class="stat-card premium-card p-6 rounded-2xl">
-                    <div class="text-sm font-medium opacity-90 mb-2">Total Value</div>
-                    <div class="text-3xl sm:text-4xl font-bold" id="totalValue">RM 0.00</div>
-                </div>
-                <div class="stat-card premium-card p-6 rounded-2xl">
-                    <div class="text-sm font-medium opacity-90 mb-2">Last Created</div>
-                    <div class="text-lg sm:text-xl font-bold" id="lastCreated">-</div>
-                </div>
+            <div id="invoices" class="space-y-3">
+                <!-- Cards injected here -->
             </div>
 
-            <!-- Quotations List -->
-            <div id="invoices" class="space-y-4"></div>
-
             <!-- Pagination -->
-            <div id="pagination" class="hidden mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
-                <button id="prevBtn" onclick="changePage(-1)" class="action-btn bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed px-6" disabled>
-                    Previous
-                </button>
-                <span class="text-sm text-gray-600 font-medium">Page <span id="pageNum" class="font-bold">1</span> of <span id="totalPages" class="font-bold">1</span></span>
-                <button id="nextBtn" onclick="changePage(1)" class="action-btn bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed px-6" disabled>
-                    Next
-                </button>
+            <div id="pagination" class="hidden mt-8 flex justify-between items-center border-t border-slate-200 pt-6">
+                <p class="text-sm text-slate-500">Page <span id="pageNum" class="font-medium text-slate-900">1</span> of <span id="totalPages" class="font-medium text-slate-900">1</span></p>
+                <div class="flex gap-2">
+                    <button id="prevBtn" onclick="changePage(-1)" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+                    <button id="nextBtn" onclick="changePage(1)" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- History Modal -->
-    <div id="historyModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
-        <div class="modal-content premium-card max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div class="p-6 border-b border-gray-200 flex justify-between items-center bg-white">
-                <h2 class="text-xl font-bold text-gray-900">Quotation History</h2>
-                <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600 transition-colors p-2 -mr-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            
-            <div id="historyList" class="p-6 space-y-4 overflow-y-auto flex-1">
-                <p class="text-center text-gray-500">Loading history...</p>
+    <div id="historyModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeHistoryModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4 border-b border-slate-100">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold leading-6 text-slate-900" id="modal-title">Activity History</h3>
+                            <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-500">
+                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="historyList" class="max-h-[60vh] overflow-y-auto p-6 space-y-6"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -255,97 +197,69 @@
             return new Date(dateStr).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' });
         }
 
-        function getStatusClass(status) {
+        function getStatusBadgeClass(status) {
             const s = (status || 'draft').toLowerCase();
             const classes = {
-                'paid': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                'sent': 'bg-blue-100 text-blue-800 border-blue-200',
-                'payment_submitted': 'bg-purple-100 text-purple-800 border-purple-200',
-                'cancelled': 'bg-red-100 text-red-800 border-red-200',
-                'draft': 'bg-amber-100 text-amber-800 border-amber-200'
+                'paid': 'badge-paid',
+                'sent': 'badge-sent',
+                'payment_submitted': 'badge-payment_submitted',
+                'cancelled': 'badge-cancelled',
+                'draft': 'badge-draft'
             };
             return classes[s] || classes.draft;
         }
 
         async function cleanupSamples() {
-            if (!confirm('Are you sure you want to delete ALL invoices named "Sample Quotation"? This action cannot be undone.')) {
-                return;
-            }
-
+            if (!confirm('Permanently delete all "Sample Quotation" records?')) return;
             try {
                 const res = await fetch('/api/v1/invoices/cleanup-samples', { method: 'DELETE' });
                 const data = await res.json();
-
                 if (data.success) {
                     alert(data.message);
-                    // Reload current page
                     loadQuotations();
-                } else {
-                    throw new Error(data.error || 'Failed to cleanup invoices');
-                }
-            } catch (err) {
-                console.error('Cleanup Error:', err);
-                alert('Error: ' + err.message);
-            }
+                } else throw new Error(data.error);
+            } catch (err) { alert('Error: ' + err.message); }
         }
 
         async function openHistoryModal(bubbleId) {
             document.getElementById('historyModal').classList.remove('hidden');
             const container = document.getElementById('historyList');
-            container.innerHTML = '<p class="text-center text-gray-500 py-8">Loading history...</p>';
+            container.innerHTML = '<div class="text-center py-4"><div class="loading-spinner h-6 w-6 rounded-full mx-auto border-slate-300 border-t-slate-900"></div></div>';
 
             try {
                 const res = await fetch(`/api/v1/invoices/${bubbleId}/history`);
                 const data = await res.json();
-
                 if (!data.success) throw new Error(data.error);
-
                 if (data.data.length === 0) {
-                    container.innerHTML = '<p class="text-center text-gray-500 py-8">No history found.</p>';
+                    container.innerHTML = '<p class="text-center text-slate-500 py-4">No history recorded.</p>';
                     return;
                 }
-
-                container.innerHTML = data.data.map(action => {
+                
+                container.innerHTML = data.data.map((action, index) => {
                     const date = new Date(action.created_at).toLocaleString('en-MY');
+                    const isLast = index === data.data.length - 1;
                     const details = action.details || {};
                     const hasSnapshot = !!details.snapshot;
                     
-                    let summary = details.description || details.change_summary || 'No details';
-                    
-                    if (details.total_amount) {
-                        summary += ` <br><span class="text-xs text-gray-500 mt-1 block">Total: ${formatCurrency(details.total_amount)}</span>`;
-                    }
-
                     return `
-                        <div class="premium-card p-4 border border-gray-100">
-                            <div class="flex items-start gap-4">
-                                <div class="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
-                                        <h4 class="font-bold text-gray-900 text-sm">${action.action_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
-                                        <span class="text-xs text-gray-500 font-medium">${date}</span>
-                                    </div>
-                                    <p class="text-sm text-gray-600 mb-3">${summary}</p>
-                                    <div class="flex flex-wrap gap-2 items-center">
-                                        <span class="text-xs bg-gray-100 px-2.5 py-1 rounded-full text-gray-700 font-medium">Ver: ${action.version || '1'}</span>
-                                        <span class="text-xs bg-gray-100 px-2.5 py-1 rounded-full text-gray-700 font-medium">Ref: ${action.invoice_number || '-'}</span>
-                                        ${hasSnapshot ? `
-                                            <a href="/api/v1/invoices/actions/${action.action_id}/snapshot" target="_blank" class="ml-auto text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full font-semibold hover:bg-emerald-200 flex items-center gap-1.5 transition-colors">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                                                View Snapshot
-                                            </a>
-                                        ` : ''}
-                                    </div>
-                                </div>
+                        <div class="relative pl-6 ${!isLast ? 'pb-6 border-l border-slate-200' : ''}">
+                            <div class="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full bg-slate-200 ring-4 ring-white"></div>
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-baseline mb-1">
+                                <p class="text-sm font-semibold text-slate-900">${action.action_type.replace(/_/g, ' ')}</p>
+                                <span class="text-xs text-slate-400 font-mono">${date}</span>
                             </div>
+                            <p class="text-sm text-slate-600 mb-2">${details.description || details.change_summary || 'Update recorded'}</p>
+                            ${hasSnapshot ? `
+                                <a href="/api/v1/invoices/actions/${action.action_id}/snapshot" target="_blank" class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                    View Snapshot
+                                </a>
+                            ` : ''}
                         </div>
                     `;
                 }).join('');
-
             } catch (err) {
-                container.innerHTML = `<p class="text-center text-red-500 py-8 font-medium">Error: ${err.message}</p>`;
+                container.innerHTML = `<p class="text-red-500 text-center text-sm">${err.message}</p>`;
             }
         }
 
@@ -354,181 +268,128 @@
         }
 
         async function loadQuotations() {
-            document.getElementById('loading').classList.remove('hidden');
-            document.getElementById('error').classList.add('hidden');
-            document.getElementById('empty').classList.add('hidden');
-            document.getElementById('content').classList.add('hidden');
+            const container = document.getElementById('invoices');
+            const loading = document.getElementById('loading');
+            const content = document.getElementById('content');
+            const empty = document.getElementById('empty');
+            
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+            empty.classList.add('hidden');
 
             try {
                 const offset = (page - 1) * limit;
                 const res = await fetch(`/api/v1/invoices/my-invoices?limit=${limit}&offset=${offset}`);
                 const data = await res.json();
+                if (!data.success) throw new Error(data.error);
 
-                if (!res.ok || !data.success) {
-                    throw new Error(data.error || 'Failed to load quotations');
-                }
-
-                const quotations = data.data.invoices || [];
-                currentInvoices = quotations;
+                const invoices = data.data.invoices || [];
                 total = data.data.total || 0;
 
-                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('totalCount').textContent = total;
+                const totalVal = invoices.reduce((sum, i) => sum + (parseFloat(i.total_amount) || 0), 0);
+                document.getElementById('totalValue').textContent = formatCurrency(totalVal);
+                if (invoices.length > 0) document.getElementById('lastCreated').textContent = formatDate(invoices[0].created_at);
 
-                if (quotations.length === 0) {
-                    document.getElementById('empty').classList.remove('hidden');
+                loading.classList.add('hidden');
+                
+                if (invoices.length === 0) {
+                    empty.classList.remove('hidden');
                     return;
                 }
 
-                document.getElementById('content').classList.remove('hidden');
-
-                // Update stats
-                document.getElementById('totalCount').textContent = total;
-                const totalVal = quotations.reduce((sum, inv) => sum + (parseFloat(inv.total_amount) || 0), 0);
-                document.getElementById('totalValue').textContent = formatCurrency(totalVal);
-                document.getElementById('lastCreated').textContent = quotations[0] ? formatDate(quotations[0].created_at) : '-';
-
-                // Render quotations
-                const container = document.getElementById('invoices');
-                container.innerHTML = quotations.map(inv => {
-                    const status = (inv.status || 'draft').toUpperCase();
-                    const statusClass = getStatusClass(inv.status);
+                content.classList.remove('hidden');
+                
+                container.innerHTML = invoices.map(inv => {
+                    const statusClass = getStatusBadgeClass(inv.status);
                     
                     return `
-                        <div class="invoice-card premium-card p-5 sm:p-6">
-                            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex flex-wrap items-center gap-3 mb-3">
-                                        <h3 class="text-lg sm:text-xl font-bold text-gray-900 truncate">${inv.invoice_number || 'N/A'}</h3>
-                                        <span class="status-badge ${statusClass} border">${status}</span>
+                        <div class="biz-card rounded-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <!-- Left: Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="font-mono text-sm font-semibold text-slate-900">${inv.invoice_number || 'DRAFT'}</span>
+                                    <span class="badge ${statusClass} uppercase">${(inv.status || 'Draft').replace('_', ' ')}</span>
+                                </div>
+                                <h3 class="text-base font-medium text-slate-800 truncate">${inv.customer_name_snapshot || 'Unknown Customer'}</h3>
+                                <div class="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                                    <div class="flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                        ${inv.package_name_snapshot || '-'}
                                     </div>
-                                    <div class="space-y-2 text-sm text-gray-600">
-                                        <div class="flex items-center gap-2">
-                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                                            <span class="font-medium">${inv.customer_name_snapshot || 'Sample Quotation'}</span>
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                                            <span>${inv.package_name_snapshot || 'N/A'}</span>
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                            <span>${formatDate(inv.invoice_date)}</span>
-                                        </div>
-                                        ${inv.share_access_count > 0 ? `
-                                            <div class="flex items-center gap-2">
-                                                <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                                                <span>${inv.share_access_count} views</span>
-                                            </div>
-                                        ` : ''}
-                                        
-                                        ${inv.pending_payments && inv.pending_payments.length > 0 ? `
-                                            <div class="mt-3 pt-3 border-t border-gray-100">
-                                                <div class="flex flex-wrap gap-2 items-center">
-                                                    <span class="text-xs font-semibold text-gray-500 uppercase">Pending Verification:</span> 
-                                                    ${inv.pending_payments.map(p => `
-                                                        <a href="/submit-payment?edit_payment_id=${p.id}" class="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 hover:bg-orange-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border border-orange-200">
-                                                            <span>${formatCurrency(p.amount)}</span>
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                                        </a>
-                                                    `).join('')}
-                                                </div>
-                                            </div>
-                                        ` : ''}
+                                    <div class="flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                        ${formatDate(inv.invoice_date)}
                                     </div>
                                 </div>
-                                <div class="flex flex-col items-start lg:items-end gap-4 lg:ml-6">
-                                    <div class="text-left lg:text-right">
-                                        <div class="text-xs text-gray-500 font-medium mb-1">Received / Total</div>
-                                        <div class="text-2xl sm:text-3xl font-bold">
-                                            <span class="text-emerald-600">${formatCurrency(inv.total_received || 0)}</span>
-                                            <span class="text-gray-300 mx-1">/</span>
-                                            <span class="text-gray-900">${formatCurrency(inv.total_amount)}</span>
-                                        </div>
-                                    </div>
-                                    <div class="flex flex-wrap gap-2 w-full lg:w-auto">
-                                        <button onclick="openHistoryModal('${inv.bubble_id}')" class="action-btn bg-gray-100 hover:bg-gray-200 text-gray-700 flex-1 lg:flex-none">
-                                            History
+                            </div>
+                            
+                            <!-- Right: Actions & Amount -->
+                            <div class="flex flex-col md:items-end gap-3 border-t md:border-t-0 border-slate-100 pt-3 md:pt-0">
+                                <div class="text-right">
+                                    <p class="text-xs text-slate-400 font-medium uppercase">Total Value</p>
+                                    <p class="text-lg font-bold text-slate-900">${formatCurrency(inv.total_amount)}</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="window.location.href='/edit-invoice?id=${inv.bubble_id}'" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium">Edit</button>
+                                    <button onclick="openHistoryModal('${inv.bubble_id}')" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium">History</button>
+                                    
+                                    ${inv.status !== 'cancelled' ? `
+                                        <a href="/submit-payment?id=${inv.bubble_id}" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium text-slate-600">Pay</a>
+                                    ` : ''}
+
+                                    ${inv.share_url ? `
+                                        <a href="${inv.share_url}" target="_blank" class="btn-primary px-3 py-1.5 rounded text-xs font-medium">View</a>
+                                        <button onclick="downloadQuotationPdf('${inv.share_token}')" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium text-slate-600 flex items-center gap-1 pdf-btn-${inv.share_token.replace(/-/g, '')}">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                            PDF
                                         </button>
-                                        <button onclick="window.location.href='/edit-invoice?id=${inv.bubble_id}'" class="action-btn bg-amber-500 hover:bg-amber-600 text-white flex-1 lg:flex-none">
-                                            Edit
-                                        </button>
-                                        ${inv.status !== 'cancelled' ? `
-                                            <button onclick="window.location.href='/submit-payment?id=${inv.bubble_id}'" class="action-btn bg-indigo-600 hover:bg-indigo-700 text-white flex-1 lg:flex-none flex items-center justify-center gap-1.5">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                                                Payment
-                                            </button>
-                                        ` : ''}
-                                        ${inv.share_url ? `
-                                            <a href="${inv.share_url}" target="_blank" class="action-btn bg-blue-600 hover:bg-blue-700 text-white flex-1 lg:flex-none">
-                                                View
-                                            </a>
-                                            <button onclick="downloadQuotationPdf('${inv.share_token}')" class="action-btn bg-red-600 hover:bg-red-700 text-white flex-1 lg:flex-none">
-                                                <span class="pdf-button-text-${inv.bubble_id.replace(/-/g, '')}">PDF</span>
-                                            </button>
-                                        ` : '<span class="action-btn bg-gray-300 text-gray-500 cursor-not-allowed flex-1 lg:flex-none">Not Shareable</span>'}
-                                    </div>
+                                    ` : '<span class="text-xs text-slate-400 italic">Not shared</span>'}
                                 </div>
                             </div>
                         </div>
                     `;
                 }).join('');
 
-                // Update pagination
                 const totalPages = Math.ceil(total / limit);
                 document.getElementById('pageNum').textContent = page;
-                document.getElementById('totalPages').textContent = totalPages;
-                document.getElementById('prevBtn').disabled = page === 1;
-                document.getElementById('nextBtn').disabled = page >= totalPages;
+                document.getElementById('totalPages').textContent = totalPages || 1;
                 document.getElementById('pagination').classList.toggle('hidden', totalPages <= 1);
+                document.getElementById('prevBtn').disabled = page <= 1;
+                document.getElementById('nextBtn').disabled = page >= totalPages;
 
             } catch (err) {
-                console.error('Error:', err);
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('error').classList.remove('hidden');
-                document.getElementById('errorMsg').textContent = err.message || 'Failed to load quotations';
+                console.error(err);
+                alert('Failed to load data.');
             }
         }
 
-        function changePage(delta) {
-            const newPage = page + delta;
-            const totalPages = Math.ceil(total / limit);
-            if (newPage >= 1 && newPage <= totalPages) {
-                page = newPage;
-                loadQuotations();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
+        function changePage(d) {
+            page += d;
+            loadQuotations();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        async function downloadQuotationPdf(shareToken) {
-            const button = document.querySelector(`button[onclick*="downloadQuotationPdf('${shareToken}')"]`);
-            const buttonText = document.querySelector(`.pdf-button-text-${shareToken.replace(/-/g, '')}`);
-
+        async function downloadQuotationPdf(token) {
+            const btn = document.querySelector(`.pdf-btn-${token.replace(/-/g, '')}`);
+            if(!btn) return;
+            const originalContent = btn.innerHTML;
+            
             try {
-                button.disabled = true;
-                button.classList.add('opacity-50', 'cursor-not-allowed');
-                buttonText.textContent = 'Generating...';
-
-                const response = await fetch('/view/' + shareToken + '/pdf');
-                const data = await response.json();
-
-                if (data.success && data.downloadUrl) {
-                    let downloadUrl = data.downloadUrl;
-                    if (!downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) {
-                        downloadUrl = 'https://' + downloadUrl;
-                    }
-                    window.open(downloadUrl, '_blank');
-                    button.disabled = false;
-                    button.classList.remove('opacity-50', 'cursor-not-allowed');
-                    buttonText.textContent = 'PDF';
-                } else {
-                    throw new Error(data.error || 'Unknown error');
-                }
-            } catch (err) {
-                console.error('[My-Quotations PDF] Error:', err);
-                button.disabled = false;
-                button.classList.remove('opacity-50', 'cursor-not-allowed');
-                buttonText.textContent = 'Error - Try Again';
-                alert('Error: ' + err.message);
+                btn.disabled = true;
+                btn.innerHTML = `<div class="loading-spinner h-3 w-3 rounded-full border-slate-400 border-t-slate-800"></div>`;
+                
+                const res = await fetch(`/view/${token}/pdf`);
+                const data = await res.json();
+                
+                if(data.success && data.downloadUrl) {
+                    window.open(data.downloadUrl, '_blank');
+                } else throw new Error(data.error);
+            } catch(e) {
+                alert('PDF Generation failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
             }
         }
 
