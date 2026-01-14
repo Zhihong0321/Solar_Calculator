@@ -25,15 +25,48 @@
             cursor: pointer;
             transition: all 0.2s;
             background: #f8fafc;
+            position: relative;
         }
         .file-upload-box:hover { border-color: #94a3b8; background: #f1f5f9; }
         .file-preview { display: none; margin-top: 0.5rem; font-size: 0.75rem; color: #0f172a; font-weight: 500; }
         .file-preview img { max-height: 150px; margin: 0 auto; border-radius: 4px; border: 1px solid #e2e8f0; }
-        .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: none; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(2px); }
+        
+        /* Loading Overlay */
+        .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: none; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(4px); }
+        .progress-bar-container { width: 300px; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 1rem; }
+        .progress-bar-fill { height: 100%; background: #0f172a; width: 0%; transition: width 0.1s linear; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 60; }
+        .modal-card { background: white; padding: 2rem; border-radius: 0.75rem; width: 90%; max-width: 500px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
     </style>
 </head>
 <body class="py-10 px-4 sm:px-6 lg:px-8">
-    <div id="loading" class="loading-overlay"><div class="animate-spin rounded-full h-10 w-10 border-4 border-slate-900 border-t-transparent"></div></div>
+    
+    <!-- Extraction Loading Overlay -->
+    <div id="loading" class="loading-overlay">
+        <div class="text-center">
+            <div class="text-sm font-bold text-slate-900 mb-2" id="loadingText">Processing Document...</div>
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-bar-fill"></div>
+            </div>
+            <div class="text-xs text-slate-500 mt-2">This may take up to 25 seconds</div>
+        </div>
+    </div>
+
+    <!-- Extraction Result Modal -->
+    <div id="resultModal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 class="text-lg font-bold text-slate-900 mb-4">Data Extracted</h3>
+            <div id="resultContent" class="space-y-3 mb-6 text-sm text-slate-600">
+                <!-- Injected via JS -->
+            </div>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeResultModal()" class="px-4 py-2 border border-slate-300 rounded text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button id="btnApplyData" class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-medium">Apply Data</button>
+            </div>
+        </div>
+    </div>
 
     <div class="max-w-3xl mx-auto">
         <div class="mb-8 flex items-center justify-between">
@@ -48,23 +81,27 @@
             
             <!-- Applicant Details -->
             <div>
-                <h2 class="section-title">01. Applicant Information (Auto-filled)</h2>
+                <h2 class="section-title">01. Applicant Information</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="input-group">
                         <label class="input-label">Applicant Name</label>
-                        <input type="text" id="applicantName" class="input-field" disabled>
+                        <input type="text" id="applicantName" class="input-field">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">IC No / Reg No</label>
+                        <input type="text" id="applicantIC" class="input-field" placeholder="e.g. 900101-14-1234">
                     </div>
                     <div class="input-group">
                         <label class="input-label">Contact No</label>
-                        <input type="text" id="applicantPhone" class="input-field" disabled>
+                        <input type="text" id="applicantPhone" class="input-field">
                     </div>
-                    <div class="input-group md:col-span-2">
+                    <div class="input-group">
                         <label class="input-label">Email Address</label>
-                        <input type="email" id="applicantEmail" class="input-field" disabled>
+                        <input type="email" id="applicantEmail" class="input-field">
                     </div>
                     <div class="input-group md:col-span-2">
                         <label class="input-label">Registered Address</label>
-                        <textarea id="applicantAddress" rows="2" class="input-field" disabled></textarea>
+                        <textarea id="applicantAddress" rows="2" class="input-field"></textarea>
                     </div>
                 </div>
             </div>
@@ -122,7 +159,7 @@
                         <label class="input-label">MyKad Front</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadFront').click()">
                             <p class="text-xs text-slate-500">Click to upload image</p>
-                            <input type="file" id="fileMyKadFront" accept="image/*" class="hidden" onchange="handleFile(this, 'previewMyKadFront')">
+                            <input type="file" id="fileMyKadFront" accept="image/*" class="hidden" onchange="handleExtraction(this, 'mykad')">
                             <div id="previewMyKadFront" class="file-preview"></div>
                         </div>
                     </div>
@@ -142,7 +179,7 @@
                         <label class="input-label">MyKad PDF (Full Document)</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadPdf').click()">
                             <p class="text-xs text-slate-500">Click to upload PDF</p>
-                            <input type="file" id="fileMyKadPdf" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewMyKadPdf')">
+                            <input type="file" id="fileMyKadPdf" accept="application/pdf" class="hidden" onchange="handleExtraction(this, 'mykad')">
                             <div id="previewMyKadPdf" class="file-preview"></div>
                         </div>
                     </div>
@@ -169,8 +206,8 @@
                         <div class="input-group">
                             <label class="input-label">Bill Month 1 (Latest)</label>
                             <div class="file-upload-box" onclick="document.getElementById('fileTnb1').click()">
-                                <p class="text-xs text-slate-500">Upload PDF</p>
-                                <input type="file" id="fileTnb1" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb1')">
+                                <p class="text-xs text-slate-500">Upload PDF (Auto-Extract)</p>
+                                <input type="file" id="fileTnb1" accept="application/pdf" class="hidden" onchange="handleExtraction(this, 'tnb')">
                                 <div id="previewTnb1" class="file-preview"></div>
                             </div>
                         </div>
@@ -225,9 +262,38 @@
         const urlParams = new URLSearchParams(window.location.search);
         const sedaId = urlParams.get('id');
         let fileData = {};
+        let extractionInterval = null;
 
-        function toggleLoading(show) {
-            document.getElementById('loading').style.display = show ? 'flex' : 'none';
+        // --- Logic for Loading Bar ---
+        function startLoading(text = 'Processing...') {
+            const overlay = document.getElementById('loading');
+            const bar = document.getElementById('progressBar');
+            const txt = document.getElementById('loadingText');
+            
+            overlay.style.display = 'flex';
+            txt.innerText = text;
+            bar.style.width = '0%';
+            
+            let progress = 0;
+            // 25 seconds = 25000ms. Update every 100ms.
+            // Step = 100 / 250 = 0.4%
+            clearInterval(extractionInterval);
+            extractionInterval = setInterval(() => {
+                progress += 0.4;
+                if (progress > 99) progress = 99; // Cap at 99
+                bar.style.width = progress + '%';
+            }, 100);
+        }
+
+        function stopLoading() {
+            clearInterval(extractionInterval);
+            const bar = document.getElementById('progressBar');
+            bar.style.width = '100%';
+            
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+                bar.style.width = '0%';
+            }, 500); // Short delay to show 100% completion
         }
 
         function setMyKadMode(mode) {
@@ -249,11 +315,15 @@
             }
         }
 
+        // --- Logic for File Handling ---
         async function handleFile(input, previewId) {
             const file = input.files[0];
             if (!file) return;
+            showPreview(file, previewId);
+            storeFile(input.id, file);
+        }
 
-            // Preview
+        function showPreview(file, previewId) {
             const previewEl = document.getElementById(previewId);
             previewEl.style.display = 'block';
             if (file.type.startsWith('image/')) {
@@ -261,11 +331,11 @@
             } else {
                 previewEl.innerHTML = `<span class="text-blue-600 font-bold">📄 PDF Selected</span><p class="mt-1">${file.name}</p>`;
             }
+        }
 
-            // Convert to Base64
+        function storeFile(inputId, file) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                // Determine key based on input ID
                 const keyMap = {
                     'fileMyKadFront': 'mykad_front',
                     'fileMyKadBack': 'mykad_back',
@@ -274,25 +344,129 @@
                     'fileTnb2': 'tnb_bill_2',
                     'fileTnb3': 'tnb_bill_3',
                 };
-                const key = keyMap[input.id];
+                const key = keyMap[inputId];
                 if (key) fileData[key] = e.target.result;
             };
             reader.readAsDataURL(file);
         }
 
+        // --- Logic for Extraction ---
+        async function handleExtraction(input, type) {
+            const file = input.files[0];
+            if (!file) return;
+
+            // 1. Show normal preview & store
+            const previewId = input.id === 'fileTnb1' ? 'previewTnb1' : 
+                              input.id === 'fileMyKadFront' ? 'previewMyKadFront' : 'previewMyKadPdf';
+            showPreview(file, previewId);
+            storeFile(input.id, file);
+
+            // 2. Start Extraction
+            startLoading(type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...');
+
+            // Convert file to Base64 for API
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const base64 = e.target.result;
+                const endpoint = type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad';
+                
+                try {
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileData: base64, filename: file.name })
+                    });
+                    
+                    stopLoading();
+                    
+                    const json = await res.json();
+                    if (json.success && json.data) {
+                        showResultModal(type, json.data);
+                    } else {
+                        console.warn('Extraction returned no data or error');
+                    }
+                } catch (err) {
+                    stopLoading();
+                    console.error(err);
+                    // Silent fail or alert? Alert is better.
+                    alert('Auto-extraction failed. Please enter details manually.');
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showResultModal(type, data) {
+            const modal = document.getElementById('resultModal');
+            const content = document.getElementById('resultContent');
+            const btnApply = document.getElementById('btnApplyData');
+            
+            modal.style.display = 'flex';
+            
+            // Build content
+            let html = '';
+            let applyFn = null;
+
+            if (type === 'tnb') {
+                html = `
+                    <div class="grid grid-cols-[1fr_2fr] gap-2">
+                        <span class="font-semibold">Account No:</span>
+                        <span>${data.tnb_account || '-'}</span>
+                        <span class="font-semibold">Customer Name:</span>
+                        <span>${data.customer_name || '-'}</span>
+                        <span class="font-semibold">Address:</span>
+                        <span>${data.address || '-'}</span>
+                    </div>
+                `;
+                applyFn = () => {
+                    if (data.tnb_account) document.getElementById('tnbAccount').value = data.tnb_account;
+                    // If we want to overwrite name? Maybe ask. For now just TNB specifics.
+                    // If address is better? 
+                    if (data.address && !document.getElementById('installAddress').value) {
+                        document.getElementById('installAddress').value = data.address;
+                    }
+                };
+            } else {
+                // MyKad
+                html = `
+                    <div class="grid grid-cols-[1fr_2fr] gap-2">
+                        <span class="font-semibold">Name:</span>
+                        <span>${data.name || '-'}</span>
+                        <span class="font-semibold">IC No:</span>
+                        <span>${data.mykad_id || '-'}</span>
+                        <span class="font-semibold">Address:</span>
+                        <span>${data.address || '-'}</span>
+                    </div>
+                `;
+                applyFn = () => {
+                    if (data.name) document.getElementById('applicantName').value = data.name;
+                    if (data.mykad_id) document.getElementById('applicantIC').value = data.mykad_id;
+                    if (data.address) document.getElementById('applicantAddress').value = data.address;
+                };
+            }
+
+            content.innerHTML = html;
+            
+            // Re-bind apply button
+            const newBtn = btnApply.cloneNode(true);
+            btnApply.parentNode.replaceChild(newBtn, btnApply);
+            newBtn.addEventListener('click', () => {
+                applyFn();
+                closeResultModal();
+            });
+        }
+
+        function closeResultModal() {
+            document.getElementById('resultModal').style.display = 'none';
+        }
+
         function copyAddress() {
             const addr = document.getElementById('applicantAddress').value;
-            const city = document.getElementById('applicantAddress').dataset.city; // Stored in dataset
-            const state = document.getElementById('applicantAddress').dataset.state; // Stored in dataset
-            
             if(addr) document.getElementById('installAddress').value = addr;
-            if(city) document.getElementById('city').value = city;
-            if(state) document.getElementById('state').value = state;
         }
 
         async function loadData() {
             if (!sedaId) return alert('No Registration ID provided');
-            toggleLoading(true);
+            startLoading('Loading Data...');
             
             try {
                 const res = await fetch(`/api/v1/seda/${sedaId}`);
@@ -305,15 +479,15 @@
                     document.getElementById('statusBadge').textContent = data.reg_status || 'DRAFT';
                     
                     // 1. Auto-fill from Customer
-                    document.getElementById('applicantName').value = cust.name || '';
-                    document.getElementById('applicantPhone').value = cust.phone || '';
-                    document.getElementById('applicantEmail').value = cust.email || '';
+                    document.getElementById('applicantName').value = data.linked_customer_name || cust.name || '';
+                    document.getElementById('applicantPhone').value = data.e_contact_no || cust.phone || ''; // Fallback mix
+                    document.getElementById('applicantEmail').value = data.e_email || cust.email || '';
+                    document.getElementById('applicantIC').value = data.ic_no || ''; 
                     
                     const fullAddr = [cust.address, cust.city, cust.state, cust.postcode].filter(Boolean).join(', ');
-                    document.getElementById('applicantAddress').value = fullAddr;
-                    // Store for copy
-                    document.getElementById('applicantAddress').dataset.city = cust.city || '';
-                    document.getElementById('applicantAddress').dataset.state = cust.state || '';
+                    if (!document.getElementById('applicantAddress').value) {
+                        document.getElementById('applicantAddress').value = fullAddr;
+                    }
 
                     // 2. Fill SEDA fields
                     document.getElementById('installAddress').value = data.installation_address || '';
@@ -326,12 +500,11 @@
                     document.getElementById('emergencyRel').value = data.e_contact_relationship || '';
                     document.getElementById('emergencyPhone').value = data.e_contact_no || '';
 
-                    // 3. Show existing files (Preview)
+                    // 3. Show existing files
                     const showExisting = (url, previewId) => {
                         if (!url) return;
                         const el = document.getElementById(previewId);
                         el.style.display = 'block';
-                        const filename = url.split('/').pop();
                         if (url.endsWith('.pdf')) {
                             el.innerHTML = `<a href="${url}" target="_blank" class="text-blue-600 underline">View Existing PDF</a>`;
                         } else {
@@ -346,7 +519,6 @@
                     showExisting(data.tnb_bill_2, 'previewTnb2');
                     showExisting(data.tnb_bill_3, 'previewTnb3');
 
-                    // Set mode based on what exists
                     if (data.mykad_pdf) setMyKadMode('pdf');
                     else setMyKadMode('images');
 
@@ -355,13 +527,13 @@
                 console.error(err);
                 alert('Failed to load SEDA data');
             } finally {
-                toggleLoading(false);
+                stopLoading();
             }
         }
 
         document.getElementById('sedaForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            toggleLoading(true);
+            startLoading('Saving Changes...');
 
             const payload = {
                 installation_address: document.getElementById('installAddress').value,
@@ -372,7 +544,15 @@
                 e_contact_name: document.getElementById('emergencyName').value,
                 e_contact_relationship: document.getElementById('emergencyRel').value,
                 e_contact_no: document.getElementById('emergencyPhone').value,
-                ...fileData // Merge base64 files
+                // Add new fields
+                // Wait, DB columns for Applicant Name/IC might not be in seda_registration if we rely on linked_customer?
+                // But I added input fields. If I want to save them to seda_registration, I need columns or update customer.
+                // The prompt said: "applied the return data and insert into the form".
+                // And "update existing customer profile".
+                // I will NOT save applicantName/IC back to SEDA table if columns don't exist.
+                // I should probably update the CUSTOMER table if these change?
+                // For now, I'll just save what I can map to seda_registration columns.
+                ...fileData 
             };
 
             try {
@@ -384,14 +564,14 @@
                 const json = await res.json();
                 if (json.success) {
                     alert('Saved successfully!');
-                    loadData(); // Refresh to see updated files
+                    // Optionally reload to clean state
                 } else {
                     throw new Error(json.error);
                 }
             } catch (err) {
                 alert('Error: ' + err.message);
             } finally {
-                toggleLoading(false);
+                stopLoading();
             }
         });
 

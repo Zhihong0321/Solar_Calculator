@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 const { requireAuth } = require('../middleware/auth');
 const sedaRepo = require('../src/modules/Invoicing/services/sedaRepo');
+const extractionService = require('../src/modules/Invoicing/services/extractionService');
 
 // Get database pool
 const pool = new Pool({
@@ -175,6 +176,52 @@ router.post('/api/v1/seda/:id', requireAuth, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     } finally {
         client.release();
+    }
+});
+
+/**
+ * POST /api/v1/seda/extract-tnb
+ * Extract data from TNB Bill
+ */
+router.post('/api/v1/seda/extract-tnb', requireAuth, async (req, res) => {
+    try {
+        const { fileData, filename } = req.body;
+        if (!fileData) return res.status(400).json({ error: 'No file data provided' });
+
+        const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+            return res.status(400).json({ error: 'Invalid base64 data' });
+        }
+
+        const buffer = Buffer.from(matches[2], 'base64');
+        const data = await extractionService.extractTnb(buffer, filename || 'tnb_bill.pdf');
+        
+        res.json({ success: true, data });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/**
+ * POST /api/v1/seda/extract-mykad
+ * Extract data from MyKad
+ */
+router.post('/api/v1/seda/extract-mykad', requireAuth, async (req, res) => {
+    try {
+        const { fileData, filename } = req.body;
+        if (!fileData) return res.status(400).json({ error: 'No file data provided' });
+
+        const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+            return res.status(400).json({ error: 'Invalid base64 data' });
+        }
+
+        const buffer = Buffer.from(matches[2], 'base64');
+        const data = await extractionService.extractMykad(buffer, filename || 'mykad.jpg');
+        
+        res.json({ success: true, data });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
