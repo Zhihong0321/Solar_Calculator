@@ -430,32 +430,46 @@
             let extracted = {};
             
             if (data.text) {
-                // Try to find the FINAL step which contains the structured answer
+                // 1. Try to find the FINAL step which contains the structured answer
                 const finalStep = data.text.find(s => s.step_type === 'FINAL');
                 if (finalStep && finalStep.content && finalStep.content.answer) {
                     try {
                         const parsed = JSON.parse(finalStep.content.answer);
                         // The answer might be a JSON string containing the data
                         if (parsed.answer) {
-                            // Simple heuristic extraction from the summary text
                             const text = parsed.answer;
-                            extracted.tnb_account = (text.match(/NO\. AKAUN\s*(\d+)/i) || [])[1] || (text.match(/Account No:\s*(\d+)/i) || [])[1];
-                            extracted.customer_name = (text.match(/account holder,\s*([^,]+)/i) || [])[1] || (text.match(/Name:\s*([^,]+)/i) || [])[1];
-                            extracted.address = (text.match(/premise in\s*([^.]+)/i) || [])[1] || (text.match(/Address:\s*([^.]+)/i) || [])[1];
+                            // Attempt extraction from summary text (if present)
+                            if (!extracted.tnb_account) extracted.tnb_account = (text.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i) || [])[1];
                         }
                     } catch (e) {
-                        console.warn('Failed to parse final answer as JSON, using raw text');
+                        console.warn('Failed to parse final answer as JSON');
                     }
                 }
                 
-                // Fallback: check SEARCH_RESULTS for snippets
-                if (!extracted.tnb_account) {
-                    const searchStep = data.text.find(s => s.step_type === 'SEARCH_RESULTS');
-                    if (searchStep && searchStep.content && searchStep.content.web_results) {
-                        const snippet = searchStep.content.web_results[0]?.snippet || '';
-                        extracted.tnb_account = (snippet.match(/NO\. AKAUN\s*\n\s*(\d+)/i) || [])[1];
-                        extracted.customer_name = (snippet.match(/ALAMAT POS\s*\n\s*([^ \n]+ [^ \n]+)/i) || [])[1];
-                        extracted.address = (snippet.match(/ALAMAT POS\s*\n\s*(.*?\d{5}.*?SELANGOR)/is) || [])[1]?.replace(/\n/g, ', ');
+                // 2. Fallback: Check SEARCH_RESULTS for snippets (Often contains the raw header info)
+                // Use robust regex to handle newlines and variations
+                const searchStep = data.text.find(s => s.step_type === 'SEARCH_RESULTS');
+                if (searchStep && searchStep.content && searchStep.content.web_results) {
+                    const snippet = searchStep.content.web_results[0]?.snippet || '';
+                    
+                    // Account No: "NO. AKAUN" followed by digits, possibly separated by newline
+                    if (!extracted.tnb_account) {
+                        const accMatch = snippet.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i);
+                        if (accMatch) extracted.tnb_account = accMatch[1];
+                    }
+
+                    // Address Block: Capture text between "ALAMAT POS" and the next section (double newline or keywords)
+                    // Snippet example: "ALAMAT POS\nNAME\nADDR1\nADDR2...\n\nNextSection"
+                    if (!extracted.address || !extracted.customer_name) {
+                        const addrMatch = snippet.match(/ALAMAT POS\s*\n([\s\S]+?)(?=\n\s*\n|\nSila|\nTENAGA)/i);
+                        if (addrMatch) {
+                            const lines = addrMatch[1].split('\n').map(l => l.trim()).filter(l => l);
+                            if (lines.length > 0) {
+                                // Assume first line is Name, rest is Address
+                                extracted.customer_name = lines[0]; 
+                                extracted.address = lines.slice(1).join(', ');
+                            }
+                        }
                     }
                 }
             } else {
