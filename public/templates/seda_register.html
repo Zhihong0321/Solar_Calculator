@@ -393,18 +393,33 @@
                 if (searchStep && searchStep.content && searchStep.content.web_results) {
                     const snippet = searchStep.content.web_results[0]?.snippet || '';
                     
+                    // Account No
                     if (!extracted.tnb_account) {
                         const accMatch = snippet.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i);
                         if (accMatch) extracted.tnb_account = accMatch[1];
                     }
 
+                    // Address & Name Block
                     if (!extracted.address || !extracted.customer_name) {
-                        const addrMatch = snippet.match(/ALAMAT POS\s*\n([\s\S]+?)(?=\n\s*\n|\nSila|\nTENAGA)/i);
-                        if (addrMatch) {
-                            const lines = addrMatch[1].split('\n').map(l => l.trim()).filter(l => l);
+                        // Strategy 1: Try to capture text between "ALAMAT POS" and specific end markers
+                        let addrBlock = (snippet.match(/ALAMAT POS\s*\n([\s\S]+?)(?=\n\s*\n|\nSila|\nTENAGA|NO\.)/i) || [])[1];
+                        
+                        // Strategy 2: If strict match fails, just grab the next 5 lines after "ALAMAT POS"
+                        if (!addrBlock) {
+                             const looseMatch = snippet.match(/ALAMAT POS\s*\n((?:.*\n){1,6})/i);
+                             if (looseMatch) addrBlock = looseMatch[1];
+                        }
+
+                        if (addrBlock) {
+                            const lines = addrBlock.split('\n').map(l => l.trim()).filter(l => l);
                             if (lines.length > 0) {
-                                extracted.customer_name = lines[0]; 
-                                extracted.address = lines.slice(1).join(', ');
+                                // Assume first line is Name
+                                if (!extracted.customer_name) extracted.customer_name = lines[0]; 
+                                
+                                // Assume remaining lines are Address
+                                if (!extracted.address && lines.length > 1) {
+                                    extracted.address = lines.slice(1).join(', ');
+                                }
                             }
                         }
                     }
