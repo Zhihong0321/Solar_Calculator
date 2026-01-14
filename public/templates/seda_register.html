@@ -84,7 +84,7 @@
                 </div>
                 
                 <!-- Granular Checklist Grid -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-x-4 gap-y-1.5 border-l-0 lg:border-l border-slate-200 lg:pl-6">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-1.5 border-l-0 lg:border-l border-slate-200 lg:pl-6">
                     <div id="check-applicantName" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
                         <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Name
                     </div>
@@ -96,6 +96,9 @@
                     </div>
                     <div id="check-installAddress" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
                         <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Address
+                    </div>
+                    <div id="check-cityPostcode" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> City/PC
                     </div>
                     <div id="check-mykad" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
                         <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> MyKad
@@ -164,7 +167,7 @@
                         <textarea id="installAddress" rows="3" class="input-field" placeholder="Same as registered address?"></textarea>
                         <button type="button" onclick="copyAddress()" class="text-xs text-blue-600 font-medium mt-1 hover:underline">Copy from Registered Address</button>
                     </div>
-                    <div class="grid grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="input-group">
                             <label class="input-label">City</label>
                             <input type="text" id="city" class="input-field">
@@ -189,6 +192,10 @@
                                 <option value="Kuala Lumpur">Kuala Lumpur</option>
                                 <option value="Putrajaya">Putrajaya</option>
                             </select>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label">Postcode</label>
+                            <input type="text" id="postcode" class="input-field">
                         </div>
                     </div>
                 </div>
@@ -515,6 +522,8 @@
                 if (extracted.tnb_account) itemsHtml += createItemHtml('TNB Account', extracted.tnb_account, 'tnbAccount');
                 if (extracted.customer_name) itemsHtml += createItemHtml('Customer Name', extracted.customer_name, 'applicantName'); // Optional target
                 if (extracted.address) itemsHtml += createItemHtml('Address', extracted.address, 'installAddress');
+                if (extracted.state) itemsHtml += createItemHtml('State', extracted.state, 'state');
+                if (extracted.post_code) itemsHtml += createItemHtml('Postcode', extracted.post_code, 'postcode');
             } else {
                 const name = extracted.customer_name || extracted.name;
                 if (name) itemsHtml += createItemHtml('Name', name, 'applicantName');
@@ -675,6 +684,7 @@
                     document.getElementById('installAddress').value = data.installation_address || '';
                     document.getElementById('city').value = data.city || '';
                     document.getElementById('state').value = data.state || '';
+                    document.getElementById('postcode').value = data.postcode || '';
                     document.getElementById('tnbAccount').value = data.tnb_account_no || '';
                     document.getElementById('phaseType').value = data.phase_type || '1';
                     
@@ -723,6 +733,7 @@
                 installation_address: document.getElementById('installAddress').value,
                 city: document.getElementById('city').value,
                 state: document.getElementById('state').value,
+                postcode: document.getElementById('postcode').value,
                 tnb_account_no: document.getElementById('tnbAccount').value,
                 phase_type: document.getElementById('phaseType').value,
                 e_contact_name: document.getElementById('emergencyName').value,
@@ -780,6 +791,7 @@
                 { id: 'check-applicantIC', fields: ['applicantIC'] },
                 { id: 'check-applicantPhone', fields: ['applicantPhone'] },
                 { id: 'check-installAddress', fields: ['installAddress'] },
+                { id: 'check-cityPostcode', fields: ['city', 'postcode'] },
                 { id: 'check-mykad', files: ['mykad_front', 'mykad_back', 'mykad_pdf'] },
                 { id: 'check-tnb_bill_1', files: ['tnb_bill_1'] },
                 { id: 'check-tnb_bill_2', files: ['tnb_bill_2'] },
