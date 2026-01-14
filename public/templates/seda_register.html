@@ -67,69 +67,58 @@
 
 
 
-    <!-- Detailed Stepper Header -->
+    <!-- Granular Status Header -->
     <div class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 transition-all">
-        <div class="max-w-4xl mx-auto">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                <!-- Title -->
-                <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="max-w-5xl mx-auto">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <!-- Title & Overall -->
+                <div class="flex items-center gap-3">
                     <div class="h-10 w-10 bg-emerald-600 rounded-lg shadow-sm flex items-center justify-center text-white font-bold text-sm tracking-wider">V2</div>
                     <div>
-                        <div class="flex items-center">
-                            <h1 class="text-base font-bold text-slate-900 leading-tight">SEDA Registration</h1>
-                            <span id="statusBadge" class="ml-2 px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[9px] font-bold rounded border border-yellow-200 uppercase tracking-wider leading-none">DRAFT</span>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-sm font-bold text-slate-900 leading-tight">SEDA Registration</h1>
+                            <span id="statusBadge" class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[9px] font-bold rounded border border-yellow-200 uppercase tracking-wider leading-none">DRAFT</span>
                         </div>
-                        <span id="overallProgress" class="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">0% Completed</span>
+                        <span id="overallProgress" class="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">0% COMPLETE</span>
                     </div>
                 </div>
                 
-                <!-- Stepper -->
-                <div class="flex items-center w-full md:w-auto justify-between md:justify-end gap-2 overflow-x-auto no-scrollbar py-1">
-                    
-                    <!-- Step 1 -->
-                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step1">
-                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">1</div>
-                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">Info</span>
+                <!-- Granular Checklist Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-x-4 gap-y-1.5 border-l-0 lg:border-l border-slate-200 lg:pl-6">
+                    <div id="check-applicantName" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Name
                     </div>
-                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
-                    
-                    <!-- Step 2 -->
-                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step2">
-                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">2</div>
-                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">Site</span>
+                    <div id="check-applicantIC" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> IC Number
                     </div>
-                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
-
-                    <!-- Step 3 -->
-                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step3">
-                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">3</div>
-                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">MyKad</span>
+                    <div id="check-applicantPhone" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Contact
                     </div>
-                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
-
-                    <!-- Step 4 -->
-                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step4">
-                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">4</div>
-                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">TNB</span>
+                    <div id="check-installAddress" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Address
                     </div>
-                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
-
-                    <!-- Step 5 -->
-                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step5">
-                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">5</div>
-                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">Emerg.</span>
+                    <div id="check-mykad" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> MyKad
                     </div>
-                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
-
-                    <!-- Step 6 -->
-                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step6">
-                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">6</div>
-                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">Docs</span>
+                    <div id="check-tnb_bill_1" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> TNB Bill 1
+                    </div>
+                    <div id="check-tnb_bill_2" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> TNB Bill 2
+                    </div>
+                    <div id="check-tnb_bill_3" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> TNB Bill 3
+                    </div>
+                    <div id="check-property_proof" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Ownership
+                    </div>
+                    <div id="check-tnb_meter" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
+                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Meter Photo
                     </div>
                 </div>
             </div>
         </div>
-        <!-- Progress Line Bottom -->
+        <!-- Progress Bar Background -->
         <div class="absolute bottom-0 left-0 w-full h-[2px] bg-slate-100">
             <div id="formProgress" class="h-full bg-emerald-500 w-0 transition-all duration-500"></div>
         </div>
@@ -772,95 +761,93 @@
                 const icon = document.createElement('div');
                 icon.className = 'input-status-icon';
                 icon.id = 'status-icon-' + input.id;
-                // Default to checkmark, but hidden
-                icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+                // Default to circle
+                icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"></circle></svg>`;
                 wrapper.appendChild(icon);
             });
         }
 
         function updateFormProgress() {
-            const steps = [
-                { id: 'step1', fields: ['applicantName', 'applicantIC', 'applicantPhone', 'applicantEmail'] },
-                { id: 'step2', fields: ['installAddress', 'city', 'state'] },
-                { id: 'step3', fields: [], files: ['mykad_front', 'mykad_back', 'mykad_pdf'] },
-                { id: 'step4', fields: ['tnbAccount', 'phaseType'], files: ['tnb_bill_1'] },
-                { id: 'step5', fields: ['emergencyName', 'emergencyRel', 'emergencyPhone'] },
-                { id: 'step6', fields: [], files: ['property_proof', 'tnb_meter'] }
+            const items = [
+                { id: 'check-applicantName', fields: ['applicantName'] },
+                { id: 'check-applicantIC', fields: ['applicantIC'] },
+                { id: 'check-applicantPhone', fields: ['applicantPhone'] },
+                { id: 'check-installAddress', fields: ['installAddress'] },
+                { id: 'check-mykad', files: ['mykad_front', 'mykad_back', 'mykad_pdf'] },
+                { id: 'check-tnb_bill_1', files: ['tnb_bill_1'] },
+                { id: 'check-tnb_bill_2', files: ['tnb_bill_2'] },
+                { id: 'check-tnb_bill_3', files: ['tnb_bill_3'] },
+                { id: 'check-property_proof', files: ['property_proof'] },
+                { id: 'check-tnb_meter', files: ['tnb_meter'] }
             ];
 
-            let totalSteps = steps.length;
-            let completedSteps = 0;
+            let completedCount = 0;
 
-            steps.forEach(step => {
-                let isComplete = true;
+            items.forEach(item => {
+                let isDone = true;
                 
-                // Check fields and update individual icons
-                step.fields.forEach(fid => {
-                    const el = document.getElementById(fid);
-                    const icon = document.getElementById('status-icon-' + fid);
-                    
-                    if (el && el.value.trim()) {
-                        // Valid
-                        if (icon) {
-                            icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
-                            icon.className = 'input-status-icon valid';
+                // Check fields
+                if (item.fields) {
+                    item.fields.forEach(fid => {
+                        const el = document.getElementById(fid);
+                        const icon = document.getElementById('status-icon-' + fid);
+                        if (!el || !el.value.trim()) {
+                            isDone = false;
+                            if (icon) {
+                                icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"></circle></svg>`;
+                                icon.className = 'input-status-icon';
+                            }
+                        } else {
+                            if (icon) {
+                                icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
+                                icon.className = 'input-status-icon valid';
+                            }
                         }
-                    } else {
-                        // Invalid / Empty
-                        isComplete = false;
-                        if (icon) {
-                            // Show light gray circle for empty fields
-                            icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"></circle></svg>`;
-                            icon.className = 'input-status-icon';
-                        }
-                    }
-                });
+                    });
+                }
 
-                // Check files (UI feedback for files is usually the preview image itself)
-                if (step.files && step.files.length > 0) {
-                    if (step.id === 'step3') {
+                // Check files
+                if (item.files) {
+                    if (item.id === 'check-mykad') {
                         const hasPdf = fileData.mykad_pdf || document.getElementById('previewMyKadPdf').style.display === 'block';
                         const hasFront = fileData.mykad_front || document.getElementById('previewMyKadFront').style.display === 'block';
                         const hasBack = fileData.mykad_back || document.getElementById('previewMyKadBack').style.display === 'block';
-                        if (!hasPdf && (!hasFront || !hasBack)) isComplete = false;
-                    } else if (step.id === 'step6') {
-                         const hasProof = fileData.property_proof || (document.getElementById('previewPropertyProof') && document.getElementById('previewPropertyProof').style.display === 'block');
-                         const hasMeter = fileData.tnb_meter || (document.getElementById('previewTnbMeter') && document.getElementById('previewTnbMeter').style.display === 'block');
-                         if (!hasProof || !hasMeter) isComplete = false;
+                        if (!hasPdf && (!hasFront || !hasBack)) isDone = false;
                     } else {
-                        step.files.forEach(fKey => {
-                            let previewId = '';
-                            if (fKey === 'tnb_bill_1') previewId = 'previewTnb1';
+                        item.files.forEach(fKey => {
+                            const previewId = fKey.startsWith('tnb_bill_') ? 'previewTnb' + fKey.split('_').pop() : 
+                                            fKey === 'property_proof' ? 'previewPropertyProof' : 
+                                            fKey === 'tnb_meter' ? 'previewTnbMeter' : '';
+                            
                             const hasFile = fileData[fKey] || (document.getElementById(previewId) && document.getElementById(previewId).style.display === 'block');
-                            if (!hasFile) isComplete = false;
+                            if (!hasFile) isDone = false;
                         });
                     }
                 }
 
-                // Update Stepper UI
-                const stepEl = document.getElementById(step.id);
-                if (stepEl) {
-                    const circle = stepEl.querySelector('.step-circle');
-                    if (isComplete) {
-                        completedSteps++;
-                        circle.className = 'step-circle w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 flex items-center justify-center transition-all';
-                        circle.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
-                        stepEl.querySelector('span').classList.add('text-emerald-600');
+                // Update Header Item
+                const headerEl = document.getElementById(item.id);
+                if (headerEl) {
+                    const dot = headerEl.querySelector('.dot');
+                    if (isDone) {
+                        completedCount++;
+                        headerEl.classList.remove('text-slate-400');
+                        headerEl.classList.add('text-emerald-600');
+                        dot.className = 'dot w-2 h-2 rounded-full bg-emerald-500 border-2 border-emerald-500';
+                        dot.innerHTML = ''; // Keep it a dot but colored
                     } else {
-                        circle.className = 'step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all';
-                        circle.innerHTML = step.id.replace('step', '');
-                        stepEl.querySelector('span').classList.remove('text-emerald-600');
+                        headerEl.classList.add('text-slate-400');
+                        headerEl.classList.remove('text-emerald-600');
+                        dot.className = 'dot w-2 h-2 rounded-full border-2 border-slate-200';
                     }
                 }
             });
 
-            const percent = Math.round((completedSteps / totalSteps) * 100);
-            
+            const percent = Math.round((completedCount / items.length) * 100);
             const bar = document.getElementById('formProgress');
             const text = document.getElementById('overallProgress');
-            
             if (bar) bar.style.width = percent + '%';
-            if (text) text.innerText = percent + '% COMPLETED';
+            if (text) text.innerText = percent + '% COMPLETE';
         }
 
         // Attach listeners
