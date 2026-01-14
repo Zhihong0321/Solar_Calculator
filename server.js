@@ -12,6 +12,7 @@ const { requireAuth } = require('./src/core/middleware/auth');
 const Invoicing = require('./src/modules/Invoicing');
 const SolarCalculator = require('./src/modules/SolarCalculator');
 const Customer = require('./src/modules/Customer');
+const sedaRoutes = require('./routes/sedaRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(Invoicing.router);
 app.use(SolarCalculator.router);
 app.use(Customer.router);
+app.use(sedaRoutes);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));

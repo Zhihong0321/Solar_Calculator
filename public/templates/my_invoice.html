@@ -334,6 +334,10 @@
                                     <button onclick="window.location.href='/edit-invoice?id=${inv.bubble_id}'" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium">Edit</button>
                                     <button onclick="openHistoryModal('${inv.bubble_id}')" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium">History</button>
                                     
+                                    ${inv.linked_seda_registration ? `
+                                        <a href="/seda-register?id=${inv.linked_seda_registration}" class="btn-secondary px-3 py-1.5 rounded text-xs font-bold text-orange-600 border-orange-200 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 hover:border-orange-300 transition-colors">SEDA</a>
+                                    ` : ''}
+
                                     ${inv.status !== 'cancelled' ? `
                                         <a href="/submit-payment?id=${inv.bubble_id}" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium text-slate-600">Pay</a>
                                     ` : ''}

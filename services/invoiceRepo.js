@@ -147,7 +147,7 @@ async function getVoucherByCode(client, voucherCode) {
  * Find or create a customer
  * @param {object} client - Database client
  * @param {object} data - Customer data
- * @returns {Promise<number|null>} Internal customer ID
+ * @returns {Promise<object|null>} { id: number, bubbleId: string } or null
  */
 async function findOrCreateCustomer(client, data) {
   const { name, phone, address, createdBy } = data;
@@ -156,13 +156,14 @@ async function findOrCreateCustomer(client, data) {
   try {
     // 1. Try to find by name
     const findRes = await client.query(
-      'SELECT id, phone, address FROM customer WHERE name = $1 LIMIT 1',
+      'SELECT id, customer_id, phone, address FROM customer WHERE name = $1 LIMIT 1',
       [name]
     );
     
     if (findRes.rows.length > 0) {
       const customer = findRes.rows[0];
       const id = customer.id;
+      const bubbleId = customer.customer_id;
       
       // Update if phone or address changed
       if ((phone && phone !== customer.phone) || (address && address !== customer.address)) {
@@ -176,7 +177,7 @@ async function findOrCreateCustomer(client, data) {
           [phone, address, id, String(createdBy)]
         );
       }
-      return id;
+      return { id, bubbleId };
     }
 
     // 2. Create new if not found
@@ -187,7 +188,7 @@ async function findOrCreateCustomer(client, data) {
        RETURNING id`,
       [customerBubbleId, name, phone, address, createdBy]
     );
-    return insertRes.rows[0].id;
+    return { id: insertRes.rows[0].id, bubbleId: customerBubbleId };
   } catch (err) {
     console.error('Error in findOrCreateCustomer:', err);
     return null;
@@ -208,12 +209,15 @@ async function _fetchDependencies(client, data) {
   }
 
   // 2. Handle Customer
-  const internalCustomerId = await findOrCreateCustomer(client, {
+  const customerResult = await findOrCreateCustomer(client, {
     name: customerName,
     phone: customerPhone,
     address: customerAddress,
     createdBy: userId
   });
+  
+  const internalCustomerId = customerResult ? customerResult.id : null;
+  const customerBubbleId = customerResult ? customerResult.bubbleId : null;
 
   // 3. Get template
   let template;
@@ -224,7 +228,7 @@ async function _fetchDependencies(client, data) {
     template = await getDefaultTemplate(client);
   }
 
-  return { pkg, internalCustomerId, template };
+  return { pkg, internalCustomerId, customerBubbleId, template };
 }
 
 /**
@@ -750,7 +754,8 @@ async function createInvoiceOnTheFly(client, data) {
     return {
       ...invoice,
       items: [],
-      template: deps.template
+      template: deps.template,
+      customerBubbleId: deps.customerBubbleId // Return customer Bubble ID for SEDA service
     };
   } catch (err) {
     // Rollback on error
@@ -958,6 +963,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
       i.viewed_at,
       i.share_access_count,
       i.version,
+      i.linked_seda_registration,
       (SELECT COALESCE(SUM(p.amount), 0) FROM payment p WHERE p.linked_invoice = i.bubble_id) as total_received,
       (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('id', sp.bubble_id, 'amount', sp.amount)), '[]') FROM submitted_payment sp WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending') as pending_payments
     FROM invoice i
@@ -1076,13 +1082,28 @@ async function createInvoiceVersionTransaction(client, data) {
 
     // Resolve internal ID and update record if needed
     let internalCustomerId = org.customer_id;
+    let customerBubbleId = null;
+
     if (customerName) {
-        internalCustomerId = await findOrCreateCustomer(client, {
+        const custResult = await findOrCreateCustomer(client, {
             name: customerName,
             phone: customerPhone,
             address: customerAddress,
             createdBy: data.userId
         });
+        if (custResult) {
+            internalCustomerId = custResult.id;
+            customerBubbleId = custResult.bubbleId;
+        }
+    } else {
+        // If no new customer provided, we need to fetch the existing one's bubble ID
+        // Assuming we kept internalCustomerId from org.customer_id
+         if (internalCustomerId) {
+             const custRes = await client.query('SELECT customer_id FROM customer WHERE id = $1', [internalCustomerId]);
+             if (custRes.rows.length > 0) {
+                 customerBubbleId = custRes.rows[0].customer_id;
+             }
+         }
     }
 
     const customerData = {
@@ -1120,6 +1141,7 @@ async function createInvoiceVersionTransaction(client, data) {
     return {
       ...newInvoice,
       items: [],
+      customerBubbleId: customerBubbleId // Return customer Bubble ID for SEDA service
     };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
