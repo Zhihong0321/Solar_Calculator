@@ -14,15 +14,16 @@ async function extractTnb(fileBuffer, filename) {
         // Explicitly set MIME type for PDF to ensure API recognizes it
         const blob = new Blob([fileBuffer], { type: 'application/pdf' });
         
-        // Match the working format from image.png
-        formData.append('account_name', 'yamal');
-        formData.append('query', 'analyze');
+        // Match the new API format (image.png)
+        // Endpoint: /api/extract-tnb
+        // Fields: file, account_name (optional)
+        formData.append('account_name', 'yamal'); 
         formData.append('file', blob, filename || 'tnb_bill.pdf');
 
-        console.log(`[ExtractionService] Sending TNB Bill via query_with_file: ${filename} (${fileBuffer.length} bytes)`);
+        console.log(`[ExtractionService] Sending TNB Bill via extract-tnb: ${filename} (${fileBuffer.length} bytes)`);
 
-        // Switch to the confirmed working endpoint
-        const res = await fetch('https://ee-perplexity-wrapper-production.up.railway.app/api/query_with_file', {
+        // Switch to the new specific endpoint
+        const res = await fetch('https://ee-perplexity-wrapper-production.up.railway.app/api/extract-tnb', {
             method: 'POST',
             body: formData
         });
@@ -35,14 +36,9 @@ async function extractTnb(fileBuffer, filename) {
         
         const json = await res.json();
         console.log('[ExtractionService] API Request Success');
-
-        // Note: query_with_file returns a complex object with search results and an answer.
-        // We need to parse this to match the expected format for our frontend.
-        // Based on the successful test, the data is in json.text (array of steps).
-        // The last step or the search results contains the snippet.
         
-        // I will return the raw JSON for now, but we might need a mapper to extract 
-        // specific fields (account_no, address, etc.) from the text answer.
+        // The new API returns structured data directly:
+        // { status: "success", data: { customer_name, address, tnb_account, bill_date } }
         return json;
 
     } catch (err) {

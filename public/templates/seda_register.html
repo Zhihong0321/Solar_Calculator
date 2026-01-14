@@ -428,6 +428,12 @@
         function parseExtractionData(json) {
             let extracted = {};
             
+            // 1. New TNB API (Structured Response)
+            if (json.status === 'success' && json.data) {
+                return json.data;
+            }
+
+            // 2. Perplexity / MyKad Logic (Complex Text Response)
             // Check for new format (Perplexity)
             const data = (json.success && json.data) ? json.data : json;
 
