@@ -6,26 +6,26 @@
 
 // BEFORE (BROKEN):
 await _createLineItems(...);
-await _logInvoiceAction(...);  // ❌ Logged before commit
+await logInvoiceAction(...);  // ❌ Logged before commit
 await client.query('COMMIT');  // ❌ Orphaned action if commit fails
 
 // AFTER (FIXED):
 await _createLineItems(...);
 await client.query('COMMIT');  // ✅ Commit first
-await _logInvoiceAction(...);  // ✅ Then log (in new query outside transaction)
+await logInvoiceAction(...);  // ✅ Then log (in new query outside transaction)
 
 // OR: Wrap action logging in transaction (preferred):
 await client.query(`BEGIN`);
 // ... create invoice ...
 // ... create items ...
-await _logInvoiceAction(...);  // ✅ Part of same transaction
+await logInvoiceAction(...);  // ✅ Part of same transaction
 await client.query('COMMIT');  // ✅ All or nothing
 
-// CRITICAL FIX 2: Add try-catch to _logInvoiceAction
+// CRITICAL FIX 2: Add try-catch to logInvoiceAction
 // In invoiceRepo.js (line 414)
 
 // BEFORE (BROKEN):
-async function _logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
+async function logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
   const snapshot = await getInvoiceByBubbleId(client, invoiceId);
   if (!snapshot) return;
   const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
@@ -33,7 +33,7 @@ async function _logInvoiceAction(client, invoiceId, actionType, createdBy, extra
 }
 
 // AFTER (FIXED):
-async function _logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
+async function logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
   try {  // ✅ Add try-catch
     const snapshot = await getInvoiceByBubbleId(client, invoiceId);
     if (!snapshot) {

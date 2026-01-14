@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Viewer Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #333;
+      margin-top: 0;
+      font-size: 28px;
+    }
+    .demo-section {
+      margin-bottom: 30px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #555;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      margin-right: 10px;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    #invoice-container {
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #invoice-frame {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .info-box {
+      background: #f0f7ff;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .info-box p {
+      margin: 5px 0;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📄 Portable Invoice Viewer Demo</h1>
+
+    <div class="info-box">
+      <p><strong>This demo shows how to use the portable invoice template.</strong></p>
+      <p>The invoice template is a self-contained HTML file that renders invoice data. Other applications can use it to display invoices.</p>
+    </div>
+
+    <div class="demo-section">
+      <label>Load Sample Invoice:</label>
+      <div>
+        <button onclick="loadSampleInvoice('solar')">Solar Quotation</button>
+        <button onclick="loadSampleInvoice('simple')">Simple Invoice</button>
+        <button onclick="loadSampleInvoice('custom')">Custom Invoice</button>
+      </div>
+    </div>
+
+    <div class="demo-section">
+      <label>Or paste JSON invoice data:</label>
+      <textarea id="invoice-json" rows="8" placeholder='{"invoice_number": "INV-001", "total_amount": 1500.00, ...}'></textarea>
+      <button onclick="loadFromJson()">Load from JSON</button>
+    </div>
+
+    <div id="invoice-container">
+      <iframe id="invoice-frame"></iframe>
+    </div>
+
+    <div class="info-box" style="margin-top: 30px;">
+      <p><strong>Integration Options:</strong></p>
+      <p>1. <strong>Copy the folder</strong> - Copy <code>portable-invoice-viewer</code> folder to your other apps</p>
+      <p>2. <strong>Set invoice data</strong> - Create an invoice object matching the expected structure</p>
+      <p>3. <strong>Render template</strong> - Use one of the methods shown in <code>example-integration.js</code></p>
+      <p>See <code>README.md</code> for detailed integration instructions.</p>
+    </div>
+  </div>
+
+  <script>
+    // Sample invoice data for demo
+    const sampleInvoices = {
+      solar: {
+        invoice_number: 'INV-000001',
+        invoice_date: '2026-01-12',
+        due_date: '2026-02-11',
+        status: 'Sent',
+        customer_name_snapshot: 'John Doe',
+        customer_address_snapshot: '123 Main Street\nBangsar, KL\n59000 Malaysia',
+        customer_phone_snapshot: '+60 12-345-6789',
+        customer_email_snapshot: 'john@example.com',
+        subtotal: 15000.00,
+        discount_amount: 500.00,
+        voucher_amount: 0.00,
+        sst_amount: 900.00,
+        sst_rate: 6,
+        total_amount: 16400.00,
+        items: [
+          {
+            description: 'Solar Panel Package (6 panels) - 620W Longi',
+            qty: 6,
+            total_price: 12000.00,
+            item_type: 'product'
+          },
+          {
+            description: 'Professional Installation Service',
+            qty: 1,
+            total_price: 3500.00,
+            item_type: 'service'
+          },
+          {
+            description: 'Early Bird Discount (Jan 2026)',
+            qty: 0,
+            total_price: -500.00,
+            item_type: 'discount'
+          }
+        ],
+        created_by_user_name: 'Sarah - Sales Agent',
+        template: {
+          company_name: 'Atap Solar',
+          company_address: 'Unit 2-3, Level 2,\nBlock A, Business Park,\nDamansara, 47300 Selangor',
+          company_phone: '+60 3-1234-5678',
+          company_email: 'info@atapsolar.com',
+          logo_url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iOCIgZmlsbD0iIzFGQjk2RiIvPgo8cGF0aCBkPSJNMTYgMjBMMzIgMzJMODQgMjQiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPg==',
+          bank_name: 'Maybank',
+          bank_account_no: '562123456789',
+          bank_account_name: 'Atap Solar Sdn Bhd',
+          terms_and_conditions: '1. 50% deposit required to confirm order.\n2. Balance payment upon installation completion.\n3. 25-year warranty on solar panels.\n4. Installation subject to site inspection.\n5. Price valid for 30 days from quotation date.'
+        }
+      },
+      simple: {
+        invoice_number: 'INV-002',
+        invoice_date: '2026-01-15',
+        due_date: '2026-02-14',
+        status: 'Draft',
+        customer_name_snapshot: 'Acme Corporation',
+        customer_address_snapshot: 'Business Center,\nCyberjaya, Malaysia',
+        customer_phone_snapshot: '+60 3-1111-2222',
+        customer_email_snapshot: 'accounts@acme.com',
+        subtotal: 5000.00,
+        discount_amount: 0.00,
+        voucher_amount: 0.00,
+        sst_amount: 0.00,
+        sst_rate: 0,
+        total_amount: 5000.00,
+        items: [
+          {
+            description: 'Consultation Service (Hours)',
+            qty: 10,
+            total_price: 5000.00,
+            item_type: 'service'
+          }
+        ],
+        created_by_user_name: 'Admin',
+        template: {
+          company_name: 'Your Company',
+          company_address: 'Your Address',
+          company_phone: '+60 1-234-5678',
+          company_email: 'contact@yourcompany.com',
+          logo_url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iOCIgZmlsbD0iIzQ3NTU2OSIvPgo8dGV4dCB4PSIzMiIgeT0iNDAiIGZpbGw9IndoaXRlIiBmb250LXNpemU9IjI0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iYm9sZCI+PC90ZXh0Pgo8L3N2Zz4=',
+          bank_name: '',
+          bank_account_no: '',
+          bank_account_name: '',
+          terms_and_conditions: ''
+        }
+      },
+      custom: {
+        invoice_number: 'CUST-2026-001',
+        invoice_date: new Date().toISOString().split('T')[0],
+        due_date: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
+        status: 'Sent',
+        customer_name_snapshot: 'Demo Customer',
+        customer_address_snapshot: 'Your Address Here\nCity, State\nPostal Code',
+        customer_phone_snapshot: '+60 12-345-6789',
+        customer_email_snapshot: 'customer@example.com',
+        subtotal: 10000.00,
+        discount_amount: 0.00,
+        voucher_amount: 500.00,
+        sst_amount: 600.00,
+        sst_rate: 6,
+        total_amount: 11100.00,
+        items: [
+          {
+            description: 'Product A (2 units)',
+            qty: 2,
+            total_price: 4000.00,
+            item_type: 'product'
+          },
+          {
+            description: 'Service B',
+            qty: 1,
+            total_price: 6500.00,
+            item_type: 'service'
+          },
+          {
+            description: 'Special Voucher Discount',
+            qty: 0,
+            total_price: -500.00,
+            item_type: 'voucher'
+          }
+        ],
+        created_by_user_name: 'Demo User',
+        template: {
+          company_name: 'Demo Company',
+          company_address: 'Demo Address Line 1\nDemo Address Line 2',
+          company_phone: '+60 1-234-5678',
+          company_email: 'demo@company.com',
+          logo_url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iOCIgZmlsbD0iIzEwQjk4MSIvPgo8dGV4dCB4PSIzMiIgeT0iNDAiIGZpbGw9IndoaXRlIiBmb250LXNpemU9IjI0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iYm9sZCI+REM8L3RleHQ+Cjwvc3ZnPg==',
+          bank_name: 'Public Bank',
+          bank_account_no: '1234567890',
+          bank_account_name: 'Demo Company Sdn Bhd',
+          terms_and_conditions: 'This is a custom invoice template.\nYou can customize the terms as needed.'
+        }
+      }
+    };
+
+    // Load sample invoice
+    function loadSampleInvoice(type) {
+      const invoice = sampleInvoices[type];
+      document.getElementById('invoice-json').value = JSON.stringify(invoice, null, 2);
+      renderInvoice(invoice);
+    }
+
+    // Load from JSON textarea
+    function loadFromJson() {
+      try {
+        const json = document.getElementById('invoice-json').value;
+        const invoice = JSON.parse(json);
+        renderInvoice(invoice);
+      } catch (e) {
+        alert('Invalid JSON: ' + e.message);
+      }
+    }
+
+    // Render invoice in iframe
+    function renderInvoice(invoiceData) {
+      const iframe = document.getElementById('invoice-frame');
+
+      // Read template
+      fetch('invoice-template.html')
+        .then(response => response.text())
+        .then(template => {
+          // Inject data as script
+          const dataScript = `<script>window.invoiceData = ${JSON.stringify(invoiceData)};<\/script>`;
+          const htmlWithInjectedData = template.replace('</head>', `${dataScript}</head>`);
+
+          // Write to iframe
+          const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+          iframeDoc.open();
+          iframeDoc.write(htmlWithInjectedData);
+          iframeDoc.close();
+        })
+        .catch(error => {
+          console.error('Error loading template:', error);
+          alert('Error loading invoice template: ' + error.message);
+        });
+    }
+
+    // Load default sample on page load
+    window.onload = function() {
+      loadSampleInvoice('solar');
+    };
+  </script>
+</body>
+</html>

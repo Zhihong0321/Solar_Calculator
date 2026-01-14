@@ -14,7 +14,7 @@ All identified issues have been fixed:
 
 **Problem:** Action logging happened before transaction commit, risking orphaned records.
 
-**Solution:** Moved `_logInvoiceAction()` calls **AFTER** `client.query('COMMIT')`.
+**Solution:** Moved `logInvoiceAction()` calls **AFTER** `client.query('COMMIT')`.
 
 **Impact:** 
 - ✅ No more orphaned `invoice_action` records
@@ -27,7 +27,7 @@ All identified issues have been fixed:
 **Status:** ✅ APPLIED
 **Files:** `services/invoiceRepo.js` (Line 414-434)
 
-**Problem:** `_logInvoiceAction()` had no try-catch around database INSERT.
+**Problem:** `logInvoiceAction()` had no try-catch around database INSERT.
 
 **Solution:** Added try-catch block with proper error throwing.
 
@@ -81,7 +81,7 @@ All identified issues have been fixed:
 | **Syntax** | ✅ PASSED | All files have valid syntax |
 | **Race Conditions** | ✅ NONE | No concurrent access issues |
 | **Transaction Integrity** | ✅ FIXED | Actions logged after commit |
-| **Error Handling** | ✅ FIXED | Try-catch in _logInvoiceAction |
+| **Error Handling** | ✅ FIXED | Try-catch in logInvoiceAction |
 | **Performance** | ✅ OPTIMIZED | Promise.all for parallel queries |
 | **Workflow UX** | ✅ IMPROVED | Clear redirect behavior |
 | **Edit Button** | ✅ WORKING | Points to /edit-invoice |
@@ -94,7 +94,7 @@ All identified issues have been fixed:
 
 | File | Changes |
 |-------|----------|
-| `services/invoiceRepo.js` | ✅ Try-catch in _logInvoiceAction |
+| `services/invoiceRepo.js` | ✅ Try-catch in logInvoiceAction |
 | `services/invoiceRepo.js` | ✅ Action logging after COMMIT (2 locations) |
 | `services/invoiceRepo.js` | ✅ Promise.all optimization |
 | `public/templates/edit_invoice.html` | ✅ Redirect to /my-invoice |
@@ -158,7 +158,7 @@ To verify all fixes work correctly:
 All critical issues have been resolved:
 
 1. ✅ **Transaction integrity** - Actions logged after commit
-2. ✅ **Error handling** - Try-catch in _logInvoiceAction
+2. ✅ **Error handling** - Try-catch in logInvoiceAction
 3. ✅ **Performance** - Parallel queries with Promise.all
 4. ✅ **UX improvement** - Clear redirect behavior
 

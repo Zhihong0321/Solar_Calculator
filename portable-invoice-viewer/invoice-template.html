@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Quotation {{INVOICE_NUMBER}}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              800: '#1e293b',
+              900: '#0f172a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+      background-color: #f1f5f9;
+    }
+    .invoice-container {
+      max-width: 100%;
+      margin: 0 auto;
+      background-color: #ffffff;
+      padding: 16px 12px;
+    }
+    @media (min-width: 640px) {
+      .invoice-container {
+        max-width: 720px;
+        padding: 40px;
+        margin: 20px auto;
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+      }
+    }
+    .label-text {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .data-text {
+      font-size: 14px;
+      color: #0f172a;
+      font-weight: 500;
+    }
+    .terms-text {
+      font-size: 8px !important;
+      line-height: 1.15;
+      color: #64748b;
+      text-align: justify;
+    }
+    .divider {
+      border-bottom: 1px solid #e2e8f0;
+      margin: 16px 0;
+    }
+    @media print {
+      body { background: white; }
+      .invoice-container {
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+        max-width: 100%;
+      }
+      .no-print { display: none !important; }
+      .terms-text { font-size: 6px !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-container relative">
+
+    <!-- Action Buttons (Optional - only show if not for print) -->
+    <div class="mb-4 flex justify-end gap-2 no-print" id="action-buttons">
+      <button onclick="window.print()" class="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+        </svg>
+        <span>Print</span>
+      </button>
+    </div>
+
+    <!-- Header -->
+    <header class="flex flex-col gap-4 mb-6">
+      <div class="flex justify-between items-start">
+        <img src="{{LOGO_URL}}" alt="{{COMPANY_NAME}}" class="h-16 object-contain">
+        <div class="text-right">
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">QUOTATION</h1>
+          <p class="text-sm font-medium text-slate-500">#{{INVOICE_NUMBER}}</p>
+          <div class="mt-1 inline-block px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-700 uppercase tracking-wide">
+            {{STATUS}}
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row justify-between gap-4 text-sm text-slate-600 mt-2">
+        <!-- From -->
+        <div>
+           <p class="font-bold text-slate-900">{{COMPANY_NAME}}</p>
+           <p class="whitespace-pre-line text-xs leading-relaxed">{{COMPANY_ADDRESS}}</p>
+           <div class="mt-1 text-xs">
+             <span>Tel: {{COMPANY_PHONE}}</span><br>
+             <span>Email: {{COMPANY_EMAIL}}</span>
+           </div>
+        </div>
+        <!-- Dates -->
+        <div class="sm:text-right flex flex-col sm:items-end gap-1">
+          <div>
+            <span class="label-text block">Date Issued</span>
+            <span class="font-medium text-slate-900">{{INVOICE_DATE}}</span>
+          </div>
+          <div>
+            <span class="label-text block">Due Date</span>
+            <span class="font-medium text-slate-900">{{DUE_DATE}}</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="divider"></div>
+
+    <!-- Bill To -->
+    <section class="mb-6">
+      <p class="label-text mb-1">Bill To</p>
+      <p class="text-lg font-bold text-slate-900 leading-none mb-1">
+        {{CUSTOMER_NAME}}
+      </p>
+      <p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">{{CUSTOMER_ADDRESS}}</p>
+      <div class="text-xs text-slate-500">
+        <span class="mr-3">Tel: {{CUSTOMER_PHONE}}</span>
+        <span>{{CUSTOMER_EMAIL}}</span>
+      </div>
+    </section>
+
+    <!-- Line Items -->
+    <section class="mb-6">
+      <div class="bg-slate-50 rounded-t-lg border-b border-slate-200 px-3 py-2 flex text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+        <div class="flex-1">Description</div>
+        <div class="text-right w-24">Amount</div>
+      </div>
+      <div class="divide-y divide-slate-100 border-b border-slate-100" id="invoice-items">
+        <!-- Items will be rendered here via JavaScript -->
+      </div>
+    </section>
+
+    <!-- Summary & Payment -->
+    <div class="flex flex-col sm:flex-row gap-8 mb-8">
+
+      <!-- Payment Details (Left on Desktop, Bottom on Mobile) -->
+      <div class="flex-1 order-2 sm:order-1">
+        <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
+          <p class="label-text mb-2">Payment Details</p>
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-500">Bank</span>
+              <span class="font-medium text-slate-900 text-right">{{BANK_NAME}}</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-500">Account No.</span>
+              <span class="font-medium text-slate-900 text-right">{{BANK_ACCOUNT_NO}}</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-500">Account Name</span>
+              <span class="font-medium text-slate-900 text-right">{{BANK_ACCOUNT_NAME}}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Totals (Right on Desktop, Top on Mobile) -->
+      <div class="flex-1 sm:max-w-xs order-1 sm:order-2">
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between text-slate-600">
+            <span>Subtotal</span>
+            <span>RM {{SUBTOTAL}}</span>
+          </div>
+          <div class="flex justify-between text-red-600" id="discount-row" style="display: none;">
+            <span>Discount</span>
+            <span>-RM {{DISCOUNT_AMOUNT}}</span>
+          </div>
+          <div class="flex justify-between text-red-600" id="voucher-row" style="display: none;">
+            <span>Voucher</span>
+            <span>-RM {{VOUCHER_AMOUNT}}</span>
+          </div>
+          <div class="flex justify-between text-slate-600" id="sst-row" style="display: none;">
+            <span>SST ({{SST_RATE}}%)</span>
+            <span>RM {{SST_AMOUNT}}</span>
+          </div>
+          <div class="border-t border-slate-900 pt-3 mt-1 flex justify-between items-end">
+            <span class="font-bold text-slate-900">Total</span>
+            <span class="text-2xl font-bold text-slate-900 leading-none">RM {{TOTAL_AMOUNT}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Terms -->
+    <section class="mb-4 pt-4 border-t border-slate-200" id="terms-section" style="display: none;">
+      <p class="label-text mb-1">Terms & Conditions</p>
+      <div class="terms-text">
+        {{TERMS}}
+      </div>
+    </section>
+
+    <!-- Created By -->
+    <div class="text-right text-xs text-slate-400 mb-4" id="created-by-section" style="display: none;">
+      Quotation Created by: <span class="font-medium text-slate-600">{{CREATED_BY}}</span>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-8 text-center">
+      <p class="text-[8px] text-slate-400 uppercase tracking-widest">Thank you for your business</p>
+    </footer>
+
+  </div>
+
+  <script>
+    // Invoice data will be injected here by the parent application
+    // Replace all placeholders with actual data
+    function renderInvoice(invoiceData) {
+      // Template data (company info)
+      const template = invoiceData.template || {};
+
+      // Calculate totals
+      const items = invoiceData.items || [];
+      const subtotal = parseFloat(invoiceData.subtotal) || 0;
+      const sstAmount = parseFloat(invoiceData.sst_amount) || 0;
+      const discountAmount = parseFloat(invoiceData.discount_amount) || 0;
+      const voucherAmount = parseFloat(invoiceData.voucher_amount) || 0;
+      const totalAmount = parseFloat(invoiceData.total_amount) || 0;
+      const sstRate = invoiceData.sst_rate || 6;
+
+      // Replace placeholders
+      document.title = `Quotation ${invoiceData.invoice_number || ''}`;
+
+      // Replace all {{PLACEHOLDER}} with values
+      replacePlaceholder('INVOICE_NUMBER', invoiceData.invoice_number || 'N/A');
+      replacePlaceholder('COMPANY_NAME', template.company_name || 'Your Company');
+      replacePlaceholder('COMPANY_ADDRESS', template.company_address || '');
+      replacePlaceholder('COMPANY_PHONE', template.company_phone || '');
+      replacePlaceholder('COMPANY_EMAIL', template.company_email || '');
+      replacePlaceholder('LOGO_URL', template.logo_url || '/logo.png');
+
+      replacePlaceholder('STATUS', invoiceData.status || 'Draft');
+      replacePlaceholder('INVOICE_DATE', invoiceData.invoice_date || '');
+      replacePlaceholder('DUE_DATE', invoiceData.due_date || '');
+
+      replacePlaceholder('CUSTOMER_NAME', invoiceData.customer_name_snapshot || 'Valued Customer');
+      replacePlaceholder('CUSTOMER_ADDRESS', invoiceData.customer_address_snapshot || '');
+      replacePlaceholder('CUSTOMER_PHONE', invoiceData.customer_phone_snapshot || '');
+      replacePlaceholder('CUSTOMER_EMAIL', invoiceData.customer_email_snapshot || '');
+
+      replacePlaceholder('SUBTOTAL', subtotal.toFixed(2));
+      replacePlaceholder('SST_RATE', sstRate);
+      replacePlaceholder('SST_AMOUNT', sstAmount.toFixed(2));
+      replacePlaceholder('DISCOUNT_AMOUNT', Math.abs(discountAmount).toFixed(2));
+      replacePlaceholder('VOUCHER_AMOUNT', Math.abs(voucherAmount).toFixed(2));
+      replacePlaceholder('TOTAL_AMOUNT', totalAmount.toFixed(2));
+
+      replacePlaceholder('BANK_NAME', template.bank_name || '');
+      replacePlaceholder('BANK_ACCOUNT_NO', template.bank_account_no || '');
+      replacePlaceholder('BANK_ACCOUNT_NAME', template.bank_account_name || '');
+
+      replacePlaceholder('TERMS', template.terms_and_conditions || '');
+      replacePlaceholder('CREATED_BY', invoiceData.created_by_user_name || 'System');
+
+      // Show/hide optional sections
+      toggleElement('discount-row', discountAmount !== 0);
+      toggleElement('voucher-row', voucherAmount !== 0);
+      toggleElement('sst-row', sstAmount !== 0);
+      toggleElement('terms-section', template.terms_and_conditions);
+      toggleElement('created-by-section', invoiceData.created_by_user_name);
+
+      // Render items
+      renderItems(items);
+    }
+
+    function replacePlaceholder(name, value) {
+      const regex = new RegExp(`{{${name}}}`, 'g');
+      document.body.innerHTML = document.body.innerHTML.replace(regex, value || '');
+    }
+
+    function toggleElement(id, show) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = show ? '' : 'none';
+    }
+
+    function renderItems(items) {
+      const container = document.getElementById('invoice-items');
+      if (!container) return;
+
+      container.innerHTML = items.map(item => {
+        const isDiscount = item.item_type === 'discount' || item.item_type === 'voucher';
+        const priceClass = isDiscount ? 'text-red-600' : 'text-slate-900';
+        const price = parseFloat(item.total_price) || 0;
+
+        return `
+          <div class="px-3 py-3 flex gap-3 items-start">
+            <div class="flex-1">
+              <p class="text-sm font-medium text-slate-900 leading-snug">${item.description}</p>
+              ${!isDiscount && item.qty ? `<p class="text-[10px] text-slate-400 mt-0.5">Qty: ${parseFloat(item.qty)}</p>` : ''}
+            </div>
+            <div class="text-right w-24">
+              <p class="text-sm font-semibold ${priceClass}">${isDiscount ? '-' : ''}RM ${Math.abs(price).toFixed(2)}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Auto-render if data is provided globally
+    if (typeof window.invoiceData !== 'undefined') {
+      renderInvoice(window.invoiceData);
+    }
+  </script>
+</body>
+</html>
