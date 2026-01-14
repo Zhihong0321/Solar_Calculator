@@ -46,6 +46,7 @@ app.use('/proposal', express.static('portable-proposal'));
 
 const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'storage');
 app.use('/uploads', express.static(path.join(storagePath, 'uploaded_payment')));
+app.use('/seda-files', express.static(path.join(storagePath, 'seda_registration')));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

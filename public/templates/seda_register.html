@@ -13,11 +13,28 @@
         .input-label { display: block; font-size: 0.875rem; font-weight: 500; color: #334155; margin-bottom: 0.5rem; }
         .input-field { width: 100%; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; font-size: 0.875rem; border-radius: 0.375rem; transition: border-color 0.15s ease; background-color: white; }
         .input-field:focus { outline: none; border-color: #0f172a; ring: 1px solid #0f172a; }
+        .input-field:disabled { background-color: #f1f5f9; color: #64748b; }
         .btn-primary { background-color: #0f172a; color: white; font-weight: 600; padding: 0.75rem 1.5rem; border-radius: 0.375rem; transition: background-color 0.15s ease; }
         .btn-primary:hover { background-color: #1e293b; }
+        
+        .file-upload-box {
+            border: 2px dashed #cbd5e1;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+        .file-upload-box:hover { border-color: #94a3b8; background: #f1f5f9; }
+        .file-preview { display: none; margin-top: 0.5rem; font-size: 0.75rem; color: #0f172a; font-weight: 500; }
+        .file-preview img { max-height: 150px; margin: 0 auto; border-radius: 4px; border: 1px solid #e2e8f0; }
+        .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: none; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(2px); }
     </style>
 </head>
 <body class="py-10 px-4 sm:px-6 lg:px-8">
+    <div id="loading" class="loading-overlay"><div class="animate-spin rounded-full h-10 w-10 border-4 border-slate-900 border-t-transparent"></div></div>
+
     <div class="max-w-3xl mx-auto">
         <div class="mb-8 flex items-center justify-between">
             <div>
@@ -31,19 +48,23 @@
             
             <!-- Applicant Details -->
             <div>
-                <h2 class="section-title">01. Applicant Information</h2>
+                <h2 class="section-title">01. Applicant Information (Auto-filled)</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="input-group">
                         <label class="input-label">Applicant Name</label>
-                        <input type="text" id="applicantName" class="input-field bg-slate-50" readonly>
+                        <input type="text" id="applicantName" class="input-field" disabled>
                     </div>
                     <div class="input-group">
                         <label class="input-label">Contact No</label>
-                        <input type="text" id="applicantPhone" class="input-field">
+                        <input type="text" id="applicantPhone" class="input-field" disabled>
                     </div>
                     <div class="input-group md:col-span-2">
                         <label class="input-label">Email Address</label>
-                        <input type="email" id="applicantEmail" class="input-field">
+                        <input type="email" id="applicantEmail" class="input-field" disabled>
+                    </div>
+                    <div class="input-group md:col-span-2">
+                        <label class="input-label">Registered Address</label>
+                        <textarea id="applicantAddress" rows="2" class="input-field" disabled></textarea>
                     </div>
                 </div>
             </div>
@@ -54,7 +75,8 @@
                 <div class="space-y-4">
                     <div class="input-group">
                         <label class="input-label">Installation Address</label>
-                        <textarea id="installAddress" rows="3" class="input-field"></textarea>
+                        <textarea id="installAddress" rows="3" class="input-field" placeholder="Same as registered address?"></textarea>
+                        <button type="button" onclick="copyAddress()" class="text-xs text-blue-600 font-medium mt-1 hover:underline">Copy from Registered Address</button>
                     </div>
                     <div class="grid grid-cols-2 gap-6">
                         <div class="input-group">
@@ -79,17 +101,59 @@
                                 <option value="Selangor">Selangor</option>
                                 <option value="Terengganu">Terengganu</option>
                                 <option value="Kuala Lumpur">Kuala Lumpur</option>
+                                <option value="Putrajaya">Putrajaya</option>
                             </select>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Technical Info -->
+            <!-- MyKad Upload -->
             <div>
-                <h2 class="section-title">03. Technical Details</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div class="input-group">
+                <h2 class="section-title">03. MyKad / Identity Document</h2>
+                <div class="flex gap-4 mb-4">
+                    <button type="button" onclick="setMyKadMode('images')" id="btnModeImages" class="px-4 py-2 text-sm font-medium rounded border border-slate-300 bg-slate-100 text-slate-600">Upload Images (Front/Back)</button>
+                    <button type="button" onclick="setMyKadMode('pdf')" id="btnModePdf" class="px-4 py-2 text-sm font-medium rounded border border-slate-300 bg-white text-slate-600">Upload PDF</button>
+                </div>
+
+                <!-- Images Mode -->
+                <div id="sectionMyKadImages" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="input-group">
+                        <label class="input-label">MyKad Front</label>
+                        <div class="file-upload-box" onclick="document.getElementById('fileMyKadFront').click()">
+                            <p class="text-xs text-slate-500">Click to upload image</p>
+                            <input type="file" id="fileMyKadFront" accept="image/*" class="hidden" onchange="handleFile(this, 'previewMyKadFront')">
+                            <div id="previewMyKadFront" class="file-preview"></div>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">MyKad Back</label>
+                        <div class="file-upload-box" onclick="document.getElementById('fileMyKadBack').click()">
+                            <p class="text-xs text-slate-500">Click to upload image</p>
+                            <input type="file" id="fileMyKadBack" accept="image/*" class="hidden" onchange="handleFile(this, 'previewMyKadBack')">
+                            <div id="previewMyKadBack" class="file-preview"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PDF Mode -->
+                <div id="sectionMyKadPdf" class="hidden">
+                    <div class="input-group">
+                        <label class="input-label">MyKad PDF (Full Document)</label>
+                        <div class="file-upload-box" onclick="document.getElementById('fileMyKadPdf').click()">
+                            <p class="text-xs text-slate-500">Click to upload PDF</p>
+                            <input type="file" id="fileMyKadPdf" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewMyKadPdf')">
+                            <div id="previewMyKadPdf" class="file-preview"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TNB Bills -->
+            <div>
+                <h2 class="section-title">04. TNB Bills (Last 3 Months)</h2>
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="input-group">
                         <label class="input-label">TNB Account No</label>
                         <input type="text" id="tnbAccount" class="input-field">
                     </div>
@@ -100,12 +164,39 @@
                             <option value="3">Three Phase (3)</option>
                         </select>
                     </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="input-group">
+                            <label class="input-label">Bill Month 1 (Latest)</label>
+                            <div class="file-upload-box" onclick="document.getElementById('fileTnb1').click()">
+                                <p class="text-xs text-slate-500">Upload PDF</p>
+                                <input type="file" id="fileTnb1" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb1')">
+                                <div id="previewTnb1" class="file-preview"></div>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label">Bill Month 2</label>
+                            <div class="file-upload-box" onclick="document.getElementById('fileTnb2').click()">
+                                <p class="text-xs text-slate-500">Upload PDF</p>
+                                <input type="file" id="fileTnb2" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb2')">
+                                <div id="previewTnb2" class="file-preview"></div>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label">Bill Month 3</label>
+                            <div class="file-upload-box" onclick="document.getElementById('fileTnb3').click()">
+                                <p class="text-xs text-slate-500">Upload PDF</p>
+                                <input type="file" id="fileTnb3" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb3')">
+                                <div id="previewTnb3" class="file-preview"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Emergency Contact -->
              <div>
-                <h2 class="section-title">04. Emergency Contact</h2>
+                <h2 class="section-title">05. Emergency Contact</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div class="input-group">
                         <label class="input-label">Name</label>
@@ -124,7 +215,7 @@
 
             <!-- Action Buttons -->
             <div class="pt-6 border-t border-slate-200 flex justify-end gap-4">
-                <button type="button" onclick="window.history.back()" class="px-6 py-3 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors">Cancel</button>
+                <button type="button" onclick="window.close()" class="px-6 py-3 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors">Close</button>
                 <button type="submit" class="btn-primary">Save Changes</button>
             </div>
         </form>
@@ -133,9 +224,75 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const sedaId = urlParams.get('id');
+        let fileData = {};
+
+        function toggleLoading(show) {
+            document.getElementById('loading').style.display = show ? 'flex' : 'none';
+        }
+
+        function setMyKadMode(mode) {
+            const btnImg = document.getElementById('btnModeImages');
+            const btnPdf = document.getElementById('btnModePdf');
+            const secImg = document.getElementById('sectionMyKadImages');
+            const secPdf = document.getElementById('sectionMyKadPdf');
+
+            if (mode === 'images') {
+                btnImg.classList.add('bg-slate-100'); btnImg.classList.remove('bg-white');
+                btnPdf.classList.add('bg-white'); btnPdf.classList.remove('bg-slate-100');
+                secImg.classList.remove('hidden');
+                secPdf.classList.add('hidden');
+            } else {
+                btnPdf.classList.add('bg-slate-100'); btnPdf.classList.remove('bg-white');
+                btnImg.classList.add('bg-white'); btnImg.classList.remove('bg-slate-100');
+                secPdf.classList.remove('hidden');
+                secImg.classList.add('hidden');
+            }
+        }
+
+        async function handleFile(input, previewId) {
+            const file = input.files[0];
+            if (!file) return;
+
+            // Preview
+            const previewEl = document.getElementById(previewId);
+            previewEl.style.display = 'block';
+            if (file.type.startsWith('image/')) {
+                previewEl.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Preview"><p class="mt-1">${file.name}</p>`;
+            } else {
+                previewEl.innerHTML = `<span class="text-blue-600 font-bold">📄 PDF Selected</span><p class="mt-1">${file.name}</p>`;
+            }
+
+            // Convert to Base64
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Determine key based on input ID
+                const keyMap = {
+                    'fileMyKadFront': 'mykad_front',
+                    'fileMyKadBack': 'mykad_back',
+                    'fileMyKadPdf': 'mykad_pdf',
+                    'fileTnb1': 'tnb_bill_1',
+                    'fileTnb2': 'tnb_bill_2',
+                    'fileTnb3': 'tnb_bill_3',
+                };
+                const key = keyMap[input.id];
+                if (key) fileData[key] = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function copyAddress() {
+            const addr = document.getElementById('applicantAddress').value;
+            const city = document.getElementById('applicantAddress').dataset.city; // Stored in dataset
+            const state = document.getElementById('applicantAddress').dataset.state; // Stored in dataset
+            
+            if(addr) document.getElementById('installAddress').value = addr;
+            if(city) document.getElementById('city').value = city;
+            if(state) document.getElementById('state').value = state;
+        }
 
         async function loadData() {
             if (!sedaId) return alert('No Registration ID provided');
+            toggleLoading(true);
             
             try {
                 const res = await fetch(`/api/v1/seda/${sedaId}`);
@@ -143,10 +300,22 @@
                 
                 if (json.success) {
                     const data = json.data;
+                    const cust = data.customer_profile || {};
+
                     document.getElementById('statusBadge').textContent = data.reg_status || 'DRAFT';
                     
-                    // Populate fields if data exists (add more mappings as needed)
-                    // document.getElementById('applicantName').value = data.linked_customer_name || ''; // Need to fetch customer name
+                    // 1. Auto-fill from Customer
+                    document.getElementById('applicantName').value = cust.name || '';
+                    document.getElementById('applicantPhone').value = cust.phone || '';
+                    document.getElementById('applicantEmail').value = cust.email || '';
+                    
+                    const fullAddr = [cust.address, cust.city, cust.state, cust.postcode].filter(Boolean).join(', ');
+                    document.getElementById('applicantAddress').value = fullAddr;
+                    // Store for copy
+                    document.getElementById('applicantAddress').dataset.city = cust.city || '';
+                    document.getElementById('applicantAddress').dataset.state = cust.state || '';
+
+                    // 2. Fill SEDA fields
                     document.getElementById('installAddress').value = data.installation_address || '';
                     document.getElementById('city').value = data.city || '';
                     document.getElementById('state').value = data.state || '';
@@ -157,17 +326,73 @@
                     document.getElementById('emergencyRel').value = data.e_contact_relationship || '';
                     document.getElementById('emergencyPhone').value = data.e_contact_no || '';
 
-                    // For applicant name, we might need to fetch the customer details if not joined in the API
+                    // 3. Show existing files (Preview)
+                    const showExisting = (url, previewId) => {
+                        if (!url) return;
+                        const el = document.getElementById(previewId);
+                        el.style.display = 'block';
+                        const filename = url.split('/').pop();
+                        if (url.endsWith('.pdf')) {
+                            el.innerHTML = `<a href="${url}" target="_blank" class="text-blue-600 underline">View Existing PDF</a>`;
+                        } else {
+                            el.innerHTML = `<img src="${url}" alt="Existing"><a href="${url}" target="_blank" class="block mt-1 text-blue-600 underline">View Full Image</a>`;
+                        }
+                    };
+
+                    showExisting(data.ic_copy_front, 'previewMyKadFront');
+                    showExisting(data.ic_copy_back, 'previewMyKadBack');
+                    showExisting(data.mykad_pdf, 'previewMyKadPdf');
+                    showExisting(data.tnb_bill_1, 'previewTnb1');
+                    showExisting(data.tnb_bill_2, 'previewTnb2');
+                    showExisting(data.tnb_bill_3, 'previewTnb3');
+
+                    // Set mode based on what exists
+                    if (data.mykad_pdf) setMyKadMode('pdf');
+                    else setMyKadMode('images');
+
                 }
             } catch (err) {
                 console.error(err);
                 alert('Failed to load SEDA data');
+            } finally {
+                toggleLoading(false);
             }
         }
 
-        document.getElementById('sedaForm').addEventListener('submit', (e) => {
+        document.getElementById('sedaForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            alert('Save functionality coming soon!');
+            toggleLoading(true);
+
+            const payload = {
+                installation_address: document.getElementById('installAddress').value,
+                city: document.getElementById('city').value,
+                state: document.getElementById('state').value,
+                tnb_account_no: document.getElementById('tnbAccount').value,
+                phase_type: document.getElementById('phaseType').value,
+                e_contact_name: document.getElementById('emergencyName').value,
+                e_contact_relationship: document.getElementById('emergencyRel').value,
+                e_contact_no: document.getElementById('emergencyPhone').value,
+                ...fileData // Merge base64 files
+            };
+
+            try {
+                const res = await fetch(`/api/v1/seda/${sedaId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert('Saved successfully!');
+                    loadData(); // Refresh to see updated files
+                } else {
+                    throw new Error(json.error);
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                toggleLoading(false);
+            }
         });
 
         loadData();
