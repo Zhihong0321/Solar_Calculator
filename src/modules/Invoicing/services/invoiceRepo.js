@@ -1028,6 +1028,27 @@ async function getPublicVouchers(client) {
 }
 
 /**
+ * Log customer history before update
+ */
+async function logCustomerHistory(client, customerId, oldData, userId) {
+  try {
+    // Get max version
+    const verRes = await client.query('SELECT MAX(version) as max_v FROM customer_history WHERE customer_id = $1', [customerId]);
+    const nextVer = (verRes.rows[0].max_v || 0) + 1;
+
+    await client.query(
+      `INSERT INTO customer_history 
+       (customer_id, name, phone, address, version, changed_by, changed_at, change_operation)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), 'UPDATE')`,
+      [customerId, oldData.name, oldData.phone, oldData.address, nextVer, String(userId)]
+    );
+  } catch (err) {
+    console.error('Error logging customer history:', err);
+    // Non-blocking
+  }
+}
+
+/**
  * Create invoice version transaction
  * @param {object} client - Database client
  * @param {object} data - Invoice data
@@ -1084,7 +1105,39 @@ async function createInvoiceVersionTransaction(client, data) {
     let internalCustomerId = org.customer_id;
     let customerBubbleId = null;
 
-    if (customerName) {
+    if (internalCustomerId) {
+        // Fetch existing customer
+        const custRes = await client.query('SELECT * FROM customer WHERE id = $1', [internalCustomerId]);
+        if (custRes.rows.length > 0) {
+            const existingCust = custRes.rows[0];
+            customerBubbleId = existingCust.customer_id;
+
+            // Check if update needed
+            // Use new values if provided, else keep existing (passed in data or fallback to snapshot was done above)
+            // But 'data.customerName' might be undefined if not in payload.
+            // Earlier: let customerName = data.customerName; if undefined ... = org.snapshot
+            // So customerName holds the INTENDED name for this version.
+            
+            const newName = customerName; 
+            const newPhone = customerPhone; 
+            const newAddress = customerAddress;
+
+            // Only update master profile if values differ
+            if (newName !== existingCust.name || newPhone !== existingCust.phone || newAddress !== existingCust.address) {
+                // Log History
+                await logCustomerHistory(client, internalCustomerId, existingCust, data.userId);
+                
+                // Update Master Profile
+                await client.query(
+                    `UPDATE customer 
+                     SET name = $1, phone = $2, address = $3, updated_at = NOW(), updated_by = $4 
+                     WHERE id = $5`,
+                    [newName, newPhone, newAddress, String(data.userId), internalCustomerId]
+                );
+            }
+        }
+    } else if (customerName) {
+        // Fallback for legacy invoices without linked customer ID
         const custResult = await findOrCreateCustomer(client, {
             name: customerName,
             phone: customerPhone,
@@ -1095,15 +1148,6 @@ async function createInvoiceVersionTransaction(client, data) {
             internalCustomerId = custResult.id;
             customerBubbleId = custResult.bubbleId;
         }
-    } else {
-        // If no new customer provided, we need to fetch the existing one's bubble ID
-        // Assuming we kept internalCustomerId from org.customer_id
-         if (internalCustomerId) {
-             const custRes = await client.query('SELECT customer_id FROM customer WHERE id = $1', [internalCustomerId]);
-             if (custRes.rows.length > 0) {
-                 customerBubbleId = custRes.rows[0].customer_id;
-             }
-         }
     }
 
     const customerData = {
