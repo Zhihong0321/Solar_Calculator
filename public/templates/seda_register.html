@@ -352,14 +352,24 @@
 
         // --- Logic for Extraction ---
         async function handleExtraction(input, type) {
+            console.log('handleExtraction triggered for:', type);
             const file = input.files[0];
-            if (!file) return;
+            if (!file) {
+                console.warn('No file selected');
+                return;
+            }
 
             // 1. Show normal preview & store
-            const previewId = input.id === 'fileTnb1' ? 'previewTnb1' : 
-                              input.id === 'fileMyKadFront' ? 'previewMyKadFront' : 'previewMyKadPdf';
-            showPreview(file, previewId);
-            storeFile(input.id, file);
+            try {
+                const previewId = input.id === 'fileTnb1' ? 'previewTnb1' : 
+                                  input.id === 'fileMyKadFront' ? 'previewMyKadFront' : 'previewMyKadPdf';
+                showPreview(file, previewId);
+                storeFile(input.id, file);
+            } catch (e) {
+                console.error('Error showing preview:', e);
+                alert('Error showing preview: ' + e.message);
+                return;
+            }
 
             // 2. Start Extraction
             startLoading(type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...');
@@ -371,27 +381,41 @@
                 const endpoint = type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad';
                 
                 try {
+                    console.log('Sending request to:', endpoint);
                     const res = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ fileData: base64, filename: file.name })
                     });
                     
+                    console.log('Response status:', res.status);
+                    
+                    if (res.status === 413) {
+                        throw new Error('File is too large. Please upload a smaller file.');
+                    }
+
+                    const json = await res.json();
                     stopLoading();
                     
-                    const json = await res.json();
                     if (json.success && json.data) {
                         showResultModal(type, json.data);
                     } else {
-                        console.warn('Extraction returned no data or error');
+                        console.warn('Extraction returned no data or error:', json);
+                        alert('Extraction failed: ' + (json.error || 'Unknown error from server'));
                     }
                 } catch (err) {
                     stopLoading();
-                    console.error(err);
-                    // Silent fail or alert? Alert is better.
-                    alert('Auto-extraction failed. Please enter details manually.');
+                    console.error('Extraction Error:', err);
+                    alert('Auto-extraction failed: ' + err.message);
                 }
             };
+            
+            reader.onerror = function(e) {
+                stopLoading();
+                console.error('FileReader Error:', e);
+                alert('Failed to read file.');
+            };
+
             reader.readAsDataURL(file);
         }
 

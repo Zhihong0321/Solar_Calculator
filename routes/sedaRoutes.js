@@ -185,19 +185,26 @@ router.post('/api/v1/seda/:id', requireAuth, async (req, res) => {
  */
 router.post('/api/v1/seda/extract-tnb', requireAuth, async (req, res) => {
     try {
+        console.log(`[SEDA Route] Extract TNB request received. Payload size: ${JSON.stringify(req.body).length} bytes`);
         const { fileData, filename } = req.body;
         if (!fileData) return res.status(400).json({ error: 'No file data provided' });
 
         const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
         if (!matches || matches.length !== 3) {
+            console.error('[SEDA Route] Invalid base64 data format');
             return res.status(400).json({ error: 'Invalid base64 data' });
         }
 
+        console.log(`[SEDA Route] Converting base64 to buffer for file: ${filename}`);
         const buffer = Buffer.from(matches[2], 'base64');
+        
+        console.log('[SEDA Route] Calling extractionService.extractTnb...');
         const data = await extractionService.extractTnb(buffer, filename || 'tnb_bill.pdf');
         
+        console.log('[SEDA Route] Extraction successful');
         res.json({ success: true, data });
     } catch (err) {
+        console.error('[SEDA Route] Extraction Error:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -208,19 +215,26 @@ router.post('/api/v1/seda/extract-tnb', requireAuth, async (req, res) => {
  */
 router.post('/api/v1/seda/extract-mykad', requireAuth, async (req, res) => {
     try {
+        console.log(`[SEDA Route] Extract MyKad request received. Payload size: ${JSON.stringify(req.body).length} bytes`);
         const { fileData, filename } = req.body;
         if (!fileData) return res.status(400).json({ error: 'No file data provided' });
 
         const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
         if (!matches || matches.length !== 3) {
+            console.error('[SEDA Route] Invalid base64 data format');
             return res.status(400).json({ error: 'Invalid base64 data' });
         }
 
+        console.log(`[SEDA Route] Converting base64 to buffer for file: ${filename}`);
         const buffer = Buffer.from(matches[2], 'base64');
+        
+        console.log('[SEDA Route] Calling extractionService.extractMykad...');
         const data = await extractionService.extractMykad(buffer, filename || 'mykad.jpg');
         
+        console.log('[SEDA Route] Extraction successful');
         res.json({ success: true, data });
     } catch (err) {
+        console.error('[SEDA Route] Extraction Error:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
