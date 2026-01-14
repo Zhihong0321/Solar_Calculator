@@ -61,41 +61,68 @@
 
 
 
-    <!-- Compact Sticky Header -->
+    <!-- Detailed Stepper Header -->
     <div class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 transition-all">
-        <div class="max-w-3xl mx-auto">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <!-- Left: Title & Status -->
-                <div class="flex items-center gap-3">
-                    <div class="h-9 w-9 bg-emerald-600 rounded-lg shadow-sm flex items-center justify-center text-white font-bold text-xs tracking-wider">PV</div>
+        <div class="max-w-4xl mx-auto">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                <!-- Title -->
+                <div class="flex items-center gap-3 w-full md:w-auto">
+                    <div class="h-10 w-10 bg-emerald-600 rounded-lg shadow-sm flex items-center justify-center text-white font-bold text-sm tracking-wider">V2</div>
                     <div>
-                        <h1 class="text-sm font-bold text-slate-900 leading-tight">SEDA Registration</h1>
-                        <div class="flex items-center gap-2 mt-0.5">
-                            <span class="text-[10px] text-slate-500 font-medium tracking-wide">APPLICATION FORM</span>
-                            <span id="statusBadge" class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[9px] font-bold rounded border border-yellow-200 uppercase tracking-wider leading-none">DRAFT</span>
-                        </div>
+                        <h1 class="text-base font-bold text-slate-900 leading-tight">SEDA Registration</h1>
+                        <span id="overallProgress" class="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">0% Completed</span>
                     </div>
                 </div>
                 
-                <!-- Right: Section Progress -->
-                <div class="hidden sm:flex items-center gap-1">
-                    <div class="flex items-center gap-1 text-[10px] font-semibold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-                        <span class="text-emerald-700">01 Applicant</span>
-                        <span class="text-slate-300 mx-1">›</span>
-                        <span class="">02 Site</span>
-                        <span class="text-slate-300 mx-1">›</span>
-                        <span class="">03 Docs</span>
-                        <span class="text-slate-300 mx-1">›</span>
-                        <span class="">04 TNB</span>
+                <!-- Stepper -->
+                <div class="flex items-center w-full md:w-auto justify-between md:justify-end gap-2 overflow-x-auto no-scrollbar py-1">
+                    
+                    <!-- Step 1 -->
+                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step1">
+                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">1</div>
+                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">Info</span>
                     </div>
-                    <div class="ml-3 text-right">
-                        <div class="text-[10px] font-bold text-emerald-600" id="progressText">0% Complete</div>
-                        <div class="w-20 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                            <div id="formProgress" class="h-full bg-emerald-500 w-0 transition-all duration-500 rounded-full"></div>
-                        </div>
+                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
+                    
+                    <!-- Step 2 -->
+                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step2">
+                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">2</div>
+                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">Site</span>
+                    </div>
+                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
+
+                    <!-- Step 3 -->
+                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step3">
+                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">3</div>
+                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">MyKad</span>
+                    </div>
+                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
+
+                    <!-- Step 4 -->
+                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step4">
+                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">4</div>
+                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">TNB</span>
+                    </div>
+                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
+
+                    <!-- Step 5 -->
+                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step5">
+                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">5</div>
+                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">Emerg.</span>
+                    </div>
+                    <div class="h-[1px] w-3 bg-slate-200 mb-4 step-line"></div>
+
+                    <!-- Step 6 -->
+                    <div class="flex flex-col items-center min-w-[40px] step-item" id="step6">
+                        <div class="step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all">6</div>
+                        <span class="text-[9px] font-semibold text-slate-400 mt-1 uppercase">Docs</span>
                     </div>
                 </div>
             </div>
+        </div>
+        <!-- Progress Line Bottom -->
+        <div class="absolute bottom-0 left-0 w-full h-[2px] bg-slate-100">
+            <div id="formProgress" class="h-full bg-emerald-500 w-0 transition-all duration-500"></div>
         </div>
     </div>
 
@@ -722,44 +749,85 @@
 
         // --- Progress Logic ---
         function updateFormProgress() {
-            const fields = [
-                'applicantName', 'applicantIC', 'applicantPhone', 'applicantEmail', 'applicantAddress',
-                'installAddress', 'city', 'state',
-                'tnbAccount', 'phaseType',
-                'emergencyName', 'emergencyRel', 'emergencyPhone'
+            const steps = [
+                { id: 'step1', fields: ['applicantName', 'applicantIC', 'applicantPhone', 'applicantEmail'] },
+                { id: 'step2', fields: ['installAddress', 'city', 'state'] },
+                { id: 'step3', fields: [], files: ['mykad_front', 'mykad_back', 'mykad_pdf'] },
+                { id: 'step4', fields: ['tnbAccount', 'phaseType'], files: ['tnb_bill_1'] },
+                { id: 'step5', fields: ['emergencyName', 'emergencyRel', 'emergencyPhone'] },
+                { id: 'step6', fields: [], files: ['property_proof', 'tnb_meter'] }
             ];
-            // Check file inputs (using fileData object or previews)
-            const fileKeys = ['mykad_front', 'mykad_back', 'tnb_bill_1']; 
-            
-            let filled = 0;
-            let total = fields.length + fileKeys.length;
 
-            fields.forEach(id => {
-                const el = document.getElementById(id);
-                if (el && el.value.trim()) filled++;
+            let totalSteps = steps.length;
+            let completedSteps = 0;
+
+            steps.forEach(step => {
+                let isComplete = true;
+                
+                // Check fields
+                step.fields.forEach(fid => {
+                    const el = document.getElementById(fid);
+                    if (!el || !el.value.trim()) isComplete = false;
+                });
+
+                // Check files
+                if (step.files && step.files.length > 0) {
+                    if (step.id === 'step3') {
+                        // Special logic for MyKad: PDF OR (Front AND Back)
+                        const hasPdf = fileData.mykad_pdf || document.getElementById('previewMyKadPdf').style.display === 'block';
+                        const hasFront = fileData.mykad_front || document.getElementById('previewMyKadFront').style.display === 'block';
+                        const hasBack = fileData.mykad_back || document.getElementById('previewMyKadBack').style.display === 'block';
+                        if (!hasPdf && (!hasFront || !hasBack)) isComplete = false;
+                    } else if (step.id === 'step6') {
+                         // Property Proof AND TNB Meter
+                         // Wait, are they mandatory? Let's assume yes for progress.
+                         // But for now, let's just check if ANY file is uploaded for that key?
+                         // fileData key mapping: 
+                         // property_proof -> filePropertyProof
+                         // tnb_meter -> fileTnbMeter
+                         // My storeFile uses specific keys.
+                         
+                         const hasProof = fileData.property_proof || (document.getElementById('previewPropertyProof') && document.getElementById('previewPropertyProof').style.display === 'block');
+                         const hasMeter = fileData.tnb_meter || (document.getElementById('previewTnbMeter') && document.getElementById('previewTnbMeter').style.display === 'block');
+                         
+                         if (!hasProof || !hasMeter) isComplete = false;
+                    } else {
+                        // Standard file check (any one of list? No, usually all required)
+                        // For Step 4 (TNB), we need tnb_bill_1 (latest) at least.
+                        step.files.forEach(fKey => {
+                            // Map file key to preview ID or fileData
+                            let previewId = '';
+                            if (fKey === 'tnb_bill_1') previewId = 'previewTnb1';
+                            
+                            const hasFile = fileData[fKey] || (document.getElementById(previewId) && document.getElementById(previewId).style.display === 'block');
+                            if (!hasFile) isComplete = false;
+                        });
+                    }
+                }
+
+                // Update UI
+                const stepEl = document.getElementById(step.id);
+                const circle = stepEl.querySelector('.step-circle');
+                if (isComplete) {
+                    completedSteps++;
+                    circle.className = 'step-circle w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 flex items-center justify-center transition-all';
+                    circle.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
+                    stepEl.querySelector('span').classList.add('text-emerald-600');
+                } else {
+                    // Reset to number
+                    circle.className = 'step-circle w-6 h-6 rounded-full bg-slate-100 text-slate-400 text-[10px] font-bold flex items-center justify-center border border-slate-200 transition-all';
+                    circle.innerHTML = step.id.replace('step', '');
+                    stepEl.querySelector('span').classList.remove('text-emerald-600');
+                }
             });
 
-            // Check files (either new upload in fileData OR existing preview shown)
-            if (fileData.mykad_pdf || (document.getElementById('previewMyKadPdf').style.display === 'block')) {
-                // PDF covers front/back
-                filled += 2; 
-            } else {
-                if (fileData.mykad_front || document.getElementById('previewMyKadFront').style.display === 'block') filled++;
-                if (fileData.mykad_back || document.getElementById('previewMyKadBack').style.display === 'block') filled++;
-            }
-
-            if (fileData.tnb_bill_1 || document.getElementById('previewTnb1').style.display === 'block') filled++;
-
-            // Simple cap
-            if (filled > total) filled = total;
-
-            const percent = Math.round((filled / total) * 100);
+            const percent = Math.round((completedSteps / totalSteps) * 100);
             
             const bar = document.getElementById('formProgress');
-            const text = document.getElementById('progressText');
+            const text = document.getElementById('overallProgress');
             
             if (bar) bar.style.width = percent + '%';
-            if (text) text.innerText = percent + '% Complete';
+            if (text) text.innerText = percent + '% COMPLETED';
         }
 
         // Attach listeners
