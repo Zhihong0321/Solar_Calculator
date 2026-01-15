@@ -194,6 +194,36 @@
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     New Quotation
                 </a>
+                <button onclick="openDebugModal()" class="ml-2 text-slate-300 hover:text-red-500 font-bold text-xs p-2">[!]</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Modal -->
+    <div id="debugModal" class="fixed inset-0 z-[100] hidden">
+        <div class="fixed inset-0 bg-black/80 backdrop-blur-sm" onclick="closeDebugModal()"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div class="bg-slate-900 px-6 py-4 flex justify-between items-center">
+                    <h3 class="text-white font-bold text-sm tracking-wider uppercase">Debug Access</h3>
+                    <button onclick="closeDebugModal()" class="text-slate-400 hover:text-white">✕</button>
+                </div>
+                
+                <div id="debugStep1" class="p-6">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Enter Passkey</label>
+                    <input type="password" id="debugPasskey" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-center font-mono text-lg tracking-widest focus:ring-2 focus:ring-slate-900 focus:outline-none" placeholder="******">
+                    <button onclick="verifyDebugPasskey()" class="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-lg transition-colors">Access Console</button>
+                </div>
+
+                <div id="debugStep2" class="hidden p-6">
+                    <p class="text-xs text-slate-500 font-bold uppercase mb-3">Select User to Impersonate</p>
+                    <div id="debugUserList" class="space-y-2 max-h-64 overflow-y-auto mb-4 border border-slate-100 rounded-lg p-1">
+                        <div class="flex items-center justify-center py-8">
+                            <div class="loading-spinner h-6 w-6 rounded-full border-slate-300 border-t-slate-900"></div>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="w-full border border-red-200 text-red-600 font-bold py-2 rounded-lg hover:bg-red-50 text-xs">Logout Current Session</button>
+                </div>
             </div>
         </div>
     </div>
@@ -596,6 +626,89 @@
                 btn.disabled = false;
                 btn.innerHTML = originalContent;
             }
+        }
+
+        // --- Debug Features ---
+        let debugPasskey = '';
+
+        function openDebugModal() {
+            document.getElementById('debugModal').classList.remove('hidden');
+            document.getElementById('debugPasskey').focus();
+        }
+
+        function closeDebugModal() {
+            document.getElementById('debugModal').classList.add('hidden');
+            document.getElementById('debugPasskey').value = '';
+            document.getElementById('debugStep1').classList.remove('hidden');
+            document.getElementById('debugStep2').classList.add('hidden');
+        }
+
+        async function verifyDebugPasskey() {
+            const key = document.getElementById('debugPasskey').value;
+            if (key === '012784') {
+                debugPasskey = key;
+                document.getElementById('debugStep1').classList.add('hidden');
+                document.getElementById('debugStep2').classList.remove('hidden');
+                loadDebugUsers();
+            } else {
+                alert('Access Denied');
+            }
+        }
+
+        async function loadDebugUsers() {
+            try {
+                const res = await fetch('/api/debug/users', {
+                    headers: { 'x-debug-passkey': debugPasskey }
+                });
+                const json = await res.json();
+                
+                const list = document.getElementById('debugUserList');
+                if (json.success) {
+                    list.innerHTML = json.users.map(u => `
+                        <button onclick="impersonateUser(${u.id})" class="w-full text-left p-3 hover:bg-slate-50 rounded-md transition-colors flex justify-between items-center group border-b border-slate-50 last:border-0">
+                            <div>
+                                <div class="font-bold text-slate-800 text-sm">${u.agent_name || 'Unknown Agent'}</div>
+                                <div class="text-[10px] text-slate-500 font-mono">${u.email || 'No Email'}</div>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">${u.invoice_count} inv</span>
+                                <span class="text-[9px] text-slate-400 mt-1">${new Date(u.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </button>
+                    `).join('');
+                } else {
+                    list.innerHTML = `<p class="text-red-500 text-xs p-4">${json.error}</p>`;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function impersonateUser(userId) {
+            if (!confirm('Switch to this user account?')) return;
+            try {
+                const res = await fetch('/api/debug/login-as', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-debug-passkey': debugPasskey 
+                    },
+                    body: JSON.stringify({ userId })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    window.location.reload();
+                } else {
+                    alert(json.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        function logout() {
+            document.cookie = 'auth_token=; Max-Age=0; path=/;';
+            window.location.reload();
         }
 
         document.addEventListener('DOMContentLoaded', loadQuotations);

@@ -6,6 +6,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
@@ -1206,6 +1207,81 @@ router.delete('/api/v1/invoices/cleanup-samples', requireAuth, async (req, res) 
   } finally {
     if (client) client.release();
   }
+});
+
+/**
+ * DEBUG ROUTES
+ * Protected by Passkey '012784'
+ */
+
+// Middleware for debug passkey
+const requireDebugPasskey = (req, res, next) => {
+    const passkey = req.headers['x-debug-passkey'];
+    if (passkey !== '012784') {
+        return res.status(403).json({ success: false, error: 'Invalid debug passkey' });
+    }
+    next();
+};
+
+/**
+ * GET /api/debug/users
+ * List users for testing purposes
+ */
+router.get('/api/debug/users', requireDebugPasskey, async (req, res) => {
+    let client = null;
+    try {
+        client = await pool.connect();
+        
+        // Fetch users with agent details and invoice counts
+        const query = `
+            SELECT 
+                u.id, 
+                u.email, 
+                u.created_at, 
+                a.name as agent_name,
+                (SELECT COUNT(*) FROM invoice i WHERE i.created_by = u.id::text) as invoice_count
+            FROM "user" u
+            LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
+            ORDER BY u.created_at DESC
+            LIMIT 100
+        `;
+        
+        const result = await client.query(query);
+        res.json({ success: true, users: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * POST /api/debug/login-as
+ * Impersonate a user
+ */
+router.post('/api/debug/login-as', requireDebugPasskey, async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ success: false, error: 'User ID required' });
+
+    try {
+        // Generate JWT
+        const token = jwt.sign(
+            { userId: userId, role: 'user' }, // Payload
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        // Set Cookie
+        res.cookie('auth_token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 module.exports = router;
