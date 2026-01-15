@@ -11,6 +11,7 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
+const snapshotService = require('../services/snapshotService');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const externalPdfService = require('../services/externalPdfService');
 
@@ -1270,6 +1271,51 @@ router.get('/api/v1/submitted-payments/:bubbleId', requireAuth, async (req, res)
         res.status(500).json({ success: false, error: err.message });
     } finally {
         client.release();
+    }
+});
+
+/**
+ * POST /api/v1/invoices/:bubbleId/snapshot
+ * Explicitly capture a snapshot of the current invoice state.
+ * Useful for Admin Apps before applying manual overrides.
+ * Protected: Requires authentication
+ */
+router.post('/api/v1/invoices/:bubbleId/snapshot', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        const { bubbleId } = req.params;
+        const { actionType, description } = req.body;
+        const userId = req.user.userId;
+
+        client = await pool.connect();
+        
+        // 1. Fetch current full data
+        const fullInvoiceData = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
+        if (!fullInvoiceData) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        // 2. Ownership check
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, fullInvoiceData.created_by);
+        if (!isOwner) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        // 3. Capture Snapshot
+        const actionId = await snapshotService.captureSnapshot(
+            client, 
+            fullInvoiceData, 
+            actionType || 'MANUAL_SNAPSHOT', 
+            userId, 
+            description || 'Manual snapshot captured via API'
+        );
+
+        res.json({ success: true, actionId });
+    } catch (err) {
+        console.error('Error capturing manual snapshot:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
     }
 });
 

@@ -3,6 +3,7 @@
  * Handles all database operations for invoice creation
  */
 const crypto = require('crypto');
+const snapshotService = require('./snapshotService');
 
 /**
  * Generate a unique share token
@@ -749,7 +750,9 @@ async function createInvoiceOnTheFly(client, data) {
     await client.query('COMMIT');
 
     // 6. Log Action with Snapshot (after commit)
-    await logInvoiceAction(client, invoice.bubble_id, 'INVOICE_CREATED', String(data.userId), { description: 'Initial creation' });
+    // Fetch full data including joined fields for the immutable snapshot
+    const fullInvoiceData = await getInvoiceByBubbleId(client, invoice.bubble_id);
+    await snapshotService.captureSnapshot(client, fullInvoiceData, 'INVOICE_CREATED', data.userId, 'Initial creation');
 
     return {
       ...invoice,
@@ -952,9 +955,10 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.invoice_number,
             i.invoice_date,
             i.created_at,
-            -- Show Customer Name from customer table first, fallback to snapshot
-            COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
-            i.package_name_snapshot,
+            -- LIVE DATA JOINS
+            COALESCE(c.name, 'Unknown Customer') as customer_name,
+            COALESCE(c.email, '') as customer_email,
+            COALESCE(pkg.package_name, 'Unknown Package') as package_name,
             i.total_amount,
             i.status,
             i.share_token,
@@ -975,6 +979,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
 
         FROM invoice i
         LEFT JOIN customer c ON i.customer_id = c.id
+        LEFT JOIN package pkg ON i.package_id = pkg.bubble_id
         WHERE i.linked_agent = $1 
         AND i.is_latest = true 
         AND (i.status != 'deleted' OR i.status IS NULL)
@@ -1208,13 +1213,9 @@ async function createInvoiceVersionTransaction(client, data) {
     await client.query('COMMIT');
 
     // 7. Log Action with Snapshot (after commit)
-    const details = {
-        change_summary: `Created version ${newInvoice.version} from ${org.invoice_number}`,
-        discount_fixed: data.discountFixed,
-        discount_percent: data.discountPercent,
-        total_amount: financials.finalTotalAmount
-    };
-    await logInvoiceAction(client, newInvoice.bubble_id, 'INVOICE_VERSIONED', String(data.userId), details);
+    const summary = `Created version ${newInvoice.version} from ${org.invoice_number}`;
+    const fullInvoiceData = await getInvoiceByBubbleId(client, newInvoice.bubble_id);
+    await snapshotService.captureSnapshot(client, fullInvoiceData, 'INVOICE_VERSIONED', data.userId, summary);
 
     return {
       ...newInvoice,
