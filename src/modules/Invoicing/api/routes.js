@@ -167,11 +167,34 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
-        // 2. Fetch Payments
-        const paymentsRes = await client.query(
-            'SELECT * FROM submitted_payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
-            [bubbleId]
-        );
+        // 2. Fetch Payments (Combine submitted_payment AND legacy/synced payment)
+        const [submittedRes, legacyRes] = await Promise.all([
+            client.query(
+                'SELECT * FROM submitted_payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
+                [bubbleId]
+            ),
+            client.query(
+                'SELECT * FROM payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
+                [bubbleId]
+            )
+        ]);
+
+        // Map legacy payments to match structure and set status='verified'
+        const legacyPayments = legacyRes.rows.map(p => ({
+            ...p,
+            status: 'verified', // Synced payments are considered verified
+            attachment: p.attachment || [] // Ensure array
+        }));
+
+        const allPayments = [...submittedRes.rows, ...legacyPayments];
+
+        // Calculate total paid amount (verified only)
+        const paidAmount = allPayments
+            .filter(p => p.status === 'verified')
+            .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+        
+        // Attach to invoice object for frontend
+        invoice.paid_amount = paidAmount;
 
         // 3. Fetch Items
         const itemsRes = await client.query(
@@ -193,7 +216,7 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
             success: true,
             data: {
                 invoice,
-                payments: paymentsRes.rows,
+                payments: allPayments,
                 items: itemsRes.rows,
                 seda
             }
