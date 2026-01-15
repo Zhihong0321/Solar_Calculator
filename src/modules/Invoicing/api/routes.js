@@ -1266,7 +1266,7 @@ router.post('/api/debug/login-as', requireDebugPasskey, async (req, res) => {
     try {
         // Generate JWT
         const token = jwt.sign(
-            { userId: userId, role: 'user' }, // Payload
+            { userId: String(userId), role: 'user' }, // Payload
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -1275,6 +1275,7 @@ router.post('/api/debug/login-as', requireDebugPasskey, async (req, res) => {
         res.cookie('auth_token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
+            path: '/',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
