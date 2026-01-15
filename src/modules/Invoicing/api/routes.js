@@ -209,6 +209,21 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
             seda = sedaRes.rows[0];
         }
 
+        // FALLBACK: If not found via direct link, check if any SEDA record points to this invoice
+        if (!seda) {
+            const fallbackSedaRes = await client.query(
+                'SELECT * FROM seda_registration WHERE $1 = ANY(linked_invoice) LIMIT 1',
+                [bubbleId]
+            );
+            seda = fallbackSedaRes.rows[0];
+            
+            // If we found it via fallback, we should ideally update the invoice record 
+            // so future loads are faster, but for now we just return it to fix the UI.
+            if (seda) {
+                invoice.linked_seda_registration = seda.bubble_id;
+            }
+        }
+
         res.json({
             success: true,
             data: {

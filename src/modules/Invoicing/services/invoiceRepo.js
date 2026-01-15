@@ -983,7 +983,10 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.share_token,
             i.share_enabled,
             i.version,
-            i.linked_seda_registration,
+            COALESCE(
+                i.linked_seda_registration, 
+                (SELECT s.bubble_id FROM seda_registration s WHERE i.bubble_id = ANY(s.linked_invoice) LIMIT 1)
+            ) as linked_seda_registration,
             i.percent_of_total_amount,
             
             -- Verified Paid Amount
