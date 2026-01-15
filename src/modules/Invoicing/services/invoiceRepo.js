@@ -345,9 +345,19 @@ function reconstructInvoiceFromSnapshot(actionDetails) {
  */
 async function getInvoiceByBubbleId(client, bubbleId) {
   try {
-    // Query 1: Get invoice
+    // Query 1: Get invoice with live customer and package data
     const invoiceResult = await client.query(
-      `SELECT * FROM invoice WHERE bubble_id = $1`,
+      `SELECT 
+        i.*,
+        COALESCE(c.name, i.customer_name_snapshot) as customer_name,
+        COALESCE(c.email, i.customer_email_snapshot) as customer_email,
+        COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
+        COALESCE(c.address, i.customer_address_snapshot) as customer_address,
+        COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
+       FROM invoice i 
+       LEFT JOIN customer c ON i.customer_id = c.id
+       LEFT JOIN package pkg ON i.package_id = pkg.bubble_id
+       WHERE i.bubble_id = $1`,
       [bubbleId]
     );
 
@@ -777,10 +787,19 @@ async function createInvoiceOnTheFly(client, data) {
 async function getInvoiceByShareToken(client, shareToken) {
   try {
     const invoiceResult = await client.query(
-      `SELECT * FROM invoice
-       WHERE share_token = $1
-         AND share_enabled = true
-         AND (share_expires_at IS NULL OR share_expires_at > NOW())
+      `SELECT 
+        i.*,
+        COALESCE(c.name, i.customer_name_snapshot) as customer_name,
+        COALESCE(c.email, i.customer_email_snapshot) as customer_email,
+        COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
+        COALESCE(c.address, i.customer_address_snapshot) as customer_address,
+        COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
+       FROM invoice i
+       LEFT JOIN customer c ON i.customer_id = c.id
+       LEFT JOIN package pkg ON i.package_id = pkg.bubble_id
+       WHERE i.share_token = $1
+         AND i.share_enabled = true
+         AND (i.share_expires_at IS NULL OR i.share_expires_at > NOW())
        LIMIT 1`,
       [shareToken]
     );

@@ -151,12 +151,8 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
 
         client = await pool.connect();
         
-        // 1. Fetch Invoice
-        const invoiceRes = await client.query(
-            'SELECT * FROM invoice WHERE bubble_id = $1',
-            [bubbleId]
-        );
-        const invoice = invoiceRes.rows[0];
+        // 1. Fetch Invoice with Live Joins
+        const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
 
         if (!invoice) {
             return res.status(404).json({ success: false, error: 'Invoice not found' });
@@ -1102,8 +1098,8 @@ async function generateProposalHtml(client, invoice, req, forPdf = false) {
     const templatePath = path.join(__dirname, '../../../../portable-proposal/index.html');
     let proposalHtml = fs.readFileSync(templatePath, 'utf8');
 
-    const customerName = invoice.customer_name_snapshot || 'Valued Customer';
-    const customerAddress = invoice.customer_address_snapshot || 'Malaysia';
+    const customerName = invoice.customer_name || 'Valued Customer';
+    const customerAddress = invoice.customer_address || 'Malaysia';
     const systemSize = invoice.system_size_kwp
       ? `${invoice.system_size_kwp.toFixed(1)} kWp System`
       : 'Solar System';
@@ -1158,8 +1154,8 @@ async function generateProposalHtml(client, invoice, req, forPdf = false) {
     proposalHtml = proposalHtml.replace(/{{INVOICE_DATE}}/g, invoice.invoice_date);
     proposalHtml = proposalHtml.replace(/{{CUSTOMER_NAME}}/g, customerName);
     proposalHtml = proposalHtml.replace(/{{CUSTOMER_ADDRESS}}/g, customerAddress);
-    proposalHtml = proposalHtml.replace(/{{CUSTOMER_PHONE}}/g, invoice.customer_phone_snapshot || '');
-    proposalHtml = proposalHtml.replace(/{{CUSTOMER_EMAIL}}/g, invoice.customer_email_snapshot || '');
+    proposalHtml = proposalHtml.replace(/{{CUSTOMER_PHONE}}/g, invoice.customer_phone || '');
+    proposalHtml = proposalHtml.replace(/{{CUSTOMER_EMAIL}}/g, invoice.customer_email || '');
     proposalHtml = proposalHtml.replace(/{{INVOICE_ITEMS}}/g, itemsHtml);
     proposalHtml = proposalHtml.replace(/{{SUBTOTAL}}/g, subtotal.toFixed(2));
     proposalHtml = proposalHtml.replace(/{{SST_RATE}}/g, sstRate.toFixed(0));
@@ -1428,7 +1424,11 @@ router.post('/api/debug/recompile-snapshots', requireDebugPasskey, async (req, r
     try {
         client = await pool.connect();
         
-        // Update Customer Details
+        // This tool is now primarily for fixing legacy invoices that might not have a customer_id link
+        // but have snapshot data, or vice versa.
+        
+        // 1. If customer_id exists but snapshots are empty, we don't strictly need to backfill snapshots 
+        // anymore since the APP uses JOINS. But we can do it for data consistency.
         const customerResult = await client.query(`
             UPDATE invoice
             SET 

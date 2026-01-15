@@ -317,7 +317,7 @@
 
         function renderHeader(inv) {
             document.getElementById('headerInvoiceNum').textContent = inv.invoice_number || 'DRAFT';
-            document.getElementById('headerCustomerName').textContent = inv.customer_name_snapshot || 'Unknown Customer';
+            document.getElementById('headerCustomerName').textContent = inv.customer_name || 'Unknown Customer';
             document.getElementById('headerStatusBadge').textContent = (inv.status || 'Draft').replace('_', ' ');
             
             const balance = parseFloat(inv.total_amount) - parseFloat(inv.paid_amount || 0);
@@ -328,7 +328,7 @@
             document.getElementById('mainTotalAmount').textContent = formatCurrency(inv.total_amount);
             document.getElementById('mainPaidAmount').textContent = formatCurrency(inv.paid_amount);
             document.getElementById('mainInvoiceDate').textContent = formatDate(inv.invoice_date);
-            document.getElementById('mainAddress').textContent = inv.customer_address_snapshot || '-';
+            document.getElementById('mainAddress').textContent = inv.customer_address || '-';
         }
 
         function renderPayments(payments) {
