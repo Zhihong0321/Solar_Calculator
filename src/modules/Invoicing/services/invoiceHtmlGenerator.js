@@ -380,12 +380,29 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     ` : ''}
 
     <!-- Created By -->
-    <div class="text-right text-xs text-slate-400 mb-4">
+    <div class="text-right text-xs text-slate-400 mb-8">
       Quotation Created by: <span class="font-medium text-slate-600">${invoice.created_by_user_name || 'System'}</span>
     </div>
 
+    <!-- Signature Section -->
+    ${invoice.customer_signature ? `
+    <section class="mt-12 pt-8 border-t border-slate-200">
+      <div class="max-w-xs">
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Read, Agreed, Signed by</p>
+        <div class="my-[-20px] h-32 flex items-center">
+            <img src="${invoice.customer_signature}" alt="Customer Signature" class="max-h-full object-contain">
+        </div>
+        <div class="border-t border-slate-400 mt-2 pt-2">
+            <p class="text-xs font-bold text-slate-900 uppercase">${invoice.customer_name_snapshot || ''}</p>
+            <p class="text-[10px] text-slate-500">${invoice.customer_phone_snapshot || ''} ${invoice.customer_email_snapshot ? '• ' + invoice.customer_email_snapshot : ''}</p>
+            ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on ${new Date(invoice.signature_date).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>` : ''}
+        </div>
+      </div>
+    </section>
+    ` : ''}
+
     <!-- Footer -->
-    <footer class="mt-8 text-center">
+    <footer class="mt-12 text-center">
       <p class="text-[8px] text-slate-400 uppercase tracking-widest">Thank you for your business</p>
     </footer>
 
