@@ -3,161 +3,259 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>My Quotations</title>
+    <title>Quotations</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --primary: #0f172a; /* Slate 900 */
-            --primary-hover: #1e293b; /* Slate 800 */
+            --primary: #334155;
+            --primary-hover: #475569;
+            --accent: #64748b;
+            --success: #166534;
+            --warning: #854d0e;
+            --danger: #991b1b;
+            --info: #1e40af;
         }
         * {
             font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
         }
         body {
-            background-color: #f8fafc; /* Slate 50 */
+            background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
+            min-height: 100vh;
         }
-        /* Business Card Style */
-        .biz-card {
-            background: white;
+        .admin-card {
+            background: #ffffff;
             border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            transition: all 0.2s ease-in-out;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+            transition: all 0.15s ease-in-out;
         }
-        .biz-card:hover {
+        .admin-card:hover {
             border-color: #cbd5e1;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
         }
-        /* Buttons */
         .btn-primary {
-            background-color: var(--primary);
-            color: white;
-            transition: all 0.2s;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            color: #f8fafc;
+            transition: all 0.15s;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
         .btn-primary:hover {
-            background-color: var(--primary-hover);
             transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
         .btn-secondary {
-            background-color: white;
-            border: 1px solid #e2e8f0;
-            color: #475569;
-            transition: all 0.2s;
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            color: #4b5563;
+            transition: all 0.15s;
         }
         .btn-secondary:hover {
-            background-color: #f8fafc;
-            border-color: #cbd5e1;
-            color: #1e293b;
+            background: #f9fafb;
+            border-color: #9ca3af;
+            color: #1f2937;
         }
-        /* Status Badges */
         .badge {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            letter-spacing: 0.025em;
+            padding: 0.2rem 0.65rem;
+            border-radius: 6px;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
         }
-        .badge-draft { background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
-        .badge-sent { background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; }
-        .badge-paid { background: #f0fdf4; color: #15803d; border: 1px solid #dcfce7; }
-        .badge-cancelled { background: #fef2f2; color: #b91c1c; border: 1px solid #fee2e2; }
-        .badge-payment_submitted { background: #faf5ff; color: #7e22ce; border: 1px solid #f3e8ff; }
-
+        .badge-draft { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+        .badge-sent { background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; }
+        .badge-paid { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        .badge-cancelled { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+        .badge-payment_submitted { background: #faf5ff; color: #6b21a8; border: 1px solid #f3e8ff; }
         .loading-spinner {
-            border: 2px solid #f3f4f6;
+            border: 2px solid #e5e7eb;
             border-top-color: var(--primary);
-            animation: spin 0.8s linear infinite;
+            animation: spin 0.7s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .floating-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 -4px 20px -4px rgba(0, 0, 0, 0.1);
+        }
+        .filter-drawer {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(16px);
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        input[type="date"], input[type="text"], input[type="number"], select {
+            background: #f8fafc;
+            border: 1px solid #d1d5db;
+            color: #1f2937;
+            transition: all 0.15s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.1);
+        }
     </style>
 </head>
-<body class="min-h-screen text-slate-900">
+<body class="min-h-screen text-slate-800 pb-24">
     
     <!-- Navbar -->
-    <nav class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
+            <div class="flex justify-between h-14">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-lg">A</div>
-                    <span class="text-lg font-bold tracking-tight text-slate-900">ATAP Solar</span>
+                    <div class="w-7 h-7 bg-gradient-to-br from-slate-700 to-slate-800 rounded-md flex items-center justify-center text-white font-bold text-sm">A</div>
+                    <span class="text-base font-semibold tracking-tight text-slate-900">Quotations</span>
+                    <span class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full" id="filteredCount">0</span>
                 </div>
-                <div class="flex items-center gap-4">
-                    <a href="/my-customers" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Customers</a>
-                    <div class="h-4 w-px bg-slate-200"></div>
-                    <button onclick="cleanupSamples()" class="text-sm font-medium text-red-600 hover:text-red-700 transition-colors">Cleanup</button>
+                <div class="flex items-center gap-3">
+                    <a href="/my-customers" class="text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors px-3 py-1.5 rounded-md hover:bg-slate-50">Customers</a>
+                    <button onclick="cleanupSamples()" class="text-xs font-medium text-slate-400 hover:text-red-600 transition-colors px-3 py-1.5 rounded-md hover:bg-red-50">Cleanup</button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Header Section -->
-    <div class="bg-white border-b border-slate-200 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                <div>
-                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Quotations</h1>
-                    <p class="text-slate-500 text-sm mt-1">Manage your pipeline and sales activity.</p>
+    <!-- Stats Bar -->
+    <div class="bg-white border-b border-slate-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="grid grid-cols-3 gap-4">
+                <div class="border-l-2 border-slate-200 pl-3">
+                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total</p>
+                    <p class="text-lg font-bold text-slate-800" id="totalCount">0</p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <a href="/create-invoice" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        New Quotation
-                    </a>
+                <div class="border-l-2 border-slate-200 pl-3">
+                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Pipeline</p>
+                    <p class="text-lg font-bold text-slate-800" id="totalValue">RM 0</p>
                 </div>
-            </div>
-
-            <!-- Stats Row -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
-                <div class="bg-slate-50 border border-slate-200 rounded-lg p-5">
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Count</p>
-                    <p class="text-2xl font-bold text-slate-900 mt-1" id="totalCount">0</p>
-                </div>
-                <div class="bg-slate-50 border border-slate-200 rounded-lg p-5">
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pipeline Value</p>
-                    <p class="text-2xl font-bold text-slate-900 mt-1" id="totalValue">RM 0.00</p>
-                </div>
-                <div class="bg-slate-50 border border-slate-200 rounded-lg p-5">
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Latest Activity</p>
-                    <p class="text-xl font-bold text-slate-900 mt-1 truncate" id="lastCreated">-</p>
+                <div class="border-l-2 border-slate-200 pl-3">
+                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Latest</p>
+                    <p class="text-sm font-semibold text-slate-700 truncate" id="lastCreated">-</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
         <!-- Loading -->
-        <div id="loading" class="flex flex-col items-center justify-center py-20">
-            <div class="loading-spinner h-8 w-8 rounded-full mb-4"></div>
-            <p class="text-slate-500 text-sm font-medium">Loading data...</p>
+        <div id="loading" class="flex flex-col items-center justify-center py-24">
+            <div class="loading-spinner h-7 w-7 rounded-full mb-3"></div>
+            <p class="text-slate-500 text-xs font-medium">Loading quotations...</p>
         </div>
 
         <!-- Empty State -->
-        <div id="empty" class="hidden flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-            <div class="h-12 w-12 bg-white rounded-full border border-slate-200 flex items-center justify-center mb-4 shadow-sm">
-                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        <div id="empty" class="hidden flex flex-col items-center justify-center py-20">
+            <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </div>
-            <h3 class="text-lg font-medium text-slate-900">No quotations found</h3>
-            <p class="text-slate-500 text-sm mt-1 mb-6">Create a new quotation to get started.</p>
-            <a href="/create-invoice" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium">Create Quotation</a>
+            <h3 class="text-sm font-semibold text-slate-700">No quotations found</h3>
+            <p class="text-slate-500 text-xs mt-1">Create a new quotation to get started.</p>
         </div>
 
         <!-- Content -->
         <div id="content" class="hidden">
-            <div id="invoices" class="space-y-3">
-                <!-- Cards injected here -->
+            <div id="invoices" class="space-y-2">
             </div>
 
             <!-- Pagination -->
-            <div id="pagination" class="hidden mt-8 flex justify-between items-center border-t border-slate-200 pt-6">
-                <p class="text-sm text-slate-500">Page <span id="pageNum" class="font-medium text-slate-900">1</span> of <span id="totalPages" class="font-medium text-slate-900">1</span></p>
-                <div class="flex gap-2">
-                    <button id="prevBtn" onclick="changePage(-1)" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
-                    <button id="nextBtn" onclick="changePage(1)" class="btn-secondary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+            <div id="pagination" class="hidden mt-6 flex justify-center items-center gap-2">
+                <button id="prevBtn" onclick="changePage(-1)" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    Prev
+                </button>
+                <span class="text-xs text-slate-600 px-2"><span id="pageNum" class="font-semibold text-slate-800">1</span> / <span id="totalPages" class="font-medium text-slate-500">1</span></span>
+                <button id="nextBtn" onclick="changePage(1)" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                    Next
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Panel -->
+    <div class="fixed bottom-0 left-0 right-0 z-50">
+        <div class="floating-panel rounded-t-2xl mx-auto max-w-md">
+            <div class="flex items-center justify-between px-4 py-3">
+                <button onclick="toggleFilterDrawer()" class="flex items-center gap-2 text-slate-700 hover:text-slate-900 transition-colors">
+                    <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+                    </div>
+                    <span class="text-sm font-medium">Filter</span>
+                    <span id="activeFilterCount" class="hidden text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded-full font-semibold">0</span>
+                </button>
+                <a href="/create-invoice" class="btn-primary px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    New Quotation
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Drawer -->
+    <div id="filterDrawer" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity" onclick="toggleFilterDrawer()"></div>
+        <div class="fixed bottom-0 left-0 right-0 transform transition-transform duration-300 ease-out">
+            <div class="filter-drawer rounded-t-3xl mx-auto max-w-lg max-h-[85vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white/95 backdrop-blur px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <h3 class="text-base font-semibold text-slate-900">Filter Quotations</h3>
+                    <button onclick="toggleFilterDrawer()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="p-5 space-y-5">
+                    <!-- Search Customer -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Customer Name</label>
+                        <input type="text" id="filterCustomer" placeholder="Search by name..." class="w-full px-3 py-2.5 rounded-lg text-sm">
+                    </div>
+
+                    <!-- Date Range -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">From Date</label>
+                            <input type="date" id="filterDateFrom" class="w-full px-3 py-2.5 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">To Date</label>
+                            <input type="date" id="filterDateTo" class="w-full px-3 py-2.5 rounded-lg text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Sort Options -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Sort By</label>
+                        <select id="filterSort" class="w-full px-3 py-2.5 rounded-lg text-sm">
+                            <option value="date-desc">Date (Newest First)</option>
+                            <option value="date-asc">Date (Oldest First)</option>
+                            <option value="amount-desc">Amount (Highest First)</option>
+                            <option value="amount-asc">Amount (Lowest First)</option>
+                        </select>
+                    </div>
+
+                    <!-- Payment Percent -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Payment Status</label>
+                        <select id="filterPayment" class="w-full px-3 py-2.5 rounded-lg text-sm">
+                            <option value="all">All Statuses</option>
+                            <option value="0">Unpaid (0%)</option>
+                            <option value="1-50">Partial (1-49%)</option>
+                            <option value="50-99">Partial (50-99%)</option>
+                            <option value="100">Fully Paid (100%)</option>
+                        </select>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex gap-3 pt-2">
+                        <button onclick="resetFilters()" class="flex-1 btn-secondary px-4 py-2.5 rounded-lg text-sm font-medium">Reset</button>
+                        <button onclick="applyFilters()" class="flex-1 btn-primary px-4 py-2.5 rounded-lg text-sm font-medium">Apply Filters</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -165,19 +263,19 @@
 
     <!-- History Modal -->
     <div id="historyModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeHistoryModal()"></div>
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="closeHistoryModal()"></div>
         <div class="fixed inset-0 z-10 overflow-y-auto">
-            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
-                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4 border-b border-slate-100">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all w-full max-w-lg">
+                    <div class="bg-white px-5 py-4 border-b border-slate-100">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-lg font-semibold leading-6 text-slate-900" id="modal-title">Activity History</h3>
-                            <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-500">
-                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+                            <h3 class="text-sm font-semibold text-slate-900" id="modal-title">Activity History</h3>
+                            <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                                <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
                             </button>
                         </div>
                     </div>
-                    <div id="historyList" class="max-h-[60vh] overflow-y-auto p-6 space-y-6"></div>
+                    <div id="historyList" class="max-h-[60vh] overflow-y-auto p-5"></div>
                 </div>
             </div>
         </div>
@@ -187,9 +285,11 @@
         let page = 1;
         const limit = 20;
         let total = 0;
+        let allInvoices = [];
+        let filteredInvoices = [];
 
         function formatCurrency(amount) {
-            return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(amount || 0);
+            return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount || 0);
         }
 
         function formatDate(dateStr) {
@@ -209,6 +309,80 @@
             return classes[s] || classes.draft;
         }
 
+        function getPaymentPercent(inv) {
+            const total = parseFloat(inv.total_amount) || 0;
+            const received = parseFloat(inv.total_received) || 0;
+            if (total === 0) return 0;
+            return Math.round((received / total) * 100);
+        }
+
+        function toggleFilterDrawer() {
+            const drawer = document.getElementById('filterDrawer');
+            drawer.classList.toggle('hidden');
+        }
+
+        function resetFilters() {
+            document.getElementById('filterCustomer').value = '';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+            document.getElementById('filterSort').value = 'date-desc';
+            document.getElementById('filterPayment').value = 'all';
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const customerName = document.getElementById('filterCustomer').value.toLowerCase().trim();
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            const sortBy = document.getElementById('filterSort').value;
+            const paymentFilter = document.getElementById('filterPayment').value;
+
+            filteredInvoices = allInvoices.filter(inv => {
+                if (customerName && !inv.customer_name_snapshot?.toLowerCase().includes(customerName)) return false;
+                if (dateFrom && new Date(inv.invoice_date) < new Date(dateFrom)) return false;
+                if (dateTo && new Date(inv.invoice_date) > new Date(dateTo)) return false;
+                
+                if (paymentFilter !== 'all') {
+                    const percent = getPaymentPercent(inv);
+                    if (paymentFilter === '0' && percent > 0) return false;
+                    if (paymentFilter === '1-50' && (percent < 1 || percent > 50)) return false;
+                    if (paymentFilter === '50-99' && (percent < 50 || percent > 99)) return false;
+                    if (paymentFilter === '100' && percent !== 100) return false;
+                }
+                return true;
+            });
+
+            if (sortBy === 'date-desc') filteredInvoices.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            else if (sortBy === 'date-asc') filteredInvoices.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            else if (sortBy === 'amount-desc') filteredInvoices.sort((a, b) => parseFloat(b.total_amount) - parseFloat(a.total_amount));
+            else if (sortBy === 'amount-asc') filteredInvoices.sort((a, b) => parseFloat(a.total_amount) - parseFloat(b.total_amount));
+
+            page = 1;
+            renderInvoices();
+            updateFilterBadge();
+            toggleFilterDrawer();
+        }
+
+        function updateFilterBadge() {
+            const badge = document.getElementById('activeFilterCount');
+            const customerName = document.getElementById('filterCustomer').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+            const paymentFilter = document.getElementById('filterPayment').value;
+            
+            let count = 0;
+            if (customerName) count++;
+            if (dateFrom || dateTo) count++;
+            if (paymentFilter !== 'all') count++;
+            
+            if (count > 0) {
+                badge.textContent = count;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
         async function cleanupSamples() {
             if (!confirm('Permanently delete all "Sample Quotation" records?')) return;
             try {
@@ -224,14 +398,14 @@
         async function openHistoryModal(bubbleId) {
             document.getElementById('historyModal').classList.remove('hidden');
             const container = document.getElementById('historyList');
-            container.innerHTML = '<div class="text-center py-4"><div class="loading-spinner h-6 w-6 rounded-full mx-auto border-slate-300 border-t-slate-900"></div></div>';
+            container.innerHTML = '<div class="text-center py-4"><div class="loading-spinner h-6 w-6 rounded-full mx-auto border-slate-300 border-t-slate-600"></div></div>';
 
             try {
                 const res = await fetch(`/api/v1/invoices/${bubbleId}/history`);
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error);
                 if (data.data.length === 0) {
-                    container.innerHTML = '<p class="text-center text-slate-500 py-4">No history recorded.</p>';
+                    container.innerHTML = '<p class="text-center text-slate-500 py-4 text-sm">No history recorded.</p>';
                     return;
                 }
                 
@@ -242,15 +416,15 @@
                     const hasSnapshot = !!details.snapshot;
                     
                     return `
-                        <div class="relative pl-6 ${!isLast ? 'pb-6 border-l border-slate-200' : ''}">
-                            <div class="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full bg-slate-200 ring-4 ring-white"></div>
-                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-baseline mb-1">
-                                <p class="text-sm font-semibold text-slate-900">${action.action_type.replace(/_/g, ' ')}</p>
-                                <span class="text-xs text-slate-400 font-mono">${date}</span>
+                        <div class="relative pl-5 ${!isLast ? 'pb-5 border-l border-slate-200' : ''}">
+                            <div class="absolute -left-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-slate-300 ring-4 ring-white"></div>
+                            <div class="flex justify-between items-baseline mb-0.5">
+                                <p class="text-xs font-semibold text-slate-700">${action.action_type.replace(/_/g, ' ')}</p>
+                                <span class="text-[10px] text-slate-400 font-mono">${date}</span>
                             </div>
-                            <p class="text-sm text-slate-600 mb-2">${details.description || details.change_summary || 'Update recorded'}</p>
+                            <p class="text-xs text-slate-600 mb-1">${details.description || details.change_summary || 'Update recorded'}</p>
                             ${hasSnapshot ? `
-                                <a href="/api/v1/invoices/actions/${action.action_id}/snapshot" target="_blank" class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
+                                <a href="/api/v1/invoices/actions/${action.action_id}/snapshot" target="_blank" class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                     View Snapshot
                                 </a>
@@ -259,7 +433,7 @@
                     `;
                 }).join('');
             } catch (err) {
-                container.innerHTML = `<p class="text-red-500 text-center text-sm">${err.message}</p>`;
+                container.innerHTML = `<p class="text-red-500 text-center text-xs">${err.message}</p>`;
             }
         }
 
@@ -268,7 +442,6 @@
         }
 
         async function loadQuotations() {
-            const container = document.getElementById('invoices');
             const loading = document.getElementById('loading');
             const content = document.getElementById('content');
             const empty = document.getElementById('empty');
@@ -283,84 +456,25 @@
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error);
 
-                const invoices = data.data.invoices || [];
+                allInvoices = data.data.invoices || [];
                 total = data.data.total || 0;
+                filteredInvoices = [...allInvoices];
 
-                document.getElementById('totalCount').textContent = total;
-                const totalVal = invoices.reduce((sum, i) => sum + (parseFloat(i.total_amount) || 0), 0);
+                document.getElementById('totalCount').textContent = filteredInvoices.length;
+                const totalVal = filteredInvoices.reduce((sum, i) => sum + (parseFloat(i.total_amount) || 0), 0);
                 document.getElementById('totalValue').textContent = formatCurrency(totalVal);
-                if (invoices.length > 0) document.getElementById('lastCreated').textContent = formatDate(invoices[0].created_at);
+                document.getElementById('filteredCount').textContent = filteredInvoices.length;
+                if (filteredInvoices.length > 0) document.getElementById('lastCreated').textContent = formatDate(filteredInvoices[0].created_at);
 
                 loading.classList.add('hidden');
                 
-                if (invoices.length === 0) {
+                if (filteredInvoices.length === 0) {
                     empty.classList.remove('hidden');
                     return;
                 }
 
                 content.classList.remove('hidden');
-                
-                container.innerHTML = invoices.map(inv => {
-                    const statusClass = getStatusBadgeClass(inv.status);
-                    
-                    return `
-                        <div class="biz-card rounded-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <!-- Left: Info -->
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-3 mb-1">
-                                    <span class="font-mono text-sm font-semibold text-slate-900">${inv.invoice_number || 'DRAFT'}</span>
-                                    <span class="badge ${statusClass} uppercase">${(inv.status || 'Draft').replace('_', ' ')}</span>
-                                </div>
-                                <h3 class="text-base font-medium text-slate-800 truncate">${inv.customer_name_snapshot || 'Unknown Customer'}</h3>
-                                <div class="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                                    <div class="flex items-center gap-1">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                        ${inv.package_name_snapshot || '-'}
-                                    </div>
-                                    <div class="flex items-center gap-1">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                        ${formatDate(inv.invoice_date)}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Right: Actions & Amount -->
-                            <div class="flex flex-col md:items-end gap-3 border-t md:border-t-0 border-slate-100 pt-3 md:pt-0">
-                                <div class="text-right">
-                                    <p class="text-xs text-slate-400 font-medium uppercase">Total Value</p>
-                                    <p class="text-lg font-bold text-slate-900">${formatCurrency(inv.total_amount)}</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <button onclick="window.location.href='/edit-invoice?id=${inv.bubble_id}'" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium">Edit</button>
-                                    <button onclick="openHistoryModal('${inv.bubble_id}')" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium">History</button>
-                                    
-                                    ${inv.linked_seda_registration ? `
-                                        <a href="/seda-register?id=${inv.linked_seda_registration}" class="btn-secondary px-3 py-1.5 rounded text-xs font-bold text-orange-600 border-orange-200 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 hover:border-orange-300 transition-colors">SEDA</a>
-                                    ` : ''}
-
-                                    ${inv.status !== 'cancelled' ? `
-                                        <a href="/submit-payment?id=${inv.bubble_id}" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium text-slate-600">Pay</a>
-                                    ` : ''}
-
-                                    ${inv.share_url ? `
-                                        <a href="${inv.share_url}" target="_blank" class="btn-primary px-3 py-1.5 rounded text-xs font-medium">View</a>
-                                        <button onclick="downloadQuotationPdf('${inv.share_token}')" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium text-slate-600 flex items-center gap-1 pdf-btn-${inv.share_token.replace(/-/g, '')}">
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                            PDF
-                                        </button>
-                                    ` : '<span class="text-xs text-slate-400 italic">Not shared</span>'}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                const totalPages = Math.ceil(total / limit);
-                document.getElementById('pageNum').textContent = page;
-                document.getElementById('totalPages').textContent = totalPages || 1;
-                document.getElementById('pagination').classList.toggle('hidden', totalPages <= 1);
-                document.getElementById('prevBtn').disabled = page <= 1;
-                document.getElementById('nextBtn').disabled = page >= totalPages;
+                renderInvoices();
 
             } catch (err) {
                 console.error(err);
@@ -368,9 +482,86 @@
             }
         }
 
+        function renderInvoices() {
+            const container = document.getElementById('invoices');
+            const offset = (page - 1) * limit;
+            const pageInvoices = filteredInvoices.slice(offset, offset + limit);
+            
+            container.innerHTML = pageInvoices.map(inv => {
+                const statusClass = getStatusBadgeClass(inv.status);
+                const paymentPercent = getPaymentPercent(inv);
+                
+                return `
+                    <div class="admin-card rounded-lg p-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1.5">
+                                    <span class="font-mono text-xs font-semibold text-slate-700">${inv.invoice_number || 'DRAFT'}</span>
+                                    <span class="badge ${statusClass}">${(inv.status || 'Draft').replace('_', ' ')}</span>
+                                </div>
+                                <h3 class="text-sm font-medium text-slate-800 truncate">${inv.customer_name_snapshot || 'Unknown'}</h3>
+                                <div class="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500">
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                        ${inv.package_name_snapshot || '-'}
+                                    </span>
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                        ${formatDate(inv.invoice_date)}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center gap-3 border-t sm:border-t-0 border-slate-100 pt-2 sm:pt-0">
+                                <div class="text-right min-w-[80px]">
+                                    <p class="text-[10px] text-slate-400 font-medium uppercase">Amount</p>
+                                    <p class="text-sm font-bold text-slate-800">${formatCurrency(inv.total_amount)}</p>
+                                    <p class="text-[10px] ${paymentPercent >= 100 ? 'text-green-600' : 'text-slate-400'} font-medium">${paymentPercent}% paid</p>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button onclick="window.location.href='/edit-invoice?id=${inv.bubble_id}'" class="btn-secondary p-1.5 rounded text-slate-500 hover:text-slate-700" title="Edit">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                    </button>
+                                    <button onclick="openHistoryModal('${inv.bubble_id}')" class="btn-secondary p-1.5 rounded text-slate-500 hover:text-slate-700" title="History">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    </button>
+                                    
+                                    ${inv.linked_seda_registration ? `
+                                        <a href="/seda-register?id=${inv.linked_seda_registration}" class="btn-secondary px-2 py-1 rounded text-[10px] font-semibold text-orange-600 border-orange-200 bg-orange-50" title="SEDA">SEDA</a>
+                                    ` : ''}
+
+                                    ${inv.status !== 'cancelled' ? `
+                                        <a href="/submit-payment?id=${inv.bubble_id}" class="btn-secondary p-1.5 rounded text-slate-500 hover:text-slate-700" title="Pay">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                        </a>
+                                    ` : ''}
+
+                                    ${inv.share_url ? `
+                                        <a href="${inv.share_url}" target="_blank" class="btn-primary p-1.5 rounded" title="View">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                        </a>
+                                        <button onclick="downloadQuotationPdf('${inv.share_token}')" class="btn-secondary p-1.5 rounded text-slate-500 hover:text-slate-700 pdf-btn-${inv.share_token.replace(/-/g, '')}" title="PDF">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const totalPages = Math.ceil(filteredInvoices.length / limit);
+            document.getElementById('pageNum').textContent = page;
+            document.getElementById('totalPages').textContent = totalPages || 1;
+            document.getElementById('pagination').classList.toggle('hidden', totalPages <= 1);
+            document.getElementById('prevBtn').disabled = page <= 1;
+            document.getElementById('nextBtn').disabled = page >= totalPages;
+        }
+
         function changePage(d) {
             page += d;
-            loadQuotations();
+            renderInvoices();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -381,7 +572,7 @@
             
             try {
                 btn.disabled = true;
-                btn.innerHTML = `<div class="loading-spinner h-3 w-3 rounded-full border-slate-400 border-t-slate-800"></div>`;
+                btn.innerHTML = `<div class="loading-spinner h-3 w-3 rounded-full border-slate-300 border-t-slate-600"></div>`;
                 
                 const res = await fetch(`/view/${token}/pdf`);
                 const data = await res.json();
