@@ -519,6 +519,7 @@
                                     <p class="text-[10px] ${paymentPercent >= 100 ? 'text-green-600' : 'text-slate-400'} font-medium">${paymentPercent}% paid</p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-1.5">
+                                    <a href="/invoice-office?id=${inv.bubble_id}" class="btn-primary px-2.5 py-1 rounded text-[10px] font-semibold bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-sm hover:from-indigo-700 hover:to-indigo-800">[OFFICE]</a>
                                     <button onclick="window.location.href='/edit-invoice?id=${inv.bubble_id}'" class="btn-secondary px-2.5 py-1 rounded text-[10px] font-semibold text-slate-600 hover:text-slate-800">[EDIT]</button>
                                     <button onclick="openHistoryModal('${inv.bubble_id}')" class="btn-secondary px-2.5 py-1 rounded text-[10px] font-semibold text-slate-600 hover:text-slate-800">[HISTORY]</button>
                                     

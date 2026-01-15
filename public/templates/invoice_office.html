@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Office</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+        }
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { background-color: var(--slate-50); color: var(--slate-800); }
+        .section-card { background: white; border: 1px solid var(--slate-200); border-radius: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .section-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--slate-200); display: flex; align-items: center; justify-content: space-between; }
+        .section-title { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate-700); }
+        .btn-action { font-size: 0.75rem; font-weight: 600; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.15s ease; border: 1px solid var(--slate-200); background: white; color: var(--slate-700); }
+        .btn-action:hover { background: var(--slate-50); border-color: var(--slate-300); }
+        .btn-primary { background: var(--slate-900); color: white; border: none; }
+        .btn-primary:hover { background: var(--slate-800); }
+        
+        .progress-dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; }
+        .progress-dot.complete { background-color: var(--success); }
+        .progress-dot.incomplete { background-color: var(--slate-200); border: 2px solid var(--slate-300); }
+        
+        .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="text-center">
+            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-slate-900 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status"></div>
+            <p class="mt-4 text-sm font-semibold text-slate-900">Loading Digital Office...</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-4">
+                    <button onclick="window.history.back()" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                        <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <div>
+                        <h1 class="text-base font-bold text-slate-900 leading-tight" id="headerInvoiceNum">Invoice Office</h1>
+                        <p class="text-xs text-slate-500 font-medium" id="headerCustomerName">Loading...</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="hidden sm:flex flex-col items-end mr-4">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Total Balance</span>
+                        <span class="text-lg font-bold text-slate-900 leading-none" id="headerBalance">RM 0.00</span>
+                    </div>
+                    <span id="headerStatusBadge" class="px-2 py-1 bg-slate-100 text-slate-700 text-[10px] font-bold rounded-md border border-slate-200 uppercase tracking-wider">Loading</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+        
+        <!-- Main Stats Card -->
+        <div class="section-card bg-slate-900 text-white border-none p-6 md:p-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="space-y-1">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Amount</p>
+                    <p class="text-2xl font-bold" id="mainTotalAmount">RM 0.00</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Paid Amount</p>
+                    <p class="text-2xl font-bold text-emerald-400" id="mainPaidAmount">RM 0.00</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Invoice Date</p>
+                    <p class="text-2xl font-bold" id="mainInvoiceDate">-</p>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-slate-800">
+                <div class="flex items-start gap-3">
+                    <div class="p-2 bg-slate-800 rounded-lg">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Installation Address</p>
+                        <p class="text-sm font-medium leading-relaxed" id="mainAddress">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Two Column Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- Left Column: Payment & SEDA -->
+            <div class="space-y-8">
+                
+                <!-- Payment Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">Payment Section</h2>
+                        <button onclick="goToPayment()" class="btn-action btn-primary">Submit Payment</button>
+                    </div>
+                    <div class="p-4 space-y-4">
+                        <div class="space-y-2">
+                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Verified Payments</h3>
+                            <div id="verifiedPaymentsList" class="space-y-2">
+                                <p class="text-xs text-slate-400 italic">No verified payments found.</p>
+                            </div>
+                        </div>
+                        <div class="pt-4 border-t border-slate-100">
+                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Submitted (Pending)</h3>
+                            <div id="pendingPaymentsList" class="space-y-2">
+                                <p class="text-xs text-slate-400 italic">No pending submissions.</p>
+                            </div>
+                        </div>
+                        <div class="pt-4 mt-2">
+                            <button onclick="goToPayment()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                Submit New Payment
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SEDA Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">SEDA Registration</h2>
+                        <button onclick="goToSeda()" class="btn-action">Go to SEDA Form</button>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-bold text-slate-700 uppercase" id="sedaProgressText">Progress: 0%</span>
+                            <span id="sedaStatusBadge" class="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-200 uppercase">DRAFT</span>
+                        </div>
+                        <!-- Progress Dots Grid -->
+                        <div class="grid grid-cols-6 sm:grid-cols-11 gap-2">
+                            <div class="flex flex-col items-center gap-1.5" title="Applicant Name">
+                                <div id="dot-name" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Name</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="IC Number">
+                                <div id="dot-ic" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">IC</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="Contact No">
+                                <div id="dot-contact" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Cont.</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="Installation Address">
+                                <div id="dot-addr" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Addr</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="City & Postcode">
+                                <div id="dot-city" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">City</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="MyKad Copy">
+                                <div id="dot-mykad" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Kad</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="TNB Bill 1">
+                                <div id="dot-tnb1" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">B1</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="TNB Bill 2">
+                                <div id="dot-tnb2" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">B2</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="TNB Bill 3">
+                                <div id="dot-tnb3" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">B3</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="Ownership Proof">
+                                <div id="dot-owner" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Own.</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="TNB Meter Photo">
+                                <div id="dot-meter" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Mtr.</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Right Column: Quotation & Media -->
+            <div class="space-y-8">
+                
+                <!-- Quotation Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">Quotation Section</h2>
+                        <button onclick="goToEdit()" class="btn-action">Edit Invoice</button>
+                    </div>
+                    <div class="p-0 overflow-hidden">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-100">
+                                    <th class="px-4 py-3 font-bold text-slate-500 uppercase tracking-widest">Item Description</th>
+                                    <th class="px-4 py-3 font-bold text-slate-500 uppercase tracking-widest text-right">Qty</th>
+                                    <th class="px-4 py-3 font-bold text-slate-500 uppercase tracking-widest text-right">Price (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsList">
+                                <tr>
+                                    <td colspan="3" class="px-4 py-8 text-center text-slate-400 italic">No items found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Roof Images Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">Roof Images</h2>
+                        <label class="btn-action cursor-pointer flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Batch Upload
+                            <input type="file" multiple accept="image/*" class="hidden" onchange="uploadRoofImages(this)">
+                        </label>
+                    </div>
+                    <div class="p-4">
+                        <div id="roofImagesGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <p class="col-span-full text-xs text-slate-400 italic py-4">No roof images uploaded yet.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Engineering Drawings -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">Engineering Drawings</h2>
+                    </div>
+                    <div class="p-4">
+                        <div id="engDrawingsList" class="space-y-2">
+                            <p class="text-xs text-slate-400 italic">No drawings available.</p>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Photo Modal -->
+    <div id="photoModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm" onclick="closePhotoModal()">
+        <img id="modalImage" class="max-w-full max-h-full rounded-lg shadow-2xl transition-transform duration-300 transform scale-95" src="" alt="">
+        <button class="absolute top-4 right-4 text-white hover:text-slate-300 transition-colors">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const bubbleId = urlParams.get('id');
+        let currentData = null;
+
+        async function init() {
+            if (!bubbleId) {
+                alert('Invoice ID is missing!');
+                window.location.href = '/my-invoice';
+                return;
+            }
+            await loadData();
+        }
+
+        async function loadData() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}`);
+                const json = await res.json();
+                
+                if (json.success) {
+                    currentData = json.data;
+                    renderHeader(json.data.invoice);
+                    renderStats(json.data.invoice);
+                    renderPayments(json.data.payments);
+                    renderItems(json.data.items);
+                    renderSeda(json.data.seda);
+                    renderRoofImages(json.data.invoice.linked_roof_image, json.data.seda?.roof_images);
+                    renderEngDrawings(json.data.seda);
+                } else {
+                    alert('Error: ' + json.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Failed to load data.');
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        function renderHeader(inv) {
+            document.getElementById('headerInvoiceNum').textContent = inv.invoice_number || 'DRAFT';
+            document.getElementById('headerCustomerName').textContent = inv.customer_name_snapshot || 'Unknown Customer';
+            document.getElementById('headerStatusBadge').textContent = (inv.status || 'Draft').replace('_', ' ');
+            
+            const balance = parseFloat(inv.total_amount) - parseFloat(inv.paid_amount || 0);
+            document.getElementById('headerBalance').textContent = formatCurrency(balance);
+        }
+
+        function renderStats(inv) {
+            document.getElementById('mainTotalAmount').textContent = formatCurrency(inv.total_amount);
+            document.getElementById('mainPaidAmount').textContent = formatCurrency(inv.paid_amount);
+            document.getElementById('mainInvoiceDate').textContent = formatDate(inv.invoice_date);
+            document.getElementById('mainAddress').textContent = inv.customer_address_snapshot || '-';
+        }
+
+        function renderPayments(payments) {
+            const verified = payments.filter(p => p.status === 'verified');
+            const pending = payments.filter(p => p.status !== 'verified');
+
+            const verifiedList = document.getElementById('verifiedPaymentsList');
+            const pendingList = document.getElementById('pendingPaymentsList');
+
+            if (verified.length > 0) {
+                verifiedList.innerHTML = verified.map(p => `
+                    <div class="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                            <div>
+                                <p class="text-[11px] font-bold text-emerald-800">${formatCurrency(p.amount)}</p>
+                                <p class="text-[9px] text-emerald-600 font-medium">${formatDate(p.payment_date)} • ${p.payment_method || 'CASH'}</p>
+                            </div>
+                        </div>
+                        ${p.attachment ? `<button onclick="viewImage('${p.attachment[0]}')" class="text-[9px] font-bold text-emerald-700 hover:underline">[VIEW PROOF]</button>` : ''}
+                    </div>
+                `).join('');
+            } else {
+                verifiedList.innerHTML = '<p class="text-xs text-slate-400 italic">No verified payments found.</p>';
+            }
+
+            if (pending.length > 0) {
+                pendingList.innerHTML = pending.map(p => `
+                    <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-slate-300"></div>
+                            <div>
+                                <p class="text-[11px] font-bold text-slate-700">${formatCurrency(p.amount)}</p>
+                                <p class="text-[9px] text-slate-500 font-medium">${formatDate(p.payment_date)} • ${p.payment_method || 'CASH'}</p>
+                            </div>
+                        </div>
+                        <span class="text-[8px] font-bold text-slate-400 uppercase border border-slate-200 px-1 rounded">${p.status || 'PENDING'}</span>
+                    </div>
+                `).join('');
+            } else {
+                pendingList.innerHTML = '<p class="text-xs text-slate-400 italic">No pending submissions.</p>';
+            }
+        }
+
+        function renderItems(items) {
+            const container = document.getElementById('itemsList');
+            if (items.length > 0) {
+                container.innerHTML = items.map(item => `
+                    <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                        <td class="px-4 py-3">
+                            <p class="font-medium text-slate-800">${item.product_name_snapshot || 'Item'}</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">${item.description || ''}</p>
+                        </td>
+                        <td class="px-4 py-3 text-right text-slate-600 font-medium">${parseFloat(item.qty).toFixed(0)}</td>
+                        <td class="px-4 py-3 text-right text-slate-900 font-bold">${formatCurrency(item.total_price).replace('RM ','')}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function renderSeda(seda) {
+            if (!seda) {
+                document.getElementById('sedaProgressText').textContent = 'Progress: 0% (No Form Created)';
+                document.getElementById('sedaStatusBadge').textContent = 'MISSING';
+                return;
+            }
+
+            document.getElementById('sedaStatusBadge').textContent = seda.reg_status || 'DRAFT';
+            
+            const checks = [
+                { id: 'dot-name', val: !!(seda.linked_customer_name || seda.customer_profile?.name) },
+                { id: 'dot-ic', val: !!seda.ic_no },
+                { id: 'dot-contact', val: !!(seda.e_contact_no || seda.customer_profile?.phone) },
+                { id: 'dot-addr', val: !!seda.installation_address },
+                { id: 'dot-city', val: !!(seda.city && seda.postcode) },
+                { id: 'dot-mykad', val: !!(seda.ic_copy_front && seda.ic_copy_back) || !!seda.mykad_pdf },
+                { id: 'dot-tnb1', val: !!seda.tnb_bill_1 },
+                { id: 'dot-tnb2', val: !!seda.tnb_bill_2 },
+                { id: 'dot-tnb3', val: !!seda.tnb_bill_3 },
+                { id: 'dot-owner', val: !!seda.property_ownership_prove },
+                { id: 'dot-meter', val: !!seda.tnb_meter }
+            ];
+
+            let completed = 0;
+            checks.forEach(c => {
+                const el = document.getElementById(c.id);
+                if (c.val) {
+                    el.className = 'progress-dot complete';
+                    completed++;
+                } else {
+                    el.className = 'progress-dot incomplete';
+                }
+            });
+
+            const percent = Math.round((completed / checks.length) * 100);
+            document.getElementById('sedaProgressText').textContent = `Progress: ${percent}%`;
+        }
+
+        function renderRoofImages(invImages = [], sedaImages = []) {
+            const container = document.getElementById('roofImagesGrid');
+            const allImages = [...(invImages || []), ...(sedaImages || [])];
+            
+            if (allImages.length > 0) {
+                container.innerHTML = allImages.map(url => `
+                    <div class="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                        <img src="${url}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${url}')">
+                        <button onclick="deleteRoofImage('${url}')" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p class="col-span-full text-xs text-slate-400 italic py-4">No roof images uploaded yet.</p>';
+            }
+        }
+
+        function renderEngDrawings(seda) {
+            const container = document.getElementById('engDrawingsList');
+            const drawings = [
+                ...(seda?.drawing_engineering_seda_pdf || []),
+                ...(seda?.drawing_pdf_system || [])
+            ];
+
+            if (drawings.length > 0) {
+                container.innerHTML = drawings.map((url, i) => `
+                    <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-indigo-50 rounded-lg">
+                                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            </div>
+                            <span class="text-[11px] font-bold text-slate-700 uppercase">Engineering Drawing #${i+1}</span>
+                        </div>
+                        <a href="${url}" target="_blank" class="text-[10px] font-bold text-indigo-600 hover:underline">OPEN PDF</a>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p class="text-xs text-slate-400 italic">No drawings available.</p>';
+            }
+        }
+
+        // --- Event Handlers ---
+
+        function goToEdit() { window.location.href = `/edit-invoice?id=${bubbleId}`; }
+        function goToPayment() { window.location.href = `/submit-payment?id=${bubbleId}`; }
+        function goToSeda() {
+            if (currentData?.invoice?.linked_seda_registration) {
+                window.location.href = `/seda-register?id=${currentData.invoice.linked_seda_registration}`;
+            } else {
+                alert('SEDA registration has not been initialized for this invoice yet.');
+            }
+        }
+
+        async function uploadRoofImages(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+
+            const imagesToUpload = [];
+            for (const file of files) {
+                if (file.size > 1.5 * 1024 * 1024) {
+                    alert(`Skipping ${file.name}: File exceeds 1.5MB limit.`);
+                    continue;
+                }
+                const base64 = await toBase64(file);
+                imagesToUpload.push({ name: file.name, data: base64 });
+            }
+
+            if (imagesToUpload.length === 0) return;
+
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/roof-images`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ images: imagesToUpload })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadData();
+                } else {
+                    alert('Upload failed: ' + json.error);
+                }
+            } catch (err) {
+                alert('Upload failed.');
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        async function deleteRoofImage(url) {
+            if (!confirm('Permanently delete this roof image?')) return;
+            
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/roof-image`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                if ((await res.json()).success) {
+                    await loadData();
+                }
+            } catch (err) { alert('Delete failed'); }
+        }
+
+        function viewImage(url) {
+            const modal = document.getElementById('photoModal');
+            const img = document.getElementById('modalImage');
+            img.src = url;
+            modal.classList.remove('hidden');
+            setTimeout(() => img.classList.remove('scale-95'), 10);
+        }
+
+        function closePhotoModal() {
+            const modal = document.getElementById('photoModal');
+            const img = document.getElementById('modalImage');
+            img.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        // --- Helpers ---
+        function formatCurrency(v) { return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(v || 0); }
+        function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

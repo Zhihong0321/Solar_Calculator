@@ -127,6 +127,187 @@ router.get('/edit-invoice', requireAuth, (req, res) => {
 });
 
 /**
+ * GET /invoice-office
+ * Invoice Office dashboard - digital office for a specific invoice
+ * Protected: Requires authentication
+ */
+router.get('/invoice-office', requireAuth, (req, res) => {
+    const templatePath = path.join(__dirname, '../../../../public/templates/invoice_office.html');
+    res.sendFile(templatePath);
+});
+
+/**
+ * GET /api/v1/invoice-office/:bubbleId
+ * Aggregate all data for the Invoice Office dashboard
+ * Protected: Requires authentication
+ */
+router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        const { bubbleId } = req.params;
+        const userId = req.user.userId;
+
+        client = await pool.connect();
+        
+        // 1. Fetch Invoice
+        const invoiceRes = await client.query(
+            'SELECT * FROM invoice WHERE bubble_id = $1',
+            [bubbleId]
+        );
+        const invoice = invoiceRes.rows[0];
+
+        if (!invoice) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        // Security check
+        if (String(invoice.created_by) !== String(userId)) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        // 2. Fetch Payments
+        const paymentsRes = await client.query(
+            'SELECT * FROM submitted_payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
+            [bubbleId]
+        );
+
+        // 3. Fetch Items
+        const itemsRes = await client.query(
+            'SELECT * FROM invoice_new_item WHERE invoice_id = $1 ORDER BY sort_order ASC',
+            [bubbleId]
+        );
+
+        // 4. Fetch SEDA Registration
+        let seda = null;
+        if (invoice.linked_seda_registration) {
+            const sedaRes = await client.query(
+                'SELECT * FROM seda_registration WHERE bubble_id = $1',
+                [invoice.linked_seda_registration]
+            );
+            seda = sedaRes.rows[0];
+        }
+
+        res.json({
+            success: true,
+            data: {
+                invoice,
+                payments: paymentsRes.rows,
+                items: itemsRes.rows,
+                seda
+            }
+        });
+    } catch (err) {
+        console.error('Error fetching invoice office data:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * POST /api/v1/invoice-office/:bubbleId/roof-images
+ * Batch upload roof images (Base64)
+ * Protected: Requires authentication
+ */
+router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const { images } = req.body; // Array of { name, data (base64) }
+    const userId = req.user.userId;
+
+    if (!images || !Array.isArray(images)) {
+        return res.status(400).json({ success: false, error: 'No images provided' });
+    }
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        
+        // Ownership check
+        const invCheck = await client.query('SELECT created_by, linked_roof_image FROM invoice WHERE bubble_id = $1', [bubbleId]);
+        if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        if (String(invCheck.rows[0].created_by) !== String(userId)) return res.status(403).json({ success: false, error: 'Unauthorized' });
+
+        const storageRoot = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../../../../storage');
+        const uploadDir = path.join(storageRoot, 'roof_images');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+        const uploadedUrls = [];
+        const MAX_SIZE = 1.5 * 1024 * 1024; // 1.5MB
+
+        for (const img of images) {
+            const matches = img.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (!matches || matches.length !== 3) continue;
+
+            const buffer = Buffer.from(matches[2], 'base64');
+            if (buffer.length > MAX_SIZE) {
+                console.warn(`File ${img.name} skipped: Too large (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+                continue;
+            }
+
+            const fileExt = img.name ? path.extname(img.name) : '.jpg';
+            const filename = `roof_${bubbleId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${fileExt}`;
+            const filePath = path.join(uploadDir, filename);
+            fs.writeFileSync(filePath, buffer);
+
+            const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+            const host = req.get('host');
+            const url = `${protocol}://${host}/uploads/roof_images/${filename}`;
+            uploadedUrls.push(url);
+        }
+
+        if (uploadedUrls.length > 0) {
+            // Update Postgres array
+            await client.query(
+                'UPDATE invoice SET linked_roof_image = array_cat(COALESCE(linked_roof_image, ARRAY[]::text[]), $1), updated_at = NOW() WHERE bubble_id = $2',
+                [uploadedUrls, bubbleId]
+            );
+        }
+
+        res.json({ success: true, uploadedCount: uploadedUrls.length, urls: uploadedUrls });
+
+    } catch (err) {
+        console.error('Roof image upload error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * DELETE /api/v1/invoice-office/:bubbleId/roof-image
+ * Remove a roof image reference
+ * Protected: Requires authentication
+ */
+router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const { url } = req.body;
+    const userId = req.user.userId;
+
+    if (!url) return res.status(400).json({ success: false, error: 'URL required' });
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        
+        // Ownership check
+        const invCheck = await client.query('SELECT created_by FROM invoice WHERE bubble_id = $1', [bubbleId]);
+        if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        if (String(invCheck.rows[0].created_by) !== String(userId)) return res.status(403).json({ success: false, error: 'Unauthorized' });
+
+        await client.query(
+            'UPDATE invoice SET linked_roof_image = array_remove(linked_roof_image, $1), updated_at = NOW() WHERE bubble_id = $2',
+            [url, bubbleId]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
  * GET /my-invoice
  * User's invoice management page - DIRECT POSTGRESQL ACCESS
  * Protected: Requires authentication
@@ -476,7 +657,7 @@ router.get('/submit-payment', (req, res) => {
                     // Generate Full Absolute URL
                     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
                     const host = req.get('host');
-                    attachmentUrl = `${protocol}://${host}/uploads/${filename}`;
+                    attachmentUrl = `${protocol}://${host}/uploads/uploaded_payment/${filename}`;
                 }
             } catch (fileErr) {
                 console.error('[Payment] File save error:', fileErr);
