@@ -343,6 +343,11 @@
         }
 
         function getPaymentPercent(inv) {
+            // Strictly use percent_of_total_amount from invoice table if available
+            if (inv.percent_of_total_amount !== undefined && inv.percent_of_total_amount !== null) {
+                return Math.round(parseFloat(inv.percent_of_total_amount) || 0);
+            }
+            // Fallback (should not be needed based on new instructions)
             const total = parseFloat(inv.total_amount) || 0;
             const received = parseFloat(inv.total_received) || 0;
             if (total === 0) return 0;
@@ -457,7 +462,12 @@
                 document.getElementById('totalCount').textContent = allInvoices.length;
                 const totalVal = allInvoices.reduce((sum, i) => sum + (parseFloat(i.total_amount) || 0), 0);
                 document.getElementById('totalValue').textContent = formatCurrency(totalVal);
-                if (allInvoices.length > 0) document.getElementById('lastCreated').textContent = formatDate(allInvoices[0].created_at);
+                
+                if (allInvoices.length > 0) {
+                    const latest = allInvoices[0];
+                    const name = latest.customer_name || '-';
+                    document.getElementById('lastCreated').textContent = `${formatDate(latest.invoice_date)} (${name})`;
+                }
 
                 loading.classList.add('hidden');
                 

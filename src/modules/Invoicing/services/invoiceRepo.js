@@ -910,49 +910,39 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   const offset = parseInt(options.offset) || 0;
   const { startDate, endDate, paymentStatus } = options;
 
-  // 1. Resolve User's Agent Profile ID
+  // 1. Resolve Agent Profile from the 'agent' table linked to current user
   let agentProfileId = null;
   try {
-    const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [userId]);
+    const userRes = await client.query(`
+        SELECT a.bubble_id 
+        FROM "user" u
+        JOIN agent a ON u.linked_agent_profile = a.bubble_id
+        WHERE u.id::text = $1 OR u.bubble_id = $1
+    `, [userId]);
+    
     if (userRes.rows.length > 0) {
-      agentProfileId = userRes.rows[0].linked_agent_profile;
+      agentProfileId = userRes.rows[0].bubble_id;
     }
   } catch (e) {
-    console.warn('[DB] User lookup failed for', userId);
+    console.warn('[DB] Agent/User lookup failed for', userId);
   }
 
   if (!agentProfileId) {
     return { invoices: [], total: 0, limit, offset };
   }
 
-  // 2. Build Query with CTE for filtering
-  // Logic: 
-  // - Filter: linked_agent = agentProfileId
-  // - Paid: SUM(payment.amount) ONLY
-  // - Pending: JSON_AGG(submitted_payment.amount)
-  
   let filterClause = '';
   const params = [agentProfileId];
   let paramIdx = 2;
 
   if (startDate) {
-    filterClause += ` AND invoice_date >= $${paramIdx++}::date`;
+    filterClause += ` AND i.invoice_date >= $${paramIdx++}::date`;
     params.push(startDate);
   }
 
   if (endDate) {
-    filterClause += ` AND invoice_date <= $${paramIdx++}::date`;
+    filterClause += ` AND i.invoice_date <= $${paramIdx++}::date`;
     params.push(endDate);
-  }
-
-  if (paymentStatus) {
-    if (paymentStatus === 'unpaid') {
-        filterClause += ` AND total_received = 0`;
-    } else if (paymentStatus === 'partial') {
-        filterClause += ` AND total_received > 0 AND total_received < total_amount`;
-    } else if (paymentStatus === 'paid') {
-        filterClause += ` AND total_received >= total_amount`;
-    }
   }
 
   const baseCTE = `
@@ -962,7 +952,8 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.invoice_number,
             i.invoice_date,
             i.created_at,
-            i.customer_name_snapshot,
+            -- Show Customer Name from customer table first, fallback to snapshot
+            COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
             i.package_name_snapshot,
             i.total_amount,
             i.status,
@@ -970,8 +961,9 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.share_enabled,
             i.version,
             i.linked_seda_registration,
+            i.percent_of_total_amount,
             
-            -- Financial Truth (Strictly payment table)
+            -- Verified Paid Amount
             COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id), 0) as total_received,
 
             -- Pending Verification List
@@ -982,11 +974,23 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             ) as pending_payments
 
         FROM invoice i
+        LEFT JOIN customer c ON i.customer_id = c.id
         WHERE i.linked_agent = $1 
         AND i.is_latest = true 
         AND (i.status != 'deleted' OR i.status IS NULL)
     )
   `;
+
+  // Payment Status Filtering logic based on calculated total_received
+  if (paymentStatus) {
+    if (paymentStatus === 'unpaid') {
+        filterClause += ` AND total_received = 0`;
+    } else if (paymentStatus === 'partial') {
+        filterClause += ` AND total_received > 0 AND total_received < total_amount`;
+    } else if (paymentStatus === 'paid') {
+        filterClause += ` AND total_received >= total_amount`;
+    }
+  }
 
   const query = `
     ${baseCTE}
@@ -996,17 +1000,14 @@ async function getInvoicesByUserId(client, userId, options = {}) {
     LIMIT $${paramIdx++} OFFSET $${paramIdx}
   `;
 
-  // Add limit/offset to params
   params.push(limit, offset);
 
-  // Count Query
   const countQuery = `
     ${baseCTE}
     SELECT COUNT(*) as total FROM invoice_data
     WHERE 1=1 ${filterClause}
   `;
 
-  // We reuse params for count but exclude limit/offset
   const countParams = params.slice(0, params.length - 2);
 
   try {
