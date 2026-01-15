@@ -158,8 +158,8 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
             return res.status(404).json({ success: false, error: 'Invoice not found' });
         }
 
-        // Security check
-        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by);
+        // Security check: Match User ID, Creator ID, OR Linked Agent
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by, invoice.linked_agent);
         if (!isOwner) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
@@ -425,11 +425,11 @@ router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
         client = await pool.connect();
         
         // Ownership check
-        const invCheck = await client.query('SELECT created_by FROM invoice WHERE bubble_id = $1', [bubbleId]);
+        const invCheck = await client.query('SELECT created_by, linked_agent FROM invoice WHERE bubble_id = $1', [bubbleId]);
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
         
-        // Ensure user owns the invoice
-        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
+        // Ensure user owns or is assigned to the invoice
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by, invCheck.rows[0].linked_agent);
         if (!isOwner) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
@@ -471,8 +471,8 @@ router.get('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Invoice not found' });
     }
 
-    // Security: Check ownership
-    const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by);
+    // Security: Check ownership or assigned agent
+    const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by, invoice.linked_agent);
     if (!isOwner) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
@@ -866,8 +866,8 @@ router.get('/api/v1/invoices/:bubbleId/history', requireAuth, async (req, res) =
         return res.status(404).json({ success: false, error: 'Invoice not found' });
     }
     
-    // Security check
-    const isOwner = await invoiceRepo.verifyOwnership(client, req.user.userId, invoice.created_by);
+    // Security check: match Creator OR Linked Agent
+    const isOwner = await invoiceRepo.verifyOwnership(client, req.user.userId, invoice.created_by, invoice.linked_agent);
     if (!isOwner) {
         return res.status(403).json({ success: false, error: 'Access denied' });
     }
@@ -1291,8 +1291,8 @@ router.post('/api/v1/invoices/:bubbleId/snapshot', requireAuth, async (req, res)
             return res.status(404).json({ success: false, error: 'Invoice not found' });
         }
 
-        // 2. Ownership check
-        const isOwner = await invoiceRepo.verifyOwnership(client, userId, fullInvoiceData.created_by);
+        // 2. Ownership check: match Creator OR Linked Agent
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, fullInvoiceData.created_by, fullInvoiceData.linked_agent);
         if (!isOwner) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }

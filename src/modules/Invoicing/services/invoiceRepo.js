@@ -1452,24 +1452,35 @@ async function getInvoiceActionById(client, actionId) {
 }
 
 /**
- * Verify if a user owns a resource (checks User ID, User Bubble ID, and Linked Agent ID)
+ * Verify if a user owns or is assigned to a resource
+ * Checks: User ID, User Bubble ID, and Linked Agent ID
  * @param {object} client - Database client
  * @param {string} userId - ID of the user attempting access
  * @param {string} resourceCreatedBy - ID stored in the resource's created_by field
+ * @param {string} [resourceLinkedAgent] - ID stored in the resource's linked_agent field
  * @returns {Promise<boolean>}
  */
-async function verifyOwnership(client, userId, resourceCreatedBy) {
-  // 1. Direct match check (fastest)
-  if (String(resourceCreatedBy) === String(userId)) return true;
+async function verifyOwnership(client, userId, resourceCreatedBy, resourceLinkedAgent = null) {
+  // 1. Direct match check on creator (fastest)
+  if (resourceCreatedBy && String(resourceCreatedBy) === String(userId)) return true;
 
-  // 2. Fetch user details to check aliases
+  // 2. Fetch user details to check aliases and assigned agent profile
   try {
-      const userRes = await client.query('SELECT bubble_id, linked_agent_profile FROM "user" WHERE id = $1', [userId]);
+      const userRes = await client.query('SELECT bubble_id, linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [String(userId)]);
       if (userRes.rows.length === 0) return false;
       
       const user = userRes.rows[0];
-      if (user.bubble_id && String(resourceCreatedBy) === String(user.bubble_id)) return true;
-      if (user.linked_agent_profile && String(resourceCreatedBy) === String(user.linked_agent_profile)) return true;
+      const userBubbleId = user.bubble_id;
+      const userAgentProfile = user.linked_agent_profile;
+
+      // Check if User's Bubble ID matches the creator
+      if (userBubbleId && resourceCreatedBy && String(resourceCreatedBy) === String(userBubbleId)) return true;
+      
+      // Check if User's Agent Profile matches the creator (Legacy support)
+      if (userAgentProfile && resourceCreatedBy && String(resourceCreatedBy) === String(userAgentProfile)) return true;
+
+      // CRITICAL: Check if User's Agent Profile matches the assigned agent on the invoice
+      if (userAgentProfile && resourceLinkedAgent && String(resourceLinkedAgent) === String(userAgentProfile)) return true;
       
       return false;
   } catch (err) {
