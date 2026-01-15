@@ -1271,15 +1271,22 @@ router.post('/api/debug/login-as', requireDebugPasskey, async (req, res) => {
             { expiresIn: '7d' }
         );
 
+        // Aggressively clear existing cookies to prevent conflicts
+        res.clearCookie('auth_token');
+        res.clearCookie('auth_token', { path: '/' });
+        res.clearCookie('auth_token', { path: '/', domain: '.atap.solar' });
+
         // Set Cookie
+        const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
+        
         res.cookie('auth_token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isSecure,
             path: '/',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
-        res.json({ success: true });
+        res.json({ success: true, message: 'Impersonation active. Reloading...' });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
