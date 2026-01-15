@@ -6,7 +6,7 @@
     <title>Solar Calculator - Systematic Paper Terminal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -14,7 +14,7 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        mono: ['"Roboto Mono"', 'monospace']
+                        sans: ['"Inter"', 'sans-serif']
                     },
                     colors: {
                         paper: '#FAF9F6',
@@ -29,13 +29,15 @@
         }
     </script>
     <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
         body { 
-            font-family: 'Roboto Mono', monospace; 
             background-color: #FAF9F6; 
             color: #000000; 
             line-height: 1.5; 
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }
         .tier-1 { color: #000000; font-weight: 600; }
         .tier-2 { color: #2D2D2D; font-weight: 500; }
