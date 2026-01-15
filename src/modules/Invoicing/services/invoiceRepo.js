@@ -899,6 +899,7 @@ async function recordInvoiceView(client, invoiceId) {
  * - Excludes deleted status
  * - Sorts by latest invoice_date
  * - Sums totals ONLY from verified 'payment' table
+ * - Supports Date Range and Payment Status filtering
  * @param {object} client - Database client
  * @param {string} userId - User ID (to find linked agent)
  * @param {object} options - Query options
@@ -907,6 +908,7 @@ async function recordInvoiceView(client, invoiceId) {
 async function getInvoicesByUserId(client, userId, options = {}) {
   const limit = parseInt(options.limit) || 100;
   const offset = parseInt(options.offset) || 0;
+  const { startDate, endDate, paymentStatus } = options;
 
   // 1. Resolve User's Agent Profile ID
   let agentProfileId = null;
@@ -923,62 +925,106 @@ async function getInvoicesByUserId(client, userId, options = {}) {
     return { invoices: [], total: 0, limit, offset };
   }
 
-  // 2. Build Query
+  // 2. Build Query with CTE for filtering
   // Logic: 
   // - Filter: linked_agent = agentProfileId
   // - Paid: SUM(payment.amount) ONLY
   // - Pending: JSON_AGG(submitted_payment.amount)
+  
+  let filterClause = '';
+  const params = [agentProfileId];
+  let paramIdx = 2;
+
+  if (startDate) {
+    filterClause += ` AND invoice_date >= $${paramIdx++}::date`;
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    filterClause += ` AND invoice_date <= $${paramIdx++}::date`;
+    params.push(endDate);
+  }
+
+  if (paymentStatus) {
+    if (paymentStatus === 'unpaid') {
+        filterClause += ` AND total_received = 0`;
+    } else if (paymentStatus === 'partial') {
+        filterClause += ` AND total_received > 0 AND total_received < total_amount`;
+    } else if (paymentStatus === 'paid') {
+        filterClause += ` AND total_received >= total_amount`;
+    }
+  }
+
+  const baseCTE = `
+    WITH invoice_data AS (
+        SELECT 
+            i.bubble_id,
+            i.invoice_number,
+            i.invoice_date,
+            i.created_at,
+            i.customer_name_snapshot,
+            i.package_name_snapshot,
+            i.total_amount,
+            i.status,
+            i.share_token,
+            i.share_enabled,
+            i.version,
+            i.linked_seda_registration,
+            
+            -- Financial Truth (Strictly payment table)
+            COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id), 0) as total_received,
+
+            -- Pending Verification List
+            (
+                SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('amount', sp.amount)), '[]') 
+                FROM submitted_payment sp 
+                WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending'
+            ) as pending_payments
+
+        FROM invoice i
+        WHERE i.linked_agent = $1 
+        AND i.is_latest = true 
+        AND (i.status != 'deleted' OR i.status IS NULL)
+    )
+  `;
+
   const query = `
-    SELECT 
-      i.bubble_id,
-      i.invoice_number,
-      i.invoice_date,
-      i.customer_name_snapshot,
-      i.package_name_snapshot,
-      i.total_amount,
-      i.status,
-      i.share_token,
-      i.share_enabled,
-      i.version,
-      i.linked_seda_registration,
-      
-      -- Financial Truth (Strictly payment table)
-      COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id), 0) as total_received,
-
-      -- Pending Verification List
-      (
-          SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('amount', sp.amount)), '[]') 
-          FROM submitted_payment sp 
-          WHERE sp.linked_invoice = i.bubble_id
-      ) as pending_payments
-
-    FROM invoice i
-    WHERE i.linked_agent = $1 
-      AND i.is_latest = true 
-      AND (i.status != 'deleted' OR i.status IS NULL)
-    ORDER BY i.invoice_date DESC, i.created_at DESC
-    LIMIT $2 OFFSET $3
+    ${baseCTE}
+    SELECT * FROM invoice_data
+    WHERE 1=1 ${filterClause}
+    ORDER BY invoice_date DESC, created_at DESC
+    LIMIT $${paramIdx++} OFFSET $${paramIdx}
   `;
 
+  // Add limit/offset to params
+  params.push(limit, offset);
+
+  // Count Query
   const countQuery = `
-    SELECT COUNT(*) as total 
-    FROM invoice i 
-    WHERE i.linked_agent = $1 
-      AND i.is_latest = true 
-      AND (i.status != 'deleted' OR i.status IS NULL)
+    ${baseCTE}
+    SELECT COUNT(*) as total FROM invoice_data
+    WHERE 1=1 ${filterClause}
   `;
 
-  const [result, countResult] = await Promise.all([
-    client.query(query, [agentProfileId, limit, offset]),
-    client.query(countQuery, [agentProfileId])
-  ]);
+  // We reuse params for count but exclude limit/offset
+  const countParams = params.slice(0, params.length - 2);
 
-  return {
-    invoices: result.rows,
-    total: parseInt(countResult.rows[0].total, 10),
-    limit,
-    offset
-  };
+  try {
+      const [result, countResult] = await Promise.all([
+        client.query(query, params),
+        client.query(countQuery, countParams)
+      ]);
+
+      return {
+        invoices: result.rows,
+        total: parseInt(countResult.rows[0].total, 10),
+        limit,
+        offset
+      };
+  } catch (err) {
+      console.error('Error fetching invoices:', err);
+      throw err;
+  }
 }
 
 /**

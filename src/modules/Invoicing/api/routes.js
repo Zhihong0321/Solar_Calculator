@@ -371,12 +371,17 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
     const offset = parseInt(req.query.offset) || 0;
     const status = req.query.status;
     const includeDeleted = req.query.include_deleted === 'true';
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+    const paymentStatus = req.query.paymentStatus;
 
     console.log('[MY-INVOICES API] userId from JWT:', userId, 'type:', typeof userId);
 
     // DIRECT POSTGRESQL QUERY - No external API calls
     client = await pool.connect();
-    const result = await invoiceRepo.getInvoicesByUserId(client, userId, { limit, offset, status, includeDeleted });
+    const result = await invoiceRepo.getInvoicesByUserId(client, userId, { 
+        limit, offset, status, includeDeleted, startDate, endDate, paymentStatus 
+    });
     
     console.log('[MY-INVOICES API] Found', result.invoices.length, 'invoices out of', result.total, 'total');
 
