@@ -1407,6 +1407,33 @@ async function getInvoiceActionById(client, actionId) {
   }
 }
 
+/**
+ * Verify if a user owns a resource (checks User ID, User Bubble ID, and Linked Agent ID)
+ * @param {object} client - Database client
+ * @param {string} userId - ID of the user attempting access
+ * @param {string} resourceCreatedBy - ID stored in the resource's created_by field
+ * @returns {Promise<boolean>}
+ */
+async function verifyOwnership(client, userId, resourceCreatedBy) {
+  // 1. Direct match check (fastest)
+  if (String(resourceCreatedBy) === String(userId)) return true;
+
+  // 2. Fetch user details to check aliases
+  try {
+      const userRes = await client.query('SELECT bubble_id, linked_agent_profile FROM "user" WHERE id = $1', [userId]);
+      if (userRes.rows.length === 0) return false;
+      
+      const user = userRes.rows[0];
+      if (user.bubble_id && String(resourceCreatedBy) === String(user.bubble_id)) return true;
+      if (user.linked_agent_profile && String(resourceCreatedBy) === String(user.linked_agent_profile)) return true;
+      
+      return false;
+  } catch (err) {
+      console.error('Error verifying ownership:', err);
+      return false;
+  }
+}
+
 module.exports = {
   generateShareToken,
   generateInvoiceNumber,
@@ -1425,5 +1452,6 @@ module.exports = {
   getInvoiceHistory,
   getInvoiceActionById,
   logInvoiceAction,
-  deleteSampleInvoices
+  deleteSampleInvoices,
+  verifyOwnership
 };

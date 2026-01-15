@@ -162,7 +162,8 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
         }
 
         // Security check
-        if (String(invoice.created_by) !== String(userId)) {
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by);
+        if (!isOwner) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
@@ -226,7 +227,9 @@ router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (
         // Ownership check
         const invCheck = await client.query('SELECT created_by, linked_roof_image FROM invoice WHERE bubble_id = $1', [bubbleId]);
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
-        if (String(invCheck.rows[0].created_by) !== String(userId)) return res.status(403).json({ success: false, error: 'Unauthorized' });
+        
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
+        if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
         const storageRoot = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../../../../storage');
         const uploadDir = path.join(storageRoot, 'roof_images');
@@ -293,7 +296,9 @@ router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async 
         // Ownership check
         const invCheck = await client.query('SELECT created_by FROM invoice WHERE bubble_id = $1', [bubbleId]);
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
-        if (String(invCheck.rows[0].created_by) !== String(userId)) return res.status(403).json({ success: false, error: 'Unauthorized' });
+        
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
+        if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
         await client.query(
             'UPDATE invoice SET linked_roof_image = array_remove(linked_roof_image, $1), updated_at = NOW() WHERE bubble_id = $2',
@@ -399,7 +404,8 @@ router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
         
         // Ensure user owns the invoice
-        if (String(invCheck.rows[0].created_by) !== String(userId)) {
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
+        if (!isOwner) {
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
@@ -441,7 +447,8 @@ router.get('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
     }
 
     // Security: Check ownership
-    if (String(invoice.created_by) !== String(userId)) {
+    const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by);
+    if (!isOwner) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
@@ -835,7 +842,8 @@ router.get('/api/v1/invoices/:bubbleId/history', requireAuth, async (req, res) =
     }
     
     // Security check
-    if (String(invoice.created_by) !== String(req.user.userId)) {
+    const isOwner = await invoiceRepo.verifyOwnership(client, req.user.userId, invoice.created_by);
+    if (!isOwner) {
         return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
@@ -870,7 +878,8 @@ router.get('/api/v1/invoices/actions/:actionId/snapshot', requireAuth, async (re
     }
 
     // Check ownership of the created_by on the action OR the linked invoice
-    if (String(action.created_by) !== String(req.user.userId)) {
+    const isOwner = await invoiceRepo.verifyOwnership(client, req.user.userId, action.created_by);
+    if (!isOwner) {
          return res.status(403).send('Access denied');
     }
 
@@ -1226,7 +1235,8 @@ router.get('/api/v1/submitted-payments/:bubbleId', requireAuth, async (req, res)
         const result = await client.query(`SELECT * FROM submitted_payment WHERE bubble_id = $1`, [bubbleId]);
         if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Payment record not found' });
         const payment = result.rows[0];
-        if (String(payment.created_by) !== String(userId)) return res.status(403).json({ success: false, error: 'Unauthorized' });
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, payment.created_by);
+        if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
         res.json({ success: true, data: payment });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
