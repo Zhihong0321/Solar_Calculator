@@ -222,6 +222,12 @@
                             <div class="loading-spinner h-6 w-6 rounded-full border-slate-300 border-t-slate-900"></div>
                         </div>
                     </div>
+                    <div class="mt-4 pt-4 border-t border-slate-100">
+                        <p class="text-xs text-slate-500 font-bold uppercase mb-2">Maintenance Tools</p>
+                        <button onclick="recompileSnapshots()" class="w-full border border-orange-200 bg-orange-50 text-orange-700 font-bold py-2 rounded-lg hover:bg-orange-100 text-xs mb-2">
+                            Batch Recompile Snapshots
+                        </button>
+                    </div>
                     <button onclick="logout()" class="w-full border border-red-200 text-red-600 font-bold py-2 rounded-lg hover:bg-red-50 text-xs">Logout Current Session</button>
                 </div>
             </div>
@@ -764,6 +770,33 @@
                 }
             } catch (e) {
                 alert('Error: ' + e.message);
+            }
+        }
+
+        async function recompileSnapshots() {
+            if (!confirm('Run Batch Recompile? This will backfill missing invoice snapshots from current customer data.')) return;
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/debug/recompile-snapshots', {
+                    method: 'POST',
+                    headers: { 'x-debug-passkey': debugPasskey }
+                });
+                const json = await res.json();
+                if (json.success) {
+                    alert(json.message);
+                    loadQuotations(); // Refresh list to see names
+                } else {
+                    alert('Error: ' + json.error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
             }
         }
 

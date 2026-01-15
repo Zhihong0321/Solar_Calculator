@@ -1335,4 +1335,51 @@ router.post('/api/debug/login-as', requireDebugPasskey, async (req, res) => {
     }
 });
 
+/**
+ * POST /api/debug/recompile-snapshots
+ * Batch update missing invoice snapshots from linked customer data
+ */
+router.post('/api/debug/recompile-snapshots', requireDebugPasskey, async (req, res) => {
+    let client = null;
+    try {
+        client = await pool.connect();
+        
+        // Update Customer Details
+        const customerResult = await client.query(`
+            UPDATE invoice
+            SET 
+                customer_name_snapshot = c.name,
+                customer_address_snapshot = c.address,
+                customer_phone_snapshot = c.phone,
+                customer_email_snapshot = c.email,
+                updated_at = NOW()
+            FROM customer c
+            WHERE invoice.customer_id = c.id
+            AND (invoice.customer_name_snapshot IS NULL OR invoice.customer_name_snapshot = '')
+        `);
+
+        // Update Package Details (if missing)
+        const packageResult = await client.query(`
+            UPDATE invoice
+            SET 
+                package_name_snapshot = p.package_name,
+                updated_at = NOW()
+            FROM package p
+            WHERE invoice.package_id = p.bubble_id
+            AND (invoice.package_name_snapshot IS NULL OR invoice.package_name_snapshot = '')
+        `);
+
+        res.json({ 
+            success: true, 
+            message: `Recompilation Complete. Updated ${customerResult.rowCount} customer snapshots and ${packageResult.rowCount} package snapshots.` 
+        });
+
+    } catch (err) {
+        console.error('Snapshot Recompile Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 module.exports = router;
