@@ -978,7 +978,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
       (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('id', sp.bubble_id, 'amount', sp.amount)), '[]') FROM submitted_payment sp WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending') as pending_payments
     FROM invoice i
     WHERE ${whereClause} AND i.is_latest = true ${statusClause}
-    ORDER BY i.created_at DESC
+    ORDER BY i.invoice_date DESC, i.created_at DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `;
 

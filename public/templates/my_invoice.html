@@ -405,8 +405,22 @@
                 return true;
             });
 
-            if (sortBy === 'date-desc') filteredInvoices.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-            else if (sortBy === 'date-asc') filteredInvoices.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            if (sortBy === 'date-desc') {
+                filteredInvoices.sort((a, b) => {
+                    const dA = new Date(a.invoice_date || a.created_at);
+                    const dB = new Date(b.invoice_date || b.created_at);
+                    if (dB - dA !== 0) return dB - dA;
+                    return new Date(b.created_at) - new Date(a.created_at);
+                });
+            }
+            else if (sortBy === 'date-asc') {
+                filteredInvoices.sort((a, b) => {
+                    const dA = new Date(a.invoice_date || a.created_at);
+                    const dB = new Date(b.invoice_date || b.created_at);
+                    if (dA - dB !== 0) return dA - dB;
+                    return new Date(a.created_at) - new Date(b.created_at);
+                });
+            }
             else if (sortBy === 'amount-desc') filteredInvoices.sort((a, b) => parseFloat(b.total_amount) - parseFloat(a.total_amount));
             else if (sortBy === 'amount-asc') filteredInvoices.sort((a, b) => parseFloat(a.total_amount) - parseFloat(b.total_amount));
 
