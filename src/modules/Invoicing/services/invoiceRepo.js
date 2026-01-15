@@ -984,11 +984,11 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   // Payment Status Filtering logic based on calculated total_received
   if (paymentStatus) {
     if (paymentStatus === 'unpaid') {
-        filterClause += ` AND total_received = 0`;
+        filterClause += ` AND (percent_of_total_amount IS NULL OR percent_of_total_amount <= 0)`;
     } else if (paymentStatus === 'partial') {
-        filterClause += ` AND total_received > 0 AND total_received < total_amount`;
+        filterClause += ` AND percent_of_total_amount > 0 AND percent_of_total_amount < 100`;
     } else if (paymentStatus === 'paid') {
-        filterClause += ` AND total_received >= total_amount`;
+        filterClause += ` AND percent_of_total_amount >= 100`;
     }
   }
 
