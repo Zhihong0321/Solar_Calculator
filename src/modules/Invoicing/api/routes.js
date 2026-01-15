@@ -341,12 +341,14 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
     const userId = req.user.userId;
     const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
+    const status = req.query.status;
+    const includeDeleted = req.query.include_deleted === 'true';
 
     console.log('[MY-INVOICES API] userId from JWT:', userId, 'type:', typeof userId);
 
     // DIRECT POSTGRESQL QUERY - No external API calls
     client = await pool.connect();
-    const result = await invoiceRepo.getInvoicesByUserId(client, userId, { limit, offset });
+    const result = await invoiceRepo.getInvoicesByUserId(client, userId, { limit, offset, status, includeDeleted });
     
     console.log('[MY-INVOICES API] Found', result.invoices.length, 'invoices out of', result.total, 'total');
 
@@ -377,6 +379,47 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
   } finally {
     if (client) client.release();
   }
+});
+
+/**
+ * DELETE /api/v1/invoices/:bubbleId
+ * Soft delete an invoice (status='deleted', approved_toberemove=true)
+ * Protected: Requires authentication and ownership
+ */
+router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        const { bubbleId } = req.params;
+        const userId = req.user.userId;
+
+        client = await pool.connect();
+        
+        // Ownership check
+        const invCheck = await client.query('SELECT created_by FROM invoice WHERE bubble_id = $1', [bubbleId]);
+        if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        
+        // Ensure user owns the invoice
+        if (String(invCheck.rows[0].created_by) !== String(userId)) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        // Soft Delete
+        await client.query(
+            "UPDATE invoice SET status = 'deleted', approved_toberemove = true, updated_at = NOW() WHERE bubble_id = $1",
+            [bubbleId]
+        );
+
+        // Log Action
+        await invoiceRepo.logInvoiceAction(client, bubbleId, 'INVOICE_DELETED', String(userId), { description: 'Soft deleted by user' });
+
+        res.json({ success: true, message: 'Invoice deleted successfully' });
+
+    } catch (err) {
+        console.error('Error deleting invoice:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
 });
 
 /**

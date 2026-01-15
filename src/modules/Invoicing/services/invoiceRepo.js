@@ -936,6 +936,16 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   
   whereClause += `)`;
 
+  // Status Filter Logic
+  // Default: Hide 'deleted' status
+  let statusClause = "AND (i.status != 'deleted' OR i.status IS NULL)";
+  
+  if (options.status === 'deleted') {
+      statusClause = "AND i.status = 'deleted'";
+  } else if (options.includeDeleted) {
+      statusClause = ""; // Show everything
+  }
+
   // DIRECT POSTGRESQL QUERY
   // Filter by is_latest = true
   const query = `
@@ -967,7 +977,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
       (SELECT COALESCE(SUM(p.amount), 0) FROM payment p WHERE p.linked_invoice = i.bubble_id) as total_received,
       (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('id', sp.bubble_id, 'amount', sp.amount)), '[]') FROM submitted_payment sp WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending') as pending_payments
     FROM invoice i
-    WHERE ${whereClause} AND i.is_latest = true
+    WHERE ${whereClause} AND i.is_latest = true ${statusClause}
     ORDER BY i.created_at DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `;
@@ -975,7 +985,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   const countQuery = `
     SELECT COUNT(*) as total 
     FROM invoice i
-    WHERE ${whereClause} AND i.is_latest = true
+    WHERE ${whereClause} AND i.is_latest = true ${statusClause}
   `;
 
   // Add limit/offset to params for the main query

@@ -269,6 +269,16 @@
                         </select>
                     </div>
 
+                    <!-- Record Status -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Record Status</label>
+                        <select id="filterRecordStatus" class="w-full px-3 py-2.5 rounded-lg text-sm">
+                            <option value="active">Active (Default)</option>
+                            <option value="deleted">Deleted</option>
+                            <option value="all">All Records</option>
+                        </select>
+                    </div>
+
                     <!-- Payment Percent -->
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Payment Status</label>
@@ -357,10 +367,17 @@
             document.getElementById('filterDateTo').value = '';
             document.getElementById('filterSort').value = 'date-desc';
             document.getElementById('filterPayment').value = 'all';
+            document.getElementById('filterRecordStatus').value = 'active';
             applyFilters();
         }
 
-        function applyFilters() {
+        async function applyFilters() {
+            // Reload data from server to respect Record Status (and potentially other server-side filters later)
+            // We reset page to 1 on new filter application
+            page = 1;
+            await loadQuotations();
+            
+            // Client-side refinement (until API supports search)
             const customerName = document.getElementById('filterCustomer').value.toLowerCase().trim();
             const dateFrom = document.getElementById('filterDateFrom').value;
             const dateTo = document.getElementById('filterDateTo').value;
@@ -387,10 +404,16 @@
             else if (sortBy === 'amount-desc') filteredInvoices.sort((a, b) => parseFloat(b.total_amount) - parseFloat(a.total_amount));
             else if (sortBy === 'amount-asc') filteredInvoices.sort((a, b) => parseFloat(a.total_amount) - parseFloat(b.total_amount));
 
-            page = 1;
             renderInvoices();
             updateFilterBadge();
-            toggleFilterDrawer();
+            
+            // Only toggle drawer if it's open (check class) - logic handled by button click usually, 
+            // but if called from reset, we might want to keep it open or not. 
+            // Existing logic toggled it at the end. I will check if I should keep that.
+            const drawer = document.getElementById('filterDrawer');
+            if (!drawer.classList.contains('hidden')) {
+                toggleFilterDrawer();
+            }
         }
 
         function updateFilterBadge() {
@@ -399,17 +422,43 @@
             const dateFrom = document.getElementById('filterDateFrom').value;
             const dateTo = document.getElementById('filterDateTo').value;
             const paymentFilter = document.getElementById('filterPayment').value;
+            const recordStatus = document.getElementById('filterRecordStatus').value;
             
             let count = 0;
             if (customerName) count++;
             if (dateFrom || dateTo) count++;
             if (paymentFilter !== 'all') count++;
+            if (recordStatus !== 'active') count++;
             
             if (count > 0) {
                 badge.textContent = count;
                 badge.classList.remove('hidden');
             } else {
                 badge.classList.add('hidden');
+            }
+        }
+
+        async function deleteInvoice(bubbleId) {
+            if (!confirm('Are you sure you want to delete this invoice? This action moves it to the trash.')) return;
+            
+            try {
+                const res = await fetch(`/api/v1/invoices/${bubbleId}`, {
+                    method: 'DELETE'
+                });
+                const json = await res.json();
+                
+                if (json.success) {
+                    // Remove from list immediately or reload
+                    allInvoices = allInvoices.filter(i => i.bubble_id !== bubbleId);
+                    filteredInvoices = filteredInvoices.filter(i => i.bubble_id !== bubbleId);
+                    renderInvoices();
+                    // Or reload to be safe
+                    // loadQuotations(); 
+                } else {
+                    alert('Error: ' + json.error);
+                }
+            } catch (e) {
+                alert('Delete failed: ' + e.message);
             }
         }
 
@@ -482,7 +531,13 @@
 
             try {
                 const offset = (page - 1) * limit;
-                const res = await fetch(`/api/v1/invoices/my-invoices?limit=${limit}&offset=${offset}`);
+                const statusFilter = document.getElementById('filterRecordStatus')?.value || 'active';
+                
+                let query = `?limit=${limit}&offset=${offset}`;
+                if (statusFilter === 'deleted') query += '&status=deleted';
+                if (statusFilter === 'all') query += '&include_deleted=true';
+
+                const res = await fetch(`/api/v1/invoices/my-invoices${query}`);
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error);
 
@@ -504,7 +559,7 @@
                 }
 
                 content.classList.remove('hidden');
-                renderInvoices();
+                renderInvoices(); // applyFilters will be called by user action, here we just render raw
 
             } catch (err) {
                 console.error(err);
@@ -514,12 +569,19 @@
 
         function renderInvoices() {
             const container = document.getElementById('invoices');
-            const offset = (page - 1) * limit;
-            const pageInvoices = filteredInvoices.slice(offset, offset + limit);
+            // Note: Since we fetch page-by-page from server now in loadQuotations, 
+            // and local filtering is secondary, we render whatever is in filteredInvoices.
+            // Pagination logic needs to be careful. For now, assuming server returns 1 page.
+            
+            // Reset offset for display since allInvoices is just the current page
+            // const offset = (page - 1) * limit; 
+            // const pageInvoices = filteredInvoices.slice(offset, offset + limit);
+            const pageInvoices = filteredInvoices; // Render all loaded
             
             container.innerHTML = pageInvoices.map(inv => {
                 const statusClass = getStatusBadgeClass(inv.status);
                 const paymentPercent = getPaymentPercent(inv);
+                const isDeleted = inv.status === 'deleted';
                 
                 // Determine card background and text colors
                 let cardBgClass = 'bg-white';
@@ -529,7 +591,10 @@
                 let invoiceNumClass = 'text-slate-700';
                 let borderClass = 'border-slate-100';
 
-                if (paymentPercent >= 100) {
+                if (isDeleted) {
+                    cardBgClass = 'bg-gray-100 opacity-70 border-gray-200';
+                    textPrimaryClass = 'text-gray-500 line-through';
+                } else if (paymentPercent >= 100) {
                     cardBgClass = 'bg-indigo-600 text-white border-indigo-700';
                     textPrimaryClass = 'text-white';
                     textSecondaryClass = 'text-indigo-100';
@@ -537,7 +602,7 @@
                     invoiceNumClass = 'text-indigo-100';
                     borderClass = 'border-indigo-500/30';
                 } else if (paymentPercent > 0) {
-                    cardBgClass = 'bg-blue-50/40 border-blue-100'; // Using 40 for visibility, or 20 if strictly requested
+                    cardBgClass = 'bg-blue-50/40 border-blue-100'; 
                 }
                 
                 return `
@@ -570,19 +635,15 @@
                                 <div class="flex flex-wrap items-center gap-1.5">
                                     <a href="/invoice-office?id=${inv.bubble_id}" class="btn-primary px-2.5 py-1 rounded text-[10px] font-semibold ${paymentPercent >= 100 ? 'bg-white !text-indigo-600' : 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white'} shadow-sm">[OFFICE]</a>
                                     <button onclick="window.location.href='/edit-invoice?id=${inv.bubble_id}'" class="btn-secondary px-2.5 py-1 rounded text-[10px] font-semibold ${paymentPercent >= 100 ? 'bg-indigo-500/20 border-indigo-400 text-white hover:bg-indigo-500/40' : 'text-slate-600 hover:text-slate-800'}">[EDIT]</button>
-                                    <button onclick="openHistoryModal('${inv.bubble_id}')" class="btn-secondary px-2.5 py-1 rounded text-[10px] font-semibold ${paymentPercent >= 100 ? 'bg-indigo-500/20 border-indigo-400 text-white hover:bg-indigo-500/40' : 'text-slate-600 hover:text-slate-800'}">[HISTORY]</button>
                                     
-                                    ${inv.linked_seda_registration ? `
-                                        <a href="/seda-register?id=${inv.linked_seda_registration}" class="btn-secondary px-2.5 py-1 rounded text-[10px] font-semibold ${paymentPercent >= 100 ? 'bg-orange-500 text-white border-orange-400' : 'text-orange-600 border-orange-200 bg-orange-50 hover:bg-orange-100'}">[SEDA]</a>
-                                    ` : ''}
-
-                                    ${inv.status !== 'cancelled' ? `
-                                        <a href="/submit-payment?id=${inv.bubble_id}" class="btn-secondary px-2.5 py-1 rounded text-[10px] font-semibold ${paymentPercent >= 100 ? 'bg-indigo-500/20 border-indigo-400 text-white hover:bg-indigo-500/40' : 'text-slate-600 hover:text-slate-800'}">[PAY]</a>
+                                    ${!isDeleted ? `
+                                    <button onclick="deleteInvoice('${inv.bubble_id}')" class="btn-secondary px-2 py-1 rounded text-red-500 hover:bg-red-50 border-red-200 hover:border-red-300" title="Delete">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
                                     ` : ''}
 
                                     ${inv.share_url ? `
                                         <a href="${inv.share_url}" target="_blank" class="btn-primary px-2.5 py-1 rounded text-[10px] font-semibold ${paymentPercent >= 100 ? 'bg-white !text-indigo-600' : ''}">[VIEW]</a>
-                                        <button onclick="downloadQuotationPdf('${inv.share_token}')" class="btn-secondary px-2.5 py-1 rounded text-[10px] font-semibold ${paymentPercent >= 100 ? 'bg-indigo-500/20 border-indigo-400 text-white hover:bg-indigo-500/40' : 'text-slate-600 hover:text-slate-800'} pdf-btn-${inv.share_token.replace(/-/g, '')}">[PDF]</button>
                                     ` : ''}
                                 </div>
                             </div>
