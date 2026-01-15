@@ -50,6 +50,19 @@
             background: #ffffff;
             box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.1);
         }
+        .badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        .badge-draft { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+        .badge-sent { background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; }
+        .badge-paid { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        .badge-cancelled { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+        .badge-payment_submitted { background: #faf5ff; color: #6b21a8; border: 1px solid #f3e8ff; }
     </style>
 </head>
 <body class="min-h-screen text-slate-800 pb-24">
@@ -131,14 +144,14 @@
     <div class="fixed bottom-0 left-0 right-0 z-50">
         <div class="floating-panel rounded-t-2xl mx-auto max-w-md">
             <div class="flex items-center justify-between px-4 py-3">
-                <a href="/create-invoice" class="btn-primary px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                <a href="/create-invoice" class="btn-primary px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm bg-slate-900 text-white">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 4v16m8-8H4"></path></svg>
                     New Quotation
                 </a>
                 
                 <div class="flex items-center gap-2">
-                    <button onclick="openFilterModal()" class="btn-secondary px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+                    <button onclick="openFilterModal()" class="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
+                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
                         Filter
                     </button>
                     <button onclick="openDebugModal()" class="text-slate-300 hover:text-red-500 font-bold text-xs p-2 transition-colors">[!]</button>
@@ -174,8 +187,8 @@
                         </select>
                     </div>
                     <div class="pt-2 flex gap-2">
-                        <button onclick="applyFilters()" class="flex-1 btn-primary py-2.5 rounded-lg text-sm font-bold shadow-md">Apply Filters</button>
-                        <button onclick="clearFilters()" class="px-4 py-2.5 btn-secondary rounded-lg text-sm font-semibold">Clear</button>
+                        <button onclick="applyFilters()" class="flex-1 bg-slate-900 text-white py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-slate-800 transition-colors">Apply Filters</button>
+                        <button onclick="clearFilters()" class="px-4 py-2.5 border border-slate-200 bg-white rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors">Clear</button>
                     </div>
                 </div>
             </div>
@@ -299,11 +312,13 @@
         }
 
         function getPaymentPercent(inv) {
-            // Strictly use percent_of_total_amount from invoice table if available
-            if (inv.percent_of_total_amount !== undefined && inv.percent_of_total_amount !== null) {
-                return Math.round(parseFloat(inv.percent_of_total_amount) || 0);
+            // Strictly use percent_of_total_amount from invoice table
+            const val = inv.percent_of_total_amount;
+            if (val !== undefined && val !== null) {
+                const num = parseFloat(val);
+                return isNaN(num) ? 0 : Math.round(num);
             }
-            // Fallback (should not be needed based on new instructions)
+            // Fallback
             const total = parseFloat(inv.total_amount) || 0;
             const received = parseFloat(inv.total_received) || 0;
             if (total === 0) return 0;
@@ -314,23 +329,13 @@
             if (!confirm('Are you sure you want to delete this invoice? This action moves it to the trash.')) return;
             
             try {
-                const res = await fetch(`/api/v1/invoices/${bubbleId}`, {
-                    method: 'DELETE'
-                });
+                const res = await fetch(`/api/v1/invoices/${bubbleId}`, { method: 'DELETE' });
                 const json = await res.json();
-                
                 if (json.success) {
-                    // Remove from list immediately or reload
                     allInvoices = allInvoices.filter(i => i.bubble_id !== bubbleId);
                     renderInvoices();
-                    // Or reload to be safe
-                    // loadQuotations(); 
-                } else {
-                    alert('Error: ' + json.error);
-                }
-            } catch (e) {
-                alert('Delete failed: ' + e.message);
-            }
+                } else alert('Error: ' + json.error);
+            } catch (e) { alert('Delete failed: ' + e.message); }
         }
 
         async function cleanupSamples() {
@@ -375,7 +380,7 @@
                             <p class="text-xs text-slate-600 mb-1">${details.description || details.change_summary || 'Update recorded'}</p>
                             ${hasSnapshot ? `
                                 <a href="/api/v1/invoices/actions/${action.action_id}/snapshot" target="_blank" class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                     View Snapshot
                                 </a>
                             ` : ''}
@@ -415,7 +420,7 @@
                 allInvoices = data.data.invoices || [];
                 total = data.data.total || 0;
 
-                document.getElementById('totalCount').textContent = allInvoices.length;
+                document.getElementById('totalCount').textContent = total;
                 const totalVal = allInvoices.reduce((sum, i) => sum + (parseFloat(i.total_amount) || 0), 0);
                 document.getElementById('totalValue').textContent = formatCurrency(totalVal);
                 
@@ -443,101 +448,101 @@
 
         function renderInvoices() {
             const container = document.getElementById('invoices');
-            const pageInvoices = allInvoices;
             
-            container.innerHTML = pageInvoices.map(inv => {
+            container.innerHTML = allInvoices.map(inv => {
                 const statusClass = getStatusBadgeClass(inv.status);
                 const paymentPercent = getPaymentPercent(inv);
-                const isDeleted = inv.status === 'deleted';
-                const totalReceived = parseFloat(inv.total_received) || 0;
-                const pendingPayments = inv.pending_payments || [];
                 const isPaidFull = paymentPercent >= 100;
+                const isDeleted = inv.status === 'deleted';
+                const pendingPayments = inv.pending_payments || [];
                 
-                // Base Layout: Line-separated blocks instead of cards
-                let borderClass = 'border-slate-200';
-                let accentClass = '';
-                let textPrimary = 'text-slate-900';
-                let textSecondary = 'text-slate-500';
-
+                // Explicit Color logic
+                let accentColor = 'border-slate-300';
+                let bgColor = 'bg-white';
+                
                 if (isDeleted) {
-                    accentClass = 'border-l-4 border-red-400 bg-red-50/30';
-                    textPrimary = 'text-slate-400 line-through';
+                    accentColor = 'border-red-500';
+                    bgColor = 'bg-red-50/20';
                 } else if (isPaidFull) {
-                    accentClass = 'border-l-4 border-emerald-500 bg-emerald-50/30';
+                    accentColor = 'border-emerald-500';
+                    bgColor = 'bg-emerald-50/40';
                 } else if (paymentPercent > 0) {
-                    accentClass = 'border-l-4 border-blue-500 bg-blue-50/20';
-                } else {
-                    accentClass = 'border-l-4 border-slate-300 bg-white';
+                    accentColor = 'border-blue-500';
+                    bgColor = 'bg-blue-50/20';
                 }
-                
+
+                const totalPaidVal = parseFloat(inv.total_received) || 0;
+                const totalAmtVal = parseFloat(inv.total_amount) || 0;
+
                 return `
-                    <div class="py-5 px-4 sm:px-6 border-b border-slate-200 ${accentClass} transition-colors hover:bg-slate-50/50">
-                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <!-- Left: Info -->
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-2">
-                                    <span class="font-mono text-[10px] font-bold tracking-tighter text-slate-400 uppercase">#${inv.invoice_number || 'DRAFT'}</span>
-                                    <span class="badge ${statusClass}">${(inv.status || 'Draft').replace('_', ' ')}</span>
-                                    ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200">FULLY PAID</span>' : ''}
-                                </div>
-                                
-                                <h3 class="text-base font-bold ${textPrimary} truncate mb-1">
-                                    ${inv.customer_name}
-                                </h3>
-                                
-                                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] ${textSecondary} font-medium">
-                                    <span class="flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                        ${inv.package_name}
-                                    </span>
-                                    <span class="flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 02-2 2v12a2 2 0 002 2z"></path></svg>
-                                        ${formatDate(inv.invoice_date)}
-                                    </span>
-                                </div>
-
-                                <!-- Pending Payments -->
-                                ${pendingPayments.length > 0 ? `
-                                    <div class="mt-3 flex flex-wrap gap-1.5">
-                                        ${pendingPayments.map(p => `
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-600 border border-orange-100">
-                                                <svg class="w-2.5 h-2.5 mr-1 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"></path></svg>
-                                                PENDING: ${formatCurrency(p.amount)}
-                                            </span>
-                                        `).join('')}
+                    <div class="flex items-stretch border-l-4 ${accentColor} ${bgColor} hover:bg-slate-50 transition-colors">
+                        <div class="flex-1 py-5 px-4 sm:px-6">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <!-- Left side -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="font-mono text-[10px] font-bold text-slate-400 uppercase tracking-tight">#${inv.invoice_number || 'DRAFT'}</span>
+                                        <span class="badge ${statusClass}">${(inv.status || 'Draft').replace('_', ' ')}</span>
+                                        ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold">FULLY PAID</span>' : ''}
                                     </div>
-                                ` : ''}
-                            </div>
-                            
-                            <!-- Right: Financials & Actions -->
-                            <div class="flex items-center gap-6 self-end md:self-center">
-                                <div class="text-right min-w-[120px]">
-                                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Paid / Total</p>
-                                    <p class="text-sm font-black ${isPaidFull ? 'text-emerald-600' : 'text-slate-900'}">
-                                        ${formatCurrency(totalReceived)} <span class="text-slate-300 font-normal mx-0.5">/</span> ${formatCurrency(inv.total_amount)}
-                                    </p>
-                                    <div class="w-full bg-slate-100 rounded-full h-1 mt-1.5 overflow-hidden">
-                                        <div class="${isPaidFull ? 'bg-emerald-500' : 'bg-blue-500'} h-1 rounded-full" style="width: ${paymentPercent}%"></div>
+                                    
+                                    <h3 class="text-base font-bold ${isDeleted ? 'text-slate-400 line-through' : 'text-slate-900'} truncate mb-1">
+                                        ${inv.customer_name || 'Unknown Customer'}
+                                    </h3>
+                                    
+                                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 font-medium">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                            ${inv.package_name || '-'}
+                                        </span>
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 02-2 2v12a2 2 0 002 2z"></path></svg>
+                                            ${formatDate(inv.invoice_date)}
+                                        </span>
                                     </div>
-                                </div>
 
-                                <div class="flex items-center gap-1.5">
-                                    <a href="/invoice-office?id=${inv.bubble_id}" class="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Open Office">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                    </a>
-                                    <a href="/edit-invoice?id=${inv.bubble_id}" class="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                                    </a>
-                                    ${!isDeleted ? `
-                                    <button onclick="deleteInvoice('${inv.bubble_id}')" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                    </button>
+                                    ${pendingPayments.length > 0 ? `
+                                        <div class="mt-3 flex flex-wrap gap-1.5">
+                                            ${pendingPayments.map(p => `
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-600 border border-orange-100">
+                                                    <svg class="w-2.5 h-2.5 mr-1 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"></path></svg>
+                                                    PENDING: ${formatCurrency(p.amount)}
+                                                </span>
+                                            `).join('')}
+                                        </div>
                                     ` : ''}
-                                    ${inv.share_url ? `
-                                        <a href="${inv.share_url}" target="_blank" class="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="View Public">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                </div>
+                                
+                                <!-- Right side (Financials & Actions) -->
+                                <div class="flex items-center gap-6 self-end md:self-center">
+                                    <div class="text-right min-w-[130px]">
+                                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Paid / Total</p>
+                                        <p class="text-sm font-black ${isPaidFull ? 'text-emerald-600' : 'text-slate-900'}">
+                                            ${formatCurrency(totalPaidVal)} <span class="text-slate-300 font-normal mx-0.5">/</span> ${formatCurrency(totalAmtVal)}
+                                        </p>
+                                        <div class="w-full bg-slate-100 rounded-full h-1.5 mt-1.5 overflow-hidden border border-slate-200/50">
+                                            <div class="${isPaidFull ? 'bg-emerald-500' : 'bg-blue-500'} h-full rounded-full transition-all duration-500" style="width: ${paymentPercent}%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center gap-1">
+                                        <a href="/invoice-office?id=${inv.bubble_id}" class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Office">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                                         </a>
-                                    ` : ''}
+                                        <a href="/edit-invoice?id=${inv.bubble_id}" class="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="Edit">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                        </a>
+                                        ${!isDeleted ? `
+                                        <button onclick="deleteInvoice('${inv.bubble_id}')" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="Delete">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        </button>
+                                        ` : ''}
+                                        ${inv.share_url ? `
+                                            <a href="${inv.share_url}" target="_blank" class="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="View">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.25"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                            </a>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -555,31 +560,8 @@
 
         function changePage(d) {
             page += d;
-            renderInvoices();
+            loadQuotations();
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        async function downloadQuotationPdf(token) {
-            const btn = document.querySelector(`.pdf-btn-${token.replace(/-/g, '')}`);
-            if(!btn) return;
-            const originalContent = btn.innerHTML;
-            
-            try {
-                btn.disabled = true;
-                btn.innerHTML = `<div class="loading-spinner h-3 w-3 rounded-full border-slate-300 border-t-slate-600"></div>`;
-                
-                const res = await fetch(`/view/${token}/pdf`);
-                const data = await res.json();
-                
-                if(data.success && data.downloadUrl) {
-                    window.open(data.downloadUrl, '_blank');
-                } else throw new Error(data.error);
-            } catch(e) {
-                alert('PDF Generation failed: ' + e.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalContent;
-            }
         }
 
         // --- Debug Features ---
@@ -604,18 +586,13 @@
                 document.getElementById('debugStep1').classList.add('hidden');
                 document.getElementById('debugStep2').classList.remove('hidden');
                 loadDebugUsers();
-            } else {
-                alert('Access Denied');
-            }
+            } else alert('Access Denied');
         }
 
         async function loadDebugUsers() {
             try {
-                const res = await fetch('/api/debug/users', {
-                    headers: { 'x-debug-passkey': debugPasskey }
-                });
+                const res = await fetch('/api/debug/users', { headers: { 'x-debug-passkey': debugPasskey } });
                 const json = await res.json();
-                
                 const list = document.getElementById('debugUserList');
                 if (json.success) {
                     list.innerHTML = json.users.map(u => `
@@ -630,12 +607,8 @@
                             </div>
                         </button>
                     `).join('');
-                } else {
-                    list.innerHTML = `<p class="text-red-500 text-xs p-4">${json.error}</p>`;
-                }
-            } catch (e) {
-                console.error(e);
-            }
+                } else list.innerHTML = `<p class="text-red-500 text-xs p-4">${json.error}</p>`;
+            } catch (e) { console.error(e); }
         }
 
         async function impersonateUser(userId) {
@@ -643,48 +616,23 @@
             try {
                 const res = await fetch('/api/debug/login-as', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'x-debug-passkey': debugPasskey 
-                    },
+                    headers: { 'Content-Type': 'application/json', 'x-debug-passkey': debugPasskey },
                     body: JSON.stringify({ userId })
                 });
-                const json = await res.json();
-                if (json.success) {
-                    window.location.reload();
-                } else {
-                    alert(json.error);
-                }
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
+                if ((await res.json()).success) window.location.reload();
+            } catch (e) { alert('Error: ' + e.message); }
         }
 
         async function recompileSnapshots() {
-            if (!confirm('Run Batch Recompile? This will backfill missing invoice snapshots from current customer data.')) return;
+            if (!confirm('Run Batch Recompile?')) return;
             const btn = event.target;
-            const originalText = btn.textContent;
             btn.textContent = 'Processing...';
             btn.disabled = true;
-
             try {
-                const res = await fetch('/api/debug/recompile-snapshots', {
-                    method: 'POST',
-                    headers: { 'x-debug-passkey': debugPasskey }
-                });
+                const res = await fetch('/api/debug/recompile-snapshots', { method: 'POST', headers: { 'x-debug-passkey': debugPasskey } });
                 const json = await res.json();
-                if (json.success) {
-                    alert(json.message);
-                    loadQuotations(); // Refresh list to see names
-                } else {
-                    alert('Error: ' + json.error);
-                }
-            } catch (e) {
-                alert('Error: ' + e.message);
-            } finally {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }
+                if (json.success) { alert(json.message); loadQuotations(); }
+            } catch (e) { alert('Error: ' + e.message); } finally { btn.textContent = 'Batch Recompile Snapshots'; btn.disabled = false; }
         }
 
         function logout() {
