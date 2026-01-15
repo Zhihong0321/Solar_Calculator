@@ -894,60 +894,40 @@ async function recordInvoiceView(client, invoiceId) {
 }
 
 /**
- * Get invoices by user ID (created_by) - DIRECT POSTGRESQL QUERY
+ * Get invoices for an agent - REWRITTEN LOGIC
+ * - Filters by linked_agent (current user's agent profile)
+ * - Excludes deleted status
+ * - Sorts by latest invoice_date
+ * - Sums totals ONLY from verified 'payment' table
  * @param {object} client - Database client
- * @param {string} userId - User ID (VARCHAR/UUID string from JWT)
- * @param {object} options - Query options (limit, offset)
+ * @param {string} userId - User ID (to find linked agent)
+ * @param {object} options - Query options
  * @returns {Promise<object>} { invoices: Array, total: number }
  */
 async function getInvoicesByUserId(client, userId, options = {}) {
   const limit = parseInt(options.limit) || 100;
   const offset = parseInt(options.offset) || 0;
 
-  // 1. Fetch the user's Bubble ID and Agent Profile
-  let userBubbleId = null;
-  let linkedAgentId = null;
+  // 1. Resolve User's Agent Profile ID
+  let agentProfileId = null;
   try {
-    const userRes = await client.query('SELECT bubble_id, linked_agent_profile FROM "user" WHERE id = $1', [userId]);
+    const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [userId]);
     if (userRes.rows.length > 0) {
-      userBubbleId = userRes.rows[0].bubble_id;
-      linkedAgentId = userRes.rows[0].linked_agent_profile;
+      agentProfileId = userRes.rows[0].linked_agent_profile;
     }
   } catch (e) {
-    console.warn('Could not fetch user details for user', userId);
+    console.warn('[DB] User lookup failed for', userId);
   }
 
-  // 2. Build Query to check ALL possible IDs
-  const params = [String(userId)];
-  let whereClause = `(i.created_by = $1::varchar`;
-  let paramIndex = 2;
-
-  if (userBubbleId) {
-    whereClause += ` OR i.created_by = $${paramIndex}::varchar`;
-    params.push(userBubbleId);
-    paramIndex++;
+  if (!agentProfileId) {
+    return { invoices: [], total: 0, limit, offset };
   }
 
-  if (linkedAgentId) {
-    whereClause += ` OR i.created_by = $${paramIndex}::varchar`;
-    params.push(linkedAgentId);
-    paramIndex++;
-  }
-  
-  whereClause += `)`;
-
-  // Status Filter Logic
-  // Default: Hide 'deleted' status
-  let statusClause = "AND (i.status != 'deleted' OR i.status IS NULL)";
-  
-  if (options.status === 'deleted') {
-      statusClause = "AND i.status = 'deleted'";
-  } else if (options.includeDeleted) {
-      statusClause = ""; // Show everything
-  }
-
-  // DIRECT POSTGRESQL QUERY
-  // Filter by is_latest = true
+  // 2. Build Query
+  // Logic: 
+  // - Filter: linked_agent = agentProfileId
+  // - Paid: SUM(payment.amount) ONLY
+  // - Pending: JSON_AGG(submitted_payment.amount)
   const query = `
     SELECT 
       i.bubble_id,
@@ -955,45 +935,42 @@ async function getInvoicesByUserId(client, userId, options = {}) {
       i.invoice_date,
       i.customer_name_snapshot,
       i.package_name_snapshot,
-      i.subtotal,
-      i.agent_markup,
-      i.sst_rate,
-      i.sst_amount,
-      i.discount_amount,
-      i.discount_fixed,
-      i.discount_percent,
-      i.voucher_code,
-      i.voucher_amount,
       i.total_amount,
       i.status,
       i.share_token,
       i.share_enabled,
-      i.created_at,
-      i.updated_at,
-      i.viewed_at,
-      i.share_access_count,
       i.version,
       i.linked_seda_registration,
-      (SELECT COALESCE(SUM(p.amount), 0) FROM payment p WHERE p.linked_invoice = i.bubble_id) as total_received,
-      (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('id', sp.bubble_id, 'amount', sp.amount)), '[]') FROM submitted_payment sp WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending') as pending_payments
+      
+      -- Financial Truth (Strictly payment table)
+      COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id), 0) as total_received,
+
+      -- Pending Verification List
+      (
+          SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('amount', sp.amount)), '[]') 
+          FROM submitted_payment sp 
+          WHERE sp.linked_invoice = i.bubble_id
+      ) as pending_payments
+
     FROM invoice i
-    WHERE ${whereClause} AND i.is_latest = true ${statusClause}
+    WHERE i.linked_agent = $1 
+      AND i.is_latest = true 
+      AND (i.status != 'deleted' OR i.status IS NULL)
     ORDER BY i.invoice_date DESC, i.created_at DESC
-    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    LIMIT $2 OFFSET $3
   `;
 
   const countQuery = `
     SELECT COUNT(*) as total 
-    FROM invoice i
-    WHERE ${whereClause} AND i.is_latest = true ${statusClause}
+    FROM invoice i 
+    WHERE i.linked_agent = $1 
+      AND i.is_latest = true 
+      AND (i.status != 'deleted' OR i.status IS NULL)
   `;
 
-  // Add limit/offset to params for the main query
-  const queryParams = [...params, limit, offset];
-
   const [result, countResult] = await Promise.all([
-    client.query(query, queryParams),
-    client.query(countQuery, params)
+    client.query(query, [agentProfileId, limit, offset]),
+    client.query(countQuery, [agentProfileId])
   ]);
 
   return {
