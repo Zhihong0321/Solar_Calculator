@@ -10,7 +10,7 @@
     <div class="max-w-3xl mx-auto px-4 py-8">
         <!-- Header -->
         <div class="mb-8 flex items-center gap-4">
-            <a href="/my-invoice" class="text-gray-500 hover:text-gray-700">
+            <a href="/my-invoice" id="backButton" class="text-gray-500 hover:text-gray-700">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             </a>
             <div>
@@ -173,6 +173,12 @@
             if (!invoiceBubbleId && !editPaymentId) {
                 showError('No invoice ID or Payment ID specified.');
                 return;
+            }
+
+            // Update Back Button
+            const backBtn = document.getElementById('backButton');
+            if (backBtn && invoiceBubbleId) {
+                backBtn.href = `/invoice-office?id=${invoiceBubbleId}`;
             }
 
             // Set default date to today
@@ -475,7 +481,7 @@
 
                 // Success
                 alert('Payment submitted successfully!');
-                window.location.href = '/my-invoice';
+                window.location.href = `/invoice-office?id=${targetInvoiceId}`;
 
             } catch (err) {
                 alert('Error: ' + err.message);

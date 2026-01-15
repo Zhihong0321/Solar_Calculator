@@ -249,6 +249,7 @@
                     </button>
                     <a 
                         href="/my-invoice" 
+                        id="cancelButton"
                         class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-8 py-3 rounded-lg shadow-md transition-colors inline-flex items-center"
                     >
                         Cancel
@@ -1045,6 +1046,12 @@
                 return;
             }
 
+            // Update Cancel Button
+            const cancelBtn = document.getElementById('cancelButton');
+            if (cancelBtn) {
+                cancelBtn.href = `/invoice-office?id=${editInvoiceId}`;
+            }
+
             window.editInvoiceId = editInvoiceId;
             
             // Show loading warning
@@ -1293,7 +1300,7 @@
                 
                 if (response.ok && result.success) {
                     alert('Quotation updated successfully! New version saved with action logging.');
-                    setTimeout(() => { window.location.href = '/my-invoice'; }, 1500);
+                    setTimeout(() => { window.location.href = `/invoice-office?id=${window.editInvoiceId}`; }, 1500);
                 } else {
                     alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
                     submitBtn.disabled = false;
