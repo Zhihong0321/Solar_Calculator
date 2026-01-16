@@ -1173,49 +1173,46 @@ async function logCustomerHistory(client, customerId, oldData, userId) {
 }
 
 /**
- * Create invoice version transaction (Immutable Versioning)
+ * Update an existing invoice in place (Standard SQL UPDATE)
  * @param {object} client - Database client
- * @param {object} data - Invoice data
- * @returns {Promise<object>} Created invoice
+ * @param {object} data - Update data
+ * @returns {Promise<object>} Updated invoice
  */
-async function createInvoiceVersionTransaction(client, data) {
+async function updateInvoiceTransaction(client, data) {
   if (!data.userId) throw new Error('User ID is required.');
-  if (!data.originalBubbleId) throw new Error('Original Invoice ID is required for versioning.');
+  if (!data.originalBubbleId) throw new Error('Invoice ID is required for update.');
+
+  const bubbleId = data.originalBubbleId;
 
   try {
     await client.query('BEGIN');
 
-    // 1. Fetch original invoice to get package & base details
-    const orgResult = await client.query('SELECT * FROM invoice WHERE bubble_id = $1', [data.originalBubbleId]);
-    if (orgResult.rows.length === 0) throw new Error('Original invoice not found');
-    const org = orgResult.rows[0];
+    // 1. Fetch current record for snapshot and base details
+    const currentData = await getInvoiceByBubbleId(client, bubbleId);
+    if (!currentData) throw new Error('Invoice not found');
 
-    // Mark OLD versions as not latest
-    const rootId = org.root_id || org.bubble_id;
-    await client.query('UPDATE invoice SET is_latest = false WHERE root_id = $1', [rootId]);
+    // 2. RUN SNAPSHOT BEFORE UPDATE (Legal Photocopy)
+    await snapshotService.captureFlatSnapshot(client, currentData, 'BEFORE_UPDATE', data.userId);
 
-    // Resolve Agent Profile
-    let linkedAgent = null;
-    const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [String(data.userId)]);
-    if (userRes.rows.length > 0) linkedAgent = userRes.rows[0].linked_agent_profile;
+    // 3. Resolve Dependencies
+    const pkg = await getPackageById(client, data.packageId || currentData.linked_package);
+    if (!pkg) throw new Error(`Package not found`);
 
-    // 2. Fetch Dependencies
-    const pkg = await getPackageById(client, org.linked_package);
-    if (!pkg) throw new Error(`Original package ${org.linked_package} not found`);
+    let linkedAgent = currentData.linked_agent;
+    if (!linkedAgent) {
+        const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [String(data.userId)]);
+        if (userRes.rows.length > 0) linkedAgent = userRes.rows[0].linked_agent_profile;
+    }
 
     // Resolve Customer
-    let customerName = data.customerName !== undefined ? data.customerName : org.customer_name_snapshot;
-    let customerPhone = data.customerPhone !== undefined ? data.customerPhone : org.customer_phone_snapshot;
-    let customerAddress = data.customerAddress !== undefined ? data.customerAddress : org.customer_address_snapshot;
-
-    let internalCustomerId = org.customer_id;
-    let customerBubbleId = org.linked_customer;
+    let internalCustomerId = currentData.customer_id;
+    let customerBubbleId = currentData.linked_customer;
 
     if (data.customerName) {
         const custResult = await findOrCreateCustomer(client, {
-            name: customerName,
-            phone: customerPhone,
-            address: customerAddress,
+            name: data.customerName,
+            phone: data.customerPhone || currentData.customer_phone_snapshot,
+            address: data.customerAddress || currentData.customer_address_snapshot,
             createdBy: data.userId
         });
         if (custResult) {
@@ -1224,36 +1221,79 @@ async function createInvoiceVersionTransaction(client, data) {
         }
     }
 
-    const customerData = {
-        id: internalCustomerId,
-        bubbleId: customerBubbleId,
-        name: customerName,
-        phone: customerPhone,
-        address: customerAddress
-    };
-
-    // 3. Process Vouchers & Financials
+    // 4. Calculate Financials
     const packagePrice = parseFloat(pkg.price) || 0;
     const voucherInfo = await _processVouchers(client, data, packagePrice);
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
 
-    // 4. Create Invoice Header (NEW ROW / NEW VERSION)
-    const newInvoice = await _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData, linkedAgent);
+    const {
+        taxableSubtotal, markupAmount, sstRate, sstAmount, 
+        percentDiscountVal, finalTotalAmount 
+    } = financials;
 
-    // 5. Create Line Items
-    await _createLineItems(client, newInvoice.bubble_id, data, financials, { pkg, linkedAgent }, voucherInfo);
+    // Increment Revision Label (Optional - just for the number snapshot)
+    const nextVersion = (currentData.version || 1) + 1;
+
+    // 5. Standard SQL UPDATE
+    await client.query(
+        `UPDATE invoice SET
+            customer_id = $1,
+            linked_customer = $2,
+            linked_agent = $3,
+            customer_name_snapshot = $4,
+            customer_address_snapshot = $5,
+            customer_phone_snapshot = $6,
+            linked_package = $7,
+            package_name_snapshot = $8,
+            subtotal = $9,
+            agent_markup = $10,
+            sst_rate = $11,
+            sst_amount = $12,
+            discount_amount = $13,
+            discount_fixed = $14,
+            discount_percent = $15,
+            voucher_code = $16,
+            voucher_amount = $17,
+            total_amount = $18,
+            version = $19,
+            updated_at = NOW()
+         WHERE bubble_id = $20`,
+        [
+            internalCustomerId,
+            customerBubbleId,
+            linkedAgent,
+            data.customerName || currentData.customer_name_snapshot,
+            data.customerAddress || currentData.customer_address_snapshot,
+            data.customerPhone || currentData.customer_phone_snapshot,
+            pkg.bubble_id,
+            pkg.name || currentData.package_name_snapshot,
+            taxableSubtotal,
+            markupAmount,
+            sstRate,
+            sstAmount,
+            (data.discountFixed || 0) + percentDiscountVal,
+            data.discountFixed || 0,
+            data.discountPercent || 0,
+            voucherInfo.validVoucherCodes.join(', ') || null,
+            voucherInfo.totalVoucherAmount,
+            finalTotalAmount,
+            nextVersion,
+            bubbleId
+        ]
+    );
+
+    // 6. Item Update (Smart: Delete old and insert new for consistency)
+    // We stick to delete/insert here but ensure they keep the same linked_invoice (UID)
+    await client.query('DELETE FROM invoice_item WHERE linked_invoice = $1', [bubbleId]);
+    await _createLineItems(client, bubbleId, data, financials, { pkg, linkedAgent }, voucherInfo);
 
     await client.query('COMMIT');
 
-    // 6. Log Action with Snapshot
-    const summary = `Created version ${newInvoice.version} from ${org.invoice_number}`;
-    const fullInvoiceData = await getInvoiceByBubbleId(client, newInvoice.bubble_id);
-    await snapshotService.captureSnapshot(client, fullInvoiceData, 'INVOICE_VERSIONED', data.userId, summary);
-
+    // Return the updated state
+    const result = await getInvoiceByBubbleId(client, bubbleId);
     return {
-      ...newInvoice,
-      items: [],
-      customerBubbleId: customerBubbleId
+        ...result,
+        customerBubbleId: customerBubbleId
     };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
@@ -1515,7 +1555,7 @@ module.exports = {
   recordInvoiceView,
   getInvoicesByUserId,
   getPublicVouchers,
-  createInvoiceVersionTransaction,
+  updateInvoiceTransaction,
   getInvoiceByBubbleId,
   reconstructInvoiceFromSnapshot,
   getInvoiceHistory,
