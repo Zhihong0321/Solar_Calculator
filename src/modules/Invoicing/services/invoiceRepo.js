@@ -364,9 +364,24 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     if (invoiceResult.rows.length === 0) return null;
     const invoice = invoiceResult.rows[0];
 
-    // Query 2: Get items
+    // Query 2: Get items (Legacy Table)
     const itemsResult = await client.query(
-      `SELECT * FROM invoice_new_item WHERE invoice_id = $1 ORDER BY sort_order ASC, created_at ASC`,
+      `SELECT 
+        bubble_id,
+        linked_invoice as invoice_id,
+        description,
+        qty,
+        unit_price,
+        amount as total_price,
+        inv_item_type as item_type,
+        sort as sort_order,
+        created_at,
+        is_a_package,
+        linked_package as product_id,
+        description as product_name_snapshot
+       FROM invoice_item 
+       WHERE linked_invoice = $1 
+       ORDER BY sort ASC, created_at ASC`,
       [bubbleId]
     );
     invoice.items = itemsResult.rows;
@@ -562,7 +577,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
 }
 
 /**
- * Helper: Insert all line items
+ * Helper: Insert all line items (Refactored to use invoice_item)
  * @private
  */
 async function _createLineItems(client, invoiceId, data, financials, deps, voucherInfo) {
@@ -571,27 +586,28 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   const { voucherItemsToCreate } = voucherInfo;
   const { discountFixed = 0, discountPercent = 0, eppFeeAmount = 0, eppFeeDescription = 'EPP Fee', paymentStructure } = data;
 
+  const createdItemIds = [];
+
   // 1. Package Item
   const packageItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
   await client.query(
-    `INSERT INTO invoice_new_item
-     (bubble_id, invoice_id, product_id, product_name_snapshot, description,
-      qty, unit_price, discount_percent, total_price, item_type, sort_order, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
+    `INSERT INTO invoice_item
+     (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package, linked_package)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $10)`,
     [
       packageItemBubbleId,
       invoiceId,
-      pkg.panel || null,
-      pkg.name || null,
       pkg.invoice_desc || pkg.name || 'Solar Package',
       1,
       priceWithMarkup,
-      0,
       priceWithMarkup,
       'package',
-      0
+      0,
+      true,
+      pkg.bubble_id || null
     ]
   );
+  createdItemIds.push(packageItemBubbleId);
 
   // 1.5 Extra Items
   if (Array.isArray(data.extraItems) && data.extraItems.length > 0) {
@@ -599,127 +615,134 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     for (const item of data.extraItems) {
         const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
         await client.query(
-            `INSERT INTO invoice_new_item
-             (bubble_id, invoice_id, description, qty, unit_price,
-              discount_percent, total_price, item_type, sort_order, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+            `INSERT INTO invoice_item
+             (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
             [
                 itemBubbleId,
                 invoiceId,
                 item.description || 'Extra Item',
                 item.qty || 1,
                 item.unit_price || 0,
-                0, // discount_percent
                 item.total_price || 0,
                 'extra',
                 extraItemSortOrder++
             ]
         );
+        createdItemIds.push(itemBubbleId);
     }
   }
 
   // 2. Discount Items
   let sortOrder = 100;
   if (discountFixed > 0) {
+    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
-      `INSERT INTO invoice_new_item
-       (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      `INSERT INTO invoice_item
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
       [
-        `item_${crypto.randomBytes(8).toString('hex')}`,
+        itemBubbleId,
         invoiceId,
         `Discount (RM ${discountFixed})`,
         1,
         -discountFixed,
-        0,
         -discountFixed,
         'discount',
         sortOrder++
       ]
     );
+    createdItemIds.push(itemBubbleId);
   }
 
   if (discountPercent > 0) {
+    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
-      `INSERT INTO invoice_new_item
-       (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      `INSERT INTO invoice_item
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
       [
-        `item_${crypto.randomBytes(8).toString('hex')}`,
+        itemBubbleId,
         invoiceId,
         `Discount (${discountPercent}%)`,
         1,
         -percentDiscountVal,
-        discountPercent,
         -percentDiscountVal,
         'discount',
         sortOrder++
       ]
     );
+    createdItemIds.push(itemBubbleId);
   }
 
   // 3. Voucher Items
   for (const vItem of voucherItemsToCreate) {
+    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
-      `INSERT INTO invoice_new_item
-       (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      `INSERT INTO invoice_item
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
       [
-        `item_${crypto.randomBytes(8).toString('hex')}`,
+        itemBubbleId,
         invoiceId,
         vItem.description,
         1,
         -vItem.amount,
-        0,
         -vItem.amount,
         'voucher',
         101 
       ]
     );
+    createdItemIds.push(itemBubbleId);
   }
 
   // 4. EPP Fee Item
   if (eppFeeAmount > 0) {
+    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
-      `INSERT INTO invoice_new_item
-       (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      `INSERT INTO invoice_item
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
       [
-        `item_${crypto.randomBytes(8).toString('hex')}`,
+        itemBubbleId,
         invoiceId,
         `Bank Processing Fee (${eppFeeDescription})`,
         1,
         eppFeeAmount,
-        0,
         eppFeeAmount,
         'epp_fee',
         200
       ]
     );
+    createdItemIds.push(itemBubbleId);
   }
 
   // 5. Payment Structure Notice
   if (paymentStructure) {
+    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
-      `INSERT INTO invoice_new_item
-       (bubble_id, invoice_id, description, qty, unit_price,
-        discount_percent, total_price, item_type, sort_order, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+      `INSERT INTO invoice_item
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
       [
-        `item_${crypto.randomBytes(8).toString('hex')}`,
+        itemBubbleId,
         invoiceId,
         paymentStructure,
         1,
         0,
         0,
-        0,
         'notice',
         250
       ]
+    );
+    createdItemIds.push(itemBubbleId);
+  }
+
+  // Update Invoice with Linked Items (Legacy requirement)
+  if (createdItemIds.length > 0) {
+    await client.query(
+        `UPDATE invoice SET linked_invoice_item = $1 WHERE bubble_id = $2`,
+        [createdItemIds, invoiceId]
     );
   }
 }
@@ -810,14 +833,26 @@ async function getInvoiceByShareToken(client, shareToken) {
 
     const invoice = invoiceResult.rows[0];
 
-    // Get invoice items
+    // Get items (Legacy Table)
     const itemsResult = await client.query(
-      `SELECT * FROM invoice_new_item
-       WHERE invoice_id = $1
-       ORDER BY sort_order ASC, created_at ASC`,
+      `SELECT 
+        bubble_id,
+        linked_invoice as invoice_id,
+        description,
+        qty,
+        unit_price,
+        amount as total_price,
+        inv_item_type as item_type,
+        sort as sort_order,
+        created_at,
+        is_a_package,
+        linked_package as product_id,
+        description as product_name_snapshot
+       FROM invoice_item 
+       WHERE linked_invoice = $1 
+       ORDER BY sort ASC, created_at ASC`,
       [invoice.bubble_id]
     );
-
     invoice.items = itemsResult.rows;
 
     // Get package data for system size calculation
@@ -1413,8 +1448,8 @@ async function deleteSampleInvoices(client, userId) {
     const bubbleIds = targets.rows.map(r => r.bubble_id);
     const intIds = targets.rows.map(r => r.id);
 
-    // 2. Delete Linked Items (invoice_new_item)
-    await client.query(`DELETE FROM invoice_new_item WHERE invoice_id = ANY($1)`, [bubbleIds]);
+    // 2. Delete Linked Items (invoice_item)
+    await client.query(`DELETE FROM invoice_item WHERE linked_invoice = ANY($1)`, [bubbleIds]);
 
     // 3. Delete Snapshots (invoice_snapshot)
     await client.query(`DELETE FROM invoice_snapshot WHERE invoice_id = ANY($1)`, [intIds]);

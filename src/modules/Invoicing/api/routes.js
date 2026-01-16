@@ -224,9 +224,24 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
         // Attach to invoice object for frontend
         invoice.paid_amount = paidAmount;
 
-        // 3. Fetch Items
+        // 3. Fetch Items (Legacy Table)
         const itemsRes = await client.query(
-            'SELECT * FROM invoice_new_item WHERE invoice_id = $1 ORDER BY sort_order ASC',
+            `SELECT 
+                bubble_id,
+                linked_invoice as invoice_id,
+                description,
+                qty,
+                unit_price,
+                amount as total_price,
+                inv_item_type as item_type,
+                sort as sort_order,
+                created_at,
+                is_a_package,
+                linked_package as product_id,
+                description as product_name_snapshot
+             FROM invoice_item 
+             WHERE linked_invoice = $1 
+             ORDER BY sort ASC`,
             [bubbleId]
         );
 
