@@ -1173,113 +1173,44 @@ async function logCustomerHistory(client, customerId, oldData, userId) {
 }
 
 /**
- * Create invoice version transaction
+ * Update an existing invoice in place (Keep same UID)
  * @param {object} client - Database client
- * @param {object} data - Invoice data
- * @returns {Promise<object>} Created invoice
+ * @param {object} data - Update data
+ * @returns {Promise<object>} Updated invoice
  */
-async function createInvoiceVersionTransaction(client, data) {
-  // Validate userId exists
-  if (!data.userId) {
-    throw new Error('User ID is required.');
-  }
+async function updateInvoiceTransaction(client, data) {
+  if (!data.userId) throw new Error('User ID is required.');
+  if (!data.originalBubbleId) throw new Error('Invoice ID is required for update.');
 
-  if (!data.originalBubbleId) {
-    throw new Error('Original Invoice ID is required for versioning.');
-  }
+  const bubbleId = data.originalBubbleId;
 
   try {
-    // Start transaction
     await client.query('BEGIN');
 
-    // 1. Fetch original invoice to get package & base details
-    const orgResult = await client.query(
-      `SELECT * FROM invoice WHERE bubble_id = $1`,
-      [data.originalBubbleId]
-    );
-    if (orgResult.rows.length === 0) throw new Error('Original invoice not found');
+    // 1. Fetch current record to get package/base details if needed
+    const orgResult = await client.query('SELECT * FROM invoice WHERE bubble_id = $1', [bubbleId]);
+    if (orgResult.rows.length === 0) throw new Error('Invoice not found');
     const org = orgResult.rows[0];
 
-    // Mark OLD versions as not latest
-    const rootId = org.root_id || org.bubble_id;
-    await client.query(
-        `UPDATE invoice SET is_latest = false WHERE root_id = $1`,
-        [rootId]
-    );
+    // 2. Resolve Dependencies (Package & Agent)
+    const pkg = await getPackageById(client, data.packageId || org.linked_package);
+    if (!pkg) throw new Error(`Package not found`);
 
-    // Resolve Agent Profile
-    let linkedAgent = null;
-    try {
-      const userRes = await client.query(
-          'SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1',
-          [String(data.userId)]
-      );
-      if (userRes.rows.length > 0) {
-          linkedAgent = userRes.rows[0].linked_agent_profile;
-      }
-    } catch (e) {
-      console.warn('[DB] Agent lookup failed during invoice versioning for user', data.userId);
+    let linkedAgent = org.linked_agent;
+    if (!linkedAgent) {
+        const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [String(data.userId)]);
+        if (userRes.rows.length > 0) linkedAgent = userRes.rows[0].linked_agent_profile;
     }
 
-    // 2. Fetch Dependencies (Package from Original)
-    const pkg = await getPackageById(client, org.linked_package);
-    if (!pkg) throw new Error(`Original package ${org.linked_package} not found`);
-
-    // 2.5 Resolve Customer
-    // Use new data if provided, otherwise fallback to original
-    // IMPORTANT: If user clears the name, data.customerName might be null, but we usually keep original if not provided.
-    // However, the service layer passes what it gets.
-    
-    let customerName = data.customerName;
-    if (customerName === undefined) customerName = org.customer_name_snapshot;
-    
-    let customerPhone = data.customerPhone;
-    if (customerPhone === undefined) customerPhone = org.customer_phone_snapshot;
-
-    let customerAddress = data.customerAddress;
-    if (customerAddress === undefined) customerAddress = org.customer_address_snapshot;
-
-    // Resolve internal ID and update record if needed
+    // 3. Resolve/Update Customer
     let internalCustomerId = org.customer_id;
-    let customerBubbleId = null;
+    let customerBubbleId = org.linked_customer;
 
-    if (internalCustomerId) {
-        // Fetch existing customer
-        const custRes = await client.query('SELECT * FROM customer WHERE id = $1', [internalCustomerId]);
-        if (custRes.rows.length > 0) {
-            const existingCust = custRes.rows[0];
-            customerBubbleId = existingCust.customer_id;
-
-            // Check if update needed
-            // Use new values if provided, else keep existing (passed in data or fallback to snapshot was done above)
-            // But 'data.customerName' might be undefined if not in payload.
-            // Earlier: let customerName = data.customerName; if undefined ... = org.snapshot
-            // So customerName holds the INTENDED name for this version.
-            
-            const newName = customerName; 
-            const newPhone = customerPhone; 
-            const newAddress = customerAddress;
-
-            // Only update master profile if values differ
-            if (newName !== existingCust.name || newPhone !== existingCust.phone || newAddress !== existingCust.address) {
-                // Log History
-                await logCustomerHistory(client, internalCustomerId, existingCust, data.userId);
-                
-                // Update Master Profile
-                await client.query(
-                    `UPDATE customer 
-                     SET name = $1, phone = $2, address = $3, updated_at = NOW(), updated_by = $4 
-                     WHERE id = $5`,
-                    [newName, newPhone, newAddress, String(data.userId), internalCustomerId]
-                );
-            }
-        }
-    } else if (customerName) {
-        // Fallback for legacy invoices without linked customer ID
+    if (data.customerName) {
         const custResult = await findOrCreateCustomer(client, {
-            name: customerName,
-            phone: customerPhone,
-            address: customerAddress,
+            name: data.customerName,
+            phone: data.customerPhone || org.customer_phone_snapshot,
+            address: data.customerAddress || org.customer_address_snapshot,
             createdBy: data.userId
         });
         if (custResult) {
@@ -1288,123 +1219,80 @@ async function createInvoiceVersionTransaction(client, data) {
         }
     }
 
-    const customerData = {
-        id: internalCustomerId,
-        bubbleId: customerBubbleId,
-        name: customerName,
-        phone: customerPhone,
-        address: customerAddress
-    };
-
-    // 3. Process Vouchers (New or empty)
+    // 4. Calculate Financials
     const packagePrice = parseFloat(pkg.price) || 0;
     const voucherInfo = await _processVouchers(client, data, packagePrice);
-
-    // 4. Calculate Financials
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
 
-    // 5. Create Invoice Header (Versioned)
-    const newInvoice = await _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData, linkedAgent);
+    const {
+        taxableSubtotal, markupAmount, sstRate, sstAmount, 
+        percentDiscountVal, finalTotalAmount 
+    } = financials;
 
-    // 6. Create Line Items
-    await _createLineItems(client, newInvoice.bubble_id, data, financials, { pkg, linkedAgent }, voucherInfo);
+    // 5. UPDATE the invoice record
+    await client.query(
+        `UPDATE invoice SET
+            customer_id = $1,
+            linked_customer = $2,
+            linked_agent = $3,
+            customer_name_snapshot = $4,
+            customer_address_snapshot = $5,
+            customer_phone_snapshot = $6,
+            linked_package = $7,
+            package_name_snapshot = $8,
+            subtotal = $9,
+            agent_markup = $10,
+            sst_rate = $11,
+            sst_amount = $12,
+            discount_amount = $13,
+            discount_fixed = $14,
+            discount_percent = $15,
+            voucher_code = $16,
+            voucher_amount = $17,
+            total_amount = $18,
+            updated_at = NOW()
+         WHERE bubble_id = $19`,
+        [
+            internalCustomerId,
+            customerBubbleId,
+            linkedAgent,
+            data.customerName || org.customer_name_snapshot,
+            data.customerAddress || org.customer_address_snapshot,
+            data.customerPhone || org.customer_phone_snapshot,
+            pkg.bubble_id,
+            pkg.name || org.package_name_snapshot,
+            taxableSubtotal,
+            markupAmount,
+            sstRate,
+            sstAmount,
+            (data.discountFixed || 0) + percentDiscountVal,
+            data.discountFixed || 0,
+            data.discountPercent || 0,
+            voucherInfo.validVoucherCodes.join(', ') || null,
+            voucherInfo.totalVoucherAmount,
+            finalTotalAmount,
+            bubbleId
+        ]
+    );
 
-    // Commit transaction
+    // 6. Refresh Line Items (Delete and Re-create)
+    await client.query('DELETE FROM invoice_item WHERE linked_invoice = $1', [bubbleId]);
+    await _createLineItems(client, bubbleId, data, financials, { pkg, linkedAgent }, voucherInfo);
+
     await client.query('COMMIT');
 
-    // 7. Log Action with Snapshot (after commit)
-    const summary = `Created version ${newInvoice.version} from ${org.invoice_number}`;
-    const fullInvoiceData = await getInvoiceByBubbleId(client, newInvoice.bubble_id);
-    await snapshotService.captureSnapshot(client, fullInvoiceData, 'INVOICE_VERSIONED', data.userId, summary);
+    // 7. Capture snapshot for history
+    const fullInvoiceData = await getInvoiceByBubbleId(client, bubbleId);
+    await snapshotService.captureSnapshot(client, fullInvoiceData, 'INVOICE_UPDATED', data.userId, 'Manual update');
 
     return {
-      ...newInvoice,
-      items: [],
-      customerBubbleId: customerBubbleId // Return customer Bubble ID for SEDA service
+        ...fullInvoiceData,
+        customerBubbleId: customerBubbleId
     };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
-    console.error('Error creating invoice version:', err);
     throw err;
   }
-}
-
-/**
- * Helper: Insert the VERSIONED invoice record
- * @private
- */
-async function _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData, linkedAgent) {
-  const {
-    taxableSubtotal, markupAmount, sstRate, sstAmount, 
-    percentDiscountVal, finalTotalAmount 
-  } = financials;
-  
-  const { validVoucherCodes, totalVoucherAmount } = voucherInfo;
-  const { discountFixed = 0, discountPercent = 0, userId } = data;
-  const { id: customerId, bubbleId: customerBubbleId, name: customerName, address: customerAddress, phone: customerPhone } = customerData;
-
-  // Versioning Logic
-  let newInvoiceNumber = org.invoice_number;
-  const revMatch = newInvoiceNumber.match(/-R(\d+)$/);
-  if (revMatch) {
-    const currentRev = parseInt(revMatch[1]);
-    newInvoiceNumber = newInvoiceNumber.replace(/-R\d+$/, `-R${currentRev + 1}`);
-  } else {
-    newInvoiceNumber = `${newInvoiceNumber}-R1`;
-  }
-
-  const bubbleId = crypto.randomUUID().toString();
-  const shareToken = generateShareToken();
-  const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); 
-  const finalCreatedBy = String(userId);
-  const version = (org.version || 1) + 1;
-  const rootId = org.root_id || org.bubble_id;
-
-  const invoiceResult = await client.query(
-    `INSERT INTO invoice
-     (bubble_id, template_id, customer_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
-      customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
-      invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
-      discount_amount, discount_fixed, discount_percent, voucher_code,
-      voucher_amount, total_amount, status, share_token, share_enabled,
-      share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, NOW(), NOW(), $28, $29, $30, true)
-     RETURNING *`,
-    [
-      bubbleId,
-      org.template_id,
-      customerId,
-      customerBubbleId,
-      linkedAgent,
-      customerName || "Sample Quotation",
-      customerAddress || null,
-      customerPhone || null,
-      org.linked_package,
-      org.package_name_snapshot,
-      newInvoiceNumber,
-      new Date().toISOString().split('T')[0],
-      taxableSubtotal,
-      markupAmount,
-      sstRate,
-      sstAmount,
-      discountFixed + percentDiscountVal,
-      discountFixed,
-      discountPercent,
-      validVoucherCodes.join(', ') || null,
-      totalVoucherAmount,
-      finalTotalAmount,
-      'draft',
-      shareToken,
-      true,
-      shareExpiresAt.toISOString(),
-      finalCreatedBy,
-      version,
-      rootId,
-      org.bubble_id
-    ]
-  );
-
-  return invoiceResult.rows[0];
 }
 
 /**
@@ -1584,7 +1472,7 @@ module.exports = {
   recordInvoiceView,
   getInvoicesByUserId,
   getPublicVouchers,
-  createInvoiceVersionTransaction,
+  updateInvoiceTransaction,
   getInvoiceByBubbleId,
   reconstructInvoiceFromSnapshot,
   getInvoiceHistory,
