@@ -651,9 +651,11 @@ router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) 
     }
 
     const { bubbleId } = req.params;
-        const userId = req.user.userId;
-        console.log('[API] Creating version for:', bubbleId, 'Body:', JSON.stringify(req.body));
-        // Extract editable fields    const {
+    const userId = req.user.userId;
+    console.log('[API] Creating version for:', bubbleId, 'Body:', JSON.stringify(req.body));
+    
+    // Extract editable fields
+    const {
       discount_fixed,
       discount_percent,
       discount_given,
