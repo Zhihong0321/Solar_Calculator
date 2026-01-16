@@ -141,34 +141,20 @@
                     <p class="text-xs text-gray-600 mt-1">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p>
                 </div>
 
-                <!-- Hybrid Inverter Setup -->
+                <!-- Additional Items Section -->
                 <div class="bg-indigo-50 p-4 rounded-lg border-2 border-indigo-200">
-                    <h2 class="font-bold text-lg mb-3 text-gray-900">Hybrid Inverter Setup</h2>
-                    <div class="space-y-4">
-                        <!-- Item 1: SAJ Microinverter M2 1.8K -->
-                        <div class="flex justify-between items-center bg-white p-3 rounded border border-indigo-100 shadow-sm">
-                            <div class="flex-1">
-                                <div class="text-sm font-semibold text-gray-900">SAJ Microinverter M2 1.8K</div>
-                                <div class="text-xs text-gray-600">RM 1,000.00 each</div>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <button type="button" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold hover:bg-indigo-200 flex items-center justify-center transition-colors" onclick="updateExtraItemQty('inverter_1.8k', -1)">-</button>
-                                <span class="w-8 text-center font-bold text-gray-900" id="qty_inverter_1.8k">0</span>
-                                <button type="button" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold hover:bg-indigo-200 flex items-center justify-center transition-colors" onclick="updateExtraItemQty('inverter_1.8k', 1)">+</button>
-                            </div>
-                        </div>
-                        <!-- Item 2: SAJ Microinverter M2 1.0K -->
-                         <div class="flex justify-between items-center bg-white p-3 rounded border border-indigo-100 shadow-sm">
-                            <div class="flex-1">
-                                <div class="text-sm font-semibold text-gray-900">SAJ Microinverter M2 1.0K</div>
-                                <div class="text-xs text-gray-600">RM 500.00 each</div>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <button type="button" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold hover:bg-indigo-200 flex items-center justify-center transition-colors" onclick="updateExtraItemQty('inverter_1.0k', -1)">-</button>
-                                <span class="w-8 text-center font-bold text-gray-900" id="qty_inverter_1.0k">0</span>
-                                <button type="button" class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold hover:bg-indigo-200 flex items-center justify-center transition-colors" onclick="updateExtraItemQty('inverter_1.0k', 1)">+</button>
-                            </div>
-                        </div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-bold text-lg text-gray-900">Additional Items</h2>
+                        <button 
+                            type="button" 
+                            id="addManualItemBtn"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded shadow-sm transition-all"
+                        >
+                            + Add Item
+                        </button>
+                    </div>
+                    <div id="manualItemsContainer" class="space-y-3">
+                        <!-- Manual items will be added here -->
                     </div>
                 </div>
 
@@ -285,30 +271,90 @@
         let availableVouchers = [];
         let selectedVouchers = [];
 
-        // Extra Items Configuration
-        const EXTRA_ITEMS_CONFIG = {
-            'inverter_1.8k': { name: 'SAJ Microinverter M2 1.8K', price: 1000.00 },
-            'inverter_1.0k': { name: 'SAJ Microinverter M2 1.0K', price: 500.00 }
-        };
-        const extraItemsState = {
-            'inverter_1.8k': 0,
-            'inverter_1.0k': 0
-        };
+        // Dynamic Additional Items State
+        let manualItems = [];
 
         // Always in edit mode for this page
         window.isEditMode = true;
         window.editInvoiceId = null;
         window.currentAgentMarkup = 0;
 
-        // Update extra item quantity
-        window.updateExtraItemQty = function(id, delta) {
-            if (!extraItemsState.hasOwnProperty(id)) return;
-            const newQty = Math.max(0, extraItemsState[id] + delta);
-            extraItemsState[id] = newQty;
-            const qtyEl = document.getElementById(`qty_${id}`);
-            if (qtyEl) qtyEl.textContent = newQty;
+        // Add a new manual item row
+        function addManualItem(data = { description: '', qty: 1, unit_price: 0 }) {
+            const id = 'item_' + Math.random().toString(36).substr(2, 9);
+            manualItems.push({ id, ...data });
+            renderManualItems();
             updateInvoicePreview();
-        };
+        }
+
+        // Remove a manual item row
+        function removeManualItem(id) {
+            manualItems = manualItems.filter(item => item.id !== id);
+            renderManualItems();
+            updateInvoicePreview();
+        }
+
+        // Update a manual item value
+        function updateManualItem(id, field, value) {
+            const item = manualItems.find(i => i.id === id);
+            if (item) {
+                if (field === 'qty' || field === 'unit_price') {
+                    item[field] = parseFloat(value) || 0;
+                } else {
+                    item[field] = value;
+                }
+                updateInvoicePreview();
+            }
+        }
+
+        // Render the manual items list in UI
+        function renderManualItems() {
+            const container = document.getElementById('manualItemsContainer');
+            if (!container) return;
+            
+            if (manualItems.length === 0) {
+                container.innerHTML = '<p class="text-xs text-indigo-400 italic py-2 text-center">No additional items added.</p>';
+                return;
+            }
+
+            container.innerHTML = manualItems.map(item => `
+                <div class="bg-white p-3 rounded border border-indigo-100 shadow-sm space-y-2" data-id="${item.id}">
+                    <div class="flex gap-2">
+                        <input 
+                            type="text" 
+                            placeholder="Description (e.g. Inverter Change)" 
+                            class="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-500"
+                            value="${item.description}"
+                            onchange="updateManualItem('${item.id}', 'description', this.value)"
+                        >
+                        <button type="button" class="text-red-500 hover:text-red-700" onclick="removeManualItem('${item.id}')">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase">Qty</label>
+                            <input 
+                                type="number" 
+                                class="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-500"
+                                value="${item.qty}"
+                                onchange="updateManualItem('${item.id}', 'qty', this.value)"
+                            >
+                        </div>
+                        <div class="flex-[2]">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase">Unit Price (RM)</label>
+                            <input 
+                                type="number" 
+                                step="0.01"
+                                class="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-500"
+                                value="${item.unit_price}"
+                                onchange="updateManualItem('${item.id}', 'unit_price', this.value)"
+                            >
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
 
         // Fetch available vouchers
         async function fetchVouchers() {
@@ -886,21 +932,19 @@
             let subtotal = packagePrice;
 
             // Add Extra Items
-            Object.keys(extraItemsState).forEach(key => {
-                const qty = extraItemsState[key];
-                if (qty > 0) {
-                    const config = EXTRA_ITEMS_CONFIG[key];
-                    const itemTotal = qty * config.price;
-                    const item = document.createElement('div');
-                    item.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-                    item.innerHTML = `
+            manualItems.forEach(item => {
+                if (item.qty > 0) {
+                    const itemTotal = item.qty * item.unit_price;
+                    const el = document.createElement('div');
+                    el.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+                    el.innerHTML = `
                         <div class="flex-1">
-                            <div class="font-medium text-gray-900">${config.name}</div>
-                            <div class="text-sm text-gray-600">${qty} × RM ${config.price.toFixed(2)}</div>
+                            <div class="font-medium text-gray-900">${item.description || 'Unnamed Item'}</div>
+                            <div class="text-sm text-gray-600">${item.qty} × RM ${item.unit_price.toFixed(2)}</div>
                         </div>
                         <div class="font-semibold text-gray-900">RM ${itemTotal.toFixed(2)}</div>
                     `;
-                    itemsList.appendChild(item);
+                    itemsList.appendChild(el);
                     subtotal += itemTotal;
                 }
             });
@@ -1107,15 +1151,17 @@
                     // 5. Markup (Preserve)
                     window.currentAgentMarkup = inv.agent_markup || 0;
 
-                    // 6. Extra Items (Microinverters)
+                    // 6. Extra/Manual Items
                     if (inv.items) {
                         inv.items.forEach(item => {
-                            if (item.item_type === 'extra') {
-                                if (item.description.includes('1.8K')) {
-                                    updateExtraItemQty('inverter_1.8k', parseFloat(item.qty));
-                                } else if (item.description.includes('1.0K')) {
-                                    updateExtraItemQty('inverter_1.0k', parseFloat(item.qty));
-                                }
+                            // We treat 'extra' type OR items with NO type (except package/discount/voucher) as manual items
+                            const type = (item.item_type || '').toLowerCase();
+                            if (type === 'extra' || (!type && !item.is_a_package)) {
+                                addManualItem({
+                                    description: item.description,
+                                    qty: parseFloat(item.qty) || 1,
+                                    unit_price: parseFloat(item.unit_price) || 0
+                                });
                             }
                         });
                     }
@@ -1150,6 +1196,12 @@
                 console.error(err);
                 showError('Error loading invoice: ' + err.message);
                 document.getElementById('warningMessage').classList.add('hidden');
+            }
+
+            // Manual Item Listener
+            const addManualItemBtn = document.getElementById('addManualItemBtn');
+            if (addManualItemBtn) {
+                addManualItemBtn.addEventListener('click', () => addManualItem());
             }
 
             // Voucher listeners
@@ -1262,20 +1314,13 @@
             // Calculate EPP fees
             const eppData = calculateAllEPPFees();
             
-            // Prepare extra items
-            const extraItems = [];
-            Object.keys(extraItemsState).forEach(key => {
-                const qty = extraItemsState[key];
-                if (qty > 0) {
-                    const config = EXTRA_ITEMS_CONFIG[key];
-                    extraItems.push({
-                        description: config.name,
-                        qty: qty,
-                        unit_price: config.price,
-                        total_price: qty * config.price
-                    });
-                }
-            });
+            // Prepare extra items (Manual Items)
+            const extraItems = manualItems.map(item => ({
+                description: item.description,
+                qty: item.qty,
+                unit_price: item.unit_price,
+                total_price: item.qty * item.unit_price
+            }));
 
             // Prepare request data
             const requestData = {
