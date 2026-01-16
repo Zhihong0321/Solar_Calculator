@@ -119,9 +119,15 @@
                 <section class="section-card">
                     <div class="section-header">
                         <h2 class="section-title">Payment Section</h2>
-                        <button onclick="goToPayment()" class="btn-action btn-primary">Submit Payment</button>
+                        <div id="paymentActionContainer">
+                            <button onclick="goToPayment()" class="btn-action btn-primary">Submit Payment</button>
+                        </div>
                     </div>
                     <div class="p-4 space-y-4">
+                        <div id="fullyPaidIndicator" class="hidden mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center gap-3">
+                            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span class="text-emerald-800 font-black uppercase tracking-widest text-sm">Fully Paid</span>
+                        </div>
                         <div class="space-y-2">
                             <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Verified Payments</h3>
                             <div id="verifiedPaymentsList" class="space-y-2">
@@ -134,7 +140,7 @@
                                 <p class="text-xs text-slate-400 italic">No pending submissions.</p>
                             </div>
                         </div>
-                        <div class="pt-4 mt-2">
+                        <div id="newPaymentActionContainer" class="pt-4 mt-2">
                             <button onclick="goToPayment()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                                 Submit New Payment
@@ -325,10 +331,29 @@
         }
 
         function renderStats(inv) {
-            document.getElementById('mainTotalAmount').textContent = formatCurrency(inv.total_amount);
-            document.getElementById('mainPaidAmount').textContent = formatCurrency(inv.paid_amount);
+            const total = parseFloat(inv.total_amount) || 0;
+            const paid = parseFloat(inv.paid_amount || 0);
+            const isFullyPaid = paid >= total && total > 0;
+
+            document.getElementById('mainTotalAmount').textContent = formatCurrency(total);
+            document.getElementById('mainPaidAmount').textContent = formatCurrency(paid);
             document.getElementById('mainInvoiceDate').textContent = formatDate(inv.invoice_date);
             document.getElementById('mainAddress').textContent = inv.customer_address || '-';
+
+            // Fully Paid UI Logic
+            const indicator = document.getElementById('fullyPaidIndicator');
+            const submitBtn1 = document.getElementById('paymentActionContainer');
+            const submitBtn2 = document.getElementById('newPaymentActionContainer');
+
+            if (isFullyPaid) {
+                indicator.classList.remove('hidden');
+                submitBtn1.classList.add('hidden');
+                submitBtn2.classList.add('hidden');
+            } else {
+                indicator.classList.add('hidden');
+                submitBtn1.classList.remove('hidden');
+                submitBtn2.classList.remove('hidden');
+            }
         }
 
         function renderPayments(payments) {
