@@ -564,7 +564,7 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
 
     const userId = req.user.userId;
     const {
-      package_id,
+      linked_package,
       discount_fixed,
       discount_percent,
       discount_given,
@@ -585,7 +585,7 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
     // Create invoice with userId
     const result = await invoiceService.createInvoice(pool, {
       userId: userId,
-      packageId: package_id,
+      packageId: linked_package,
       discountFixed: discount_fixed,
       discountPercent: discount_percent,
       discountGiven: discount_given,
@@ -1510,7 +1510,7 @@ router.post('/api/debug/recompile-snapshots', requireDebugPasskey, async (req, r
                 package_name_snapshot = p.package_name,
                 updated_at = NOW()
             FROM package p
-            WHERE invoice.package_id = p.bubble_id
+            WHERE invoice.linked_package = p.bubble_id
             AND (invoice.package_name_snapshot IS NULL OR invoice.package_name_snapshot = '')
         `);
 

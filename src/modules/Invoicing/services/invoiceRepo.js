@@ -356,7 +356,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
        FROM invoice i 
        LEFT JOIN customer c ON i.customer_id = c.id
-       LEFT JOIN package pkg ON i.package_id = pkg.bubble_id
+       LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
        WHERE i.bubble_id = $1`,
       [bubbleId]
     );
@@ -390,7 +390,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     const parallelQueries = [];
 
     // Query 3: Get package data for system size calculation
-    if (invoice.package_id) {
+    if (invoice.linked_package) {
       parallelQueries.push(
         (async () => {
           const packageResult = await client.query(
@@ -401,7 +401,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
                OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
              )
              WHERE p.bubble_id = $1`,
-            [invoice.package_id]
+            [invoice.linked_package]
           );
           if (packageResult.rows.length > 0) {
             const packageData = packageResult.rows[0];
@@ -537,7 +537,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const invoiceResult = await client.query(
     `INSERT INTO invoice
      (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
-      customer_phone_snapshot, package_id, package_name_snapshot, invoice_number,
+      customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
@@ -617,7 +617,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         await client.query(
             `INSERT INTO invoice_item
              (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
             [
                 itemBubbleId,
                 invoiceId,
@@ -626,7 +626,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
                 item.unit_price || 0,
                 item.total_price || 0,
                 'extra',
-                extraItemSortOrder++
+                extraItemSortOrder++,
+                false
             ]
         );
         createdItemIds.push(itemBubbleId);
@@ -640,7 +641,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_item
        (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -649,7 +650,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         -discountFixed,
         -discountFixed,
         'discount',
-        sortOrder++
+        sortOrder++,
+        false
       ]
     );
     createdItemIds.push(itemBubbleId);
@@ -660,7 +662,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_item
        (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -669,7 +671,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         -percentDiscountVal,
         -percentDiscountVal,
         'discount',
-        sortOrder++
+        sortOrder++,
+        false
       ]
     );
     createdItemIds.push(itemBubbleId);
@@ -681,7 +684,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_item
        (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -690,7 +693,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         -vItem.amount,
         -vItem.amount,
         'voucher',
-        101 
+        101,
+        false
       ]
     );
     createdItemIds.push(itemBubbleId);
@@ -702,7 +706,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_item
        (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -711,7 +715,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         eppFeeAmount,
         eppFeeAmount,
         'epp_fee',
-        200
+        200,
+        false
       ]
     );
     createdItemIds.push(itemBubbleId);
@@ -723,7 +728,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await client.query(
       `INSERT INTO invoice_item
        (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), false)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -732,7 +737,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         0,
         0,
         'notice',
-        250
+        250,
+        false
       ]
     );
     createdItemIds.push(itemBubbleId);
@@ -819,7 +825,7 @@ async function getInvoiceByShareToken(client, shareToken) {
         COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
        FROM invoice i
        LEFT JOIN customer c ON i.customer_id = c.id
-       LEFT JOIN package pkg ON i.package_id = pkg.bubble_id
+       LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
        WHERE i.share_token = $1
          AND i.share_enabled = true
          AND (i.share_expires_at IS NULL OR i.share_expires_at > NOW())
@@ -856,7 +862,7 @@ async function getInvoiceByShareToken(client, shareToken) {
     invoice.items = itemsResult.rows;
 
     // Get package data for system size calculation
-    if (invoice.package_id) {
+    if (invoice.linked_package) {
       const packageResult = await client.query(
         `SELECT p.panel_qty, p.panel, pr.solar_output_rating
          FROM package p
@@ -865,7 +871,7 @@ async function getInvoiceByShareToken(client, shareToken) {
            OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
          )
          WHERE p.bubble_id = $1`,
-        [invoice.package_id]
+        [invoice.linked_package]
       );
       if (packageResult.rows.length > 0) {
         const packageData = packageResult.rows[0];
@@ -1036,7 +1042,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
 
         FROM invoice i
         LEFT JOIN customer c ON i.customer_id = c.id
-        LEFT JOIN package pkg ON i.package_id = pkg.bubble_id
+        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
         WHERE i.linked_agent = $1 
         AND i.is_latest = true 
         AND (i.status != 'deleted' OR i.status IS NULL)
@@ -1180,8 +1186,8 @@ async function createInvoiceVersionTransaction(client, data) {
     );
 
     // 2. Fetch Dependencies (Package from Original)
-    const pkg = await getPackageById(client, org.package_id);
-    if (!pkg) throw new Error(`Original package ${org.package_id} not found`);
+    const pkg = await getPackageById(client, org.linked_package);
+    if (!pkg) throw new Error(`Original package ${org.linked_package} not found`);
 
     // 2.5 Resolve Customer
     // Use new data if provided, otherwise fallback to original
@@ -1320,7 +1326,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
   const invoiceResult = await client.query(
     `INSERT INTO invoice
      (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
-      customer_phone_snapshot, package_id, package_name_snapshot, invoice_number,
+      customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
@@ -1334,7 +1340,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       customerName || "Sample Quotation",
       customerAddress || null,
       customerPhone || null,
-      org.package_id,
+      org.linked_package,
       org.package_name_snapshot,
       newInvoiceNumber,
       new Date().toISOString().split('T')[0],

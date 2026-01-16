@@ -90,7 +90,7 @@
 
             <!-- Quotation Details Form -->
             <form id="quotationForm" class="space-y-4">
-                <input type="hidden" name="package_id" id="packageIdHidden">
+                <input type="hidden" name="linked_package" id="packageIdHidden">
                 <input type="hidden" name="template_id" id="templateIdHidden">
                 <input type="hidden" id="packagePrice" value="0">
                 <input type="hidden" id="packageName" value="">
@@ -1079,8 +1079,9 @@
                     document.getElementById('warningMessage').classList.add('hidden');
                     
                     // 1. Load Package
-                    if (inv.package_id) {
-                        await fetchPackageDetails(inv.package_id);
+                    const invPackageId = inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id;
+                    if (invPackageId) {
+                        await fetchPackageDetails(invPackageId);
                     } else {
                         // Handle case where package is missing
                         document.getElementById('quotationFormContainer').classList.remove('hidden');
@@ -1278,7 +1279,7 @@
 
             // Prepare request data
             const requestData = {
-                package_id: data.package_id,
+                linked_package: data.linked_package,
                 template_id: data.template_id || null,
                 customer_name: data.customer_name || null,
                 customer_phone: data.customer_phone || null,
