@@ -1081,6 +1081,12 @@
                     // 1. Load Package
                     if (inv.package_id) {
                         await fetchPackageDetails(inv.package_id);
+                    } else {
+                        // Handle case where package is missing
+                        document.getElementById('quotationFormContainer').classList.remove('hidden');
+                        document.getElementById('packageNameDisplay').textContent = 'No Package Linked';
+                        document.getElementById('packagePriceDisplay').textContent = 'RM 0.00';
+                        updateInvoicePreview();
                     }
                     
                     // 2. Pre-fill Customer Info from Live Data
