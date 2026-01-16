@@ -62,7 +62,7 @@ The `snapshot` field is a complete representation of the invoice state including
   "customer_name_snapshot": "Test User",
   "customer_phone_snapshot": null,
   "customer_address_snapshot": null,
-  "package_id": "1703833647950x572894707690242050",
+  "linked_package": "1703833647950x572894707690242050",
   "package_name_snapshot": "STRING SAJ JINKO 8 PCS",
   "invoice_date": "2025-12-29T00:00:00.000Z",
   "subtotal": "18276.00",
@@ -125,7 +125,7 @@ The `snapshot` field is a complete representation of the invoice state including
 | customer_name_snapshot | text/null | Customer name at time of action |
 | customer_phone_snapshot | text/null | Customer phone at time of action |
 | customer_address_snapshot | text/null | Customer address at time of action |
-| package_id | string/null | Package bubble_id |
+| linked_package | string/null | Package bubble_id |
 | package_name_snapshot | text/null | Package name at time of action |
 | invoice_date | timestamp | Invoice date |
 | subtotal | numeric | Base amount before discounts/SST |

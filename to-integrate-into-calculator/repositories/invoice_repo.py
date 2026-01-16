@@ -87,7 +87,7 @@ class InvoiceRepository:
     
     def create_on_the_fly(
         self,
-        package_id: str,
+        linked_package: str,
         discount_fixed: Decimal = Decimal(0),
         discount_percent: Decimal = Decimal(0),
         apply_sst: bool = False,
@@ -105,10 +105,10 @@ class InvoiceRepository:
         
         # 1. Fetch Package
         package = self.db.query(Package).filter(
-            Package.bubble_id == package_id
+            Package.bubble_id == linked_package
         ).first()
         if not package:
-            raise ValueError(f"Package not found: {package_id}")
+            raise ValueError(f"Package not found: {linked_package}")
         
         # 2. Handle Customer
         customer_id = None
@@ -185,7 +185,7 @@ class InvoiceRepository:
             customer_phone_snapshot=cust_phone_snapshot,
             customer_address_snapshot=cust_address_snapshot,
             customer_email_snapshot=cust_email_snapshot,
-            package_id=package_id,
+            linked_package=linked_package,
             package_name_snapshot=(
                 package.name if hasattr(package, 'name') 
                 else (package.invoice_desc or f"Package {package.bubble_id}")

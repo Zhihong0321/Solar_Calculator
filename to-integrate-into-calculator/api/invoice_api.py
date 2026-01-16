@@ -60,7 +60,7 @@ async def create_invoice_on_the_fly(
     
     try:
         invoice = invoice_repo.create_on_the_fly(
-            package_id=request_data.package_id,
+            linked_package=request_data.linked_package or request_data.package_id,
             discount_fixed=final_discount_fixed,
             discount_percent=final_discount_percent,
             apply_sst=request_data.apply_sst,

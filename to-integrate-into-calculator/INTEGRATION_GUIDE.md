@@ -106,8 +106,9 @@ base_url = "https://calculator.atap.solar"  # Your calculator domain
 ### 6.1 Test the Invoice Creation Page
 
 1. Start your calculator app
-2. Navigate to: `http://localhost:PORT/create-invoice?package_id=YOUR_PACKAGE_ID`
+2. Navigate to: `http://localhost:PORT/create-invoice?linked_package=YOUR_PACKAGE_ID`
 3. You should see the invoice creation form
+   (Note: `?package_id=` is also supported for backward compatibility)
 
 ### 6.2 Test Invoice Creation API
 
@@ -115,7 +116,7 @@ base_url = "https://calculator.atap.solar"  # Your calculator domain
 curl -X POST "http://localhost:PORT/api/v1/invoices/on-the-fly" \
   -H "Content-Type: application/json" \
   -d '{
-    "package_id": "YOUR_PACKAGE_ID",
+    "linked_package": "YOUR_PACKAGE_ID",
     "customer_name": "Test Customer",
     "discount_given": "500 10%",
     "apply_sst": false
@@ -124,16 +125,16 @@ curl -X POST "http://localhost:PORT/api/v1/invoices/on-the-fly" \
 
 ### 6.3 Update Calculator Links
 
-In your calculator app, update any links that point to `quote.atap.solar/create-invoice` to point to your own domain:
+In your calculator app, update any links that point to `quote.atap.solar/create-invoice` to point to your own domain and use `linked_package`:
 
 ```python
 # OLD:
 invoice_url = f"https://quote.atap.solar/create-invoice?package_id={package_id}"
 
 # NEW:
-invoice_url = f"https://calculator.atap.solar/create-invoice?package_id={package_id}"
+invoice_url = f"https://calculator.atap.solar/create-invoice?linked_package={package_id}"
 # Or if using relative URLs:
-invoice_url = f"/create-invoice?package_id={package_id}"
+invoice_url = f"/create-invoice?linked_package={package_id}"
 ```
 
 ## Step 7: Optional Customizations
@@ -167,7 +168,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # In create_invoice_on_the_fly:
-logger.info(f"Invoice created: {invoice.invoice_number} for package {package_id}")
+logger.info(f"Invoice created: {invoice.invoice_number} for package {effective_package_id}")
 ```
 
 ## Troubleshooting
@@ -182,7 +183,7 @@ logger.info(f"Invoice created: {invoice.invoice_number} for package {package_id}
 
 ### Issue: Package not found
 
-**Solution:** Verify the `package_id` exists in the `package` table and your database connection is working.
+**Solution:** Verify the `linked_package` exists in the `package` table and your database connection is working.
 
 ### Issue: Import errors
 
@@ -198,7 +199,7 @@ logger.info(f"Invoice created: {invoice.invoice_number} for package {package_id}
 - [ ] Invoice creation page loads
 - [ ] Invoice creation API works
 - [ ] Calculator links updated to use new URL
-- [ ] Tested with real package_id
+- [ ] Tested with real linked_package
 - [ ] Invoice share link works
 
 ## Support
@@ -208,7 +209,7 @@ If you encounter issues:
 2. Verify database connection
 3. Ensure all dependencies are installed
 4. Check that database tables exist
-5. Verify package_id exists in database
+5. Verify linked_package exists in database
 
 ## Next Steps
 

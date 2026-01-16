@@ -23,7 +23,7 @@ class InvoiceNew(Base):
     customer_email_snapshot = Column(String)
     agent_id = Column(String)
     agent_name_snapshot = Column(String)
-    package_id = Column(String)
+    linked_package = Column(String)
     package_name_snapshot = Column(String)
     invoice_number = Column(String, unique=True, nullable=False, index=True)
     invoice_date = Column(String, nullable=False)

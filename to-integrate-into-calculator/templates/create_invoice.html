@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <title>Create Invoice</title>
@@ -65,11 +65,11 @@
             <form method="GET" action="/create-invoice" class="flex gap-2">
                 <input 
                     type="text" 
-                    name="package_id" 
+                    name="linked_package" 
                     placeholder="Enter Package ID" 
                     required
                     class="flex-1 border-2 border-gray-300 rounded px-4 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
-                    value="{{ package_id or '' }}"
+                    value="{{ linked_package or '' }}"
                 >
                 <button 
                     type="submit" 
@@ -121,7 +121,7 @@
 
             <!-- Invoice Details Form -->
             <form id="invoiceForm" class="space-y-4">
-                <input type="hidden" name="package_id" value="{{ package.bubble_id }}">
+                <input type="hidden" name="linked_package" value="{{ package.bubble_id }}">
                 <input type="hidden" name="template_id" value="{{ template_id or '' }}">
                 <input type="hidden" id="packagePrice" value="{{ package.price }}">
                 <input type="hidden" id="packageName" value="{% if package.name %}{{ package.name }}{% elif package.invoice_desc %}{{ package.invoice_desc }}{% else %}Package {{ package.bubble_id }}{% endif %}">
@@ -766,7 +766,7 @@
             
             // Prepare request data
             const requestData = {
-                package_id: data.package_id,
+                linked_package: data.linked_package,
                 template_id: data.template_id || null,
                 customer_name: data.customer_name || null,
                 customer_phone: data.customer_phone || null,

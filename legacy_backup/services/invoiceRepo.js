@@ -200,12 +200,13 @@ async function findOrCreateCustomer(client, data) {
  * @private
  */
 async function _fetchDependencies(client, data) {
-  const { userId, packageId, customerName, customerPhone, customerAddress, templateId } = data;
+  const { userId, linkedPackage, packageId, customerName, customerPhone, customerAddress, templateId } = data;
 
   // 1. Get package details
-  const pkg = await getPackageById(client, packageId);
+  const effectivePackageId = linkedPackage || packageId;
+  const pkg = await getPackageById(client, effectivePackageId);
   if (!pkg) {
-    throw new Error(`Package with ID '${packageId}' not found`);
+    throw new Error(`Package with ID '${effectivePackageId}' not found`);
   }
 
   // 2. Handle Customer
@@ -364,7 +365,8 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     const parallelQueries = [];
 
     // Query 3: Get package data for system size calculation
-    if (invoice.package_id) {
+    const effectivePackageId = invoice.linked_package || invoice.legacy_pid_to_be_deleted || invoice.package_id;
+    if (effectivePackageId) {
       parallelQueries.push(
         (async () => {
           const packageResult = await client.query(
@@ -375,7 +377,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
                OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
              )
              WHERE p.bubble_id = $1`,
-            [invoice.package_id]
+            [effectivePackageId]
           );
           if (packageResult.rows.length > 0) {
             const packageData = packageResult.rows[0];
@@ -511,7 +513,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const invoiceResult = await client.query(
     `INSERT INTO invoice
      (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
-      customer_phone_snapshot, package_id, package_name_snapshot, invoice_number,
+      customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
@@ -799,7 +801,8 @@ async function getInvoiceByShareToken(client, shareToken) {
     invoice.items = itemsResult.rows;
 
     // Get package data for system size calculation
-    if (invoice.package_id) {
+    const effectivePackageId = invoice.linked_package || invoice.legacy_pid_to_be_deleted || invoice.package_id;
+    if (effectivePackageId) {
       const packageResult = await client.query(
         `SELECT p.panel_qty, p.panel, pr.solar_output_rating
          FROM package p
@@ -808,7 +811,7 @@ async function getInvoiceByShareToken(client, shareToken) {
            OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
          )
          WHERE p.bubble_id = $1`,
-        [invoice.package_id]
+        [effectivePackageId]
       );
       if (packageResult.rows.length > 0) {
         const packageData = packageResult.rows[0];
@@ -1063,8 +1066,9 @@ async function createInvoiceVersionTransaction(client, data) {
     );
 
     // 2. Fetch Dependencies (Package from Original)
-    const pkg = await getPackageById(client, org.package_id);
-    if (!pkg) throw new Error(`Original package ${org.package_id} not found`);
+    const effectivePackageId = org.linked_package || org.legacy_pid_to_be_deleted || org.package_id;
+    const pkg = await getPackageById(client, effectivePackageId);
+    if (!pkg) throw new Error(`Original package ${effectivePackageId} not found`);
 
     // 2.5 Resolve Customer
     // Use new data if provided, otherwise fallback to original
@@ -1184,7 +1188,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
   const invoiceResult = await client.query(
     `INSERT INTO invoice
      (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
-      customer_phone_snapshot, package_id, package_name_snapshot, invoice_number,
+      customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
@@ -1198,7 +1202,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       customerName || "Sample Quotation",
       customerAddress || null,
       customerPhone || null,
-      org.package_id,
+      org.linked_package || org.legacy_pid_to_be_deleted || org.package_id,
       org.package_name_snapshot,
       newInvoiceNumber,
       new Date().toISOString().split('T')[0],

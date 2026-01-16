@@ -56,14 +56,16 @@ Use this checklist to ensure a complete and successful integration.
 
 - [ ] Start calculator app locally
 - [ ] Test invoice creation page loads: `/create-invoice`
-- [ ] Test with package_id parameter: `/create-invoice?package_id=TEST_ID`
+- [ ] Test with linked_package parameter: `/create-invoice?linked_package=TEST_ID`
+- [ ] Test with legacy package_id parameter: `/create-invoice?package_id=TEST_ID`
 - [ ] Test package lookup works
 - [ ] Test invoice creation form submission
 - [ ] Test API endpoint: `POST /api/v1/invoices/on-the-fly`
 - [ ] Verify invoice created in database
 - [ ] Verify invoice share link works
-- [ ] Test with real package_id from database
-- [ ] Test error handling (invalid package_id, etc.)
+- [ ] Test with real package ID from database
+- [ ] Test error handling (invalid package ID, etc.)
+- [ ] Verify linked_package exists in database
 
 ## Database Verification
 
@@ -100,7 +102,7 @@ If issues occur:
 - [ ] Verify database connection
 - [ ] Verify all imports are correct
 - [ ] Verify template path is correct
-- [ ] Verify package_id exists in database
+- [ ] Verify linked_package exists in database
 - [ ] Check INTEGRATION_GUIDE.md troubleshooting section
 
 ## Completion

@@ -40,6 +40,16 @@ const getAbsoluteUrl = (req, filename) => {
   return `${protocol}://${host}/uploads/chat_uploads/${filename}`;
 };
 
+exports.getAllThreads = async (req, res) => {
+  try {
+    const threads = await chatService.getChatThreads();
+    res.json({ success: true, threads });
+  } catch (err) {
+    console.error('Get All Threads Error:', err);
+    res.status(500).json({ error: 'Failed to load chat threads' });
+  }
+};
+
 exports.getChatHistory = async (req, res) => {
   try {
     const { invoiceId } = req.params;

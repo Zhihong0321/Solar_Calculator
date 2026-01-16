@@ -84,7 +84,8 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     // Queries 3,4,5: Run in parallel if independent
     const queryPromises = [];
 
-    if (invoice.package_id) {
+    const effectivePackageId = invoice.linked_package || invoice.package_id;
+    if (effectivePackageId) {
       queryPromises.push(
         client.query(`SELECT p.panel_qty, p.panel, pr.solar_output_rating
          FROM package p
@@ -93,7 +94,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
            OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
          )
          WHERE p.bubble_id = $1`,
-        [invoice.package_id]
+        [effectivePackageId]
         ).then(res => {
           if (res.rows.length > 0) {
             const packageData = res.rows[0];

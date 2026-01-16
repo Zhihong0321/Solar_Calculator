@@ -64,6 +64,62 @@ async function captureSnapshot(client, invoiceData, actionType, userId, descript
     }
 }
 
+/**
+ * Capture a literal 'photocopy' snapshot of an invoice
+ * Stores simplified, human-readable text and values for legal history.
+ */
+async function captureFlatSnapshot(client, invoiceData, actionType, userId) {
+    if (!invoiceData || !invoiceData.bubble_id) return null;
+
+    // Compile the 'Photocopy'
+    const photocopy = {
+        meta: {
+            action: actionType,
+            timestamp: new Date().toISOString(),
+            operator_id: userId,
+            invoice_uid: invoiceData.bubble_id,
+            invoice_number: invoiceData.invoice_number,
+            version_label: invoiceData.version ? `R${invoiceData.version}` : 'R1'
+        },
+        legal_header: {
+            customer_name: invoiceData.customer_name_snapshot || 'Sample Quotation',
+            customer_address: invoiceData.customer_address_snapshot || 'N/A',
+            customer_phone: invoiceData.customer_phone_snapshot || 'N/A',
+            package_name: invoiceData.package_name_snapshot || 'N/A'
+        },
+        line_items: (invoiceData.items || []).map(item => ({
+            description: item.description,
+            qty: item.qty,
+            unit_price: item.unit_price,
+            total: item.total_price || item.amount
+        })),
+        financials: {
+            subtotal: invoiceData.subtotal,
+            discount_fixed: invoiceData.discount_fixed,
+            discount_percent: invoiceData.discount_percent,
+            voucher_amount: invoiceData.voucher_amount,
+            sst_amount: invoiceData.sst_amount,
+            total_amount: invoiceData.total_amount
+        }
+    };
+
+    try {
+        const invoiceIntId = invoiceData.id;
+        if (!invoiceIntId) return null;
+
+        await client.query(
+            `INSERT INTO invoice_snapshot (invoice_id, version, snapshot_data, created_by, created_at)
+             VALUES ($1, $2, $3, $4, NOW())`,
+            [invoiceIntId, invoiceData.version || 1, JSON.stringify(photocopy), String(userId)]
+        );
+        return true;
+    } catch (err) {
+        console.error('[SnapshotService] Flat Snapshot Failed:', err);
+        return false;
+    }
+}
+
 module.exports = {
-    captureSnapshot
+    captureSnapshot,
+    captureFlatSnapshot
 };

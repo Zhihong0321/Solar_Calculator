@@ -78,7 +78,7 @@ If you encounter issues:
 - Verify database connection
 - Ensure all dependencies are installed
 - Check that database tables exist
-- Verify package_id exists in database
+- Verify linked_package exists in database
 
 ## Notes
 

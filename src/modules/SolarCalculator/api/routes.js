@@ -106,7 +106,7 @@ router.get('/api/product-info', async (req, res) => {
     const productDataQuery = 'SELECT * FROM product LIMIT 10';
     const productDataResult = await client.query(productDataQuery);
     const relationshipQuery = `
-      SELECT p.id as package_id, p.package_name, p.panel_qty, p.panel, pr.id as product_id, pr.solar_output_rating
+      SELECT p.id as linked_package, p.package_name, p.panel_qty, p.panel, pr.id as product_id, pr.solar_output_rating
       FROM package p
       LEFT JOIN product pr ON p.panel = pr.id
       WHERE p.active = true LIMIT 10;`;

@@ -57,9 +57,13 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Chat Page Route
+// Chat Page Routes
 app.get('/invoice-chat', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'invoice_chat.html'));
+});
+
+app.get('/chat-dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'chat_dashboard.html'));
 });
 
 // API endpoint to test database connection (Core Health)

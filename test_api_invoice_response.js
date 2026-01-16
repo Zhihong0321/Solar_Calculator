@@ -53,24 +53,25 @@ async function check() {
       return;
     }
 
-    // Log package_id specifically
-    console.log('inv.package_id:', invoice.package_id);
-    console.log('inv.package_id type:', typeof invoice.package_id);
-    console.log('inv.package_id === null:', invoice.package_id === null);
-    console.log('inv.package_id === undefined:', invoice.package_id === undefined);
-    console.log('!!inv.package_id:', !!invoice.package_id);
+    // Log package identifiers specifically
+    console.log('inv.linked_package:', invoice.linked_package);
+    console.log('inv.legacy_pid_to_be_deleted:', invoice.legacy_pid_to_be_deleted);
+    console.log('inv.package_id (original):', invoice.package_id);
+    console.log('inv.linked_package type:', typeof invoice.linked_package);
+    console.log('inv.linked_package === null:', invoice.linked_package === null);
+    console.log('!!inv.linked_package:', !!invoice.linked_package);
 
     // Log all keys for inspection
     console.log('\n=== All invoice fields ===');
     console.log(Object.keys(invoice).sort());
 
-    // Simulate the frontend check: if (inv.package_id)
+    // Simulate the frontend check: if (inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id)
     console.log('\n=== Frontend condition check ===');
-    if (invoice.package_id) {
-      console.log('✓ if (inv.package_id) is TRUE');
+    if (invoice.linked_package || invoice.legacy_pid_to_be_deleted || invoice.package_id) {
+      console.log('✓ if (inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id) is TRUE');
       console.log('  fetchPackageDetails() would be called');
     } else {
-      console.log('✗ if (inv.package_id) is FALSE');
+      console.log('✗ if (inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id) is FALSE');
       console.log('  fetchPackageDetails() would NOT be called');
       console.log('  This is why packageIdForm might be shown!');
     }

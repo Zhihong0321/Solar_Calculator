@@ -62,14 +62,14 @@ Find all places in your calculator that generate invoice links:
 invoice_url = f"https://quote.atap.solar/create-invoice?package_id={package_id}"
 
 # NEW:
-invoice_url = f"/create-invoice?package_id={package_id}"  # Relative URL
+invoice_url = f"/create-invoice?linked_package={package_id}"  # Relative URL
 # OR
-invoice_url = f"https://calculator.atap.solar/create-invoice?package_id={package_id}"  # Absolute URL
+invoice_url = f"https://calculator.atap.solar/create-invoice?linked_package={package_id}"  # Absolute URL
 ```
 
 ### Step 6: Test
 1. Start your calculator app
-2. Visit: `http://localhost:PORT/create-invoice?package_id=YOUR_PACKAGE_ID`
+2. Visit: `http://localhost:PORT/create-invoice?linked_package=YOUR_PACKAGE_ID`
 3. Fill out the form and create an invoice
 4. Verify invoice is created in database
 

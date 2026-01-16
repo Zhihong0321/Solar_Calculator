@@ -43,65 +43,61 @@ class ChatService {
     return res.rows.length > 0 ? res.rows[0] : null;
   }
 
-    /**
+  /**
+   * Get all chat threads with latest message and customer details
+   */
+  async getChatThreads() {
+    const res = await pool.query(
+      `SELECT 
+          t.invoice_id,
+          i.customer_name_snapshot as customer_name,
+          m.content as last_message,
+          m.created_at as last_message_at,
+          m.message_type as last_message_type,
+          (SELECT COUNT(*) FROM chat_message WHERE thread_id = t.id AND is_tag_active = TRUE) as active_tags_count
+       FROM chat_thread t
+       JOIN invoice i ON t.invoice_id = i.bubble_id
+       LEFT JOIN LATERAL (
+          SELECT content, created_at, message_type
+          FROM chat_message
+          WHERE thread_id = t.id
+          ORDER BY created_at DESC
+          LIMIT 1
+       ) m ON TRUE
+       ORDER BY m.created_at DESC NULLS LAST`
+    );
+    return res.rows;
+  }
 
-     * Add a message to a thread
+  /**
+   * Add a message to a thread
+   */
+  async addMessage({ threadId, senderId, senderName, messageType, content, fileMeta, tagRole }) {
+    const isTagActive = messageType === 'tag';
+    
+    const res = await pool.query(
+      `INSERT INTO chat_message 
+       (thread_id, sender_id, sender_name, message_type, content, file_meta, tag_role, is_tag_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [threadId, senderId, senderName, messageType, content, fileMeta, tagRole, isTagActive]
+    );
+    return res.rows[0];
+  }
 
-     */
-
-    async addMessage({ threadId, senderId, senderName, messageType, content, fileMeta, tagRole }) {
-
-      const isTagActive = messageType === 'tag';
-
-      
-
-      const res = await pool.query(
-
-        `INSERT INTO chat_message 
-
-         (thread_id, sender_id, sender_name, message_type, content, file_meta, tag_role, is_tag_active)
-
-         VALUES (
-  , $2, $3, $4, $5, $6, $7, $8)
-
-         RETURNING *`,
-
-        [threadId, senderId, senderName, messageType, content, fileMeta, tagRole, isTagActive]
-
-      );
-
-      return res.rows[0];
-
-    }
-
-  
-
-    /**
-
-     * Acknowledge a tag message (mark as read/inactive)
-
-     */
-
-    async acknowledgeTag(messageId, userId) {
-
-      const res = await pool.query(
-
-        `UPDATE chat_message 
-
-         SET is_tag_active = false
-
-         WHERE id = 
-   AND message_type = 'tag'
-
-         RETURNING *`,
-
-        [messageId]
-
-      );
-
-      return res.rows[0];
-
-    }
+  /**
+   * Acknowledge a tag message (mark as read/inactive)
+   */
+  async acknowledgeTag(messageId, userId) {
+    const res = await pool.query(
+      `UPDATE chat_message 
+       SET is_tag_active = false
+       WHERE id = $1 AND message_type = 'tag'
+       RETURNING *`,
+      [messageId]
+    );
+    return res.rows[0];
+  }
 
   
 

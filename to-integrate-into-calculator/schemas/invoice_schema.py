@@ -8,7 +8,8 @@ from decimal import Decimal
 
 class InvoiceOnTheFlyRequest(BaseModel):
     """Schema for creating invoice on the fly"""
-    package_id: str
+    linked_package: Optional[str] = None
+    package_id: Optional[str] = None  # Legacy support
     discount_fixed: Optional[Decimal] = Field(Decimal(0), ge=0)
     discount_percent: Optional[Decimal] = Field(Decimal(0), ge=0, le=100)
     discount_given: Optional[str] = None  # String format: "500 10%" or "500" or "10%"

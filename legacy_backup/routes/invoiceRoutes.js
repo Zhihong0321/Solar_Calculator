@@ -252,6 +252,7 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
 
     const userId = req.user.userId;
     const {
+      linked_package,
       package_id,
       discount_fixed,
       discount_percent,
@@ -273,7 +274,7 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
     // Create invoice with userId
     const result = await invoiceService.createInvoice(pool, {
       userId: userId,
-      packageId: package_id,
+      packageId: linked_package || package_id,
       discountFixed: discount_fixed,
       discountPercent: discount_percent,
       discountGiven: discount_given,

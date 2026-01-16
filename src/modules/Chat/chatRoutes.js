@@ -12,6 +12,7 @@ const { requireAuth } = require('../../core/middleware/auth');
 // If customers need access, we'd need to check share_token.
 // For now, I will use `requireAuth` as the base, assuming internal staff usage as primary request.
 
+router.get('/api/v1/chat/threads', requireAuth, chatController.getAllThreads);
 router.get('/api/v1/chat/:invoiceId', requireAuth, chatController.getChatHistory);
 router.post('/api/v1/chat/:invoiceId/message', requireAuth, chatController.postMessage);
 router.put('/api/v1/chat/message/:messageId/ack', requireAuth, chatController.acknowledgeTag);

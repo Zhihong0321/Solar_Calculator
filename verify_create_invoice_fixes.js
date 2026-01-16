@@ -29,8 +29,8 @@ const hasInvoiceStatusCheck = content.match(/Load Invoice Data[\s\S]*try [\s\S]*
 console.log(`${hasInvoiceStatusCheck ? '✅' : '❌'} Fix #3: Status check in invoice loading`);
 
 // Check Fix #4: package_id validation
-const hasPackageValidation = content.includes('if (inv.package_id && typeof inv.package_id === \'string\' && inv.package_id.length > 0)');
-console.log(`${hasPackageValidation ? '✅' : '❌'} Fix #4: package_id validation`);
+const hasPackageValidation = content.includes('const invPackageId = inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id;');
+console.log(`${hasPackageValidation ? '✅' : '❌'} Fix #4: package_id validation (supports linked_package & legacy_pid)`);
 
 console.log('\n=== Summary ===\n');
 

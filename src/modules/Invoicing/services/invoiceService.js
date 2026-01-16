@@ -261,9 +261,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     };
 
     // 3. Repository Delegation
-    const invoice = await invoiceRepo.updateInvoiceTransaction(client, repoPayload);
+    const invoice = await invoiceRepo.createInvoiceVersionTransaction(client, repoPayload);
 
-    // [New Requirement] Ensure SEDA Registration exists for updated invoice
+    // [New Requirement] Ensure SEDA Registration exists for versioned invoice
     if (invoice.customerBubbleId) {
         try {
             await sedaService.ensureSedaRegistration(
@@ -273,7 +273,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
                 String(repoPayload.userId)
             );
         } catch (sedaErr) {
-            console.error('Failed to ensure SEDA registration for updated invoice:', sedaErr);
+            console.error('Failed to auto-create SEDA registration for version:', sedaErr);
         }
     }
 

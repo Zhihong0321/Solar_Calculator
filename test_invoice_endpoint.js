@@ -37,10 +37,11 @@ async function check() {
     console.log('Invoice data returned:');
     console.log('  - bubble_id:', invoice.bubble_id);
     console.log('  - invoice_number:', invoice.invoice_number);
-    console.log('  - package_id:', invoice.package_id);
+    console.log('  - linked_package:', invoice.linked_package);
+    console.log('  - package_id (legacy):', invoice.legacy_pid_to_be_deleted || invoice.package_id);
     console.log('  - package_name_snapshot:', invoice.package_name_snapshot);
     console.log('  - customer_name_snapshot:', invoice.customer_name_snapshot);
-    console.log('\n✓ package_id field is included in SELECT * result');
+    console.log('\n✓ package identifier fields are included in SELECT * result');
 
     // Check items
     const itemsResult = await client.query(
@@ -50,10 +51,11 @@ async function check() {
     console.log('\n  - items count:', itemsResult.rows.length);
 
     // Verify package exists
-    if (invoice.package_id) {
+    const packageId = invoice.linked_package || invoice.legacy_pid_to_be_deleted || invoice.package_id;
+    if (packageId) {
       const pkgResult = await client.query(
         `SELECT bubble_id, package_name as name, price FROM package WHERE bubble_id = $1`,
-        [invoice.package_id]
+        [packageId]
       );
       console.log('\n=== Package Reference Check ===');
       if (pkgResult.rows.length > 0) {
@@ -62,7 +64,7 @@ async function check() {
         console.log('  - name:', pkgResult.rows[0].name);
         console.log('  - price:', pkgResult.rows[0].price);
       } else {
-        console.log('✗ Package NOT FOUND in package table!');
+        console.log(`✗ Package '${packageId}' NOT FOUND in package table!`);
       }
     }
 

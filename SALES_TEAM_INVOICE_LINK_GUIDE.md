@@ -79,12 +79,13 @@ http://localhost:8080/create-invoice
 
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
-| `package_id` | String | ✅ **YES** | Package ID from package table (bubble_id) | `1703833647950x572894707690242050` |
+| `linked_package` | String | ✅ **YES** | Package ID from package table (bubble_id) | `1703833647950x572894707690242050` |
 
 ### Optional Parameters
 
 | Parameter | Type | Required | Description | Example |
 |-----------|------|----------|-------------|---------|
+| `package_id` | String | ❌ No | Legacy Package ID (deprecated, use `linked_package` instead) | `1703833647950x572894707690242050` |
 | `panel_qty` | Integer | ❌ No | Panel quantity (for reference) | `8` |
 | `panel_rating` | String | ❌ No | Panel rating/wattage | `450W` |
 | `discount_given` | String | ❌ No | Discount amount or percentage | `500` or `10%` or `500 10%` |

@@ -189,5 +189,5 @@ console.log('Summary:');
 console.log('  - Added null checks in showPackage function');
 console.log('  - Added status check in fetchPackageDetails');
 console.log('  - Added status check in invoice loading');
-console.log('  - Added package_id validation before loading package');
+console.log('  - Added linked_package/legacy_pid_to_be_deleted validation before loading package');
 console.log('\nThese fixes prevent the "cannot read property of bubble id" error.');

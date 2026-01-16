@@ -66,7 +66,7 @@ def verify_integration():
         response = requests.post(
             "http://localhost:PORT/api/v1/invoices/on-the-fly",
             json={
-                "package_id": "TEST_PACKAGE_ID",
+                "linked_package": "TEST_PACKAGE_ID",
                 "customer_name": "Test Customer"
             }
         )

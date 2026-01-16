@@ -417,7 +417,7 @@ class SolarCalculator {
             recommendedPanels, actualPanels: actualPanelQty,
             panelAdjustment: actualPanelQty - recommendedPanels,
             overrideApplied: overridePanels !== null,
-            selectedPackage: selectedPackage ? { packageName: selectedPackage.package_name, price: selectedPackage.price, panelWattage: panelType, bubbleId: selectedPackage.bubble_id } : null,
+            selectedPackage: selectedPackage ? { packageName: selectedPackage.package_name, price: selectedPackage.price, panelWattage: panelType, linked_package: selectedPackage.bubble_id } : null,
             solarConfig: `${actualPanelQty} x ${panelType}W panels (${systemSizeKwp.toFixed(1)} kW system)`,
             systemSizeKwp: systemSizeKwp.toFixed(1),
             requiresSedaFee: requiresSedaFee,
@@ -692,7 +692,7 @@ window.generateInvoiceLink = function() {
     const params = new URLSearchParams();
 
     // Required
-    params.set('package_id', latestSolarData.selectedPackage.bubbleId);
+    params.set('linked_package', latestSolarData.selectedPackage.bubbleId);
 
     // Optional: Discount
     // Access params from latestSolarParams

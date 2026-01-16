@@ -105,7 +105,7 @@ router.post('/api/admin/patch', requireAuth, requireAdminAccess, async (req, res
 });
 
 /**
- * Patch: Refill invoice.package_id from invoice_item.linked_package
+ * Patch: Refill invoice.linked_package from invoice_item.linked_package
  * where invoice_item.is_a_package is true.
  */
 async function runFixPackagesPatch(client, res) {
@@ -114,14 +114,14 @@ async function runFixPackagesPatch(client, res) {
     let updated = 0;
 
     try {
-        // Find invoices with missing package_id
+        // Find invoices with missing linked_package
         const candidates = await client.query(`
             SELECT bubble_id, invoice_number 
             FROM invoice 
-            WHERE (package_id IS NULL OR package_id = '')
+            WHERE (linked_package IS NULL OR linked_package = '')
         `);
 
-        logs.push(`Analyzing ${candidates.rows.length} invoices with missing package_id...`);
+        logs.push(`Analyzing ${candidates.rows.length} invoices with missing linked_package...`);
 
         for (const inv of candidates.rows) {
             // Find the package item for this invoice
@@ -138,7 +138,7 @@ async function runFixPackagesPatch(client, res) {
                 const pkgId = itemRes.rows[0].linked_package;
                 if (pkgId) {
                     await client.query(
-                        'UPDATE invoice SET package_id = $1, updated_at = NOW() WHERE bubble_id = $2',
+                        'UPDATE invoice SET linked_package = $1, updated_at = NOW() WHERE bubble_id = $2',
                         [pkgId, inv.bubble_id]
                     );
                     updated++;
@@ -151,7 +151,7 @@ async function runFixPackagesPatch(client, res) {
         res.json({
             success: true,
             data: {
-                summary: `Successfully refilled ${updated} invoice package IDs.`,
+                summary: `Successfully refilled ${updated} invoice linked_package values.`,
                 logs: logs
             }
         });

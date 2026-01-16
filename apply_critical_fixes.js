@@ -161,16 +161,17 @@ const oldGetInvoiceFunction = `async function getInvoiceByBubbleId(client, bubbl
     invoice.items = itemsResult.rows;
 
     // Get package data for system size calculation (same as getInvoiceByShareToken)
-    if (invoice.package_id) {
+    const packageId = invoice.linked_package || invoice.package_id;
+    if (packageId) {
       const packageResult = await client.query(
-        \`SELECT p.panel_qty, p.panel, pr.solar_output_rating
+        `SELECT p.panel_qty, p.panel, pr.solar_output_rating
          FROM package p
          LEFT JOIN product pr ON (
            CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
            OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
          )
-         WHERE p.bubble_id = \$1\`,
-        [invoice.package_id]
+         WHERE p.bubble_id = $1`,
+        [packageId]
       );
       if (packageResult.rows.length > 0) {
         const packageData = packageResult.rows[0];
@@ -251,18 +252,19 @@ const newGetInvoiceFunction = `async function getInvoiceByBubbleId(client, bubbl
     const parallelQueries = [];
 
     // Query 3: Get package data for system size calculation
-    if (invoice.package_id) {
+    const effectivePackageId = invoice.linked_package || invoice.package_id;
+    if (effectivePackageId) {
       parallelQueries.push(
         (async () => {
           const packageResult = await client.query(
-            \`SELECT p.panel_qty, p.panel, pr.solar_output_rating
+            `SELECT p.panel_qty, p.panel, pr.solar_output_rating
              FROM package p
              LEFT JOIN product pr ON (
                CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
                OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
              )
-             WHERE p.bubble_id = \$1\`,
-            [invoice.package_id]
+             WHERE p.bubble_id = $1`,
+            [effectivePackageId]
           );
           if (packageResult.rows.length > 0) {
             const packageData = packageResult.rows[0];

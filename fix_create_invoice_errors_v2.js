@@ -130,23 +130,24 @@ if (content.includes(oldInvoiceLoadCheck)) {
 }
 
 // ============================================================================
-// FIX #4: Add validation for package_id before calling fetchPackageDetails
+// FIX #4: Add validation for package identifier before calling fetchPackageDetails
 // ============================================================================
 
-console.log('📝 Fix #4: Adding package_id validation in invoice loading...');
+console.log('📝 Fix #4: Adding package identifier validation in invoice loading...');
 
 const oldPackageCheck = `                        // 1. Load Package
-                        if (inv.package_id) {
-                            await fetchPackageDetails(inv.package_id);
+                        if (inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id) {
+                            await fetchPackageDetails(inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id);
                         }`;
 
 const newPackageCheck = `                        // 1. Load Package (with validation)
-                        if (inv.package_id && typeof inv.package_id === 'string' && inv.package_id.length > 0) {
+                        const packageId = inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id;
+                        if (packageId && typeof packageId === 'string' && packageId.length > 0) {
                             try {
-                                await fetchPackageDetails(inv.package_id);
+                                await fetchPackageDetails(packageId);
                             } catch (pkgErr) {
                                 console.error('Failed to load package:', pkgErr);
-                                showWarning(\`⚠️ Failed to load package '\${inv.package_id}'. You may need to select a different package manually.\`);
+                                showWarning(\`⚠️ Failed to load package '\${packageId}'. You may need to select a different package manually.\`);
                                 document.getElementById('packageIdForm').classList.remove('hidden');
                             }
                         } else {

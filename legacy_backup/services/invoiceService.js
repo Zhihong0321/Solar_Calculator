@@ -51,7 +51,8 @@ function parseDiscountString(discountGiven) {
 /**
  * @typedef {Object} InvoiceCreationPayload
  * @property {number|string} userId - The unique identifier of the user creating the invoice.
- * @property {string} packageId - The bubble_id of the selected solar package.
+ * @property {string} linkedPackage - The bubble_id of the selected solar package.
+ * @property {string} [packageId] - Legacy support for bubble_id of the selected solar package.
  * @property {number} [discountFixed] - Fixed currency discount amount.
  * @property {number} [discountPercent] - Percentage discount (0-100).
  * @property {string} [discountGiven] - Raw string input for discount (e.g. "10%").
@@ -82,8 +83,9 @@ function validateInvoiceData(invoiceRequestPayload) {
     errors.push('User ID is required. Authentication failed - please login again.');
   }
 
-  if (!p.packageId || p.packageId.trim().length === 0) {
-    errors.push('package_id is required');
+  const effectivePackageId = p.linkedPackage || p.packageId;
+  if (!effectivePackageId || effectivePackageId.trim().length === 0) {
+    errors.push('linked_package is required');
   }
 
   if (p.discountFixed && p.discountFixed < 0) {
@@ -149,7 +151,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
     // We construct a pure object for the repo, ensuring it only gets what it needs.
     const repoPayload = {
       userId: invoiceRequestPayload.userId,
-      packageId: invoiceRequestPayload.packageId,
+      linkedPackage: invoiceRequestPayload.linkedPackage || invoiceRequestPayload.packageId,
       discountFixed: discountFixed,
       discountPercent: discountPercent,
       applySst: invoiceRequestPayload.applySst || false,
@@ -243,7 +245,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     const repoPayload = {
       userId: invoiceRequestPayload.userId,
       originalBubbleId: originalBubbleId, // CRITICAL: This triggers version logic
-      // packageId: We don't pass packageId, repo fetches from original
+      // linkedPackage: We don't pass linkedPackage, repo fetches from original
       discountFixed: discountFixed,
       discountPercent: discountPercent,
       applySst: invoiceRequestPayload.applySst || false,

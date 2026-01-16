@@ -44,7 +44,7 @@ async function test() {
     console.log('\n=== INVOICE HEADER FIELDS ===\n');
     const headerFields = [
       'bubble_id', 'invoice_number', 'customer_name_snapshot', 'customer_phone_snapshot',
-      'customer_address_snapshot', 'package_id', 'package_name_snapshot', 'invoice_date',
+      'customer_address_snapshot', 'linked_package', 'legacy_pid_to_be_deleted', 'package_name_snapshot', 'invoice_date',
       'subtotal', 'sst_rate', 'sst_amount', 'discount_amount', 'discount_fixed',
       'discount_percent', 'voucher_code', 'voucher_amount', 'total_amount',
       'status', 'share_token', 'agent_markup', 'template_id', 'version',
@@ -83,7 +83,8 @@ async function test() {
       customer_name_snapshot: invoice.customer_name_snapshot,
       customer_phone_snapshot: invoice.customer_phone_snapshot,
       customer_address_snapshot: invoice.customer_address_snapshot,
-      package_id: invoice.package_id,
+      linked_package: invoice.linked_package,
+      legacy_pid_to_be_deleted: invoice.package_id,
       package_name_snapshot: invoice.package_name_snapshot,
       invoice_date: invoice.invoice_date,
       subtotal: invoice.subtotal,

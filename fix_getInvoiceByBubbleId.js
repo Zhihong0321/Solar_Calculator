@@ -18,7 +18,8 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     invoice.items = itemsResult.rows;
 
     // Get package data for system size calculation (same as getInvoiceByShareToken)
-    if (invoice.package_id) {
+    const effectivePackageId = invoice.linked_package || invoice.legacy_pid_to_be_deleted || invoice.package_id;
+    if (effectivePackageId) {
       const packageResult = await client.query(
         `SELECT p.panel_qty, p.panel, pr.solar_output_rating
          FROM package p
@@ -27,7 +28,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
            OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
          )
          WHERE p.bubble_id = $1`,
-        [invoice.package_id]
+        [effectivePackageId]
       );
       if (packageResult.rows.length > 0) {
         const packageData = packageResult.rows[0];

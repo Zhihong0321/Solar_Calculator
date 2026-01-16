@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 @router.get("/create-invoice", response_class=HTMLResponse)
 async def create_invoice_page(
     request: Request,
-    package_id: Optional[str] = Query(None, description="Package ID from package table"),
+    linked_package: Optional[str] = Query(None, description="Package ID (bubble_id)"),
     panel_qty: Optional[int] = Query(None, description="Panel quantity"),
     panel_rating: Optional[str] = Query(None, description="Panel rating"),
     discount_given: Optional[str] = Query(None, description="Discount amount or percent"),
@@ -43,18 +43,25 @@ async def create_invoice_page(
     debug_info.append(f"✅ Route accessed successfully")
     debug_info.append(f"URL: {request.url}")
     debug_info.append(f"Method: {request.method}")
-    debug_info.append(f"Package ID from query: {package_id}")
+    
+    # Use linked_package if provided
+    effective_package_id = linked_package
+    debug_info.append(f"Effective Package ID: {effective_package_id}")
     
     try:
-        # Handle double-encoded URLs
-        if not package_id and request.url.query:
+        # Handle double-encoded URLs or legacy package_id in query string
+        if not effective_package_id and request.url.query:
             query_str = str(request.url.query)
-            if '%3D' in query_str or '%26' in query_str:
+            if '%3D' in query_str or '%26' in query_str or 'package_id' in query_str:
                 try:
                     decoded = unquote(query_str)
                     parsed = parse_qs(decoded, keep_blank_values=True)
-                    if 'package_id' in parsed and parsed['package_id']:
-                        package_id = parsed['package_id'][0]
+                    if 'linked_package' in parsed and parsed['linked_package']:
+                        effective_package_id = parsed['linked_package'][0]
+                    elif 'package_id' in parsed and parsed['package_id']:
+                        effective_package_id = parsed['package_id'][0]
+                        debug_info.append(f"Found legacy package_id in query: {effective_package_id}")
+                    
                     if 'discount_given' in parsed and parsed['discount_given'] and not discount_given:
                         discount_given = parsed['discount_given'][0]
                     if 'panel_qty' in parsed and parsed['panel_qty'] and not panel_qty:
@@ -87,19 +94,19 @@ async def create_invoice_page(
             debug_info.append(f"⚠️ Database connection failed: {str(db_error)}")
             warning_message = "Database connection unavailable. Some features may be limited."
         
-        # Try to fetch package if package_id provided
-        if package_id:
+        # Try to fetch package if effective_package_id provided
+        if effective_package_id:
             if db:
                 try:
                     from sqlalchemy import text
                     result = db.execute(
                         text("SELECT bubble_id, name, price, panel, panel_qty, invoice_desc, type FROM package WHERE bubble_id = :bubble_id"),
-                        {"bubble_id": package_id}
+                        {"bubble_id": effective_package_id}
                     )
                     row = result.fetchone()
                     if not row:
-                        error_message = f"⚠️ Package Not Found: The Package ID '{package_id}' does not exist in the database."
-                        debug_info.append(f"Package ID searched: {package_id}")
+                        error_message = f"⚠️ Package Not Found: The Package ID '{effective_package_id}' does not exist in the database."
+                        debug_info.append(f"Package ID searched: {effective_package_id}")
                         package = None
                     else:
                         # Create a simple object with the data
@@ -118,7 +125,7 @@ async def create_invoice_page(
                     error_message = f"⚠️ Database Error: Failed to check package. Error: {str(e)}"
                     debug_info.append(f"Database error details: {traceback.format_exc()}")
             else:
-                error_message = f"⚠️ Cannot check package: Database connection unavailable. Package ID provided: {package_id}"
+                error_message = f"⚠️ Cannot check package: Database connection unavailable. Package ID provided: {effective_package_id}"
         else:
             warning_message = "ℹ️ No Package ID provided. You can enter a Package ID below or continue without one."
         
@@ -149,7 +156,7 @@ async def create_invoice_page(
                     "request": request,
                     "user": None,
                     "package": package,
-                    "package_id": package_id,
+                    "linked_package": effective_package_id,
                     "error_message": error_message,
                     "warning_message": warning_message,
                     "debug_info": debug_info,
