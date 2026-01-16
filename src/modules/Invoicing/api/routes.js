@@ -1129,7 +1129,7 @@ async function generateProposalHtml(client, invoice, req, forPdf = false) {
             `SELECT a.name 
              FROM "user" u 
              JOIN agent a ON u.linked_agent_profile = a.bubble_id 
-             WHERE u.id = $1 
+             WHERE u.bubble_id = $1 
              LIMIT 1`,
             [invoice.created_by]
         );

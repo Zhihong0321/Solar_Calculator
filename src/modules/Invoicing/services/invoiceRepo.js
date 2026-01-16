@@ -407,7 +407,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
           `SELECT a.name 
            FROM "user" u 
            JOIN agent a ON u.linked_agent_profile = a.bubble_id 
-           WHERE u.id = $1 
+           WHERE u.bubble_id = $1 
            LIMIT 1`,
           [invoice.created_by]
         ).then(userResult => {
@@ -853,7 +853,7 @@ async function getInvoiceByShareToken(client, shareToken) {
             `SELECT a.name 
              FROM "user" u 
              JOIN agent a ON u.linked_agent_profile = a.bubble_id 
-             WHERE u.id = $1 
+             WHERE u.bubble_id = $1 
              LIMIT 1`,
             [invoice.created_by]
             );
