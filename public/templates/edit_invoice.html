@@ -1358,8 +1358,7 @@
                 const result = await response.json();
                 
                 if (response.ok && result.success) {
-                    alert('Quotation updated successfully! New version saved with action logging.');
-                    setTimeout(() => { window.location.href = `/invoice-office?id=${window.editInvoiceId}`; }, 1500);
+                    window.location.href = `/invoice-office?id=${window.editInvoiceId}`;
                 } else {
                     alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
                     submitBtn.disabled = false;

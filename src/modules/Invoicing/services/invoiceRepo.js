@@ -382,22 +382,23 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     const itemIds = Array.isArray(invoice.linked_invoice_item) ? invoice.linked_invoice_item : [];
     const itemsResult = await client.query(
       `SELECT 
-        bubble_id,
-        linked_invoice as invoice_id,
-        description,
-        qty,
-        unit_price,
-        amount as total_price,
-        inv_item_type as item_type,
-        sort as sort_order,
-        created_at,
-        is_a_package,
-        linked_package as product_id,
-        description as product_name_snapshot
-       FROM invoice_item 
-       WHERE linked_invoice = $1 
-          OR bubble_id = ANY($2::text[])
-       ORDER BY sort ASC, created_at ASC`,
+        ii.bubble_id,
+        ii.linked_invoice as invoice_id,
+        ii.description,
+        ii.qty,
+        ii.unit_price,
+        ii.amount as total_price,
+        ii.inv_item_type as item_type,
+        ii.sort as sort_order,
+        ii.created_at,
+        ii.is_a_package,
+        ii.linked_package as product_id,
+        COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name_snapshot
+       FROM invoice_item ii
+       LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
+       WHERE ii.linked_invoice = $1 
+          OR ii.bubble_id = ANY($2::text[])
+       ORDER BY ii.sort ASC, ii.created_at ASC`,
       [bubbleId, itemIds]
     );
     invoice.items = itemsResult.rows;
@@ -861,22 +862,23 @@ async function getInvoiceByShareToken(client, shareToken) {
     const itemIds = Array.isArray(invoice.linked_invoice_item) ? invoice.linked_invoice_item : [];
     const itemsResult = await client.query(
       `SELECT 
-        bubble_id,
-        linked_invoice as invoice_id,
-        description,
-        qty,
-        unit_price,
-        amount as total_price,
-        inv_item_type as item_type,
-        sort as sort_order,
-        created_at,
-        is_a_package,
-        linked_package as product_id,
-        description as product_name_snapshot
-       FROM invoice_item 
-       WHERE linked_invoice = $1 
-          OR bubble_id = ANY($2::text[])
-       ORDER BY sort ASC, created_at ASC`,
+        ii.bubble_id,
+        ii.linked_invoice as invoice_id,
+        ii.description,
+        ii.qty,
+        ii.unit_price,
+        ii.amount as total_price,
+        ii.inv_item_type as item_type,
+        ii.sort as sort_order,
+        ii.created_at,
+        ii.is_a_package,
+        ii.linked_package as product_id,
+        COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name_snapshot
+       FROM invoice_item ii
+       LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
+       WHERE ii.linked_invoice = $1 
+          OR ii.bubble_id = ANY($2::text[])
+       ORDER BY ii.sort ASC, ii.created_at ASC`,
       [invoice.bubble_id, itemIds]
     );
     invoice.items = itemsResult.rows;

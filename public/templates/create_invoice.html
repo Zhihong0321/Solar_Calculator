@@ -1476,8 +1476,6 @@
                 const result = await response.json();
                 
                 if (response.ok && result.success) {
-                    const action = window.isEditMode ? 'updated' : 'created';
-                    alert(`Quotation ${action} successfully! Redirecting to quotation view...`);
                     window.location.href = result.invoice_link;
                 } else {
                     alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
