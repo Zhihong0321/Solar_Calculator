@@ -203,6 +203,20 @@ async function findOrCreateCustomer(client, data) {
 async function _fetchDependencies(client, data) {
   const { userId, packageId, customerName, customerPhone, customerAddress, templateId } = data;
 
+  // 0. Resolve Agent Profile
+  let linkedAgent = null;
+  try {
+    const userRes = await client.query(
+        'SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1',
+        [String(userId)]
+    );
+    if (userRes.rows.length > 0) {
+        linkedAgent = userRes.rows[0].linked_agent_profile;
+    }
+  } catch (e) {
+    console.warn('[DB] Agent lookup failed during invoice creation for user', userId);
+  }
+
   // 1. Get package details
   const pkg = await getPackageById(client, packageId);
   if (!pkg) {
@@ -229,7 +243,7 @@ async function _fetchDependencies(client, data) {
     template = await getDefaultTemplate(client);
   }
 
-  return { pkg, internalCustomerId, customerBubbleId, template };
+  return { pkg, internalCustomerId, customerBubbleId, template, linkedAgent };
 }
 
 /**
@@ -526,7 +540,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
     percentDiscountVal, finalTotalAmount 
   } = financials;
   
-  const { pkg, internalCustomerId, customerBubbleId, template } = deps;
+  const { pkg, internalCustomerId, customerBubbleId, template, linkedAgent } = deps;
   const { validVoucherCodes, totalVoucherAmount } = voucherInfo;
   const { discountFixed = 0, discountPercent = 0, userId, customerName, customerAddress, customerPhone } = data;
 
@@ -538,19 +552,20 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
 
   const invoiceResult = await client.query(
     `INSERT INTO invoice
-     (bubble_id, template_id, customer_id, linked_customer, customer_name_snapshot, customer_address_snapshot,
+     (bubble_id, template_id, customer_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 1, $1, true, NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, 1, $1, true, NOW(), NOW())
      RETURNING *`,
     [
       bubbleId,
       template.bubble_id || null, // Use template.bubble_id, not templateId passed in
       internalCustomerId,
       customerBubbleId,
+      linkedAgent,
       customerName || "Sample Quotation",
       customerAddress || null,
       customerPhone || null,
@@ -1190,6 +1205,20 @@ async function createInvoiceVersionTransaction(client, data) {
         [rootId]
     );
 
+    // Resolve Agent Profile
+    let linkedAgent = null;
+    try {
+      const userRes = await client.query(
+          'SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1',
+          [String(data.userId)]
+      );
+      if (userRes.rows.length > 0) {
+          linkedAgent = userRes.rows[0].linked_agent_profile;
+      }
+    } catch (e) {
+      console.warn('[DB] Agent lookup failed during invoice versioning for user', data.userId);
+    }
+
     // 2. Fetch Dependencies (Package from Original)
     const pkg = await getPackageById(client, org.linked_package);
     if (!pkg) throw new Error(`Original package ${org.linked_package} not found`);
@@ -1273,10 +1302,10 @@ async function createInvoiceVersionTransaction(client, data) {
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
 
     // 5. Create Invoice Header (Versioned)
-    const newInvoice = await _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData);
+    const newInvoice = await _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData, linkedAgent);
 
     // 6. Create Line Items
-    await _createLineItems(client, newInvoice.bubble_id, data, financials, { pkg }, voucherInfo);
+    await _createLineItems(client, newInvoice.bubble_id, data, financials, { pkg, linkedAgent }, voucherInfo);
 
     // Commit transaction
     await client.query('COMMIT');
@@ -1302,7 +1331,7 @@ async function createInvoiceVersionTransaction(client, data) {
  * Helper: Insert the VERSIONED invoice record
  * @private
  */
-async function _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData) {
+async function _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData, linkedAgent) {
   const {
     taxableSubtotal, markupAmount, sstRate, sstAmount, 
     percentDiscountVal, finalTotalAmount 
@@ -1331,7 +1360,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
 
   const invoiceResult = await client.query(
     `INSERT INTO invoice
-     (bubble_id, template_id, customer_id, linked_customer, customer_name_snapshot, customer_address_snapshot,
+     (bubble_id, template_id, customer_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
@@ -1344,6 +1373,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       org.template_id,
       customerId,
       customerBubbleId,
+      linkedAgent,
       customerName || "Sample Quotation",
       customerAddress || null,
       customerPhone || null,
