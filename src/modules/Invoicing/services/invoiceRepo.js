@@ -526,7 +526,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
     percentDiscountVal, finalTotalAmount 
   } = financials;
   
-  const { pkg, internalCustomerId, template } = deps;
+  const { pkg, internalCustomerId, customerBubbleId, template } = deps;
   const { validVoucherCodes, totalVoucherAmount } = voucherInfo;
   const { discountFixed = 0, discountPercent = 0, userId, customerName, customerAddress, customerPhone } = data;
 
@@ -538,18 +538,19 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
 
   const invoiceResult = await client.query(
     `INSERT INTO invoice
-     (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
+     (bubble_id, template_id, customer_id, linked_customer, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 1, $1, true, NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 1, $1, true, NOW(), NOW())
      RETURNING *`,
     [
       bubbleId,
       template.bubble_id || null, // Use template.bubble_id, not templateId passed in
       internalCustomerId,
+      customerBubbleId,
       customerName || "Sample Quotation",
       customerAddress || null,
       customerPhone || null,
@@ -1258,6 +1259,7 @@ async function createInvoiceVersionTransaction(client, data) {
 
     const customerData = {
         id: internalCustomerId,
+        bubbleId: customerBubbleId,
         name: customerName,
         phone: customerPhone,
         address: customerAddress
@@ -1308,7 +1310,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
   
   const { validVoucherCodes, totalVoucherAmount } = voucherInfo;
   const { discountFixed = 0, discountPercent = 0, userId } = data;
-  const { id: customerId, name: customerName, address: customerAddress, phone: customerPhone } = customerData;
+  const { id: customerId, bubbleId: customerBubbleId, name: customerName, address: customerAddress, phone: customerPhone } = customerData;
 
   // Versioning Logic
   let newInvoiceNumber = org.invoice_number;
@@ -1329,7 +1331,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
 
   const invoiceResult = await client.query(
     `INSERT INTO invoice
-     (bubble_id, template_id, customer_id, customer_name_snapshot, customer_address_snapshot,
+     (bubble_id, template_id, customer_id, linked_customer, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
@@ -1341,6 +1343,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       bubbleId,
       org.template_id,
       customerId,
+      customerBubbleId,
       customerName || "Sample Quotation",
       customerAddress || null,
       customerPhone || null,
