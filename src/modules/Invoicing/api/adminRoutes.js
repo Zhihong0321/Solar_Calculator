@@ -65,6 +65,16 @@ const requireAdminAccess = async (req, res, next) => {
 };
 
 /**
+ * POST /api/admin/logout
+ * Clears authentication cookies
+ */
+router.post('/api/admin/logout', (req, res) => {
+    res.clearCookie('auth_token', { path: '/' });
+    res.clearCookie('auth_token', { path: '/', domain: '.atap.solar' });
+    res.json({ success: true });
+});
+
+/**
  * GET /admin
  * Serves Admin Panel
  */

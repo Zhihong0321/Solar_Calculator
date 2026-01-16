@@ -57,12 +57,17 @@
     </div>
 
     <script>
-        function resetSession() {
+        async function resetSession() {
             if (!confirm('This will log you out and clear impersonation. Proceed?')) return;
-            // Clear the cookie for all possible paths/domains
-            document.cookie = "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            document.cookie = "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.atap.solar";
-            window.location.href = '/admin';
+            try {
+                await fetch('/api/admin/logout', { method: 'POST' });
+                window.location.href = '/admin';
+            } catch (e) {
+                // Fallback
+                document.cookie = "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                document.cookie = "auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.atap.solar";
+                window.location.reload();
+            }
         }
 
         async function runPatch(action) {
