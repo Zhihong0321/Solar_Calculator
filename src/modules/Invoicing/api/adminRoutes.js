@@ -7,35 +7,58 @@ const router = express.Router();
 
 /**
  * Admin Authorization Middleware
- * Only allows users with phone "01121000099"
+ * Only allows users with phone number containing "01121000099"
  */
 const requireAdminAccess = async (req, res, next) => {
-    if (!req.user || !req.user.userId) {
+    if (!req.user) {
         return res.status(401).send('Unauthorized');
     }
 
-    const userId = req.user.userId;
-    let client = null;
+    // 1. Check JWT payload directly (in case phone is encoded there)
+    const jwtPayload = JSON.stringify(req.user);
+    if (jwtPayload.includes('01121000099')) {
+        return next();
+    }
 
+    const userId = req.user.userId || req.user.id || req.user.sub;
+    if (!userId) {
+        return res.status(403).send('Access Denied: User identification missing.');
+    }
+
+    let client = null;
     try {
         client = await pool.connect();
+
+        // 2. Search for any agent contact associated with this user
+        // We check by u.id, u.bubble_id, u.email, and even agent_code fallbacks
         const query = `
-            SELECT a.contact
+            SELECT a.contact, u.email, a.name
             FROM "user" u
-            JOIN agent a ON u.linked_agent_profile = a.bubble_id
-            WHERE u.id::text = $1 OR u.bubble_id = $1
-            LIMIT 1
+            LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
+            WHERE u.id::text = $1 
+               OR u.bubble_id = $1 
+               OR u.email = $1
+               OR a.bubble_id = $1
         `;
         const result = await client.query(query, [String(userId)]);
 
-        if (result.rows.length > 0 && result.rows[0].contact && result.rows[0].contact.includes('01121000099')) {
-            next();
-        } else {
-            res.status(403).send('Access Denied: Admin privileges required.');
+        if (result.rows.length > 0) {
+            for (const row of result.rows) {
+                if (row.contact && row.contact.includes('01121000099')) {
+                    return next();
+                }
+            }
         }
+
+        // 3. Last resort: check if the userId itself contains the target number
+        if (String(userId).includes('01121000099')) {
+            return next();
+        }
+
+        res.status(403).send('Access Denied: Your account is not authorized for the ADMIN Panel.');
     } catch (err) {
         console.error('Admin Auth Error:', err);
-        res.status(500).send('Authorization Error');
+        res.status(500).send('Internal Authorization Error');
     } finally {
         if (client) client.release();
     }
