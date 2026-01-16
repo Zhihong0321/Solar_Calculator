@@ -162,7 +162,10 @@
                     <div class="p-6">
                         <div class="flex items-center justify-between mb-4">
                             <span class="text-xs font-bold text-slate-700 uppercase" id="sedaProgressText">Progress: 0%</span>
-                            <span id="sedaStatusBadge" class="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-200 uppercase">DRAFT</span>
+                            <div class="flex gap-2">
+                                <span id="sedaRegStatusBadge" class="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase">APP: DRAFT</span>
+                                <span id="sedaAdminStatusBadge" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 uppercase">ADMIN: PENDING</span>
+                            </div>
                         </div>
                         <!-- Progress Dots Grid -->
                         <div class="grid grid-cols-6 sm:grid-cols-11 gap-2">
@@ -421,11 +424,13 @@
         function renderSeda(seda) {
             if (!seda) {
                 document.getElementById('sedaProgressText').textContent = 'Progress: 0% (No Form Created)';
-                document.getElementById('sedaStatusBadge').textContent = 'MISSING';
+                document.getElementById('sedaRegStatusBadge').textContent = 'APP: MISSING';
+                document.getElementById('sedaAdminStatusBadge').textContent = 'ADMIN: MISSING';
                 return;
             }
 
-            document.getElementById('sedaStatusBadge').textContent = seda.reg_status || 'DRAFT';
+            document.getElementById('sedaRegStatusBadge').textContent = `APP: ${seda.reg_status || 'DRAFT'}`;
+            document.getElementById('sedaAdminStatusBadge').textContent = `ADMIN: ${seda.seda_status || 'PENDING'}`;
             
             const checks = [
                 { id: 'dot-name', val: !!(seda.linked_customer_name || seda.customer_profile?.name) },
