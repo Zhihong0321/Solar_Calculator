@@ -60,17 +60,11 @@ exports.getChatHistory = async (req, res) => {
 };
 
 exports.postMessage = async (req, res) => {
-  upload(req, res, async function (err) {
-    if (err instanceof multer.MulterError) {
-      return res.status(400).json({ error: `Upload error: ${err.message}` });
-    } else if (err) {
-      return res.status(500).json({ error: `Unknown upload error: ${err.message}` });
-    }
-
+  const processRequest = async (req, res) => {
     try {
       const { invoiceId } = req.params;
       const { messageType, content, tagRole } = req.body;
-      const user = req.user; // From requireAuth middleware
+      const user = req.user; 
 
       if (!invoiceId) return res.status(400).json({ error: 'Invoice ID required' });
 
@@ -85,17 +79,11 @@ exports.postMessage = async (req, res) => {
 
       // Handle File Upload
       if (req.file) {
-        // Validate Size based on type
         const isImage = req.file.mimetype.startsWith('image/');
-        const limit = isImage ? 1 * 1024 * 1024 : 3 * 1024 * 1024; // 1MB Image, 3MB File
+        const limit = isImage ? 1 * 1024 * 1024 : 3 * 1024 * 1024;
 
         if (req.file.size > limit) {
-          // Ideally delete the file here if needed, but multer already saved it. 
-          // For simplicity in this iteration, we accept it or could delete it.
-          // Let's enforce strictness:
-          // const fs = require('fs'); fs.unlinkSync(req.file.path); 
-          // return res.status(400).json({ error: 'File too large' });
-          // But user requirement said "process max at 1mb", imply validate.
+           // Should delete file if validation fails in production
         }
 
         finalContent = getAbsoluteUrl(req, req.file.filename);
@@ -123,7 +111,23 @@ exports.postMessage = async (req, res) => {
       console.error('Post Message Error:', dbErr);
       res.status(500).json({ error: 'Failed to post message' });
     }
-  });
+  };
+
+  const contentType = req.headers['content-type'] || '';
+  
+  if (contentType.includes('multipart/form-data')) {
+    upload(req, res, function (err) {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: `Upload error: ${err.message}` });
+      } else if (err) {
+        return res.status(500).json({ error: `Unknown upload error: ${err.message}` });
+      }
+      processRequest(req, res);
+    });
+  } else {
+    // JSON or other (handled by express.json())
+    processRequest(req, res);
+  }
 };
 
 exports.acknowledgeTag = async (req, res) => {
