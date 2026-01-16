@@ -12,10 +12,14 @@ const { requireAuth } = require('./src/core/middleware/auth');
 const Invoicing = require('./src/modules/Invoicing');
 const SolarCalculator = require('./src/modules/SolarCalculator');
 const Customer = require('./src/modules/Customer');
+const Chat = require('./src/modules/Chat');
 const sedaRoutes = require('./routes/sedaRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Trust Proxy for Railway/Load Balancers
+app.set('trust proxy', 1);
 
 // --- Global Middleware ---
 app.use(cors({
@@ -38,6 +42,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(Invoicing.router);
 app.use(SolarCalculator.router);
 app.use(Customer.router);
+app.use(Chat.router);
 app.use(sedaRoutes);
 
 // --- Global Routes & Static Files ---
@@ -50,6 +55,11 @@ app.use('/seda-files', express.static(path.join(storagePath, 'seda_registration'
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Chat Page Route
+app.get('/invoice-chat', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'invoice_chat.html'));
 });
 
 // API endpoint to test database connection (Core Health)

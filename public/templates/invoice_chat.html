@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background-color: #f0f2f5; } /* WhatsApp-like bg */
+        .chat-bg {
+            background-color: #efeae2;
+            background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
+            background-opacity: 0.4;
+        }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-[#00a884] text-white py-3 px-4 flex items-center justify-between shrink-0 shadow-md z-10">
+        <div class="flex items-center gap-3">
+            <button onclick="goBack()" class="p-1 hover:bg-white/10 rounded-full transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7 7-7"></path></svg>
+            </button>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
+                    INV
+                </div>
+                <div>
+                    <h1 class="font-bold text-sm leading-tight" id="headerTitle">Loading...</h1>
+                    <p class="text-xs text-white/80" id="headerSubtitle">Connecting...</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Chat Area -->
+    <main class="flex-1 chat-bg overflow-y-auto p-4 space-y-2 relative" id="chatContainer">
+        <!-- Messages will appear here -->
+        <div class="text-center text-xs text-gray-500 my-4 bg-white/50 py-1 px-3 rounded-lg inline-block mx-auto shadow-sm">
+            Messages are end-to-end encrypted... just kidding. This is an internal chat.
+        </div>
+    </main>
+
+    <!-- Input Area -->
+    <footer class="bg-[#f0f2f5] px-4 py-2 shrink-0">
+        <div class="flex items-end gap-2 max-w-4xl mx-auto">
+            <!-- Attachment -->
+            <label class="p-3 text-gray-500 hover:bg-gray-200 rounded-full cursor-pointer transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                <input type="file" id="fileInput" class="hidden" onchange="handleFileUpload(this)">
+            </label>
+
+            <!-- Text Input -->
+            <div class="flex-1 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center p-2">
+                <textarea id="messageInput" rows="1" class="w-full resize-none outline-none text-sm text-gray-800 placeholder-gray-500 max-h-32" placeholder="Type a message" onkeydown="handleEnter(event)"></textarea>
+            </div>
+
+            <!-- Send Button -->
+            <button onclick="sendMessage()" class="p-3 bg-[#00a884] text-white rounded-full hover:bg-[#008f6f] shadow-md transition-all active:scale-95">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+            </button>
+        </div>
+    </footer>
+
+    <!-- File Preview Modal -->
+    <div id="previewModal" class="fixed inset-0 z-50 hidden bg-black/80 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-sm w-full p-4 space-y-4">
+            <h3 class="font-bold text-gray-800">Send File?</h3>
+            <div id="previewContent" class="text-sm text-gray-600 bg-gray-50 p-3 rounded border border-gray-200 truncate"></div>
+            <div class="flex justify-end gap-2">
+                <button onclick="cancelUpload()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded text-sm font-medium">Cancel</button>
+                <button onclick="confirmUpload()" class="px-4 py-2 bg-[#00a884] text-white rounded text-sm font-medium">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const invoiceId = urlParams.get('id');
+        let currentUser = null; // Can be populated if we have an auth endpoint that returns user info, or inferred.
+        // For "Left/Right" logic, we need to know "My ID". 
+        // Since the backend uses cookies, we don't easily have "My ID" in JS without an endpoint.
+        // I will assume the backend can return "currentUserId" in the history response or I'll add a profile endpoint.
+        // Or, simpler: The history API returns "isMine: true/false" for each message? No, API is generic.
+        // I will add a small logic to fetch "who am I" or assume based on first message sent?
+        // Better: decode JWT from cookie? HttpOnly cookie prevents this.
+        // I will assume the GET /chat history endpoint returns { messages, currentUserId }. I'll update the controller.
+        
+        // Wait, I can't easily update controller now without another tool call. 
+        // I'll try to use a simple "me" endpoint or just check if I can parse a non-http-only cookie if it exists?
+        // No, let's fetch profile first.
+        // Actually, I'll update the Chat Controller to return `currentUserId` in the `getChatHistory` response.
+        
+        const chatContainer = document.getElementById('chatContainer');
+        const msgInput = document.getElementById('messageInput');
+        let myUserId = null;
+        let lastMsgId = 0;
+        let selectedFile = null;
+
+        async function init() {
+            if (!invoiceId) {
+                alert('Invoice ID missing');
+                window.location.href = '/my-invoice';
+                return;
+            }
+            
+            // Set Header immediately (cosmetic)
+            document.getElementById('headerTitle').textContent = `Invoice #${invoiceId.substring(0,8)}...`;
+
+            await loadHistory();
+            scrollToBottom();
+
+            // Polling
+            setInterval(loadHistory, 3000);
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`/api/v1/chat/${invoiceId}`);
+                const json = await res.json();
+                
+                if (json.success) {
+                    // Update Header if we have more info?
+                    // json.threadId
+                    
+                    // Simple "My ID" hack: The controller returns user object in req, let's hope I updated the controller...
+                    // Oh, I didn't update controller to return `currentUserId`. 
+                    // I will do a quick update to the controller in the next step to include `currentUserId`.
+                    // For now, let's assume `myUserId` is handled or I'll fetch it.
+                    
+                    if (json.currentUserId) myUserId = json.currentUserId;
+
+                    renderMessages(json.messages);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderMessages(messages) {
+            // Only append new messages or re-render? Re-render is safer for syncing, but efficient update is better.
+            // For simplicity: Clear and Render (small chat history usually).
+            // Optimization: check count.
+            
+            // We need to know who is "me".
+            // If `myUserId` is null, we can't distinguish. 
+            
+            chatContainer.innerHTML = ''; // Clear for now
+            
+            let lastDate = null;
+
+            messages.forEach(msg => {
+                const isMe = String(msg.sender_id) === String(myUserId);
+                const date = new Date(msg.created_at).toLocaleDateString();
+                
+                // Date Divider
+                if (date !== lastDate) {
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-center my-4 sticky top-2 z-10';
+                    div.innerHTML = `<span class="bg-white/80 shadow-sm text-gray-500 text-xs py-1 px-3 rounded-lg uppercase font-bold tracking-wide backdrop-blur-sm">${date}</span>`;
+                    chatContainer.appendChild(div);
+                    lastDate = date;
+                }
+
+                // Message Bubble
+                const row = document.createElement('div');
+                row.className = `flex w-full mb-1 ${isMe ? 'justify-end' : 'justify-start'}`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `max-w-[80%] rounded-lg px-2 py-1 shadow-sm relative text-sm flex flex-col ${isMe ? 'bg-[#d9fdd3] rounded-tr-none' : 'bg-white rounded-tl-none'}`;
+                
+                // Sender Name (only for others)
+                if (!isMe) {
+                    const name = document.createElement('span');
+                    name.className = 'text-[10px] font-bold text-orange-600 mb-0.5 leading-none';
+                    name.textContent = msg.sender_name;
+                    bubble.appendChild(name);
+                }
+
+                // Content
+                if (msg.message_type === 'image') {
+                    bubble.innerHTML += `
+                        <a href="${msg.content}" target="_blank" class="block overflow-hidden rounded mt-1 mb-1">
+                            <img src="${msg.content}" class="max-w-full max-h-64 object-cover">
+                        </a>
+                    `;
+                } else if (msg.message_type === 'file') {
+                    bubble.innerHTML += `
+                        <div class="flex items-center gap-3 bg-black/5 p-2 rounded mt-1 mb-1 min-w-[200px]">
+                            <div class="bg-red-500 text-white p-2 rounded">PDF</div>
+                            <div class="overflow-hidden">
+                                <a href="${msg.content}" target="_blank" class="block text-sm font-medium hover:underline truncate">${msg.file_meta?.originalName || 'File'}</a>
+                                <span class="text-[10px] text-gray-500">${msg.file_meta?.size ? (msg.file_meta.size/1024).toFixed(1)+' KB' : ''}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const text = document.createElement('p');
+                    text.className = 'text-gray-800 whitespace-pre-wrap leading-snug';
+                    text.textContent = msg.content;
+                    bubble.appendChild(text);
+                }
+
+                // Time
+                const time = document.createElement('span');
+                time.className = 'text-[9px] text-gray-500 self-end ml-2 mt-1 min-w-fit';
+                time.textContent = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                bubble.appendChild(time);
+
+                row.appendChild(bubble);
+                chatContainer.appendChild(row);
+            });
+        }
+
+        async function sendMessage() {
+            const text = msgInput.value.trim();
+            if (!text && !selectedFile) return;
+
+            msgInput.value = '';
+            
+            // Optimistic UI? No, wait for server response to ensure consistency.
+            
+            try {
+                const formData = new FormData();
+                if (selectedFile) {
+                    formData.append('file', selectedFile);
+                }
+                formData.append('content', text); // Can be empty if file only
+
+                const res = await fetch(`/api/v1/chat/${invoiceId}/message`, {
+                    method: 'POST',
+                    body: formData // No headers (browser sets multipart)
+                });
+                
+                const json = await res.json();
+                if (json.success) {
+                    selectedFile = null;
+                    await loadHistory();
+                    scrollToBottom();
+                } else {
+                    alert('Failed to send: ' + json.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error');
+            }
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function handleFileUpload(input) {
+            if (input.files.length > 0) {
+                const file = input.files[0];
+                if (file.size > 3 * 1024 * 1024) {
+                    alert('File too large (Max 3MB)');
+                    input.value = '';
+                    return;
+                }
+                selectedFile = file;
+                
+                // Show confirmation modal
+                document.getElementById('previewContent').textContent = `${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+                document.getElementById('previewModal').classList.remove('hidden');
+            }
+        }
+
+        function confirmUpload() {
+            document.getElementById('previewModal').classList.add('hidden');
+            sendMessage();
+        }
+
+        function cancelUpload() {
+            selectedFile = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('previewModal').classList.add('hidden');
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function goBack() {
+            window.location.href = `/invoice-office?id=${invoiceId}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

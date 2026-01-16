@@ -713,28 +713,55 @@
                     document.getElementById('emergencyPhone').value = data.e_contact_no || '';
 
                     // 3. Show existing files
-                    const showExisting = (url, previewId) => {
-                        if (!url) return;
-                        const el = document.getElementById(previewId);
-                        el.style.display = 'block';
-                        if (url.endsWith('.pdf')) {
-                            el.innerHTML = `<a href="${url}" target="_blank" class="text-blue-600 underline">View Existing PDF</a>`;
-                        } else {
-                            el.innerHTML = `<img src="${url}" alt="Existing"><a href="${url}" target="_blank" class="block mt-1 text-blue-600 underline">View Full Image</a>`;
-                        }
-                    };
+        const showExisting = (url, previewId) => {
+            if (!url) return;
+            // Find container for separate view
+            // Logic: The previewId element (e.g. previewMyKadFront) is inside the upload box.
+            // We want to create a sibling container OUTSIDE the upload box for the existing file view.
+            
+            // Get the upload box (parent of preview div)
+            const previewEl = document.getElementById(previewId);
+            const uploadBox = previewEl.closest('.file-upload-box');
+            const inputGroup = uploadBox.closest('.input-group');
+            
+            // Check if we already created a view-box
+            let viewBox = inputGroup.querySelector('.existing-file-view');
+            if (!viewBox) {
+                viewBox = document.createElement('div');
+                viewBox.className = 'existing-file-view mt-2 p-2 bg-slate-50 border border-slate-200 rounded flex items-center justify-between text-xs';
+                inputGroup.appendChild(viewBox);
+            }
 
-                    showExisting(data.ic_copy_front, 'previewMyKadFront');
-                    showExisting(data.ic_copy_back, 'previewMyKadBack');
-                    showExisting(data.mykad_pdf, 'previewMyKadPdf');
-                    showExisting(data.tnb_bill_1, 'previewTnb1');
-                    showExisting(data.tnb_bill_2, 'previewTnb2');
-                    showExisting(data.tnb_bill_3, 'previewTnb3');
-                    showExisting(data.property_ownership_prove, 'previewPropertyProof');
-                    showExisting(data.tnb_meter, 'previewTnbMeter');
+            if (url.endsWith('.pdf')) {
+                viewBox.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-red-600">PDF</span>
+                        <span class="text-slate-600">Existing Document Uploaded</span>
+                    </div>
+                    <a href="${url}" target="_blank" class="text-blue-600 font-semibold hover:underline">View PDF</a>
+                `;
+            } else {
+                viewBox.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <img src="${url}" class="w-8 h-8 object-cover rounded border border-slate-200">
+                        <span class="text-slate-600">Existing Image</span>
+                    </div>
+                    <a href="${url}" target="_blank" class="text-blue-600 font-semibold hover:underline">View</a>
+                `;
+            }
+        };
 
-                    if (data.mykad_pdf) setMyKadMode('pdf');
-                    else setMyKadMode('images');
+        showExisting(data.ic_copy_front, 'previewMyKadFront');
+        showExisting(data.ic_copy_back, 'previewMyKadBack');
+        showExisting(data.mykad_pdf, 'previewMyKadPdf');
+        showExisting(data.tnb_bill_1, 'previewTnb1');
+        showExisting(data.tnb_bill_2, 'previewTnb2');
+        showExisting(data.tnb_bill_3, 'previewTnb3');
+        showExisting(data.property_ownership_prove, 'previewPropertyProof');
+        showExisting(data.tnb_meter, 'previewTnbMeter');
+
+        if (data.mykad_pdf) setMyKadMode('pdf');
+        else setMyKadMode('images');
 
                 }
             } catch (err) {
@@ -858,7 +885,18 @@
                                             fKey === 'property_proof' ? 'previewPropertyProof' : 
                                             fKey === 'tnb_meter' ? 'previewTnbMeter' : '';
                             
-                            const hasFile = fileData[fKey] || (document.getElementById(previewId) && document.getElementById(previewId).style.display === 'block');
+                            // Check newly uploaded file OR existing file view
+                            // We need to find the container related to this key/previewId to check for .existing-file-view
+                            let hasExisting = false;
+                            if (previewId) {
+                                const el = document.getElementById(previewId);
+                                if (el) {
+                                    const grp = el.closest('.input-group');
+                                    if (grp && grp.querySelector('.existing-file-view')) hasExisting = true;
+                                }
+                            }
+
+                            const hasFile = fileData[fKey] || (document.getElementById(previewId) && document.getElementById(previewId).style.display === 'block') || hasExisting;
                             if (!hasFile) isDone = false;
                         });
                     }
