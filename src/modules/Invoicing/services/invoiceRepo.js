@@ -364,7 +364,8 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     if (invoiceResult.rows.length === 0) return null;
     const invoice = invoiceResult.rows[0];
 
-    // Query 2: Get items (Legacy Table)
+    // Query 2: Get items (Enhanced Retrieval)
+    const itemIds = Array.isArray(invoice.linked_invoice_item) ? invoice.linked_invoice_item : [];
     const itemsResult = await client.query(
       `SELECT 
         bubble_id,
@@ -381,8 +382,9 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         description as product_name_snapshot
        FROM invoice_item 
        WHERE linked_invoice = $1 
+          OR bubble_id = ANY($2::text[])
        ORDER BY sort ASC, created_at ASC`,
-      [bubbleId]
+      [bubbleId, itemIds]
     );
     invoice.items = itemsResult.rows;
 
@@ -839,7 +841,8 @@ async function getInvoiceByShareToken(client, shareToken) {
 
     const invoice = invoiceResult.rows[0];
 
-    // Get items (Legacy Table)
+    // Get items (Enhanced Retrieval)
+    const itemIds = Array.isArray(invoice.linked_invoice_item) ? invoice.linked_invoice_item : [];
     const itemsResult = await client.query(
       `SELECT 
         bubble_id,
@@ -856,8 +859,9 @@ async function getInvoiceByShareToken(client, shareToken) {
         description as product_name_snapshot
        FROM invoice_item 
        WHERE linked_invoice = $1 
+          OR bubble_id = ANY($2::text[])
        ORDER BY sort ASC, created_at ASC`,
-      [invoice.bubble_id]
+      [invoice.bubble_id, itemIds]
     );
     invoice.items = itemsResult.rows;
 

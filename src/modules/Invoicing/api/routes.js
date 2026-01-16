@@ -224,7 +224,9 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
         // Attach to invoice object for frontend
         invoice.paid_amount = paidAmount;
 
-        // 3. Fetch Items (Legacy Table)
+        // 3. Fetch Items (Enhanced Retrieval)
+        // We fetch items that point to this invoice OR are in the invoice's linked_invoice_item array
+        const itemIds = Array.isArray(invoice.linked_invoice_item) ? invoice.linked_invoice_item : [];
         const itemsRes = await client.query(
             `SELECT 
                 bubble_id,
@@ -241,8 +243,9 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
                 description as product_name_snapshot
              FROM invoice_item 
              WHERE linked_invoice = $1 
-             ORDER BY sort ASC`,
-            [bubbleId]
+                OR bubble_id = ANY($2::text[])
+             ORDER BY sort ASC, created_at ASC`,
+            [bubbleId, itemIds]
         );
 
         // 4. Fetch SEDA Registration
