@@ -566,6 +566,7 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
     }
 
     const userId = req.user.userId;
+    console.log('[API] Creating invoice. Body:', JSON.stringify(req.body));
     const {
       linked_package,
       discount_fixed,
