@@ -663,10 +663,9 @@
 
             // Calculate extra items total
             let extraItemsTotal = 0;
-            Object.keys(extraItemsState).forEach(key => {
-                const qty = extraItemsState[key];
-                if (qty > 0) {
-                    extraItemsTotal += qty * EXTRA_ITEMS_CONFIG[key].price;
+            manualItems.forEach(item => {
+                if (item.qty > 0) {
+                    extraItemsTotal += item.qty * item.unit_price;
                 }
             });
 
@@ -724,10 +723,9 @@
 
             // Calculate extra items total
             let extraItemsTotal = 0;
-            Object.keys(extraItemsState).forEach(key => {
-                const qty = extraItemsState[key];
-                if (qty > 0) {
-                    extraItemsTotal += qty * EXTRA_ITEMS_CONFIG[key].price;
+            manualItems.forEach(item => {
+                if (item.qty > 0) {
+                    extraItemsTotal += item.qty * item.unit_price;
                 }
             });
 
