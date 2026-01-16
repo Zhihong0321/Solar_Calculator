@@ -19,14 +19,45 @@ const router = express.Router();
 
 /**
  * GET /api/user/me
- * Get current user profile
+ * Get current user profile with agent details
  * Protected: Requires authentication
  */
-router.get('/api/user/me', requireAuth, (req, res) => {
-    res.json({
-        success: true,
-        user: req.user
-    });
+router.get('/api/user/me', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        const userId = req.user.userId || req.user.id;
+        client = await pool.connect();
+        
+        // Fetch agent details linked to this user
+        const query = `
+            SELECT a.name, a.contact, u.email
+            FROM "user" u
+            LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
+            WHERE u.id::text = $1 OR u.bubble_id = $1
+            LIMIT 1
+        `;
+        const result = await client.query(query, [String(userId)]);
+        
+        const dbUser = result.rows[0] || {};
+
+        res.json({
+            success: true,
+            user: {
+                ...req.user,
+                name: dbUser.name || req.user.name,
+                contact: dbUser.contact || req.user.contact,
+                email: dbUser.email || req.user.email
+            }
+        });
+    } catch (err) {
+        console.error('Error in /api/user/me:', err);
+        res.json({
+            success: true,
+            user: req.user // Fallback to JWT payload
+        });
+    } finally {
+        if (client) client.release();
+    }
 });
 
 /**
