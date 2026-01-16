@@ -50,6 +50,23 @@
                             </div>
                             <div id="result-fix-packages" class="mt-4 hidden p-4 bg-gray-50 rounded-md text-sm font-mono overflow-auto max-h-96 whitespace-pre-wrap"></div>
                         </div>
+
+                        <div class="border border-gray-200 rounded-md p-4 bg-white">
+                            <div class="sm:flex sm:items-start sm:justify-between">
+                                <div>
+                                    <h4 class="text-base font-medium text-gray-900">Enable Bubble Share Tokens</h4>
+                                    <p class="mt-2 text-sm text-gray-500">
+                                        For migrated invoices where <code>share_token</code> is NULL, it will use the <code>bubble_id</code> as the token and set <code>share_enabled</code> to true.
+                                    </p>
+                                </div>
+                                <div class="mt-5 sm:mt-0 sm:ml-6 flex-shrink-0">
+                                    <button type="button" onclick="runPatch('fix-bubble-tokens')" id="btn-fix-bubble-tokens" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:text-sm">
+                                        Run Patch
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="result-fix-bubble-tokens" class="mt-4 hidden p-4 bg-gray-50 rounded-md text-sm font-mono overflow-auto max-h-96 whitespace-pre-wrap"></div>
+                        </div>
                     </div>
                 </div>
             </div>

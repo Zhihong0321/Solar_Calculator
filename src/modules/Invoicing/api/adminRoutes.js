@@ -94,6 +94,8 @@ router.post('/api/admin/patch', requireAuth, requireAdminAccess, async (req, res
         client = await pool.connect();
         if (action === 'fix-packages') {
             await runFixPackagesPatch(client, res);
+        } else if (action === 'fix-bubble-tokens') {
+            await runFixBubbleTokensPatch(client, res);
         } else {
             res.status(400).json({ success: false, error: 'Invalid action' });
         }
@@ -153,6 +155,38 @@ async function runFixPackagesPatch(client, res) {
             data: {
                 summary: `Successfully refilled ${updated} invoice linked_package values.`,
                 logs: logs
+            }
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    }
+}
+
+/**
+ * Patch: Set share_token = bubble_id and share_enabled = true
+ * for all invoices where share_token is NULL or empty.
+ */
+async function runFixBubbleTokensPatch(client, res) {
+    await client.query('BEGIN');
+    try {
+        const result = await client.query(`
+            UPDATE invoice 
+            SET 
+                share_token = bubble_id,
+                share_enabled = true,
+                updated_at = NOW()
+            WHERE (share_token IS NULL OR share_token = '')
+               OR (share_enabled IS NULL OR share_enabled = false)
+        `);
+
+        await client.query('COMMIT');
+        
+        res.json({
+            success: true,
+            data: {
+                summary: `Successfully enabled share tokens for ${result.rowCount} invoices.`,
+                logs: [`Updated ${result.rowCount} rows using bubble_id as the share_token.`]
             }
         });
     } catch (err) {
