@@ -52,7 +52,25 @@
 
     <!-- Input Area -->
     <footer class="bg-[#f0f2f5] px-4 py-2 shrink-0">
-        <div class="flex items-end gap-2 max-w-4xl mx-auto">
+        <!-- Tag Menu (Hidden) -->
+        <div id="tagMenu" class="hidden absolute bottom-16 left-4 bg-white shadow-xl rounded-lg overflow-hidden border border-gray-100 w-48 z-20">
+            <div class="bg-gray-50 px-3 py-2 text-xs font-bold text-gray-500 uppercase">Tag Role</div>
+            <div class="flex flex-col">
+                <button onclick="sendTag('Admin')" class="px-4 py-2 text-left hover:bg-purple-50 hover:text-purple-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-purple-500">Admin</button>
+                <button onclick="sendTag('Finance')" class="px-4 py-2 text-left hover:bg-green-50 hover:text-green-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-green-500">Finance</button>
+                <button onclick="sendTag('Support')" class="px-4 py-2 text-left hover:bg-blue-50 hover:text-blue-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-blue-500">Support</button>
+                <button onclick="sendTag('Manager')" class="px-4 py-2 text-left hover:bg-orange-50 hover:text-orange-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-orange-500">Manager</button>
+                <button onclick="sendTag('CEO')" class="px-4 py-2 text-left hover:bg-red-50 hover:text-red-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-red-500">CEO</button>
+                <button onclick="sendTag('Engineering')" class="px-4 py-2 text-left hover:bg-cyan-50 hover:text-cyan-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-cyan-500">Engineering</button>
+            </div>
+        </div>
+
+        <div class="flex items-end gap-2 max-w-4xl mx-auto relative">
+            <!-- Tag Button -->
+            <button onclick="toggleTagMenu()" class="p-3 text-gray-500 hover:bg-gray-200 rounded-full transition-colors relative" title="Tag Role">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path></svg>
+            </button>
+
             <!-- Attachment -->
             <label class="p-3 text-gray-500 hover:bg-gray-200 rounded-full cursor-pointer transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
@@ -114,7 +132,7 @@
             }
             
             // Set Header immediately (cosmetic)
-            document.getElementById('headerTitle').textContent = `Invoice #${invoiceId.substring(0,8)}...`;
+            // document.getElementById('headerTitle').textContent = `Invoice #${invoiceId.substring(0,8)}...`;
 
             await loadHistory();
             scrollToBottom();
@@ -126,11 +144,21 @@
         async function loadHistory() {
             try {
                 const res = await fetch(`/api/v1/chat/${invoiceId}`);
+                
+                // Handle Auth Failure
+                if (res.status === 401) {
+                    const json = await res.json();
+                    const returnTo = encodeURIComponent(window.location.href);
+                    window.location.href = `${json.redirect || 'https://auth.atap.solar'}/?return_to=${returnTo}`;
+                    return;
+                }
+
                 const json = await res.json();
                 
                 if (json.success) {
-                    // Update Header if we have more info?
-                    // json.threadId
+                    // Update Header
+                    document.getElementById('headerTitle').textContent = json.customerName || 'Customer Chat';
+                    document.getElementById('headerSubtitle').textContent = `Invoice #${invoiceId.substring(0,8)}...`;
                     
                     // Simple "My ID" hack: The controller returns user object in req, let's hope I updated the controller...
                     // Oh, I didn't update controller to return `currentUserId`. 
@@ -203,6 +231,31 @@
                             </div>
                         </div>
                     `;
+                } else if (msg.message_type === 'tag') {
+                    const roleColors = {
+                        'Admin': 'bg-purple-100 text-purple-800 border-purple-200',
+                        'Finance': 'bg-green-100 text-green-800 border-green-200',
+                        'Support': 'bg-blue-100 text-blue-800 border-blue-200',
+                        'Manager': 'bg-orange-100 text-orange-800 border-orange-200',
+                        'CEO': 'bg-red-100 text-red-800 border-red-200',
+                        'Engineering': 'bg-cyan-100 text-cyan-800 border-cyan-200'
+                    };
+                    const colorClass = roleColors[msg.tag_role] || 'bg-gray-100 text-gray-800 border-gray-200';
+                    
+                    const ackBtn = (msg.is_tag_active) 
+                        ? `<button onclick="acknowledgeTag('${msg.id}')" class="mt-2 w-full py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors uppercase tracking-wide shadow-sm">Acknowledge</button>`
+                        : `<div class="mt-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest border-t border-black/5 pt-1">Acknowledged</div>`;
+
+                    bubble.innerHTML += `
+                        <div class="mt-1 mb-1 min-w-[200px]">
+                            <div class="flex items-center gap-2 p-2 rounded border ${colorClass}">
+                                <div class="font-bold text-xs uppercase tracking-wider flex-1">@${msg.tag_role}</div>
+                                <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                            </div>
+                            <div class="text-xs text-gray-600 italic mt-1 px-1">Attention required for ${msg.tag_role}</div>
+                            ${ackBtn}
+                        </div>
+                    `;
                 } else {
                     const text = document.createElement('p');
                     text.className = 'text-gray-800 whitespace-pre-wrap leading-snug';
@@ -219,6 +272,48 @@
                 row.appendChild(bubble);
                 chatContainer.appendChild(row);
             });
+        }
+
+        function toggleTagMenu() {
+            document.getElementById('tagMenu').classList.toggle('hidden');
+        }
+
+        async function sendTag(role) {
+            toggleTagMenu();
+            try {
+                const res = await fetch(`/api/v1/chat/${invoiceId}/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messageType: 'tag', tagRole: role, content: 'TAG' })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadHistory();
+                    scrollToBottom();
+                } else {
+                    alert('Failed to tag: ' + json.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error');
+            }
+        }
+
+        async function acknowledgeTag(msgId) {
+            try {
+                const res = await fetch(`/api/v1/chat/message/${msgId}/ack`, {
+                    method: 'PUT'
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadHistory(); // Refresh to show updated state
+                } else {
+                    alert('Failed to acknowledge: ' + json.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error');
+            }
         }
 
         async function sendMessage() {

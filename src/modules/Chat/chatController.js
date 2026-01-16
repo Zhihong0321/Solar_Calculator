@@ -47,11 +47,12 @@ exports.getChatHistory = async (req, res) => {
 
     const thread = await chatService.getThread(invoiceId);
     const messages = await chatService.getMessages(thread.id);
+    const customerName = await chatService.getInvoiceCustomerName(invoiceId);
     
     // Determine current user ID
     const currentUserId = req.user ? String(req.user.userId) : null;
 
-    res.json({ success: true, threadId: thread.id, messages, currentUserId });
+    res.json({ success: true, threadId: thread.id, messages, currentUserId, customerName });
   } catch (err) {
     console.error('Chat History Error:', err);
     res.status(500).json({ error: 'Failed to load chat history' });
@@ -68,7 +69,7 @@ exports.postMessage = async (req, res) => {
 
     try {
       const { invoiceId } = req.params;
-      const { messageType, content } = req.body;
+      const { messageType, content, tagRole } = req.body;
       const user = req.user; // From requireAuth middleware
 
       if (!invoiceId) return res.status(400).json({ error: 'Invoice ID required' });
@@ -110,9 +111,10 @@ exports.postMessage = async (req, res) => {
         threadId: thread.id,
         senderId,
         senderName,
-        messageType: req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'file') : 'text',
+        messageType: req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'file') : (messageType || 'text'),
         content: finalContent,
-        fileMeta
+        fileMeta,
+        tagRole: messageType === 'tag' ? tagRole : null
       });
 
       res.json({ success: true, message: savedMessage });
@@ -122,4 +124,17 @@ exports.postMessage = async (req, res) => {
       res.status(500).json({ error: 'Failed to post message' });
     }
   });
+};
+
+exports.acknowledgeTag = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const user = req.user;
+    
+    const updated = await chatService.acknowledgeTag(messageId, user.userId);
+    res.json({ success: true, message: updated });
+  } catch (err) {
+    console.error('Ack Tag Error:', err);
+    res.status(500).json({ error: 'Failed to acknowledge tag' });
+  }
 };

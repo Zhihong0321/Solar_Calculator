@@ -14,5 +14,6 @@ const { requireAuth } = require('../../core/middleware/auth');
 
 router.get('/api/v1/chat/:invoiceId', requireAuth, chatController.getChatHistory);
 router.post('/api/v1/chat/:invoiceId/message', requireAuth, chatController.postMessage);
+router.put('/api/v1/chat/message/:messageId/ack', requireAuth, chatController.acknowledgeTag);
 
 module.exports = router;

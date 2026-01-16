@@ -9,9 +9,18 @@ const AUTH_URL = process.env.AUTH_URL || 'https://auth.atap.solar';
 const requireAuth = (req, res, next) => {
     const token = req.cookies.auth_token;
 
-    if (!token) {
+    const handleAuthFail = () => {
+        // If it's an API request, return 401 JSON
+        if (req.originalUrl.startsWith('/api/')) {
+            return res.status(401).json({ error: 'Unauthorized', redirect: AUTH_URL });
+        }
+        // Otherwise redirect
         const returnTo = encodeURIComponent(req.protocol + '://' + req.get('host') + req.originalUrl);
         return res.redirect(`${AUTH_URL}/?return_to=${returnTo}`);
+    };
+
+    if (!token) {
+        return handleAuthFail();
     }
 
     try {
@@ -19,8 +28,7 @@ const requireAuth = (req, res, next) => {
         req.user = decoded; 
         next();
     } catch (err) {
-        const returnTo = encodeURIComponent(req.protocol + '://' + req.get('host') + req.originalUrl);
-        return res.redirect(`${AUTH_URL}/?return_to=${returnTo}`);
+        return handleAuthFail();
     }
 };
 

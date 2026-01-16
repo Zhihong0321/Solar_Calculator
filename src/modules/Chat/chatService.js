@@ -31,17 +31,95 @@ class ChatService {
   }
 
   /**
-   * Add a message to a thread
+   * Get invoice details for chat header
    */
-  async addMessage({ threadId, senderId, senderName, messageType, content, fileMeta }) {
+  async getInvoiceDetails(invoiceId) {
     const res = await pool.query(
-      `INSERT INTO chat_message 
-       (thread_id, sender_id, sender_name, message_type, content, file_meta)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [threadId, senderId, senderName, messageType, content, fileMeta]
+      `SELECT customer_name_snapshot, invoice_number 
+       FROM invoice 
+       WHERE bubble_id = $1`,
+      [invoiceId]
     );
-    return res.rows[0];
+    return res.rows.length > 0 ? res.rows[0] : null;
+  }
+
+    /**
+
+     * Add a message to a thread
+
+     */
+
+    async addMessage({ threadId, senderId, senderName, messageType, content, fileMeta, tagRole }) {
+
+      const isTagActive = messageType === 'tag';
+
+      
+
+      const res = await pool.query(
+
+        `INSERT INTO chat_message 
+
+         (thread_id, sender_id, sender_name, message_type, content, file_meta, tag_role, is_tag_active)
+
+         VALUES (
+  , $2, $3, $4, $5, $6, $7, $8)
+
+         RETURNING *`,
+
+        [threadId, senderId, senderName, messageType, content, fileMeta, tagRole, isTagActive]
+
+      );
+
+      return res.rows[0];
+
+    }
+
+  
+
+    /**
+
+     * Acknowledge a tag message (mark as read/inactive)
+
+     */
+
+    async acknowledgeTag(messageId, userId) {
+
+      const res = await pool.query(
+
+        `UPDATE chat_message 
+
+         SET is_tag_active = false
+
+         WHERE id = 
+   AND message_type = 'tag'
+
+         RETURNING *`,
+
+        [messageId]
+
+      );
+
+      return res.rows[0];
+
+    }
+
+  
+
+    /**
+
+     * Get customer name from invoice
+   */
+  async getInvoiceCustomerName(invoiceId) {
+    try {
+      const res = await pool.query(
+        `SELECT customer_name_snapshot FROM invoice WHERE bubble_id = $1`,
+        [invoiceId]
+      );
+      return res.rows.length > 0 ? res.rows[0].customer_name_snapshot : 'Unknown Customer';
+    } catch (err) {
+      console.error('Error fetching customer name:', err);
+      return 'Unknown Customer';
+    }
   }
 }
 
