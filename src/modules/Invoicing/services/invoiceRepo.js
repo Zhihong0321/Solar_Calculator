@@ -1073,7 +1073,6 @@ async function getInvoicesByUserId(client, userId, options = {}) {
                 i.linked_seda_registration, 
                 (SELECT s.bubble_id FROM seda_registration s WHERE i.bubble_id = ANY(s.linked_invoice) LIMIT 1)
             ) as linked_seda_registration,
-            i.percent_of_total_amount,
             
             -- Verified Paid Amount
             COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id), 0) as total_received,
@@ -1086,7 +1085,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             ) as pending_payments
 
         FROM invoice i
-        LEFT JOIN customer c ON i.customer_id = c.id
+        LEFT JOIN customer c ON i.linked_customer = c.customer_id
         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
         WHERE i.linked_agent = $1 
         AND i.is_latest = true 
@@ -1097,11 +1096,11 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   // Payment Status Filtering logic based on calculated total_received
   if (paymentStatus) {
     if (paymentStatus === 'unpaid') {
-        filterClause += ` AND (percent_of_total_amount IS NULL OR percent_of_total_amount <= 0)`;
+        filterClause += ` AND (total_received IS NULL OR total_received <= 0)`;
     } else if (paymentStatus === 'partial') {
-        filterClause += ` AND percent_of_total_amount > 0 AND percent_of_total_amount < 100`;
+        filterClause += ` AND total_received > 0 AND total_received < total_amount`;
     } else if (paymentStatus === 'paid') {
-        filterClause += ` AND percent_of_total_amount >= 100`;
+        filterClause += ` AND total_received >= total_amount AND total_amount > 0`;
     }
   }
 
