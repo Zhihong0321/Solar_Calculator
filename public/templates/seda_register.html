@@ -615,10 +615,31 @@
         function insertValue(targetId, value) {
             const el = document.getElementById(targetId);
             if (el) {
-                el.value = value;
+                // Handle SELECT case-insensitive matching
+                if (el.tagName === 'SELECT') {
+                    let matched = false;
+                    for (let i = 0; i < el.options.length; i++) {
+                        if (el.options[i].value.toLowerCase() === value.toLowerCase()) {
+                            el.value = el.options[i].value;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched) {
+                        console.warn(`No case-insensitive match found for '${value}' in select #${targetId}`);
+                        // Try direct assignment anyway in case option exists but loop missed something weird
+                        el.value = value;
+                    }
+                } else {
+                    el.value = value;
+                }
+                
                 // Optional: visual feedback
                 el.style.borderColor = '#16a34a'; // Green flash
                 setTimeout(() => el.style.borderColor = '', 1000);
+                
+                // Trigger change event for progress tracking
+                el.dispatchEvent(new Event('change'));
             } else {
                 console.warn('Target input not found:', targetId);
             }
