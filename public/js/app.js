@@ -684,7 +684,7 @@ window.syncAndTrigger = function(id, value) {
 };
 
 window.generateInvoiceLink = function() {
-    if (!latestSolarData || !latestSolarData.selectedPackage || !latestSolarData.selectedPackage.bubbleId) {
+    if (!latestSolarData || !latestSolarData.selectedPackage || !latestSolarData.selectedPackage.linked_package) {
         showNotification('No valid package selected for quotation. Please ensure a package is matched.', 'error');
         return;
     }
@@ -692,7 +692,7 @@ window.generateInvoiceLink = function() {
     const params = new URLSearchParams();
 
     // Required
-    params.set('linked_package', latestSolarData.selectedPackage.bubbleId);
+    params.set('linked_package', latestSolarData.selectedPackage.linked_package);
 
     // Optional: Discount
     // Access params from latestSolarParams
