@@ -385,21 +385,28 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     </div>
 
     <!-- Signature Section -->
-    ${invoice.customer_signature ? `
-    <section class="mt-12 pt-8 border-t border-slate-200">
-      <div class="max-w-xs">
-        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Read, Agreed, Signed by</p>
-        <div class="my-[-20px] h-32 flex items-center">
-            <img src="${invoice.customer_signature}" alt="Customer Signature" class="max-h-full object-contain">
+    ${(() => {
+      if (!invoice.customer_signature) return '';
+      
+      let sigUrl = invoice.customer_signature;
+      if (sigUrl.startsWith('//')) sigUrl = 'https:' + sigUrl;
+      
+      return `
+      <section class="mt-12 pt-8 border-t border-slate-200">
+        <div class="max-w-xs">
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Read, Agreed, Signed by</p>
+          <div class="h-24 flex items-center mb-2">
+              <img src="${sigUrl}" alt="Customer Signature" class="max-h-full object-contain">
+          </div>
+          <div class="border-t border-slate-400 pt-2">
+              <p class="text-xs font-bold text-slate-900 uppercase">${invoice.customer_name_snapshot || 'Customer'}</p>
+              <p class="text-[10px] text-slate-500">${invoice.customer_phone_snapshot || ''} ${invoice.customer_email_snapshot ? '• ' + invoice.customer_email_snapshot : ''}</p>
+              ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on ${new Date(invoice.signature_date).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>` : ''}
+          </div>
         </div>
-        <div class="border-t border-slate-400 mt-2 pt-2">
-            <p class="text-xs font-bold text-slate-900 uppercase">${invoice.customer_name_snapshot || ''}</p>
-            <p class="text-[10px] text-slate-500">${invoice.customer_phone_snapshot || ''} ${invoice.customer_email_snapshot ? '• ' + invoice.customer_email_snapshot : ''}</p>
-            ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on ${new Date(invoice.signature_date).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>` : ''}
-        </div>
-      </div>
-    </section>
-    ` : ''}
+      </section>
+      `;
+    })()}
 
     <!-- Footer -->
     <footer class="mt-12 text-center">

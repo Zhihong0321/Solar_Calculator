@@ -1149,19 +1149,40 @@
                     // 5. Markup (Preserve)
                     window.currentAgentMarkup = inv.agent_markup || 0;
 
-                    // 6. Extra/Manual Items
-                    if (inv.items) {
-                        inv.items.forEach(item => {
-                            // We treat 'extra' type OR items with NO type (except package/discount/voucher) as manual items
-                            const type = (item.item_type || '').toLowerCase();
-                            if (type === 'extra' || (!type && !item.is_a_package)) {
-                                addManualItem({
-                                    description: item.description,
-                                    qty: parseFloat(item.qty) || 1,
-                                    unit_price: parseFloat(item.unit_price) || 0
-                                });
-                            }
+                    // 6. Extra/Manual Items - Load ALL items from database
+                    if (inv.items && Array.isArray(inv.items)) {
+                        console.log('[Edit Invoice] Loading', inv.items.length, 'items from invoice');
+
+                        // Group items by type
+                        const packageItems = inv.items.filter(i => i.is_a_package || i.item_type === 'package');
+                        const extraItems = inv.items.filter(i => i.item_type === 'extra');
+                        const discountItems = inv.items.filter(i => i.item_type === 'discount');
+                        const voucherItems = inv.items.filter(i => i.item_type === 'voucher');
+                        const noticeItems = inv.items.filter(i => i.item_type === 'notice');
+                        const eppFeeItems = inv.items.filter(i => i.item_type === 'epp_fee');
+
+                        console.log('[Edit Invoice] Item breakdown:', {
+                            package: packageItems.length,
+                            extra: extraItems.length,
+                            discount: discountItems.length,
+                            voucher: voucherItems.length,
+                            notice: noticeItems.length,
+                            epp_fee: eppFeeItems.length
                         });
+
+                        // Load extra items as manual items (editable)
+                        extraItems.forEach(item => {
+                            addManualItem({
+                                description: item.description,
+                                qty: parseFloat(item.qty) || 1,
+                                unit_price: parseFloat(item.unit_price) || 0
+                            });
+                        });
+
+                        // Note: Package, discount, voucher, and EPP fee items are handled
+                        // by their respective form fields and will be recreated on submit
+                    } else {
+                        console.warn('[Edit Invoice] No items found in invoice data');
                     }
                     
                     // 7. Fetch vouchers

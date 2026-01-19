@@ -275,6 +275,23 @@
                     </div>
                 </section>
 
+                <!-- Customer Signature -->
+                <section class="section-card" id="signatureSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Customer Signature</h2>
+                    </div>
+                    <div class="p-6 flex flex-col items-center text-center">
+                        <div class="h-32 mb-4 w-full flex items-center justify-center bg-slate-50 rounded-lg border border-slate-100">
+                            <img id="signatureImage" src="" alt="Customer Signature" class="max-h-full max-w-full object-contain">
+                        </div>
+                        <div class="w-full pt-4 border-t border-slate-100">
+                            <p class="text-xs font-bold text-slate-900 uppercase" id="signerName"></p>
+                            <p class="text-[10px] text-slate-500 font-medium" id="signerDetails"></p>
+                            <p class="text-[10px] text-emerald-600 font-bold mt-1 uppercase" id="signDate"></p>
+                        </div>
+                    </div>
+                </section>
+
             </div>
 
         </div>
@@ -307,24 +324,57 @@
             try {
                 const res = await fetch(`/api/v1/invoice-office/${bubbleId}`);
                 const json = await res.json();
-                
+
                 if (json.success) {
                     currentData = json.data;
+                    console.log('[loadData] API Response:', json);
+                    console.log('[loadData] Items:', json.data.items);
+                    console.log('[loadData] Items type:', Array.isArray(json.data.items) ? 'Array' : typeof json.data.items);
+
                     renderHeader(json.data.invoice);
                     renderStats(json.data.invoice);
                     renderPayments(json.data.payments);
-                    renderItems(json.data.items);
+                    renderItems(json.data.items || []); // Ensure items is always an array
                     renderSeda(json.data.seda);
                     renderRoofImages(json.data.invoice.linked_roof_image, json.data.seda?.roof_images);
                     renderEngDrawings(json.data.seda);
+                    renderSignature(json.data.invoice);
                 } else {
                     alert('Error: ' + json.error);
                 }
             } catch (err) {
-                console.error(err);
-                alert('Failed to load data.');
+                console.error('[loadData] Error:', err);
+                alert('Failed to load data: ' + err.message);
             } finally {
                 document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        function renderSignature(inv) {
+            const section = document.getElementById('signatureSection');
+            if (!inv.customer_signature) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            
+            let sigUrl = inv.customer_signature;
+            if (sigUrl.startsWith('//')) sigUrl = 'https:' + sigUrl;
+            
+            document.getElementById('signatureImage').src = sigUrl;
+            document.getElementById('signerName').textContent = inv.customer_name_snapshot || 'Customer';
+            document.getElementById('signerDetails').textContent = `${inv.customer_phone_snapshot || ''} ${inv.customer_email_snapshot ? '• ' + inv.customer_email_snapshot : ''}`;
+            
+            if (inv.signature_date) {
+                const date = new Date(inv.signature_date).toLocaleString('en-MY', {
+                    timeZone: 'Asia/Kuala_Lumpur',
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+                document.getElementById('signDate').textContent = `SIGNED ON ${date}`;
+            } else {
+                document.getElementById('signDate').textContent = '';
             }
         }
 
@@ -407,17 +457,47 @@
 
         function renderItems(items) {
             const container = document.getElementById('itemsList');
-            if (items.length > 0) {
-                container.innerHTML = items.map(item => `
-                    <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                        <td class="px-4 py-3">
-                            <p class="font-medium text-slate-800">${item.product_name_snapshot || 'Item'}</p>
-                            <p class="text-[10px] text-slate-400 mt-0.5">${item.description || ''}</p>
+
+            // Handle edge cases: items might be undefined, null, or not an array
+            const itemsArray = Array.isArray(items) ? items : [];
+
+            console.log('[renderItems] Rendering', itemsArray.length, 'items');
+
+            if (itemsArray.length > 0) {
+                container.innerHTML = itemsArray.map(item => {
+                    // Safely extract values with defaults
+                    const name = item.product_name_snapshot || item.description || 'Item';
+                    const desc = item.description || '';
+                    const qty = parseFloat(item.qty) || 0;
+                    const price = parseFloat(item.total_price) || 0;
+                    const itemType = item.item_type || '';
+
+                    // Apply different styling based on item type
+                    let nameClass = 'font-medium text-slate-800';
+                    if (itemType === 'discount' || itemType === 'voucher') {
+                        nameClass = 'font-medium text-red-600';
+                    }
+
+                    return `
+                        <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                            <td class="px-4 py-3">
+                                <p class="${nameClass}">${name}</p>
+                                ${desc ? `<p class="text-[10px] text-slate-400 mt-0.5">${desc}</p>` : ''}
+                            </td>
+                            <td class="px-4 py-3 text-right text-slate-600 font-medium">${qty.toFixed(0)}</td>
+                            <td class="px-4 py-3 text-right text-slate-900 font-bold">${formatCurrency(price).replace('RM ','')}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                // Explicitly show "No items found" message
+                container.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="px-4 py-8 text-center text-slate-400 italic">
+                            No items found for this quotation.
                         </td>
-                        <td class="px-4 py-3 text-right text-slate-600 font-medium">${parseFloat(item.qty).toFixed(0)}</td>
-                        <td class="px-4 py-3 text-right text-slate-900 font-bold">${formatCurrency(item.total_price).replace('RM ','')}</td>
                     </tr>
-                `).join('');
+                `;
             }
         }
 
