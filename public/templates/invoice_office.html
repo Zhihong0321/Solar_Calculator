@@ -664,7 +664,7 @@
 
         // --- Helpers ---
         function formatCurrency(v) { return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(v || 0); }
-        function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
+        function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
         function toBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();

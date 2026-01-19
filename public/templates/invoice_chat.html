@@ -193,7 +193,7 @@
 
             messages.forEach(msg => {
                 const isMe = String(msg.sender_id) === String(myUserId);
-                const date = new Date(msg.created_at).toLocaleDateString();
+                const date = new Date(msg.created_at).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' });
                 
                 // Date Divider
                 if (date !== lastDate) {
@@ -271,7 +271,7 @@
                 // Time
                 const time = document.createElement('span');
                 time.className = 'text-[9px] text-gray-500 self-end ml-2 mt-1 min-w-fit';
-                time.textContent = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                time.textContent = new Date(msg.created_at).toLocaleTimeString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit' });
                 bubble.appendChild(time);
 
                 row.appendChild(bubble);

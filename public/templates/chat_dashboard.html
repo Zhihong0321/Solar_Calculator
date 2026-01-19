@@ -150,19 +150,26 @@
 
         function formatTime(date) {
             const now = new Date();
-            const isToday = date.toDateString() === now.toDateString();
-            
+            const timeZone = 'Asia/Kuala_Lumpur';
+
+            // Format date in Malaysia timezone for comparison
+            const options = { timeZone, year: 'numeric', month: 'numeric', day: 'numeric' };
+            const dateStr = date.toLocaleDateString('en-MY', options);
+            const nowStr = now.toLocaleDateString('en-MY', options);
+            const isToday = dateStr === nowStr;
+
             if (isToday) {
-                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                return date.toLocaleTimeString('en-MY', { timeZone, hour: '2-digit', minute: '2-digit' });
             }
-            
+
             const yesterday = new Date(now);
             yesterday.setDate(now.getDate() - 1);
-            if (date.toDateString() === yesterday.toDateString()) {
+            const yesterdayStr = yesterday.toLocaleDateString('en-MY', options);
+            if (dateStr === yesterdayStr) {
                 return 'Yesterday';
             }
 
-            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            return date.toLocaleDateString('en-MY', { timeZone, month: 'short', day: 'numeric' });
         }
 
         function filterThreads() {

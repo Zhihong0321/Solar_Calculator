@@ -354,7 +354,7 @@
                                             <p class="text-sm text-slate-500">${h.change_operation} <span class="font-medium text-slate-900">v${h.version}</span></p>
                                         </div>
                                         <div class="whitespace-nowrap text-right text-xs text-slate-500">
-                                            ${new Date(h.changed_at).toLocaleDateString()}
+                                            ${new Date(h.changed_at).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' })}
                                         </div>
                                     </div>
                                 </div>

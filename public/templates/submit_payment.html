@@ -283,7 +283,7 @@
             document.getElementById('packageName').textContent = inv.package_name_snapshot || 'Unknown Package';
             document.getElementById('totalAmount').textContent = formatCurrency(inv.total_amount);
             document.getElementById('customerName').textContent = inv.customer_name_snapshot || '-';
-            document.getElementById('invoiceDate').textContent = new Date(inv.invoice_date).toLocaleDateString();
+            document.getElementById('invoiceDate').textContent = new Date(inv.invoice_date).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' });
         }
 
         function formatCurrency(val) {
