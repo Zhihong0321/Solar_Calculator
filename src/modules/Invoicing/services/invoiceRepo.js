@@ -827,12 +827,12 @@ async function createInvoiceOnTheFly(client, data) {
 }
 
 /**
- * Get invoice by share token
+ * Get public invoice by share token OR bubble_id
  * @param {object} client - Database client
- * @param {string} shareToken - Share token
+ * @param {string} tokenOrId - Share token or Invoice UID
  * @returns {Promise<object|null>} Invoice object with items or null
  */
-async function getInvoiceByShareToken(client, shareToken) {
+async function getPublicInvoice(client, tokenOrId) {
   try {
     const invoiceResult = await client.query(
       `SELECT 
@@ -845,11 +845,11 @@ async function getInvoiceByShareToken(client, shareToken) {
        FROM invoice i
        LEFT JOIN customer c ON i.customer_id = c.id
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
-       WHERE i.share_token = $1
+       WHERE (i.share_token = $1 OR i.bubble_id = $1)
          AND i.share_enabled = true
          AND (i.share_expires_at IS NULL OR i.share_expires_at > NOW())
        LIMIT 1`,
-      [shareToken]
+      [tokenOrId]
     );
 
     if (invoiceResult.rows.length === 0) {
@@ -954,7 +954,7 @@ async function getInvoiceByShareToken(client, shareToken) {
 
     return invoice;
   } catch (err) {
-    console.error('Error fetching invoice by share token:', err);
+    console.error('Error fetching public invoice:', err);
     return null;
   }
 }
@@ -1551,7 +1551,8 @@ module.exports = {
   getTemplateById,
   getVoucherByCode,
   createInvoiceOnTheFly,
-  getInvoiceByShareToken,
+  getInvoiceByShareToken: getPublicInvoice, // Alias for backward compatibility
+  getPublicInvoice,
   recordInvoiceView,
   getInvoicesByUserId,
   getPublicVouchers,

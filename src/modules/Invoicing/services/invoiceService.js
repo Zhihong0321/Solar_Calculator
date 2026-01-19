@@ -83,6 +83,7 @@ function validateInvoiceData(invoiceRequestPayload) {
   }
 
   if (!p.packageId || p.packageId.trim().length === 0) {
+    console.warn('[InvoiceService] Validation Failed: Package ID is missing/empty. Payload:', JSON.stringify(p, null, 2));
     errors.push('Package selection is required');
   }
 

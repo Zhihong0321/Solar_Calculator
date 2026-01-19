@@ -1009,18 +1009,18 @@ router.get('/api/v1/invoices/actions/:actionId/snapshot', requireAuth, async (re
 });
 
 /**
- * GET /view/:shareToken
- * Public invoice view via share link (HTML for browsers, JSON for others)
+ * GET /view/:tokenOrId
+ * Public invoice view via share link OR Bubble ID (HTML for browsers, JSON for others)
  */
-router.get('/view/:shareToken', async (req, res) => {
+router.get('/view/:tokenOrId', async (req, res) => {
   try {
-    const { shareToken } = req.params;
+    const { tokenOrId } = req.params;
 
-    // Get invoice by share token
+    // Get invoice by share token OR bubble_id
     const client = await pool.connect();
     let invoice = null;
     try {
-      invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
+      invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
     } finally {
       client.release();
     }
@@ -1033,8 +1033,8 @@ router.get('/view/:shareToken', async (req, res) => {
         <body class="p-8 bg-gray-100">
           <div class="max-w-2xl mx-auto bg-white rounded-lg shadow p-6 text-center">
             <h1 class="text-2xl font-bold text-red-600 mb-4">❌ Invoice Not Found</h1>
-            <p class="text-gray-700">The invoice you're looking for doesn't exist or has expired.</p>
-            <p class="text-gray-600 text-sm mt-2">Share Token: ${shareToken}</p>
+            <p class="text-gray-700">The invoice you're looking for doesn't exist, is invalid, or has expired.</p>
+            <p class="text-gray-600 text-sm mt-2">ID/Token: ${tokenOrId}</p>
           </div>
         </body>
         </html>
@@ -1049,20 +1049,31 @@ router.get('/view/:shareToken', async (req, res) => {
       recordClient.release();
     }
 
+    // Allow Embedding (remove X-Frame-Options if set, though Express default is usually open)
+    res.removeHeader('X-Frame-Options');
+
     const accept = req.get('accept') || '';
-    const userAgent = req.get('user-agent') || '';
     const wantsJSON = accept.includes('application/json') && !accept.includes('text/html');
     
     if (wantsJSON) {
       const protocol = req.protocol;
       const host = req.get('host');
-      const shareUrl = `${protocol}://${host}/view/${shareToken}`;
+      // Prefer share_token for the canonical link if available
+      const linkId = invoice.share_token || invoice.bubble_id;
+      const shareUrl = `${protocol}://${host}/view/${linkId}`;
+      
       res.json({
         success: true,
         invoice_link: shareUrl,
         invoice_number: invoice.invoice_number,
         bubble_id: invoice.bubble_id,
-        total_amount: invoice.total_amount
+        share_token: invoice.share_token,
+        total_amount: invoice.total_amount,
+        status: invoice.status,
+        date: invoice.invoice_date,
+        customer_name: invoice.customer_name,
+        // Include minimal details useful for previews
+        items_count: invoice.items ? invoice.items.length : 0
       });
     } else {
       try {
@@ -1086,7 +1097,7 @@ router.get('/view/:shareToken', async (req, res) => {
       }
     }
   } catch (err) {
-    console.error('Error in /view/:shareToken route:', err);
+    console.error('Error in /view/:tokenOrId route:', err);
     res.status(500).json({
       success: false,
       error: 'Failed to load invoice: ' + err.message
@@ -1095,16 +1106,16 @@ router.get('/view/:shareToken', async (req, res) => {
 });
 
 /**
- * GET /view/:shareToken/pdf
+ * GET /view/:tokenOrId/pdf
  * Generate PDF and return download URL (JSON response)
  */
-router.get('/view/:shareToken/pdf', async (req, res) => {
+router.get('/view/:tokenOrId/pdf', async (req, res) => {
   try {
-    const { shareToken } = req.params;
+    const { tokenOrId } = req.params;
     const client = await pool.connect();
     let invoice = null;
     try {
-      invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
+      invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
     } finally {
       client.release();
     }
@@ -1131,7 +1142,7 @@ router.get('/view/:shareToken/pdf', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error in /view/:shareToken/pdf route:', err);
+    console.error('Error in /view/:tokenOrId/pdf route:', err);
     return res.status(500).json({
       success: false,
       error: err.message || 'Failed to generate PDF'

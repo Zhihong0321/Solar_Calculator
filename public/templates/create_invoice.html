@@ -1352,16 +1352,26 @@
         }
 
         function showPackage(pkg) {
-            const packageInfo = document.getElementById('quotationFormContainer');
-            packageInfo.classList.remove('hidden');
-
+            console.log('showPackage called with:', pkg);
+            
             // Safety check for null/undefined pkg
             if (!pkg || typeof pkg !== 'object') {
                 showError('⚠️ Package data is missing or invalid. Please try again.');
                 document.getElementById('packageIdForm').classList.remove('hidden');
-                packageInfo.classList.add('hidden');
+                document.getElementById('quotationFormContainer').classList.add('hidden');
                 return;
             }
+
+            if (!pkg.bubble_id) {
+                console.error('Package object missing bubble_id:', pkg);
+                showError('⚠️ Invalid Package Data: Package ID is missing. Please select a valid package.');
+                document.getElementById('packageIdForm').classList.remove('hidden');
+                document.getElementById('quotationFormContainer').classList.add('hidden');
+                return;
+            }
+
+            const packageInfo = document.getElementById('quotationFormContainer');
+            packageInfo.classList.remove('hidden');
 
             document.getElementById('packageNameDisplay').textContent = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
             document.getElementById('packagePriceDisplay').textContent = `RM ${(parseFloat(pkg.price) || 0).toFixed(2)}`;
@@ -1418,6 +1428,10 @@
             const formData = new FormData(this);
             const data = Object.fromEntries(formData);
             
+            console.log('Form Submit Debug:', data);
+            console.log('Linked Package Value:', data.linked_package);
+            console.log('Hidden Input Value:', document.getElementById('packageIdHidden').value);
+
             // Show loading state
             const submitBtn = this.querySelector('button[type="submit"]');
             const originalText = submitBtn.textContent;
