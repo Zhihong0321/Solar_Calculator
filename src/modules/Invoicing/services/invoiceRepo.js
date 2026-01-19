@@ -392,7 +392,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         COALESCE(c.address, i.customer_address_snapshot) as customer_address,
         COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
        FROM invoice i 
-       LEFT JOIN customer c ON i.customer_id = c.id
+       LEFT JOIN customer c ON i.linked_customer = c.customer_id
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
        WHERE i.bubble_id = $1`,
       [bubbleId]
@@ -866,7 +866,7 @@ async function getPublicInvoice(client, tokenOrId) {
         COALESCE(c.address, i.customer_address_snapshot) as customer_address,
         COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
        FROM invoice i
-       LEFT JOIN customer c ON i.customer_id = c.id
+       LEFT JOIN customer c ON i.linked_customer = c.customer_id
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
        WHERE (i.share_token = $1 OR i.bubble_id = $1)
          AND i.share_enabled = true
