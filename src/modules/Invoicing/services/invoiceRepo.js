@@ -20,25 +20,48 @@ function generateShareToken() {
  */
 async function generateInvoiceNumber(client) {
   try {
-    // Get last invoice number
-    const lastInvoiceResult = await client.query(
-      `SELECT invoice_number
-       FROM invoice
-       WHERE invoice_number LIKE 'INV-%'
-       ORDER BY invoice_number DESC
-       LIMIT 1`
+    // Atomically increment and get the new value
+    const result = await client.query(
+      `UPDATE system_parameter 
+       SET value = (CAST(value AS INTEGER) + 1)::text, 
+           updated_at = NOW() 
+       WHERE key = 'invoice_count' 
+       RETURNING value`
     );
 
-    let nextNum = 1;
-    if (lastInvoiceResult.rows.length > 0) {
-      try {
-        const lastNum = parseInt(lastInvoiceResult.rows[0].invoice_number.replace('INV-', ''));
-        if (!isNaN(lastNum)) {
-          nextNum = lastNum + 1;
-        }
-      } catch (err) {
-        nextNum = 1;
+    let nextNum;
+
+    if (result.rows.length > 0) {
+      nextNum = parseInt(result.rows[0].value);
+    } else {
+      // Fallback/Safety: If record missing, try to initialize based on max existing or start at 1
+      // We'll lock table or just try insert. Since this is rare, we'll do a safe insert.
+      
+      // Get actual max from table just to be safe if parameter was missing
+      const lastInvoiceResult = await client.query(
+        `SELECT invoice_number
+         FROM invoice
+         WHERE invoice_number LIKE 'INV-%'
+         ORDER BY invoice_number DESC
+         LIMIT 1`
+      );
+      
+      let maxExisting = 0;
+      if (lastInvoiceResult.rows.length > 0) {
+         try {
+            maxExisting = parseInt(lastInvoiceResult.rows[0].invoice_number.replace('INV-', '')) || 0;
+         } catch (e) {}
       }
+      
+      nextNum = maxExisting + 1;
+
+      // Initialize the parameter for next time
+      await client.query(
+        `INSERT INTO system_parameter (key, value, description)
+         VALUES ('invoice_count', $1, 'Current running number for invoices')
+         ON CONFLICT (key) DO NOTHING`,
+        [String(nextNum)]
+      );
     }
 
     // Pad with zeros (6 digits)
