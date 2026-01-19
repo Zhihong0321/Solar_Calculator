@@ -386,7 +386,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     const invoiceResult = await client.query(
       `SELECT 
         i.*,
-        COALESCE(c.name, i.customer_name_snapshot) as customer_name,
+        COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
         COALESCE(c.email, i.customer_email_snapshot) as customer_email,
         COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
         COALESCE(c.address, i.customer_address_snapshot) as customer_address,
@@ -860,7 +860,7 @@ async function getPublicInvoice(client, tokenOrId) {
     const invoiceResult = await client.query(
       `SELECT 
         i.*,
-        COALESCE(c.name, i.customer_name_snapshot) as customer_name,
+        COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
         COALESCE(c.email, i.customer_email_snapshot) as customer_email,
         COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
         COALESCE(c.address, i.customer_address_snapshot) as customer_address,
@@ -1061,7 +1061,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.invoice_date,
             i.created_at,
             -- LIVE DATA JOINS
-            COALESCE(c.name, 'Unknown Customer') as customer_name,
+            COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
             COALESCE(c.email, '') as customer_email,
             COALESCE(pkg.package_name, 'Unknown Package') as package_name,
             i.total_amount,
