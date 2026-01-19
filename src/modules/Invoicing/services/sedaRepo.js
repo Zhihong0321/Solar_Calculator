@@ -1,6 +1,14 @@
 const crypto = require('crypto');
 
 /**
+ * Generate a unique share token
+ * @returns {string} Share token
+ */
+function generateShareToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+/**
  * Check if SEDA registration exists for a given invoice
  * @param {object} client - Database client
  * @param {string} invoiceId - Invoice Bubble ID
@@ -28,15 +36,18 @@ async function getSedaByInvoiceId(client, invoiceId) {
 async function createSedaRegistration(client, data) {
   const { invoiceId, customerId, createdBy } = data;
   const bubbleId = `seda_${crypto.randomBytes(8).toString('hex')}`;
-  
+  const shareToken = generateShareToken();
+  // Share link expires in 30 days by default
+  const shareExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
   try {
     const result = await client.query(
-      `INSERT INTO seda_registration 
-       (bubble_id, linked_invoice, linked_customer, created_by, created_at, updated_at, 
-        reg_status, seda_status, created_date, modified_date)
-       VALUES ($1, $2, $3, $4, NOW(), NOW(), 'Draft', 'Pending', NOW(), NOW())
+      `INSERT INTO seda_registration
+       (bubble_id, linked_invoice, linked_customer, created_by, created_at, updated_at,
+        reg_status, seda_status, created_date, modified_date, share_token, share_enabled, share_expires_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW(), 'Draft', 'Pending', NOW(), NOW(), $5, true, $6)
        RETURNING *`,
-      [bubbleId, [invoiceId], customerId, createdBy]
+      [bubbleId, [invoiceId], customerId, createdBy, shareToken, shareExpiresAt]
     );
     return result.rows[0];
   } catch (err) {
@@ -87,9 +98,69 @@ async function linkSedaToInvoice(client, invoiceId, sedaId) {
     }
 }
 
+/**
+ * Get SEDA registration by share token (for public access)
+ * @param {object} client - Database client
+ * @param {string} shareToken - Share token
+ * @returns {Promise<object|null>} SEDA registration with linked customer or null
+ */
+async function getByShareToken(client, shareToken) {
+    try {
+        const result = await client.query(
+            `SELECT
+                s.*,
+                COALESCE(c.name, s.linked_customer_name) as customer_name,
+                c.phone,
+                c.email,
+                c.address,
+                c.city,
+                c.state,
+                c.postcode
+             FROM seda_registration s
+             LEFT JOIN customer c ON s.linked_customer = c.customer_id
+             WHERE s.share_token = $1
+               AND s.share_enabled = true
+               AND (s.share_expires_at IS NULL OR s.share_expires_at > NOW())
+             LIMIT 1`,
+            [shareToken]
+        );
+        return result.rows.length > 0 ? result.rows[0] : null;
+    } catch (err) {
+        console.error('Error fetching SEDA by share token:', err);
+        throw err;
+    }
+}
+
+/**
+ * Get SEDA share URL
+ * @param {object} client - Database client
+ * @param {string} bubbleId - SEDA bubble ID
+ * @param {string} protocol - Protocol (http/https)
+ * @param {string} host - Host header
+ * @returns {Promise<string|null>} Share URL or null
+ */
+async function getShareUrl(client, bubbleId, protocol, host) {
+    try {
+        const result = await client.query(
+            `SELECT share_token, share_enabled FROM seda_registration WHERE bubble_id = $1`,
+            [bubbleId]
+        );
+        if (result.rows.length === 0 || !result.rows[0].share_enabled) {
+            return null;
+        }
+        return `${protocol}://${host}/seda-public/${result.rows[0].share_token}`;
+    } catch (err) {
+        console.error('Error getting SEDA share URL:', err);
+        throw err;
+    }
+}
+
 module.exports = {
   getSedaByInvoiceId,
   createSedaRegistration,
   linkSedaToCustomer,
-  linkSedaToInvoice
+  linkSedaToInvoice,
+  getByShareToken,
+  getShareUrl,
+  generateShareToken
 };

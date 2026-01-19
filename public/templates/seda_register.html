@@ -350,13 +350,33 @@
     </div>
 
     <script>
+        // Determine access mode: public (shareToken) or authenticated (bubble_id)
+        const pathParts = window.location.pathname.split('/');
+        const isPublicMode = pathParts[1] === 'seda-public' && pathParts[2];
+        const shareToken = isPublicMode ? pathParts[2] : null;
+
         const urlParams = new URLSearchParams(window.location.search);
         const sedaId = urlParams.get('id');
         let fileData = {};
         let extractionInterval = null;
         let linkedInvoiceId = null;
 
+        // Build API endpoint based on mode
+        function getApiEndpoint() {
+            if (isPublicMode) {
+                return `/api/v1/seda-public/${shareToken}`;
+            } else {
+                return `/api/v1/seda/${sedaId}`;
+            }
+        }
+
         function goBackToOffice() {
+            if (isPublicMode) {
+                // In public mode, show a message that form can be closed
+                alert('You can close this page. Your progress has been saved.');
+                return;
+            }
+
             if (linkedInvoiceId) {
                 window.location.href = `/invoice-office?id=${linkedInvoiceId}`;
             } else {
@@ -678,11 +698,11 @@
         }
 
         async function loadData() {
-            if (!sedaId) return alert('No Registration ID provided');
+            if (!sedaId && !shareToken) return alert('No Registration ID provided');
             startLoading('Loading Data...');
-            
+
             try {
-                const res = await fetch(`/api/v1/seda/${sedaId}`);
+                const res = await fetch(getApiEndpoint());
                 const json = await res.json();
                 
                 if (json.success) {
@@ -795,11 +815,11 @@
                 e_contact_relationship: document.getElementById('emergencyRel').value,
                 e_contact_no: document.getElementById('emergencyPhone').value,
                 // Add new fields
-                ...fileData 
+                ...fileData
             };
 
             try {
-                const res = await fetch(`/api/v1/seda/${sedaId}`, {
+                const res = await fetch(getApiEndpoint(), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
