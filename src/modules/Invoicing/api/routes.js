@@ -11,7 +11,6 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
-const snapshotService = require('../services/snapshotService');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const externalPdfService = require('../services/externalPdfService');
 
@@ -1376,13 +1375,15 @@ router.post('/api/v1/invoices/:bubbleId/snapshot', requireAuth, async (req, res)
         }
 
         // 3. Capture Snapshot
-        const actionId = await snapshotService.captureSnapshot(
-            client, 
-            fullInvoiceData, 
-            actionType || 'MANUAL_SNAPSHOT', 
-            userId, 
-            description || 'Manual snapshot captured via API'
+        // Trigger DB snapshot by touching the record
+        // The DB trigger 'trg_auto_snapshot_invoice' will catch this UPDATE and create the snapshot
+        await client.query(
+            "UPDATE invoice SET updated_at = NOW() WHERE bubble_id = $1",
+            [bubbleId]
         );
+        
+        // We return a placeholder actionId since the DB handles it internally now
+        const actionId = 'db_auto_trigger';
 
         res.json({ success: true, actionId });
     } catch (err) {

@@ -3,7 +3,6 @@
  * Handles all database operations for invoice creation
  */
 const crypto = require('crypto');
-const snapshotService = require('./snapshotService');
 
 /**
  * Generate a unique share token
@@ -831,9 +830,7 @@ async function createInvoiceOnTheFly(client, data) {
     await client.query('COMMIT');
 
     // 6. Log Action with Snapshot (after commit)
-    // Fetch full data including joined fields for the immutable snapshot
-    const fullInvoiceData = await getInvoiceByBubbleId(client, invoice.bubble_id);
-    await snapshotService.captureSnapshot(client, fullInvoiceData, 'INVOICE_CREATED', data.userId, 'Initial creation');
+    // DB Trigger now handles snapshot creation automatically
 
     return {
       ...invoice,
@@ -1213,10 +1210,7 @@ async function updateInvoiceTransaction(client, data) {
     const currentData = await getInvoiceByBubbleId(client, bubbleId);
     if (!currentData) throw new Error('Invoice not found');
 
-    // 2. RUN SNAPSHOT BEFORE UPDATE (Legal Photocopy)
-    await snapshotService.captureFlatSnapshot(client, currentData, 'BEFORE_UPDATE', data.userId);
-
-    // 3. Resolve Dependencies
+    // 2. Resolve Dependencies
     const pkg = await getPackageById(client, data.packageId || currentData.linked_package);
     if (!pkg) throw new Error(`Package not found`);
 
