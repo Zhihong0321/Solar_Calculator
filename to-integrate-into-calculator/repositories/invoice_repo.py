@@ -59,10 +59,8 @@ class InvoiceRepository:
         
         # Calculate SST (6%)
         sst_rate = Decimal(6) if invoice.apply_sst else Decimal(0)
-        invoice.sst_amount = (
-            taxable_amount * (invoice.sst_rate / Decimal(100)) 
-            if taxable_amount > 0 else Decimal(0)
-        )
+        sst_amount = taxable_amount * (sst_rate / Decimal(100)) 
+        invoice.sst_amount = sst_amount
         
         # Calculate total
         invoice.total_amount = taxable_amount + invoice.sst_amount

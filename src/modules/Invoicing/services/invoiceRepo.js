@@ -577,11 +577,11 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
     `INSERT INTO invoice
      (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
-      invoice_date, agent_markup, sst_rate, sst_amount,
+      invoice_date, agent_markup, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, 1, $1, true, NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 1, $1, true, NOW(), NOW())
      RETURNING *`,
     [
       bubbleId,
@@ -596,7 +596,6 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       invoiceNumber,
       new Date().toISOString().split('T')[0],
       markupAmount,
-      sstRate,
       sstAmount,
       discountFixed + percentDiscountVal,
       discountFixed,
@@ -1257,17 +1256,16 @@ async function updateInvoiceTransaction(client, data) {
             linked_package = $6,
             package_name_snapshot = $7,
             agent_markup = $8,
-            sst_rate = $9,
-            sst_amount = $10,
-            discount_amount = $11,
-            discount_fixed = $12,
-            discount_percent = $13,
-            voucher_code = $14,
-            voucher_amount = $15,
-            total_amount = $16,
-            version = $17,
+            sst_amount = $9,
+            discount_amount = $10,
+            discount_fixed = $11,
+            discount_percent = $12,
+            voucher_code = $13,
+            voucher_amount = $14,
+            total_amount = $15,
+            version = $16,
             updated_at = NOW()
-         WHERE bubble_id = $18`,
+         WHERE bubble_id = $17`,
         [
             customerBubbleId,
             linkedAgent,
@@ -1277,7 +1275,6 @@ async function updateInvoiceTransaction(client, data) {
             pkg.bubble_id,
             pkg.name || currentData.package_name_snapshot,
             markupAmount,
-            sstRate,
             sstAmount,
             (data.discountFixed || 0) + percentDiscountVal,
             data.discountFixed || 0,
@@ -1343,11 +1340,11 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
     `INSERT INTO invoice
      (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
-      invoice_date, agent_markup, sst_rate, sst_amount,
+      invoice_date, agent_markup, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, NOW(), NOW(), $26, $27, $28, true)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW(), NOW(), $25, $26, $27, true)
      RETURNING *`,
     [
       bubbleId,
@@ -1362,7 +1359,6 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       newInvoiceNumber,
       new Date().toISOString().split('T')[0],
       markupAmount,
-      sstRate,
       sstAmount,
       (data.discountFixed || 0) + percentDiscountVal,
       data.discountFixed || 0,
