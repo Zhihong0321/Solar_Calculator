@@ -54,29 +54,11 @@ class InvoiceRepository:
                 InvoiceNewItem.invoice_id == invoice.bubble_id
             ).all()
         
-        # Calculate base subtotal from items
-        subtotal = sum(item.total_price for item in items) if items else Decimal(0)
-        invoice.subtotal = subtotal
+        # Calculate base taxable amount from items
+        taxable_amount = sum(item.total_price for item in items) if items else Decimal(0)
         
-        # Calculate discount amount from discount items
-        discount_items = [
-            item for item in items 
-            if hasattr(item, 'item_type') and item.item_type == 'discount'
-        ]
-        discount_from_items = sum(abs(item.total_price) for item in discount_items)
-        
-        # Calculate voucher amount from voucher items
-        voucher_items = [
-            item for item in items 
-            if hasattr(item, 'item_type') and item.item_type == 'voucher'
-        ]
-        voucher_from_items = sum(abs(item.total_price) for item in voucher_items)
-        
-        invoice.discount_amount = discount_from_items
-        invoice.voucher_amount = voucher_from_items
-        
-        # Calculate SST
-        taxable_amount = subtotal
+        # Calculate SST (6%)
+        sst_rate = Decimal(6) if invoice.apply_sst else Decimal(0)
         invoice.sst_amount = (
             taxable_amount * (invoice.sst_rate / Decimal(100)) 
             if taxable_amount > 0 else Decimal(0)

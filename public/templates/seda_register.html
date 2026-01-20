@@ -326,7 +326,7 @@
                         <label class="input-label">Property Ownership Proof (PDF/Image)</label>
                         <div class="file-upload-box" onclick="document.getElementById('filePropertyProof').click()">
                             <p class="text-xs text-slate-500">Click to upload document</p>
-                            <input type="file" id="filePropertyProof" accept="application/pdf,image/*" class="hidden" onchange="handleFile(this, 'previewPropertyProof')">
+                            <input type="file" id="filePropertyProof" accept="application/pdf,image/*" class="hidden" onchange="handleVerification(this, 'ownership')">
                             <div id="previewPropertyProof" class="file-preview"></div>
                         </div>
                     </div>
@@ -334,7 +334,7 @@
                         <label class="input-label">TNB Meter Image</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileTnbMeter').click()">
                             <p class="text-xs text-slate-500">Click to upload photo</p>
-                            <input type="file" id="fileTnbMeter" accept="image/*" class="hidden" onchange="handleFile(this, 'previewTnbMeter')">
+                            <input type="file" id="fileTnbMeter" accept="image/*" class="hidden" onchange="handleVerification(this, 'meter')">
                             <div id="previewTnbMeter" class="file-preview"></div>
                         </div>
                     </div>
@@ -679,7 +679,11 @@
                     const res = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fileData: base64, filename: file.name })
+                        body: JSON.stringify({ 
+                            fileData: base64, 
+                            filename: file.name,
+                            sedaId: sedaId // Pass ID for server-side logging
+                        })
                     });
                     
                     console.log('Response status:', res.status);
@@ -710,6 +714,57 @@
                 alert('Failed to read file.');
             };
 
+            reader.readAsDataURL(file);
+        }
+
+        async function handleVerification(input, type) {
+            console.log('handleVerification triggered for:', type);
+            const file = input.files[0];
+            if (!file) return;
+
+            const previewId = type === 'meter' ? 'previewTnbMeter' : 'previewPropertyProof';
+            showPreview(file, previewId);
+            storeFile(input.id, file);
+
+            startLoading(type === 'meter' ? 'Verifying TNB Meter...' : 'Verifying Ownership...');
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const base64 = e.target.result;
+                const endpoint = type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership';
+                
+                // For ownership, we need context (current name/address)
+                const payload = {
+                    fileData: base64,
+                    filename: file.name,
+                    sedaId: sedaId
+                };
+
+                if (type === 'ownership') {
+                    payload.context = {
+                        name: document.getElementById('applicantName').value,
+                        address: document.getElementById('installAddress').value
+                    };
+                }
+
+                try {
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const json = await res.json();
+                    stopLoading();
+
+                    if (json.success) {
+                        const result = json.data;
+                        alert(`${type.toUpperCase()} Verification: ${result.remark || (result.quality_ok ? 'Success' : 'Check Remark')}`);
+                    }
+                } catch (err) {
+                    stopLoading();
+                    console.error('Verification Error:', err);
+                }
+            };
             reader.readAsDataURL(file);
         }
 

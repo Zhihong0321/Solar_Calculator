@@ -240,61 +240,160 @@ router.get('/seda-register', requireAuth, (req, res) => {
 
 /**
  * POST /api/v1/seda/extract-tnb
- * Extract data from TNB Bill
+ * Extract and Verify TNB Bill
  */
 router.post('/api/v1/seda/extract-tnb', requireAuth, async (req, res) => {
+    const client = await pool.connect();
     try {
-        console.log(`[SEDA Route] Extract TNB request received. Payload size: ${JSON.stringify(req.body).length} bytes`);
-        const { fileData, filename } = req.body;
+        const { fileData, filename, sedaId } = req.body;
         if (!fileData) return res.status(400).json({ error: 'No file data provided' });
 
         const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) {
-            console.error('[SEDA Route] Invalid base64 data format');
-            return res.status(400).json({ error: 'Invalid base64 data' });
-        }
-
-        console.log(`[SEDA Route] Converting base64 to buffer for file: ${filename}`);
+        if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid file format' });
+        
+        const mimeType = matches[1];
         const buffer = Buffer.from(matches[2], 'base64');
         
-        console.log('[SEDA Route] Calling extractionService.extractTnb...');
-        const data = await extractionService.extractTnb(buffer, filename || 'tnb_bill.pdf');
+        const result = await extractionService.verifyTnbBill(buffer, mimeType);
         
-        console.log('[SEDA Route] Extraction successful');
-        res.json({ success: true, data });
+        if (sedaId) {
+            const statusText = result.consecutive_months_found ? 'PASSED CHECK' : 'FAILED HISTORY CHECK';
+            const logEntry = `\n[${new Date().toISOString().split('T')[0]}] TNB BILL upload = ${statusText} (${result.quality_remark})`;
+            
+            await client.query(
+                `UPDATE seda_registration 
+                 SET special_remark = COALESCE(special_remark, '') || $1,
+                     check_tnb_bill_and_meter_image = $2
+                 WHERE bubble_id = $3`,
+                [logEntry, result.consecutive_months_found, sedaId]
+            );
+        }
+
+        res.json({ success: true, data: result });
     } catch (err) {
-        console.error('[SEDA Route] Extraction Error:', err);
+        console.error('[SEDA Route] TNB Extraction Error:', err);
         res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
     }
 });
 
 /**
  * POST /api/v1/seda/extract-mykad
- * Extract data from MyKad
+ * Extract and Verify MyKad
  */
 router.post('/api/v1/seda/extract-mykad', requireAuth, async (req, res) => {
+    const client = await pool.connect();
     try {
-        console.log(`[SEDA Route] Extract MyKad request received. Payload size: ${JSON.stringify(req.body).length} bytes`);
-        const { fileData, filename } = req.body;
+        const { fileData, filename, sedaId } = req.body;
         if (!fileData) return res.status(400).json({ error: 'No file data provided' });
 
         const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) {
-            console.error('[SEDA Route] Invalid base64 data format');
-            return res.status(400).json({ error: 'Invalid base64 data' });
-        }
+        if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid file format' });
 
-        console.log(`[SEDA Route] Converting base64 to buffer for file: ${filename}`);
+        const mimeType = matches[1];
         const buffer = Buffer.from(matches[2], 'base64');
         
-        console.log('[SEDA Route] Calling extractionService.extractMykad...');
-        const data = await extractionService.extractMykad(buffer, filename || 'mykad.jpg');
+        const result = await extractionService.verifyMykad(buffer, mimeType);
         
-        console.log('[SEDA Route] Extraction successful');
-        res.json({ success: true, data });
+        if (sedaId) {
+            const statusText = result.quality_ok ? 'PASSED CHECK' : 'QUALITY WARNING';
+            const logEntry = `\n[${new Date().toISOString().split('T')[0]}] MYKAD Upload = ${statusText} (Name: ${result.customer_name})`;
+            
+            await client.query(
+                `UPDATE seda_registration 
+                 SET special_remark = COALESCE(special_remark, '') || $1,
+                     check_mykad = $2
+                 WHERE bubble_id = $3`,
+                [logEntry, result.quality_ok, sedaId]
+            );
+        }
+
+        res.json({ success: true, data: result });
     } catch (err) {
-        console.error('[SEDA Route] Extraction Error:', err);
+        console.error('[SEDA Route] MyKad Extraction Error:', err);
         res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+/**
+ * POST /api/v1/seda/verify-meter
+ * Verify TNB Meter Photo Clarity
+ */
+router.post('/api/v1/seda/verify-meter', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { fileData, filename, sedaId } = req.body;
+        if (!fileData) return res.status(400).json({ error: 'No file data provided' });
+
+        const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid file format' });
+
+        const mimeType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        
+        const result = await extractionService.verifyTnbMeter(buffer, mimeType);
+        
+        if (sedaId) {
+            const statusText = result.is_clear ? 'PASSED CHECK' : 'BLURRY/UNCLEAR';
+            const logEntry = `\n[${new Date().toISOString().split('T')[0]}] TNB METER photo = ${statusText} (${result.remark})`;
+            
+            await client.query(
+                `UPDATE seda_registration 
+                 SET special_remark = COALESCE(special_remark, '') || $1
+                 WHERE bubble_id = $2`,
+                [logEntry, sedaId]
+            );
+        }
+
+        res.json({ success: true, data: result });
+    } catch (err) {
+        console.error('[SEDA Route] Meter Verification Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+/**
+ * POST /api/v1/seda/verify-ownership
+ * Cross-check Ownership document with Applicant Name and Address
+ */
+router.post('/api/v1/seda/verify-ownership', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { fileData, filename, sedaId, context } = req.body;
+        if (!fileData) return res.status(400).json({ error: 'No file data provided' });
+
+        const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid file format' });
+
+        const mimeType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        
+        const result = await extractionService.verifyOwnership(buffer, mimeType, context || { name: 'Unknown', address: 'Unknown' });
+        
+        if (sedaId) {
+            const statusText = (result.name_match && result.address_match) ? 'PASSED CHECK' : 'MATCH FAILED';
+            const logEntry = `\n[${new Date().toISOString().split('T')[0]}] OWNERSHIP Doc = ${statusText} (Owner: ${result.owner_name})`;
+            
+            await client.query(
+                `UPDATE seda_registration 
+                 SET special_remark = COALESCE(special_remark, '') || $1,
+                     check_ownership = $2
+                 WHERE bubble_id = $3`,
+                [logEntry, (result.name_match && result.address_match), sedaId]
+            );
+        }
+
+        res.json({ success: true, data: result });
+    } catch (err) {
+        console.error('[SEDA Route] Ownership Verification Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
     }
 });
 

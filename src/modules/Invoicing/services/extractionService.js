@@ -1,51 +1,45 @@
 /**
- * Extraction Service Module
- * Integration with External Extraction API
+ * Extraction & Verification Service Module
+ * 
+ * This module handles all interactions with Google Gemini AI for document processing.
+ * It is designed to be modular, where each function focuses on a specific document type
+ * and returns a standardized verification result.
+ * 
+ * AI Model: gemini-1.5-flash
  */
 
-// API Key Rotation Pool
 const API_KEYS = [
-    process.env.GOOGLE_AI_KEY_1,               // Key 1 (Primary)
-    process.env.GOOGLE_AI_KEY_2,               // Key 2
-    process.env.GOOGLE_AI_KEY_3,               // Key 3
-    process.env.GOOGLE_AI_KEY_4                // Key 4
-].filter(key => key); // Remove undefined/null keys
+    process.env.GOOGLE_AI_KEY_1,
+    process.env.GOOGLE_AI_KEY_2,
+    process.env.GOOGLE_AI_KEY_3,
+    process.env.GOOGLE_AI_KEY_4
+].filter(key => key);
 
 let currentKeyIndex = 0;
 
 /**
- * Get next API key in rotation (Round-Robin)
+ * Rotates through available API keys to balance quota and handle failures.
  */
 function getApiKey() {
-    if (API_KEYS.length === 0) {
-        throw new Error('No Google AI API keys configured.');
-    }
+    if (API_KEYS.length === 0) throw new Error('No Google AI API keys configured.');
     const key = API_KEYS[currentKeyIndex];
     currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
     return key;
 }
 
-const MODEL = 'gemini-3-flash-preview'; 
+const MODEL = 'gemini-1.5-flash';
 
 /**
- * Execute Gemini API call with auto-retry across available keys
- * @param {object} payload - The request body
- * @param {string} taskName - For logging context
+ * Generic handler for Gemini API calls with key rotation and retry logic.
  */
-async function callGeminiWithRetry(payload, taskName) {
-    let lastError = null;
-    
-    // Try as many times as we have keys
-    // We loop through the count of keys to give every key a chance
+async function callGemini(payload, taskName) {
     const maxRetries = API_KEYS.length;
+    let lastError = null;
 
     for (let i = 0; i < maxRetries; i++) {
         const apiKey = getApiKey();
-        const keyMask = `...${apiKey.slice(-4)}`;
-        
         try {
-            console.log(`[ExtractionService] ${taskName} - Attempt ${i + 1}/${maxRetries} using Key ${keyMask}`);
-            
+            // Using global fetch (available in Node.js 18+)
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -54,195 +48,156 @@ async function callGeminiWithRetry(payload, taskName) {
 
             if (!res.ok) {
                 const errText = await res.text();
-                // 429: Too Many Requests (Quota)
-                // 403: Forbidden (Key invalid/expired)
-                // 503: Service Unavailable (Overload)
-                if (res.status === 429 || res.status === 403 || res.status >= 500) {
-                    console.warn(`[ExtractionService] Attempt failed (${res.status}) with Key ${keyMask}. Switching to next key...`);
-                    lastError = new Error(`Gemini API Error: ${res.status} - ${errText}`);
-                    continue; // Try next key
+                if (res.status === 429 || res.status >= 500) {
+                    console.warn(`[AI] Attempt ${i+1} failed (${res.status}) for ${taskName}. Retrying...`);
+                    continue;
                 }
-                // For other errors (400 Bad Request), fail immediately as retrying won't help
-                throw new Error(`Gemini API Error: ${res.status} - ${errText}`);
+                throw new Error(`AI API Error: ${res.status} - ${errText}`);
             }
 
-            // Success
-            return await res.json();
-
+            const json = await res.json();
+            if (json.candidates && json.candidates[0].content && json.candidates[0].content.parts[0].text) {
+                const text = json.candidates[0].content.parts[0].text;
+                const cleanJson = text.replace(/```json\n?|\n?```/g, '').trim();
+                return JSON.parse(cleanJson);
+            }
+            throw new Error('Incomplete response from AI');
         } catch (err) {
+            console.error(`[AI] ${taskName} Error with key index ${currentKeyIndex}:`, err.message);
             lastError = err;
-            // If it's a fetch error (network), we might want to retry
-            console.warn(`[ExtractionService] Network/Fetch error with Key ${keyMask}:`, err.message);
         }
     }
-
-    throw new Error(`All API keys failed. Last error: ${lastError ? lastError.message : 'Unknown error'}`);
+    throw lastError;
 }
 
 /**
- * Extract data from TNB Bill
- * @param {Buffer} fileBuffer 
- * @param {string} filename 
+ * 1. MyKad Verification
+ * Extracts name and IC number, and assesses document visibility/quality.
  */
-async function extractTnb(fileBuffer, filename) {
-    try {
-        console.log(`[ExtractionService] Processing TNB Bill: ${filename} (${fileBuffer.length} bytes)`);
+async function verifyMykad(fileBuffer, mimeType = 'image/jpeg') {
+    const base64Data = fileBuffer.toString('base64');
+    const prompt = `
+    Analyze this Malaysian MyKad (ID Card). 
+    1. Extract 'customer_name' (full name).
+    2. Extract 'mykad_id' (12 digits only, no dashes).
+    3. Assess 'quality_ok': true if the document is clearly visible, not blurry, and not cut off.
+    4. Provide 'quality_remark': describe any issues (e.g., "clear visibility", "blur detected", "glare on IC number").
 
-        const base64Data = fileBuffer.toString('base64');
-        const mimeType = filename && filename.toLowerCase().endsWith('.png') ? 'image/png' : 
-                         filename && filename.toLowerCase().endsWith('.jpg') ? 'image/jpeg' : 
-                         filename && filename.toLowerCase().endsWith('.jpeg') ? 'image/jpeg' : 'application/pdf';
+    Return ONLY JSON:
+    {
+      "customer_name": "string",
+      "mykad_id": "string",
+      "quality_ok": boolean,
+      "quality_remark": "string"
+    }`;
 
-        const promptText = `
-        You are an AI assistant specialized in data extraction from documents.
-        Extract the following information from the provided Tenaga Nasional Berhad (TNB) electricity bill.
+    const payload = {
+        contents: [{
+            parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64Data } }]
+        }]
+    };
 
-        Fields to extract:
-        1. customer_name: The name of the account holder.
-        2. address: The full service address.
-        3. tnb_account: The 12-digit account number.
-        4. state: The state of the service address (e.g., Selangor, Kuala Lumpur, Johor, etc.).
-
-        Output Requirement:
-        - Return ONLY valid JSON.
-        - No Markdown code blocks.
-        - No explanations or extra text.
-
-        JSON Schema:
-        {
-          "customer_name": "string",
-          "address": "string",
-          "tnb_account": "string",
-          "state": "string"
-        }
-        `;
-
-        const payload = {
-            contents: [{
-                parts: [
-                    { text: promptText },
-                    {
-                        inline_data: {
-                            mime_type: mimeType,
-                            data: base64Data
-                        }
-                    }
-                ]
-            }]
-        };
-
-        const jsonResponse = await callGeminiWithRetry(payload, 'Extract TNB');
-        
-        let extractedData = {};
-        if (jsonResponse.candidates && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts[0].text) {
-            const text = jsonResponse.candidates[0].content.parts[0].text;
-            try {
-                const cleanJson = text.replace(/```json\n?|\n?```/g, '').trim();
-                extractedData = JSON.parse(cleanJson);
-            } catch (e) {
-                console.error('[ExtractionService] JSON Parse Error:', e);
-                throw new Error('Failed to parse extraction result');
-            }
-        } else {
-             throw new Error('No content in Gemini response');
-        }
-
-        console.log('[ExtractionService] Extraction Success', extractedData);
-        
-        return {
-            status: "success",
-            data: extractedData
-        };
-
-    } catch (err) {
-        console.error('[ExtractionService] TNB Error:', err);
-        throw err;
-    }
+    return await callGemini(payload, 'Verify MyKad');
 }
 
 /**
- * Extract data from MyKad
- * @param {Buffer} fileBuffer 
- * @param {string} filename 
+ * 2. TNB Bill Verification
+ * Focuses on extracting the account number and verifying 3 consecutive months of history.
  */
-async function extractMykad(fileBuffer, filename) {
-    try {
-        console.log(`[ExtractionService] Processing MyKad: ${filename} (${fileBuffer.length} bytes)`);
+async function verifyTnbBill(fileBuffer, mimeType = 'application/pdf') {
+    const base64Data = fileBuffer.toString('base64');
+    const prompt = `
+    Analyze this TNB (Tenaga Nasional Berhad) electricity bill.
+    1. Extract 'tnb_account': 12-digit account number.
+    2. Analyze the 'Kajian Penggunaan' (Usage History) table/chart.
+    3. Determine 'consecutive_months_found': true if there are at least 3 consecutive months of usage records shown in the history chart for the period immediately preceding this bill.
+    4. Assess 'quality_ok': true if dates and account numbers are legible.
+    5. Provide 'quality_remark': e.g., "3 months consecutive found", "History table blurry", "Only 1 month found".
 
-        const base64Data = fileBuffer.toString('base64');
-        const mimeType = filename && filename.toLowerCase().endsWith('.png') ? 'image/png' : 
-                         filename && filename.toLowerCase().endsWith('.jpg') ? 'image/jpeg' : 
-                         filename && filename.toLowerCase().endsWith('.jpeg') ? 'image/jpeg' : 'application/pdf';
+    Return ONLY JSON:
+    {
+      "tnb_account": "string",
+      "consecutive_months_found": boolean,
+      "quality_ok": boolean,
+      "quality_remark": "string"
+    }`;
 
-        const promptText = `
-        You are an AI assistant specialized in data extraction from documents.
-        Extract the following information from the provided Malaysian Identity Card (MyKad).
+    const payload = {
+        contents: [{
+            parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64Data } }]
+        }]
+    };
 
-        Fields to extract:
-        1. customer_name: The full name of the cardholder.
-        2. mykad_id: The 12-digit IC number (Remove any hyphens or dashes).
-        3. address: The full address on the MyKad.
+    return await callGemini(payload, 'Verify TNB Bill');
+}
 
-        Output Requirement:
-        - Return ONLY valid JSON.
-        - No Markdown code blocks.
-        - No explanations or extra text.
-        - Ensure 'mykad_id' contains ONLY numbers.
+/**
+ * 3. TNB Meter Verification
+ * Checks if the uploaded photo is a clear, valid electricity meter.
+ */
+async function verifyTnbMeter(fileBuffer, mimeType = 'image/jpeg') {
+    const base64Data = fileBuffer.toString('base64');
+    const prompt = `
+    Analyze this photo. 
+    1. Is it a photo of an electricity meter (TNB Meter)?
+    2. Is 'is_clear': true if the meter reading or serial number is potentially legible?
+    3. Provide 'remark': e.g., "Clear meter photo", "Too dark", "Not a meter".
 
-        JSON Schema:
-        {
-          "customer_name": "string",
-          "mykad_id": "string",
-          "address": "string"
-        }
-        `;
+    Return ONLY JSON:
+    {
+      "is_tnb_meter": boolean,
+      "is_clear": boolean,
+      "remark": "string"
+    }`;
 
-        const payload = {
-            contents: [{
-                parts: [
-                    { text: promptText },
-                    {
-                        inline_data: {
-                            mime_type: mimeType,
-                            data: base64Data
-                        }
-                    }
-                ]
-            }]
-        };
+    const payload = {
+        contents: [{
+            parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64Data } }]
+        }]
+    };
 
-        const jsonResponse = await callGeminiWithRetry(payload, 'Extract MyKad');
-        
-        let extractedData = {};
-        if (jsonResponse.candidates && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts[0].text) {
-            const text = jsonResponse.candidates[0].content.parts[0].text;
-            try {
-                const cleanJson = text.replace(/```json\n?|\n?```/g, '').trim();
-                extractedData = JSON.parse(cleanJson);
-            } catch (e) {
-                console.error('[ExtractionService] JSON Parse Error:', e);
-                throw new Error('Failed to parse extraction result');
-            }
-        } else {
-             throw new Error('No content in Gemini response');
-        }
+    return await callGemini(payload, 'Verify TNB Meter');
+}
 
-        console.log('[ExtractionService] MyKad Extraction Success', extractedData);
-        
-        return {
-            status: "success",
-            data: extractedData
-        };
+/**
+ * 4. Property Ownership Verification
+ * Cross-references Ownership Document with Applicant Name and Address.
+ */
+async function verifyOwnership(fileBuffer, mimeType = 'application/pdf', context) {
+    const base64Data = fileBuffer.toString('base64');
+    const prompt = `
+    Analyze this property document (e.g., Cukai Pintu, SPA, or Grant).
+    Compare it with the provided context:
+    - Target Name: ${context.name}
+    - Target Address: ${context.address}
 
-    } catch (err) {
-        console.error('[ExtractionService] MyKad Error:', err);
-        throw err;
-    }
+    1. Extract 'owner_name' from document.
+    2. Extract 'property_address' from document.
+    3. 'name_match': true if the owner name matches the target name (allow minor variations or partial matches).
+    4. 'address_match': true if the document address matches the target address.
+    5. Provide 'remark': Summarize the findings (e.g., "Name and Address matched").
+
+    Return ONLY JSON:
+    {
+      "owner_name": "string",
+      "property_address": "string",
+      "name_match": boolean,
+      "address_match": boolean,
+      "remark": "string"
+    }`;
+
+    const payload = {
+        contents: [{
+            parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64Data } }]
+        }]
+    };
+
+    return await callGemini(payload, 'Verify Ownership');
 }
 
 module.exports = {
-    extractTnb,
-    extractMykad,
-    API_KEYS, // Export for Health Check
-    MODEL     // Export for Health Check
+    verifyMykad,
+    verifyTnbBill,
+    verifyTnbMeter,
+    verifyOwnership
 };

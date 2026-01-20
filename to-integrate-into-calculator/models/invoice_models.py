@@ -28,7 +28,6 @@ class InvoiceNew(Base):
     invoice_number = Column(String, unique=True, nullable=False, index=True)
     invoice_date = Column(String, nullable=False)
     due_date = Column(String)
-    subtotal = Column(Numeric(15, 2), nullable=False, default=0)
     agent_markup = Column(Numeric(15, 2), default=0)
     sst_rate = Column(Numeric(5, 2), default=0)
     sst_amount = Column(Numeric(15, 2), nullable=False, default=0)

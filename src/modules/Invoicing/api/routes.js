@@ -1187,9 +1187,9 @@ async function generateProposalHtml(client, invoice, req, forPdf = false) {
     const termsAndConditions = templateData.terms_and_conditions || '';
     const items = invoice.items || [];
 
-    const subtotal = parseFloat(invoice.subtotal) || 0;
-    const sstAmount = parseFloat(invoice.sst_amount) || 0;
     const totalAmount = parseFloat(invoice.total_amount) || 0;
+    const sstAmount = parseFloat(invoice.sst_amount) || 0;
+    const subtotal = totalAmount - sstAmount;
     const sstRate = parseFloat(invoice.sst_rate) || 0;
 
     let itemsHtml = '';

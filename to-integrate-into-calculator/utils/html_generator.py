@@ -299,7 +299,7 @@ def generate_invoice_html(
                     <div class="flex-1 space-y-4 sm:max-w-xs">
                         <div class="flex justify-between items-center text-base text-gray-700">
                             <span class="font-medium">Subtotal</span>
-                            <span class="font-semibold text-gray-900">RM {fmt_money(invoice.get('subtotal'))}</span>
+                            <span class="font-semibold text-gray-900">RM {fmt_money(float(invoice.get('total_amount', 0)) - float(invoice.get('sst_amount', 0)))}</span>
                         </div>
                         {f'''
                         <div class="flex justify-between items-center text-base text-gray-700">

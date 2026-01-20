@@ -21,11 +21,11 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const templateData = template || {};
 
   // Calculate totals from items
-  const subtotal = parseFloat(invoice.subtotal) || 0;
   const sstAmount = parseFloat(invoice.sst_amount) || 0;
+  const totalAmount = parseFloat(invoice.total_amount) || 0;
+  const subtotal = totalAmount - sstAmount; // Note: This subtotal includes discounts/vouchers if they were already deducted from totalAmount
   const discountAmount = parseFloat(invoice.discount_amount) || 0;
   const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
-  const totalAmount = parseFloat(invoice.total_amount) || 0;
 
   // Get company info from template
   const companyName = templateData.company_name || 'Atap Solar';
