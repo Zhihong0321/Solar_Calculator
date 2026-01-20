@@ -5,7 +5,7 @@
 
 // API Key Rotation Pool
 const API_KEYS = [
-    'AIzaSyDoAVsk8yqPC7qCB0krie0G4beXhO4gDpI', // Key 1 (Primary)
+    process.env.GOOGLE_AI_KEY_1,               // Key 1 (Primary)
     process.env.GOOGLE_AI_KEY_2,               // Key 2
     process.env.GOOGLE_AI_KEY_3,               // Key 3
     process.env.GOOGLE_AI_KEY_4                // Key 4
