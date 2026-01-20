@@ -394,7 +394,11 @@
         }
 
         function goBack() {
-            window.location.href = `/invoice-office?id=${invoiceId}`;
+            if (document.referrer && document.referrer.includes(window.location.host)) {
+                window.history.back();
+            } else {
+                window.location.href = `/my-invoice`;
+            }
         }
 
         document.addEventListener('DOMContentLoaded', init);

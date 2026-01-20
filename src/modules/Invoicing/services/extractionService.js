@@ -5,7 +5,7 @@
  * It is designed to be modular, where each function focuses on a specific document type
  * and returns a standardized verification result.
  * 
- * AI Model: gemini-1.5-flash
+ * AI Model: gemini-3-flash-preview
  */
 
 const API_KEYS = [
@@ -27,7 +27,7 @@ function getApiKey() {
     return key;
 }
 
-const MODEL = 'gemini-1.5-flash';
+const MODEL = 'gemini-3-flash-preview';
 
 /**
  * Generic handler for Gemini API calls with key rotation and retry logic.
@@ -196,6 +196,8 @@ async function verifyOwnership(fileBuffer, mimeType = 'application/pdf', context
 }
 
 module.exports = {
+    API_KEYS,
+    MODEL,
     verifyMykad,
     verifyTnbBill,
     verifyTnbMeter,

@@ -8,12 +8,13 @@ const pool = new Pool({
 async function run() {
   const client = await pool.connect();
   try {
-    const res = await client.query(`
+    const resSeda = await client.query(`
       SELECT column_name, data_type 
       FROM information_schema.columns 
-      WHERE table_name = 'invoice' AND column_name IN ('package_id', 'linked_package', 'legacy_pid_to_be_deleted')
+      WHERE table_name = 'seda_registration'
     `);
-    console.table(res.rows);
+    console.log('--- seda_registration columns ---');
+    console.table(resSeda.rows);
   } finally {
     client.release();
     await pool.end();
