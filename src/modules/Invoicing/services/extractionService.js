@@ -25,7 +25,7 @@ function getApiKey() {
     return key;
 }
 
-const MODEL = 'gemini-2.0-flash'; // Corrected from invalid 2.5 version
+const MODEL = 'gemini-3-flash-preview'; // Updated to requested version
 
 /**
  * Extract data from TNB Bill
@@ -35,7 +35,7 @@ const MODEL = 'gemini-2.0-flash'; // Corrected from invalid 2.5 version
 async function extractTnb(fileBuffer, filename) {
     try {
         const apiKey = getApiKey();
-        console.log(`[ExtractionService] Processing TNB Bill with Gemini 2.0: ${filename} (${fileBuffer.length} bytes) using Key ending in ...${apiKey.slice(-4)}`);
+        console.log(`[ExtractionService] Processing TNB Bill with Gemini 3: ${filename} (${fileBuffer.length} bytes) using Key ending in ...${apiKey.slice(-4)}`);
 
         const base64Data = fileBuffer.toString('base64');
         const mimeType = filename && filename.toLowerCase().endsWith('.png') ? 'image/png' : 
@@ -133,7 +133,7 @@ async function extractTnb(fileBuffer, filename) {
 async function extractMykad(fileBuffer, filename) {
     try {
         const apiKey = getApiKey();
-        console.log(`[ExtractionService] Processing MyKad with Gemini 2.0: ${filename} (${fileBuffer.length} bytes) using Key ending in ...${apiKey.slice(-4)}`);
+        console.log(`[ExtractionService] Processing MyKad with Gemini 3: ${filename} (${fileBuffer.length} bytes) using Key ending in ...${apiKey.slice(-4)}`);
 
         const base64Data = fileBuffer.toString('base64');
         const mimeType = filename && filename.toLowerCase().endsWith('.png') ? 'image/png' : 
