@@ -3,8 +3,29 @@
  * Integration with External Extraction API
  */
 
-const API_KEY = 'AIzaSyDoAVsk8yqPC7qCB0krie0G4beXhO4gDpI';
-const MODEL = 'gemini-2.5-flash';
+// API Key Rotation Pool
+const API_KEYS = [
+    'AIzaSyDoAVsk8yqPC7qCB0krie0G4beXhO4gDpI', // Key 1 (Primary)
+    process.env.GOOGLE_AI_KEY_2,               // Key 2
+    process.env.GOOGLE_AI_KEY_3,               // Key 3
+    process.env.GOOGLE_AI_KEY_4                // Key 4
+].filter(key => key); // Remove undefined/null keys
+
+let currentKeyIndex = 0;
+
+/**
+ * Get next API key in rotation (Round-Robin)
+ */
+function getApiKey() {
+    if (API_KEYS.length === 0) {
+        throw new Error('No Google AI API keys configured.');
+    }
+    const key = API_KEYS[currentKeyIndex];
+    currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+    return key;
+}
+
+const MODEL = 'gemini-2.0-flash'; // Corrected from invalid 2.5 version
 
 /**
  * Extract data from TNB Bill
@@ -13,7 +34,8 @@ const MODEL = 'gemini-2.5-flash';
  */
 async function extractTnb(fileBuffer, filename) {
     try {
-        console.log(`[ExtractionService] Processing TNB Bill with Gemini 2.5: ${filename} (${fileBuffer.length} bytes)`);
+        const apiKey = getApiKey();
+        console.log(`[ExtractionService] Processing TNB Bill with Gemini 2.0: ${filename} (${fileBuffer.length} bytes) using Key ending in ...${apiKey.slice(-4)}`);
 
         const base64Data = fileBuffer.toString('base64');
         const mimeType = filename && filename.toLowerCase().endsWith('.png') ? 'image/png' : 
@@ -58,7 +80,7 @@ async function extractTnb(fileBuffer, filename) {
             }]
         };
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -110,7 +132,8 @@ async function extractTnb(fileBuffer, filename) {
  */
 async function extractMykad(fileBuffer, filename) {
     try {
-        console.log(`[ExtractionService] Processing MyKad with Gemini 2.5: ${filename} (${fileBuffer.length} bytes)`);
+        const apiKey = getApiKey();
+        console.log(`[ExtractionService] Processing MyKad with Gemini 2.0: ${filename} (${fileBuffer.length} bytes) using Key ending in ...${apiKey.slice(-4)}`);
 
         const base64Data = fileBuffer.toString('base64');
         const mimeType = filename && filename.toLowerCase().endsWith('.png') ? 'image/png' : 
@@ -154,7 +177,7 @@ async function extractMykad(fileBuffer, filename) {
             }]
         };
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`, {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
