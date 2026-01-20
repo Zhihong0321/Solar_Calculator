@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
+const { API_KEYS, MODEL } = require('../services/extractionService');
 
 const router = express.Router();
 
@@ -194,5 +195,63 @@ async function runFixBubbleTokensPatch(client, res) {
         throw err;
     }
 }
+
+/**
+ * Health Check: Google AI API Keys
+ */
+router.post('/api/admin/health/ai-keys', requireAuth, requireAdminAccess, async (req, res) => {
+    const results = [];
+    
+    // Test payload: Minimal "Hello"
+    const payload = {
+        contents: [{ parts: [{ text: "Hello" }] }]
+    };
+
+    for (let i = 0; i < API_KEYS.length; i++) {
+        const key = API_KEYS[i];
+        const keyMask = `Key ${i + 1} (...${key.slice(-4)})`;
+        const start = Date.now();
+        let status = 'unknown';
+        let statusCode = 0;
+        let latency = 0;
+        let error = null;
+
+        try {
+            const fetchRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            statusCode = fetchRes.status;
+            latency = Date.now() - start;
+
+            if (fetchRes.ok) {
+                status = 'healthy';
+            } else {
+                status = 'failed';
+                const text = await fetchRes.text();
+                error = `Status ${statusCode}: ${text.substring(0, 100)}`;
+            }
+        } catch (err) {
+            latency = Date.now() - start;
+            status = 'error';
+            error = err.message;
+        }
+
+        results.push({
+            key: keyMask,
+            status,
+            statusCode,
+            latency: `${latency}ms`,
+            error
+        });
+    }
+
+    res.json({
+        success: true,
+        results
+    });
+});
 
 module.exports = router;

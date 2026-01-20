@@ -25,7 +25,59 @@ function getApiKey() {
     return key;
 }
 
-const MODEL = 'gemini-3-flash-preview'; // Updated to requested version
+const MODEL = 'gemini-3-flash-preview'; 
+
+/**
+ * Execute Gemini API call with auto-retry across available keys
+ * @param {object} payload - The request body
+ * @param {string} taskName - For logging context
+ */
+async function callGeminiWithRetry(payload, taskName) {
+    let lastError = null;
+    
+    // Try as many times as we have keys
+    // We loop through the count of keys to give every key a chance
+    const maxRetries = API_KEYS.length;
+
+    for (let i = 0; i < maxRetries; i++) {
+        const apiKey = getApiKey();
+        const keyMask = `...${apiKey.slice(-4)}`;
+        
+        try {
+            console.log(`[ExtractionService] ${taskName} - Attempt ${i + 1}/${maxRetries} using Key ${keyMask}`);
+            
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                // 429: Too Many Requests (Quota)
+                // 403: Forbidden (Key invalid/expired)
+                // 503: Service Unavailable (Overload)
+                if (res.status === 429 || res.status === 403 || res.status >= 500) {
+                    console.warn(`[ExtractionService] Attempt failed (${res.status}) with Key ${keyMask}. Switching to next key...`);
+                    lastError = new Error(`Gemini API Error: ${res.status} - ${errText}`);
+                    continue; // Try next key
+                }
+                // For other errors (400 Bad Request), fail immediately as retrying won't help
+                throw new Error(`Gemini API Error: ${res.status} - ${errText}`);
+            }
+
+            // Success
+            return await res.json();
+
+        } catch (err) {
+            lastError = err;
+            // If it's a fetch error (network), we might want to retry
+            console.warn(`[ExtractionService] Network/Fetch error with Key ${keyMask}:`, err.message);
+        }
+    }
+
+    throw new Error(`All API keys failed. Last error: ${lastError ? lastError.message : 'Unknown error'}`);
+}
 
 /**
  * Extract data from TNB Bill
@@ -34,8 +86,7 @@ const MODEL = 'gemini-3-flash-preview'; // Updated to requested version
  */
 async function extractTnb(fileBuffer, filename) {
     try {
-        const apiKey = getApiKey();
-        console.log(`[ExtractionService] Processing TNB Bill with Gemini 3: ${filename} (${fileBuffer.length} bytes) using Key ending in ...${apiKey.slice(-4)}`);
+        console.log(`[ExtractionService] Processing TNB Bill: ${filename} (${fileBuffer.length} bytes)`);
 
         const base64Data = fileBuffer.toString('base64');
         const mimeType = filename && filename.toLowerCase().endsWith('.png') ? 'image/png' : 
@@ -80,32 +131,16 @@ async function extractTnb(fileBuffer, filename) {
             }]
         };
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-            const errText = await res.text();
-            console.error(`[ExtractionService] Gemini API Error ${res.status}: ${errText}`);
-            throw new Error(`Gemini API Error: ${res.status} - ${errText}`);
-        }
-        
-        const jsonResponse = await res.json();
+        const jsonResponse = await callGeminiWithRetry(payload, 'Extract TNB');
         
         let extractedData = {};
         if (jsonResponse.candidates && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts[0].text) {
             const text = jsonResponse.candidates[0].content.parts[0].text;
             try {
-                // Clean up any potential markdown formatting just in case
                 const cleanJson = text.replace(/```json\n?|\n?```/g, '').trim();
                 extractedData = JSON.parse(cleanJson);
             } catch (e) {
                 console.error('[ExtractionService] JSON Parse Error:', e);
-                console.log('Raw Text:', text);
                 throw new Error('Failed to parse extraction result');
             }
         } else {
@@ -132,8 +167,7 @@ async function extractTnb(fileBuffer, filename) {
  */
 async function extractMykad(fileBuffer, filename) {
     try {
-        const apiKey = getApiKey();
-        console.log(`[ExtractionService] Processing MyKad with Gemini 3: ${filename} (${fileBuffer.length} bytes) using Key ending in ...${apiKey.slice(-4)}`);
+        console.log(`[ExtractionService] Processing MyKad: ${filename} (${fileBuffer.length} bytes)`);
 
         const base64Data = fileBuffer.toString('base64');
         const mimeType = filename && filename.toLowerCase().endsWith('.png') ? 'image/png' : 
@@ -177,32 +211,16 @@ async function extractMykad(fileBuffer, filename) {
             }]
         };
 
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-            const errText = await res.text();
-            console.error(`[ExtractionService] Gemini API Error ${res.status}: ${errText}`);
-            throw new Error(`Gemini API Error: ${res.status} - ${errText}`);
-        }
-        
-        const jsonResponse = await res.json();
+        const jsonResponse = await callGeminiWithRetry(payload, 'Extract MyKad');
         
         let extractedData = {};
         if (jsonResponse.candidates && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts[0].text) {
             const text = jsonResponse.candidates[0].content.parts[0].text;
             try {
-                // Clean up any potential markdown formatting just in case
                 const cleanJson = text.replace(/```json\n?|\n?```/g, '').trim();
                 extractedData = JSON.parse(cleanJson);
             } catch (e) {
                 console.error('[ExtractionService] JSON Parse Error:', e);
-                console.log('Raw Text:', text);
                 throw new Error('Failed to parse extraction result');
             }
         } else {
@@ -224,5 +242,7 @@ async function extractMykad(fileBuffer, filename) {
 
 module.exports = {
     extractTnb,
-    extractMykad
+    extractMykad,
+    API_KEYS, // Export for Health Check
+    MODEL     // Export for Health Check
 };

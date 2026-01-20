@@ -34,6 +34,38 @@
                         <p class="mt-1 max-w-2xl text-sm text-gray-500">Critical patches and data recovery tools.</p>
                     </div>
                     <div class="px-4 py-5 sm:p-6 space-y-6">
+                        <!-- AI Health Check -->
+                        <div class="border border-gray-200 rounded-md p-4 bg-white">
+                            <div class="sm:flex sm:items-start sm:justify-between">
+                                <div>
+                                    <h4 class="text-base font-medium text-gray-900">Google AI API Health</h4>
+                                    <p class="mt-2 text-sm text-gray-500">
+                                        Test all configured API keys against the <code>gemini-3-flash-preview</code> model.
+                                    </p>
+                                </div>
+                                <div class="mt-5 sm:mt-0 sm:ml-6 flex-shrink-0">
+                                    <button type="button" onclick="checkAiKeys()" id="btn-check-ai" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm">
+                                        Check Keys
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="result-ai-keys" class="mt-4 hidden overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+                                <table class="min-w-full divide-y divide-gray-300">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" class="py-2 pl-4 pr-3 text-left text-xs font-semibold text-gray-900 sm:pl-6">Key</th>
+                                            <th scope="col" class="px-3 py-2 text-left text-xs font-semibold text-gray-900">Status</th>
+                                            <th scope="col" class="px-3 py-2 text-left text-xs font-semibold text-gray-900">Latency</th>
+                                            <th scope="col" class="px-3 py-2 text-left text-xs font-semibold text-gray-900">Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ai-keys-body" class="divide-y divide-gray-200 bg-white">
+                                        <!-- Populated via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                         <div class="border border-gray-200 rounded-md p-4 bg-white">
                             <div class="sm:flex sm:items-start sm:justify-between">
                                 <div>
@@ -74,6 +106,50 @@
     </div>
 
     <script>
+        async function checkAiKeys() {
+            const btn = document.getElementById('btn-check-ai');
+            const resultDiv = document.getElementById('result-ai-keys');
+            const tbody = document.getElementById('ai-keys-body');
+            
+            const originalText = btn.innerText;
+            btn.innerText = 'Testing...';
+            btn.disabled = true;
+            resultDiv.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/admin/health/ai-keys', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const data = await response.json();
+                resultDiv.classList.remove('hidden');
+                
+                if (data.success && data.results) {
+                    tbody.innerHTML = data.results.map(r => `
+                        <tr>
+                            <td class="whitespace-nowrap py-2 pl-4 pr-3 text-xs font-medium text-gray-900 sm:pl-6">${r.key}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-xs">
+                                <span class="inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${r.status === 'healthy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                    ${r.status.toUpperCase()} (${r.statusCode})
+                                </span>
+                            </td>
+                            <td class="whitespace-nowrap px-3 py-2 text-xs text-gray-500">${r.latency}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-xs text-gray-500 truncate max-w-xs" title="${r.error || ''}">${r.error || '-'}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    alert('Failed to get health data');
+                }
+            } catch (err) {
+                alert(`Request Failed: ${err.message}`);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
         async function resetSession() {
             if (!confirm('This will log you out and clear impersonation. Proceed?')) return;
             try {
