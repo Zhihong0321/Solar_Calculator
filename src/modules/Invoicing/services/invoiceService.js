@@ -198,8 +198,10 @@ async function createInvoice(pool, invoiceRequestPayload) {
         bubbleId: invoice.bubble_id,
         invoiceNumber: invoice.invoice_number,
         totalAmount: invoice.total_amount,
-        subtotal: financials.taxableSubtotal,
-        sstAmount: financials.sstAmount,
+        subtotal: invoice.subtotal,
+        sstAmount: invoice.sst_amount,
+        discountAmount: invoice.discount_amount,
+        voucherAmount: invoice.voucher_amount,
         shareToken: invoice.share_token
       }
     };
@@ -284,8 +286,10 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
         bubbleId: invoice.bubble_id,
         invoiceNumber: invoice.invoice_number,
         totalAmount: invoice.total_amount,
-        subtotal: financials.taxableSubtotal,
-        sstAmount: financials.sstAmount,
+        subtotal: invoice.subtotal,
+        sstAmount: invoice.sst_amount,
+        discountAmount: invoice.discount_amount,
+        voucherAmount: invoice.voucher_amount,
         shareToken: invoice.share_token
       }
     };

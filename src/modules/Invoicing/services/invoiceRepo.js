@@ -430,6 +430,14 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     invoice.sst_amount = sstItem ? parseFloat(sstItem.total_price) : 0;
     invoice.subtotal = (parseFloat(invoice.total_amount) || 0) - invoice.sst_amount;
 
+    // Derive Discount and Voucher amounts from items
+    invoice.discount_amount = invoice.items
+        .filter(item => item.item_type === 'discount')
+        .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+    invoice.voucher_amount = invoice.items
+        .filter(item => item.item_type === 'voucher')
+        .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+
     // Queries 3-6: Run in parallel if possible
     const parallelQueries = [];
 
@@ -583,10 +591,10 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
      (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, agent_markup,
-      discount_amount, discount_fixed, discount_percent, voucher_code,
-      voucher_amount, total_amount, status, share_token, share_enabled,
+      discount_fixed, discount_percent, voucher_code,
+      total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 1, $1, true, NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 1, $1, true, NOW(), NOW())
      RETURNING *`,
     [
       bubbleId,
@@ -601,11 +609,9 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       invoiceNumber,
       new Date().toISOString().split('T')[0],
       markupAmount,
-      discountFixed + percentDiscountVal,
       discountFixed,
       discountPercent,
       validVoucherCodes.join(', ') || null,
-      totalVoucherAmount,
       finalTotalAmount,
       'draft',
       shareToken,
@@ -1282,15 +1288,13 @@ async function updateInvoiceTransaction(client, data) {
             linked_package = $6,
             package_name_snapshot = $7,
             agent_markup = $8,
-            discount_amount = $9,
-            discount_fixed = $10,
-            discount_percent = $11,
-            voucher_code = $12,
-            voucher_amount = $13,
-            total_amount = $14,
-            version = $15,
+            discount_fixed = $9,
+            discount_percent = $10,
+            voucher_code = $11,
+            total_amount = $12,
+            version = $13,
             updated_at = NOW()
-         WHERE bubble_id = $16`,
+         WHERE bubble_id = $14`,
         [
             customerBubbleId,
             linkedAgent,
@@ -1300,11 +1304,9 @@ async function updateInvoiceTransaction(client, data) {
             pkg.bubble_id,
             pkg.name || currentData.package_name_snapshot,
             markupAmount,
-            (data.discountFixed || 0) + percentDiscountVal,
             data.discountFixed || 0,
             data.discountPercent || 0,
             voucherInfo.validVoucherCodes.join(', ') || null,
-            voucherInfo.totalVoucherAmount,
             finalTotalAmount,
             nextVersion,
             bubbleId
@@ -1365,10 +1367,10 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
      (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, agent_markup,
-      discount_amount, discount_fixed, discount_percent, voucher_code,
-      voucher_amount, total_amount, status, share_token, share_enabled,
+      discount_fixed, discount_percent, voucher_code,
+      total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW(), NOW(), $24, $25, $26, true)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW(), $21, $22, $23, true)
      RETURNING *`,
     [
       bubbleId,
@@ -1383,11 +1385,9 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       newInvoiceNumber,
       new Date().toISOString().split('T')[0],
       markupAmount,
-      (data.discountFixed || 0) + percentDiscountVal,
-      data.discountFixed || 0,
-      data.discountPercent || 0,
+      (data.discountFixed || 0),
+      (data.discountPercent || 0),
       validVoucherCodes.join(', ') || null,
-      totalVoucherAmount,
       finalTotalAmount,
       'draft',
       shareToken,
