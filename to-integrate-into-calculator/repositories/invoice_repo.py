@@ -54,16 +54,20 @@ class InvoiceRepository:
                 InvoiceNewItem.invoice_id == invoice.bubble_id
             ).all()
         
-        # Calculate base taxable amount from items
-        taxable_amount = sum(item.total_price for item in items) if items else Decimal(0)
+        # Calculate base taxable amount from items (excluding SST item itself)
+        taxable_amount = sum(item.total_price for item in items if item.item_type != 'sst') if items else Decimal(0)
         
-        # Calculate SST (6%)
-        sst_rate = Decimal(6) if invoice.apply_sst else Decimal(0)
-        sst_amount = taxable_amount * (sst_rate / Decimal(100)) 
+        # Derive SST Amount from items if it exists
+        sst_item = next((item for item in items if item.item_type == 'sst'), None)
+        sst_amount = sst_item.total_price if sst_item else Decimal(0)
+        
+        # Calculate derived fields
         invoice.sst_amount = sst_amount
+        invoice.subtotal = taxable_amount
         
-        # Calculate total
-        invoice.total_amount = taxable_amount + invoice.sst_amount
+        # Total is already in database or calculated as taxable + sst
+        if not invoice.total_amount:
+            invoice.total_amount = taxable_amount + sst_amount
     
     def create_on_the_fly(
         self,
@@ -271,6 +275,28 @@ class InvoiceRepository:
                 sort_order=200
             )
             self.db.add(epp_fee_item)
+        
+        # 6e. Create SST Item
+        if apply_sst:
+            # Re-calculate taxable subtotal locally for the SST item
+            taxable_sum = unit_price
+            if discount_fixed > 0: taxable_sum -= discount_fixed
+            if discount_percent > 0: taxable_sum -= (package.price * (discount_percent / Decimal(100)))
+            taxable_sum -= voucher_amount
+            
+            sst_val = taxable_sum * (Decimal(6) / Decimal(100))
+            if sst_val > 0:
+                sst_item = InvoiceNewItem(
+                    bubble_id=f"item_{secrets.token_hex(8)}",
+                    invoice=invoice,
+                    description="SST (6%)",
+                    qty=Decimal(1),
+                    unit_price=sst_val,
+                    total_price=sst_val,
+                    item_type="sst",
+                    sort_order=300
+                )
+                self.db.add(sst_item)
         
         # 7. Finalize
         self._calculate_invoice_totals(invoice)

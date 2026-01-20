@@ -425,6 +425,11 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     );
     invoice.items = itemsResult.rows;
 
+    // Derive SST Amount and Subtotal from items since columns are removed
+    const sstItem = invoice.items.find(item => item.item_type === 'sst');
+    invoice.sst_amount = sstItem ? parseFloat(sstItem.total_price) : 0;
+    invoice.subtotal = (parseFloat(invoice.total_amount) || 0) - invoice.sst_amount;
+
     // Queries 3-6: Run in parallel if possible
     const parallelQueries = [];
 
@@ -577,11 +582,11 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
     `INSERT INTO invoice
      (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
-      invoice_date, agent_markup, sst_amount,
+      invoice_date, agent_markup,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 1, $1, true, NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 1, $1, true, NOW(), NOW())
      RETURNING *`,
     [
       bubbleId,
@@ -596,7 +601,6 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       invoiceNumber,
       new Date().toISOString().split('T')[0],
       markupAmount,
-      sstAmount,
       discountFixed + percentDiscountVal,
       discountFixed,
       discountPercent,
@@ -776,6 +780,28 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         0,
         'notice',
         250,
+        false
+      ]
+    );
+    createdItemIds.push(itemBubbleId);
+  }
+
+  // 6. SST Line Item (Dynamic derivation support)
+  if (financials.sstAmount > 0) {
+    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+    await client.query(
+      `INSERT INTO invoice_item
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
+      [
+        itemBubbleId,
+        invoiceId,
+        `SST (6%)`,
+        1,
+        financials.sstAmount,
+        financials.sstAmount,
+        'sst',
+        300,
         false
       ]
     );
@@ -1256,16 +1282,15 @@ async function updateInvoiceTransaction(client, data) {
             linked_package = $6,
             package_name_snapshot = $7,
             agent_markup = $8,
-            sst_amount = $9,
-            discount_amount = $10,
-            discount_fixed = $11,
-            discount_percent = $12,
-            voucher_code = $13,
-            voucher_amount = $14,
-            total_amount = $15,
-            version = $16,
+            discount_amount = $9,
+            discount_fixed = $10,
+            discount_percent = $11,
+            voucher_code = $12,
+            voucher_amount = $13,
+            total_amount = $14,
+            version = $15,
             updated_at = NOW()
-         WHERE bubble_id = $17`,
+         WHERE bubble_id = $16`,
         [
             customerBubbleId,
             linkedAgent,
@@ -1275,7 +1300,6 @@ async function updateInvoiceTransaction(client, data) {
             pkg.bubble_id,
             pkg.name || currentData.package_name_snapshot,
             markupAmount,
-            sstAmount,
             (data.discountFixed || 0) + percentDiscountVal,
             data.discountFixed || 0,
             data.discountPercent || 0,
@@ -1340,11 +1364,11 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
     `INSERT INTO invoice
      (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
-      invoice_date, agent_markup, sst_amount,
+      invoice_date, agent_markup,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW(), NOW(), $25, $26, $27, true)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW(), NOW(), $24, $25, $26, true)
      RETURNING *`,
     [
       bubbleId,
@@ -1359,7 +1383,6 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       newInvoiceNumber,
       new Date().toISOString().split('T')[0],
       markupAmount,
-      sstAmount,
       (data.discountFixed || 0) + percentDiscountVal,
       data.discountFixed || 0,
       data.discountPercent || 0,
