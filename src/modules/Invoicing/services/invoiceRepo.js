@@ -640,8 +640,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   const packageItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
   await client.query(
     `INSERT INTO invoice_item
-     (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package, linked_package)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $10)`,
+     (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package, linked_package)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9, $10)`,
     [
       packageItemBubbleId,
       invoiceId,
@@ -664,8 +664,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
         const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
         await client.query(
             `INSERT INTO invoice_item
-             (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
+             (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
             [
                 itemBubbleId,
                 invoiceId,
@@ -688,8 +688,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -709,8 +709,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -731,8 +731,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -753,8 +753,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -775,8 +775,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
@@ -797,8 +797,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9)`,
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
       [
         itemBubbleId,
         invoiceId,
