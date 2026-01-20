@@ -65,46 +65,45 @@
         .badge-payment_submitted { background: #faf5ff; color: #6b21a8; border: 1px solid #f3e8ff; }
     </style>
 </head>
-<body class="min-h-screen text-slate-800 pb-24">
+<body class="min-h-screen text-slate-800 pb-24 overflow-x-hidden w-full">
     
     <!-- Navbar -->
-    <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
+    <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 w-full">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-14">
-                <div class="flex items-center gap-2">
-                    <h1 class="text-xl font-bold text-slate-800 tracking-tight">Quotations</h1>
+            <div class="flex justify-between h-14 items-center">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <h1 class="text-xl font-bold text-slate-800 tracking-tight truncate">Quotations</h1>
                 </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="logout()" class="text-xs font-medium text-red-600 hover:text-red-800 transition-colors px-3 py-1.5 rounded-md hover:bg-red-50">Logout / Reset</button>
-                    <a href="/my-customers" class="text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors px-3 py-1.5 rounded-md hover:bg-slate-50">Customers</a>
-                    <button onclick="cleanupSamples()" class="text-xs font-medium text-slate-400 hover:text-red-600 transition-colors px-3 py-1.5 rounded-md hover:bg-red-50">Cleanup</button>
+                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                    <button onclick="logout()" class="text-[10px] sm:text-xs font-medium text-red-600 hover:text-red-800 transition-colors px-2 py-1.5 rounded-md hover:bg-red-50">Logout</button>
+                    <a href="/my-customers" class="text-[10px] sm:text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors px-2 py-1.5 rounded-md hover:bg-slate-50">Customers</a>
                 </div>
             </div>
         </div>
     </nav>
 
     <!-- Stats Bar -->
-    <div class="bg-white border-b border-slate-100">
+    <div class="bg-white border-b border-slate-100 w-full">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div class="grid grid-cols-3 gap-4">
-                <div class="border-l-2 border-slate-200 pl-3">
-                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total</p>
-                    <p class="text-lg font-bold text-slate-800" id="totalCount">0</p>
+            <div class="grid grid-cols-3 gap-2 sm:gap-4">
+                <div class="border-l-2 border-slate-200 pl-2 sm:pl-3">
+                    <p class="text-[9px] sm:text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total</p>
+                    <p class="text-base sm:text-lg font-bold text-slate-800" id="totalCount">0</p>
                 </div>
-                <div class="border-l-2 border-slate-200 pl-3">
-                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Pipeline</p>
-                    <p class="text-lg font-bold text-slate-800" id="totalValue">RM 0</p>
+                <div class="border-l-2 border-slate-200 pl-2 sm:pl-3">
+                    <p class="text-[9px] sm:text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Pipeline</p>
+                    <p class="text-base sm:text-lg font-bold text-slate-800" id="totalValue">RM 0</p>
                 </div>
-                <div class="border-l-2 border-slate-200 pl-3">
-                    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Latest</p>
-                    <p class="text-sm font-semibold text-slate-700 truncate" id="lastCreated">-</p>
+                <div class="border-l-2 border-slate-200 pl-2 sm:pl-3 overflow-hidden">
+                    <p class="text-[9px] sm:text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Latest</p>
+                    <p class="text-xs sm:text-sm font-semibold text-slate-700 truncate" id="lastCreated">-</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Main Content -->
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
         <!-- Loading -->
         <div id="loading" class="flex flex-col items-center justify-center py-24">
@@ -122,8 +121,8 @@
         </div>
 
         <!-- Content -->
-        <div id="content" class="hidden">
-            <div id="invoices" class="divide-y divide-slate-200 border-t border-slate-200">
+        <div id="content" class="hidden w-full">
+            <div id="invoices" class="divide-y divide-slate-200 border-t border-slate-200 w-full">
             </div>
 
             <!-- Pagination -->
@@ -142,8 +141,8 @@
     </div>
 
     <!-- Floating Panel -->
-    <div class="fixed bottom-0 left-0 right-0 z-50">
-        <div class="floating-panel rounded-t-2xl mx-auto max-w-md">
+    <div class="fixed bottom-0 left-0 right-0 z-50 px-2 pb-2">
+        <div class="floating-panel rounded-2xl mx-auto max-w-lg w-full">
             <div class="flex items-center justify-between px-4 py-3">
                 <a href="/select-package" class="btn-primary px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm bg-slate-900 text-white">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 4v16m8-8H4"></path></svg>
@@ -480,27 +479,27 @@
                 const totalAmtVal = parseFloat(inv.total_amount) || 0;
 
                 return `
-                    <div class="flex items-stretch border-l-4 ${accentColor} ${bgColor} hover:bg-slate-50 transition-colors">
-                        <div class="flex-1 py-5 px-4 sm:px-6">
-                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-stretch border-l-4 ${accentColor} ${bgColor} hover:bg-slate-50 transition-colors w-full min-w-0">
+                        <div class="flex-1 py-5 px-3 sm:px-6 min-w-0">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0">
                                 <!-- Left side -->
                                 <div class="flex-1 min-w-0">
-                                    <div class="flex items-center gap-2 mb-2">
+                                    <div class="flex items-center flex-wrap gap-2 mb-2">
                                         <span class="font-mono text-[10px] font-bold text-slate-400 uppercase tracking-tight">#${inv.invoice_number || 'DRAFT'}</span>
                                         <span class="badge ${statusClass}">${(inv.status || 'Draft').replace('_', ' ')}</span>
                                         ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold">FULLY PAID</span>' : ''}
                                     </div>
                                     
-                                    <h3 class="text-base font-bold ${isDeleted ? 'text-slate-400 line-through' : 'text-slate-900'} truncate mb-1">
+                                    <h3 class="text-base font-bold ${isDeleted ? 'text-slate-400 line-through' : 'text-slate-900'} mb-1 break-words leading-tight">
                                         ${inv.customer_name || 'Unknown Customer'}
                                     </h3>
                                     
-                                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 font-medium">
-                                        <span class="flex items-center gap-1.5">
+                                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 font-medium">
+                                        <span class="flex items-center gap-1.5 break-words">
                                             <svg class="w-3.5 h-3.5 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                            ${inv.package_name || '-'}
+                                            <span class="break-words">${inv.package_name || '-'}</span>
                                         </span>
-                                        <span class="flex items-center gap-1.5">
+                                        <span class="flex items-center gap-1.5 flex-shrink-0">
                                             <svg class="w-3.5 h-3.5 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 02-2 2v12a2 2 0 002 2z"></path></svg>
                                             ${formatDate(inv.invoice_date)}
                                         </span>
@@ -519,10 +518,10 @@
                                 </div>
                                 
                                 <!-- Right side (Financials & Actions) -->
-                                <div class="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 w-full md:w-auto border-t md:border-t-0 border-slate-100 pt-3 md:pt-0">
-                                    <div class="text-left md:text-right w-full md:min-w-[130px]">
+                                <div class="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 w-full md:w-auto border-t md:border-t-0 border-slate-100 pt-3 md:pt-0 min-w-0">
+                                    <div class="text-left md:text-right w-full md:min-w-[130px] min-w-0">
                                         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Paid / Total</p>
-                                        <p class="text-sm font-black ${isPaidFull ? 'text-emerald-600' : 'text-slate-900'}">
+                                        <p class="text-sm font-black ${isPaidFull ? 'text-emerald-600' : 'text-slate-900'} whitespace-nowrap overflow-hidden text-ellipsis">
                                             ${formatCurrency(totalPaidVal)} <span class="text-slate-300 font-normal mx-0.5">/</span> ${formatCurrency(totalAmtVal)}
                                         </p>
                                         <div class="w-full bg-slate-100 rounded-full h-1.5 mt-1.5 overflow-hidden border border-slate-200/50">
@@ -530,17 +529,17 @@
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center justify-between md:justify-end w-full md:w-auto gap-3">
+                                    <div class="flex items-center justify-between md:justify-end w-full md:w-auto gap-3 flex-shrink-0">
                                         <div class="flex flex-1 md:flex-none items-center gap-2">
-                                            <a href="/invoice-office?id=${inv.bubble_id}" class="flex-1 md:flex-none text-center px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-bold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all uppercase tracking-wider shadow-md shadow-blue-200/50">
+                                            <a href="/invoice-office?id=${inv.bubble_id}" class="flex-1 md:flex-none text-center px-4 sm:px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-bold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all uppercase tracking-wider shadow-md shadow-blue-200/50 whitespace-nowrap">
                                                 Open Office
                                             </a>
-                                            <a href="/invoice-chat?id=${inv.bubble_id}" class="p-2 border border-slate-200 bg-white text-slate-600 rounded-lg hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center group" title="Open Chat">
+                                            <a href="/invoice-chat?id=${inv.bubble_id}" class="p-2 border border-slate-200 bg-white text-slate-600 rounded-lg hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center group flex-shrink-0" title="Open Chat">
                                                 <svg class="w-4 h-4 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                                             </a>
                                         </div>
                                         
-                                        <div class="flex items-center gap-1">
+                                        <div class="flex items-center gap-1 flex-shrink-0">
                                             ${!isDeleted ? `
                                             <button onclick="deleteInvoice('${inv.bubble_id}')" class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
