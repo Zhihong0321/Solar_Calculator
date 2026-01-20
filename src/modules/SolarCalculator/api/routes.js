@@ -224,6 +224,32 @@ router.get('/api/solar-calculation', async (req, res) => {
   }
 });
 
+// API endpoint to get packages by type
+router.get('/api/packages', async (req, res) => {
+  try {
+    const { type } = req.query;
+    if (!type) return res.status(400).json({ error: 'Type is required' });
+    
+    const client = await pool.connect();
+    let dbType = type === 'Residential' ? 'Residential' : 'Tariff B&D Low Voltage';
+    
+    const query = `
+      SELECT p.id, p.bubble_id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active,
+             pr.solar_output_rating
+      FROM package p
+      LEFT JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
+      WHERE p.active = true AND p.type = $1
+      ORDER BY p.price ASC
+    `;
+    
+    const result = await client.query(query, [dbType]);
+    client.release();
+    res.json({ success: true, packages: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch packages', details: err.message });
+  }
+});
+
 router.get('/api/all-data', async (req, res) => {
   try {
     const client = await pool.connect();

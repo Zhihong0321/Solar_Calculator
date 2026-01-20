@@ -62,6 +62,10 @@ app.get('/invoice-chat', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'invoice_chat.html'));
 });
 
+app.get('/select-package', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'select_package.html'));
+});
+
 app.get('/chat-dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'chat_dashboard.html'));
 });
