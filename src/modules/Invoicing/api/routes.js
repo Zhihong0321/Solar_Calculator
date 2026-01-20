@@ -11,6 +11,7 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
+const sedaService = require('../services/sedaService');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const externalPdfService = require('../services/externalPdfService');
 
@@ -270,6 +271,25 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
             // so future loads are faster, but for now we just return it to fix the UI.
             if (seda) {
                 invoice.linked_seda_registration = seda.bubble_id;
+            }
+        }
+
+        // AUTO-FIX: If still no SEDA record but we have a customer, create it now
+        if (!seda && invoice.linked_customer) {
+            try {
+                console.log(`[InvoiceOffice] Auto-creating SEDA for invoice ${bubbleId} customer ${invoice.linked_customer}`);
+                seda = await sedaService.ensureSedaRegistration(
+                    client,
+                    bubbleId,
+                    invoice.linked_customer,
+                    String(userId)
+                );
+                if (seda) {
+                    invoice.linked_seda_registration = seda.bubble_id;
+                }
+            } catch (autoCreateErr) {
+                console.error('[InvoiceOffice] Failed to auto-create SEDA:', autoCreateErr);
+                // Continue without SEDA - UI will show "MISSING" but won't crash
             }
         }
 
