@@ -12,7 +12,21 @@ async function ensureSedaRegistration(client, invoiceId, customerId, userId) {
 
     // Check if exists
     const existing = await sedaRepo.getSedaByInvoiceId(client, invoiceId);
-    if (existing) return existing;
+    
+    if (existing) {
+        // [Fix] Ensure the existing SEDA record points to the CORRECT customer (in case it changed)
+        if (existing.linked_customer !== customerId) {
+            console.log(`[SedaService] Updating SEDA ${existing.bubble_id} linked customer from ${existing.linked_customer} to ${customerId}`);
+            await sedaRepo.updateSedaLinkedCustomer(client, existing.bubble_id, customerId);
+            existing.linked_customer = customerId; // Update local obj
+        }
+
+        // [Fix] Ensure bi-directional linking is robust (idempotent updates)
+        await sedaRepo.linkSedaToCustomer(client, customerId, existing.bubble_id);
+        await sedaRepo.linkSedaToInvoice(client, invoiceId, existing.bubble_id);
+
+        return existing;
+    }
 
     // Create new
     const newSeda = await sedaRepo.createSedaRegistration(client, {

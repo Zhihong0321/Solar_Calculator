@@ -155,6 +155,24 @@ async function getShareUrl(client, bubbleId, protocol, host) {
     }
 }
 
+/**
+ * Update the linked customer for a SEDA registration
+ * @param {object} client 
+ * @param {string} sedaId 
+ * @param {string} customerId 
+ */
+async function updateSedaLinkedCustomer(client, sedaId, customerId) {
+    try {
+        await client.query(
+            `UPDATE seda_registration SET linked_customer = $1, updated_at = NOW() WHERE bubble_id = $2`,
+            [customerId, sedaId]
+        );
+    } catch (err) {
+        console.error('Error updating SEDA linked customer:', err);
+        throw err;
+    }
+}
+
 module.exports = {
   getSedaByInvoiceId,
   createSedaRegistration,
@@ -162,5 +180,6 @@ module.exports = {
   linkSedaToInvoice,
   getByShareToken,
   getShareUrl,
-  generateShareToken
+  generateShareToken,
+  updateSedaLinkedCustomer
 };

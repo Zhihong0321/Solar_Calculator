@@ -519,8 +519,8 @@
                                 </div>
                                 
                                 <!-- Right side (Financials & Actions) -->
-                                <div class="flex items-center gap-6 self-end md:self-center">
-                                    <div class="text-right min-w-[130px]">
+                                <div class="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 w-full md:w-auto border-t md:border-t-0 border-slate-100 pt-3 md:pt-0">
+                                    <div class="text-left md:text-right w-full md:min-w-[130px]">
                                         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">Paid / Total</p>
                                         <p class="text-sm font-black ${isPaidFull ? 'text-emerald-600' : 'text-slate-900'}">
                                             ${formatCurrency(totalPaidVal)} <span class="text-slate-300 font-normal mx-0.5">/</span> ${formatCurrency(totalAmtVal)}
@@ -530,23 +530,28 @@
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-2">
-                                        <a href="/invoice-office?id=${inv.bubble_id}" class="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded hover:bg-slate-800 transition-all uppercase tracking-wider shadow-sm">
-                                            [Office]
-                                        </a>
-                                        <a href="/edit-invoice?id=${inv.bubble_id}" class="px-3 py-1.5 border border-slate-200 bg-white text-slate-600 text-[10px] font-bold rounded hover:bg-slate-50 transition-all uppercase tracking-wider shadow-sm">
-                                            [Edit]
-                                        </a>
-                                        ${!isDeleted ? `
-                                        <button onclick="deleteInvoice('${inv.bubble_id}')" class="p-1.5 text-slate-400 hover:text-red-600 transition-colors" title="Delete">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                        </button>
-                                        ` : ''}
-                                        ${inv.share_url ? `
-                                            <a href="${inv.share_url}" target="_blank" class="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors" title="View Public Link">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                    <div class="flex items-center justify-between md:justify-end w-full md:w-auto gap-3">
+                                        <div class="flex flex-1 md:flex-none items-center gap-2">
+                                            <a href="/invoice-office?id=${inv.bubble_id}" class="flex-1 md:flex-none text-center px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[10px] font-bold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all uppercase tracking-wider shadow-md shadow-blue-200/50">
+                                                Open Office
                                             </a>
-                                        ` : ''}
+                                            <a href="/invoice-chat?id=${inv.bubble_id}" class="p-2 border border-slate-200 bg-white text-slate-600 rounded-lg hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center group" title="Open Chat">
+                                                <svg class="w-4 h-4 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                            </a>
+                                        </div>
+                                        
+                                        <div class="flex items-center gap-1">
+                                            ${!isDeleted ? `
+                                            <button onclick="deleteInvoice('${inv.bubble_id}')" class="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Delete">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                            ` : ''}
+                                            ${inv.share_url ? `
+                                                <a href="${inv.share_url}" target="_blank" class="p-2 text-slate-400 hover:text-emerald-600 transition-colors" title="View Public Link">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                                </a>
+                                            ` : ''}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
