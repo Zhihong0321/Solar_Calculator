@@ -753,21 +753,16 @@ router.get('/submit-payment', (req, res) => {
         }
         const invoice = invoiceCheck.rows[0];
 
-        // 2. Fetch User's Linked Agent AND Customer Bubble ID
-        const [userCheck, customerCheck] = await Promise.all([
-            client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]),
-            client.query('SELECT customer_id FROM customer WHERE id = $1', [invoice.customer_id])
-        ]);
+        // 2. Fetch User's Linked Agent
+        const userCheck = await client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]);
 
         let linkedAgent = null;
         if (userCheck.rows.length > 0) {
             linkedAgent = userCheck.rows[0].linked_agent_profile;
         }
 
-        let linkedCustomerBubbleId = null;
-        if (customerCheck.rows.length > 0) {
-            linkedCustomerBubbleId = customerCheck.rows[0].customer_id;
-        }
+        // Use linked_customer from invoice directly as it is the Bubble ID
+        let linkedCustomerBubbleId = invoice.linked_customer;
 
         // Map Method to Standard Strings
         let standardMethod = 'CASH';
@@ -1517,7 +1512,7 @@ router.post('/api/debug/recompile-snapshots', requireDebugPasskey, async (req, r
                 customer_email_snapshot = c.email,
                 updated_at = NOW()
             FROM customer c
-            WHERE invoice.customer_id = c.id
+            WHERE invoice.linked_customer = c.customer_id
             AND (invoice.customer_name_snapshot IS NULL OR invoice.customer_name_snapshot = '')
         `);
 

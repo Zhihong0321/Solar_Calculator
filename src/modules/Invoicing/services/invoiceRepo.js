@@ -575,18 +575,17 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
 
   const invoiceResult = await client.query(
     `INSERT INTO invoice
-     (bubble_id, template_id, customer_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
+     (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
       voucher_amount, total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, 1, $1, true, NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, 1, $1, true, NOW(), NOW())
      RETURNING *`,
     [
       bubbleId,
       template.bubble_id || null, // Use template.bubble_id, not templateId passed in
-      internalCustomerId,
       customerBubbleId,
       linkedAgent,
       customerName || "Sample Quotation",
@@ -1221,7 +1220,6 @@ async function updateInvoiceTransaction(client, data) {
     }
 
     // Resolve Customer
-    let internalCustomerId = currentData.customer_id;
     let customerBubbleId = currentData.linked_customer;
 
     if (data.customerName) {
@@ -1232,7 +1230,6 @@ async function updateInvoiceTransaction(client, data) {
             createdBy: data.userId
         });
         if (custResult) {
-            internalCustomerId = custResult.id;
             customerBubbleId = custResult.bubbleId;
         }
     }
@@ -1253,29 +1250,27 @@ async function updateInvoiceTransaction(client, data) {
     // 5. Standard SQL UPDATE
     await client.query(
         `UPDATE invoice SET
-            customer_id = $1,
-            linked_customer = $2,
-            linked_agent = $3,
-            customer_name_snapshot = $4,
-            customer_address_snapshot = $5,
-            customer_phone_snapshot = $6,
-            linked_package = $7,
-            package_name_snapshot = $8,
-            subtotal = $9,
-            agent_markup = $10,
-            sst_rate = $11,
-            sst_amount = $12,
-            discount_amount = $13,
-            discount_fixed = $14,
-            discount_percent = $15,
-            voucher_code = $16,
-            voucher_amount = $17,
-            total_amount = $18,
-            version = $19,
+            linked_customer = $1,
+            linked_agent = $2,
+            customer_name_snapshot = $3,
+            customer_address_snapshot = $4,
+            customer_phone_snapshot = $5,
+            linked_package = $6,
+            package_name_snapshot = $7,
+            subtotal = $8,
+            agent_markup = $9,
+            sst_rate = $10,
+            sst_amount = $11,
+            discount_amount = $12,
+            discount_fixed = $13,
+            discount_percent = $14,
+            voucher_code = $15,
+            voucher_amount = $16,
+            total_amount = $17,
+            version = $18,
             updated_at = NOW()
-         WHERE bubble_id = $20`,
+         WHERE bubble_id = $19`,
         [
-            internalCustomerId,
             customerBubbleId,
             linkedAgent,
             data.customerName || currentData.customer_name_snapshot,
@@ -1349,7 +1344,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
 
   const invoiceResult = await client.query(
     `INSERT INTO invoice
-     (bubble_id, template_id, customer_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
+     (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
       customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, subtotal, agent_markup, sst_rate, sst_amount,
       discount_amount, discount_fixed, discount_percent, voucher_code,
@@ -1360,7 +1355,6 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
     [
       bubbleId,
       org.template_id,
-      customerId,
       customerBubbleId,
       linkedAgent,
       customerName || "Sample Quotation",
