@@ -574,7 +574,7 @@
                     const target = new Date(inv.follow_up_date).getTime();
                     const nowTime = new Date().getTime();
                     if (target > nowTime) {
-                        countdownHtml = `<span class="countdown-timer bg-red-600 text-white font-mono font-bold px-1.5 py-0.5 rounded text-[8px] animate-pulse" data-target="${inv.follow_up_date}">--:--:--:--</span>`;
+                        countdownHtml = `<span class="countdown-timer bg-red-600 text-white font-mono font-bold px-2 rounded text-[9px] h-[1.25rem] inline-flex items-center animate-pulse" data-target="${inv.follow_up_date}">--:--:--:--</span>`;
                     }
                 }
 
@@ -597,10 +597,10 @@
                                 <!-- Info Row 1: Inv No & Status -->
                                 <div class="flex items-center gap-2 mb-0.5">
                                     <span class="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-tight">#${inv.invoice_number || 'DRAFT'}</span>
-                                    <span class="badge ${statusClass}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">${(inv.status || 'Draft').replace('_', ' ')}</span>
-                                    ${countdownHtml}
-                                    ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">FULLY PAID</span>' : ''}
-                                    ${isFollowUp ? '<span class="badge bg-amber-100 text-amber-700 border border-amber-200 font-bold animate-pulse" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">FOLLOW UP</span>' : ''}
+                                    <span class="badge ${statusClass}" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">${(inv.status || 'Draft').replace('_', ' ')}</span>
+                                    ${countdownHtml ? countdownHtml.replace('px-1.5 py-0.5 rounded text-[8px]', 'px-2 rounded text-[9px] h-[1.25rem] inline-flex items-center') : ''}
+                                    ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">FULLY PAID</span>' : ''}
+                                    ${isFollowUp ? '<span class="badge bg-amber-100 text-amber-700 border border-amber-200 font-bold animate-pulse" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">FOLLOW UP</span>' : ''}
                                 </div>
                                 
                                 <!-- Info Row 2: Customer Name & WhatsApp -->
