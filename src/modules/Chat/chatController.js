@@ -2,6 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const chatService = require('./chatService');
+const pool = require('../../core/database/pool');
 
 // --- Multer Config ---
 const storage = multer.diskStorage({
@@ -10,15 +11,11 @@ const storage = multer.diskStorage({
       ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'chat_uploads')
       : path.resolve(__dirname, '../../../storage/chat_uploads');
     
-    // Ensure directory exists
     try {
       if (!fs.existsSync(uploadPath)) {
         fs.mkdirSync(uploadPath, { recursive: true });
-        console.log(`[Chat] Created upload directory: ${uploadPath}`);
       }
-    } catch (err) {
-      console.error(`[Chat] Error creating upload directory: ${err.message}`);
-    }
+    } catch (err) {}
     
     cb(null, uploadPath);
   },
@@ -30,21 +27,12 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: {
-    fileSize: 3 * 1024 * 1024 // 3MB Global Limit (Validation refine in handler)
-  },
-  fileFilter: (req, file, cb) => {
-    // Basic filter, more specific checks in handler if needed
-    cb(null, true);
-  }
-}).single('file'); // 'file' is the field name
-
-// --- Controller ---
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+}).single('file');
 
 // Helper to get Absolute URL
 const getAbsoluteUrl = (req, filename) => {
   let protocol = req.protocol;
-  // Handle proxy headers safely
   if (req.headers['x-forwarded-proto']) {
     protocol = req.headers['x-forwarded-proto'].split(',')[0].trim();
   }
@@ -52,10 +40,21 @@ const getAbsoluteUrl = (req, filename) => {
   return `${protocol}://${host}/uploads/chat_uploads/${filename}`;
 };
 
+// Helper to get full user profile from DB
+const getFullUser = async (userId) => {
+  const res = await pool.query('SELECT id as "userId", bubble_id as "bubbleId", access_level, email FROM "user" WHERE id = $1', [userId]);
+  return res.rows[0];
+};
+
 exports.getAllThreads = async (req, res) => {
   try {
-    const threads = await chatService.getChatThreads();
-    res.json({ success: true, threads });
+    const user = await getFullUser(req.user.userId);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+
+    const threads = await chatService.getChatThreads(user);
+    const pendingCount = await chatService.getPendingTagsCount(user.userId);
+    
+    res.json({ success: true, threads, pendingCount });
   } catch (err) {
     console.error('Get All Threads Error:', err);
     res.status(500).json({ error: 'Failed to load chat threads' });
@@ -67,15 +66,22 @@ exports.getChatHistory = async (req, res) => {
     const { invoiceId } = req.params;
     if (!invoiceId) return res.status(400).json({ error: 'Invoice ID required' });
 
+    const user = await getFullUser(req.user.userId);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+
     const thread = await chatService.getThread(invoiceId);
-    const messages = await chatService.getMessages(thread.id);
+    const messages = await chatService.getMessages(thread.id, user.userId);
     const customerName = await chatService.getInvoiceCustomerName(invoiceId);
     const agentName = await chatService.getInvoiceAgentName(invoiceId);
     
-    // Determine current user ID
-    const currentUserId = req.user ? String(req.user.userId) : null;
-
-    res.json({ success: true, threadId: thread.id, messages, currentUserId, customerName, agentName });
+    res.json({ 
+      success: true, 
+      threadId: thread.id, 
+      messages, 
+      currentUserId: String(user.userId),
+      customerName, 
+      agentName 
+    });
   } catch (err) {
     console.error('Chat History Error:', err);
     res.status(500).json({ error: 'Failed to load chat history' });
@@ -87,29 +93,21 @@ exports.postMessage = async (req, res) => {
     try {
       const { invoiceId } = req.params;
       const { messageType, content, tagRole } = req.body;
-      const user = req.user; 
+      
+      const userProfile = await getFullUser(req.user.userId);
+      if (!userProfile) return res.status(401).json({ error: 'User not found' });
 
       if (!invoiceId) return res.status(400).json({ error: 'Invoice ID required' });
 
-      // Identify Sender
-      const senderId = user ? String(user.userId) : 'guest';
-      const senderName = user ? (user.name || 'User') : 'Guest';
+      const senderId = String(userProfile.userId);
+      const senderName = req.user.name || userProfile.email || 'User';
 
       const thread = await chatService.getThread(invoiceId);
 
       let finalContent = content;
       let fileMeta = null;
 
-      // Handle File Upload
       if (req.file) {
-        console.log(`[Chat] File received: ${req.file.filename} (${req.file.size} bytes)`);
-        const isImage = req.file.mimetype.startsWith('image/');
-        const limit = isImage ? 1 * 1024 * 1024 : 3 * 1024 * 1024;
-
-        if (req.file.size > limit) {
-           // Should delete file if validation fails in production
-        }
-
         finalContent = getAbsoluteUrl(req, req.file.filename);
         fileMeta = {
           originalName: req.file.originalname,
@@ -138,18 +136,12 @@ exports.postMessage = async (req, res) => {
   };
 
   const contentType = req.headers['content-type'] || '';
-  
   if (contentType.includes('multipart/form-data')) {
     upload(req, res, function (err) {
-      if (err instanceof multer.MulterError) {
-        return res.status(400).json({ error: `Upload error: ${err.message}` });
-      } else if (err) {
-        return res.status(500).json({ error: `Unknown upload error: ${err.message}` });
-      }
+      if (err) return res.status(400).json({ error: `Upload error: ${err.message}` });
       processRequest(req, res);
     });
   } else {
-    // JSON or other (handled by express.json())
     processRequest(req, res);
   }
 };
@@ -157,10 +149,10 @@ exports.postMessage = async (req, res) => {
 exports.acknowledgeTag = async (req, res) => {
   try {
     const { messageId } = req.params;
-    const user = req.user;
+    const userId = req.user.userId;
     
-    const updated = await chatService.acknowledgeTag(messageId, user.userId);
-    res.json({ success: true, message: updated });
+    const updated = await chatService.acknowledgeTag(messageId, userId);
+    res.json({ success: true, assignment: updated });
   } catch (err) {
     console.error('Ack Tag Error:', err);
     res.status(500).json({ error: 'Failed to acknowledge tag' });

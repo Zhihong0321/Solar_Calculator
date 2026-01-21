@@ -79,31 +79,31 @@
                     </button>
                 </div>
                 <div class="grid grid-cols-2 gap-px bg-gray-100">
-                    <button id="agentTagBtn" onclick="sendTag('Agent')" class="bg-white px-4 py-4 text-center hover:bg-slate-50 transition-colors group">
+                    <button id="agentTagBtn" onclick="sendTag('agent')" class="bg-white px-4 py-4 text-center hover:bg-slate-50 transition-colors group">
                         <div class="text-slate-900 font-bold text-sm">Agent</div>
                         <div class="text-[10px] text-gray-400 uppercase mt-1 agent-name-label">Loading...</div>
                     </button>
-                    <button onclick="sendTag('Admin')" class="bg-white px-4 py-4 text-center hover:bg-purple-50 transition-colors group">
+                    <button onclick="sendTag('admin')" class="bg-white px-4 py-4 text-center hover:bg-purple-50 transition-colors group">
                         <div class="text-purple-600 font-bold text-sm">Admin</div>
                         <div class="text-[10px] text-gray-400 uppercase mt-1">Management</div>
                     </button>
-                    <button onclick="sendTag('Finance')" class="bg-white px-4 py-4 text-center hover:bg-green-50 transition-colors group">
+                    <button onclick="sendTag('finance')" class="bg-white px-4 py-4 text-center hover:bg-green-50 transition-colors group">
                         <div class="text-green-600 font-bold text-sm">Finance</div>
                         <div class="text-[10px] text-gray-400 uppercase mt-1">Payments</div>
                     </button>
-                    <button onclick="sendTag('Support')" class="bg-white px-4 py-4 text-center hover:bg-blue-50 transition-colors group">
-                        <div class="text-blue-600 font-bold text-sm">Support</div>
-                        <div class="text-[10px] text-gray-400 uppercase mt-1">Post-Sales</div>
+                    <button onclick="sendTag('hr')" class="bg-white px-4 py-4 text-center hover:bg-blue-50 transition-colors group">
+                        <div class="text-blue-600 font-bold text-sm">HR</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Personnel</div>
                     </button>
-                    <button onclick="sendTag('Manager')" class="bg-white px-4 py-4 text-center hover:bg-orange-50 transition-colors group">
-                        <div class="text-orange-600 font-bold text-sm">Manager</div>
-                        <div class="text-[10px] text-gray-400 uppercase mt-1">Approvals</div>
+                    <button onclick="sendTag('project')" class="bg-white px-4 py-4 text-center hover:bg-orange-50 transition-colors group">
+                        <div class="text-orange-600 font-bold text-sm">Project</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Operations</div>
                     </button>
-                    <button onclick="sendTag('CEO')" class="bg-white px-4 py-4 text-center hover:bg-red-50 transition-colors group">
+                    <button onclick="sendTag('ceo')" class="bg-white px-4 py-4 text-center hover:bg-red-50 transition-colors group">
                         <div class="text-red-600 font-bold text-sm">CEO</div>
                         <div class="text-[10px] text-gray-400 uppercase mt-1">Urgent</div>
                     </button>
-                    <button onclick="sendTag('Engineering')" class="bg-white px-4 py-4 text-center hover:bg-cyan-50 transition-colors group">
+                    <button onclick="sendTag('engineering')" class="bg-white px-4 py-4 text-center hover:bg-cyan-50 transition-colors group">
                         <div class="text-cyan-600 font-bold text-sm">Engineering</div>
                         <div class="text-[10px] text-gray-400 uppercase mt-1">Technical</div>
                     </button>
@@ -303,26 +303,37 @@
                     `;
                 } else if (msg.message_type === 'tag') {
                     const roleColors = {
-                        'Admin': 'bg-purple-100 text-purple-800 border-purple-200',
-                        'Finance': 'bg-green-100 text-green-800 border-green-200',
-                        'Support': 'bg-blue-100 text-blue-800 border-blue-200',
-                        'Manager': 'bg-orange-100 text-orange-800 border-orange-200',
-                        'CEO': 'bg-red-100 text-red-800 border-red-200',
-                        'Engineering': 'bg-cyan-100 text-cyan-800 border-cyan-200'
+                        'admin': 'bg-purple-100 text-purple-800 border-purple-200',
+                        'finance': 'bg-green-100 text-green-800 border-green-200',
+                        'hr': 'bg-blue-100 text-blue-800 border-blue-200',
+                        'project': 'bg-orange-100 text-orange-800 border-orange-200',
+                        'ceo': 'bg-red-100 text-red-800 border-red-200',
+                        'engineering': 'bg-cyan-100 text-cyan-800 border-cyan-200',
+                        'agent': 'bg-slate-100 text-slate-800 border-slate-200'
                     };
-                    const colorClass = roleColors[msg.tag_role] || 'bg-gray-100 text-gray-800 border-gray-200';
+                    const colorClass = roleColors[msg.tag_role?.toLowerCase()] || 'bg-gray-100 text-gray-800 border-gray-200';
+                    const displayRole = msg.tag_role ? msg.tag_role.charAt(0).toUpperCase() + msg.tag_role.slice(1) : 'Unknown';
                     
-                    const ackBtn = (msg.is_tag_active) 
-                        ? `<button onclick="acknowledgeTag('${msg.id}')" class="mt-2 w-full py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors uppercase tracking-wide shadow-sm">Acknowledge</button>`
-                        : `<div class="mt-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest border-t border-black/5 pt-1">Acknowledged</div>`;
+                    const isTaggedForMe = msg.user_tag_status === 'pending';
+                    const hasAcked = msg.user_tag_status === 'acknowledged';
+
+                    let ackBtn = '';
+                    if (isTaggedForMe) {
+                        ackBtn = `<button onclick="acknowledgeTag('${msg.id}')" class="mt-2 w-full py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors uppercase tracking-wide shadow-sm">Acknowledge</button>`;
+                    } else if (hasAcked) {
+                        ackBtn = `<div class="mt-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest border-t border-black/5 pt-1">Acknowledged</div>`;
+                    } else if (msg.message_type === 'tag') {
+                        // Not for me, but it's a tag message
+                        ackBtn = `<div class="mt-2 text-center text-[10px] font-bold text-gray-400 opacity-30 uppercase tracking-widest border-t border-black/5 pt-1">Tag: ${displayRole}</div>`;
+                    }
 
                     bubble.innerHTML += `
                         <div class="mt-1 mb-1 min-w-[200px]">
                             <div class="flex items-center gap-2 p-2 rounded border ${colorClass}">
-                                <div class="font-bold text-xs uppercase tracking-wider flex-1">@${msg.tag_role}</div>
+                                <div class="font-bold text-xs uppercase tracking-wider flex-1">@${displayRole}</div>
                                 <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
                             </div>
-                            <div class="text-xs text-gray-600 italic mt-1 px-1">Attention required for ${msg.tag_role}</div>
+                            <div class="text-xs text-gray-600 italic mt-1 px-1">Attention required for ${displayRole}</div>
                             ${ackBtn}
                         </div>
                     `;
@@ -372,15 +383,10 @@
         async function sendTag(role) {
             toggleTagMenu();
             try {
-                let finalRole = role;
-                if (role === 'Agent') {
-                    finalRole = `Agent | ${agentName}`;
-                }
-
                 const res = await fetch(`/api/v1/chat/${invoiceId}/message`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messageType: 'tag', tagRole: finalRole, content: 'TAG' })
+                    body: JSON.stringify({ messageType: 'tag', tagRole: role.toLowerCase(), content: 'TAG' })
                 });
                 const json = await res.json();
                 if (json.success) {

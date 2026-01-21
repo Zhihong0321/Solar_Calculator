@@ -44,6 +44,9 @@
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             </button>
             <h1 class="font-bold text-lg">Ongoing Conversations</h1>
+            <div id="totalPendingBadge" class="hidden bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                0 WAITING
+            </div>
         </div>
         <div class="flex items-center gap-4">
             <button onclick="location.reload()" class="p-2 hover:bg-white/10 rounded-full transition-colors">
@@ -100,8 +103,18 @@
                 if (json.success) {
                     allThreads = json.threads;
                     
+                    // Update Total Pending Badge
+                    const totalPending = json.pendingCount || 0;
+                    const badge = document.getElementById('totalPendingBadge');
+                    if (totalPending > 0) {
+                        badge.textContent = `${totalPending} WAITING`;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+
                     // Simple hash to detect changes
-                    const currentHash = JSON.stringify(allThreads.map(t => ({ id: t.invoice_id, msg: t.last_message_at, count: t.active_tags_count })));
+                    const currentHash = JSON.stringify(allThreads.map(t => ({ id: t.invoice_id, msg: t.last_message_at, count: t.my_pending_tags })));
                     
                     if (allThreads.length !== lastThreadsCount || currentHash !== lastThreadsHash) {
                         renderThreads(allThreads);
@@ -150,13 +163,16 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex justify-between items-baseline mb-1">
-                                <h3 class="font-semibold text-gray-900 truncate pr-2">${thread.customer_name || 'Unknown Customer'}</h3>
+                                <div class="flex items-center gap-2 truncate">
+                                    <h3 class="font-semibold text-gray-900 truncate">${thread.customer_name || 'Unknown Customer'}</h3>
+                                    ${thread.invoice_number ? `<span class="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">#${thread.invoice_number}</span>` : ''}
+                                </div>
                                 <span class="text-[11px] text-gray-500 whitespace-nowrap">${date}</span>
                             </div>
-                            <div class="flex justify-between items-center">
-                                <p class="text-sm text-gray-500 truncate pr-4">${lastMsg}</p>
-                                ${thread.active_tags_count > 0 ? 
-                                    `<span class="unread-badge">${thread.active_tags_count}</span>` : ''}
+                            <div class="flex justify-between items-center gap-2">
+                                <p class="text-sm text-gray-500 truncate flex-1">${lastMsg}</p>
+                                ${thread.my_pending_tags > 0 ? 
+                                    `<span class="bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded animate-pulse whitespace-nowrap">WAITING FOR RESPONSE</span>` : ''}
                             </div>
                         </div>
                     </div>
