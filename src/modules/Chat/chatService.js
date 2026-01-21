@@ -93,7 +93,7 @@ class ChatService {
     try {
       await client.query('BEGIN');
 
-      const isTag = messageType === 'tag' && tagRole;
+      const isTag = !!(messageType === 'tag' && tagRole);
       
       console.log(`[ChatService] Adding message: type=${messageType}, tagRole=${tagRole}, isTag=${isTag}`);
 
@@ -133,10 +133,17 @@ class ChatService {
             }
         } else {
             // Standard role-based tagging: everyone with this role in access_level
-            tagUsers = await client.query(
-              `SELECT id FROM "user" WHERE $1 = ANY(access_level)`,
-              [tagRole.toLowerCase()]
-            );
+            const targetRole = tagRole.toLowerCase();
+            if (targetRole === 'engineering') {
+              tagUsers = await client.query(
+                `SELECT id FROM "user" WHERE 'engineering' = ANY(access_level) OR 'engineer' = ANY(access_level)`
+              );
+            } else {
+              tagUsers = await client.query(
+                `SELECT id FROM "user" WHERE $1 = ANY(access_level)`,
+                [targetRole]
+              );
+            }
         }
 
         console.log(`[ChatService] Found ${tagUsers.rows.length} users to tag for role ${tagRole}`);

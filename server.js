@@ -70,6 +70,10 @@ app.get('/chat-dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'chat_dashboard.html'));
 });
 
+app.get('/chat-settings', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'chat_settings.html'));
+});
+
 // API endpoint to test database connection (Core Health)
 app.get('/api/health', async (req, res) => {
   try {
