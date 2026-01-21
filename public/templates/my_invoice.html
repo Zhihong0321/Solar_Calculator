@@ -568,6 +568,16 @@
                 const totalAmtVal = parseFloat(inv.total_amount) || 0;
                 const waNumber = formatWhatsAppNumber(inv.customer_phone);
 
+                // Countdown logic
+                let countdownHtml = '';
+                if (inv.follow_up_date && !isFollowUp && !isPaidFull && !isDeleted) {
+                    const target = new Date(inv.follow_up_date).getTime();
+                    const nowTime = new Date().getTime();
+                    if (target > nowTime) {
+                        countdownHtml = `<span class="countdown-timer bg-red-600 text-white font-mono font-bold px-1.5 py-0.5 rounded text-[8px] animate-pulse" data-target="${inv.follow_up_date}">--:--:--:--</span>`;
+                    }
+                }
+
                 return `
                     <div class="flex flex-col border-l-4 ${accentColor} ${bgColor} hover:bg-slate-50/80 transition-colors w-full min-w-0 border-b border-slate-100">
                         <!-- Row 1: Identity & Profile -->
@@ -588,6 +598,7 @@
                                 <div class="flex items-center gap-2 mb-0.5">
                                     <span class="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-tight">#${inv.invoice_number || 'DRAFT'}</span>
                                     <span class="badge ${statusClass}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">${(inv.status || 'Draft').replace('_', ' ')}</span>
+                                    ${countdownHtml}
                                     ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">FULLY PAID</span>' : ''}
                                     ${isFollowUp ? '<span class="badge bg-amber-100 text-amber-700 border border-amber-200 font-bold animate-pulse" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">FOLLOW UP</span>' : ''}
                                 </div>
@@ -702,6 +713,37 @@
             loadQuotations();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+
+        // Countdown Timer Logic
+        function updateAllCountdowns() {
+            const timers = document.querySelectorAll('.countdown-timer');
+            const now = new Date().getTime();
+
+            timers.forEach(timer => {
+                const target = new Date(timer.dataset.target).getTime();
+                const diff = target - now;
+
+                if (diff <= 0) {
+                    // If time passed, reload to move to Follow-up section
+                    // We check if it was already marked as passed to avoid infinite reloads
+                    if (timer.textContent !== 'EXPIRED') {
+                        timer.textContent = 'EXPIRED';
+                        loadQuotations();
+                    }
+                    return;
+                }
+
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                const pad = (n) => String(n).padStart(2, '0');
+                timer.textContent = `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+            });
+        }
+
+        setInterval(updateAllCountdowns, 1000);
 
         // --- Debug Features ---
         let debugPasskey = '';
