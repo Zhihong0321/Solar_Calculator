@@ -478,7 +478,10 @@
         }
 
         async function checkWhatsApp() {
-            const phone = document.getElementById('customerPhone').value.replace(/\D/g, '');
+            let phone = document.getElementById('customerPhone').value.replace(/\D/g, '');
+            if (phone.startsWith('0')) {
+                phone = '60' + phone.substring(1);
+            }
             if (!phone || phone.length < 10) {
                 Swal.fire({ icon: 'warning', title: 'Invalid Phone', text: 'Please enter a valid phone number with country code (e.g. 60123456789)' });
                 return;
