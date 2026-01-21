@@ -161,8 +161,24 @@
         </div>
 
         <!-- Content -->
-        <div id="content" class="hidden w-full">
-            <div id="invoices" class="divide-y divide-slate-200 border-t border-slate-200 w-full">
+        <div id="content" class="hidden w-full space-y-8">
+            <!-- Follow-up Section -->
+            <div id="followUpContainer" class="hidden">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></div>
+                    <h2 class="text-sm font-bold text-amber-800 uppercase tracking-widest">Follow-up Required</h2>
+                </div>
+                <div id="followUpInvoices" class="divide-y divide-slate-200 border border-amber-200 rounded-xl bg-amber-50/30 overflow-hidden shadow-sm">
+                </div>
+            </div>
+
+            <!-- Normal List Section -->
+            <div id="normalListContainer">
+                <div id="normalListHeader" class="hidden flex items-center gap-2 mb-4">
+                    <h2 class="text-sm font-bold text-slate-500 uppercase tracking-widest">All Quotations</h2>
+                </div>
+                <div id="invoices" class="divide-y divide-slate-200 border-t border-slate-200 w-full">
+                </div>
             </div>
 
             <!-- Pagination -->
@@ -506,12 +522,27 @@
 
         function renderInvoices() {
             const container = document.getElementById('invoices');
+            const followUpContainer = document.getElementById('followUpContainer');
+            const followUpList = document.getElementById('followUpInvoices');
+            const normalListHeader = document.getElementById('normalListHeader');
             
             // Prevent layout collapse and scroll reset
             const currentHeight = container.offsetHeight;
             if (currentHeight > 0) container.style.minHeight = currentHeight + 'px';
 
-            container.innerHTML = allInvoices.map(inv => {
+            const now = new Date();
+            const followUpInvoices = [];
+            const normalInvoices = [];
+
+            allInvoices.forEach(inv => {
+                if (inv.follow_up_date && new Date(inv.follow_up_date) <= now && inv.status !== 'deleted' && inv.status !== 'paid') {
+                    followUpInvoices.push(inv);
+                } else {
+                    normalInvoices.push(inv);
+                }
+            });
+
+            const renderInvoiceItem = (inv, isFollowUp = false) => {
                 const statusClass = getStatusBadgeClass(inv.status);
                 const paymentPercent = getPaymentPercent(inv);
                 const isPaidFull = paymentPercent >= 100;
@@ -519,8 +550,8 @@
                 const pendingPayments = inv.pending_payments || [];
                 
                 // Explicit Color logic
-                let accentColor = 'border-slate-300';
-                let bgColor = 'bg-white';
+                let accentColor = isFollowUp ? 'border-amber-500' : 'border-slate-300';
+                let bgColor = isFollowUp ? 'bg-amber-50/50' : 'bg-white';
                 
                 if (isDeleted) {
                     accentColor = 'border-red-500';
@@ -528,7 +559,7 @@
                 } else if (isPaidFull) {
                     accentColor = 'border-emerald-500';
                     bgColor = 'bg-emerald-50/40';
-                } else if (paymentPercent > 0) {
+                } else if (paymentPercent > 0 && !isFollowUp) {
                     accentColor = 'border-blue-500';
                     bgColor = 'bg-blue-50/20';
                 }
@@ -558,6 +589,7 @@
                                     <span class="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-tight">#${inv.invoice_number || 'DRAFT'}</span>
                                     <span class="badge ${statusClass}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">${(inv.status || 'Draft').replace('_', ' ')}</span>
                                     ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">FULLY PAID</span>' : ''}
+                                    ${isFollowUp ? '<span class="badge bg-amber-100 text-amber-700 border border-amber-200 font-bold animate-pulse" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">FOLLOW UP</span>' : ''}
                                 </div>
                                 
                                 <!-- Info Row 2: Customer Name & WhatsApp -->
@@ -640,7 +672,19 @@
                         </div>
                     </div>
                 `;
-            }).join('');
+            };
+
+            if (followUpInvoices.length > 0) {
+                followUpContainer.classList.remove('hidden');
+                followUpList.innerHTML = followUpInvoices.map(inv => renderInvoiceItem(inv, true)).join('');
+                normalListHeader.classList.remove('hidden');
+            } else {
+                followUpContainer.classList.add('hidden');
+                followUpList.innerHTML = '';
+                normalListHeader.classList.add('hidden');
+            }
+
+            container.innerHTML = normalInvoices.map(inv => renderInvoiceItem(inv, false)).join('');
 
             // Reset min-height
             container.style.minHeight = '';

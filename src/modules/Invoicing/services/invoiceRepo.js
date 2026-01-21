@@ -601,8 +601,8 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       invoice_date, agent_markup,
       discount_fixed, discount_percent, voucher_code,
       total_amount, status, share_token, share_enabled,
-      share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, 1, $1, true, NOW(), NOW())
+      share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at, follow_up_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, 1, $1, true, NOW(), NOW(), $23)
      RETURNING *`,
     [
       bubbleId,
@@ -626,7 +626,8 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       shareToken,
       true,
       shareExpiresAt.toISOString(),
-      finalCreatedBy
+      finalCreatedBy,
+      data.followUpDate || null
     ]
   );
 
@@ -1107,6 +1108,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.share_token,
             i.share_enabled,
             i.version,
+            i.follow_up_date,
             COALESCE(
                 i.linked_seda_registration, 
                 (SELECT s.bubble_id FROM seda_registration s WHERE i.bubble_id = ANY(s.linked_invoice) LIMIT 1)
@@ -1307,7 +1309,8 @@ async function updateInvoiceTransaction(client, data) {
             voucher_code = $12,
             total_amount = $13,
             version = $14,
-            updated_at = NOW()
+            updated_at = NOW(),
+            follow_up_date = $16
          WHERE bubble_id = $15`,
         [
             customerBubbleId,
@@ -1324,7 +1327,8 @@ async function updateInvoiceTransaction(client, data) {
             voucherInfo.validVoucherCodes.join(', ') || null,
             finalTotalAmount,
             nextVersion,
-            bubbleId
+            bubbleId,
+            data.followUpDate || null
         ]
     );
 

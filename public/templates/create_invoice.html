@@ -140,6 +140,7 @@
                             id="customerName"
                             class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
                             placeholder="Optional - leave blank for 'Sample Quotation'"
+                            oninput="toggleFollowUpSection()"
                         >
                     </div>
                     <div>
@@ -155,6 +156,27 @@
                             <button type="button" onclick="checkWhatsApp()" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-green-600 transition-colors" title="Check WhatsApp">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.347-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-2.578l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.801.976 3.846 1.491 5.913 1.492h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Follow-up Reminder Section (Visible only when Customer Name is provided) -->
+                <div id="followUpSection" class="hidden bg-amber-50 p-4 rounded-lg border-2 border-amber-200">
+                    <label class="block text-sm font-semibold mb-2 text-amber-900">Follow-up Reminder</label>
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <select 
+                                name="follow_up_days" 
+                                id="followUpDays"
+                                class="w-full border-2 border-amber-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-amber-500 focus:outline-none"
+                            >
+                                <option value="7" selected>7 Days (Recommended)</option>
+                                <option value="3">3 Days</option>
+                                <option value="0">No Reminder</option>
+                            </select>
+                        </div>
+                        <div class="flex-[2] flex items-center">
+                            <p class="text-xs text-amber-700 italic">Pinned to top of dashboard once date passes.</p>
                         </div>
                     </div>
                 </div>
@@ -391,6 +413,16 @@
                     </div>
                 </div>
             `).join('');
+        }
+
+        function toggleFollowUpSection() {
+            const name = document.getElementById('customerName').value.trim();
+            const section = document.getElementById('followUpSection');
+            if (name) {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
         }
 
         // Fetch available vouchers
@@ -1484,7 +1516,8 @@
                 voucher_codes: selectedVouchers.map(v => v.voucher_code),
                 apply_sst: document.getElementById('applySST')?.checked || false,
                 payment_structure: eppData.payment_structure,
-                extra_items: extraItems
+                extra_items: extraItems,
+                followUpDays: data.follow_up_days || null
             };
 
             

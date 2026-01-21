@@ -146,6 +146,22 @@ async function createInvoice(pool, invoiceRequestPayload) {
       discountPercent = parsed.discountPercent;
     }
 
+    // 2.5 Follow-up Logic
+    let followUpDate = null;
+    if (invoiceRequestPayload.customerName && invoiceRequestPayload.customerName.trim() !== "") {
+        const days = parseInt(invoiceRequestPayload.followUpDays); // expected 3, 7, or 0/null for none
+        if (days && days > 0) {
+            const date = new Date();
+            date.setDate(date.getDate() + days);
+            followUpDate = date.toISOString();
+        } else if (invoiceRequestPayload.followUpDays === undefined || invoiceRequestPayload.followUpDays === null) {
+            // Default to 7 days if customer name is present and no explicit choice made
+            const date = new Date();
+            date.setDate(date.getDate() + 7);
+            followUpDate = date.toISOString();
+        }
+    }
+
     // 3. Repository Delegation
     // We construct a pure object for the repo, ensuring it only gets what it needs.
     const repoPayload = {
@@ -165,7 +181,8 @@ async function createInvoice(pool, invoiceRequestPayload) {
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
-      extraItems: invoiceRequestPayload.extraItems || []
+      extraItems: invoiceRequestPayload.extraItems || [],
+      followUpDate: followUpDate
     };
 
     // Transaction handled inside repo
@@ -244,6 +261,19 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       discountPercent = parsed.discountPercent;
     }
 
+    // 2.5 Follow-up Logic
+    let followUpDate = null;
+    if (invoiceRequestPayload.customerName && invoiceRequestPayload.customerName.trim() !== "") {
+        const days = parseInt(invoiceRequestPayload.followUpDays);
+        if (days && days > 0) {
+            const date = new Date();
+            date.setDate(date.getDate() + days);
+            followUpDate = date.toISOString();
+        }
+        // For versioning, if days is 0 or explicit choice is made to have no reminder, followUpDate remains null.
+        // If not provided, we might want to preserve or recalculate, but the prompt implies setting it during flow.
+    }
+
     const repoPayload = {
       userId: invoiceRequestPayload.userId,
       originalBubbleId: originalBubbleId, // CRITICAL: This triggers version logic
@@ -262,7 +292,8 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
-      extraItems: invoiceRequestPayload.extraItems || []
+      extraItems: invoiceRequestPayload.extraItems || [],
+      followUpDate: followUpDate
     };
 
     // 3. Repository Delegation
