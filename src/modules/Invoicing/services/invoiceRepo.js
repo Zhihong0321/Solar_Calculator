@@ -596,12 +596,12 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const invoiceResult = await client.query(
     `INSERT INTO invoice
      (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
-      customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
+      customer_phone_snapshot, profile_picture_snapshot, linked_package, package_name_snapshot, invoice_number,
       invoice_date, agent_markup,
       discount_fixed, discount_percent, voucher_code,
       total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 1, $1, true, NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, 1, $1, true, NOW(), NOW())
      RETURNING *`,
     [
       bubbleId,
@@ -611,6 +611,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       customerName || "Sample Quotation",
       customerAddress || null,
       customerPhone || null,
+      data.profilePicture || null,
       pkg.bubble_id,
       pkg.name || null,
       invoiceNumber,
@@ -897,6 +898,7 @@ async function getPublicInvoice(client, tokenOrId) {
         COALESCE(c.email, i.customer_email_snapshot) as customer_email,
         COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
         COALESCE(c.address, i.customer_address_snapshot) as customer_address,
+        COALESCE(i.profile_picture_snapshot, c.profile_picture) as profile_picture,
         COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
        FROM invoice i
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
@@ -1097,7 +1099,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
             COALESCE(c.email, '') as customer_email,
             COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
-            c.profile_picture,
+            COALESCE(i.profile_picture_snapshot, c.profile_picture) as profile_picture,
             COALESCE(pkg.package_name, 'Unknown Package') as package_name,
             i.total_amount,
             i.status,
@@ -1295,22 +1297,24 @@ async function updateInvoiceTransaction(client, data) {
             customer_name_snapshot = $3,
             customer_address_snapshot = $4,
             customer_phone_snapshot = $5,
-            linked_package = $6,
-            package_name_snapshot = $7,
-            agent_markup = $8,
-            discount_fixed = $9,
-            discount_percent = $10,
-            voucher_code = $11,
-            total_amount = $12,
-            version = $13,
+            profile_picture_snapshot = $6,
+            linked_package = $7,
+            package_name_snapshot = $8,
+            agent_markup = $9,
+            discount_fixed = $10,
+            discount_percent = $11,
+            voucher_code = $12,
+            total_amount = $13,
+            version = $14,
             updated_at = NOW()
-         WHERE bubble_id = $14`,
+         WHERE bubble_id = $15`,
         [
             customerBubbleId,
             linkedAgent,
             data.customerName || currentData.customer_name_snapshot,
             data.customerAddress || currentData.customer_address_snapshot,
             data.customerPhone || currentData.customer_phone_snapshot,
+            data.profilePicture || currentData.profile_picture_snapshot,
             pkg.bubble_id,
             pkg.name || currentData.package_name_snapshot,
             markupAmount,
