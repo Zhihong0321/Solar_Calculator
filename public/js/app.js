@@ -560,6 +560,84 @@ window.updateEPPCalculation = function(event) {
     }
 };
 
+// --- Sun Peak Detector ---
+let lastDetectedSunPeak = 3.4;
+
+window.openSunPeakDetector = function() {
+    document.getElementById('sunPeakModal').classList.remove('hidden');
+    document.getElementById('sunPeakResult').classList.add('hidden');
+    document.getElementById('sunPeakAddress').value = '';
+    document.getElementById('sunPeakAddress').focus();
+    
+    // Add one-time listener for Enter key
+    const addressInput = document.getElementById('sunPeakAddress');
+    const handleEnter = (e) => {
+        if (e.key === 'Enter') {
+            detectSunPeak();
+            addressInput.removeEventListener('keydown', handleEnter);
+        }
+    };
+    addressInput.addEventListener('keydown', handleEnter);
+};
+
+window.closeSunPeakDetector = function() {
+    document.getElementById('sunPeakModal').classList.add('hidden');
+    // Reset state if needed
+};
+
+window.detectSunPeak = async function() {
+    const address = document.getElementById('sunPeakAddress').value;
+    if (!address) return showNotification('Please enter an address', 'error');
+
+    const btn = document.getElementById('detectSunPeakBtn');
+    const loading = document.getElementById('sunPeakLoading');
+    const resultDiv = document.getElementById('sunPeakResult');
+    const widgetContainer = document.getElementById('sunPeakWidgetContainer');
+    const valDisplay = document.getElementById('sunPeakValue');
+
+    btn.disabled = true;
+    btn.classList.add('opacity-50');
+    loading.classList.remove('hidden');
+    resultDiv.classList.add('hidden');
+
+    try {
+        const response = await fetch(`https://solar-analysis-app-production.up.railway.app/api/solar-widget?address=${encodeURIComponent(address)}`);
+        const data = await response.json();
+
+        if (response.ok && data.solar_data) {
+            widgetContainer.innerHTML = data.widget_html;
+            
+            // Extract numeric value from range (e.g., "4.2+" -> 4.2)
+            const rangeStr = data.solar_data.match.range || "3.4";
+            const peakVal = parseFloat(rangeStr.replace('+', '')) || 3.4;
+            
+            lastDetectedSunPeak = peakVal;
+            valDisplay.innerText = peakVal.toFixed(1) + ' h';
+            
+            resultDiv.classList.remove('hidden');
+        } else {
+            showNotification('Could not detect solar data for this address.', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showNotification('API Error. Please try again.', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
+        loading.classList.add('hidden');
+    }
+};
+
+window.applyDetectedSunPeak = function() {
+    const sunPeakInput = document.getElementById('sunPeakHour');
+    if (sunPeakInput) {
+        sunPeakInput.value = lastDetectedSunPeak.toFixed(1);
+        triggerSpontaneousUpdate('sunPeakHour');
+        showNotification(`Applied ${lastDetectedSunPeak.toFixed(1)}h to calculator`, 'info');
+    }
+    closeSunPeakDetector();
+};
+
 // --- Interaction Handlers ---
 
 document.getElementById('billForm').addEventListener('submit', function(e) {
@@ -771,7 +849,11 @@ function displayBillBreakdown(data) {
                             </div>
                         </div>
                     </div>
-                    <div class="md:col-span-2 pt-2">
+                    <div class="md:col-span-2 pt-2 flex flex-col sm:flex-row gap-3">
+                        <button onclick="openSunPeakDetector()" class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(251,191,36,0.5)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] flex items-center justify-center gap-2">
+                            <span class="w-2 h-2 bg-yellow-400 rounded-full"></span>
+                            Sun_Peak_Detector
+                        </button>
                         <button onclick="calculateSolarSavings()" class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]">Generate_ROI_Matrix -></button>
                     </div>
                 </div>
