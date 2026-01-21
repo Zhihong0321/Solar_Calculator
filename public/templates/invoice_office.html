@@ -67,7 +67,10 @@
                     </button>
                     <div class="flex items-center gap-3">
                         <div>
-                            <h1 class="text-base font-bold text-slate-900 leading-tight" id="headerInvoiceNum">Invoice Office</h1>
+                            <div class="flex items-center gap-2">
+                                <h1 class="text-base font-bold text-slate-900 leading-tight" id="headerInvoiceNum">Invoice Office</h1>
+                                <span id="officeCountdown" class="hidden bg-red-600 text-white font-mono font-bold px-1.5 py-0.5 rounded text-[10px] animate-pulse">--:--:--:--</span>
+                            </div>
                             <p class="text-xs text-slate-500 font-medium" id="headerCustomerName">Loading...</p>
                         </div>
                     </div>
@@ -97,8 +100,8 @@
         <!-- Main Stats Card -->
         <div class="section-card bg-slate-900 text-white border-none p-6 md:p-8 relative overflow-hidden">
             <!-- Profile Picture Decoration -->
-            <div id="mainProfileImageContainer" class="hidden absolute top-0 right-0 p-4 md:p-6 opacity-20 hover:opacity-100 transition-opacity duration-500">
-                <img id="mainProfileImage" src="" alt="" class="w-20 h-20 md:w-32 md:h-20 object-cover rounded-xl shadow-2xl border border-slate-700">
+            <div id="mainProfileImageContainer" class="hidden absolute -top-2 -right-2 p-4 md:p-6 opacity-90 hover:opacity-100 transition-opacity duration-500 transform rotate-3">
+                <img id="mainProfileImage" src="" alt="" class="w-24 h-24 md:w-40 md:h-24 object-cover rounded-2xl shadow-2xl border-4 border-slate-800/50">
             </div>
 
             <div class="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -165,6 +168,31 @@
                                 Submit New Payment
                             </button>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Follow-up Management -->
+                <section class="section-card border-amber-200 bg-amber-50/10">
+                    <div class="section-header border-amber-100 bg-amber-50/30">
+                        <div class="flex items-center gap-2">
+                            <div class="h-2 w-2 rounded-full bg-amber-500"></div>
+                            <h2 class="section-title text-amber-800">Follow-up Reminder</h2>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div id="followUpActive" class="hidden mb-4 p-3 bg-white border border-amber-200 rounded-lg flex items-center justify-between">
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Active Reminder</p>
+                                <p class="text-xs font-bold text-slate-700" id="followUpText">Scheduled for Jan 28, 2026</p>
+                            </div>
+                            <button onclick="updateFollowUp(0)" class="text-[10px] font-bold text-red-600 hover:underline uppercase tracking-tighter">Cancel</button>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="updateFollowUp(3)" class="py-2.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-amber-50 hover:border-amber-300 transition-all uppercase tracking-wider">Set 3 Days</button>
+                            <button onclick="updateFollowUp(7)" class="py-2.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-amber-50 hover:border-amber-300 transition-all uppercase tracking-wider">Set 7 Days</button>
+                        </div>
+                        <p class="text-[9px] text-slate-400 italic mt-3 text-center">Invoices with expired reminders will be pinned to the top of your dashboard.</p>
                     </div>
                 </section>
 
@@ -283,7 +311,7 @@
                     <div class="section-header">
                         <h2 class="section-title">PV System Drawing</h2>
                         <div class="flex items-center gap-2 ml-auto">
-                            <button onclick="quickTagEngineering('PV System Drawing', this)" class="btn-action bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 flex items-center gap-1" title="Tag Engineering Dept">
+                            <button onclick="quickTagEngineering('PV System Drawing', this)" class="btn-action bg-red-50 text-red-700 border-red-200 hover:bg-red-100 flex items-center gap-1" title="Tag Engineering Dept">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
                                 Request
                             </button>
@@ -305,7 +333,7 @@
                 <section class="section-card">
                     <div class="section-header">
                         <h2 class="section-title">Engineering Drawings</h2>
-                        <button onclick="quickTagEngineering('Engineering Drawing', this)" class="btn-action bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 flex items-center gap-1 ml-auto" title="Tag Engineering Dept">
+                        <button onclick="quickTagEngineering('Engineering Drawing', this)" class="btn-action bg-red-50 text-red-700 border-red-200 hover:bg-red-100 flex items-center gap-1 ml-auto" title="Tag Engineering Dept">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
                             Request
                         </button>
@@ -382,6 +410,7 @@
                     renderPvSystemDrawings(json.data.invoice.pv_system_drawing);
                     renderEngDrawings(json.data.seda);
                     renderSignature(json.data.invoice);
+                    renderFollowUp(json.data.invoice.follow_up_date);
                 } else {
                     alert('Error: ' + json.error);
                 }
@@ -392,6 +421,90 @@
                 document.getElementById('loadingOverlay').classList.add('hidden');
             }
         }
+
+        function renderFollowUp(dateStr) {
+            const container = document.getElementById('followUpActive');
+            const text = document.getElementById('followUpText');
+            const countdown = document.getElementById('officeCountdown');
+
+            if (!dateStr) {
+                container.classList.add('hidden');
+                countdown.classList.add('hidden');
+                countdown.dataset.target = '';
+                return;
+            }
+
+            const date = new Date(dateStr);
+            const now = new Date();
+
+            if (date <= now) {
+                container.classList.remove('hidden');
+                text.innerHTML = `<span class="text-red-600">Reminder Expired!</span> <span class="block text-[10px] text-slate-400 font-normal">Passed on ${formatDate(dateStr)}</span>`;
+                countdown.classList.add('hidden');
+                countdown.dataset.target = '';
+            } else {
+                container.classList.remove('hidden');
+                text.textContent = `Scheduled for ${formatDate(dateStr)}`;
+                countdown.classList.remove('hidden');
+                countdown.dataset.target = dateStr;
+                updateOfficeCountdown(); // Initial run
+            }
+        }
+
+        async function updateFollowUp(days) {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            if (days > 0) btn.textContent = 'Setting...';
+            else btn.textContent = 'Canceling...';
+
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/follow-up`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ followUpDays: days })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadData();
+                } else {
+                    alert('Failed to update reminder: ' + json.error);
+                }
+            } catch (err) {
+                alert('Update failed.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        function updateOfficeCountdown() {
+            const el = document.getElementById('officeCountdown');
+            if (!el || el.classList.contains('hidden')) return;
+
+            const targetStr = el.dataset.target;
+            if (!targetStr) return;
+
+            const target = new Date(targetStr).getTime();
+            const now = new Date().getTime();
+            const diff = target - now;
+
+            if (diff <= 0) {
+                el.classList.add('hidden');
+                loadData(); // Refresh to show "Expired" UI
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            const pad = (n) => String(n).padStart(2, '0');
+            el.textContent = `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+
+        setInterval(updateOfficeCountdown, 1000);
 
         function renderSignature(inv) {
             const section = document.getElementById('signatureSection');

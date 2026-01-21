@@ -525,6 +525,47 @@ router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async 
 });
 
 /**
+ * PUT /api/v1/invoice-office/:bubbleId/follow-up
+ * Update or Cancel follow-up reminder
+ * Protected: Requires authentication
+ */
+router.put('/api/v1/invoice-office/:bubbleId/follow-up', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const { followUpDays } = req.body; // days (3, 7) or 0 to cancel
+    const userId = req.user.userId;
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        
+        // Ownership check
+        const invCheck = await client.query('SELECT created_by, linked_agent FROM invoice WHERE bubble_id = $1', [bubbleId]);
+        if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by, invCheck.rows[0].linked_agent);
+        if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
+
+        let followUpDate = null;
+        if (followUpDays && parseInt(followUpDays) > 0) {
+            const date = new Date();
+            date.setDate(date.getDate() + parseInt(followUpDays));
+            followUpDate = date.toISOString();
+        }
+
+        await client.query(
+            'UPDATE invoice SET follow_up_date = $1, updated_at = NOW() WHERE bubble_id = $2',
+            [followUpDate, bubbleId]
+        );
+
+        res.json({ success: true, followUpDate });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
  * GET /my-invoice
  * User's invoice management page - DIRECT POSTGRESQL ACCESS
  * Protected: Requires authentication
