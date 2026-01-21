@@ -368,11 +368,13 @@
     </main>
 
     <!-- Photo Modal -->
-    <div id="photoModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-sm" onclick="closePhotoModal()">
-        <img id="modalImage" class="max-w-full max-h-full rounded-lg shadow-2xl transition-transform duration-300 transform scale-95" src="" alt="">
-        <button class="absolute top-4 right-4 text-white hover:text-slate-300 transition-colors">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
+    <div id="photoModal" class="fixed inset-0 z-[100] hidden bg-slate-900/90 backdrop-blur-sm overflow-y-auto" onclick="closePhotoModal()">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <img id="modalImage" class="max-w-full max-h-full rounded-lg shadow-2xl transition-transform duration-300 transform scale-95 my-auto" src="" alt="">
+            <button class="absolute top-4 right-4 text-white hover:text-slate-300 transition-colors">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
     </div>
 
     <script>

@@ -1124,24 +1124,26 @@ function showPanelRecommendationPopup(data) {
     const requiresSedaFee = systemSizeKwp > sedaLimit;
 
     const p = document.createElement('div');
-    p.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm';
+    p.className = 'fixed inset-0 z-[10000] bg-black/40 backdrop-blur-sm overflow-y-auto';
     p.innerHTML = `
-        <div class="w-full max-w-lg border border-fact bg-paper p-6 md:p-8 shadow-xl space-y-6 md:space-y-8 text-center">
-            <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide">SYSTEM_RECOMMENDATION</div>
-            <div class="text-4xl md:text-5xl font-bold tracking-tight">${data.recommendedPanels}</div>
-            <div class="text-[10px] md:text-xs uppercase tier-3">Recommended_Panel_Units (${systemSizeKwp.toFixed(2)} kWp)</div>
-            
-            ${requiresSedaFee ? `
-            <div class="bg-rose-50 border-2 border-rose-600 p-4 rounded text-left">
-                <div class="text-[10px] font-bold text-rose-600 uppercase mb-1">⚠ SEDA NOTICE</div>
-                <div class="text-xs font-bold text-rose-900 leading-tight">RM 1,000 Oversize Registration Fee Required.</div>
-                <div class="text-[10px] text-rose-800 mt-1">This recommended system (${systemSizeKwp.toFixed(1)} kWp) requires SEDA fee (${sedaLimit}kW Inverter output limit for ${systemPhase}-phase).</div>
-            </div>
-            ` : ''}
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="w-full max-w-lg border border-fact bg-paper p-6 md:p-8 shadow-xl space-y-6 md:space-y-8 text-center my-auto">
+                <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide">SYSTEM_RECOMMENDATION</div>
+                <div class="text-4xl md:text-5xl font-bold tracking-tight">${data.recommendedPanels}</div>
+                <div class="text-[10px] md:text-xs uppercase tier-3">Recommended_Panel_Units (${systemSizeKwp.toFixed(2)} kWp)</div>
+                
+                ${requiresSedaFee ? `
+                <div class="bg-rose-50 border-2 border-rose-600 p-4 rounded text-left">
+                    <div class="text-[10px] font-bold text-rose-600 uppercase mb-1">⚠ SEDA NOTICE</div>
+                    <div class="text-xs font-bold text-rose-900 leading-tight">RM 1,000 Oversize Registration Fee Required.</div>
+                    <div class="text-[10px] text-rose-800 mt-1">This recommended system (${systemSizeKwp.toFixed(1)} kWp) requires SEDA fee (${sedaLimit}kW Inverter output limit for ${systemPhase}-phase).</div>
+                </div>
+                ` : ''}
 
-            <div class="text-[9px] md:text-[10px] tier-3 uppercase border-y border-divider py-3 md:py-4">Basis: ${data.details.monthlyUsageKwh}kWh/mo @ ${data.config.sunPeakHour}h Peak Sun</div>
-            ${data.selectedPackage ? `<div class="p-3 md:p-4 bg-black text-white text-left"><div class="text-[9px] md:text-[10px] opacity-70">SELECTED_PACKAGE</div><div class="font-bold text-sm md:text-base">${data.selectedPackage.packageName}</div><div class="text-[9px] md:text-[10px] opacity-70">RM ${formatCurrency(data.selectedPackage.price)}</div></div>` : ''}
-            <button onclick="this.parentElement.parentElement.remove()" class="w-full bg-black text-white py-3 md:py-4 text-[10px] md:text-xs font-bold uppercase tracking-wide">View_Full_Report</button>
+                <div class="text-[9px] md:text-[10px] tier-3 uppercase border-y border-divider py-3 md:py-4">Basis: ${data.details.monthlyUsageKwh}kWh/mo @ ${data.config.sunPeakHour}h Peak Sun</div>
+                ${data.selectedPackage ? `<div class="p-3 md:p-4 bg-black text-white text-left"><div class="text-[9px] md:text-[10px] opacity-70">SELECTED_PACKAGE</div><div class="font-bold text-sm md:text-base">${data.selectedPackage.packageName}</div><div class="text-[9px] md:text-[10px] opacity-70">RM ${formatCurrency(data.selectedPackage.price)}</div></div>` : ''}
+                <button onclick="this.closest('.fixed').remove()" class="w-full bg-black text-white py-3 md:py-4 text-[10px] md:text-xs font-bold uppercase tracking-wide">View_Full_Report</button>
+            </div>
         </div>
     `;
     document.body.appendChild(p);
