@@ -1096,6 +1096,8 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             -- LIVE DATA JOINS
             COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
             COALESCE(c.email, '') as customer_email,
+            COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
+            c.profile_picture,
             COALESCE(pkg.package_name, 'Unknown Package') as package_name,
             i.total_amount,
             i.status,

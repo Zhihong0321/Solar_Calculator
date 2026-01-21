@@ -343,6 +343,17 @@
             return new Date(dateStr).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' });
         }
 
+        function formatWhatsAppNumber(phone) {
+            if (!phone) return '';
+            // Remove all non-numeric characters
+            let cleaned = phone.replace(/\D/g, '');
+            // If it doesn't start with 6, prepend it
+            if (cleaned.length > 0 && !cleaned.startsWith('6')) {
+                cleaned = '6' + cleaned;
+            }
+            return cleaned;
+        }
+
         function getStatusBadgeClass(status) {
             const s = (status || 'draft').toLowerCase();
             const classes = {
@@ -524,9 +535,20 @@
 
                 const totalPaidVal = parseFloat(inv.total_received) || 0;
                 const totalAmtVal = parseFloat(inv.total_amount) || 0;
+                const waNumber = formatWhatsAppNumber(inv.customer_phone);
 
                 return `
                     <div class="flex items-stretch border-l-4 ${accentColor} ${bgColor} hover:bg-slate-50 transition-colors w-full min-w-0">
+                        <!-- Profile Pic (Left) -->
+                        <div class="flex items-center justify-center pl-4 sm:pl-6 py-5">
+                            ${inv.profile_picture ? 
+                                `<img src="${inv.profile_picture}" class="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(inv.customer_name || 'U')}&background=random'">` :
+                                `<div class="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-200 border-2 border-white shadow-sm flex items-center justify-center text-slate-400 font-bold text-lg flex-shrink-0">
+                                    ${(inv.customer_name || 'U').charAt(0).toUpperCase()}
+                                </div>`
+                            }
+                        </div>
+
                         <div class="flex-1 py-5 px-3 sm:px-6 min-w-0">
                             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0">
                                 <!-- Left side -->
@@ -537,9 +559,16 @@
                                         ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold">FULLY PAID</span>' : ''}
                                     </div>
                                     
-                                    <h3 class="text-base font-bold ${isDeleted ? 'text-slate-400 line-through' : 'text-slate-900'} mb-1 break-words leading-tight">
-                                        ${inv.customer_name || 'Unknown Customer'}
-                                    </h3>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <h3 class="text-base font-bold ${isDeleted ? 'text-slate-400 line-through' : 'text-slate-900'} break-words leading-tight">
+                                            ${inv.customer_name || 'Unknown Customer'}
+                                        </h3>
+                                        ${waNumber ? `
+                                            <a href="https://wa.me/${waNumber}" target="_blank" class="p-1 text-emerald-500 hover:text-emerald-600 transition-colors" title="WhatsApp Customer">
+                                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.353-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.131.569-.071 1.758-.714 2.007-1.404.25-.69.25-1.282.175-1.404-.075-.074-.27-.149-.568-.298zM12.01 21.496c-1.939 0-3.841-.52-5.511-1.505l-.393-.232-4.095 1.073 1.092-3.993-.254-.404c-1.084-1.726-1.657-3.734-1.657-5.79 0-6.079 4.944-11.022 11.024-11.022 2.944 0 5.712 1.147 7.793 3.227 2.082 2.08 3.228 4.85 3.228 7.795 0 6.079-4.944 11.022-11.024 11.022zm8.506-18.303c-2.274-2.274-5.297-3.526-8.506-3.526-6.633 0-12.03 5.396-12.03 12.03 0 2.12.551 4.189 1.595 6.03l-1.695 6.195 6.34-1.663c1.776.968 3.774 1.48 5.815 1.48 6.633 0 12.03-5.396 12.03-12.03 0-3.207-1.252-6.231-3.526-8.505z"/></svg>
+                                            </a>
+                                        ` : ''}
+                                    </div>
                                     
                                     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 font-medium">
                                         <span class="flex items-center gap-1.5 break-words">
