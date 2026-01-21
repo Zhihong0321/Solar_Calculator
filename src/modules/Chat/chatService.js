@@ -99,7 +99,24 @@ class ChatService {
     return res.rows[0];
   }
 
-  
+  /**
+   * Get agent name from invoice
+   */
+  async getInvoiceAgentName(invoiceId) {
+    try {
+      const res = await pool.query(
+        `SELECT a.name as agent_name
+         FROM invoice i
+         LEFT JOIN agent a ON i.linked_agent = a.bubble_id
+         WHERE i.bubble_id = $1`,
+        [invoiceId]
+      );
+      return res.rows.length > 0 ? res.rows[0].agent_name : 'Unknown Agent';
+    } catch (err) {
+      console.error('Error fetching agent name:', err);
+      return 'Unknown Agent';
+    }
+  }
 
     /**
 

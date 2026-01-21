@@ -1,5 +1,6 @@
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const chatService = require('./chatService');
 
 // --- Multer Config ---
@@ -7,7 +8,18 @@ const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadPath = process.env.RAILWAY_VOLUME_MOUNT_PATH 
       ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'chat_uploads')
-      : path.join(__dirname, '../../../storage/chat_uploads');
+      : path.resolve(__dirname, '../../../storage/chat_uploads');
+    
+    // Ensure directory exists
+    try {
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+        console.log(`[Chat] Created upload directory: ${uploadPath}`);
+      }
+    } catch (err) {
+      console.error(`[Chat] Error creating upload directory: ${err.message}`);
+    }
+    
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
@@ -58,11 +70,12 @@ exports.getChatHistory = async (req, res) => {
     const thread = await chatService.getThread(invoiceId);
     const messages = await chatService.getMessages(thread.id);
     const customerName = await chatService.getInvoiceCustomerName(invoiceId);
+    const agentName = await chatService.getInvoiceAgentName(invoiceId);
     
     // Determine current user ID
     const currentUserId = req.user ? String(req.user.userId) : null;
 
-    res.json({ success: true, threadId: thread.id, messages, currentUserId, customerName });
+    res.json({ success: true, threadId: thread.id, messages, currentUserId, customerName, agentName });
   } catch (err) {
     console.error('Chat History Error:', err);
     res.status(500).json({ error: 'Failed to load chat history' });
@@ -89,6 +102,7 @@ exports.postMessage = async (req, res) => {
 
       // Handle File Upload
       if (req.file) {
+        console.log(`[Chat] File received: ${req.file.filename} (${req.file.size} bytes)`);
         const isImage = req.file.mimetype.startsWith('image/');
         const limit = isImage ? 1 * 1024 * 1024 : 3 * 1024 * 1024;
 

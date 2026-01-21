@@ -66,16 +66,48 @@
 
     <!-- Input Area -->
     <footer class="bg-[#f0f2f5] px-4 py-2 shrink-0 relative">
-        <!-- Tag Menu (Hidden) -->
-        <div id="tagMenu" class="hidden absolute bottom-16 left-4 bg-white shadow-xl rounded-lg overflow-hidden border border-gray-100 w-48 z-20">
-            <div class="bg-gray-50 px-3 py-2 text-xs font-bold text-gray-500 uppercase">Tag Role</div>
-            <div class="flex flex-col">
-                <button onclick="sendTag('Admin')" class="px-4 py-2 text-left hover:bg-purple-50 hover:text-purple-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-purple-500">Admin</button>
-                <button onclick="sendTag('Finance')" class="px-4 py-2 text-left hover:bg-green-50 hover:text-green-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-green-500">Finance</button>
-                <button onclick="sendTag('Support')" class="px-4 py-2 text-left hover:bg-blue-50 hover:text-blue-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-blue-500">Support</button>
-                <button onclick="sendTag('Manager')" class="px-4 py-2 text-left hover:bg-orange-50 hover:text-orange-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-orange-500">Manager</button>
-                <button onclick="sendTag('CEO')" class="px-4 py-2 text-left hover:bg-red-50 hover:text-red-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-red-500">CEO</button>
-                <button onclick="sendTag('Engineering')" class="px-4 py-2 text-left hover:bg-cyan-50 hover:text-cyan-700 text-sm font-medium transition-colors border-l-4 border-transparent hover:border-cyan-500">Engineering</button>
+        <!-- Tag Menu Overlay (Mobile Friendly) -->
+        <div id="tagMenu" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm" onclick="toggleTagMenu()">
+            <div class="bg-white shadow-2xl rounded-2xl overflow-hidden border border-gray-100 w-full max-w-xs animate-in fade-in zoom-in duration-200" onclick="event.stopPropagation()">
+                <div class="bg-[#1e3a8a] px-4 py-3 flex justify-between items-center">
+                    <span class="text-xs font-bold text-white uppercase tracking-widest">Tag Role for Attention</span>
+                    <button onclick="toggleTagMenu()" class="text-white/70 hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-px bg-gray-100">
+                    <button id="agentTagBtn" onclick="sendTag('Agent')" class="bg-white px-4 py-4 text-center hover:bg-slate-50 transition-colors group">
+                        <div class="text-slate-900 font-bold text-sm">Agent</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1 agent-name-label">Loading...</div>
+                    </button>
+                    <button onclick="sendTag('Admin')" class="bg-white px-4 py-4 text-center hover:bg-purple-50 transition-colors group">
+                        <div class="text-purple-600 font-bold text-sm">Admin</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Management</div>
+                    </button>
+                    <button onclick="sendTag('Finance')" class="bg-white px-4 py-4 text-center hover:bg-green-50 transition-colors group">
+                        <div class="text-green-600 font-bold text-sm">Finance</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Payments</div>
+                    </button>
+                    <button onclick="sendTag('Support')" class="bg-white px-4 py-4 text-center hover:bg-blue-50 transition-colors group">
+                        <div class="text-blue-600 font-bold text-sm">Support</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Post-Sales</div>
+                    </button>
+                    <button onclick="sendTag('Manager')" class="bg-white px-4 py-4 text-center hover:bg-orange-50 transition-colors group">
+                        <div class="text-orange-600 font-bold text-sm">Manager</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Approvals</div>
+                    </button>
+                    <button onclick="sendTag('CEO')" class="bg-white px-4 py-4 text-center hover:bg-red-50 transition-colors group">
+                        <div class="text-red-600 font-bold text-sm">CEO</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Urgent</div>
+                    </button>
+                    <button onclick="sendTag('Engineering')" class="bg-white px-4 py-4 text-center hover:bg-cyan-50 transition-colors group">
+                        <div class="text-cyan-600 font-bold text-sm">Engineering</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Technical</div>
+                    </button>
+                </div>
+                <div class="bg-gray-50 p-3 text-center">
+                    <p class="text-[10px] text-gray-400 italic font-medium">Tagged role will see this in their dashboard.</p>
+                </div>
             </div>
         </div>
 
@@ -135,6 +167,7 @@
         const chatContainer = document.getElementById('chatContainer');
         const msgInput = document.getElementById('messageInput');
         let myUserId = null;
+        let agentName = "Agent";
         let lastMsgCount = 0;
         let lastHistoryHash = "";
         let selectedFile = null;
@@ -179,6 +212,13 @@
                     document.getElementById('headerSubtitle').textContent = `Invoice #${invoiceId.substring(0,8)}...`;
                     
                     if (json.currentUserId) myUserId = json.currentUserId;
+                    if (json.agentName) {
+                        agentName = json.agentName;
+                        const agentTagBtn = document.getElementById('agentTagBtn');
+                        if (agentTagBtn) {
+                            agentTagBtn.querySelector('.agent-name-label').textContent = agentName;
+                        }
+                    }
 
                     // Create a hash of messages to detect any change (count OR status)
                     const currentHash = json.messages.length + "_" + json.messages.map(m => m.is_tag_active ? '1' : '0').join('');
@@ -206,28 +246,24 @@
         }
 
         function renderMessages(messages) {
-            // Only append new messages or re-render? Re-render is safer for syncing, but efficient update is better.
-            // For simplicity: Clear and Render (small chat history usually).
-            // Optimization: check count.
-            
-            // We need to know who is "me".
-            // If `myUserId` is null, we can't distinguish. 
-            
             chatContainer.innerHTML = ''; // Clear for now
             
-            let lastDate = null;
+            let lastHeaderDate = null;
 
             messages.forEach(msg => {
                 const isMe = String(msg.sender_id) === String(myUserId);
-                const date = new Date(msg.created_at).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' });
+                const msgDate = new Date(msg.created_at);
                 
-                // Date Divider
-                if (date !== lastDate) {
+                // Format Header (Segmented Day)
+                const headerText = getHeaderDateLabel(msgDate);
+                
+                // Date Divider (Segmented Day)
+                if (headerText !== lastHeaderDate) {
                     const div = document.createElement('div');
                     div.className = 'flex justify-center my-4 sticky top-2 z-10';
-                    div.innerHTML = `<span class="bg-white/80 shadow-sm text-gray-500 text-xs py-1 px-3 rounded-lg uppercase font-bold tracking-wide backdrop-blur-sm">${date}</span>`;
+                    div.innerHTML = `<span class="bg-white/80 shadow-sm text-gray-500 text-[10px] py-1 px-3 rounded-lg uppercase font-bold tracking-widest backdrop-blur-sm border border-black/5">${headerText}</span>`;
                     chatContainer.appendChild(div);
-                    lastDate = date;
+                    lastHeaderDate = headerText;
                 }
 
                 // Message Bubble
@@ -235,12 +271,12 @@
                 row.className = `flex w-full mb-1 ${isMe ? 'justify-end' : 'justify-start'}`;
                 
                 const bubble = document.createElement('div');
-                bubble.className = `max-w-[80%] rounded-lg px-2 py-1 shadow-sm relative text-sm flex flex-col ${isMe ? 'bg-[#eff6ff] rounded-tr-none' : 'bg-white rounded-tl-none'}`;
+                bubble.className = `max-w-[85%] rounded-lg px-2 py-1 shadow-sm relative text-sm flex flex-col ${isMe ? 'bg-[#dcf8c6] rounded-tr-none' : 'bg-white rounded-tl-none border border-gray-100'}`;
                 
                 // Sender Name (only for others)
                 if (!isMe) {
                     const name = document.createElement('span');
-                    name.className = 'text-[10px] font-bold text-orange-600 mb-0.5 leading-none';
+                    name.className = 'text-[10px] font-bold text-blue-600 mb-0.5 leading-none';
                     name.textContent = msg.sender_name;
                     bubble.appendChild(name);
                 }
@@ -294,15 +330,36 @@
                     bubble.appendChild(text);
                 }
 
-                // Time
+                // Time (Respecting local timezone)
                 const time = document.createElement('span');
-                time.className = 'text-[9px] text-gray-500 self-end ml-2 mt-1 min-w-fit';
-                time.textContent = new Date(msg.created_at).toLocaleTimeString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit' });
+                time.className = 'text-[9px] text-gray-500 self-end ml-2 mt-1 min-w-fit opacity-70 font-medium';
+                time.textContent = msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 bubble.appendChild(time);
 
                 row.appendChild(bubble);
                 chatContainer.appendChild(row);
             });
+        }
+
+        function getHeaderDateLabel(date) {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            const compareDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+            if (compareDate.getTime() === today.getTime()) {
+                return "Today";
+            } else if (compareDate.getTime() === yesterday.getTime()) {
+                return "Yesterday";
+            } else {
+                // Format: 11/JAN/2026
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = date.toLocaleString('default', { month: 'short' }).toUpperCase();
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+            }
         }
 
         function toggleTagMenu() {
@@ -312,10 +369,15 @@
         async function sendTag(role) {
             toggleTagMenu();
             try {
+                let finalRole = role;
+                if (role === 'Agent') {
+                    finalRole = `Agent | ${agentName}`;
+                }
+
                 const res = await fetch(`/api/v1/chat/${invoiceId}/message`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messageType: 'tag', tagRole: role, content: 'TAG' })
+                    body: JSON.stringify({ messageType: 'tag', tagRole: finalRole, content: 'TAG' })
                 });
                 const json = await res.json();
                 if (json.success) {
