@@ -161,6 +161,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
       customerName: invoiceRequestPayload.customerName,
       customerPhone: invoiceRequestPayload.customerPhone,
       customerAddress: invoiceRequestPayload.customerAddress,
+      profilePicture: invoiceRequestPayload.profilePicture,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
@@ -257,6 +258,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       customerName: invoiceRequestPayload.customerName, // Updates name if provided
       customerPhone: invoiceRequestPayload.customerPhone,
       customerAddress: invoiceRequestPayload.customerAddress,
+      profilePicture: invoiceRequestPayload.profilePicture,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,

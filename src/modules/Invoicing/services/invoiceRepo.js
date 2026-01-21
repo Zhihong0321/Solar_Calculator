@@ -173,13 +173,13 @@ async function getVoucherByCode(client, voucherCode) {
  * @returns {Promise<object|null>} { id: number, bubbleId: string } or null
  */
 async function findOrCreateCustomer(client, data) {
-  const { name, phone, address, createdBy } = data;
+  const { name, phone, address, createdBy, profilePicture } = data;
   if (!name) return null;
 
   try {
     // 1. Try to find by name
     const findRes = await client.query(
-      'SELECT id, customer_id, phone, address FROM customer WHERE name = $1 LIMIT 1',
+      'SELECT id, customer_id, phone, address, profile_picture FROM customer WHERE name = $1 LIMIT 1',
       [name]
     );
     
@@ -188,16 +188,21 @@ async function findOrCreateCustomer(client, data) {
       const id = customer.id;
       const bubbleId = customer.customer_id;
       
-      // Update if phone or address changed
-      if ((phone && phone !== customer.phone) || (address && address !== customer.address)) {
+      // Update if details changed
+      if (
+        (phone && phone !== customer.phone) || 
+        (address && address !== customer.address) ||
+        (profilePicture && profilePicture !== customer.profile_picture)
+      ) {
         await client.query(
           `UPDATE customer 
            SET phone = COALESCE($1, phone), 
                address = COALESCE($2, address),
+               profile_picture = COALESCE($5, profile_picture),
                updated_at = NOW(),
                updated_by = $4
            WHERE id = $3`,
-          [phone, address, id, String(createdBy)]
+          [phone, address, id, String(createdBy), profilePicture]
         );
       }
       return { id, bubbleId };
@@ -206,10 +211,10 @@ async function findOrCreateCustomer(client, data) {
     // 2. Create new if not found
     const customerBubbleId = `cust_${crypto.randomBytes(4).toString('hex')}`;
     const insertRes = await client.query(
-      `INSERT INTO customer (customer_id, name, phone, address, created_by, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      `INSERT INTO customer (customer_id, name, phone, address, created_by, created_at, updated_at, profile_picture)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6)
        RETURNING id`,
-      [customerBubbleId, name, phone, address, createdBy]
+      [customerBubbleId, name, phone, address, createdBy, profilePicture]
     );
     return { id: insertRes.rows[0].id, bubbleId: customerBubbleId };
   } catch (err) {
@@ -223,7 +228,7 @@ async function findOrCreateCustomer(client, data) {
  * @private
  */
 async function _fetchDependencies(client, data) {
-  const { userId, packageId, customerName, customerPhone, customerAddress, templateId } = data;
+  const { userId, packageId, customerName, customerPhone, customerAddress, templateId, profilePicture } = data;
 
   // 0. Resolve Agent Profile
   let linkedAgent = null;
@@ -250,7 +255,8 @@ async function _fetchDependencies(client, data) {
     name: customerName,
     phone: customerPhone,
     address: customerAddress,
-    createdBy: userId
+    createdBy: userId,
+    profilePicture: profilePicture
   });
   
   const internalCustomerId = customerResult ? customerResult.id : null;
@@ -267,6 +273,7 @@ async function _fetchDependencies(client, data) {
 
   return { pkg, internalCustomerId, customerBubbleId, template, linkedAgent };
 }
+
 
 /**
  * Helper: Process vouchers and calculate total voucher amount
@@ -1257,6 +1264,7 @@ async function updateInvoiceTransaction(client, data) {
             name: data.customerName,
             phone: data.customerPhone || currentData.customer_phone_snapshot,
             address: data.customerAddress || currentData.customer_address_snapshot,
+            profilePicture: data.profilePicture || null,
             createdBy: data.userId
         });
         if (custResult) {

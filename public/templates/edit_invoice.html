@@ -99,6 +99,29 @@
                 <input type="hidden" name="template_id" id="templateIdHidden">
                 <input type="hidden" id="packagePrice" value="0">
                 <input type="hidden" id="packageName" value="">
+                <input type="hidden" id="profilePicture">
+                
+                <div class="flex items-center gap-4 mb-6 bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
+                    <div id="profilePreview" class="h-16 w-16 rounded-lg bg-white border border-gray-300 flex items-center justify-center overflow-hidden">
+                        <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-700 uppercase">Customer Profile Picture</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Will be saved to our server from WhatsApp.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Customer Name</label>
+                        <input 
+                            type="text" 
+                            name="customer_name" 
+                            id="customerName"
+                            class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                            placeholder="Optional - leave blank for 'Sample Quotation'"
+                        >
+                    </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -1358,12 +1381,14 @@
                 customer_name: data.customer_name || null,
                 customer_phone: data.customer_phone || null,
                 customer_address: data.customer_address || null,
+                profilePicture: document.getElementById('profilePicture').value || null,
                 discount_given: data.discount_given || null,
                 voucher_codes: selectedVouchers.map(v => v.voucher_code),
                 apply_sst: document.getElementById('applySST')?.checked || false,
                 payment_structure: eppData.payment_structure,
                 extra_items: extraItems
             };
+
             
             // Add EPP fee data if exists
             if (eppData.total_fee > 0 && eppData.description) {
@@ -1435,7 +1460,7 @@
                                         Verified WhatsApp Account
                                     </div>
                                 </div>
-                                <button onclick="fillWhatsAppInfo('${data.name || ''}')" class="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-all">
+                                <button onclick="fillWhatsAppInfo('${data.name || ''}', '${data.profilePicture || ''}', '${phone}')" class="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-all">
                                     Use Profile Name
                                 </button>
                             </div>
@@ -1455,9 +1480,33 @@
             }
         }
 
-        function fillWhatsAppInfo(name) {
+        async function fillWhatsAppInfo(name, photoUrl, phone) {
             if (name) {
                 document.getElementById('customerName').value = name;
+            }
+
+            if (photoUrl) {
+                // Trigger backend download
+                Swal.fire({
+                    title: 'Syncing Profile Picture...',
+                    didOpen: () => { Swal.showLoading(); }
+                });
+
+                try {
+                    const res = await fetch('/api/customers/whatsapp-photo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ photoUrl, phone })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success && data.localUrl) {
+                        document.getElementById('profilePicture').value = data.localUrl;
+                        document.getElementById('profilePreview').innerHTML = `<img src="${data.localUrl}" class="h-full w-full object-cover">`;
+                    }
+                } catch (err) {
+                    console.error('Failed to sync WhatsApp photo:', err);
+                }
             }
             Swal.close();
         }

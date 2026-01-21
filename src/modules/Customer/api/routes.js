@@ -6,6 +6,8 @@ const express = require('express');
 const path = require('path');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
+const fs = require('fs');
+const https = require('https');
 const customerRepo = require('../services/customerRepo');
 
 const router = express.Router();
@@ -22,6 +24,55 @@ router.get('/my-customers', requireAuth, (req, res) => {
 });
 
 // --- API ---
+
+/**
+ * POST /api/customers/whatsapp-photo
+ * Download and store WhatsApp profile picture
+ */
+router.post('/api/customers/whatsapp-photo', requireAuth, async (req, res) => {
+  try {
+    const { photoUrl, phone } = req.body;
+    if (!photoUrl || !phone) {
+      return res.status(400).json({ success: false, error: 'Photo URL and phone required' });
+    }
+
+    const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH 
+      ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'customer_profiles')
+      : path.resolve(__dirname, '../../../../storage/customer_profiles');
+
+    if (!fs.existsSync(storagePath)) {
+      fs.mkdirSync(storagePath, { recursive: true });
+    }
+
+    const filename = `wa_${phone}_${Date.now()}.jpg`;
+    const filepath = path.join(storagePath, filename);
+
+    const file = fs.createWriteStream(filepath);
+    
+    https.get(photoUrl, (response) => {
+      if (response.statusCode !== 200) {
+        res.status(500).json({ success: false, error: `Failed to download image: ${response.statusCode}` });
+        return;
+      }
+
+      response.pipe(file);
+
+      file.on('finish', () => {
+        file.close();
+        const publicUrl = `/uploads/customer_profiles/${filename}`;
+        res.json({ success: true, localUrl: publicUrl });
+      });
+    }).on('error', (err) => {
+      fs.unlink(filepath, () => {}); // Delete temp file
+      console.error('Error saving WhatsApp photo:', err);
+      res.status(500).json({ success: false, error: 'Failed to save profile picture' });
+    });
+
+  } catch (err) {
+    console.error('Error saving WhatsApp photo:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
 
 /**
  * GET /api/customers
@@ -48,15 +99,11 @@ router.get('/api/customers', requireAuth, async (req, res) => {
   }
 });
 
-/**
- * POST /api/customers
- * Create customer
- */
 router.post('/api/customers', requireAuth, async (req, res) => {
   let client = null;
   try {
     const userId = req.user.userId;
-    const { name, phone, email, address, city, state, postcode } = req.body;
+    const { name, phone, email, address, city, state, postcode, profilePicture } = req.body;
     
     if (!name) {
       return res.status(400).json({ success: false, error: 'Name is required' });
@@ -64,7 +111,7 @@ router.post('/api/customers', requireAuth, async (req, res) => {
 
     client = await pool.connect();
     const customer = await customerRepo.createCustomer(client, {
-      name, phone, email, address, city, state, postcode, userId
+      name, phone, email, address, city, state, postcode, userId, profilePicture
     });
     
     res.json({
@@ -88,11 +135,11 @@ router.put('/api/customers/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
-    const { name, phone, email, address, city, state, postcode } = req.body;
+    const { name, phone, email, address, city, state, postcode, profilePicture } = req.body;
 
     client = await pool.connect();
     const customer = await customerRepo.updateCustomer(client, id, {
-      name, phone, email, address, city, state, postcode, userId
+      name, phone, email, address, city, state, postcode, userId, profilePicture
     });
     
     if (!customer) {

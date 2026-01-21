@@ -68,16 +68,16 @@ async function getCustomerById(client, id) {
  * @param {object} data - Customer data
  */
 async function createCustomer(client, data) {
-  const { name, phone, email, address, city, state, postcode, userId } = data;
+  const { name, phone, email, address, city, state, postcode, userId, profilePicture } = data;
   
   const customerBubbleId = `cust_${crypto.randomBytes(4).toString('hex')}`;
   
   const result = await client.query(
     `INSERT INTO customer 
-     (customer_id, name, phone, email, address, city, state, postcode, created_by, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+     (customer_id, name, phone, email, address, city, state, postcode, created_by, created_at, updated_at, profile_picture)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10)
      RETURNING *`,
-    [customerBubbleId, name, phone, email, address, city, state, postcode, String(userId)]
+    [customerBubbleId, name, phone, email, address, city, state, postcode, String(userId), profilePicture]
   );
   
   return result.rows[0];
@@ -90,7 +90,7 @@ async function createCustomer(client, data) {
  * @param {object} data - Data to update
  */
 async function updateCustomer(client, id, data) {
-  const { name, phone, email, address, city, state, postcode, userId } = data;
+  const { name, phone, email, address, city, state, postcode, userId, profilePicture } = data;
 
   const result = await client.query(
     `UPDATE customer 
@@ -101,11 +101,12 @@ async function updateCustomer(client, id, data) {
          city = COALESCE($5, city),
          state = COALESCE($6, state),
          postcode = COALESCE($7, postcode),
+         profile_picture = COALESCE($10, profile_picture),
          updated_at = NOW(),
          updated_by = $8
      WHERE id = $9 AND created_by = $8
      RETURNING *`,
-    [name, phone, email, address, city, state, postcode, String(userId), id]
+    [name, phone, email, address, city, state, postcode, String(userId), id, profilePicture]
   );
 
   return result.rows.length > 0 ? result.rows[0] : null;
