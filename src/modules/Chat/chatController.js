@@ -99,6 +99,7 @@ exports.postMessage = async (req, res) => {
 
       if (!invoiceId) return res.status(400).json({ error: 'Invoice ID required' });
 
+      // Always use the primary integer ID as sender_id for consistency
       const senderId = String(userProfile.userId);
       const senderName = req.user.name || userProfile.email || 'User';
 
@@ -117,14 +118,17 @@ exports.postMessage = async (req, res) => {
         };
       }
 
+      // Ensure messageType is correctly identified
+      const resolvedMessageType = req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'file') : (messageType || 'text');
+
       const savedMessage = await chatService.addMessage({
         threadId: thread.id,
         senderId,
         senderName,
-        messageType: req.file ? (req.file.mimetype.startsWith('image/') ? 'image' : 'file') : (messageType || 'text'),
-        content: finalContent,
+        messageType: resolvedMessageType,
+        content: finalContent || (resolvedMessageType === 'tag' ? `TAG: ${tagRole}` : ''),
         fileMeta,
-        tagRole: messageType === 'tag' ? tagRole : null
+        tagRole: resolvedMessageType === 'tag' ? tagRole : null
       });
 
       res.json({ success: true, message: savedMessage });

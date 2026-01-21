@@ -283,17 +283,19 @@
                     >
                         Create Quotation
                     </button>
-                    <a 
-                        href="/create-invoice" 
+                    <button 
+                        type="button"
+                        onclick="NavManager.goBack()" 
                         class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-8 py-3 rounded-lg shadow-md transition-colors inline-flex items-center"
                     >
-                        Start Over
-                    </a>
+                        Cancel
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 
+    <script src="/js/navigation.js"></script>
     <script>
         // EPP Rate Configuration
         const EPP_RATES = {

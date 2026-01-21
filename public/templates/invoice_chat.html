@@ -178,7 +178,7 @@
         async function init() {
             if (!invoiceId) {
                 alert('Invoice ID missing');
-                window.location.href = '/my-invoice';
+                NavManager.goBack();
                 return;
             }
             
@@ -386,17 +386,21 @@
                 const res = await fetch(`/api/v1/chat/${invoiceId}/message`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messageType: 'tag', tagRole: role.toLowerCase(), content: 'TAG' })
+                    body: JSON.stringify({ 
+                        messageType: 'tag', 
+                        tagRole: role.toLowerCase(), 
+                        content: `Tagged @${role.toUpperCase()}` 
+                    })
                 });
                 const json = await res.json();
                 if (json.success) {
                     await loadHistory(true);
                 } else {
-                    alert('Failed to tag: ' + json.error);
+                    alert(`Failed to tag: ${json.error || 'Unknown Error'}`);
                 }
             } catch (err) {
                 console.error(err);
-                alert('Network error');
+                alert('Network error while tagging');
             }
         }
 
@@ -489,14 +493,11 @@
         }
 
         function goBack() {
-            if (document.referrer && document.referrer.includes(window.location.host)) {
-                window.history.back();
-            } else {
-                window.location.href = `/my-invoice`;
-            }
+            NavManager.goBack();
         }
 
         document.addEventListener('DOMContentLoaded', init);
     </script>
+    <script src="/js/navigation.js"></script>
 </body>
 </html>

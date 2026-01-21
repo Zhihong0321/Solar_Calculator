@@ -377,12 +377,7 @@
                 return;
             }
 
-            if (linkedInvoiceId) {
-                window.location.href = `/invoice-office?id=${linkedInvoiceId}`;
-            } else {
-                // Fallback if no invoice found (shouldn't happen in normal flow)
-                window.location.href = '/my-invoice';
-            }
+            NavManager.goBack('/my-invoice');
         }
 
         // --- Logic for Loading Bar ---
@@ -1071,5 +1066,6 @@
         // loadData() calls it via hook
         loadData();
     </script>
+    <script src="/js/navigation.js"></script>
 </body>
 </html>

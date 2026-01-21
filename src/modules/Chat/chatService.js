@@ -95,6 +95,8 @@ class ChatService {
 
       const isTag = messageType === 'tag' && tagRole;
       
+      console.log(`[ChatService] Adding message: type=${messageType}, tagRole=${tagRole}, isTag=${isTag}`);
+
       const res = await client.query(
         `INSERT INTO chat_message 
          (thread_id, sender_id, sender_name, message_type, content, file_meta, tag_role, is_tag_active)
@@ -108,6 +110,8 @@ class ChatService {
       if (isTag) {
         let tagUsers;
         
+        console.log(`[ChatService] Processing tag for role: ${tagRole}`);
+
         if (tagRole.toLowerCase() === 'agent') {
             // Find the specific agent user for this thread's invoice
             tagUsers = await client.query(
@@ -119,6 +123,14 @@ class ChatService {
                  WHERE t.id = $1`,
                 [threadId]
             );
+            
+            // Fallback: if no specific agent found, maybe tag all 'admin' or just log it
+            if (tagUsers.rows.length === 0) {
+              console.log(`[ChatService] No specific agent found for thread ${threadId}, falling back to admin role`);
+              tagUsers = await client.query(
+                `SELECT id FROM "user" WHERE 'admin' = ANY(access_level)`
+              );
+            }
         } else {
             // Standard role-based tagging: everyone with this role in access_level
             tagUsers = await client.query(
@@ -127,19 +139,24 @@ class ChatService {
             );
         }
 
-        if (tagUsers.rows.length > 0) {
+        console.log(`[ChatService] Found ${tagUsers.rows.length} users to tag for role ${tagRole}`);
+
+        if (tagUsers && tagUsers.rows.length > 0) {
           const assignmentValues = tagUsers.rows.map(u => `(${savedMessage.id}, ${u.id}, 'pending')`).join(',');
           await client.query(
             `INSERT INTO chat_tag_assignment (message_id, user_id, status)
              VALUES ${assignmentValues}
              ON CONFLICT (message_id, user_id) DO NOTHING`
           );
+        } else {
+          console.warn(`[ChatService] No users found for tagRole: ${tagRole}`);
         }
       }
 
       await client.query('COMMIT');
       return savedMessage;
     } catch (err) {
+      console.error('[ChatService] Error in addMessage:', err);
       await client.query('ROLLBACK');
       throw err;
     } finally {

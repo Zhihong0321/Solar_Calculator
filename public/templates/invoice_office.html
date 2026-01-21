@@ -62,9 +62,9 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center gap-4">
-                    <a href="/my-invoice" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                    <button onclick="NavManager.goBack()" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
                         <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7 7-7"></path></svg>
-                    </a>
+                    </button>
                     <div>
                         <h1 class="text-base font-bold text-slate-900 leading-tight" id="headerInvoiceNum">Invoice Office</h1>
                         <p class="text-xs text-slate-500 font-medium" id="headerCustomerName">Loading...</p>
@@ -321,7 +321,7 @@
         async function init() {
             if (!bubbleId) {
                 alert('Invoice ID is missing!');
-                window.location.href = '/my-invoice';
+                NavManager.goBack();
                 return;
             }
             await loadData();
@@ -731,5 +731,6 @@
 
         document.addEventListener('DOMContentLoaded', init);
     </script>
+    <script src="/js/navigation.js"></script>
 </body>
 </html>

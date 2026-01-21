@@ -8,13 +8,29 @@ const pool = new Pool({
 async function run() {
   const client = await pool.connect();
   try {
-    const resSeda = await client.query(`
+    const resUser = await client.query(`
       SELECT column_name, data_type 
       FROM information_schema.columns 
-      WHERE table_name = 'seda_registration'
+      WHERE table_name = 'user'
     `);
-    console.log('--- seda_registration columns ---');
-    console.table(resSeda.rows);
+    console.log('--- user columns ---');
+    console.table(resUser.rows);
+
+    const resAgent = await client.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'agent'
+    `);
+    console.log('--- agent columns ---');
+    console.table(resAgent.rows);
+
+    const resInvoice = await client.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'invoice'
+    `);
+    console.log('--- invoice columns ---');
+    console.table(resInvoice.rows);
   } finally {
     client.release();
     await pool.end();
