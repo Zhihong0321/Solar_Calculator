@@ -1160,6 +1160,12 @@
                     if (inv.customer_phone) document.getElementById('customerPhone').value = inv.customer_phone;
                     if (inv.customer_address) document.getElementById('customerAddress').value = inv.customer_address;
                     
+                    // 2.5 Load Profile Picture
+                    if (inv.profile_picture) {
+                        document.getElementById('profilePicture').value = inv.profile_picture;
+                        document.getElementById('profilePreview').innerHTML = `<img src="${inv.profile_picture}" class="h-full w-full object-cover">`;
+                    }
+
                     // 3. Discount
                     let discountVal = '';
                     if (inv.discount_fixed > 0) discountVal += inv.discount_fixed;

@@ -600,6 +600,7 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
       customer_name,
       customer_phone,
       customer_address,
+      profilePicture,
       epp_fee_amount,
       epp_fee_description,
       payment_structure,
@@ -621,6 +622,7 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
       customerName: customer_name,
       customerPhone: customer_phone,
       customerAddress: customer_address,
+      profilePicture: profilePicture,
       eppFeeAmount: epp_fee_amount,
       eppFeeDescription: epp_fee_description,
       paymentStructure: payment_structure,
@@ -689,7 +691,8 @@ router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) 
       // We can also allow updating customer details if needed
       customer_name,
       customer_phone,
-      customer_address
+      customer_address,
+      profilePicture
     } = req.body;
 
     const result = await invoiceService.createInvoiceVersion(pool, bubbleId, {
@@ -707,7 +710,8 @@ router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) 
       extraItems: extra_items,
       customerName: customer_name,
       customerPhone: customer_phone,
-      customerAddress: customer_address
+      customerAddress: customer_address,
+      profilePicture: profilePicture
     });
 
     if (!result.success) {
