@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Submit Payment</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,6 +12,10 @@
         * {
             font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
+        }
+        body {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
         }
     </style>
 </head>

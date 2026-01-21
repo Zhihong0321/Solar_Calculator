@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Invoice Chat</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,7 +10,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * { font-family: 'Inter', sans-serif; }
-        body { background-color: #f0f2f5; } /* WhatsApp-like bg */
+        body { 
+            background-color: #f0f2f5; 
+            height: 100vh;
+            height: 100dvh;
+            overscroll-behavior: none;
+        }
         .chat-bg {
             background-color: #efeae2;
             background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
@@ -20,12 +25,16 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+
+        footer {
+            padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+        }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body class="flex flex-col overflow-hidden w-full">
 
     <!-- Header -->
-    <header class="bg-[#1e3a8a] text-white py-3 px-4 flex items-center justify-between shrink-0 shadow-md z-10">
+    <header class="bg-[#1e3a8a] text-white px-4 flex items-center justify-between shrink-0 shadow-md z-10" style="padding-top: max(0.75rem, env(safe-area-inset-top)); padding-bottom: 0.75rem;">
         <div class="flex items-center gap-3">
             <button onclick="goBack()" class="p-1 hover:bg-white/10 rounded-full transition-colors" title="Back to Invoice Office">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
@@ -56,7 +65,7 @@
     </main>
 
     <!-- Input Area -->
-    <footer class="bg-[#f0f2f5] px-4 py-2 shrink-0">
+    <footer class="bg-[#f0f2f5] px-4 py-2 shrink-0 relative">
         <!-- Tag Menu (Hidden) -->
         <div id="tagMenu" class="hidden absolute bottom-16 left-4 bg-white shadow-xl rounded-lg overflow-hidden border border-gray-100 w-48 z-20">
             <div class="bg-gray-50 px-3 py-2 text-xs font-bold text-gray-500 uppercase">Tag Role</div>
@@ -126,7 +135,8 @@
         const chatContainer = document.getElementById('chatContainer');
         const msgInput = document.getElementById('messageInput');
         let myUserId = null;
-        let lastMsgId = 0;
+        let lastMsgCount = 0;
+        let lastHistoryHash = "";
         let selectedFile = null;
 
         async function init() {
@@ -136,17 +146,20 @@
                 return;
             }
             
-            // Set Header immediately (cosmetic)
-            // document.getElementById('headerTitle').textContent = `Invoice #${invoiceId.substring(0,8)}...`;
-
-            await loadHistory();
-            scrollToBottom();
+            await loadHistory(true); // Initial load scrolls to bottom
 
             // Polling
-            setInterval(loadHistory, 3000);
+            setInterval(() => loadHistory(false), 3000);
+            
+            // Handle keyboard resize
+            window.visualViewport?.addEventListener('resize', () => {
+                if (chatContainer.scrollHeight - chatContainer.scrollTop <= chatContainer.clientHeight + 150) {
+                    scrollToBottom();
+                }
+            });
         }
 
-        async function loadHistory() {
+        async function loadHistory(forceScroll = false) {
             try {
                 const res = await fetch(`/api/v1/chat/${invoiceId}`);
                 
@@ -165,14 +178,27 @@
                     document.getElementById('headerTitle').textContent = json.customerName || 'Customer Chat';
                     document.getElementById('headerSubtitle').textContent = `Invoice #${invoiceId.substring(0,8)}...`;
                     
-                    // Simple "My ID" hack: The controller returns user object in req, let's hope I updated the controller...
-                    // Oh, I didn't update controller to return `currentUserId`. 
-                    // I will do a quick update to the controller in the next step to include `currentUserId`.
-                    // For now, let's assume `myUserId` is handled or I'll fetch it.
-                    
                     if (json.currentUserId) myUserId = json.currentUserId;
 
-                    renderMessages(json.messages);
+                    // Create a hash of messages to detect any change (count OR status)
+                    const currentHash = json.messages.length + "_" + json.messages.map(m => m.is_tag_active ? '1' : '0').join('');
+
+                    // Only re-render if hash changed or forceScroll (initial)
+                    if (forceScroll || currentHash !== lastHistoryHash) {
+                        const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop <= chatContainer.clientHeight + 100;
+                        const previousScrollTop = chatContainer.scrollTop;
+                        
+                        renderMessages(json.messages);
+                        lastHistoryHash = currentHash;
+                        lastMsgCount = json.messages.length;
+
+                        if (forceScroll || isAtBottom) {
+                            scrollToBottom();
+                        } else {
+                            // Maintain relative scroll position from top
+                            chatContainer.scrollTop = previousScrollTop;
+                        }
+                    }
                 }
             } catch (err) {
                 console.error(err);
@@ -293,8 +319,7 @@
                 });
                 const json = await res.json();
                 if (json.success) {
-                    await loadHistory();
-                    scrollToBottom();
+                    await loadHistory(true);
                 } else {
                     alert('Failed to tag: ' + json.error);
                 }
@@ -311,7 +336,7 @@
                 });
                 const json = await res.json();
                 if (json.success) {
-                    await loadHistory(); // Refresh to show updated state
+                    await loadHistory(false); // Refresh but don't force scroll
                 } else {
                     alert('Failed to acknowledge: ' + json.error);
                 }
@@ -344,8 +369,7 @@
                 const json = await res.json();
                 if (json.success) {
                     selectedFile = null;
-                    await loadHistory();
-                    scrollToBottom();
+                    await loadHistory(true);
                 } else {
                     alert('Failed to send: ' + json.error);
                 }

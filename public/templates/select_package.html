@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Select Package</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,6 +16,8 @@
         body {
             background-color: #f8fafc;
             color: #1e293b;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
         }
         .line-divider {
             border-bottom: 1px solid #e2e8f0;

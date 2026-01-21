@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <title>Quotations</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,6 +27,7 @@
         body {
             background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
             min-height: 100vh;
+            min-height: 100svh;
         }
         .loading-spinner {
             border: 2px solid #e5e7eb;
@@ -40,6 +41,7 @@
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.4);
             box-shadow: 0 -8px 32px -4px rgba(0, 0, 0, 0.1);
+            padding-bottom: env(safe-area-inset-bottom);
         }
         input[type="date"], input[type="text"], input[type="number"], select {
             background: #f8fafc;
@@ -102,7 +104,7 @@
 <body class="min-h-screen text-slate-800 pb-24 overflow-x-hidden w-full">
     
     <!-- Navbar -->
-    <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 w-full">
+    <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 w-full" style="padding-top: env(safe-area-inset-top);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-14 items-center">
                 <div class="flex items-center gap-2 overflow-hidden">
@@ -444,7 +446,10 @@
             const empty = document.getElementById('empty');
             
             loading.classList.remove('hidden');
-            content.classList.add('hidden');
+            // Don't hide content if we already have items to prevent page collapse/scroll reset
+            if (allInvoices.length === 0) {
+                content.classList.add('hidden');
+            }
             empty.classList.add('hidden');
 
             try {
@@ -491,6 +496,10 @@
         function renderInvoices() {
             const container = document.getElementById('invoices');
             
+            // Prevent layout collapse and scroll reset
+            const currentHeight = container.offsetHeight;
+            if (currentHeight > 0) container.style.minHeight = currentHeight + 'px';
+
             container.innerHTML = allInvoices.map(inv => {
                 const statusClass = getStatusBadgeClass(inv.status);
                 const paymentPercent = getPaymentPercent(inv);
@@ -596,6 +605,9 @@
                     </div>
                 `;
             }).join('');
+
+            // Reset min-height
+            container.style.minHeight = '';
 
             const totalPages = Math.ceil(total / limit);
             document.getElementById('pageNum').textContent = page;

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Invoice Office</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +23,7 @@
             --slate-900: #0f172a;
         }
         * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
-        body { background-color: var(--slate-50); color: var(--slate-800); }
+        body { background-color: var(--slate-50); color: var(--slate-800); min-height: 100vh; min-height: 100svh; }
         .section-card { background: white; border: 1px solid var(--slate-200); border-radius: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
         .section-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--slate-200); display: flex; align-items: center; justify-content: space-between; }
         .section-title { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate-700); }
@@ -43,9 +43,12 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
+
+        header { padding-top: env(safe-area-inset-top); }
+        main { padding-bottom: max(2rem, env(safe-area-inset-bottom)); }
     </style>
 </head>
-<body class="min-h-screen pb-12">
+<body class="min-h-screen">
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="text-center">

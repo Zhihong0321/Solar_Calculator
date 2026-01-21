@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Chat Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,7 +10,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * { font-family: 'Inter', sans-serif; }
-        body { background-color: #f0f2f5; }
+        body { 
+            background-color: #f0f2f5; 
+            height: 100vh;
+            height: 100dvh;
+            overscroll-behavior: none;
+        }
         .chat-row:hover { background-color: #f5f6f6; }
         .unread-badge {
             background-color: #25d366;
@@ -30,10 +35,10 @@
         }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body class="flex flex-col overflow-hidden w-full">
 
     <!-- Header -->
-    <header class="bg-[#1e3a8a] text-white py-4 px-6 flex items-center justify-between shrink-0 shadow-md z-10">
+    <header class="bg-[#1e3a8a] text-white px-6 flex items-center justify-between shrink-0 shadow-md z-10" style="padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: 1rem;">
         <div class="flex items-center gap-3">
             <h1 class="font-bold text-lg">Ongoing Conversations</h1>
         </div>
@@ -68,6 +73,8 @@
 
     <script>
         let allThreads = [];
+        let lastThreadsCount = 0;
+        let lastThreadsHash = "";
 
         async function init() {
             await loadThreads();
@@ -89,26 +96,42 @@
                 const json = await res.json();
                 if (json.success) {
                     allThreads = json.threads;
-                    renderThreads(allThreads);
+                    
+                    // Simple hash to detect changes
+                    const currentHash = JSON.stringify(allThreads.map(t => ({ id: t.invoice_id, msg: t.last_message_at, count: t.active_tags_count })));
+                    
+                    if (allThreads.length !== lastThreadsCount || currentHash !== lastThreadsHash) {
+                        renderThreads(allThreads);
+                        lastThreadsCount = allThreads.length;
+                        lastThreadsHash = currentHash;
+                    }
                 }
             } catch (err) {
                 console.error('Load Threads Error:', err);
-                document.getElementById('threadsList').innerHTML = `
-                    <div class="p-8 text-center text-red-500">
-                        <p>Failed to load conversations. Please try again later.</p>
-                    </div>
-                `;
+                if (allThreads.length === 0) {
+                    document.getElementById('threadsList').innerHTML = `
+                        <div class="p-8 text-center text-red-500">
+                            <p>Failed to load conversations. Please try again later.</p>
+                        </div>
+                    `;
+                }
             }
         }
 
         function renderThreads(threads) {
             const container = document.getElementById('threadsList');
+            
+            // Prevent collapse
+            const currentHeight = container.offsetHeight;
+            if (currentHeight > 0) container.style.minHeight = currentHeight + 'px';
+
             if (threads.length === 0) {
                 container.innerHTML = `
                     <div class="p-8 text-center text-gray-500">
                         <p>No active conversations found.</p>
                     </div>
                 `;
+                container.style.minHeight = '';
                 return;
             }
 
@@ -136,6 +159,8 @@
                     </div>
                 `;
             }).join('');
+
+            container.style.minHeight = '';
         }
 
         function formatLastMessage(thread) {
