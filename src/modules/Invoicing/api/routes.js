@@ -1252,6 +1252,12 @@ async function generateProposalHtml(client, invoice, req, forPdf = false) {
     proposalHtml = proposalHtml.replace(/{{CUSTOMER_ADDRESS}}/g, customerAddress);
     proposalHtml = proposalHtml.replace(/{{CUSTOMER_PHONE}}/g, invoice.customer_phone || '');
     proposalHtml = proposalHtml.replace(/{{CUSTOMER_EMAIL}}/g, invoice.customer_email || '');
+    proposalHtml = proposalHtml.replace(/{{CUSTOMER_IMAGE}}/g, invoice.profile_picture || '');
+    
+    if (invoice.profile_picture) {
+        proposalHtml = proposalHtml.replace('id="proposal-profile-image-container" style="display: none;"', 'id="proposal-profile-image-container" style="display: block;"');
+    }
+
     proposalHtml = proposalHtml.replace(/{{INVOICE_ITEMS}}/g, itemsHtml);
     proposalHtml = proposalHtml.replace(/{{SUBTOTAL}}/g, subtotal.toFixed(2));
     proposalHtml = proposalHtml.replace(/{{SST_RATE}}/g, sstRate.toFixed(0));
@@ -1271,6 +1277,7 @@ async function generateProposalHtml(client, invoice, req, forPdf = false) {
 
     proposalHtml = proposalHtml.replace(/var CUSTOMER_NAME\s*=\s*"[^"]*";/, `var CUSTOMER_NAME = "${customerName}";`);
     proposalHtml = proposalHtml.replace(/var CUSTOMER_ADDRESS\s*=\s*"[^"]*";/, `var CUSTOMER_ADDRESS = "${customerAddress}";`);
+    proposalHtml = proposalHtml.replace(/var CUSTOMER_IMAGE\s*=\s*"[^"]*";/, `var CUSTOMER_IMAGE = "${invoice.profile_picture || ''}";`);
     proposalHtml = proposalHtml.replace(/var SYSTEM_SIZE\s*=\s*"[^"]*";/, `var SYSTEM_SIZE = "${systemSize}";`);
     proposalHtml = proposalHtml.replace(/var OVERLAY_POSITION_TOP\s*=\s*"[^"]*";/, `var OVERLAY_POSITION_TOP = "28%";`);
 

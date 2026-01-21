@@ -228,15 +228,20 @@
             <div class="divider"></div>
 
             <!-- Bill To -->
-            <section class="mb-6">
-                <p class="label-text mb-1">Bill To</p>
-                <p class="text-lg font-bold text-slate-900 leading-none mb-1">
-                    {{CUSTOMER_NAME}}
-                </p>
-                <p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">{{CUSTOMER_ADDRESS}}</p>
-                <div class="text-xs text-slate-500">
-                    {{CUSTOMER_PHONE}}<br>
-                    {{CUSTOMER_EMAIL}}
+            <section class="mb-6 flex gap-6 items-start">
+                <div class="flex-1">
+                    <p class="label-text mb-1">Bill To</p>
+                    <p class="text-lg font-bold text-slate-900 leading-none mb-1">
+                        {{CUSTOMER_NAME}}
+                    </p>
+                    <p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">{{CUSTOMER_ADDRESS}}</p>
+                    <div class="text-xs text-slate-500">
+                        {{CUSTOMER_PHONE}}<br>
+                        {{CUSTOMER_EMAIL}}
+                    </div>
+                </div>
+                <div class="flex-shrink-0" id="proposal-profile-image-container" style="display: none;">
+                    <img src="{{CUSTOMER_IMAGE}}" alt="Customer Profile" id="proposal-profile-image" class="w-20 h-20 rounded-lg object-cover border border-slate-200 shadow-sm">
                 </div>
             </section>
 
@@ -311,6 +316,9 @@
     <!-- TEMPLATE FOR THE OVERLAY (Hidden by default, cloned by JS) -->
     <template id="overlay-template">
         <div class="customer-overlay">
+            <div id="disp-image-container" class="hidden mb-4 flex justify-center">
+                <img id="disp-image" src="" alt="" class="w-20 h-20 rounded-full border-2 border-white/50 object-cover shadow-lg">
+            </div>
             <div class="overlay-title">Prepared For</div>
             <div class="customer-name" id="disp-name">Customer Name</div>
             <div class="customer-details" id="disp-address">123 Solar Street, Green City</div>
@@ -329,6 +337,7 @@
 
         var CUSTOMER_NAME    = "Mr. John Doe";                     // Target: Name of the client
         var CUSTOMER_ADDRESS = "88 Sunny Side Avenue, California"; // Target: Full address line
+        var CUSTOMER_IMAGE   = "";                                 // Target: Profile picture URL
         var SYSTEM_SIZE      = "12.5 kWp System";                  // Target: System capacity (e.g. 10 kW)
         var SHOW_OVERLAY     = true;                               // Target: true or false
         
@@ -343,6 +352,7 @@
             showOverlay: SHOW_OVERLAY,
             name: CUSTOMER_NAME,
             address: CUSTOMER_ADDRESS,
+            image: CUSTOMER_IMAGE,
             systemSize: SYSTEM_SIZE,
             verticalPosition: OVERLAY_POSITION_TOP 
         };
@@ -384,6 +394,13 @@
                     overlayClone.querySelector('#disp-name').textContent = CUSTOMER_CONFIG.name;
                     overlayClone.querySelector('#disp-address').textContent = CUSTOMER_CONFIG.address;
                     overlayClone.querySelector('#disp-system').textContent = CUSTOMER_CONFIG.systemSize;
+                    
+                    if (CUSTOMER_CONFIG.image) {
+                        const imgEl = overlayClone.querySelector('#disp-image');
+                        const containerEl = overlayClone.querySelector('#disp-image-container');
+                        imgEl.src = CUSTOMER_CONFIG.image;
+                        containerEl.classList.remove('hidden');
+                    }
                     
                     // Apply Custom Position
                     if(CUSTOMER_CONFIG.verticalPosition) {

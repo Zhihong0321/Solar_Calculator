@@ -222,7 +222,7 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
  * Render the SEDA Registration Form
  * Query Params: ?id=SEDA_BUBBLE_ID
  */
-router.get('/seda-register', requireAuth, (req, res) => {
+router.get('/seda-register', (req, res) => {
     console.log('Serving SEDA Register Page V2 - No Cache');
     // Check if ID is provided
     if (!req.query.id) {
@@ -242,7 +242,7 @@ router.get('/seda-register', requireAuth, (req, res) => {
  * POST /api/v1/seda/extract-tnb
  * Extract and Verify TNB Bill
  */
-router.post('/api/v1/seda/extract-tnb', requireAuth, async (req, res) => {
+router.post('/api/v1/seda/extract-tnb', async (req, res) => {
     const client = await pool.connect();
     try {
         const { fileData, filename, sedaId } = req.body;
@@ -282,7 +282,7 @@ router.post('/api/v1/seda/extract-tnb', requireAuth, async (req, res) => {
  * POST /api/v1/seda/extract-mykad
  * Extract and Verify MyKad
  */
-router.post('/api/v1/seda/extract-mykad', requireAuth, async (req, res) => {
+router.post('/api/v1/seda/extract-mykad', async (req, res) => {
     const client = await pool.connect();
     try {
         const { fileData, filename, sedaId } = req.body;
@@ -322,7 +322,7 @@ router.post('/api/v1/seda/extract-mykad', requireAuth, async (req, res) => {
  * POST /api/v1/seda/verify-meter
  * Verify TNB Meter Photo Clarity
  */
-router.post('/api/v1/seda/verify-meter', requireAuth, async (req, res) => {
+router.post('/api/v1/seda/verify-meter', async (req, res) => {
     const client = await pool.connect();
     try {
         const { fileData, filename, sedaId } = req.body;
@@ -361,7 +361,7 @@ router.post('/api/v1/seda/verify-meter', requireAuth, async (req, res) => {
  * POST /api/v1/seda/verify-ownership
  * Cross-check Ownership document with Applicant Name and Address
  */
-router.post('/api/v1/seda/verify-ownership', requireAuth, async (req, res) => {
+router.post('/api/v1/seda/verify-ownership', async (req, res) => {
     const client = await pool.connect();
     try {
         const { fileData, filename, sedaId, context } = req.body;
@@ -403,7 +403,7 @@ router.post('/api/v1/seda/verify-ownership', requireAuth, async (req, res) => {
  * GET /api/v1/seda/:id
  * Get SEDA Registration details + Linked Customer
  */
-router.get('/api/v1/seda/:id', requireAuth, async (req, res) => {
+router.get('/api/v1/seda/:id', async (req, res) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -444,7 +444,7 @@ router.get('/api/v1/seda/:id', requireAuth, async (req, res) => {
  * POST /api/v1/seda/:id
  * Update SEDA Registration
  */
-router.post('/api/v1/seda/:id', requireAuth, async (req, res) => {
+router.post('/api/v1/seda/:id', async (req, res) => {
     const { id } = req.params;
     const { 
         installation_address, city, state, postcode, tnb_account_no, phase_type,

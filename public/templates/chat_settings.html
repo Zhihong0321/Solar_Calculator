@@ -48,11 +48,19 @@
                     </div>
                 </div>
 
-                <!-- Android/Chrome Install Button -->
                 <button id="installBtn" class="hidden w-full bg-[#1e3a8a] text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-900/20 active:scale-95 transition-all flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     Install to Phone
                 </button>
+
+                <!-- Android Manual Fallback (Hidden if button is shown or iOS) -->
+                <div id="androidInstructions" class="hidden space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <p class="text-sm font-bold text-gray-900">To install on Android:</p>
+                    <ol class="text-xs text-gray-700 space-y-3 list-decimal list-inside">
+                        <li>Tap the <span class="font-bold">three dots (⋮)</span> in the top right corner of Chrome.</li>
+                        <li>Select <span class="font-bold">"Install app"</span> or <span class="font-bold">"Add to Home screen"</span>.</li>
+                    </ol>
+                </div>
 
                 <!-- iOS Instructions (Always visible on iOS if not installed) -->
                 <div id="iosInstructions" class="hidden space-y-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
@@ -87,46 +95,83 @@
     </main>
 
     <script>
-        let deferredPrompt;
         const installBtn = document.getElementById('installBtn');
         const iosInstructions = document.getElementById('iosInstructions');
+        const androidInstructions = document.getElementById('androidInstructions');
         const alreadyInstalled = document.getElementById('alreadyInstalled');
 
-        // Logic to detect if already in standalone mode
+        // Check if already in standalone mode
         const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
-        if (isStandalone) {
-            alreadyInstalled.classList.remove('hidden');
-        } else {
-            // Android/Chrome Logic: Catch the beforeinstallprompt event
-            window.addEventListener('beforeinstallprompt', (e) => {
-                // Prevent Chrome 67 and earlier from automatically showing the prompt
-                e.preventDefault();
-                // Stash the event so it can be triggered later.
-                deferredPrompt = e;
-                // Update UI notify the user they can install the PWA
-                installBtn.classList.remove('hidden');
-            });
+        // Function to check if prompt is available
+        function checkInstallable() {
+            if (isStandalone) {
+                alreadyInstalled.classList.remove('hidden');
+                installBtn.classList.add('hidden');
+                androidInstructions.classList.add('hidden');
+                return;
+            }
 
-            // iOS Logic: Show instructions if on Safari/iOS
-            const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            if (isIos) {
-                iosInstructions.classList.remove('hidden');
+            if (window.deferredPrompt) {
+                installBtn.classList.remove('hidden');
+                androidInstructions.classList.add('hidden');
+            } else if (!isIos) {
+                // If on Android but no prompt, show manual instructions
+                androidInstructions.classList.remove('hidden');
+            }
+        }
+
+        // iOS detection
+        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        // Catch the event if it fires
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredPrompt = e;
+            installBtn.classList.remove('hidden');
+            androidInstructions.classList.add('hidden');
+        });
+
+        if (isIos && !isStandalone) {
+            iosInstructions.classList.remove('hidden');
+        }
+
+        // Initial check
+        checkInstallable();
+        
+        // If it's Android but no prompt yet, show a hint
+        if (!isIos && !isStandalone && !window.deferredPrompt) {
+            // Some browsers need a tiny bit of time or don't support the prompt API
+            setTimeout(() => {
+                if (!window.deferredPrompt) {
+                    console.log('Still no prompt after delay');
+                    // We don't hide the button entirely if it's potentially installable
+                    // But we keep it hidden unless the event fired
+                }
+            }, 2000);
+        }
+
+        installBtn.addEventListener('click', async () => {
+            const promptEvent = window.deferredPrompt || (window.opener && window.opener.deferredInstallPrompt);
+            
+            if (!promptEvent) {
+                alert('Install prompt not ready. Please try refreshing the main dashboard first, or use your browser menu "Add to Home Screen".');
+                return;
             }
             
-            // Standard button click logic
-            installBtn.addEventListener('click', async () => {
-                if (!deferredPrompt) return;
-                // Show the install prompt
-                deferredPrompt.prompt();
-                // Wait for the user to respond to the prompt
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log(`User response to the install prompt: ${outcome}`);
-                // We've used the prompt, and can't use it again, throw it away
-                deferredPrompt = null;
-                installBtn.classList.add('hidden');
-            });
-        }
+            // Show the install prompt
+            promptEvent.prompt();
+            
+            // Wait for the user to respond to the prompt
+            const { outcome } = await promptEvent.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            
+            // We've used the prompt, and can't use it again, throw it away
+            window.deferredPrompt = null;
+            if (window.opener) window.opener.deferredInstallPrompt = null;
+            
+            installBtn.classList.add('hidden');
+        });
 
         window.addEventListener('appinstalled', () => {
             console.log('PWA was installed');

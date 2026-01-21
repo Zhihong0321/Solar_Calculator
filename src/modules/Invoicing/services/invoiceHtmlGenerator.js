@@ -308,16 +308,23 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     <div class="divider"></div>
 
     <!-- Bill To -->
-    <section class="mb-6">
-      <p class="label-text mb-1">Bill To</p>
-      <p class="text-lg font-bold text-slate-900 leading-none mb-1">
-        ${invoice.customer_name || invoice.customer_name_snapshot || 'Valued Customer'}
-      </p>
-      ${(invoice.customer_address || invoice.customer_address_snapshot) ? `<p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">${invoice.customer_address || invoice.customer_address_snapshot}</p>` : ''}
-      <div class="text-xs text-slate-500">
-        ${(invoice.customer_phone || invoice.customer_phone_snapshot) ? `<span class="mr-3">Tel: ${invoice.customer_phone || invoice.customer_phone_snapshot}</span>` : ''}
-        ${(invoice.customer_email || invoice.customer_email_snapshot) ? `<span>${invoice.customer_email || invoice.customer_email_snapshot}</span>` : ''}
+    <section class="mb-6 flex gap-6 items-start">
+      <div class="flex-1">
+        <p class="label-text mb-1">Bill To</p>
+        <p class="text-lg font-bold text-slate-900 leading-none mb-1">
+          ${invoice.customer_name || invoice.customer_name_snapshot || 'Valued Customer'}
+        </p>
+        ${(invoice.customer_address || invoice.customer_address_snapshot) ? `<p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">${invoice.customer_address || invoice.customer_address_snapshot}</p>` : ''}
+        <div class="text-xs text-slate-500">
+          ${(invoice.customer_phone || invoice.customer_phone_snapshot) ? `<span class="mr-3">Tel: ${invoice.customer_phone || invoice.customer_phone_snapshot}</span>` : ''}
+          ${(invoice.customer_email || invoice.customer_email_snapshot) ? `<span>${invoice.customer_email || invoice.customer_email_snapshot}</span>` : ''}
+        </div>
       </div>
+      ${(invoice.profile_picture || invoice.profile_picture_snapshot) ? `
+      <div class="flex-shrink-0">
+        <img src="${invoice.profile_picture || invoice.profile_picture_snapshot}" alt="Customer Profile" class="w-16 h-16 rounded-lg object-cover border border-slate-200 shadow-sm">
+      </div>
+      ` : ''}
     </section>
 
     <!-- Line Items -->

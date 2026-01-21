@@ -94,6 +94,15 @@
         let lastThreadsCount = 0;
         let lastThreadsHash = "";
 
+        // Global variable to store the install prompt event
+        window.deferredInstallPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('Capture beforeinstallprompt');
+            e.preventDefault();
+            window.deferredInstallPrompt = e;
+        });
+
         async function init() {
             await loadThreads();
             // Polling every 10 seconds for the dashboard

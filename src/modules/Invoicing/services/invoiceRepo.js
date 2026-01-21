@@ -396,6 +396,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         COALESCE(c.email, i.customer_email_snapshot) as customer_email,
         COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
         COALESCE(c.address, i.customer_address_snapshot) as customer_address,
+        COALESCE(i.profile_picture_snapshot, c.profile_picture) as profile_picture,
         COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
