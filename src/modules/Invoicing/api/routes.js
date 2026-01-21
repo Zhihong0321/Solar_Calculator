@@ -382,6 +382,113 @@ router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (
 });
 
 /**
+ * POST /api/v1/invoice-office/:bubbleId/pv-system-drawings
+ * Batch upload PV system drawings (Base64)
+ * Protected: Requires authentication
+ */
+router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const { drawings } = req.body; // Array of { name, data (base64) }
+    const userId = req.user.userId;
+
+    if (!drawings || !Array.isArray(drawings)) {
+        return res.status(400).json({ success: false, error: 'No drawings provided' });
+    }
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        
+        // Ownership check
+        const invCheck = await client.query('SELECT created_by FROM invoice WHERE bubble_id = $1', [bubbleId]);
+        if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
+        if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
+
+        const storageRoot = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../../../../storage');
+        const uploadDir = path.join(storageRoot, 'pv_drawings');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+        const uploadedUrls = [];
+        const MAX_SIZE = 5 * 1024 * 1024; // 5MB for drawings (PDF/Image)
+
+        for (const draw of drawings) {
+            const matches = draw.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (!matches || matches.length !== 3) continue;
+
+            const buffer = Buffer.from(matches[2], 'base64');
+            if (buffer.length > MAX_SIZE) {
+                console.warn(`File ${draw.name} skipped: Too large (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+                continue;
+            }
+
+            const fileExt = draw.name ? path.extname(draw.name) : '.jpg';
+            const filename = `pv_${bubbleId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${fileExt}`;
+            const filePath = path.join(uploadDir, filename);
+            fs.writeFileSync(filePath, buffer);
+
+            const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+            const host = req.get('host');
+            const url = `${protocol}://${host}/uploads/pv_drawings/${filename}`;
+            uploadedUrls.push(url);
+        }
+
+        if (uploadedUrls.length > 0) {
+            // Update Postgres array
+            await client.query(
+                'UPDATE invoice SET pv_system_drawing = array_cat(COALESCE(pv_system_drawing, ARRAY[]::text[]), $1), updated_at = NOW() WHERE bubble_id = $2',
+                [uploadedUrls, bubbleId]
+            );
+        }
+
+        res.json({ success: true, uploadedCount: uploadedUrls.length, urls: uploadedUrls });
+
+    } catch (err) {
+        console.error('PV drawing upload error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * DELETE /api/v1/invoice-office/:bubbleId/pv-system-drawing
+ * Remove a PV system drawing reference
+ * Protected: Requires authentication
+ */
+router.delete('/api/v1/invoice-office/:bubbleId/pv-system-drawing', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const { url } = req.body;
+    const userId = req.user.userId;
+
+    if (!url) return res.status(400).json({ success: false, error: 'URL required' });
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        
+        // Ownership check
+        const invCheck = await client.query('SELECT created_by FROM invoice WHERE bubble_id = $1', [bubbleId]);
+        if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
+        if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
+
+        await client.query(
+            'UPDATE invoice SET pv_system_drawing = array_remove(pv_system_drawing, $1), updated_at = NOW() WHERE bubble_id = $2',
+            [url, bubbleId]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
  * DELETE /api/v1/invoice-office/:bubbleId/roof-image
  * Remove a roof image reference
  * Protected: Requires authentication

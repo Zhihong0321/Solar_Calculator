@@ -66,9 +66,6 @@
                         <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7 7-7"></path></svg>
                     </button>
                     <div class="flex items-center gap-3">
-                        <div id="headerProfileImageContainer" class="hidden">
-                            <img id="headerProfileImage" src="" alt="" class="w-10 h-10 rounded-full object-cover border-2 border-slate-100 shadow-sm">
-                        </div>
                         <div>
                             <h1 class="text-base font-bold text-slate-900 leading-tight" id="headerInvoiceNum">Invoice Office</h1>
                             <p class="text-xs text-slate-500 font-medium" id="headerCustomerName">Loading...</p>
@@ -98,8 +95,13 @@
     <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
         
         <!-- Main Stats Card -->
-        <div class="section-card bg-slate-900 text-white border-none p-6 md:p-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="section-card bg-slate-900 text-white border-none p-6 md:p-8 relative overflow-hidden">
+            <!-- Profile Picture Decoration -->
+            <div id="mainProfileImageContainer" class="hidden absolute top-0 right-0 p-4 md:p-6 opacity-20 hover:opacity-100 transition-opacity duration-500">
+                <img id="mainProfileImage" src="" alt="" class="w-20 h-20 md:w-32 md:h-20 object-cover rounded-xl shadow-2xl border border-slate-700">
+            </div>
+
+            <div class="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div class="space-y-1">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Amount</p>
                     <p class="text-2xl font-bold" id="mainTotalAmount">RM 0.00</p>
@@ -276,6 +278,23 @@
                     </div>
                 </section>
 
+                <!-- PV System Drawing Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">PV System Drawing</h2>
+                        <label class="btn-action btn-primary cursor-pointer flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Upload Drawing
+                            <input type="file" multiple accept="image/*,application/pdf" class="hidden" onchange="uploadPvSystemDrawings(this)">
+                        </label>
+                    </div>
+                    <div class="p-4">
+                        <div id="pvDrawingsList" class="space-y-2">
+                            <p class="text-xs text-slate-400 italic">No PV system drawings uploaded yet.</p>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Engineering Drawings -->
                 <section class="section-card">
                     <div class="section-header">
@@ -350,6 +369,7 @@
                     renderItems(json.data.items || []); // Ensure items is always an array
                     renderSeda(json.data.seda);
                     renderRoofImages(json.data.invoice.linked_roof_image, json.data.seda?.roof_images);
+                    renderPvSystemDrawings(json.data.invoice.pv_system_drawing);
                     renderEngDrawings(json.data.seda);
                     renderSignature(json.data.invoice);
                 } else {
@@ -396,9 +416,9 @@
             document.getElementById('headerCustomerName').textContent = inv.customer_name || 'Unknown Customer';
             document.getElementById('headerStatusBadge').textContent = (inv.status || 'Draft').replace('_', ' ');
             
-            // Handle Profile Image
-            const imgContainer = document.getElementById('headerProfileImageContainer');
-            const imgEl = document.getElementById('headerProfileImage');
+            // Handle Profile Image - Now in Main Stats Card
+            const imgContainer = document.getElementById('mainProfileImageContainer');
+            const imgEl = document.getElementById('mainProfileImage');
             const profilePic = inv.profile_picture_snapshot || inv.profile_picture;
             
             if (profilePic) {
@@ -584,6 +604,32 @@
             }
         }
 
+        function renderPvSystemDrawings(drawings = []) {
+            const container = document.getElementById('pvDrawingsList');
+            const allDrawings = drawings || [];
+            
+            if (allDrawings.length > 0) {
+                container.innerHTML = allDrawings.map((url, i) => {
+                    const isPdf = url.toLowerCase().endsWith('.pdf');
+                    return `
+                    <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm group">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 ${isPdf ? 'bg-red-50' : 'bg-indigo-50'} rounded-lg">
+                                <svg class="w-4 h-4 ${isPdf ? 'text-red-600' : 'text-indigo-600'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            </div>
+                            <span class="text-[11px] font-bold text-slate-700 uppercase">PV Drawing #${i+1}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <a href="${url}" target="_blank" class="text-[10px] font-bold text-indigo-600 hover:underline uppercase">Open</a>
+                            <button onclick="deletePvSystemDrawing('${url}')" class="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase">Delete</button>
+                        </div>
+                    </div>
+                `;}).join('');
+            } else {
+                container.innerHTML = '<p class="text-xs text-slate-400 italic">No PV system drawings uploaded yet.</p>';
+            }
+        }
+
         function renderEngDrawings(seda) {
             const container = document.getElementById('engDrawingsList');
             const drawings = [
@@ -709,6 +755,57 @@
             
             try {
                 const res = await fetch(`/api/v1/invoice-office/${bubbleId}/roof-image`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                if ((await res.json()).success) {
+                    await loadData();
+                }
+            } catch (err) { alert('Delete failed'); }
+        }
+
+        async function uploadPvSystemDrawings(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+
+            const drawingsToUpload = [];
+            for (const file of files) {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`Skipping ${file.name}: File exceeds 5MB limit.`);
+                    continue;
+                }
+                const base64 = await toBase64(file);
+                drawingsToUpload.push({ name: file.name, data: base64 });
+            }
+
+            if (drawingsToUpload.length === 0) return;
+
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/pv-system-drawings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ drawings: drawingsToUpload })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadData();
+                } else {
+                    alert('Upload failed: ' + json.error);
+                }
+            } catch (err) {
+                alert('Upload failed.');
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        async function deletePvSystemDrawing(url) {
+            if (!confirm('Permanently delete this PV system drawing?')) return;
+            
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/pv-system-drawing`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url })
