@@ -1556,15 +1556,18 @@
                             <div class="flex flex-col items-center gap-4 py-2">
                                 ${data.profilePicture ? `<img src="${data.profilePicture}" class="w-24 h-24 rounded-full border-4 border-green-500 shadow-lg">` : ''}
                                 <div class="text-center">
-                                    <div class="font-bold text-lg text-slate-900">${data.name || 'WhatsApp User'}</div>
+                                    <div class="font-bold text-lg text-slate-900">Verified WhatsApp Number</div>
                                     <div class="text-green-600 font-semibold flex items-center justify-center gap-1">
                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                        Verified WhatsApp Account
+                                        Verified
                                     </div>
                                 </div>
-                                <button onclick="fillWhatsAppInfo('${data.name || ''}', '${data.profilePicture || ''}', '${phone}')" class="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-all">
-                                    Use Profile Name
-                                </button>
+                                <div class="flex flex-col gap-2 w-full px-4">
+                                    ${data.profilePicture ? `
+                                    <button onclick="fillWhatsAppInfo('${data.profilePicture}', '${phone}')" class="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-all">
+                                        Use Profile Picture
+                                    </button>` : '<div class="text-sm text-slate-500 italic">No profile picture available</div>'}
+                                </div>
                             </div>
                         `,
                         showConfirmButton: false,
@@ -1582,11 +1585,7 @@
             }
         }
 
-        async function fillWhatsAppInfo(name, photoUrl, phone) {
-            if (name) {
-                document.getElementById('customerName').value = name;
-            }
-
+        async function fillWhatsAppInfo(photoUrl, phone) {
             if (photoUrl) {
                 // Trigger backend download
                 Swal.fire({
