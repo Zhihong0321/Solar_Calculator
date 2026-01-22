@@ -296,8 +296,6 @@ function displayFullROIResults(data) {
         resultsDiv.appendChild(roiContainer);
     }
 
-    const roi = (data.totalMonthlySavings * 12 / data.systemCost) * 100;
-
     roiContainer.innerHTML = `
         <div class="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <!-- Professional Executive Summary -->
@@ -308,24 +306,16 @@ function displayFullROIResults(data) {
                         <div class="text-2xl md:text-3xl font-bold tracking-tight">${data.systemSizeKwp.toFixed(2)} kWp <span class="text-xs md:text-sm opacity-50 font-normal">(${data.finalPanels} x ${data.panelRating}W)</span></div>
                     </div>
                     <div class="text-left md:text-right">
-                        <div class="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-60">Estimated_Payback</div>
-                        <div class="text-2xl md:text-3xl font-bold tracking-tight text-emerald-400">${data.payback.toFixed(1)} Years</div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-8">
-                    <div>
-                        <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Total_Project_Investment</p>
-                        <p class="text-lg md:text-xl font-bold">RM ${data.systemCost.toLocaleString()}</p>
-                    </div>
-                    <div>
-                        <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Annualized_ROI</p>
-                        <p class="text-lg md:text-xl font-bold text-emerald-400">${roi.toFixed(1)}%</p>
-                    </div>
-                    <div class="md:text-right">
                         <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Model_Efficiency</p>
                         <p class="text-lg md:text-xl font-bold text-white">${Math.round((data.monthlyOffsetKwh/data.monthlyGen)*100)}% (Direct Offset)</p>
                     </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-8">
+                    <p class="text-[10px] text-white/50 uppercase leading-relaxed">
+                        Precision simulation based on 24/7 building load modeling and hourly solar yield projection. 
+                        Self-consumption optimized for configured premise working hours.
+                    </p>
                 </div>
             </section>
 
