@@ -81,6 +81,17 @@ function initWorkingHoursUI() {
     });
 }
 
+window.setDayOff = function(dayKey) {
+    const startInput = document.getElementById(`${dayKey}-start`);
+    const endInput = document.getElementById(`${dayKey}-end`);
+    if (startInput && endInput) {
+        startInput.value = 0;
+        endInput.value = 0;
+        // Trigger the input event manually to update labels and highlight
+        startInput.dispatchEvent(new Event('input'));
+    }
+}
+
 function formatTime(decimalHour) {
     const h = Math.floor(decimalHour);
     const m = Math.round((decimalHour % 1) * 60);
