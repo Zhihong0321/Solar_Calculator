@@ -231,10 +231,10 @@ async function executeFullAnalysis() {
             const hourlySolarGen = dailyGenKwh * solarGenPct;
 
             const offset = Math.min(hourlySolarGen, consumptionCap);
-            const export = Math.max(0, hourlySolarGen - consumptionCap);
+            const exportAmt = Math.max(0, hourlySolarGen - consumptionCap);
 
             weeklyOffsetKwh += offset;
-            weeklyExportKwh += export;
+            weeklyExportKwh += exportAmt;
         }
     }
 
