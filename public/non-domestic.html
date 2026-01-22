@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Domestic Solar Calculator - Systematic Paper Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Inter"', 'sans-serif']
+                    },
+                    colors: {
+                        paper: '#FAF9F6',
+                        fact: '#000000',
+                        label: '#404040',
+                        context: '#666666',
+                        divider: '#D1D5DB',
+                        primary: '#000000'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        body { 
+            background-color: #FAF9F6; 
+            color: #000000; 
+            line-height: 1.5; 
+        }
+        .tier-1 { color: #000000; font-weight: 600; }
+        .tier-2 { color: #2D2D2D; font-weight: 500; }
+        .tier-3 { color: #5A5A5A; font-weight: 400; }
+        input, select { 
+            background: transparent; 
+            border: none; 
+            border-bottom: 1px solid #D1D5DB; 
+            border-radius: 0; 
+            outline: none; 
+            font-size: 1.125rem;
+            padding: 0.5rem 0;
+        }
+        input:focus, select:focus { 
+            border-bottom: 2px solid #000000; 
+        }
+        .ledger-line { border-top: 1px solid #D1D5DB; }
+        .ledger-double-line { border-top: 2px solid #000000; }
+        /* Hide arrows from number input */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+        /* Better touch targets for mobile */
+        button, a { 
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Optimize text rendering */
+        h1, h2, h3, h4 { letter-spacing: -0.02em; }
+
+        /* Custom Range Slider Styling */
+        .range-slider {
+            position: relative;
+            width: 100%;
+            height: 24px;
+            margin: 10px 0;
+        }
+        .range-slider input[type="range"] {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            -webkit-appearance: none;
+            background: transparent;
+            pointer-events: none;
+            border: none;
+            padding: 0;
+        }
+        .range-slider input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 0;
+            background: #000;
+            cursor: pointer;
+            pointer-events: auto;
+            margin-top: -6px;
+            border: 1px solid #fff;
+        }
+        .range-slider .slider-track {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 100%;
+            height: 2px;
+            background: #D1D5DB;
+            z-index: -1;
+        }
+        .range-slider .slider-highlight {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 4px;
+            background: #000;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body class="bg-paper text-fact min-h-screen font-mono selection:bg-black selection:text-white overflow-x-hidden">
+    <!-- DARK HEADER ZONE -->
+    <header class="bg-black text-white py-6 md:py-8 mb-8 md:mb-10 -mt-4 md:-mt-6">
+        <div class="mx-auto w-full max-w-4xl px-4 md:px-6">
+            <div class="flex flex-col sm:flex-row items-start justify-between gap-4">
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold uppercase tracking-tight">Solar_Calculator_v2.0_NonDomestic</h1>
+                    <p class="mt-1.5 text-[10px] md:text-xs opacity-60 uppercase tracking-wide">Commercial & Industrial ROI Analysis</p>
+                    <a href="/" class="mt-4 inline-block text-[10px] font-semibold uppercase tracking-wide border border-white/30 px-3 py-1.5 hover:bg-white hover:text-black transition-colors">
+                        <- Residential_Calculator
+                    </a>
+                </div>
+                <img src="logo.png" alt="Eternalgy" class="h-7 md:h-9 w-auto brightness-0 invert mt-1">
+            </div>
+        </div>
+    </header>
+
+    <div class="mx-auto w-full max-w-4xl px-4 pb-8 md:px-6 md:pb-12">
+        <main class="space-y-10 md:space-y-16">
+            <!-- Phase 01: System Status -->
+            <section id="dbStatus" class="text-[10px] md:text-xs uppercase tracking-wide tier-3 flex items-center gap-3">
+                <span>[ STATUS: CHECKING_DB ]</span>
+                <div class="h-px grow bg-divider"></div>
+            </section>
+
+            <!-- Phase 02: Intake -->
+            <section id="intake-section" class="pt-2">
+                <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">01_COMMERCIAL_INTAKE</h2>
+                
+                <form id="billForm" class="space-y-10">
+                    <div class="grid gap-6 md:grid-cols-2 md:gap-x-8 md:gap-y-6">
+                        <div class="space-y-3">
+                            <label for="tariffType" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">TNB_Tariff_Category</label>
+                            <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                                <select
+                                    id="tariffType"
+                                    name="tariffType"
+                                    class="w-full text-sm md:text-base font-semibold py-1.5 cursor-pointer bg-transparent border-none outline-none"
+                                    required
+                                >
+                                    <option value="LV_COMMERCIAL">Low Voltage General (Commercial)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label for="billAmount" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Monthly_TNB_Bill (RM)</label>
+                            <div class="flex items-baseline gap-2 border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                                <span class="text-base md:text-lg tier-2 font-semibold">RM</span>
+                                <input
+                                    type="number"
+                                    id="billAmount"
+                                    name="billAmount"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="000.00"
+                                    class="w-full text-xl md:text-2xl font-bold tracking-tight bg-transparent border-none outline-none"
+                                    required
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Working Hours Section -->
+                    <div class="space-y-6">
+                        <h3 class="text-[10px] md:text-xs font-bold uppercase tracking-widest tier-3 flex items-center gap-3">
+                            <span>02_PREMISE_WORKING_HOURS</span>
+                            <div class="h-[1px] grow bg-divider opacity-50"></div>
+                        </h3>
+                        
+                        <div class="grid gap-4" id="working-hours-container">
+                            <!-- JS will populate this or we can hardcode for stability -->
+                            <script>
+                                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                                document.write(days.map(day => `
+                                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 py-2 border-b border-divider/30">
+                                        <div class="w-24 text-[10px] md:text-xs font-bold uppercase tracking-wide tier-2">${day}</div>
+                                        <div class="flex-grow flex items-center gap-4">
+                                            <span class="text-[10px] font-mono w-12" id="${day.toLowerCase()}-start-label">08:00</span>
+                                            <div class="range-slider flex-grow">
+                                                <div class="slider-track"></div>
+                                                <div class="slider-highlight" id="${day.toLowerCase()}-highlight"></div>
+                                                <input type="range" min="0" max="24" value="8" step="0.5" id="${day.toLowerCase()}-start" class="start-thumb">
+                                                <input type="range" min="0" max="24" value="18" step="0.5" id="${day.toLowerCase()}-end" class="end-thumb">
+                                            </div>
+                                            <span class="text-[10px] font-mono w-12" id="${day.toLowerCase()}-end-label">18:00</span>
+                                        </div>
+                                    </div>
+                                `).join(''));
+                            </script>
+                        </div>
+                    </div>
+
+                    <div class="pt-4">
+                        <button
+                            type="submit"
+                            class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
+                        >
+                            Execute_Commercial_Analysis ->
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="calculatorResults" class="space-y-20 md:space-y-32"></section>
+
+            <!-- Diagnostics -->
+            <footer class="pt-10 md:pt-16 border-t border-divider space-y-8 md:space-y-10">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-3 text-[10px] md:text-xs tier-3 uppercase tracking-wide font-semibold">
+                    <span>Eternalgy // Solar Intelligence Suite</span>
+                    <span>v2.0_NonDomestic_Minimalist</span>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script src="/js/non-domestic.js"></script>
+</body>
+</html>

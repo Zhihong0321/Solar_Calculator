@@ -224,6 +224,46 @@ router.get('/api/solar-calculation', async (req, res) => {
   }
 });
 
+// API endpoint for Commercial Bill Breakdown from external DB
+router.get('/api/commercial/calculate-bill', async (req, res) => {
+  const { Pool } = require('pg');
+  const tnbDbUrl = process.env.TNB_DATABASE_URL || 'postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway';
+  
+  const commercialPool = new Pool({
+    connectionString: tnbDbUrl,
+    ssl: tnbDbUrl.includes('rlwy.net') ? { rejectUnauthorized: false } : false
+  });
+
+  try {
+    const billAmount = parseFloat(req.query.amount);
+    if (!billAmount) return res.status(400).json({ error: 'Amount is required' });
+
+    const client = await commercialPool.connect();
+    const query = `
+      SELECT * FROM bill_simulation_lookup 
+      WHERE total_bill <= $1 
+      ORDER BY total_bill DESC 
+      LIMIT 1
+    `;
+    const result = await client.query(query, [billAmount]);
+    client.release();
+
+    if (result.rows.length === 0) {
+      // Fallback to closest minimum if no record is smaller than input
+      const fallbackClient = await commercialPool.connect();
+      const fallbackResult = await fallbackClient.query('SELECT * FROM bill_simulation_lookup ORDER BY total_bill ASC LIMIT 1');
+      fallbackClient.release();
+      return res.json({ tariff: fallbackResult.rows[0], matched: false });
+    }
+
+    res.json({ tariff: result.rows[0], matched: true });
+  } catch (err) {
+    res.status(500).json({ error: 'External DB error', details: err.message });
+  } finally {
+    await commercialPool.end();
+  }
+});
+
 // API endpoint to get packages by type
 router.get('/api/packages', async (req, res) => {
   try {
@@ -259,7 +299,7 @@ router.get('/api/all-data', async (req, res) => {
              pr.bubble_id as product_bubble_id, pr.solar_output_rating
       FROM package p
       JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
-      WHERE p.active = true AND p.type = 'Residential'
+      WHERE p.active = true
     `);
     client.release();
     res.json({ tariffs: tariffs.rows, packages: packages.rows });

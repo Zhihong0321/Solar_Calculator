@@ -57,6 +57,10 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get('/non-domestic', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'non-domestic.html'));
+});
+
 // Chat Page Routes
 app.get('/invoice-chat', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'invoice_chat.html'));
