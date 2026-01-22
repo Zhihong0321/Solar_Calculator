@@ -287,9 +287,18 @@ async function executeFullAnalysis() {
 
 function displayFullROIResults(data) {
     const resultsDiv = document.getElementById('calculatorResults');
+    
+    // Create or find the ROI container to ensure we replace instead of append
+    let roiContainer = document.getElementById('roi-results-view');
+    if (!roiContainer) {
+        roiContainer = document.createElement('div');
+        roiContainer.id = 'roi-results-view';
+        resultsDiv.appendChild(roiContainer);
+    }
+
     const roi = (data.totalMonthlySavings * 12 / data.systemCost) * 100;
 
-    resultsDiv.innerHTML += `
+    roiContainer.innerHTML = `
         <div class="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <!-- Professional Executive Summary -->
             <section class="bg-black text-white p-6 md:p-10 -mx-4 md:mx-0 shadow-[10px_10px_0px_0px_rgba(0,0,0,0.1)] border border-white/10">
@@ -458,7 +467,7 @@ function displayFullROIResults(data) {
         </div>
     `;
 
-    resultsDiv.lastElementChild.scrollIntoView({ behavior: 'smooth' });
+    roiContainer.scrollIntoView({ behavior: 'smooth' });
     
     // Render the Pie Chart
     renderSavingsPieChart(data.billSaving, data.exportEarnings);
