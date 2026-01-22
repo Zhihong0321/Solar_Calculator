@@ -380,7 +380,22 @@ function displayFullROIResults(data) {
                                     <span class="text-sm font-bold">RM ${formatCurrency(data.oldBill.total_bill)}</span>
                                 </div>
                                 <div class="flex justify-between items-baseline border-b border-divider/50 pb-2">
-                                    <span class="text-xs uppercase tier-3 text-emerald-600">New_Bill_After_Solar</span>
+                                    <div class="flex flex-col">
+                                        <span class="text-xs uppercase tier-3 text-emerald-600">New_Bill_After_Solar</span>
+                                        <details class="mt-1">
+                                            <summary class="text-[9px] font-bold cursor-pointer uppercase opacity-60 hover:opacity-100 list-none text-emerald-700">
+                                                [ + View_Breakdown ]
+                                            </summary>
+                                            <div class="mt-3 space-y-2 pl-2 border-l-2 border-emerald-200">
+                                                <div class="flex justify-between text-[10px] uppercase opacity-70"><span>Energy</span><span>RM ${formatCurrency(data.newBill.energy_charge)}</span></div>
+                                                <div class="flex justify-between text-[10px] uppercase opacity-70"><span>Retail</span><span>RM ${formatCurrency(data.newBill.retail_charge)}</span></div>
+                                                <div class="flex justify-between text-[10px] uppercase opacity-70"><span>Capacity</span><span>RM ${formatCurrency(data.newBill.capacity_charge)}</span></div>
+                                                <div class="flex justify-between text-[10px] uppercase opacity-70"><span>Network</span><span>RM ${formatCurrency(data.newBill.network_charge)}</span></div>
+                                                <div class="flex justify-between text-[10px] uppercase opacity-70"><span>KWTBB</span><span>RM ${formatCurrency(data.newBill.kwtbb_fund)}</span></div>
+                                                <div class="flex justify-between text-[10px] uppercase opacity-70"><span>SST</span><span>RM ${formatCurrency(data.newBill.sst_tax)}</span></div>
+                                            </div>
+                                        </details>
+                                    </div>
                                     <span class="text-sm font-bold text-emerald-600">RM ${formatCurrency(data.newBill.total_bill)}</span>
                                 </div>
                                 <div class="flex justify-between items-baseline pt-2">
