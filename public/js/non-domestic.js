@@ -10,7 +10,6 @@ let workingHours = {};
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 // Hourly Solar Generation Map (Percentage of daily yield)
-// Peak at 12-1pm (16%)
 const HOURLY_SOLAR_MAP = {
     7: 0.02, 8: 0.05, 9: 0.09, 10: 0.12, 11: 0.15, 12: 0.16, 
     13: 0.15, 14: 0.12, 15: 0.08, 16: 0.04, 17: 0.02
@@ -39,7 +38,6 @@ async function initializeData() {
                 price: parseFloat(p.price),
                 solar_output_rating: parseInt(p.solar_output_rating)
             }));
-            console.log('Data initialized:', db.packages.length, 'packages');
         }
     } catch (err) {
         console.error('Failed to load data:', err);
@@ -91,7 +89,6 @@ function formatTime(decimalHour) {
     return `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
-// STEP 1: Process Bill and Show Breakdown
 document.getElementById('billForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const billAmount = parseFloat(document.getElementById('billAmount').value);
@@ -115,7 +112,6 @@ document.getElementById('billForm').addEventListener('submit', async function(e)
         matchedBillData = data.tariff;
         displayBillBreakdown(matchedBillData);
         
-        // Show Step 2
         document.getElementById('simulation-params').classList.remove('hidden');
         document.getElementById('simulation-params').scrollIntoView({ behavior: 'smooth' });
 
@@ -172,7 +168,6 @@ function displayBillBreakdown(t) {
     `;
 }
 
-// STEP 2: Execute Full Analysis
 async function executeFullAnalysis() {
     if (!matchedBillData) return;
 
@@ -181,10 +176,8 @@ async function executeFullAnalysis() {
     const baseLoadPct = parseFloat(document.getElementById('baseLoadPercent').value) / 100;
     const smpPrice = parseFloat(document.getElementById('smpPrice').value);
 
-    // 1. Calculate Load Profiles
     const totalMonthlyKwh = parseFloat(matchedBillData.usage_kwh);
     
-    // Total Weekly Working Hours
     let weeklyWorkingHours = 0;
     DAYS.forEach(day => {
         const h = workingHours[day.toLowerCase()];
@@ -194,12 +187,10 @@ async function executeFullAnalysis() {
     const hourlyBaseLoad = (totalMonthlyKwh * baseLoadPct) / 720;
     const hourlyOperationalLoad = (totalMonthlyKwh * (1 - baseLoadPct)) / (weeklyWorkingHours * 4.33);
 
-    // 2. Recommend System Size (Target 70% of peak hourly consumption)
     const peakHourlyConsumption = hourlyBaseLoad + hourlyOperationalLoad;
-    const recommendedKw = (peakHourlyConsumption / 0.7); // Simple heuristic
+    const recommendedKw = (peakHourlyConsumption / 0.7); 
     let recommendedPanels = Math.max(1, Math.ceil((recommendedKw * 1000) / panelRating));
     
-    // Find closest package
     let pkg = db.packages
         .filter(p => p.panel_qty >= recommendedPanels && (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
         .sort((a,b) => a.panel_qty - b.panel_qty)[0];
@@ -214,13 +205,16 @@ async function executeFullAnalysis() {
     const systemSizeKwp = (finalPanels * panelRating) / 1000;
     const dailyGenKwh = systemSizeKwp * sunPeak;
 
-    // 3. Hourly Simulation for 1 Week
     let weeklyOffsetKwh = 0;
     let weeklyExportKwh = 0;
+    let dailyData = [];
 
     for (let d = 0; d < 7; d++) {
-        const dayName = DAYS[d].toLowerCase();
-        const hours = workingHours[dayName];
+        const dayName = DAYS[d];
+        const dayKey = dayName.toLowerCase();
+        const hours = workingHours[dayKey];
+        let dayOffset = 0;
+        let dayExport = 0;
         
         for (let h = 0; h < 24; h++) {
             const isWorking = h >= hours.start && h < hours.end;
@@ -233,16 +227,18 @@ async function executeFullAnalysis() {
             const offset = Math.min(hourlySolarGen, consumptionCap);
             const exportAmt = Math.max(0, hourlySolarGen - consumptionCap);
 
-            weeklyOffsetKwh += offset;
-            weeklyExportKwh += exportAmt;
+            dayOffset += offset;
+            dayExport += exportAmt;
         }
+        weeklyOffsetKwh += dayOffset;
+        weeklyExportKwh += dayExport;
+        dailyData.push({ day: dayName, offset: dayOffset, export: dayExport });
     }
 
     const monthlyOffsetKwh = weeklyOffsetKwh * 4.33;
     const monthlyExportKwh = weeklyExportKwh * 4.33;
     const newTotalUsageKwh = Math.max(0, totalMonthlyKwh - monthlyOffsetKwh);
 
-    // 4. Calculate Bill After Solar (Fetch from DB by Usage)
     try {
         const response = await fetch(`/api/commercial/lookup-by-usage?usage=${newTotalUsageKwh}`);
         const data = await response.json();
@@ -269,7 +265,8 @@ async function executeFullAnalysis() {
             totalMonthlySavings,
             systemCost,
             payback,
-            pkg
+            pkg,
+            dailyData
         });
 
     } catch (err) {
@@ -282,79 +279,151 @@ function displayFullROIResults(data) {
     const resultsDiv = document.getElementById('calculatorResults');
     const roi = (data.totalMonthlySavings * 12 / data.systemCost) * 100;
 
-    // Append to existing Step 1 results
     resultsDiv.innerHTML += `
         <div class="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <section class="bg-black text-white p-6 md:p-10 -mx-4 md:mx-0 shadow-[8px_8px_0px_0px_rgba(16,185,129,0.3)] border-2 border-emerald-500/30">
+            <!-- Professional Executive Summary -->
+            <section class="bg-black text-white p-6 md:p-10 -mx-4 md:mx-0 shadow-[10px_10px_0px_0px_rgba(0,0,0,0.1)] border border-white/10">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 border-b border-white/20 pb-6">
                     <div>
-                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-emerald-400">04_PRECISION_ROI_SUMMARY</h2>
-                        <div class="text-3xl md:text-4xl font-bold tracking-tight mt-1">RM ${data.totalMonthlySavings.toLocaleString(undefined, {minimumFractionDigits: 2})}<span class="text-base md:text-lg opacity-50 font-normal"> /mo</span></div>
+                        <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-emerald-400 mb-1">SYSTEM_SPECIFICATION</h2>
+                        <div class="text-2xl md:text-3xl font-bold tracking-tight">${data.systemSizeKwp.toFixed(2)} kWp <span class="text-xs md:text-sm opacity-50 font-normal">(${data.finalPanels} x ${data.panelRating}W)</span></div>
                     </div>
                     <div class="text-left md:text-right">
-                        <div class="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-60">Payback_Period</div>
-                        <div class="text-3xl md:text-4xl font-bold tracking-tight mt-1 text-emerald-400">${data.payback.toFixed(1)}<span class="text-base md:text-lg opacity-70 font-normal"> Years</span></div>
+                        <div class="text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-60">Estimated_Payback</div>
+                        <div class="text-2xl md:text-3xl font-bold tracking-tight text-emerald-400">${data.payback.toFixed(1)} Years</div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-8">
                     <div>
-                        <p class="text-[10px] uppercase opacity-50 font-bold mb-1">System_Size</p>
-                        <p class="text-lg font-bold">${data.systemSizeKwp.toFixed(2)} kWp</p>
+                        <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Total_Project_Investment</p>
+                        <p class="text-lg md:text-xl font-bold">RM ${data.systemCost.toLocaleString()}</p>
                     </div>
                     <div>
-                        <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Total_Investment</p>
-                        <p class="text-lg font-bold">RM ${data.systemCost.toLocaleString()}</p>
+                        <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Annualized_ROI</p>
+                        <p class="text-lg md:text-xl font-bold text-emerald-400">${roi.toFixed(1)}%</p>
                     </div>
-                    <div>
-                        <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Annual_Yield</p>
-                        <p class="text-lg font-bold text-emerald-400">${roi.toFixed(1)}%</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Direct_Offset</p>
-                        <p class="text-lg font-bold text-emerald-400">${Math.round((data.monthlyOffsetKwh/data.monthlyGen)*100)}%</p>
+                    <div class="md:text-right">
+                        <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Model_Efficiency</p>
+                        <p class="text-lg md:text-xl font-bold text-white">${Math.round((data.monthlyOffsetKwh/data.monthlyGen)*100)}% (Direct Offset)</p>
                     </div>
                 </div>
             </section>
 
+            <!-- 04.1 DAILY YIELD PROJECTION -->
             <section class="space-y-6">
-                <h3 class="text-xs font-bold uppercase tracking-widest tier-2 border-b-2 border-fact inline-block pb-1">05_SIMULATION_LEDGER</h3>
+                <h3 class="text-xs font-bold uppercase tracking-widest tier-2 border-b-2 border-fact inline-block pb-1">04.1_DAILY_YIELD_PROJECTION</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-[10px] md:text-xs text-left border-collapse">
+                        <thead>
+                            <tr class="tier-3 uppercase border-b border-divider">
+                                <th class="py-3 font-bold">DAY_OF_WEEK</th>
+                                <th class="py-3 font-bold text-right">DIRECT_OFFSET (kWh)</th>
+                                <th class="py-3 font-bold text-right">EXPORT_TO_GRID (kWh)</th>
+                                <th class="py-3 font-bold text-right">TOTAL_YIELD</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.dailyData.map(d => `
+                                <tr class="border-b border-divider/40">
+                                    <td class="py-3 font-semibold uppercase">${d.day}</td>
+                                    <td class="py-3 text-right text-emerald-600 font-bold">${d.offset.toFixed(2)}</td>
+                                    <td class="py-3 text-right text-orange-600 font-bold">${d.export.toFixed(2)}</td>
+                                    <td class="py-3 text-right font-bold">${(d.offset + d.export).toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                            <tr class="bg-black/5 font-bold">
+                                <td class="py-3 uppercase">WEEKLY_TOTAL</td>
+                                <td class="py-3 text-right text-emerald-600 underline">${(data.monthlyOffsetKwh / 4.33).toFixed(2)}</td>
+                                <td class="py-3 text-right text-orange-600 underline">${(data.monthlyExportKwh / 4.33).toFixed(2)}</td>
+                                <td class="py-3 text-right underline">${((data.monthlyOffsetKwh + data.monthlyExportKwh) / 4.33).toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 05 ACCUMULATED SAVINGS ANALYSIS -->
+            <section class="space-y-6 pt-10 border-t-2 border-divider">
+                <h3 class="text-xs font-bold uppercase tracking-widest tier-2 border-b-2 border-fact inline-block pb-1">05_ACCUMULATED_SAVINGS_ANALYSIS</h3>
                 <div class="grid md:grid-cols-2 gap-10">
-                    <div class="space-y-4">
-                        <div class="flex justify-between py-2 border-b border-divider">
-                            <span class="text-xs uppercase tier-3">Monthly_Solar_Yield</span>
-                            <span class="text-sm font-bold">${Math.round(data.monthlyGen)} kWh</span>
+                    <div class="space-y-8">
+                        <div>
+                            <p class="text-[10px] uppercase opacity-60 font-bold mb-3 tracking-widest">A. ENERGY_YIELD_ACCUMULATION</p>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-baseline border-b border-divider/50 pb-2">
+                                    <span class="text-xs uppercase tier-3">Total_Monthly_Offset</span>
+                                    <span class="text-sm font-bold text-emerald-600">${Math.round(data.monthlyOffsetKwh).toLocaleString()} kWh</span>
+                                </div>
+                                <div class="flex justify-between items-baseline border-b border-divider/50 pb-2">
+                                    <span class="text-xs uppercase tier-3">Total_Monthly_Export</span>
+                                    <span class="text-sm font-bold text-orange-600">${Math.round(data.monthlyExportKwh).toLocaleString()} kWh</span>
+                                </div>
+                                <div class="flex justify-between items-baseline pt-2">
+                                    <span class="text-xs uppercase font-bold">TOTAL_MONTHLY_GENERATION</span>
+                                    <span class="text-base font-bold underline">${Math.round(data.monthlyGen).toLocaleString()} kWh</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex justify-between py-2 border-b border-divider">
-                            <span class="text-xs uppercase tier-3">Premise_Self_Consumed</span>
-                            <span class="text-sm font-bold text-emerald-600">${Math.round(data.monthlyOffsetKwh)} kWh</span>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-divider">
-                            <span class="text-xs uppercase tier-3">Exported_to_Grid</span>
-                            <span class="text-sm font-bold text-orange-600">${Math.round(data.monthlyExportKwh)} kWh</span>
+
+                        <div>
+                            <p class="text-[10px] uppercase opacity-60 font-bold mb-3 tracking-widest">B. BILL_IMPACT_ANALYSIS</p>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-baseline border-b border-divider/50 pb-2">
+                                    <span class="text-xs uppercase tier-3">Original_Monthly_Bill</span>
+                                    <span class="text-sm font-bold">RM ${formatCurrency(data.oldBill.total_bill)}</span>
+                                </div>
+                                <div class="flex justify-between items-baseline border-b border-divider/50 pb-2">
+                                    <span class="text-xs uppercase tier-3 text-emerald-600">New_Bill_After_Solar</span>
+                                    <span class="text-sm font-bold text-emerald-600">RM ${formatCurrency(data.newBill.total_bill)}</span>
+                                </div>
+                                <div class="flex justify-between items-baseline pt-2">
+                                    <span class="text-xs uppercase font-bold text-emerald-600">SAVING_FROM_BILL_REDUCTION</span>
+                                    <span class="text-base font-bold text-emerald-600 underline">RM ${formatCurrency(data.billSaving)}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="space-y-4">
-                        <div class="flex justify-between py-2 border-b border-divider">
-                            <span class="text-xs uppercase tier-3">Bill_Saving (Offset)</span>
-                            <span class="text-sm font-bold">RM ${formatCurrency(data.billSaving)}</span>
+
+                    <div class="flex flex-col justify-between">
+                        <div>
+                            <p class="text-[10px] uppercase opacity-60 font-bold mb-3 tracking-widest">C. EXPORT_EARNING_CREDIT</p>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-baseline border-b border-divider/50 pb-2">
+                                    <span class="text-xs uppercase tier-3">Total_Export_Volume</span>
+                                    <span class="text-sm font-bold">${Math.round(data.monthlyExportKwh).toLocaleString()} kWh</span>
+                                </div>
+                                <div class="flex justify-between items-baseline border-b border-divider/50 pb-2">
+                                    <span class="text-xs uppercase tier-3">NEM_NOVA_SMP_Rate</span>
+                                    <span class="text-sm font-bold">RM ${parseFloat(document.getElementById('smpPrice').value).toFixed(2)} /kWh</span>
+                                </div>
+                                <div class="flex justify-between items-baseline pt-2">
+                                    <span class="text-xs uppercase font-bold text-orange-600">EARNING_FROM_EXPORT_CREDIT</span>
+                                    <span class="text-base font-bold text-orange-600 underline">RM ${formatCurrency(data.exportEarnings)}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex justify-between py-2 border-b border-divider">
-                            <span class="text-xs uppercase tier-3">Export_Earnings (SMP)</span>
-                            <span class="text-sm font-bold">RM ${formatCurrency(data.exportEarnings)}</span>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-divider">
-                            <span class="text-xs uppercase tier-3">Net_Import_After_Solar</span>
-                            <span class="text-sm font-bold underline">RM ${formatCurrency(data.newBill.total_bill)}</span>
+
+                        <div class="bg-emerald-50 border-2 border-emerald-600 p-6 md:p-8 mt-10 shadow-[6px_6px_0px_0px_rgba(16,185,129,0.1)]">
+                            <h4 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-emerald-800 mb-6 border-b border-emerald-200 pb-2">06_TOTAL_ECONOMIC_BENEFIT</h4>
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-xs font-bold text-emerald-700">
+                                    <span>NET_MONTHLY_SAVINGS</span>
+                                    <span class="text-xl md:text-2xl">RM ${formatCurrency(data.totalMonthlySavings)}</span>
+                                </div>
+                                <p class="text-[9px] text-emerald-600 uppercase font-semibold leading-relaxed">
+                                    *Combined Value of Premise Energy Offset and Utility Export Credit.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <div class="flex flex-col items-center gap-4 pt-6">
-                <div class="text-[10px] uppercase font-bold tier-3 opacity-60">Modeling_Package: ${data.pkg ? data.pkg.package_name : 'Custom_Commercial_Build'}</div>
-                <button onclick="window.print()" class="text-[10px] font-bold uppercase tracking-widest border-2 border-fact px-8 py-3 hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none">
-                    [ DOWNLOAD_PRECISION_REPORT ]
+            <div class="flex flex-col items-center gap-4 pt-10 border-t border-divider">
+                <div class="text-[10px] uppercase font-bold tier-3 opacity-60">Modeling_Hardware: ${data.pkg ? data.pkg.package_name : 'Custom_Commercial_Build'}</div>
+                <button onclick="window.print()" class="text-[10px] font-bold uppercase tracking-widest border-2 border-fact px-10 py-4 hover:bg-black hover:text-white transition-all shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">
+                    [ DOWNLOAD_FULL_PRECISION_REPORT ]
                 </button>
             </div>
         </div>
@@ -371,3 +440,4 @@ async function testConnection() {
         s.innerHTML = r.ok ? `<span>[ STATUS: ONLINE ]</span><div class="h-px grow bg-divider"></div>` : `<span>[ STATUS: OFFLINE ]</span><div class="h-px grow bg-divider"></div>`;
     } catch { s.innerHTML = `<span>[ STATUS: ERROR ]</span><div class="h-px grow bg-divider"></div>`; }
 }
+window.testConnection = testConnection;
