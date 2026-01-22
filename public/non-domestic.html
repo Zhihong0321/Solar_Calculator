@@ -192,48 +192,91 @@
                         </div>
                     </div>
 
-                    <!-- Working Hours Section -->
-                    <div class="space-y-6">
-                        <h3 class="text-[10px] md:text-xs font-bold uppercase tracking-widest tier-3 flex items-center gap-3">
-                            <span>02_PREMISE_WORKING_HOURS</span>
-                            <div class="h-[1px] grow bg-divider opacity-50"></div>
-                        </h3>
-                        
-                        <div class="grid gap-6" id="working-hours-container">
-                            <!-- JS will populate this or we can hardcode for stability -->
-                            <script>
-                                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-                                document.write(days.map(day => `
-                                    <div class="flex flex-col py-3 border-b border-divider/40">
-                                        <div class="flex justify-between items-center mb-2">
-                                            <div class="text-xs font-bold uppercase tracking-wider tier-1">${day}</div>
-                                            <div class="flex gap-4">
-                                                <span class="time-label font-mono text-right" id="${day.toLowerCase()}-start-label">08:00 AM</span>
-                                                <span class="text-xs opacity-30">to</span>
-                                                <span class="time-label font-mono text-left" id="${day.toLowerCase()}-end-label">06:00 PM</span>
-                                            </div>
-                                        </div>
-                                        <div class="range-slider">
-                                            <div class="slider-track"></div>
-                                            <div class="slider-highlight" id="${day.toLowerCase()}-highlight"></div>
-                                            <input type="range" min="0" max="24" value="8" step="0.5" id="${day.toLowerCase()}-start" class="start-thumb">
-                                            <input type="range" min="0" max="24" value="18" step="0.5" id="${day.toLowerCase()}-end" class="end-thumb">
-                                        </div>
-                                    </div>
-                                `).join(''));
-                            </script>
-                        </div>
-                    </div>
-
                     <div class="pt-4">
                         <button
                             type="submit"
                             class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
                         >
-                            Execute_Commercial_Analysis ->
+                            Analyze_TNB_Breakdown ->
                         </button>
                     </div>
                 </form>
+            </section>
+
+            <!-- Step 2: Simulation Parameters (Hidden until Step 1 complete) -->
+            <section id="simulation-params" class="hidden space-y-10 md:space-y-16 pt-10 border-t-2 border-divider">
+                <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">02_SOLAR_SIMULATION_PARAMETERS</h2>
+                
+                <div class="grid gap-6 md:grid-cols-2 md:gap-x-8 md:gap-y-6">
+                    <div class="space-y-3">
+                        <label for="sunPeakHour" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Sun_Peak_Hours (h)</label>
+                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                            <input type="number" id="sunPeakHour" value="3.4" step="0.1" min="3.0" max="4.5" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label for="panelRating" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Panel_Rating (W)</label>
+                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                            <input type="number" id="panelRating" value="620" step="10" min="400" max="800" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label for="baseLoadPercent" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Building_Base_Load (%)</label>
+                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                            <input type="number" id="baseLoadPercent" value="1" step="0.1" min="0" max="100" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label for="smpPrice" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">SMP_Export_Price (RM)</label>
+                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                            <input type="number" id="smpPrice" value="0.20" step="0.01" min="0" max="0.50" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Working Hours Section -->
+                <div class="space-y-6">
+                    <h3 class="text-[10px] md:text-xs font-bold uppercase tracking-widest tier-3 flex items-center gap-3">
+                        <span>03_PREMISE_WORKING_HOURS</span>
+                        <div class="h-[1px] grow bg-divider opacity-50"></div>
+                    </h3>
+                    
+                    <div class="grid gap-6" id="working-hours-container">
+                        <script>
+                            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                            document.write(days.map(day => `
+                                <div class="flex flex-col py-3 border-b border-divider/40">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <div class="text-xs font-bold uppercase tracking-wider tier-1">${day}</div>
+                                        <div class="flex gap-4">
+                                            <span class="time-label font-mono text-right" id="${day.toLowerCase()}-start-label">08:00 AM</span>
+                                            <span class="text-xs opacity-30">to</span>
+                                            <span class="time-label font-mono text-left" id="${day.toLowerCase()}-end-label">06:00 PM</span>
+                                        </div>
+                                    </div>
+                                    <div class="range-slider">
+                                        <div class="slider-track"></div>
+                                        <div class="slider-highlight" id="${day.toLowerCase()}-highlight"></div>
+                                        <input type="range" min="0" max="24" value="8" step="0.5" id="${day.toLowerCase()}-start" class="start-thumb">
+                                        <input type="range" min="0" max="24" value="18" step="0.5" id="${day.toLowerCase()}-end" class="end-thumb">
+                                    </div>
+                                </div>
+                            `).join(''));
+                        </script>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <button
+                        onclick="executeFullAnalysis()"
+                        class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(16,185,129,0.2)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
+                    >
+                        Execute_ROI_Analysis ->
+                    </button>
+                </div>
             </section>
 
             <section id="calculatorResults" class="space-y-20 md:space-y-32"></section>

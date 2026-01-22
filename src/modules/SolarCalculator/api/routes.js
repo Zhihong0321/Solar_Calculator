@@ -224,7 +224,7 @@ router.get('/api/solar-calculation', async (req, res) => {
   }
 });
 
-// API endpoint for Commercial Bill Breakdown from external DB
+// API endpoint for Commercial Bill Breakdown from external DB (By Amount)
 router.get('/api/commercial/calculate-bill', async (req, res) => {
   const { Pool } = require('pg');
   const tnbDbUrl = process.env.TNB_DATABASE_URL || 'postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway';
@@ -241,7 +241,7 @@ router.get('/api/commercial/calculate-bill', async (req, res) => {
     const client = await commercialPool.connect();
     const query = `
       SELECT * FROM bill_simulation_lookup 
-      WHERE total_bill <= $1 
+      WHERE tariff_group = 'LV_COMMERCIAL' AND total_bill <= $1 
       ORDER BY total_bill DESC 
       LIMIT 1
     `;
@@ -249,9 +249,47 @@ router.get('/api/commercial/calculate-bill', async (req, res) => {
     client.release();
 
     if (result.rows.length === 0) {
-      // Fallback to closest minimum if no record is smaller than input
       const fallbackClient = await commercialPool.connect();
-      const fallbackResult = await fallbackClient.query('SELECT * FROM bill_simulation_lookup ORDER BY total_bill ASC LIMIT 1');
+      const fallbackResult = await fallbackClient.query('SELECT * FROM bill_simulation_lookup WHERE tariff_group = \'LV_COMMERCIAL\' ORDER BY total_bill ASC LIMIT 1');
+      fallbackClient.release();
+      return res.json({ tariff: fallbackResult.rows[0], matched: false });
+    }
+
+    res.json({ tariff: result.rows[0], matched: true });
+  } catch (err) {
+    res.status(500).json({ error: 'External DB error', details: err.message });
+  } finally {
+    await commercialPool.end();
+  }
+});
+
+// API endpoint for Commercial Bill Lookup from external DB (By Usage)
+router.get('/api/commercial/lookup-by-usage', async (req, res) => {
+  const { Pool } = require('pg');
+  const tnbDbUrl = process.env.TNB_DATABASE_URL || 'postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway';
+  
+  const commercialPool = new Pool({
+    connectionString: tnbDbUrl,
+    ssl: tnbDbUrl.includes('rlwy.net') ? { rejectUnauthorized: false } : false
+  });
+
+  try {
+    const usageKwh = parseFloat(req.query.usage);
+    if (usageKwh === undefined) return res.status(400).json({ error: 'Usage is required' });
+
+    const client = await commercialPool.connect();
+    const query = `
+      SELECT * FROM bill_simulation_lookup 
+      WHERE tariff_group = 'LV_COMMERCIAL' AND usage_kwh <= $1 
+      ORDER BY usage_kwh DESC 
+      LIMIT 1
+    `;
+    const result = await client.query(query, [Math.floor(usageKwh)]);
+    client.release();
+
+    if (result.rows.length === 0) {
+      const fallbackClient = await commercialPool.connect();
+      const fallbackResult = await fallbackClient.query('SELECT * FROM bill_simulation_lookup WHERE tariff_group = \'LV_COMMERCIAL\' ORDER BY usage_kwh ASC LIMIT 1');
       fallbackClient.release();
       return res.json({ tariff: fallbackResult.rows[0], matched: false });
     }
