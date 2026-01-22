@@ -195,12 +195,18 @@ async function executeFullAnalysis() {
     });
 
     const hourlyBaseLoad = (totalMonthlyKwh * baseLoadPct) / 720;
-    const hourlyOperationalLoad = (totalMonthlyKwh * (1 - baseLoadPct)) / (weeklyWorkingHours * 4.33);
+    const hourlyOperationalLoad = weeklyWorkingHours > 0 
+        ? (totalMonthlyKwh * (1 - baseLoadPct)) / (weeklyWorkingHours * 4.33)
+        : 0;
 
-    const peakHourlyConsumption = hourlyBaseLoad + hourlyOperationalLoad;
-    const recommendedKw = (peakHourlyConsumption / 0.7); 
+    // 2. Recommend System Size - STABLE (Based on Monthly Usage only)
+    // Target system size to cover ~80% of total monthly generation potential
+    const sunPeakStandard = 3.4;
+    const targetMonthlyGen = totalMonthlyKwh * 0.8; 
+    const recommendedKw = (targetMonthlyGen / 30 / sunPeakStandard);
     let recommendedPanels = Math.max(1, Math.ceil((recommendedKw * 1000) / panelRating));
     
+    // Find closest package
     let pkg = db.packages
         .filter(p => p.panel_qty >= recommendedPanels && (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
         .sort((a,b) => a.panel_qty - b.panel_qty)[0];
