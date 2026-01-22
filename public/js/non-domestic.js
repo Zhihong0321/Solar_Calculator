@@ -87,7 +87,6 @@ window.setDayOff = function(dayKey) {
     if (startInput && endInput) {
         startInput.value = 0;
         endInput.value = 0;
-        // Trigger the input event manually to update labels and highlight
         startInput.dispatchEvent(new Event('input'));
     }
 }
@@ -321,42 +320,38 @@ function displayFullROIResults(data) {
                 </div>
             </section>
 
-            <!-- 04.1 DAILY YIELD PROJECTION -->
+            <!-- 04.1 DAILY YIELD PROJECTION (Visualized) -->
             <section class="space-y-6">
                 <h3 class="text-xs font-bold uppercase tracking-widest tier-2 border-b-2 border-fact inline-block pb-1">04.1_DAILY_YIELD_PROJECTION</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-[10px] md:text-xs text-left border-collapse">
-                        <thead>
-                            <tr class="tier-3 uppercase border-b border-divider">
-                                <th class="py-3 font-bold">DAY_OF_WEEK</th>
-                                <th class="py-3 font-bold text-right">DIRECT_OFFSET (kWh)</th>
-                                <th class="py-3 font-bold text-right">EXPORT_TO_GRID (kWh)</th>
-                                <th class="py-3 font-bold text-right">TOTAL_YIELD</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.dailyData.map(d => `
-                                <tr class="border-b border-divider/40">
-                                    <td class="py-3 font-semibold uppercase">${d.day}</td>
-                                    <td class="py-3 text-right text-emerald-600 font-bold">${d.offset.toFixed(2)}</td>
-                                    <td class="py-3 text-right text-orange-600 font-bold">${d.export.toFixed(2)}</td>
-                                    <td class="py-3 text-right font-bold">${(d.offset + d.export).toFixed(2)}</td>
-                                </tr>
-                            `).join('')}
-                            <tr class="bg-black/5 font-bold">
-                                <td class="py-3 uppercase">WEEKLY_TOTAL</td>
-                                <td class="py-3 text-right text-emerald-600 underline">${(data.monthlyOffsetKwh / 4.33).toFixed(2)}</td>
-                                <td class="py-3 text-right text-orange-600 underline">${(data.monthlyExportKwh / 4.33).toFixed(2)}</td>
-                                <td class="py-3 text-right underline">${((data.monthlyOffsetKwh + data.monthlyExportKwh) / 4.33).toFixed(2)}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="space-y-4">
+                    ${data.dailyData.map(d => {
+                        const total = d.offset + d.export;
+                        const offsetPct = (d.offset / total) * 100;
+                        const exportPct = (d.export / total) * 100;
+                        return `
+                        <div class="border-b border-divider/30 pb-4">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider">${d.day}</span>
+                                <span class="text-[10px] font-mono opacity-60">${total.toFixed(2)} kWh</span>
+                            </div>
+                            <div class="yield-bar-container">
+                                <div class="yield-bar-offset" style="width: ${offsetPct}%"></div>
+                                <div class="yield-bar-export" style="width: ${exportPct}%"></div>
+                            </div>
+                            <div class="flex justify-between mt-1 text-[8px] font-bold uppercase">
+                                <span class="text-emerald-600">Offset: ${d.offset.toFixed(1)} kWh (${offsetPct.toFixed(0)}%)</span>
+                                <span class="text-orange-600">Export: ${d.export.toFixed(1)} kWh (${exportPct.toFixed(0)}%)</span>
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
                 </div>
             </section>
 
             <!-- 05 ACCUMULATED SAVINGS ANALYSIS -->
             <section class="space-y-6 pt-10 border-t-2 border-divider">
                 <h3 class="text-xs font-bold uppercase tracking-widest tier-2 border-b-2 border-fact inline-block pb-1">05_ACCUMULATED_SAVINGS_ANALYSIS</h3>
+                
                 <div class="grid md:grid-cols-2 gap-10">
                     <div class="space-y-8">
                         <div>
@@ -396,7 +391,7 @@ function displayFullROIResults(data) {
                         </div>
                     </div>
 
-                    <div class="flex flex-col justify-between">
+                    <div class="space-y-8">
                         <div>
                             <p class="text-[10px] uppercase opacity-60 font-bold mb-3 tracking-widest">C. EXPORT_EARNING_CREDIT</p>
                             <div class="space-y-4">
@@ -415,18 +410,26 @@ function displayFullROIResults(data) {
                             </div>
                         </div>
 
-                        <div class="bg-emerald-50 border-2 border-emerald-600 p-6 md:p-8 mt-10 shadow-[6px_6px_0px_0px_rgba(16,185,129,0.1)]">
-                            <h4 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-emerald-800 mb-6 border-b border-emerald-200 pb-2">06_TOTAL_ECONOMIC_BENEFIT</h4>
-                            <div class="space-y-3">
-                                <div class="flex justify-between text-xs font-bold text-emerald-700">
-                                    <span>NET_MONTHLY_SAVINGS</span>
-                                    <span class="text-xl md:text-2xl">RM ${formatCurrency(data.totalMonthlySavings)}</span>
-                                </div>
-                                <p class="text-[9px] text-emerald-600 uppercase font-semibold leading-relaxed">
-                                    *Combined Value of Premise Energy Offset and Utility Export Credit.
-                                </p>
+                        <!-- Savings Pie Chart -->
+                        <div class="pt-4">
+                            <p class="text-[10px] uppercase opacity-60 font-bold mb-4 tracking-widest text-center">D. SAVINGS_DISTRIBUTION</p>
+                            <div class="relative h-48 w-full flex justify-center">
+                                <canvas id="savingsPieChart"></canvas>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-50 border-2 border-emerald-600 p-6 md:p-8 mt-10 shadow-[6px_6px_0px_0px_rgba(16,185,129,0.1)]">
+                    <h4 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-emerald-800 mb-6 border-b border-emerald-200 pb-2">06_TOTAL_ECONOMIC_BENEFIT</h4>
+                    <div class="space-y-3 text-center md:text-left">
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-emerald-700">
+                            <span class="text-xs font-bold uppercase tracking-widest">NET_MONTHLY_ECONOMIC_SAVINGS</span>
+                            <span class="text-3xl md:text-5xl font-bold">RM ${formatCurrency(data.totalMonthlySavings)}</span>
+                        </div>
+                        <p class="text-[9px] text-emerald-600 uppercase font-semibold leading-relaxed mt-4">
+                            *This figure includes both direct utility bill reduction and credit income generated via energy export to the grid.
+                        </p>
                     </div>
                 </div>
             </section>
@@ -439,7 +442,42 @@ function displayFullROIResults(data) {
             </div>
         </div>
     `;
+
     resultsDiv.lastElementChild.scrollIntoView({ behavior: 'smooth' });
+    
+    // Render the Pie Chart
+    renderSavingsPieChart(data.billSaving, data.exportEarnings);
+}
+
+function renderSavingsPieChart(billSaving, exportSaving) {
+    const ctx = document.getElementById('savingsPieChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Bill Reduction', 'Export Credit'],
+            datasets: [{
+                data: [billSaving, exportSaving],
+                backgroundColor: ['#10B981', '#F97316'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: { size: 10, family: 'Inter', weight: '600' },
+                        boxWidth: 12,
+                        padding: 15
+                    }
+                }
+            },
+            cutout: '70%'
+        }
+    });
 }
 
 function formatCurrency(v) { return Number(v||0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
