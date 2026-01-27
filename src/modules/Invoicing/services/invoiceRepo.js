@@ -584,13 +584,14 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
       RETURNING *
     `;
     const values = [
-      bubbleId, data.templateId || 'default', data.customerId, data.agentId, 
+      bubbleId, data.templateId || 'default', customerBubbleId, linkedAgent, 
       data.packageId, invoiceNumber, data.status || 'draft', 
-      totalAmount, 0, totalAmount, data.invoiceDate || new Date(), 
-      data.createdBy, shareToken
+      finalTotalAmount, 0, finalTotalAmount, data.invoiceDate || new Date(), 
+      finalCreatedBy, shareToken
     ];
 
-  return invoiceResult.rows[0];
+    const invoiceResult = await client.query(query, values);
+    return invoiceResult.rows[0];
 }
 
 /**
@@ -1209,6 +1210,10 @@ async function updateInvoiceTransaction(client, data) {
 
     // 1. Fetch current record
     const currentRes = await client.query(
+        'SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent, version, paid_amount FROM invoice WHERE bubble_id = $1',
+        [bubbleId]
+    );
+    const currentData = currentRes.rows[0];
     if (!currentData) throw new Error('Invoice not found');
 
     // 2. Resolve Dependencies
@@ -1242,35 +1247,29 @@ async function updateInvoiceTransaction(client, data) {
     const voucherInfo = await _processVouchers(client, data, packagePrice);
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
 
-    const {
-        taxableSubtotal, markupAmount, sstRate, sstAmount, 
-        percentDiscountVal, finalTotalAmount 
-    } = financials;
-
-    // Increment Revision Label
-    const nextVersion = (currentData.version || 1) + 1;
+    const { finalTotalAmount } = financials;
 
     // 5. Standard SQL UPDATE
-    await client.query(
-    // 2. Update Header
     const updateQuery = `
         UPDATE invoice SET 
             template_id = $1,
             linked_package = $2,
-            total_amount = $3,
-            balance_due = $3 - COALESCE(paid_amount, 0),
-            status = $4,
+            linked_customer = $3,
+            total_amount = $4,
+            balance_due = $4 - COALESCE(paid_amount, 0),
+            status = $5,
             updated_at = NOW()
-        WHERE bubble_id = $5
+        WHERE bubble_id = $6
     `;
     const updateValues = [
         data.templateId || 'default',
-        data.packageId,
-        totalAmount,
+        data.packageId || currentData.linked_package,
+        customerBubbleId,
+        finalTotalAmount,
         data.status || currentData.status,
-        invoiceId
+        bubbleId
     ];
-    );
+    await client.query(updateQuery, updateValues);
 
     // 6. Item Update (Smart: Delete old and insert new for consistency)
     // We stick to delete/insert here but ensure they keep the same linked_invoice (UID)
@@ -1327,8 +1326,8 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       invoice_date, agent_markup,
       discount_fixed, discount_percent, voucher_code,
       total_amount, status, share_token, share_enabled,
-      share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW(), $19, $20, $21, true)
+      share_expires_at, created_by, version, root_id, parent_id, is_latest, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), NOW())
      RETURNING *`,
     [
       bubbleId,
@@ -1350,7 +1349,8 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       finalCreatedBy,
       version,
       rootId,
-      org.bubble_id
+      org.bubble_id,
+      true
     ]
   );
 
