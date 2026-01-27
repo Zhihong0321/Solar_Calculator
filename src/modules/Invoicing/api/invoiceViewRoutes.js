@@ -44,8 +44,6 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
     try {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
-      if (invoice) {
-
       if (!invoice) {
         return res.status(404).send('Invoice not found');
       }
