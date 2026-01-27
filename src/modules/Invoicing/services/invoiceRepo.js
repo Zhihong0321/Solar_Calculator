@@ -1095,13 +1095,13 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   // Payment Status Filtering logic based on calculated total_received
   if (paymentStatus) {
     if (paymentStatus === 'unpaid') {
-        filterClause += ` AND (total_received IS NULL OR total_received <= 0) AND i.status != 'deleted'`;
+        filterClause += ` AND (total_received IS NULL OR total_received <= 0) AND status != 'deleted'`;
     } else if (paymentStatus === 'partial') {
-        filterClause += ` AND total_received > 0 AND total_received < total_amount AND i.status != 'deleted'`;
+        filterClause += ` AND total_received > 0 AND total_received < total_amount AND status != 'deleted'`;
     } else if (paymentStatus === 'paid') {
-        filterClause += ` AND total_received >= total_amount AND total_amount > 0 AND i.status != 'deleted'`;
+        filterClause += ` AND total_received >= total_amount AND total_amount > 0 AND status != 'deleted'`;
     } else if (paymentStatus === 'deleted') {
-        filterClause += ` AND i.status = 'deleted'`;
+        filterClause += ` AND status = 'deleted'`;
     }
   }
 
