@@ -158,38 +158,45 @@ app.put('/api/agent/profile', requireAuth, async (req, res) => {
  */
 app.get('/api/agent/me', requireAuth, async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const bubbleId = req.user.bubbleId || req.user.bubble_id || ''; // Handle naming variations in JWT
+    const userId = req.user.userId || req.user.id;
+    const bubbleId = req.user.bubbleId || req.user.bubble_id;
 
     if (!userId) {
       console.error('[AgentMe] No userId found in req.user:', req.user);
       return res.status(401).json({ error: 'Invalid session data' });
     }
 
-    // Fetch user details and link to agent table for contact info
-    // We use COALESCE to ensure we don't return null for critical display fields
+    // Alignment with userRoutes.js logic:
+    // Some agents might be linked via linked_agent_profile = a.bubble_id
+    // others might be linked via a.linked_user_login = u.bubble_id
     const query = `
       SELECT 
         u.name, 
         u.email, 
-        COALESCE(u.linked_agent_profile, u.profile_picture) as profile_picture,
+        u.linked_agent_profile as profile_picture,
         a.contact as phone
       FROM "user" u
-      LEFT JOIN agent a ON a.linked_user_login = u.bubble_id
+      LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
       WHERE u.id::text = $1 OR (u.bubble_id = $2 AND u.bubble_id IS NOT NULL AND u.bubble_id != '')
       LIMIT 1
     `;
-    const result = await pool.query(query, [String(userId), String(bubbleId)]);
+    const result = await pool.query(query, [String(userId), String(bubbleId || '')]);
     
     if (result.rows.length === 0) {
-      console.warn(`[AgentMe] No user found for ID: ${userId}, BubbleID: ${bubbleId}`);
-      return res.status(404).json({ error: 'Agent not found in database' });
+      console.warn(`[AgentMe] No user found for ID: ${userId}`);
+      return res.status(404).json({ error: 'Agent not found' });
     }
 
     res.json(result.rows[0]);
   } catch (err) {
     console.error('[AgentMe] Critical Error:', err);
-    res.status(500).json({ error: 'Internal server error', message: err.message });
+    // Return detailed error for debugging purposes
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: err.message,
+      stack: err.stack,
+      hint: 'Check if all columns (name, email, linked_agent_profile, profile_picture) exist in "user" table and contact in "agent" table.'
+    });
   }
 });
 
