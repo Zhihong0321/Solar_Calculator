@@ -1443,14 +1443,8 @@ async function deleteSampleInvoices(client, userId) {
 
     const bubbleIds = targets.rows.map(r => r.bubble_id);
 
-    // 2. Delete Linked Items (invoice_item)
-    await client.query(`DELETE FROM invoice_item WHERE linked_invoice = ANY($1)`, [bubbleIds]);
-
-    // 3. Delete Actions (invoice_action)
-    await client.query(`DELETE FROM invoice_action WHERE invoice_id = ANY($1)`, [bubbleIds]);
-
-    // 4. Delete Invoices
-    await client.query(`DELETE FROM invoice WHERE bubble_id = ANY($1)`, [bubbleIds]);
+    // Perform soft delete (status = 'deleted')
+    await client.query(`UPDATE invoice SET status = 'deleted', updated_at = NOW() WHERE bubble_id = ANY($1)`, [bubbleIds]);
 
     await client.query('COMMIT');
     return targets.rows.length;

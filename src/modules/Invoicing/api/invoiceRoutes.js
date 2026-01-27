@@ -146,7 +146,7 @@ router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
         const isOwner = await invoiceRepo.verifyOwnership(client, userId, inv.rows[0].created_by, inv.rows[0].linked_agent);
         if (!isOwner) return res.status(403).json({ success: false, error: 'Access denied' });
 
-        await client.query('DELETE FROM invoice WHERE bubble_id = $1', [bubbleId]);
+        await client.query("UPDATE invoice SET status = 'deleted', updated_at = NOW() WHERE bubble_id = $1", [bubbleId]);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
