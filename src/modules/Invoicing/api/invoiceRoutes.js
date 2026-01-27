@@ -244,11 +244,7 @@ router.delete('/api/v1/invoices/cleanup-samples', requireAuth, async (req, res) 
     let client = null;
     try {
         client = await pool.connect();
-        await client.query('DELETE FROM invoice WHERE customer_name LIKE 
-%Sample%
- OR customer_name LIKE 
-%Test%
-');
+        await client.query("DELETE FROM invoice WHERE customer_name LIKE '%Sample%' OR customer_name LIKE '%Test%'");
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
