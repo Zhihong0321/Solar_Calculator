@@ -48,7 +48,7 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
         return res.status(404).send('Invoice not found');
       }
 
-      const html = await invoiceHtmlGenerator.generateInvoiceHtml(client, invoice, { isPdf: true });
+      const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { isPdf: true });
       const pdfBuffer = await externalPdfService.generatePdf(html);
 
       res.setHeader('Content-Type', 'application/pdf');
@@ -75,6 +75,7 @@ router.get('/proposal/:shareToken', async (req, res) => {
       const invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
 
       if (invoice) {
+        // Proposals currently use the portable-proposal static HTML or the same invoice template
         res.sendFile(path.join(__dirname, '../../../../portable-proposal/index.html'));
       } else {
         res.status(404).send('Proposal not found');
@@ -102,7 +103,8 @@ router.get('/proposal/:shareToken/pdf', async (req, res) => {
         return res.status(404).send('Proposal not found');
       }
 
-      const html = await invoiceHtmlGenerator.generateProposalHtml(client, invoice, { isPdf: true });
+      // If generateProposalHtml is missing, fallback to generateInvoiceHtml
+      const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { isPdf: true });
       const pdfBuffer = await externalPdfService.generatePdf(html);
 
       res.setHeader('Content-Type', 'application/pdf');
