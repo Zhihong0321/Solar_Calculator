@@ -196,50 +196,11 @@ router.get('/api/v1/invoices/:bubbleId/history', requireAuth, async (req, res) =
 });
 
 /**
- * GET /api/v1/invoices/actions/:actionId/snapshot
- */
-router.get('/api/v1/invoices/actions/:actionId/snapshot', requireAuth, async (req, res) => {
-    const { actionId } = req.params;
-    let client = null;
-    try {
-        client = await pool.connect();
-        const result = await client.query('SELECT details->\'snapshot\' as snapshot FROM invoice_action WHERE bubble_id = $1', [actionId]);
-        
-        if (result.rows.length === 0 || !result.rows[0].snapshot) {
-            return res.status(404).json({ success: false, error: 'Snapshot not found' });
-        }
-        
-        res.json({ success: true, data: result.rows[0].snapshot });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    } finally {
-        if (client) client.release();
-    }
-});
 
-/**
- * POST /api/v1/invoices/:bubbleId/snapshot
- */
-router.post('/api/v1/invoices/:bubbleId/snapshot', requireAuth, async (req, res) => {
-    const { bubbleId } = req.params;
-    const userId = req.user.userId;
-    let client = null;
-    try {
-        client = await pool.connect();
-        await invoiceRepo.logInvoiceAction(client, bubbleId, 'manual_snapshot', userId, {
-            note: 'User requested manual snapshot'
-        });
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    } finally {
-        if (client) client.release();
-    }
-});
-
-/**
  * DELETE /api/v1/invoices/cleanup-samples
+
  */
+
 router.delete('/api/v1/invoices/cleanup-samples', requireAuth, async (req, res) => {
     let client = null;
     try {

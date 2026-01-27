@@ -78,7 +78,7 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
                 ii.created_at,
                 ii.is_a_package,
                 ii.linked_package as product_id,
-                COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name_snapshot
+                COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
              FROM invoice_item ii
              LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
              WHERE ii.linked_invoice = $1 

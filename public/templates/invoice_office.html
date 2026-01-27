@@ -636,7 +636,7 @@
             if (itemsArray.length > 0) {
                 container.innerHTML = itemsArray.map(item => {
                     // Safely extract values with defaults
-                    const name = item.product_name_snapshot || item.description || 'Item';
+                    const name = item.product_name || item.description || 'Item';
                     const desc = item.description || '';
                     const qty = parseFloat(item.qty) || 0;
                     const price = parseFloat(item.total_price) || 0;

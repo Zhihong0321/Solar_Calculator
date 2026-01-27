@@ -378,15 +378,12 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount) {
 }
 
 /**
- * Reconstruct viewable invoice from action snapshot
- * @param {object} actionDetails - The JSON object stored in invoice_action.details
- * @returns {object} The viewable invoice object
+ * Reconstruct viewable invoice from action details
+ * @param {object} actionDetails - Action details
+ * @returns {object|null} Reconstructed object or null
  */
-function reconstructInvoiceFromSnapshot(actionDetails) {
-  if (!actionDetails || !actionDetails.snapshot) {
-    return null;
-  }
-  return actionDetails.snapshot;
+function reconstructFromSnapshot(actionDetails) {
+  return actionDetails || null;
 }
 
 /**
@@ -401,12 +398,12 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     const invoiceResult = await client.query(
       `SELECT 
         i.*,
-        COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
-        COALESCE(c.email, i.customer_email_snapshot) as customer_email,
-        COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
-        COALESCE(c.address, i.customer_address_snapshot) as customer_address,
-        COALESCE(i.profile_picture_snapshot, c.profile_picture) as profile_picture,
-        COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
+        c.name as customer_name,
+        c.email as customer_email,
+        c.phone as customer_phone,
+        c.address as customer_address,
+        c.profile_picture as profile_picture,
+        pkg.package_name as package_name
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
@@ -432,7 +429,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         ii.created_at,
         ii.is_a_package,
         ii.linked_package as product_id,
-        COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name_snapshot
+        COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
        FROM invoice_item ii
        LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
        WHERE ii.linked_invoice = $1 
@@ -539,47 +536,23 @@ async function getInvoiceByBubbleId(client, bubbleId) {
 }
 
 /**
- * Helper: Log invoice action with full snapshot
- * @public
+ * Helper: Log invoice action
+ * @param {object} client - Database client
+ * @param {string} invoiceId - Invoice bubble_id
+ * @param {string} actionType - Action type
+ * @param {string} userId - User ID
+ * @param {object} details - Action details
  */
-async function logInvoiceAction(client, invoiceId, actionType, createdBy, extraDetails = {}) {
+async function logInvoiceAction(client, invoiceId, actionType, userId, details = {}) {
   try {
-    // Fetch full snapshot (Header + Items)
-    const snapshot = await getInvoiceByBubbleId(client, invoiceId);
-
-    if (!snapshot) {
-      console.error(`Failed to capture snapshot for invoice ${invoiceId}`);
-      throw new Error(`Snapshot not found for invoice ${invoiceId}`);
-    }
-
-    const actionId = `act_${crypto.randomBytes(8).toString('hex')}`;
-
-    // 1. Log to legacy invoice_action (existing logic)
-    const details = {
-      ...extraDetails,
-      snapshot: snapshot
-    };
-
     await client.query(
-      `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, details, created_by, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [actionId, invoiceId, actionType, JSON.stringify(details), createdBy]
-    );
-
-    // 2. Log to NEW invoice_snapshot table (New Architecture)
-    // We get the real integer ID from the snapshot
-    const invoiceIntId = snapshot.id;
-    const version = snapshot.version || 1;
-
-    await client.query(
-      `INSERT INTO invoice_snapshot (invoice_id, version, snapshot_data, created_by, created_at)
+      `INSERT INTO invoice_action (invoice_id, action_type, created_by, details, created_at)
        VALUES ($1, $2, $3, $4, NOW())`,
-      [invoiceIntId, version, JSON.stringify(snapshot), createdBy]
+      [invoiceId, actionType, userId, JSON.stringify(details)]
     );
-
   } catch (err) {
     console.error('Error logging invoice action:', err);
-    throw new Error(`Failed to log invoice action: ${err.message}`);
+    // Non-blocking
   }
 }
 
@@ -603,42 +576,19 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   const finalCreatedBy = String(userId);
 
-  const invoiceResult = await client.query(
-    `INSERT INTO invoice
-     (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
-      customer_phone_snapshot, profile_picture_snapshot, linked_package, package_name_snapshot, invoice_number,
-      invoice_date, agent_markup,
-      discount_fixed, discount_percent, voucher_code,
-      total_amount, status, share_token, share_enabled,
-      share_expires_at, created_by, version, root_id, is_latest, created_at, updated_at, follow_up_date)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, 1, $1, true, NOW(), NOW(), $23)
-     RETURNING *`,
-    [
-      bubbleId,
-      template.bubble_id || null, // Use template.bubble_id, not templateId passed in
-      customerBubbleId,
-      linkedAgent,
-      customerName || "Sample Quotation",
-      customerAddress || null,
-      customerPhone || null,
-      data.profilePicture || null,
-      pkg.bubble_id,
-      pkg.name || null,
-      invoiceNumber,
-      new Date().toISOString().split('T')[0],
-      markupAmount,
-      discountFixed,
-      discountPercent,
-      validVoucherCodes.join(', ') || null,
-      finalTotalAmount,
-      'draft',
-      shareToken,
-      true,
-      shareExpiresAt.toISOString(),
-      finalCreatedBy,
-      data.followUpDate || null
-    ]
-  );
+    const query = `
+      INSERT INTO invoice 
+      (bubble_id, template_id, linked_customer, linked_agent, linked_package, invoice_number, 
+       status, total_amount, paid_amount, balance_due, invoice_date, created_by, share_token)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *
+    `;
+    const values = [
+      bubbleId, data.templateId || 'default', data.customerId, data.agentId, 
+      data.packageId, invoiceNumber, data.status || 'draft', 
+      totalAmount, 0, totalAmount, data.invoiceDate || new Date(), 
+      data.createdBy, shareToken
+    ];
 
   return invoiceResult.rows[0];
 }
@@ -878,7 +828,7 @@ async function createInvoiceOnTheFly(client, data) {
     await client.query('COMMIT');
 
     // 6. Log Action with Snapshot (after commit)
-    // DB Trigger now handles snapshot creation automatically
+    // DB Trigger now handles extra persistence automatically
 
     return {
       ...invoice,
@@ -905,16 +855,15 @@ async function getPublicInvoice(client, tokenOrId) {
     const invoiceResult = await client.query(
       `SELECT 
         i.*,
-        COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
-        COALESCE(c.email, i.customer_email_snapshot) as customer_email,
-        COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
-        COALESCE(c.address, i.customer_address_snapshot) as customer_address,
-        COALESCE(i.profile_picture_snapshot, c.profile_picture) as profile_picture,
-        COALESCE(pkg.package_name, i.package_name_snapshot) as package_name
-       FROM invoice i
-       LEFT JOIN customer c ON i.linked_customer = c.customer_id
-       LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
-       WHERE (i.share_token = $1 OR i.bubble_id = $1)
+                COALESCE(c.name, 'Unknown Customer') as customer_name,
+                c.email as customer_email,
+                c.phone as customer_phone,
+                c.address as customer_address,
+                c.profile_picture as profile_picture,
+                pkg.package_name as package_name
+               FROM invoice i 
+               LEFT JOIN customer c ON i.linked_customer = c.customer_id
+               LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id       WHERE (i.share_token = $1 OR i.bubble_id = $1)
          AND i.share_enabled = true
          AND (i.share_expires_at IS NULL OR i.share_expires_at > NOW())
        LIMIT 1`,
@@ -942,7 +891,7 @@ async function getPublicInvoice(client, tokenOrId) {
         ii.created_at,
         ii.is_a_package,
         ii.linked_package as product_id,
-        COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name_snapshot
+        COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
        FROM invoice_item ii
        LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
        WHERE ii.linked_invoice = $1 
@@ -1107,10 +1056,10 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.invoice_date,
             i.created_at,
             -- LIVE DATA JOINS
-            COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') as customer_name,
+            COALESCE(c.name, 'Unknown Customer') as customer_name,
             COALESCE(c.email, '') as customer_email,
-            COALESCE(c.phone, i.customer_phone_snapshot) as customer_phone,
-            COALESCE(i.profile_picture_snapshot, c.profile_picture) as profile_picture,
+            COALESCE(c.phone, '') as customer_phone,
+            COALESCE(c.profile_picture, '') as profile_picture,
             COALESCE(pkg.package_name, 'Unknown Package') as package_name,
             i.total_amount,
             i.status,
@@ -1258,8 +1207,8 @@ async function updateInvoiceTransaction(client, data) {
   try {
     await client.query('BEGIN');
 
-    // 1. Fetch current record for snapshot and base details
-    const currentData = await getInvoiceByBubbleId(client, bubbleId);
+    // 1. Fetch current record
+    const currentRes = await client.query(
     if (!currentData) throw new Error('Invoice not found');
 
     // 2. Resolve Dependencies
@@ -1278,8 +1227,8 @@ async function updateInvoiceTransaction(client, data) {
     if (data.customerName) {
         const custResult = await findOrCreateCustomer(client, {
             name: data.customerName,
-            phone: data.customerPhone || currentData.customer_phone_snapshot,
-            address: data.customerAddress || currentData.customer_address_snapshot,
+            phone: data.customerPhone,
+            address: data.customerAddress,
             profilePicture: data.profilePicture || null,
             createdBy: data.userId
         });
@@ -1298,47 +1247,29 @@ async function updateInvoiceTransaction(client, data) {
         percentDiscountVal, finalTotalAmount 
     } = financials;
 
-    // Increment Revision Label (Optional - just for the number snapshot)
+    // Increment Revision Label
     const nextVersion = (currentData.version || 1) + 1;
 
     // 5. Standard SQL UPDATE
     await client.query(
-        `UPDATE invoice SET
-            linked_customer = $1,
-            linked_agent = $2,
-            customer_name_snapshot = $3,
-            customer_address_snapshot = $4,
-            customer_phone_snapshot = $5,
-            profile_picture_snapshot = $6,
-            linked_package = $7,
-            package_name_snapshot = $8,
-            agent_markup = $9,
-            discount_fixed = $10,
-            discount_percent = $11,
-            voucher_code = $12,
-            total_amount = $13,
-            version = $14,
-            updated_at = NOW(),
-            follow_up_date = $16
-         WHERE bubble_id = $15`,
-        [
-            customerBubbleId,
-            linkedAgent,
-            data.customerName || currentData.customer_name_snapshot,
-            data.customerAddress || currentData.customer_address_snapshot,
-            data.customerPhone || currentData.customer_phone_snapshot,
-            data.profilePicture || currentData.profile_picture_snapshot,
-            pkg.bubble_id,
-            pkg.name || currentData.package_name_snapshot,
-            markupAmount,
-            data.discountFixed || 0,
-            data.discountPercent || 0,
-            voucherInfo.validVoucherCodes.join(', ') || null,
-            finalTotalAmount,
-            nextVersion,
-            bubbleId,
-            data.followUpDate || null
-        ]
+    // 2. Update Header
+    const updateQuery = `
+        UPDATE invoice SET 
+            template_id = $1,
+            linked_package = $2,
+            total_amount = $3,
+            balance_due = $3 - COALESCE(paid_amount, 0),
+            status = $4,
+            updated_at = NOW()
+        WHERE bubble_id = $5
+    `;
+    const updateValues = [
+        data.templateId || 'default',
+        data.packageId,
+        totalAmount,
+        data.status || currentData.status,
+        invoiceId
+    ];
     );
 
     // 6. Item Update (Smart: Delete old and insert new for consistency)
@@ -1392,24 +1323,19 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
 
   const invoiceResult = await client.query(
     `INSERT INTO invoice
-     (bubble_id, template_id, linked_customer, linked_agent, customer_name_snapshot, customer_address_snapshot,
-      customer_phone_snapshot, linked_package, package_name_snapshot, invoice_number,
+     (bubble_id, template_id, linked_customer, linked_agent, linked_package, invoice_number,
       invoice_date, agent_markup,
       discount_fixed, discount_percent, voucher_code,
       total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, created_at, updated_at, version, root_id, parent_id, is_latest)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, NOW(), NOW(), $21, $22, $23, true)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW(), $19, $20, $21, true)
      RETURNING *`,
     [
       bubbleId,
       org.template_id,
       customerBubbleId,
       linkedAgent,
-      customerName || "Sample Quotation",
-      customerAddress || null,
-      customerPhone || null,
       org.linked_package,
-      org.package_name_snapshot,
       newInvoiceNumber,
       new Date().toISOString().split('T')[0],
       markupAmount,
@@ -1484,8 +1410,7 @@ async function deleteSampleInvoices(client, userId) {
   try {
     await client.query('BEGIN');
 
-    // 1. Find target invoices (created by user AND named 'Sample Quotation')
-    // We also check for linked_agent_profile to be thorough
+    // 1. Find target invoices (created by user)
     let userBubbleId = null;
     try {
       const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]);
@@ -1504,7 +1429,7 @@ async function deleteSampleInvoices(client, userId) {
     const findQuery = `
       SELECT bubble_id, id 
       FROM invoice 
-      WHERE ${whereClause} AND customer_name_snapshot = 'Sample Quotation'
+      WHERE ${whereClause}
     `;
     
     const targets = await client.query(findQuery, params);
@@ -1515,18 +1440,14 @@ async function deleteSampleInvoices(client, userId) {
     }
 
     const bubbleIds = targets.rows.map(r => r.bubble_id);
-    const intIds = targets.rows.map(r => r.id);
 
     // 2. Delete Linked Items (invoice_item)
     await client.query(`DELETE FROM invoice_item WHERE linked_invoice = ANY($1)`, [bubbleIds]);
 
-    // 3. Delete Snapshots (invoice_snapshot)
-    await client.query(`DELETE FROM invoice_snapshot WHERE invoice_id = ANY($1)`, [intIds]);
-
-    // 4. Delete Actions (invoice_action)
+    // 3. Delete Actions (invoice_action)
     await client.query(`DELETE FROM invoice_action WHERE invoice_id = ANY($1)`, [bubbleIds]);
 
-    // 5. Delete Invoices
+    // 4. Delete Invoices
     await client.query(`DELETE FROM invoice WHERE bubble_id = ANY($1)`, [bubbleIds]);
 
     await client.query('COMMIT');
@@ -1611,7 +1532,6 @@ module.exports = {
   getPublicVouchers,
   updateInvoiceTransaction,
   getInvoiceByBubbleId,
-  reconstructInvoiceFromSnapshot,
   getInvoiceHistory,
   getInvoiceActionById,
   logInvoiceAction,

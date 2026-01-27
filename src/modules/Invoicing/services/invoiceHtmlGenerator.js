@@ -312,17 +312,17 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       <div class="flex-1">
         <p class="label-text mb-1">Bill To</p>
         <p class="text-lg font-bold text-slate-900 leading-none mb-1">
-          ${invoice.customer_name || invoice.customer_name_snapshot || 'Valued Customer'}
+          ${invoice.customer_name || 'Valued Customer'}
         </p>
-        ${(invoice.customer_address || invoice.customer_address_snapshot) ? `<p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">${invoice.customer_address || invoice.customer_address_snapshot}</p>` : ''}
+        ${(invoice.customer_address) ? `<p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">${invoice.customer_address}</p>` : ''}
         <div class="text-xs text-slate-500">
-          ${(invoice.customer_phone || invoice.customer_phone_snapshot) ? `<span class="mr-3">Tel: ${invoice.customer_phone || invoice.customer_phone_snapshot}</span>` : ''}
-          ${(invoice.customer_email || invoice.customer_email_snapshot) ? `<span>${invoice.customer_email || invoice.customer_email_snapshot}</span>` : ''}
+          ${(invoice.customer_phone) ? `<span class="mr-3">Tel: ${invoice.customer_phone}</span>` : ''}
+          ${(invoice.customer_email) ? `<span>${invoice.customer_email}</span>` : ''}
         </div>
       </div>
-      ${(invoice.profile_picture || invoice.profile_picture_snapshot) ? `
+      ${(invoice.profile_picture) ? `
       <div class="flex-shrink-0">
-        <img src="${invoice.profile_picture || invoice.profile_picture_snapshot}" alt="Customer Profile" class="w-16 h-16 rounded-lg object-cover border border-slate-200 shadow-sm">
+        <img src="${invoice.profile_picture}" alt="Customer Profile" class="w-16 h-16 rounded-lg object-cover border border-slate-200 shadow-sm">
       </div>
       ` : ''}
     </section>
@@ -440,8 +440,8 @@ function generateInvoiceHtml(invoice, template, options = {}) {
               <img src="${sigUrl}" alt="Customer Signature" class="max-h-full object-contain">
           </div>
           <div class="border-t border-slate-400 pt-2">
-              <p class="text-xs font-bold text-slate-900 uppercase">${invoice.customer_name || invoice.customer_name_snapshot || 'Customer'}</p>
-              <p class="text-[10px] text-slate-500">${invoice.customer_phone || invoice.customer_phone_snapshot || ''} ${(invoice.customer_email || invoice.customer_email_snapshot) ? '• ' + (invoice.customer_email || invoice.customer_email_snapshot) : ''}</p>
+              <p class="text-xs font-bold text-slate-900 uppercase">${invoice.customer_name || 'Customer'}</p>
+              <p class="text-[10px] text-slate-500">${invoice.customer_phone || ''} ${(invoice.customer_email) ? '• ' + (invoice.customer_email) : ''}</p>
               ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on <span class="local-time" data-iso="${new Date(invoice.signature_date).toISOString()}" data-show-time="true">${new Date(invoice.signature_date).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></p>` : ''}
           </div>
         </div>
