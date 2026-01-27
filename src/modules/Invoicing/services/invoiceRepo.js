@@ -856,16 +856,16 @@ async function getPublicInvoice(client, tokenOrId) {
     const invoiceResult = await client.query(
       `SELECT 
         i.*,
-                COALESCE(c.name, 'Unknown Customer') as customer_name,
-                c.email as customer_email,
-                c.phone as customer_phone,
-                c.address as customer_address,
-                c.profile_picture as profile_picture,
-                pkg.package_name as package_name
-               FROM invoice i 
-               LEFT JOIN customer c ON i.linked_customer = c.customer_id
-               LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id       WHERE (i.share_token = $1 OR i.bubble_id = $1)
-         AND i.share_enabled = true
+        COALESCE(c.name, 'Unknown Customer') as customer_name,
+        c.email as customer_email,
+        c.phone as customer_phone,
+        c.address as customer_address,
+        c.profile_picture as profile_picture,
+        pkg.package_name as package_name
+       FROM invoice i 
+       LEFT JOIN customer c ON i.linked_customer = c.customer_id
+       LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
+       WHERE (i.share_token = $1 OR i.bubble_id = $1)
          AND (i.share_expires_at IS NULL OR i.share_expires_at > NOW())
        LIMIT 1`,
       [tokenOrId]

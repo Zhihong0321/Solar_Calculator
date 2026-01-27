@@ -16,12 +16,9 @@ router.get('/view/:tokenOrId', async (req, res) => {
     const { tokenOrId } = req.params;
     const client = await pool.connect();
     try {
-      let invoice;
-      if (tokenOrId.length > 30) {
-        invoice = await invoiceRepo.getInvoiceByShareToken(client, tokenOrId);
-      } else {
-        invoice = await invoiceRepo.getInvoiceByBubbleId(client, tokenOrId);
-      }
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+
+      if (invoice) {
 
       if (invoice) {
         const html = await invoiceHtmlGenerator.generateInvoiceHtml(client, invoice);
@@ -47,12 +44,9 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
     const { tokenOrId } = req.params;
     const client = await pool.connect();
     try {
-      let invoice;
-      if (tokenOrId.length > 30) {
-        invoice = await invoiceRepo.getInvoiceByShareToken(client, tokenOrId);
-      } else {
-        invoice = await invoiceRepo.getInvoiceByBubbleId(client, tokenOrId);
-      }
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+
+      if (invoice) {
 
       if (!invoice) {
         return res.status(404).send('Invoice not found');
