@@ -35,14 +35,15 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
         }
 
         // 2. Fetch Payments (Combine submitted_payment AND legacy/synced payment)
+        const paymentIds = Array.isArray(invoice.linked_payment) ? invoice.linked_payment : [];
         const [submittedRes, legacyRes] = await Promise.all([
             client.query(
                 'SELECT * FROM submitted_payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
                 [bubbleId]
             ),
             client.query(
-                'SELECT * FROM payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
-                [bubbleId]
+                'SELECT * FROM payment WHERE linked_invoice = $1 OR bubble_id = ANY($2::text[]) ORDER BY created_at DESC',
+                [bubbleId, paymentIds]
             )
         ]);
 

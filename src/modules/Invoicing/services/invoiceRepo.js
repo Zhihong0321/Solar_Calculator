@@ -1074,7 +1074,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             ) as linked_seda_registration,
             
             -- Verified Paid Amount
-            COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id), 0) as total_received,
+            COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id OR p.bubble_id = ANY(COALESCE(i.linked_payment, ARRAY[]::text[]))), 0) as total_received,
 
             -- Pending Verification List
             (
