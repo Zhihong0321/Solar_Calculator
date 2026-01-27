@@ -716,7 +716,9 @@ Thank you!`;
             try {
                 const res = await fetch(getApiEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const json = await res.json();
-                if (json.success) alert('Saved successfully!'); else throw new Error(json.error);
+                if (json.success) {
+                    goBackToOffice();
+                } else throw new Error(json.error);
             } catch (err) { alert('Error: ' + err.message); } finally { stopLoading(); }
         }
 
