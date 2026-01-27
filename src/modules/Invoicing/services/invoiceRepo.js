@@ -1088,18 +1088,20 @@ async function getInvoicesByUserId(client, userId, options = {}) {
         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
         WHERE i.linked_agent = $1 
         AND i.is_latest = true 
-        AND (i.status != 'deleted' OR i.status IS NULL)
+        AND (i.status != 'deleted' OR i.status IS NULL OR $2 = 'deleted')
     )
   `;
 
   // Payment Status Filtering logic based on calculated total_received
   if (paymentStatus) {
     if (paymentStatus === 'unpaid') {
-        filterClause += ` AND (total_received IS NULL OR total_received <= 0)`;
+        filterClause += ` AND (total_received IS NULL OR total_received <= 0) AND i.status != 'deleted'`;
     } else if (paymentStatus === 'partial') {
-        filterClause += ` AND total_received > 0 AND total_received < total_amount`;
+        filterClause += ` AND total_received > 0 AND total_received < total_amount AND i.status != 'deleted'`;
     } else if (paymentStatus === 'paid') {
-        filterClause += ` AND total_received >= total_amount AND total_amount > 0`;
+        filterClause += ` AND total_received >= total_amount AND total_amount > 0 AND i.status != 'deleted'`;
+    } else if (paymentStatus === 'deleted') {
+        filterClause += ` AND i.status = 'deleted'`;
     }
   }
 
@@ -1123,8 +1125,8 @@ async function getInvoicesByUserId(client, userId, options = {}) {
 
   try {
       const [result, countResult] = await Promise.all([
-        client.query(query, params),
-        client.query(countQuery, countParams)
+        client.query(query, [agentProfileId, paymentStatus, ...params.slice(1)]),
+        client.query(countQuery, [agentProfileId, paymentStatus, ...countParams.slice(1)])
       ]);
 
       return {

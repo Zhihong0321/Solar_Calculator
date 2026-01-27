@@ -156,6 +156,34 @@ router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
 });
 
 /**
+ * PUT /api/v1/invoices/:bubbleId/restore
+ * Restore a deleted invoice
+ */
+router.put('/api/v1/invoices/:bubbleId/restore', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const userId = req.user.userId;
+    let client = null;
+    try {
+        client = await pool.connect();
+        
+        // Ownership check
+        const inv = await client.query('SELECT created_by, linked_agent FROM invoice WHERE bubble_id = $1', [bubbleId]);
+        if (inv.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, inv.rows[0].created_by, inv.rows[0].linked_agent);
+        if (!isOwner) return res.status(403).json({ success: false, error: 'Access denied' });
+
+        // Restore to draft
+        await client.query("UPDATE invoice SET status = 'draft', updated_at = NOW() WHERE bubble_id = $1", [bubbleId]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
  * POST /api/v1/invoices/:bubbleId/version
  * Create a new version of an invoice
  */
