@@ -93,14 +93,14 @@ app.get('/api/agent/profile', requireAuth, async (req, res) => {
 
     const query = `
       SELECT 
-        u.name, 
+        a.name, 
         u.email, 
-        u.linked_agent_profile as profile_picture,
+        u.profile_picture,
         a.contact,
         a.banker,
         a.bankin_account
       FROM "user" u
-      LEFT JOIN agent a ON a.linked_user_login = u.bubble_id
+      LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
       WHERE u.id::text = $1 OR u.bubble_id = $2
       LIMIT 1
     `;
@@ -128,11 +128,11 @@ app.put('/api/agent/profile', requireAuth, async (req, res) => {
 
     await client.query('BEGIN');
 
-    // 1. Update User table
+    // 1. Update User table (No 'name' column in user table)
     await client.query(
-      `UPDATE "user" SET name = $1, email = $2, updated_at = NOW() 
-       WHERE id::text = $3 OR bubble_id = $4`,
-      [name, email, userId, bubbleId]
+      `UPDATE "user" SET email = $1, updated_at = NOW() 
+       WHERE id::text = $2 OR bubble_id = $3`,
+      [email, userId, bubbleId]
     );
 
     // 2. Update Agent table
@@ -166,14 +166,14 @@ app.get('/api/agent/me', requireAuth, async (req, res) => {
       return res.status(401).json({ error: 'Invalid session data' });
     }
 
-    // Alignment with userRoutes.js logic:
-    // Some agents might be linked via linked_agent_profile = a.bubble_id
-    // others might be linked via a.linked_user_login = u.bubble_id
+    // Verified Query based on confirmed schema:
+    // Identity (Name, Contact) lives in 'agent'
+    // Profile Image lives in 'user'
     const query = `
       SELECT 
-        u.name, 
+        a.name, 
         u.email, 
-        u.linked_agent_profile as profile_picture,
+        u.profile_picture,
         a.contact as phone
       FROM "user" u
       LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
