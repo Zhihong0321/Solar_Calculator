@@ -3,153 +3,211 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>SEDA Registration V2</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>ETERNALGY OS | SEDA Registration</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
-        body { background-color: #f8fafc; padding-top: env(safe-area-inset-top); padding-bottom: max(2rem, env(safe-area-inset-bottom)); }
-        .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; margin-bottom: 1rem; }
+        :root {
+            --brand-900: #020617;
+            --brand-800: #0f172a;
+            --brand-700: #1e293b;
+            --brand-primary: #3b82f6;
+            --brand-secondary: #6366f1;
+            --glass: rgba(15, 23, 42, 0.9);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        
+        * { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { background-color: var(--brand-900); color: var(--text-main); padding-top: env(safe-area-inset-top); padding-bottom: max(2rem, env(safe-area-inset-bottom)); margin: 0; }
+        
+        .section-title { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--brand-primary); border-bottom: 1px solid var(--brand-700); padding-bottom: 0.75rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.75rem; }
         .input-group { margin-bottom: 1.5rem; }
-        .input-label { display: block; font-size: 0.875rem; font-weight: 500; color: #334155; margin-bottom: 0.5rem; }
-        .input-field { width: 100%; border: 1px solid #cbd5e1; padding: 0.625rem 0.875rem; font-size: 0.875rem; border-radius: 0.375rem; transition: border-color 0.15s ease; background-color: white; padding-right: 2.5rem !important; }
-        .input-field:focus { outline: none; border-color: #0f172a; ring: 1px solid #0f172a; }
-        .input-field:disabled { background-color: #f1f5f9; color: #64748b; }
-        .btn-primary { background-color: #0f172a; color: white; font-weight: 600; padding: 0.75rem 1.5rem; border-radius: 0.375rem; transition: background-color 0.15s ease; }
-        .btn-primary:hover { background-color: #1e293b; }
+        .input-label { display: block; font-size: 0.7rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .input-field { width: 100%; border: 1px solid var(--brand-700); padding: 0.875rem 1.125rem; font-size: 0.9375rem; border-radius: 1rem; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); background-color: var(--brand-800); color: white; }
+        .input-field:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); background-color: #1e293b; }
+        .input-field:disabled { opacity: 0.5; cursor: not-allowed; background-color: #0f172a; }
+        
+        .form-card { background: var(--brand-800); border: 1px solid var(--brand-700); border-radius: 1.5rem; padding: 2rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
         
         .file-upload-box {
-            border: 2px dashed #cbd5e1;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
+            border: 2px dashed var(--brand-700);
+            border-radius: 1.25rem;
+            padding: 2rem 1.5rem;
             text-align: center;
             cursor: pointer;
-            transition: all 0.2s;
-            background: #f8fafc;
+            transition: all 0.3s ease;
+            background: rgba(30, 41, 59, 0.3);
             position: relative;
+            overflow: hidden;
         }
-        .file-upload-box:hover { border-color: #94a3b8; background: #f1f5f9; }
-        .file-preview { display: none; margin-top: 0.5rem; font-size: 0.75rem; color: #0f172a; font-weight: 500; }
-        .file-preview img { max-height: 150px; margin: 0 auto; border-radius: 4px; border: 1px solid #e2e8f0; }
+        .file-upload-box:hover { border-color: var(--brand-primary); background: rgba(59, 130, 246, 0.05); }
         
-        /* Loading Overlay */
-        .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: none; align-items: center; justify-content: center; z-index: 50; backdrop-filter: blur(4px); }
-        .progress-bar-container { width: 300px; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 1rem; }
-        .progress-bar-fill { height: 100%; background: #0f172a; width: 0%; transition: width 0.1s linear; }
+        /* Mobile Sticky Header Optimizations */
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--brand-700);
+            width: 100%;
+        }
 
-        /* Extracted Data Box */
-        .extracted-data-box { margin-top: 1rem; padding: 1rem; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 0.5rem; }
-        .extracted-item { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #dcfce7; }
-        .extracted-item:last-child { border-bottom: none; }
-        .extracted-label { font-size: 0.75rem; color: #166534; font-weight: 600; text-transform: uppercase; }
-        .extracted-value { font-size: 0.875rem; color: #14532d; font-weight: 500; margin-top: 0.125rem; }
-        .btn-insert { font-size: 0.75rem; background-color: white; border: 1px solid #86efac; color: #166534; padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-weight: 600; cursor: pointer; transition: all 0.1s; }
-        .btn-insert:hover { background-color: #dcfce7; }
+        .checklist-dot { width: 6px; height: 6px; border-radius: 9999px; }
+        .checklist-item { display: flex; align-items: center; gap: 0.375rem; font-size: 8px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; white-space: nowrap; transition: all 0.2s; }
+        .checklist-item.complete { color: #10b981; }
+        .checklist-item.complete .checklist-dot { background-color: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+        .checklist-item.incomplete .checklist-dot { background-color: #334155; border: 1px solid var(--brand-700); }
 
-        /* Input Status Indicators */
-        .input-wrapper { position: relative; width: 100%; }
-        .input-status-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; transition: all 0.2s; opacity: 1; color: #e2e8f0; }
-        .input-status-icon.valid { color: #10b981; }
-        .input-status-icon.invalid { color: #ef4444; }
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(2, 6, 23, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-width: 768px) {
+            .header-actions {
+                display: flex;
+                gap: 0.5rem;
+                width: 100%;
+                overflow-x: auto;
+                padding-bottom: 0.25rem;
+                scrollbar-width: none;
+            }
+            .header-actions::-webkit-scrollbar { display: none; }
+            
+            .checklist-grid {
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 0.5rem !important;
+            }
+            .section-title { font-size: 0.7rem; }
+        }
     </style>
 </head>
 <body class="py-10 px-4 sm:px-6 lg:px-8">
     
     <!-- Extraction Loading Overlay -->
     <div id="loading" class="loading-overlay">
-        <div class="text-center">
-            <div class="text-sm font-bold text-slate-900 mb-2" id="loadingText">Processing Document...</div>
-            <div class="progress-bar-container">
-                <div id="progressBar" class="progress-bar-fill"></div>
+        <div class="text-center bg-slate-900/50 p-8 rounded-3xl border border-slate-800 backdrop-blur-xl shadow-2xl">
+            <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-600/20 text-blue-500 rounded-2xl mb-4">
+                <i class="fa-solid fa-circle-notch fa-spin text-2xl"></i>
             </div>
-            <div class="text-xs text-slate-500 mt-2">This may take up to 25 seconds</div>
+            <div class="text-sm font-extrabold text-white mb-4" id="loadingText">Processing Document...</div>
+            <div class="w-48 h-1.5 bg-slate-800 rounded-full overflow-hidden mx-auto">
+                <div id="progressBar" class="h-full bg-blue-600 w-0 transition-all duration-300 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+            </div>
+            <div class="text-[10px] text-slate-500 mt-4 font-bold uppercase tracking-widest">This may take up to 25 seconds</div>
         </div>
     </div>
 
 
 
     <!-- Granular Status Header -->
-    <div class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 transition-all">
+    <div class="sticky-header mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 transition-all">
         <div class="max-w-5xl mx-auto">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <!-- Title & Overall -->
-                <div class="flex items-center gap-3">
-                    <div class="h-10 w-10 bg-emerald-600 rounded-lg shadow-sm flex items-center justify-center text-white font-bold text-sm tracking-wider">V2</div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h1 class="text-sm font-bold text-slate-900 leading-tight">SEDA Registration</h1>
-                            <span id="statusBadge" class="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 text-[9px] font-bold rounded border border-yellow-200 uppercase tracking-wider leading-none">APP: DRAFT</span>
-                            <span id="adminStatusBadge" class="px-1.5 py-0.5 bg-indigo-100 text-indigo-800 text-[9px] font-bold rounded border border-indigo-200 uppercase tracking-wider leading-none">ADMIN: PENDING</span>
+                <div class="flex items-center justify-between lg:justify-start gap-4 w-full lg:w-auto">
+                    <div class="flex items-center gap-3">
+                        <div class="h-10 w-10 bg-blue-600 rounded-xl shadow-lg flex items-center justify-center text-white font-bold text-xs tracking-wider ring-4 ring-blue-600/20">OS</div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h1 class="text-sm font-extrabold text-white tracking-tight">ETERNALGY OS</h1>
+                                <span id="statusBadge" class="px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 text-[8px] font-bold rounded border border-yellow-500/20 uppercase tracking-widest">DRAFT</span>
+                            </div>
+                            <span id="overallProgress" class="text-[9px] font-bold text-blue-400 uppercase tracking-wider">0% COMPLETE</span>
                         </div>
-                        <span id="overallProgress" class="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">0% COMPLETE</span>
                     </div>
-                    <div class="flex gap-2 ml-4">
-                        <button id="waReminderBtn" onclick="sendWhatsAppReminder()" class="hidden px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold rounded-lg border border-emerald-200 transition-colors flex items-center gap-1.5">
-                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.347-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-2.578l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.801.976 3.846 1.491 5.913 1.492h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    <div class="header-actions flex lg:hidden">
+                        <button id="waReminderBtn-mobile" onclick="sendWhatsAppReminder()" class="hidden p-2.5 bg-emerald-500/10 text-emerald-500 rounded-xl border border-emerald-500/20">
+                            <i class="fa-brands fa-whatsapp text-lg"></i>
+                        </button>
+                        <button onclick="saveSedaForm()" class="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-600/20">
+                            <i class="fa-solid fa-floppy-disk text-lg"></i>
+                        </button>
+                        <button onclick="goBackToOffice()" class="p-2.5 bg-slate-800 text-slate-300 rounded-xl border border-slate-700">
+                            <i class="fa-solid fa-chevron-left text-lg"></i>
+                        </button>
+                    </div>
+
+                    <div class="hidden lg:flex gap-2 ml-4">
+                        <button id="waReminderBtn" onclick="sendWhatsAppReminder()" class="hidden px-4 py-2 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-xs font-bold rounded-xl border border-emerald-500/20 transition-all flex items-center gap-2">
+                            <i class="fa-brands fa-whatsapp text-sm"></i>
                             Reminder
                         </button>
-                        <button onclick="saveSedaForm()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-1">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                            Save
+                        <button onclick="saveSedaForm()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/25 transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-floppy-disk text-sm"></i>
+                            Save Progress
                         </button>
-                        <button onclick="goBackToOffice()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-lg border border-slate-300 transition-colors flex items-center gap-1">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        <button onclick="goBackToOffice()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-left text-sm"></i>
                             Back
                         </button>
                     </div>
                 </div>
                 
                 <!-- Granular Checklist Grid -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-1.5 border-l-0 lg:border-l border-slate-200 lg:pl-6">
-                    <div id="check-applicantName" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Name
+                <div class="checklist-grid grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 gap-x-3 gap-y-2 border-l-0 lg:border-l border-slate-700 lg:pl-6 overflow-x-hidden">
+                    <div id="check-applicantName" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> Name
                     </div>
-                    <div id="check-applicantIC" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> IC Number
+                    <div id="check-applicantIC" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> IC No
                     </div>
-                    <div id="check-applicantPhone" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Contact
+                    <div id="check-applicantPhone" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> Contact
                     </div>
-                    <div id="check-installAddress" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Address
+                    <div id="check-installAddress" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> Address
                     </div>
-                    <div id="check-cityPostcode" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> City/PC
+                    <div id="check-cityPostcode" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> City/PC
                     </div>
-                    <div id="check-mykad" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> MyKad
+                    <div id="check-mykad" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> MyKad
                     </div>
-                    <div id="check-tnb_bill_1" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> TNB Bill 1
+                    <div id="check-tnb_bill_1" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> TNB 1
                     </div>
-                    <div id="check-tnb_bill_2" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> TNB Bill 2
+                    <div id="check-tnb_bill_2" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> TNB 2
                     </div>
-                    <div id="check-tnb_bill_3" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> TNB Bill 3
+                    <div id="check-tnb_bill_3" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> TNB 3
                     </div>
-                    <div id="check-property_proof" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Ownership
+                    <div id="check-property_proof" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> Proof
                     </div>
-                    <div id="check-tnb_meter" class="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                        <div class="dot w-2 h-2 rounded-full border-2 border-slate-200"></div> Meter Photo
+                    <div id="check-tnb_meter" class="checklist-item incomplete">
+                        <div class="checklist-dot"></div> Meter
                     </div>
                 </div>
             </div>
         </div>
         <!-- Progress Bar Background -->
-        <div class="absolute bottom-0 left-0 w-full h-[2px] bg-slate-100">
-            <div id="formProgress" class="h-full bg-emerald-500 w-0 transition-all duration-500"></div>
+        <div class="absolute bottom-0 left-0 w-full h-[2px] bg-slate-800">
+            <div id="formProgress" class="h-full bg-blue-500 w-0 transition-all duration-700 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
         </div>
     </div>
 
-    <div class="max-w-3xl mx-auto">
+    <div class="max-w-4xl mx-auto">
         
-        <form id="sedaForm" class="space-y-8 bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+        <form id="sedaForm" class="space-y-12 bg-slate-900/40 p-6 sm:p-12 rounded-[2.5rem] border border-slate-800 shadow-2xl backdrop-blur-md">
             
             <!-- Applicant Details -->
             <div>
-                <h2 class="section-title">01. Applicant Information</h2>
+                <h2 class="section-title">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">01</span>
+                    Applicant Information
+                </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="input-group">
                         <label class="input-label">Applicant Name</label>
@@ -176,12 +234,18 @@
 
             <!-- Installation Address -->
             <div>
-                <h2 class="section-title">02. Installation Site</h2>
-                <div class="space-y-4">
+                <h2 class="section-title">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">02</span>
+                    Installation Site
+                </h2>
+                <div class="space-y-6">
                     <div class="input-group">
                         <label class="input-label">Installation Address</label>
                         <textarea id="installAddress" rows="3" class="input-field" placeholder="Same as registered address?"></textarea>
-                        <button type="button" onclick="copyAddress()" class="text-xs text-blue-600 font-medium mt-1 hover:underline">Copy from Registered Address</button>
+                        <button type="button" onclick="copyAddress()" class="text-[10px] text-blue-500 font-bold mt-2 hover:text-blue-400 flex items-center gap-1 uppercase tracking-wider">
+                            <i class="fa-solid fa-copy"></i>
+                            Copy from Registered Address
+                        </button>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="input-group">
@@ -219,10 +283,13 @@
 
             <!-- MyKad Upload -->
             <div>
-                <h2 class="section-title">03. MyKad / Identity Document</h2>
-                <div class="flex gap-4 mb-4">
-                    <button type="button" onclick="setMyKadMode('images')" id="btnModeImages" class="px-4 py-2 text-sm font-medium rounded border border-slate-300 bg-slate-100 text-slate-600">Upload Images (Front/Back)</button>
-                    <button type="button" onclick="setMyKadMode('pdf')" id="btnModePdf" class="px-4 py-2 text-sm font-medium rounded border border-slate-300 bg-white text-slate-600">Upload PDF</button>
+                <h2 class="section-title">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">03</span>
+                    MyKad / Identity Document
+                </h2>
+                <div class="flex gap-2 p-1.5 bg-slate-950/50 rounded-2xl border border-slate-800 w-fit mb-8">
+                    <button type="button" onclick="setMyKadMode('images')" id="btnModeImages" class="px-6 py-2.5 text-xs font-bold rounded-xl transition-all bg-blue-600 text-white shadow-lg shadow-blue-600/20">Upload Images</button>
+                    <button type="button" onclick="setMyKadMode('pdf')" id="btnModePdf" class="px-6 py-2.5 text-xs font-bold rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800">Upload PDF</button>
                 </div>
 
                 <!-- Images Mode -->
@@ -260,7 +327,10 @@
 
             <!-- TNB Bills -->
             <div>
-                <h2 class="section-title">04. TNB Bills (Last 3 Months)</h2>
+                <h2 class="section-title">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">04</span>
+                    TNB Bills (Last 3 Months)
+                </h2>
                 <div class="grid grid-cols-1 gap-4">
                     <div class="input-group">
                         <label class="input-label">TNB Account No</label>
@@ -305,7 +375,10 @@
 
             <!-- Emergency Contact -->
              <div>
-                <h2 class="section-title">05. Emergency Contact</h2>
+                <h2 class="section-title">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">05</span>
+                    Emergency Contact
+                </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div class="input-group">
                         <label class="input-label">Name</label>
@@ -324,7 +397,10 @@
 
             <!-- Supporting Documents -->
             <div>
-                <h2 class="section-title">06. Supporting Documents</h2>
+                <h2 class="section-title">
+                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">06</span>
+                    Supporting Documents
+                </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="input-group">
                         <label class="input-label">Property Ownership Proof (PDF/Image)</label>
@@ -346,9 +422,12 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="pt-6 border-t border-slate-200 flex justify-end gap-4">
-                <button type="button" onclick="goBackToOffice()" class="px-6 py-3 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors">Close</button>
-                <button type="submit" class="btn-primary">Save Changes</button>
+            <div class="pt-10 border-t border-slate-800 flex flex-col sm:flex-row justify-end gap-4">
+                <button type="button" onclick="goBackToOffice()" class="w-full sm:w-auto px-8 py-4 border border-slate-700 text-slate-300 font-bold text-sm rounded-2xl hover:bg-slate-800 transition-all order-2 sm:order-1">Close</button>
+                <button type="submit" class="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-bold text-sm rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all order-1 sm:order-2 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check-circle"></i>
+                    Complete Registration
+                </button>
             </div>
         </form>
     </div>
@@ -394,9 +473,7 @@
             
             const checkDone = (id) => {
                 const el = document.getElementById(id);
-                if (!el) return false;
-                const dot = el.querySelector('.dot');
-                return dot && (dot.classList.contains('bg-emerald-500') || dot.classList.contains('bg-emerald-600'));
+                return el && el.classList.contains('complete');
             };
 
             // 1. MyKad
@@ -438,7 +515,17 @@
             const cleanPhone = customerPhone.replace(/\D/g, '');
             const finalPhone = cleanPhone.startsWith('60') ? cleanPhone : (cleanPhone.startsWith('0') ? '6' + cleanPhone : '60' + cleanPhone);
             
-            const message = `Hi ${customerName || 'Customer'},\n\nThis is a friendly reminder from Eternalgy regarding your SEDA registration. We noticed that some documents are still missing from your application:\n\n${missing.join('\n')}\n\nYou can upload them directly using this secure link:\n${window.location.href}\n\nThank you for your cooperation!`;
+            const message = `Hi ${customerName || 'Customer'},
+
+This is a friendly reminder from Eternalgy regarding your SEDA registration. We noticed that some documents are still missing from your application:
+
+${missing.join('
+')}
+
+You can upload them directly using this secure link:
+${window.location.href}
+
+Thank you for your cooperation!`;
             
             const waUrl = `https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`;
             window.open(waUrl, '_blank');
@@ -502,13 +589,13 @@
             const secPdf = document.getElementById('sectionMyKadPdf');
 
             if (mode === 'images') {
-                btnImg.classList.add('bg-slate-100'); btnImg.classList.remove('bg-white');
-                btnPdf.classList.add('bg-white'); btnPdf.classList.remove('bg-slate-100');
+                btnImg.className = 'px-6 py-2.5 text-xs font-bold rounded-xl transition-all bg-blue-600 text-white shadow-lg shadow-blue-600/20';
+                btnPdf.className = 'px-6 py-2.5 text-xs font-bold rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800';
                 secImg.classList.remove('hidden');
                 secPdf.classList.add('hidden');
             } else {
-                btnPdf.classList.add('bg-slate-100'); btnPdf.classList.remove('bg-white');
-                btnImg.classList.add('bg-white'); btnImg.classList.remove('bg-slate-100');
+                btnPdf.className = 'px-6 py-2.5 text-xs font-bold rounded-xl transition-all bg-blue-600 text-white shadow-lg shadow-blue-600/20';
+                btnImg.className = 'px-6 py-2.5 text-xs font-bold rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800';
                 secPdf.classList.remove('hidden');
                 secImg.classList.add('hidden');
             }
@@ -594,7 +681,12 @@
                     // Address & Name Block
                     if (!extracted.address || !extracted.customer_name) {
                         // Strategy 1: Strict match (ALAMAT POS or ALAMAT PREMIS)
-                        let addrBlock = (snippet.match(/ALAMAT\s+(?:POS|PREMIS)\s*\n([\s\S]+?)(?=\n\s*\n|\nSila|\nTENAGA|NO\.)/i) || [])[1];
+                        let addrBlock = (snippet.match(/ALAMAT\s+(?:POS|PREMIS)\s*
+([\s\S]+?)(?=
+\s*
+|
+Sila|
+TENAGA|NO\.)/i) || [])[1];
                         
                         // Strategy 2: Loose match (next 6 lines)
                         if (!addrBlock) {
@@ -922,25 +1014,25 @@
             let viewBox = inputGroup.querySelector('.existing-file-view');
             if (!viewBox) {
                 viewBox = document.createElement('div');
-                viewBox.className = 'existing-file-view mt-2 p-2 bg-slate-50 border border-slate-200 rounded flex items-center justify-between text-xs';
+                viewBox.className = 'existing-file-view mt-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl flex items-center justify-between text-[10px]';
                 inputGroup.appendChild(viewBox);
             }
 
             if (url.endsWith('.pdf')) {
                 viewBox.innerHTML = `
                     <div class="flex items-center gap-2">
-                        <span class="font-bold text-red-600">PDF</span>
-                        <span class="text-slate-600">Existing Document Uploaded</span>
+                        <span class="font-bold text-red-500">PDF</span>
+                        <span class="text-slate-300">Existing Document Uploaded</span>
                     </div>
-                    <a href="${url}" target="_blank" class="text-blue-600 font-semibold hover:underline">View PDF</a>
+                    <a href="${url}" target="_blank" class="text-blue-400 font-bold hover:underline">VIEW PDF</a>
                 `;
             } else {
                 viewBox.innerHTML = `
                     <div class="flex items-center gap-2">
-                        <img src="${url}" class="w-8 h-8 object-cover rounded border border-slate-200">
-                        <span class="text-slate-600">Existing Image</span>
+                        <img src="${url}" class="w-8 h-8 object-cover rounded-lg border border-slate-700">
+                        <span class="text-slate-300">Existing Image</span>
                     </div>
-                    <a href="${url}" target="_blank" class="text-blue-600 font-semibold hover:underline">View</a>
+                    <a href="${url}" target="_blank" class="text-blue-400 font-bold hover:underline">VIEW</a>
                 `;
             }
         };
@@ -1101,17 +1193,13 @@
                 // Update Header Item
                 const headerEl = document.getElementById(item.id);
                 if (headerEl) {
-                    const dot = headerEl.querySelector('.dot');
                     if (isDone) {
                         completedCount++;
-                        headerEl.classList.remove('text-slate-400');
-                        headerEl.classList.add('text-emerald-600');
-                        dot.className = 'dot w-2 h-2 rounded-full bg-emerald-500 border-2 border-emerald-500';
-                        dot.innerHTML = ''; // Keep it a dot but colored
+                        headerEl.classList.remove('incomplete');
+                        headerEl.classList.add('complete');
                     } else {
-                        headerEl.classList.add('text-slate-400');
-                        headerEl.classList.remove('text-emerald-600');
-                        dot.className = 'dot w-2 h-2 rounded-full border-2 border-slate-200';
+                        headerEl.classList.add('incomplete');
+                        headerEl.classList.remove('complete');
                     }
                 }
             });
