@@ -291,14 +291,14 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           <div>
             <span class="label-text block">Date Issued</span>
             <span class="font-medium text-slate-900">
-              <span class="local-time" data-iso="${new Date(invoice.invoice_date).toISOString()}" data-show-time="false">${invoice.invoice_date}</span>
+              <span class="local-time" data-iso="${(() => { try { return new Date(invoice.invoice_date).toISOString(); } catch(e) { return ''; } })()}" data-show-time="false">${invoice.invoice_date || '-'}</span>
             </span>
           </div>
           ${invoice.due_date ? `
           <div>
             <span class="label-text block">Due Date</span>
             <span class="font-medium text-slate-900">
-              <span class="local-time" data-iso="${new Date(invoice.due_date).toISOString()}" data-show-time="false">${invoice.due_date}</span>
+              <span class="local-time" data-iso="${(() => { try { return new Date(invoice.due_date).toISOString(); } catch(e) { return ''; } })()}" data-show-time="false">${invoice.due_date || '-'}</span>
             </span>
           </div>` : ''}
         </div>
@@ -442,7 +442,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           <div class="border-t border-slate-400 pt-2">
               <p class="text-xs font-bold text-slate-900 uppercase">${invoice.customer_name || 'Customer'}</p>
               <p class="text-[10px] text-slate-500">${invoice.customer_phone || ''} ${(invoice.customer_email) ? '• ' + (invoice.customer_email) : ''}</p>
-              ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on <span class="local-time" data-iso="${new Date(invoice.signature_date).toISOString()}" data-show-time="true">${new Date(invoice.signature_date).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></p>` : ''}
+              ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on <span class="local-time" data-iso="${(() => { try { return new Date(invoice.signature_date).toISOString(); } catch(e) { return ''; } })()}" data-show-time="true">${invoice.signature_date}</span></p>` : ''}
           </div>
         </div>
       </section>
