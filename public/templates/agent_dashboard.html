@@ -11,9 +11,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --brand-900: #020617; /* Deepest blue/black */
-            --brand-800: #0f172a; /* Card background */
-            --brand-700: #1e293b; /* Border/Stroke */
+            --brand-900: #020617;
+            --brand-800: #0f172a;
+            --brand-700: #1e293b;
             --brand-primary: #3b82f6;
             --brand-secondary: #6366f1;
             --glass: rgba(15, 23, 42, 0.8);
@@ -24,11 +24,15 @@
         * {
             font-family: 'Plus Jakarta Sans', sans-serif;
             -webkit-font-smoothing: antialiased;
+            box-sizing: border-box;
         }
 
         body {
             background-color: var(--brand-900);
             color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            width: 100%;
             overflow-x: hidden;
         }
 
@@ -37,21 +41,6 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
-        }
-
-        .nav-item {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .nav-item:hover {
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--brand-primary);
-        }
-
-        .nav-item.active {
-            background: rgba(59, 130, 246, 0.15);
-            color: var(--brand-primary);
-            font-weight: 600;
         }
 
         .action-card {
@@ -66,17 +55,6 @@
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.4);
         }
 
-        .shimmer {
-            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -86,13 +64,6 @@
         @media (max-width: 768px) {
             .mobile-bottom-nav {
                 padding-bottom: env(safe-area-inset-bottom);
-            }
-            .stats-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-            .tools-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-                gap: 0.5rem;
             }
         }
     </style>
@@ -152,10 +123,10 @@
     </aside>
 
     <!-- Main Content Area -->
-    <main class="flex-1 md:ml-64 flex flex-col min-h-screen">
+    <main class="flex-1 w-full md:ml-64 flex flex-col min-h-screen relative overflow-x-hidden">
         
         <!-- Top Mobile Header -->
-        <header class="md:hidden flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800 sticky top-0 z-30">
+        <header class="md:hidden flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800 sticky top-0 z-30 w-full">
             <div class="flex items-center space-x-2">
                 <div class="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">
                     <i class="fa-solid fa-bolt text-white text-sm"></i>
@@ -169,11 +140,11 @@
         </header>
 
         <!-- Content Container -->
-        <div class="p-4 md:p-10 space-y-6 md:space-y-8 max-w-6xl">
+        <div class="w-full max-w-6xl p-4 md:p-10 space-y-6 md:space-y-8">
             
             <!-- Hero Section -->
             <section class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
+                <div class="w-full md:w-auto">
                     <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
                         Hi, <span id="agentNameHero" class="text-blue-400">...</span> 👋
                     </h1>
@@ -194,189 +165,142 @@
             </section>
 
             <!-- Stats Bar -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                <div class="bg-slate-800 p-3 md:p-5 rounded-2xl border border-slate-700 shadow-sm overflow-hidden">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 md:mb-3 gap-1">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 w-full">
+                <div class="bg-slate-800 p-3 md:p-5 rounded-2xl border border-slate-700 shadow-sm overflow-hidden flex flex-col justify-between h-full">
+                    <div class="flex items-start justify-between mb-2 md:mb-3">
                         <div class="w-8 h-8 md:w-10 md:h-10 bg-blue-900/50 text-blue-400 rounded-xl flex items-center justify-center shrink-0">
                             <i class="fa-solid fa-file-invoice text-base md:text-lg"></i>
                         </div>
-                        <span class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-tighter sm:tracking-normal">This Month</span>
+                        <span class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase">This Month</span>
                     </div>
-                    <h3 class="text-lg md:text-2xl font-bold text-white">--</h3>
-                    <p class="text-[9px] md:text-xs text-slate-400 mt-0.5 md:mt-1">Invoices Issued</p>
+                    <div>
+                        <h3 class="text-lg md:text-2xl font-bold text-white">--</h3>
+                        <p class="text-[9px] md:text-xs text-slate-400 mt-0.5 md:mt-1">Invoices Issued</p>
+                    </div>
                 </div>
-                <div class="bg-slate-800 p-3 md:p-5 rounded-2xl border border-slate-700 shadow-sm overflow-hidden">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 md:mb-3 gap-1">
+                <div class="bg-slate-800 p-3 md:p-5 rounded-2xl border border-slate-700 shadow-sm overflow-hidden flex flex-col justify-between h-full">
+                    <div class="flex items-start justify-between mb-2 md:mb-3">
                         <div class="w-8 h-8 md:w-10 md:h-10 bg-emerald-900/50 text-emerald-400 rounded-xl flex items-center justify-center shrink-0">
                             <i class="fa-solid fa-user-check text-base md:text-lg"></i>
                         </div>
-                        <span class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-tighter sm:tracking-normal">Total</span>
+                        <span class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase">Total</span>
                     </div>
-                    <h3 class="text-lg md:text-2xl font-bold text-white">--</h3>
-                    <p class="text-[9px] md:text-xs text-slate-400 mt-0.5 md:mt-1">Active Customers</p>
+                    <div>
+                        <h3 class="text-lg md:text-2xl font-bold text-white">--</h3>
+                        <p class="text-[9px] md:text-xs text-slate-400 mt-0.5 md:mt-1">Active Customers</p>
+                    </div>
                 </div>
-                <div class="bg-slate-800 p-3 md:p-5 rounded-2xl border border-slate-700 shadow-sm overflow-hidden">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 md:mb-3 gap-1">
+                <div class="bg-slate-800 p-3 md:p-5 rounded-2xl border border-slate-700 shadow-sm overflow-hidden flex flex-col justify-between h-full">
+                    <div class="flex items-start justify-between mb-2 md:mb-3">
                         <div class="w-8 h-8 md:w-10 md:h-10 bg-amber-900/50 text-amber-400 rounded-xl flex items-center justify-center shrink-0">
                             <i class="fa-solid fa-clock-rotate-left text-base md:text-lg"></i>
                         </div>
-                        <span class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-tighter sm:tracking-normal">Avg</span>
+                        <span class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase">Avg</span>
                     </div>
-                    <h3 class="text-lg md:text-2xl font-bold text-white">--</h3>
-                    <p class="text-[9px] md:text-xs text-slate-400 mt-0.5 md:mt-1">Response Time</p>
+                    <div>
+                        <h3 class="text-lg md:text-2xl font-bold text-white">--</h3>
+                        <p class="text-[9px] md:text-xs text-slate-400 mt-0.5 md:mt-1">Response Time</p>
+                    </div>
                 </div>
-                <div class="bg-slate-800 p-3 md:p-5 rounded-2xl border border-slate-700 shadow-sm overflow-hidden">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 md:mb-3 gap-1">
+                <div class="bg-slate-800 p-3 md:p-5 rounded-2xl border border-slate-700 shadow-sm overflow-hidden flex flex-col justify-between h-full">
+                    <div class="flex items-start justify-between mb-2 md:mb-3">
                         <div class="w-8 h-8 md:w-10 md:h-10 bg-indigo-900/50 text-indigo-400 rounded-xl flex items-center justify-center shrink-0">
                             <i class="fa-solid fa-trophy text-base md:text-lg"></i>
                         </div>
-                        <span class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase tracking-tighter sm:tracking-normal">Rank</span>
+                        <span class="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase">Rank</span>
                     </div>
-                    <h3 class="text-lg md:text-2xl font-bold text-white">Top 10</h3>
-                    <p class="text-[9px] md:text-xs text-slate-400 mt-0.5 md:mt-1">This Quarter</p>
+                    <div>
+                        <h3 class="text-lg md:text-2xl font-bold text-white">Top 10</h3>
+                        <p class="text-[9px] md:text-xs text-slate-400 mt-0.5 md:mt-1">This Quarter</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Tool Selection Grid -->
-            <section class="space-y-4 md:space-y-6">
+            <section class="space-y-4 md:space-y-6 w-full">
                 <div class="flex items-center justify-between">
-                    <h2 class="text-lg md:text-xl font-bold text-white uppercase tracking-wider text-[10px] md:text-lg">Sales Tools</h2>
+                    <h2 class="text-xs md:text-xl font-bold text-white uppercase tracking-wider">Sales Tools</h2>
                     <p class="text-[10px] md:text-sm text-slate-500 font-medium">System v2.4.0</p>
                 </div>
 
-                <!-- 4xN Grid on Mobile, 3xN on Desktop -->
-                <div class="grid grid-cols-4 md:grid-cols-2 lg:grid-cols-3 gap-1.5 md:gap-6">
+                <div class="grid grid-cols-4 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6 w-full">
                     
-                    <!-- Calculator Card -->
-                    <a href="/domestic" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1">
-                        <div class="w-9 h-9 md:w-14 md:h-14 bg-blue-900/30 text-blue-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0">
+                    <a href="/domestic" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1 min-h-[100px] md:min-h-0">
+                        <div class="w-9 h-9 md:w-14 md:h-14 bg-blue-900/30 text-blue-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
                             <i class="fa-solid fa-house-circle-check text-base md:text-2xl"></i>
                         </div>
-                        <h3 class="text-[8px] md:text-lg font-bold text-white md:group-hover:text-blue-400 transition-colors text-center md:text-left leading-tight truncate w-full">Domestic</h3>
-                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Create instant proposals for landed houses and domestic accounts.</p>
-                        <div class="hidden md:flex mt-8 items-center text-blue-400 font-bold text-sm">
-                            Launch Tool <i class="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-                        </div>
+                        <h3 class="text-[8px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Domestic</h3>
+                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Proposals for landed houses.</p>
                     </a>
 
-                    <!-- Commercial Card -->
-                    <a href="/non-domestic" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1">
-                        <div class="w-9 h-9 md:w-14 md:h-14 bg-indigo-900/30 text-indigo-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shrink-0">
+                    <a href="/non-domestic" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1 min-h-[100px] md:min-h-0">
+                        <div class="w-9 h-9 md:w-14 md:h-14 bg-indigo-900/30 text-indigo-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
                             <i class="fa-solid fa-industry text-base md:text-2xl"></i>
                         </div>
-                        <h3 class="text-[8px] md:text-lg font-bold text-white md:group-hover:text-indigo-400 transition-colors text-center md:text-left leading-tight truncate w-full">Business</h3>
-                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Handle large scale factory and corporate solar implementations.</p>
-                        <div class="hidden md:flex mt-8 items-center text-indigo-400 font-bold text-sm">
-                            Launch Tool <i class="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-                        </div>
+                        <h3 class="text-[8px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Business</h3>
+                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Factory and corporate solar.</p>
                     </a>
 
-                    <!-- Invoices Card -->
-                    <a href="/my-invoice" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1">
-                        <div class="w-9 h-9 md:w-14 md:h-14 bg-emerald-900/30 text-emerald-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shrink-0">
+                    <a href="/my-invoice" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1 min-h-[100px] md:min-h-0">
+                        <div class="w-9 h-9 md:w-14 md:h-14 bg-emerald-900/30 text-emerald-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
                             <i class="fa-solid fa-wallet text-base md:text-2xl"></i>
                         </div>
-                        <h3 class="text-[8px] md:text-lg font-bold text-white md:group-hover:text-emerald-400 transition-colors text-center md:text-left leading-tight truncate w-full">Invoice</h3>
-                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Track payments, issue receipts, and manage your sales billing.</p>
-                        <div class="hidden md:flex mt-8 items-center text-emerald-400 font-bold text-sm">
-                            View Ledger <i class="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-                        </div>
+                        <h3 class="text-[8px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Invoice</h3>
+                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Track payments and billing.</p>
                     </a>
 
-                    <!-- Customers Card -->
-                    <a href="/my-customers" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1">
-                        <div class="w-9 h-9 md:w-14 md:h-14 bg-amber-900/30 text-amber-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-amber-600 group-hover:text-white transition-all duration-300 shrink-0">
+                    <a href="/my-customers" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1 min-h-[100px] md:min-h-0">
+                        <div class="w-9 h-9 md:w-14 md:h-14 bg-amber-900/30 text-amber-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-amber-600 group-hover:text-white transition-all duration-300">
                             <i class="fa-solid fa-address-book text-base md:text-2xl"></i>
                         </div>
-                        <h3 class="text-[8px] md:text-lg font-bold text-white md:group-hover:text-amber-400 transition-colors text-center md:text-left leading-tight truncate w-full">Leads</h3>
-                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Access your customer list and historical proposal data.</p>
-                        <div class="hidden md:flex mt-8 items-center text-amber-400 font-bold text-sm">
-                            Manage CRM <i class="fa-solid fa-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i>
-                        </div>
+                        <h3 class="text-[8px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Leads</h3>
+                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Manage CRM and customers.</p>
                     </a>
 
-                    <!-- SEDA WIP -->
-                    <div class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-800 flex flex-col items-center md:items-start grayscale opacity-50 col-span-1">
-                        <div class="w-9 h-9 md:w-14 md:h-14 bg-slate-800 text-slate-500 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 shrink-0">
+                    <div class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-800 flex flex-col items-center md:items-start grayscale opacity-50 col-span-1 min-h-[100px] md:min-h-0">
+                        <div class="w-9 h-9 md:w-14 md:h-14 bg-slate-800 text-slate-500 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6">
                             <i class="fa-solid fa-stamp text-base md:text-2xl"></i>
                         </div>
                         <h3 class="text-[8px] md:text-lg font-bold text-slate-500 text-center md:text-left leading-tight truncate w-full">SEDA</h3>
                     </div>
 
-                    <!-- Payments WIP -->
-                    <div class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-800 flex flex-col items-center md:items-start grayscale opacity-50 col-span-1">
-                        <div class="w-9 h-9 md:w-14 md:h-14 bg-slate-800 text-slate-500 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 shrink-0">
+                    <div class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-800 flex flex-col items-center md:items-start grayscale opacity-50 col-span-1 min-h-[100px] md:min-h-0">
+                        <div class="w-9 h-9 md:w-14 md:h-14 bg-slate-800 text-slate-500 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6">
                             <i class="fa-solid fa-credit-card text-base md:text-2xl"></i>
                         </div>
                         <h3 class="text-[8px] md:text-lg font-bold text-slate-500 text-center md:text-left leading-tight truncate w-full">Pay Link</h3>
                     </div>
-
                 </div>
             </section>
-
         </div>
 
         <!-- Footer -->
-        <footer class="mt-auto px-6 py-8 md:py-10 border-t border-slate-800 text-center pb-24 md:pb-10">
-            <p class="text-slate-600 text-[10px] md:text-xs font-semibold tracking-wide uppercase">ATAP Solar Sales Portal &bull; System v2.1.0-PRO</p>
+        <footer class="w-full px-6 py-8 md:py-10 border-t border-slate-800 text-center pb-24 md:pb-10">
+            <p class="text-slate-600 text-[10px] md:text-xs font-semibold tracking-wide uppercase">ATAP Solar Sales Portal &bull; v2.1.0-PRO</p>
         </footer>
 
         <!-- Bottom Mobile Nav -->
-        <nav class="md:hidden mobile-bottom-nav fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-6 py-3 flex items-center justify-between z-40">
+        <nav class="md:hidden mobile-bottom-nav fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-6 py-3 flex items-center justify-between z-40 w-full">
             <a href="/agent/home" class="flex flex-col items-center text-blue-400">
                 <i class="fa-solid fa-house text-lg"></i>
                 <span class="text-[9px] font-bold mt-1">Home</span>
             </a>
-            <a href="/my-customers" class="flex flex-col items-center text-slate-400 hover:text-white transition-colors">
+            <a href="/my-customers" class="flex flex-col items-center text-slate-400">
                 <i class="fa-solid fa-users text-lg"></i>
                 <span class="text-[9px] font-medium mt-1">Leads</span>
             </a>
             <div class="flex flex-col items-center -mt-8">
-                <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-blue-500/40 border-4 border-slate-900 active:scale-95 transition-transform">
+                <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-blue-500/40 border-4 border-slate-900">
                     <i class="fa-solid fa-plus text-lg"></i>
                 </div>
             </div>
-            <a href="/my-invoice" class="flex flex-col items-center text-slate-400 hover:text-white transition-colors">
+            <a href="/my-invoice" class="flex flex-col items-center text-slate-400">
                 <i class="fa-solid fa-file-invoice-dollar text-lg"></i>
                 <span class="text-[9px] font-medium mt-1">Billing</span>
             </a>
-            <a href="/agent/profile" class="flex flex-col items-center text-slate-400 hover:text-white transition-colors">
+            <a href="/agent/profile" class="flex flex-col items-center text-slate-400">
                 <i class="fa-solid fa-user text-lg"></i>
                 <span class="text-[9px] font-medium mt-1">Profile</span>
-            </a>
-        </nav>
-    </main>
-
-        </div>
-
-        <!-- Footer -->
-        <footer class="mt-auto px-6 py-10 border-t border-slate-100 text-center">
-            <p class="text-slate-400 text-xs font-semibold tracking-wide uppercase">ATAP Solar Sales Portal &bull; System v2.1.0-PRO</p>
-        </footer>
-
-        <!-- Bottom Mobile Nav -->
-        <nav class="md:hidden mobile-bottom-nav fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between z-40">
-            <a href="/agent/home" class="flex flex-col items-center text-blue-600">
-                <i class="fa-solid fa-grid-2 text-xl"></i>
-                <span class="text-[10px] font-bold mt-1">Home</span>
-            </a>
-            <a href="/my-customers" class="flex flex-col items-center text-slate-400">
-                <i class="fa-solid fa-users text-xl"></i>
-                <span class="text-[10px] font-medium mt-1">Leads</span>
-            </a>
-            <div class="flex flex-col items-center -mt-8">
-                <div class="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-blue-500/40 border-4 border-white">
-                    <i class="fa-solid fa-plus text-xl"></i>
-                </div>
-                <span class="text-[10px] font-bold text-slate-400 mt-1">Action</span>
-            </div>
-            <a href="/my-invoice" class="flex flex-col items-center text-slate-400">
-                <i class="fa-solid fa-file-invoice-dollar text-xl"></i>
-                <span class="text-[10px] font-medium mt-1">Billing</span>
-            </a>
-            <a href="/agent/profile" class="flex flex-col items-center text-slate-400">
-                <i class="fa-solid fa-user-circle text-xl"></i>
-                <span class="text-[10px] font-medium mt-1">Profile</span>
             </a>
         </nav>
     </main>
@@ -385,36 +309,25 @@
         async function fetchAgentData() {
             try {
                 const response = await fetch('/api/agent/me');
-                
-                if (response.status === 401) {
-                    window.location.href = '/domestic'; 
-                    return;
-                }
-
+                if (response.status === 401) { window.location.href = '/domestic'; return; }
                 if (!response.ok) throw new Error('Failed to fetch profile');
                 const data = await response.json();
                 
-                // Update names
                 if (data.name) {
                     const firstName = data.name.split(' ')[0];
                     document.getElementById('agentNameHero').textContent = firstName;
                     document.getElementById('sidebarAgentName').textContent = data.name;
                 }
 
-                // Update Profile Pictures
                 const avatarUrl = data.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || 'Agent')}&background=0D8ABC&color=fff&bold=true`;
-                
-                const profilePics = ['sidebarProfilePic', 'mobileProfilePic'];
-                profilePics.forEach(id => {
+                ['sidebarProfilePic', 'mobileProfilePic'].forEach(id => {
                     const img = document.getElementById(id);
                     if (img) img.src = avatarUrl;
                 });
-
             } catch (error) {
                 console.error('Error fetching agent data:', error);
             }
         }
-
         document.addEventListener('DOMContentLoaded', fetchAgentData);
     </script>
 </body>
