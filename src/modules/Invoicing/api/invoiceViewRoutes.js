@@ -19,8 +19,6 @@ router.get('/view/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-
-      if (invoice) {
         const html = await invoiceHtmlGenerator.generateInvoiceHtml(client, invoice);
         res.send(html);
       } else {
