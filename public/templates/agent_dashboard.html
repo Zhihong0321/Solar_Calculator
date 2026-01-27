@@ -55,15 +55,14 @@
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.4);
         }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
-
         @media (max-width: 768px) {
             .mobile-bottom-nav {
                 padding-bottom: env(safe-area-inset-bottom);
+            }
+            .action-card {
+                background: transparent;
+                border: none;
+                box-shadow: none;
             }
         }
     </style>
@@ -225,50 +224,46 @@
 
                 <div class="grid grid-cols-4 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6 w-full">
                     
-                    <a href="/domestic" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1 min-h-[110px] md:min-h-0">
-                        <div class="w-12 h-12 md:w-16 md:h-16 bg-blue-900/30 text-blue-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                            <i class="fa-solid fa-house-circle-check text-xl md:text-3xl"></i>
+                    <a href="/domestic" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl flex flex-col items-center md:items-start group col-span-1">
+                        <div class="mb-2 md:mb-6 md:w-16 md:h-16 md:bg-blue-900/30 text-blue-400 md:rounded-2xl flex items-center justify-center transition-all duration-300">
+                            <i class="fa-solid fa-house-circle-check text-4xl md:text-3xl"></i>
                         </div>
-                        <h3 class="text-[9px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Domestic</h3>
-                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Proposals for landed houses.</p>
+                        <h3 class="text-[10px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Domestic</h3>
                     </a>
 
-                    <a href="/non-domestic" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1 min-h-[110px] md:min-h-0">
-                        <div class="w-12 h-12 md:w-16 md:h-16 bg-indigo-900/30 text-indigo-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
-                            <i class="fa-solid fa-industry text-xl md:text-3xl"></i>
+                    <a href="/non-domestic" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl flex flex-col items-center md:items-start group col-span-1">
+                        <div class="mb-2 md:mb-6 md:w-16 md:h-16 md:bg-indigo-900/30 text-indigo-400 md:rounded-2xl flex items-center justify-center transition-all duration-300">
+                            <i class="fa-solid fa-industry text-4xl md:text-3xl"></i>
                         </div>
-                        <h3 class="text-[9px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Business</h3>
-                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Factory and corporate solar.</p>
+                        <h3 class="text-[10px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Business</h3>
                     </a>
 
-                    <a href="/my-invoice" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1 min-h-[110px] md:min-h-0">
-                        <div class="w-12 h-12 md:w-16 md:h-16 bg-emerald-900/30 text-emerald-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
-                            <i class="fa-solid fa-wallet text-xl md:text-3xl"></i>
+                    <a href="/my-invoice" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl flex flex-col items-center md:items-start group col-span-1">
+                        <div class="mb-2 md:mb-6 md:w-16 md:h-16 md:bg-emerald-900/30 text-emerald-400 md:rounded-2xl flex items-center justify-center transition-all duration-300">
+                            <i class="fa-solid fa-wallet text-4xl md:text-3xl"></i>
                         </div>
-                        <h3 class="text-[9px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Invoice</h3>
-                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Track payments and billing.</p>
+                        <h3 class="text-[10px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Invoice</h3>
                     </a>
 
-                    <a href="/my-customers" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-700 flex flex-col items-center md:items-start group col-span-1 min-h-[110px] md:min-h-0">
-                        <div class="w-12 h-12 md:w-16 md:h-16 bg-amber-900/30 text-amber-400 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6 group-hover:bg-amber-600 group-hover:text-white transition-all duration-300">
-                            <i class="fa-solid fa-address-book text-xl md:text-3xl"></i>
+                    <a href="/my-customers" class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl flex flex-col items-center md:items-start group col-span-1">
+                        <div class="mb-2 md:mb-6 md:w-16 md:h-16 md:bg-amber-900/30 text-amber-400 md:rounded-2xl flex items-center justify-center transition-all duration-300">
+                            <i class="fa-solid fa-address-book text-4xl md:text-3xl"></i>
                         </div>
-                        <h3 class="text-[9px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Leads</h3>
-                        <p class="hidden md:block text-slate-400 text-sm mt-2 leading-relaxed">Manage CRM and customers.</p>
+                        <h3 class="text-[10px] md:text-lg font-bold text-white text-center md:text-left leading-tight truncate w-full">Leads</h3>
                     </a>
 
-                    <div class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-800 flex flex-col items-center md:items-start grayscale opacity-50 col-span-1 min-h-[110px] md:min-h-0">
-                        <div class="w-12 h-12 md:w-16 md:h-16 bg-slate-800 text-slate-500 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6">
-                            <i class="fa-solid fa-stamp text-xl md:text-3xl"></i>
+                    <div class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl flex flex-col items-center md:items-start grayscale opacity-50 col-span-1">
+                        <div class="mb-2 md:mb-6 md:w-16 md:h-16 md:bg-slate-800 text-slate-500 md:rounded-2xl flex items-center justify-center">
+                            <i class="fa-solid fa-stamp text-4xl md:text-3xl"></i>
                         </div>
-                        <h3 class="text-[9px] md:text-lg font-bold text-slate-500 text-center md:text-left leading-tight truncate w-full">SEDA</h3>
+                        <h3 class="text-[10px] md:text-lg font-bold text-slate-500 text-center md:text-left leading-tight truncate w-full">SEDA</h3>
                     </div>
 
-                    <div class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl border border-slate-800 flex flex-col items-center md:items-start grayscale opacity-50 col-span-1 min-h-[110px] md:min-h-0">
-                        <div class="w-12 h-12 md:w-16 md:h-16 bg-slate-800 text-slate-500 rounded-lg md:rounded-2xl flex items-center justify-center mb-1.5 md:mb-6">
-                            <i class="fa-solid fa-credit-card text-xl md:text-3xl"></i>
+                    <div class="action-card p-2 md:p-6 rounded-xl md:rounded-3xl flex flex-col items-center md:items-start grayscale opacity-50 col-span-1">
+                        <div class="mb-2 md:mb-6 md:w-16 md:h-16 md:bg-slate-800 text-slate-500 md:rounded-2xl flex items-center justify-center">
+                            <i class="fa-solid fa-credit-card text-4xl md:text-3xl"></i>
                         </div>
-                        <h3 class="text-[9px] md:text-lg font-bold text-slate-500 text-center md:text-left leading-tight truncate w-full">Pay Link</h3>
+                        <h3 class="text-[10px] md:text-lg font-bold text-slate-500 text-center md:text-left leading-tight truncate w-full">Pay Link</h3>
                     </div>
                 </div>
             </section>
