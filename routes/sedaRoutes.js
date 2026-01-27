@@ -253,7 +253,7 @@ router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
                 s.reg_status,
                 s.seda_status,
                 s.updated_at,
-                COALESCE(c.name, s.linked_customer_name, 'Unnamed Customer') as customer_name,
+                COALESCE(c.name, i.customer_name_snapshot, s.e_contact_name, 'Unnamed Customer') as customer_name,
                 i.invoice_number,
                 COALESCE(i.paid, false) as invoice_paid,
                 COALESCE(i.total_amount, 0) as invoice_total,
