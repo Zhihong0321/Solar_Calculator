@@ -1036,8 +1036,8 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   }
 
   let filterClause = '';
-  const params = [agentProfileId];
-  let paramIdx = 2;
+  const params = [agentProfileId, paymentStatus];
+  let paramIdx = 3;
 
   if (startDate) {
     filterClause += ` AND i.invoice_date >= $${paramIdx++}::date`;
@@ -1125,8 +1125,8 @@ async function getInvoicesByUserId(client, userId, options = {}) {
 
   try {
       const [result, countResult] = await Promise.all([
-        client.query(query, [agentProfileId, paymentStatus, ...params.slice(1)]),
-        client.query(countQuery, [agentProfileId, paymentStatus, ...countParams.slice(1)])
+        client.query(query, params),
+        client.query(countQuery, countParams)
       ]);
 
       return {
