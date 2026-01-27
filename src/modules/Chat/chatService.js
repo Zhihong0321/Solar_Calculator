@@ -41,6 +41,12 @@ class ChatService {
   /**
    * Get all chat threads with latest message and customer details
    * Enforces visibility rules based on user roles and agent association
+   *
+   * @ai_context
+   * VISIBILITY RULE:
+   * - Admins (defined in ADMIN_ROLES) see ALL threads.
+   * - Agents ONLY see threads for invoices they are linked to (via invoice.linked_agent).
+   * - This query enforces strict data isolation for non-admins.
    */
   async getChatThreads(user) {
     const hasAdminAccess = user.access_level && user.access_level.some(role => this.ADMIN_ROLES.includes(role));
@@ -87,6 +93,12 @@ class ChatService {
 
   /**
    * Add a message to a thread and handle tag assignments
+   *
+   * @ai_context
+   * TAGGING LOGIC:
+   * 1. 'agent' role: dynamically resolves to the specific agent linked to the invoice.
+   *    - FALLBACK: If no agent is found, it defaults to tagging ALL Admins to prevent lost notifications.
+   * 2. Standard roles (e.g. 'engineering'): resolves to all users with that role.
    */
   async addMessage({ threadId, senderId, senderName, messageType, content, fileMeta, tagRole }) {
     const client = await pool.connect();

@@ -224,21 +224,16 @@ router.get('/api/solar-calculation', async (req, res) => {
   }
 });
 
+// Import the shared TNB pool
+const tnbPool = require('../../../core/database/tnbPool');
+
 // API endpoint for Commercial Bill Breakdown from external DB (By Amount)
 router.get('/api/commercial/calculate-bill', async (req, res) => {
-  const { Pool } = require('pg');
-  const tnbDbUrl = process.env.TNB_DATABASE_URL || 'postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway';
-  
-  const commercialPool = new Pool({
-    connectionString: tnbDbUrl,
-    ssl: tnbDbUrl.includes('rlwy.net') ? { rejectUnauthorized: false } : false
-  });
-
   try {
     const billAmount = parseFloat(req.query.amount);
     if (!billAmount) return res.status(400).json({ error: 'Amount is required' });
 
-    const client = await commercialPool.connect();
+    const client = await tnbPool.connect();
     const query = `
       SELECT * FROM bill_simulation_lookup 
       WHERE tariff_group = 'LV_COMMERCIAL' AND total_bill <= $1 
@@ -249,35 +244,25 @@ router.get('/api/commercial/calculate-bill', async (req, res) => {
     client.release();
 
     if (result.rows.length === 0) {
-      const fallbackClient = await commercialPool.connect();
-      const fallbackResult = await fallbackClient.query('SELECT * FROM bill_simulation_lookup WHERE tariff_group = \'LV_COMMERCIAL\' ORDER BY total_bill ASC LIMIT 1');
-      fallbackClient.release();
+      // Fallback query
+      const fallbackResult = await tnbPool.query(`SELECT * FROM bill_simulation_lookup WHERE tariff_group = 'LV_COMMERCIAL' ORDER BY total_bill ASC LIMIT 1`);
       return res.json({ tariff: fallbackResult.rows[0], matched: false });
     }
 
     res.json({ tariff: result.rows[0], matched: true });
   } catch (err) {
+    console.error('TNB DB Error:', err);
     res.status(500).json({ error: 'External DB error', details: err.message });
-  } finally {
-    await commercialPool.end();
   }
 });
 
 // API endpoint for Commercial Bill Lookup from external DB (By Usage)
 router.get('/api/commercial/lookup-by-usage', async (req, res) => {
-  const { Pool } = require('pg');
-  const tnbDbUrl = process.env.TNB_DATABASE_URL || 'postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway';
-  
-  const commercialPool = new Pool({
-    connectionString: tnbDbUrl,
-    ssl: tnbDbUrl.includes('rlwy.net') ? { rejectUnauthorized: false } : false
-  });
-
   try {
     const usageKwh = parseFloat(req.query.usage);
     if (usageKwh === undefined) return res.status(400).json({ error: 'Usage is required' });
 
-    const client = await commercialPool.connect();
+    const client = await tnbPool.connect();
     const query = `
       SELECT * FROM bill_simulation_lookup 
       WHERE tariff_group = 'LV_COMMERCIAL' AND usage_kwh <= $1 
@@ -296,9 +281,8 @@ router.get('/api/commercial/lookup-by-usage', async (req, res) => {
 
     res.json({ tariff: result.rows[0], matched: true });
   } catch (err) {
+    console.error('TNB DB Error:', err);
     res.status(500).json({ error: 'External DB error', details: err.message });
-  } finally {
-    await commercialPool.end();
   }
 });
 

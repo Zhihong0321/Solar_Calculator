@@ -54,7 +54,11 @@ app.use('/uploads', express.static(storagePath));
 app.use('/seda-files', express.static(path.join(storagePath, 'seda_registration')));
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.redirect('/domestic');
+});
+
+app.get('/domestic', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'domestic.html'));
 });
 
 app.get('/non-domestic', (req, res) => {

@@ -9,6 +9,12 @@ const sedaService = require('./sedaService');
  * Parse discount_given string into discount_fixed and discount_percent
  * @param {string} discountGiven - String like "500 10%", "500", or "10%"
  * @returns {object} { discountFixed, discountPercent }
+ *
+ * @ai_context
+ * BUSINESS RULE: Hybrid Discount Parsing
+ * Allows sales agents to input "500 10%" to apply BOTH fixed amount and percentage.
+ * - Priority: Parses all parts; sums fixed amounts, takes last valid percentage.
+ * - Sanitization: Strips 'RM', commas, and '+' signs before parsing.
  */
 function parseDiscountString(discountGiven) {
   const result = {

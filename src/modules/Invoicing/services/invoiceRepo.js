@@ -1,6 +1,10 @@
 /**
- * Invoice Repository Module
- * Handles all database operations for invoice creation
+ * [AI-CONTEXT]
+ * Domain: Invoicing Repository
+ * Primary Responsibility: Low-level Database (PostgreSQL) operations for Invoices, Items, and Customers.
+ * Architecture Rule: This file should contain PURE SQL logic and minimal business orchestration.
+ * Architecture Rule: Complex business logic (validations, external service calls) belongs in 'invoiceService.js'.
+ * Performance Note: Uses atomic updates for invoice number generation to prevent race conditions.
  */
 const crypto = require('crypto');
 
@@ -13,7 +17,12 @@ function generateShareToken() {
 }
 
 /**
- * Generate next invoice number
+ * [AI-CONTEXT]
+ * Intent: Atomically increment the global invoice counter.
+ * Critical: Uses UPDATE...RETURNING for thread-safety.
+ * Fallback: If 'invoice_count' parameter is missing, scans the 'invoice' table for the highest existing number.
+ * Output Format: INV-XXXXXX (6 digits).
+ * 
  * @param {object} client - Database client
  * @returns {Promise<string>} Invoice number
  */
