@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Edit Profile | ATAP Solar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #334155;
+            --primary-hover: #475569;
+        }
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f8fafc; }
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            background: white;
+            transition: all 0.2s;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #334155;
+            box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.1);
+        }
+    </style>
+</head>
+<body class="p-0 m-0">
+    <!-- Header -->
+    <div class="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div class="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
+            <a href="/agent/home" class="p-2 -ml-2 text-slate-500 hover:text-slate-800">
+                <i class="fa-solid fa-chevron-left text-lg"></i>
+            </a>
+            <h1 class="text-lg font-bold text-slate-800">Edit Profile</h1>
+            <div class="w-8"></div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="max-w-md mx-auto px-6 py-8">
+        <!-- Profile Picture Section -->
+        <div class="flex flex-col items-center mb-8">
+            <div class="relative">
+                <img id="profilePic" src="https://ui-avatars.com/api/?name=Agent&background=random" 
+                     class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md">
+                <button class="absolute bottom-0 right-0 bg-slate-800 text-white w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center hover:bg-slate-700">
+                    <i class="fa-solid fa-camera text-xs"></i>
+                </button>
+            </div>
+            <p class="mt-2 text-xs text-slate-400">Agent Profile Picture</p>
+        </div>
+
+        <form id="profileForm" class="space-y-6">
+            <!-- Personal Info -->
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Full Name</label>
+                <input type="text" id="name" name="name" required class="form-input text-slate-800 font-medium">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Mobile Number</label>
+                <input type="tel" id="contact" name="contact" required 
+                       placeholder="e.g., 0123456789"
+                       pattern="0\d{9,10}"
+                       title="Mobile number must start with 0 and be 10-11 digits"
+                       class="form-input text-slate-800 font-medium">
+                <p class="mt-1 text-[10px] text-slate-400">Format: 0123456789 (10-11 digits)</p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Email Address</label>
+                <input type="email" id="email" name="email" required class="form-input text-slate-800 font-medium">
+            </div>
+
+            <div class="pt-4 border-t border-slate-200">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Banking Details</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Bank Name</label>
+                        <select id="banker" name="banker" class="form-input text-slate-800 font-medium">
+                            <option value="">Select Bank</option>
+                            <option value="Maybank">Maybank</option>
+                            <option value="CIMB">CIMB Bank</option>
+                            <option value="Public Bank">Public Bank</option>
+                            <option value="RHB Bank">RHB Bank</option>
+                            <option value="Hong Leong Bank">Hong Leong Bank</option>
+                            <option value="AmBank">AmBank</option>
+                            <option value="UOB Bank">UOB Bank</option>
+                            <option value="Bank Islam">Bank Islam</option>
+                            <option value="OCBC Bank">OCBC Bank</option>
+                            <option value="Standard Chartered">Standard Chartered</option>
+                            <option value="HSBC Bank">HSBC Bank</option>
+                            <option value="Alliance Bank">Alliance Bank</option>
+                            <option value="Affin Bank">Affin Bank</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Bank Account Number</label>
+                        <input type="text" id="bankin_account" name="bankin_account" class="form-input text-slate-800 font-medium">
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" id="saveBtn" class="w-full bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-slate-700 transition-colors disabled:opacity-50 mt-8">
+                Save Changes
+            </button>
+        </form>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl transition-all opacity-0 pointer-events-none translate-y-4">
+        Profile updated successfully!
+    </div>
+
+    <script>
+        const form = document.getElementById('profileForm');
+        const saveBtn = document.getElementById('saveBtn');
+        const toast = document.getElementById('toast');
+
+        async function fetchProfile() {
+            try {
+                const response = await fetch('/api/agent/profile');
+                const data = await response.json();
+                
+                if (data.name) document.getElementById('name').value = data.name;
+                if (data.contact) document.getElementById('contact').value = data.contact;
+                if (data.email) document.getElementById('email').value = data.email;
+                if (data.banker) document.getElementById('banker').value = data.banker;
+                if (data.bankin_account) document.getElementById('bankin_account').value = data.bankin_account;
+                if (data.profile_picture) document.getElementById('profilePic').src = data.profile_picture;
+                else if (data.name) {
+                    document.getElementById('profilePic').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random`;
+                }
+            } catch (err) {
+                console.error('Error fetching profile:', err);
+            }
+        }
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            const formData = new FormData(form);
+            const payload = Object.fromEntries(formData.entries());
+
+            try {
+                const res = await fetch('/api/agent/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    showToast();
+                    // Update launcher data if needed (browser refresh or local storage)
+                } else {
+                    const err = await res.json();
+                    alert('Update failed: ' + (err.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Connection error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Changes';
+            }
+        };
+
+        function showToast() {
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+            }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchProfile);
+    </script>
+</body>
+</html>

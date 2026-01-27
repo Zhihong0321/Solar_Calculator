@@ -78,8 +78,83 @@ app.get('/agent/home', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_dashboard.html'));
 });
 
+// Agent Profile Management Route
+app.get('/agent/profile', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_profile.html'));
+});
+
 /**
- * API: Get current logged in agent details
+ * API: Get full agent profile
+ */
+app.get('/api/agent/profile', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const bubbleId = req.user.bubbleId;
+
+    const query = `
+      SELECT 
+        u.name, 
+        u.email, 
+        u.linked_agent_profile as profile_picture,
+        a.contact,
+        a.banker,
+        a.bankin_account
+      FROM "user" u
+      LEFT JOIN agent a ON a.linked_user_login = u.bubble_id
+      WHERE u.id::text = $1 OR u.bubble_id = $2
+      LIMIT 1
+    `;
+    const result = await pool.query(query, [userId, bubbleId]);
+    res.json(result.rows[0] || {});
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+/**
+ * API: Update agent profile
+ */
+app.put('/api/agent/profile', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { name, contact, email, banker, bankin_account } = req.body;
+    const userId = req.user.userId;
+    const bubbleId = req.user.bubbleId;
+
+    // Validation: Phone must start with 0 and be 10-11 digits
+    if (!/^0\d{9,10}$/.test(contact)) {
+      return res.status(400).json({ error: 'Invalid mobile number format. Must start with 0 and be 10-11 digits.' });
+    }
+
+    await client.query('BEGIN');
+
+    // 1. Update User table
+    await client.query(
+      `UPDATE "user" SET name = $1, email = $2, updated_at = NOW() 
+       WHERE id::text = $3 OR bubble_id = $4`,
+      [name, email, userId, bubbleId]
+    );
+
+    // 2. Update Agent table
+    await client.query(
+      `UPDATE agent SET name = $1, contact = $2, email = $3, banker = $4, bankin_account = $5, updated_at = NOW() 
+       WHERE linked_user_login = $6 OR bubble_id = $7`,
+      [name, contact, email, banker, bankin_account, bubbleId, bubbleId]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Update Profile Error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * API: Get current logged in agent details (minimal for header)
  */
 app.get('/api/agent/me', requireAuth, async (req, res) => {
   try {
