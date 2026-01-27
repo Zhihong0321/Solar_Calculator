@@ -54,6 +54,9 @@ app.use('/uploads', express.static(storagePath));
 app.use('/seda-files', express.static(path.join(storagePath, 'seda_registration')));
 
 app.get('/', (req, res) => {
+  if (req.cookies.auth_token) {
+    return res.redirect('/agent/home');
+  }
   res.redirect('/domestic');
 });
 
@@ -68,6 +71,44 @@ app.get('/non-domestic', (req, res) => {
 // Chat Page Routes
 app.get('/invoice-chat', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'invoice_chat.html'));
+});
+
+// Agent Launcher Route
+app.get('/agent/home', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_dashboard.html'));
+});
+
+/**
+ * API: Get current logged in agent details
+ */
+app.get('/api/agent/me', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const bubbleId = req.user.bubbleId;
+
+    // Fetch user details and link to agent table for contact info
+    const query = `
+      SELECT 
+        u.name, 
+        u.email, 
+        u.linked_agent_profile as profile_picture,
+        a.contact as phone
+      FROM "user" u
+      LEFT JOIN agent a ON a.linked_user_login = u.bubble_id
+      WHERE u.id::text = $1 OR u.bubble_id = $2
+      LIMIT 1
+    `;
+    const result = await pool.query(query, [userId, bubbleId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching agent me:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 app.get('/select-package', (req, res) => {

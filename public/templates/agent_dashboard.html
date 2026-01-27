@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Agent Dashboard | ATAP Solar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #334155;
+            --primary-hover: #475569;
+            --accent: #64748b;
+        }
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        body {
+            background: #f8fafc;
+            min-height: 100vh;
+        }
+        .icon-card {
+            transition: all 0.2s ease;
+        }
+        .icon-card:active {
+            transform: scale(0.95);
+        }
+        .line-divider {
+            border-top: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body class="p-0 m-0">
+    <!-- Header Section -->
+    <div class="bg-white border-b border-slate-200">
+        <div class="max-w-md mx-auto px-6 py-8 flex items-center space-x-4">
+            <div class="relative">
+                <img id="agentProfilePic" src="https://ui-avatars.com/api/?name=Agent&background=random" 
+                     alt="Profile" class="w-20 h-20 rounded-full object-cover border-2 border-slate-100 shadow-sm">
+                <div class="absolute bottom-0 right-0 w-5 h-5 bg-green-500 border-2 border-white rounded-full shadow-sm"></div>
+            </div>
+            <div>
+                <h1 id="agentName" class="text-2xl font-bold text-slate-800">...</h1>
+                <p id="agentPhone" class="text-slate-500 font-medium flex items-center">
+                    <i class="fa-solid fa-phone text-xs mr-2 opacity-70"></i> ...
+                </p>
+                <div class="mt-1">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                        Sales Agent
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Access Grid -->
+    <div class="max-w-md mx-auto px-4 py-8">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest px-2 mb-4">Quick Access</h2>
+        
+        <div class="grid grid-cols-4 gap-2">
+            <!-- Row 1 -->
+            <a href="/domestic" class="icon-card flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm">
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-2">
+                    <i class="fa-solid fa-calculator text-xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-700 text-center leading-tight">ATAP Calc</span>
+            </a>
+
+            <a href="/non-domestic" class="icon-card flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm">
+                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-2">
+                    <i class="fa-solid fa-building text-xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-700 text-center leading-tight">Comm Calc</span>
+            </a>
+
+            <a href="/my-invoice" class="icon-card flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm">
+                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-2">
+                    <i class="fa-solid fa-file-invoice-dollar text-xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-700 text-center leading-tight">My Invoice</span>
+            </a>
+
+            <a href="/my-customers" class="icon-card flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm">
+                <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mb-2">
+                    <i class="fa-solid fa-users text-xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-700 text-center leading-tight">My Cust</span>
+            </a>
+
+            <!-- Row 2 -->
+            <div class="icon-card flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl opacity-60 grayscale relative overflow-hidden">
+                <div class="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mb-2">
+                    <i class="fa-solid fa-credit-card text-xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-700 text-center leading-tight">Payments</span>
+                <div class="absolute top-0 right-0 bg-slate-200 text-slate-500 text-[8px] font-bold px-1 rounded-bl">WIP</div>
+            </div>
+
+            <div class="icon-card flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl opacity-60 grayscale relative overflow-hidden">
+                <div class="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mb-2">
+                    <i class="fa-solid fa-certificate text-xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-700 text-center leading-tight">SEDA</span>
+                <div class="absolute top-0 right-0 bg-slate-200 text-slate-500 text-[8px] font-bold px-1 rounded-bl">WIP</div>
+            </div>
+
+            <div class="icon-card flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl opacity-60 grayscale relative overflow-hidden">
+                <div class="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mb-2">
+                    <i class="fa-solid fa-user-gear text-xl"></i>
+                </div>
+                <span class="text-[10px] font-semibold text-slate-700 text-center leading-tight">Profile</span>
+                <div class="absolute top-0 right-0 bg-slate-200 text-slate-500 text-[8px] font-bold px-1 rounded-bl">WIP</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Status -->
+    <div class="max-w-md mx-auto mt-8 text-center px-6">
+        <p class="text-slate-400 text-xs font-medium">© 2026 ATAP Solar Agent Portal</p>
+    </div>
+
+    <script>
+        async function fetchAgentData() {
+            try {
+                const response = await fetch('/api/agent/me');
+                if (!response.ok) throw new Error('Failed to fetch profile');
+                const agent = await response.data; // Wait, actually standard fetch is .json()
+                const data = await response.json();
+                
+                if (data.name) document.getElementById('agentName').textContent = data.name;
+                if (data.phone) document.getElementById('agentPhone').innerHTML = `<i class="fa-solid fa-phone text-xs mr-2 opacity-70"></i> ${data.phone}`;
+                if (data.profile_picture) document.getElementById('agentProfilePic').src = data.profile_picture;
+                else if (data.name) {
+                    document.getElementById('agentProfilePic').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random`;
+                }
+            } catch (error) {
+                console.error('Error fetching agent data:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchAgentData);
+    </script>
+</body>
+</html>
