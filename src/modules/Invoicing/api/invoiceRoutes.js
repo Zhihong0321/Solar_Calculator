@@ -39,27 +39,36 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
     let client = null;
     try {
         const userId = req.user.userId;
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = parseInt(req.query.offset) || 0;
+        const { startDate, endDate, paymentStatus } = req.query;
+
         client = await pool.connect();
         
-        // Fetch invoices where user is creator OR linked agent
-        const query = `
-            SELECT 
-                i.bubble_id, i.invoice_number, i.total_amount, i.status, i.invoice_date, 
-                i.customer_name, i.customer_email, i.share_token,
-                a.name as agent_name
-            FROM invoice i
-            LEFT JOIN agent a ON i.linked_agent = a.bubble_id
-            LEFT JOIN "user" u ON u.linked_agent_profile = a.bubble_id
-            WHERE i.created_by = $1 
-               OR u.id::text = $1 
-               OR u.bubble_id = $1
-            ORDER BY i.created_at DESC
-        `;
-        const result = await client.query(query, [String(userId)]);
+        const result = await invoiceRepo.getInvoicesByUserId(client, userId, {
+            limit,
+            offset,
+            startDate,
+            endDate,
+            paymentStatus
+        });
         
+        // Build URLs (Legacy support)
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const invoices = result.invoices.map(inv => ({
+            ...inv,
+            share_url: inv.share_token ? `${protocol}://${host}/view/${inv.share_token}` : null
+        }));
+
         res.json({
             success: true,
-            data: result.rows
+            data: {
+                invoices,
+                total: result.total,
+                limit: result.limit,
+                offset: result.offset
+            }
         });
     } catch (err) {
         console.error('Error fetching my invoices:', err);
