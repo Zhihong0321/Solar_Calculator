@@ -846,6 +846,24 @@ async function createInvoiceOnTheFly(client, data) {
 }
 
 /**
+ * Resolve any identifier (id, bubble_id, or share_token) to a bubble_id
+ * @param {object} client - Database client
+ * @param {string} identifier - Any identifier
+ * @returns {Promise<string|null>} bubble_id or null
+ */
+async function resolveInvoiceBubbleId(client, identifier) {
+  try {
+    const res = await client.query(
+      `SELECT bubble_id FROM invoice WHERE bubble_id = $1 OR share_token = $1 OR id::text = $1 LIMIT 1`,
+      [identifier]
+    );
+    return res.rows.length > 0 ? res.rows[0].bubble_id : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
  * Get public invoice by share token OR bubble_id
  * @param {object} client - Database client
  * @param {string} tokenOrId - Share token or Invoice UID
@@ -853,124 +871,11 @@ async function createInvoiceOnTheFly(client, data) {
  */
 async function getPublicInvoice(client, tokenOrId) {
   try {
-    const invoiceResult = await client.query(
-      `SELECT 
-        i.*,
-        COALESCE(c.name, 'Unknown Customer') as customer_name,
-        c.email as customer_email,
-        c.phone as customer_phone,
-        c.address as customer_address,
-        c.profile_picture as profile_picture,
-        pkg.package_name as package_name
-       FROM invoice i 
-       LEFT JOIN customer c ON i.linked_customer = c.customer_id
-       LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
-       WHERE (i.share_token = $1 OR i.bubble_id = $1 OR i.id::text = $1)
-       LIMIT 1`,
-      [tokenOrId]
-    );
-
-    if (invoiceResult.rows.length === 0) {
-      return null;
-    }
-
-    const invoice = invoiceResult.rows[0];
-
-    // Get items (Enhanced Retrieval)
-    const itemIds = Array.isArray(invoice.linked_invoice_item) ? invoice.linked_invoice_item : [];
-    const itemsResult = await client.query(
-      `SELECT 
-        ii.bubble_id,
-        ii.linked_invoice as invoice_id,
-        ii.description,
-        ii.qty,
-        ii.unit_price,
-        ii.amount as total_price,
-        ii.inv_item_type as item_type,
-        ii.sort as sort_order,
-        ii.created_at,
-        ii.is_a_package,
-        ii.linked_package as product_id,
-        COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
-       FROM invoice_item ii
-       LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
-       WHERE ii.linked_invoice = $1 
-          OR ii.bubble_id = ANY($2::text[])
-       ORDER BY ii.sort ASC, ii.created_at ASC`,
-      [invoice.bubble_id, itemIds]
-    );
-    invoice.items = itemsResult.rows;
-
-    // Get package data for system size calculation
-    if (invoice.linked_package) {
-      const packageResult = await client.query(
-        `SELECT p.panel_qty, p.panel, pr.solar_output_rating
-         FROM package p
-         LEFT JOIN product pr ON (
-           CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-           OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-         )
-         WHERE p.bubble_id = $1`,
-        [invoice.linked_package]
-      );
-      if (packageResult.rows.length > 0) {
-        const packageData = packageResult.rows[0];
-        invoice.panel_qty = packageData.panel_qty;
-        invoice.panel_rating = packageData.solar_output_rating;
-        // Calculate system size in kWp
-        if (packageData.panel_qty && packageData.solar_output_rating) {
-          invoice.system_size_kwp = (packageData.panel_qty * packageData.solar_output_rating) / 1000;
-        }
-      }
-    }
-
-    // Fetch user name who created the invoice
-    try {
-      if (invoice.created_by) {
-        // Fetch name from agent table linked to user table
-        // user.id -> user.linked_agent_profile (bubble_id) -> agent.bubble_id -> agent.name
-        try {
-            const userResult = await client.query(
-            `SELECT a.name 
-             FROM "user" u 
-             JOIN agent a ON u.linked_agent_profile = a.bubble_id 
-             WHERE u.bubble_id = $1 
-             LIMIT 1`,
-            [invoice.created_by]
-            );
-            if (userResult.rows.length > 0) {
-            invoice.created_by_user_name = userResult.rows[0].name;
-            } else {
-                invoice.created_by_user_name = 'System';
-            }
-        } catch (tableErr) {
-            console.warn('Could not fetch user name:', tableErr.message);
-            invoice.created_by_user_name = 'System';
-        }
-      } else {
-        invoice.created_by_user_name = 'System';
-      }
-    } catch (err) {
-      console.warn('Error setting created_by_user_name:', err);
-      invoice.created_by_user_name = 'System';
-    }
-
-    // Get template
-    if (invoice.template_id) {
-      const templateResult = await client.query(
-        `SELECT * FROM invoice_template WHERE bubble_id = $1`,
-        [invoice.template_id]
-      );
-      if (templateResult.rows.length > 0) {
-        invoice.template = templateResult.rows[0];
-      }
-    }
-
-    if (!invoice.template) {
-      invoice.template = await getDefaultTemplate(client);
-    }
-
-    return invoice;
+    const bubbleId = await resolveInvoiceBubbleId(client, tokenOrId);
+    if (!bubbleId) return null;
+    
+    // Reuse the working logic from getInvoiceByBubbleId
+    return await getInvoiceByBubbleId(client, bubbleId);
   } catch (err) {
     console.error('Error fetching public invoice:', err);
     return null;
