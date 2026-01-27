@@ -227,26 +227,42 @@ router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
     const client = await pool.connect();
 
     try {
-        // Query to get SEDA registrations linked to invoices where the current user is the agent
-        // Priorities: 
-        // 1. Invoices with payments (paid_amount > 0)
-        // 2. Exclude statuses: Submitted, Approved (already handled)
+        // 1. Resolve Agent Profile from the 'agent' table linked to current user
+        let agentProfileId = null;
+        const userRes = await client.query(`
+            SELECT a.bubble_id 
+            FROM "user" u
+            JOIN agent a ON u.linked_agent_profile = a.bubble_id
+            WHERE u.id::text = $1 OR u.bubble_id = $1
+        `, [String(userId)]);
+        
+        if (userRes.rows.length > 0) {
+            agentProfileId = userRes.rows[0].bubble_id;
+        }
+
+        if (!agentProfileId) {
+            return res.json({ success: true, data: [] });
+        }
+
+        // 2. Query SEDA registrations
+        // Use LEFT JOIN for invoice to show SEDA even if linked_invoice is missing or empty
+        // Use COALESCE/MAX to handle cases where one SEDA might be linked to multiple invoices (though rare)
         const query = `
             SELECT 
                 s.bubble_id,
                 s.reg_status,
                 s.seda_status,
                 s.updated_at,
-                c.name as customer_name,
+                COALESCE(c.name, s.linked_customer_name, 'Unnamed Customer') as customer_name,
                 i.invoice_number,
-                i.paid as invoice_paid,
-                i.total_amount as invoice_total,
-                i.paid_amount as invoice_paid_amount,
-                (i.paid_amount > 0) as has_payment
+                COALESCE(i.paid, false) as invoice_paid,
+                COALESCE(i.total_amount, 0) as invoice_total,
+                COALESCE(i.paid_amount, 0) as invoice_paid_amount,
+                (COALESCE(i.paid_amount, 0) > 0) as has_payment
             FROM seda_registration s
             LEFT JOIN customer c ON s.linked_customer = c.customer_id
-            JOIN invoice i ON i.bubble_id = ANY(s.linked_invoice)
-            WHERE i.linked_agent = $1
+            LEFT JOIN invoice i ON i.bubble_id = ANY(s.linked_invoice)
+            WHERE (s.agent = $1 OR s.created_by = $1 OR i.linked_agent = $1)
               AND (
                 s.seda_status IS NULL 
                 OR (
@@ -264,7 +280,7 @@ router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
             ORDER BY has_payment DESC, i.paid_amount DESC, s.updated_at DESC
         `;
 
-        const result = await client.query(query, [userId]);
+        const result = await client.query(query, [agentProfileId]);
         res.json({ success: true, data: result.rows });
     } catch (err) {
         console.error('[My SEDA] Error:', err);
