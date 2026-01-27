@@ -407,7 +407,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
-       WHERE i.bubble_id = $1`,
+       WHERE (i.bubble_id = $1 OR i.id::text = $1)`,
       [bubbleId]
     );
 
@@ -865,8 +865,7 @@ async function getPublicInvoice(client, tokenOrId) {
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
-       WHERE (i.share_token = $1 OR i.bubble_id = $1)
-         AND (i.share_expires_at IS NULL OR i.share_expires_at > NOW())
+       WHERE (i.share_token = $1 OR i.bubble_id = $1 OR i.id::text = $1)
        LIMIT 1`,
       [tokenOrId]
     );
