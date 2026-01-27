@@ -19,7 +19,7 @@ router.get('/view/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const html = await invoiceHtmlGenerator.generateInvoiceHtml(client, invoice);
+        const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template);
         res.send(html);
       } else {
         res.status(404).send('Invoice not found');
