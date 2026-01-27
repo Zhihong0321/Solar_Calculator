@@ -3,212 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>ETERNALGY OS | SEDA Registration</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>SEDA Registration | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --brand-900: #020617;
-            --brand-800: #0f172a;
-            --brand-700: #1e293b;
-            --brand-primary: #3b82f6;
-            --brand-secondary: #6366f1;
-            --glass: rgba(15, 23, 42, 0.9);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
+            --primary: #0f172a;
+            --primary-hover: #1e293b;
+            --brand-blue: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
         }
         
-        * { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
-        body { background-color: var(--brand-900); color: var(--text-main); padding-top: env(safe-area-inset-top); padding-bottom: max(2rem, env(safe-area-inset-bottom)); margin: 0; }
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { background-color: var(--slate-50); color: var(--slate-900); padding-top: env(safe-area-inset-top); padding-bottom: max(2rem, env(safe-area-inset-bottom)); margin: 0; }
         
-        .section-title { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--brand-primary); border-bottom: 1px solid var(--brand-700); padding-bottom: 0.75rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.75rem; }
+        /* Navigation Style */
+        .top-nav { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--slate-200); position: sticky; top: 0; z-index: 50; }
+
+        /* Card Styles */
+        .form-card { background: white; border: 1px solid var(--slate-200); border-radius: 1rem; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05); padding: 2rem; }
+        
+        .section-title { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--slate-500); border-bottom: 1px solid var(--slate-100); padding-bottom: 0.75rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.75rem; }
+        
+        /* Input Styles */
         .input-group { margin-bottom: 1.5rem; }
-        .input-label { display: block; font-size: 0.7rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.625rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .input-field { width: 100%; border: 1px solid var(--brand-700); padding: 0.875rem 1.125rem; font-size: 0.9375rem; border-radius: 1rem; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); background-color: var(--brand-800); color: white; }
-        .input-field:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); background-color: #1e293b; }
-        .input-field:disabled { opacity: 0.5; cursor: not-allowed; background-color: #0f172a; }
+        .input-label { display: block; font-size: 0.7rem; font-weight: 700; color: var(--slate-500); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .input-field { width: 100%; border: 1px solid var(--slate-200); padding: 0.75rem 1rem; font-size: 0.9rem; border-radius: 0.75rem; transition: all 0.15s ease; background-color: white; color: var(--slate-900); }
+        .input-field:focus { outline: none; border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        .input-field:disabled { opacity: 0.5; cursor: not-allowed; background-color: var(--slate-50); }
         
-        .form-card { background: var(--brand-800); border: 1px solid var(--brand-700); border-radius: 1.5rem; padding: 2rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
-        
+        /* File Upload */
         .file-upload-box {
-            border: 2px dashed var(--brand-700);
-            border-radius: 1.25rem;
+            border: 2px dashed var(--slate-200);
+            border-radius: 1rem;
             padding: 2rem 1.5rem;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s ease;
-            background: rgba(30, 41, 59, 0.3);
+            transition: all 0.2s ease;
+            background: var(--slate-50);
             position: relative;
-            overflow: hidden;
         }
-        .file-upload-box:hover { border-color: var(--brand-primary); background: rgba(59, 130, 246, 0.05); }
+        .file-upload-box:hover { border-color: var(--brand-blue); background: white; }
         
-        /* Mobile Sticky Header Optimizations */
-        .sticky-header {
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            background: var(--glass);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--brand-700);
-            width: 100%;
-        }
+        /* Badges */
+        .status-badge { font-size: 0.65rem; font-weight: 800; padding: 0.2rem 0.6rem; border-radius: 0.5rem; border: 1px solid transparent; text-transform: uppercase; }
+        .badge-yellow { background: #fefce8; color: #854d0e; border-color: #fef08a; }
+        .badge-blue { background: #eff6ff; color: #1e40af; border-color: #dbeafe; }
+        .badge-green { background: #f0fdf4; color: #166534; border-color: #dcfce7; }
 
-        .checklist-dot { width: 6px; height: 6px; border-radius: 9999px; }
-        .checklist-item { display: flex; align-items: center; gap: 0.375rem; font-size: 8px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; white-space: nowrap; transition: all 0.2s; }
-        .checklist-item.complete { color: #10b981; }
-        .checklist-item.complete .checklist-dot { background-color: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
-        .checklist-item.incomplete .checklist-dot { background-color: #334155; border: 1px solid var(--brand-700); }
+        /* Checklist Dots */
+        .checklist-dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; }
+        .checklist-item { display: flex; align-items: center; gap: 0.375rem; font-size: 9px; font-weight: 700; color: var(--slate-400); text-transform: uppercase; white-space: nowrap; }
+        .checklist-item.complete { color: var(--success); }
+        .checklist-item.complete .checklist-dot { background-color: var(--success); }
+        .checklist-item.incomplete .checklist-dot { background-color: var(--slate-200); }
 
-        .loading-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(2, 6, 23, 0.8);
-            backdrop-filter: blur(8px);
-            z-index: 100;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
+        .loading-overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px); z-index: 100; display: none; align-items: center; justify-content: center; }
+
+        /* Extracted Data Box */
+        .extracted-data-box { margin-top: 0.75rem; padding: 0.75rem; background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 0.75rem; }
+        .extracted-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.25rem 0; border-bottom: 1px solid rgba(0,0,0,0.03); }
+        .extracted-label { font-size: 0.65rem; font-weight: 700; color: #166534; text-transform: uppercase; }
+        .extracted-value { font-size: 0.8rem; font-weight: 500; color: var(--slate-900); }
+        .btn-insert { font-size: 0.65rem; font-weight: 800; color: var(--brand-blue); background: white; border: 1px solid #dbeafe; padding: 0.25rem 0.5rem; border-radius: 0.25rem; transition: all 0.1s; }
+        .btn-insert:hover { background: var(--brand-blue); color: white; }
 
         @media (max-width: 768px) {
-            .header-actions {
-                display: flex;
-                gap: 0.5rem;
-                width: 100%;
-                overflow-x: auto;
-                padding-bottom: 0.25rem;
-                scrollbar-width: none;
-            }
-            .header-actions::-webkit-scrollbar { display: none; }
-            
-            .checklist-grid {
-                grid-template-columns: repeat(3, 1fr) !important;
-                gap: 0.5rem !important;
-            }
-            .section-title { font-size: 0.7rem; }
+            .checklist-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 0.5rem !important; }
         }
     </style>
 </head>
-<body class="py-10 px-4 sm:px-6 lg:px-8">
+<body>
     
     <!-- Extraction Loading Overlay -->
     <div id="loading" class="loading-overlay">
-        <div class="text-center bg-slate-900/50 p-8 rounded-3xl border border-slate-800 backdrop-blur-xl shadow-2xl">
-            <div class="inline-flex items-center justify-center w-12 h-12 bg-blue-600/20 text-blue-500 rounded-2xl mb-4">
-                <i class="fa-solid fa-circle-notch fa-spin text-2xl"></i>
+        <div class="text-center">
+            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-slate-900 border-r-transparent align-[-0.125em] mb-4"></div>
+            <div class="text-sm font-bold text-slate-900 mb-2" id="loadingText">Processing Document...</div>
+            <div class="w-48 h-1.5 bg-slate-200 rounded-full overflow-hidden mx-auto">
+                <div id="progressBar" class="h-full bg-slate-900 w-0 transition-all duration-300"></div>
             </div>
-            <div class="text-sm font-extrabold text-white mb-4" id="loadingText">Processing Document...</div>
-            <div class="w-48 h-1.5 bg-slate-800 rounded-full overflow-hidden mx-auto">
-                <div id="progressBar" class="h-full bg-blue-600 w-0 transition-all duration-300 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
-            </div>
-            <div class="text-[10px] text-slate-500 mt-4 font-bold uppercase tracking-widest">This may take up to 25 seconds</div>
         </div>
     </div>
 
-
-
-    <!-- Granular Status Header -->
-    <div class="sticky-header mb-8 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 transition-all">
-        <div class="max-w-5xl mx-auto">
-            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <!-- Title & Overall -->
-                <div class="flex items-center justify-between lg:justify-start gap-4 w-full lg:w-auto">
-                    <div class="flex items-center gap-3">
-                        <div class="h-10 w-10 bg-blue-600 rounded-xl shadow-lg flex items-center justify-center text-white font-bold text-xs tracking-wider ring-4 ring-blue-600/20">OS</div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <h1 class="text-sm font-extrabold text-white tracking-tight">ETERNALGY OS</h1>
-                                <span id="statusBadge" class="px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 text-[8px] font-bold rounded border border-yellow-500/20 uppercase tracking-widest">DRAFT</span>
-                            </div>
-                            <span id="overallProgress" class="text-[9px] font-bold text-blue-400 uppercase tracking-wider">0% COMPLETE</span>
+    <!-- Top Navigation -->
+    <nav class="top-nav px-4 sm:px-6 lg:px-8 py-3 mb-8">
+        <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center justify-between w-full md:w-auto">
+                <div class="flex items-center gap-3">
+                    <div class="h-10 w-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-bold text-xs">OS</div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-sm font-extrabold text-slate-900 tracking-tight">ETERNALGY OS</h1>
+                            <span id="statusBadge" class="status-badge badge-yellow">DRAFT</span>
+                            <span id="adminStatusBadge" class="status-badge badge-blue">ADMIN: PENDING</span>
                         </div>
+                        <span id="overallProgress" class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">0% COMPLETE</span>
                     </div>
-                    <div class="header-actions flex lg:hidden">
-                        <button id="waReminderBtn-mobile" onclick="sendWhatsAppReminder()" class="hidden p-2.5 bg-emerald-500/10 text-emerald-500 rounded-xl border border-emerald-500/20">
-                            <i class="fa-brands fa-whatsapp text-lg"></i>
-                        </button>
-                        <button onclick="saveSedaForm()" class="p-2.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-600/20">
-                            <i class="fa-solid fa-floppy-disk text-lg"></i>
-                        </button>
-                        <button onclick="goBackToOffice()" class="p-2.5 bg-slate-800 text-slate-300 rounded-xl border border-slate-700">
-                            <i class="fa-solid fa-chevron-left text-lg"></i>
-                        </button>
-                    </div>
+                </div>
+                <!-- Mobile Actions -->
+                <div class="flex md:hidden gap-2">
+                    <button id="waReminderBtn-mobile" onclick="sendWhatsAppReminder()" class="hidden p-2 text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100"><i class="fa-brands fa-whatsapp text-lg"></i></button>
+                    <button onclick="saveSedaForm()" class="p-2 text-white bg-slate-900 rounded-lg"><i class="fa-solid fa-floppy-disk text-lg"></i></button>
+                </div>
+            </div>
 
-                    <div class="hidden lg:flex gap-2 ml-4">
-                        <button id="waReminderBtn" onclick="sendWhatsAppReminder()" class="hidden px-4 py-2 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 text-xs font-bold rounded-xl border border-emerald-500/20 transition-all flex items-center gap-2">
-                            <i class="fa-brands fa-whatsapp text-sm"></i>
-                            Reminder
-                        </button>
-                        <button onclick="saveSedaForm()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/25 transition-all flex items-center gap-2">
-                            <i class="fa-solid fa-floppy-disk text-sm"></i>
-                            Save Progress
-                        </button>
-                        <button onclick="goBackToOffice()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2">
-                            <i class="fa-solid fa-arrow-left text-sm"></i>
-                            Back
-                        </button>
-                    </div>
+            <!-- Header Actions -->
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <div class="hidden md:flex gap-2">
+                    <button id="waReminderBtn" onclick="sendWhatsAppReminder()" class="hidden px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-lg border border-emerald-100 transition-all flex items-center gap-2">
+                        <i class="fa-brands fa-whatsapp text-sm"></i> Reminder
+                    </button>
+                    <button onclick="saveSedaForm()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk text-sm"></i> Save Progress
+                    </button>
+                    <button onclick="goBackToOffice()" class="px-4 py-2 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-lg border border-slate-200 transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-left text-sm"></i> Back
+                    </button>
                 </div>
                 
-                <!-- Granular Checklist Grid -->
-                <div class="checklist-grid grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 gap-x-3 gap-y-2 border-l-0 lg:border-l border-slate-700 lg:pl-6 overflow-x-hidden">
-                    <div id="check-applicantName" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> Name
-                    </div>
-                    <div id="check-applicantIC" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> IC No
-                    </div>
-                    <div id="check-applicantPhone" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> Contact
-                    </div>
-                    <div id="check-installAddress" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> Address
-                    </div>
-                    <div id="check-cityPostcode" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> City/PC
-                    </div>
-                    <div id="check-mykad" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> MyKad
-                    </div>
-                    <div id="check-tnb_bill_1" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> TNB 1
-                    </div>
-                    <div id="check-tnb_bill_2" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> TNB 2
-                    </div>
-                    <div id="check-tnb_bill_3" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> TNB 3
-                    </div>
-                    <div id="check-property_proof" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> Proof
-                    </div>
-                    <div id="check-tnb_meter" class="checklist-item incomplete">
-                        <div class="checklist-dot"></div> Meter
-                    </div>
+                <!-- Desktop Checklist -->
+                <div class="checklist-grid grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 gap-x-4 gap-y-2 border-t md:border-t-0 md:border-l border-slate-200 pt-4 md:pt-0 md:pl-6 w-full">
+                    <div id="check-applicantName" class="checklist-item incomplete"><div class="checklist-dot"></div> Name</div>
+                    <div id="check-applicantIC" class="checklist-item incomplete"><div class="checklist-dot"></div> IC No</div>
+                    <div id="check-applicantPhone" class="checklist-item incomplete"><div class="checklist-dot"></div> Contact</div>
+                    <div id="check-installAddress" class="checklist-item incomplete"><div class="checklist-dot"></div> Address</div>
+                    <div id="check-mykad" class="checklist-item incomplete"><div class="checklist-dot"></div> MyKad</div>
+                    <div id="check-tnb_bill_1" class="checklist-item incomplete"><div class="checklist-dot"></div> TNB 1</div>
+                    <div id="check-property_proof" class="checklist-item incomplete"><div class="checklist-dot"></div> Proof</div>
+                    <div id="check-tnb_meter" class="checklist-item incomplete"><div class="checklist-dot"></div> Meter</div>
                 </div>
             </div>
         </div>
-        <!-- Progress Bar Background -->
-        <div class="absolute bottom-0 left-0 w-full h-[2px] bg-slate-800">
-            <div id="formProgress" class="h-full bg-blue-500 w-0 transition-all duration-700 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+        <!-- Progress Bar -->
+        <div class="absolute bottom-0 left-0 w-full h-[2px] bg-slate-100">
+            <div id="formProgress" class="h-full bg-slate-900 w-0 transition-all duration-700"></div>
         </div>
-    </div>
+    </nav>
 
-    <div class="max-w-4xl mx-auto">
+    <div class="max-w-4xl mx-auto px-4">
         
-        <form id="sedaForm" class="space-y-12 bg-slate-900/40 p-6 sm:p-12 rounded-[2.5rem] border border-slate-800 shadow-2xl backdrop-blur-md">
+        <form id="sedaForm" class="space-y-8">
             
             <!-- Applicant Details -->
-            <div>
+            <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">01</span>
+                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">01</span>
                     Applicant Information
                 </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                     <div class="input-group">
                         <label class="input-label">Applicant Name</label>
                         <input type="text" id="applicantName" class="input-field">
@@ -233,18 +186,17 @@
             </div>
 
             <!-- Installation Address -->
-            <div>
+            <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">02</span>
+                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">02</span>
                     Installation Site
                 </h2>
-                <div class="space-y-6">
+                <div class="space-y-4">
                     <div class="input-group">
                         <label class="input-label">Installation Address</label>
                         <textarea id="installAddress" rows="3" class="input-field" placeholder="Same as registered address?"></textarea>
-                        <button type="button" onclick="copyAddress()" class="text-[10px] text-blue-500 font-bold mt-2 hover:text-blue-400 flex items-center gap-1 uppercase tracking-wider">
-                            <i class="fa-solid fa-copy"></i>
-                            Copy from Registered Address
+                        <button type="button" onclick="copyAddress()" class="text-[10px] text-brand-blue font-bold mt-2 hover:underline flex items-center gap-1 uppercase tracking-wider">
+                            <i class="fa-solid fa-copy"></i> Copy from Registered Address
                         </button>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -282,22 +234,21 @@
             </div>
 
             <!-- MyKad Upload -->
-            <div>
+            <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">03</span>
+                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">03</span>
                     MyKad / Identity Document
                 </h2>
-                <div class="flex gap-2 p-1.5 bg-slate-950/50 rounded-2xl border border-slate-800 w-fit mb-8">
-                    <button type="button" onclick="setMyKadMode('images')" id="btnModeImages" class="px-6 py-2.5 text-xs font-bold rounded-xl transition-all bg-blue-600 text-white shadow-lg shadow-blue-600/20">Upload Images</button>
-                    <button type="button" onclick="setMyKadMode('pdf')" id="btnModePdf" class="px-6 py-2.5 text-xs font-bold rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800">Upload PDF</button>
+                <div class="flex gap-2 mb-6">
+                    <button type="button" onclick="setMyKadMode('images')" id="btnModeImages" class="px-4 py-2 text-xs font-bold rounded-lg transition-all bg-slate-900 text-white">Upload Images</button>
+                    <button type="button" onclick="setMyKadMode('pdf')" id="btnModePdf" class="px-4 py-2 text-xs font-bold rounded-lg transition-all text-slate-500 hover:bg-slate-100">Upload PDF</button>
                 </div>
 
-                <!-- Images Mode -->
                 <div id="sectionMyKadImages" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="input-group">
                         <label class="input-label">MyKad Front</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadFront').click()">
-                            <p class="text-xs text-slate-500">Click to upload image</p>
+                            <p class="text-xs text-slate-400 font-medium">Click to upload image</p>
                             <input type="file" id="fileMyKadFront" accept="image/*" class="hidden" onchange="handleExtraction(this, 'mykad')">
                             <div id="previewMyKadFront" class="file-preview"></div>
                         </div>
@@ -305,19 +256,18 @@
                     <div class="input-group">
                         <label class="input-label">MyKad Back</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadBack').click()">
-                            <p class="text-xs text-slate-500">Click to upload image</p>
+                            <p class="text-xs text-slate-400 font-medium">Click to upload image</p>
                             <input type="file" id="fileMyKadBack" accept="image/*" class="hidden" onchange="handleFile(this, 'previewMyKadBack')">
                             <div id="previewMyKadBack" class="file-preview"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- PDF Mode -->
                 <div id="sectionMyKadPdf" class="hidden">
                     <div class="input-group">
                         <label class="input-label">MyKad PDF (Full Document)</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadPdf').click()">
-                            <p class="text-xs text-slate-500">Click to upload PDF</p>
+                            <p class="text-xs text-slate-400 font-medium">Click to upload PDF</p>
                             <input type="file" id="fileMyKadPdf" accept="application/pdf" class="hidden" onchange="handleExtraction(this, 'mykad')">
                             <div id="previewMyKadPdf" class="file-preview"></div>
                         </div>
@@ -326,12 +276,12 @@
             </div>
 
             <!-- TNB Bills -->
-            <div>
+            <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">04</span>
+                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">04</span>
                     TNB Bills (Last 3 Months)
                 </h2>
-                <div class="grid grid-cols-1 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div class="input-group">
                         <label class="input-label">TNB Account No</label>
                         <input type="text" id="tnbAccount" class="input-field">
@@ -343,43 +293,43 @@
                             <option value="3">Three Phase (3)</option>
                         </select>
                     </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="input-group">
-                            <label class="input-label">Bill Month 1 (Latest)</label>
-                            <div class="file-upload-box" onclick="document.getElementById('fileTnb1').click()">
-                                <p class="text-xs text-slate-500">Upload PDF (Auto-Extract)</p>
-                                <input type="file" id="fileTnb1" accept="application/pdf" class="hidden" onchange="handleExtraction(this, 'tnb')">
-                                <div id="previewTnb1" class="file-preview"></div>
-                            </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="input-group">
+                        <label class="input-label">Bill Month 1 (Latest)</label>
+                        <div class="file-upload-box" onclick="document.getElementById('fileTnb1').click()">
+                            <p class="text-xs text-slate-400 font-medium">Upload PDF (Auto-Extract)</p>
+                            <input type="file" id="fileTnb1" accept="application/pdf" class="hidden" onchange="handleExtraction(this, 'tnb')">
+                            <div id="previewTnb1" class="file-preview"></div>
                         </div>
-                        <div class="input-group">
-                            <label class="input-label">Bill Month 2</label>
-                            <div class="file-upload-box" onclick="document.getElementById('fileTnb2').click()">
-                                <p class="text-xs text-slate-500">Upload PDF</p>
-                                <input type="file" id="fileTnb2" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb2')">
-                                <div id="previewTnb2" class="file-preview"></div>
-                            </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Bill Month 2</label>
+                        <div class="file-upload-box" onclick="document.getElementById('fileTnb2').click()">
+                            <p class="text-xs text-slate-400 font-medium">Upload PDF</p>
+                            <input type="file" id="fileTnb2" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb2')">
+                            <div id="previewTnb2" class="file-preview"></div>
                         </div>
-                        <div class="input-group">
-                            <label class="input-label">Bill Month 3</label>
-                            <div class="file-upload-box" onclick="document.getElementById('fileTnb3').click()">
-                                <p class="text-xs text-slate-500">Upload PDF</p>
-                                <input type="file" id="fileTnb3" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb3')">
-                                <div id="previewTnb3" class="file-preview"></div>
-                            </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Bill Month 3</label>
+                        <div class="file-upload-box" onclick="document.getElementById('fileTnb3').click()">
+                            <p class="text-xs text-slate-400 font-medium">Upload PDF</p>
+                            <input type="file" id="fileTnb3" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb3')">
+                            <div id="previewTnb3" class="file-preview"></div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Emergency Contact -->
-             <div>
+            <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">05</span>
+                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">05</span>
                     Emergency Contact
                 </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                      <div class="input-group">
                         <label class="input-label">Name</label>
                         <input type="text" id="emergencyName" class="input-field">
@@ -396,16 +346,16 @@
             </div>
 
             <!-- Supporting Documents -->
-            <div>
+            <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600/20 text-blue-500 text-xs">06</span>
+                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">06</span>
                     Supporting Documents
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="input-group">
                         <label class="input-label">Property Ownership Proof (PDF/Image)</label>
                         <div class="file-upload-box" onclick="document.getElementById('filePropertyProof').click()">
-                            <p class="text-xs text-slate-500">Click to upload document</p>
+                            <p class="text-xs text-slate-400 font-medium">Click to upload document</p>
                             <input type="file" id="filePropertyProof" accept="application/pdf,image/*" class="hidden" onchange="handleVerification(this, 'ownership')">
                             <div id="previewPropertyProof" class="file-preview"></div>
                         </div>
@@ -413,7 +363,7 @@
                     <div class="input-group">
                         <label class="input-label">TNB Meter Image</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileTnbMeter').click()">
-                            <p class="text-xs text-slate-500">Click to upload photo</p>
+                            <p class="text-xs text-slate-400 font-medium">Click to upload photo</p>
                             <input type="file" id="fileTnbMeter" accept="image/*" class="hidden" onchange="handleVerification(this, 'meter')">
                             <div id="previewTnbMeter" class="file-preview"></div>
                         </div>
@@ -422,11 +372,10 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="pt-10 border-t border-slate-800 flex flex-col sm:flex-row justify-end gap-4">
-                <button type="button" onclick="goBackToOffice()" class="w-full sm:w-auto px-8 py-4 border border-slate-700 text-slate-300 font-bold text-sm rounded-2xl hover:bg-slate-800 transition-all order-2 sm:order-1">Close</button>
-                <button type="submit" class="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-bold text-sm rounded-2xl shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all order-1 sm:order-2 flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-check-circle"></i>
-                    Complete Registration
+            <div class="pt-10 flex flex-col sm:flex-row justify-end gap-4">
+                <button type="button" onclick="goBackToOffice()" class="w-full sm:w-auto px-8 py-3 border border-slate-200 text-slate-600 font-bold text-sm rounded-xl hover:bg-slate-50 transition-all order-2 sm:order-1">Close</button>
+                <button type="submit" class="w-full sm:w-auto px-8 py-3 bg-slate-900 text-white font-bold text-sm rounded-xl shadow-lg transition-all order-1 sm:order-2 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check-circle"></i> Complete Registration
                 </button>
             </div>
         </form>
@@ -467,119 +416,69 @@
 
         async function sendWhatsAppReminder() {
             if (!customerPhone) return alert('No customer phone number found.');
-            
-            // Check missing items based on header checklist and form fields
             const missing = [];
-            
             const checkDone = (id) => {
                 const el = document.getElementById(id);
                 return el && el.classList.contains('complete');
             };
 
-            // 1. MyKad
-            if (!checkDone('check-mykad')) {
-                missing.push('- MYKAD Copy (Front & Back / PDF)');
-            }
-
-            // 2. TNB Bills
+            if (!checkDone('check-mykad')) missing.push('- MYKAD Copy (Front & Back / PDF)');
             const missingBills = [];
             if (!checkDone('check-tnb_bill_1')) missingBills.push('Latest');
-            if (!checkDone('check-tnb_bill_2')) missingBills.push('Month 2');
-            if (!checkDone('check-tnb_bill_3')) missingBills.push('Month 3');
+            if (missingBills.length > 0) missing.push(`- TNB Bills (${missingBills.join(', ')})`);
+            if (!checkDone('check-tnb_meter')) missing.push('- Photo of Home TNB Meter');
+            if (!checkDone('check-property_proof')) missing.push('- Property Ownership Proof (S&P / Geran)');
             
-            if (missingBills.length > 0) {
-                missing.push(`- TNB Bills (${missingBills.join(', ')})`);
-            }
-
-            // 3. TNB Meter
-            if (!checkDone('check-tnb_meter')) {
-                missing.push('- Photo of Home TNB Meter');
-            }
-
-            // 4. Property Ownership
-            if (!checkDone('check-property_proof')) {
-                missing.push('- Property Ownership Proof (S&P / Geran)');
-            }
-
-            // 5. Emergency Contact
             const eName = document.getElementById('emergencyName').value.trim();
             const ePhone = document.getElementById('emergencyPhone').value.trim();
-            if (!eName || !ePhone) {
-                missing.push('- Emergency Contact Name & Phone');
-            }
+            if (!eName || !ePhone) missing.push('- Emergency Contact Name & Phone');
 
-            if (missing.length === 0) {
-                return alert('All required documents are already uploaded! No reminder needed.');
-            }
+            if (missing.length === 0) return alert('All required documents are already uploaded!');
 
             const cleanPhone = customerPhone.replace(/\D/g, '');
             const finalPhone = cleanPhone.startsWith('60') ? cleanPhone : (cleanPhone.startsWith('0') ? '6' + cleanPhone : '60' + cleanPhone);
             
             const message = `Hi ${customerName || 'Customer'},
 
-This is a friendly reminder from Eternalgy regarding your SEDA registration. We noticed that some documents are still missing from your application:
+This is a friendly reminder from Eternalgy regarding your SEDA registration. We noticed that some documents are still missing:
 
-${missing.join('
-')}
+${missing.join('\n')}
 
 You can upload them directly using this secure link:
 ${window.location.href}
 
-Thank you for your cooperation!`;
+Thank you!`;
             
-            const waUrl = `https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`;
-            window.open(waUrl, '_blank');
+            window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`, '_blank');
         }
 
-        // Build API endpoint based on mode
-        function getApiEndpoint() {
-            if (isPublicMode) {
-                return `/api/v1/seda-public/${shareToken}`;
-            } else {
-                return `/api/v1/seda/${sedaId}`;
-            }
-        }
+        function getApiEndpoint() { return isPublicMode ? `/api/v1/seda-public/${shareToken}` : `/api/v1/seda/${sedaId}`; }
 
         function goBackToOffice() {
-            if (isPublicMode) {
-                // In public mode, show a message that form can be closed
-                alert('You can close this page. Your progress has been saved.');
-                return;
-            }
-
+            if (isPublicMode) return alert('You can close this page. Your progress has been saved.');
             NavManager.goBack('/my-invoice');
         }
 
-        // --- Logic for Loading Bar ---
         function startLoading(text = 'Processing...') {
             const overlay = document.getElementById('loading');
             const bar = document.getElementById('progressBar');
-            const txt = document.getElementById('loadingText');
-            
+            document.getElementById('loadingText').innerText = text;
             overlay.style.display = 'flex';
-            txt.innerText = text;
             bar.style.width = '0%';
             
             let progress = 0;
-            // 25 seconds = 25000ms. Update every 100ms.
-            // Step = 100 / 250 = 0.4%
             clearInterval(extractionInterval);
             extractionInterval = setInterval(() => {
                 progress += 0.4;
-                if (progress > 99) progress = 99; // Cap at 99
+                if (progress > 99) progress = 99;
                 bar.style.width = progress + '%';
             }, 100);
         }
 
         function stopLoading() {
             clearInterval(extractionInterval);
-            const bar = document.getElementById('progressBar');
-            bar.style.width = '100%';
-            
-            setTimeout(() => {
-                document.getElementById('loading').style.display = 'none';
-                bar.style.width = '0%';
-            }, 500); // Short delay to show 100% completion
+            document.getElementById('progressBar').style.width = '100%';
+            setTimeout(() => { document.getElementById('loading').style.display = 'none'; }, 500);
         }
 
         function setMyKadMode(mode) {
@@ -589,19 +488,18 @@ Thank you for your cooperation!`;
             const secPdf = document.getElementById('sectionMyKadPdf');
 
             if (mode === 'images') {
-                btnImg.className = 'px-6 py-2.5 text-xs font-bold rounded-xl transition-all bg-blue-600 text-white shadow-lg shadow-blue-600/20';
-                btnPdf.className = 'px-6 py-2.5 text-xs font-bold rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800';
+                btnImg.className = 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white';
+                btnPdf.className = 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
                 secImg.classList.remove('hidden');
                 secPdf.classList.add('hidden');
             } else {
-                btnPdf.className = 'px-6 py-2.5 text-xs font-bold rounded-xl transition-all bg-blue-600 text-white shadow-lg shadow-blue-600/20';
-                btnImg.className = 'px-6 py-2.5 text-xs font-bold rounded-xl transition-all text-slate-400 hover:text-white hover:bg-slate-800';
+                btnPdf.className = 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white';
+                btnImg.className = 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
                 secPdf.classList.remove('hidden');
                 secImg.classList.add('hidden');
             }
         }
 
-        // --- Logic for File Handling ---
         async function handleFile(input, previewId) {
             const file = input.files[0];
             if (!file) return;
@@ -613,24 +511,19 @@ Thank you for your cooperation!`;
             const previewEl = document.getElementById(previewId);
             previewEl.style.display = 'block';
             if (file.type.startsWith('image/')) {
-                previewEl.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Preview"><p class="mt-1">${file.name}</p>`;
+                previewEl.innerHTML = `<img src="${URL.createObjectURL(file)}" class="max-h-24 mx-auto rounded mt-2 border border-slate-200">`;
             } else {
-                previewEl.innerHTML = `<span class="text-blue-600 font-bold">📄 PDF Selected</span><p class="mt-1">${file.name}</p>`;
+                previewEl.innerHTML = `<div class="mt-2 text-blue-600 font-bold text-xs"><i class="fa-solid fa-file-pdf"></i> PDF Selected</div>`;
             }
         }
 
         function storeFile(inputId, file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = (e) => {
                 const keyMap = {
-                    'fileMyKadFront': 'mykad_front',
-                    'fileMyKadBack': 'mykad_back',
-                    'fileMyKadPdf': 'mykad_pdf',
-                    'fileTnb1': 'tnb_bill_1',
-                    'fileTnb2': 'tnb_bill_2',
-                    'fileTnb3': 'tnb_bill_3',
-                    'filePropertyProof': 'property_proof',
-                    'fileTnbMeter': 'tnb_meter'
+                    'fileMyKadFront': 'mykad_front', 'fileMyKadBack': 'mykad_back', 'fileMyKadPdf': 'mykad_pdf',
+                    'fileTnb1': 'tnb_bill_1', 'fileTnb2': 'tnb_bill_2', 'fileTnb3': 'tnb_bill_3',
+                    'filePropertyProof': 'property_proof', 'fileTnbMeter': 'tnb_meter'
                 };
                 const key = keyMap[inputId];
                 if (key) fileData[key] = e.target.result;
@@ -638,91 +531,24 @@ Thank you for your cooperation!`;
             reader.readAsDataURL(file);
         }
 
-        // --- Extraction Logic ---
         function parseExtractionData(json) {
-            let extracted = {};
-            
-            // Unwrap the outer layer from our own backend (sedaRoutes.js)
             const root = (json.success && json.data) ? json.data : json;
-
-            // 1. New TNB API (Structured Response)
-            // The API returns { status: "success", data: { ...fields... } }
-            if (root.status === 'success' && root.data) {
-                return root.data;
-            }
-
-            // 2. Perplexity / MyKad Logic (Complex Text Response)
+            if (root.status === 'success' && root.data) return root.data;
             if (root.text) {
-                // 1. Try to find the FINAL step which contains the structured answer
+                let extracted = {};
                 const finalStep = root.text.find(s => s.step_type === 'FINAL');
-                if (finalStep && finalStep.content && finalStep.content.answer) {
+                if (finalStep?.content?.answer) {
                     try {
                         const parsed = JSON.parse(finalStep.content.answer);
-                        if (parsed.answer) {
-                            const text = parsed.answer;
-                            if (!extracted.tnb_account) extracted.tnb_account = (text.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i) || [])[1];
-                        }
-                    } catch (e) {
-                        console.warn('Failed to parse final answer as JSON');
-                    }
+                        if (parsed.answer) extracted.tnb_account = (parsed.answer.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i) || [])[1];
+                    } catch (e) {}
                 }
-                
-                // 2. Fallback: Check SEARCH_RESULTS for snippets
-                const searchStep = root.text.find(s => s.step_type === 'SEARCH_RESULTS');
-                if (searchStep && searchStep.content && searchStep.content.web_results) {
-                    const snippet = searchStep.content.web_results[0]?.snippet || '';
-                    
-                    // Account No
-                    if (!extracted.tnb_account) {
-                        const accMatch = snippet.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i);
-                        if (accMatch) extracted.tnb_account = accMatch[1];
-                    }
-
-                    // Address & Name Block
-                    if (!extracted.address || !extracted.customer_name) {
-                        // Strategy 1: Strict match (ALAMAT POS or ALAMAT PREMIS)
-                        let addrBlock = (snippet.match(/ALAMAT\s+(?:POS|PREMIS)\s*
-([\s\S]+?)(?=
-\s*
-|
-Sila|
-TENAGA|NO\.)/i) || [])[1];
-                        
-                        // Strategy 2: Loose match (next 6 lines)
-                        if (!addrBlock) {
-                             const looseMatch = snippet.match(/ALAMAT\s+(?:POS|PREMIS)\s*\n((?:.*\n){1,6})/i);
-                             if (looseMatch) addrBlock = looseMatch[1];
-                        }
-
-                        if (addrBlock) {
-                            const lines = addrBlock.split('\n').map(l => l.trim()).filter(l => l);
-                            if (lines.length > 0) {
-                                // Assume first line is Name
-                                extracted.customer_name = lines[0]; 
-                                
-                                // Assume remaining lines are Address
-                                if (lines.length > 1) {
-                                    extracted.address = lines.slice(1).join(', ');
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Attempt IC Number extraction (for MyKad) if not TNB
-                    if (!extracted.mykad_id) {
-                         const icMatch = snippet.match(/(\d{6}-\d{2}-\d{4})/);
-                         if (icMatch) extracted.mykad_id = icMatch[1];
-                    }
-                }
-            } else {
-                // Legacy or direct format (fallback)
-                extracted = root;
+                return extracted;
             }
-            return extracted;
+            return root;
         }
 
         function renderInlineResults(input, type, data) {
-            // Remove existing result box if any
             const container = input.closest('.input-group');
             const existing = container.querySelector('.extracted-data-box');
             if (existing) existing.remove();
@@ -732,208 +558,83 @@ TENAGA|NO\.)/i) || [])[1];
 
             if (type === 'tnb') {
                 if (extracted.tnb_account) itemsHtml += createItemHtml('TNB Account', extracted.tnb_account, 'tnbAccount');
-                if (extracted.customer_name) itemsHtml += createItemHtml('Customer Name', extracted.customer_name, 'applicantName'); // Optional target
+                if (extracted.customer_name) itemsHtml += createItemHtml('Name', extracted.customer_name, 'applicantName');
                 if (extracted.address) itemsHtml += createItemHtml('Address', extracted.address, 'installAddress');
-                if (extracted.state) itemsHtml += createItemHtml('State', extracted.state, 'state');
-                if (extracted.post_code) itemsHtml += createItemHtml('Postcode', extracted.post_code, 'postcode');
             } else {
                 const name = extracted.customer_name || extracted.name;
                 if (name) itemsHtml += createItemHtml('Name', name, 'applicantName');
                 if (extracted.mykad_id) itemsHtml += createItemHtml('IC No', extracted.mykad_id, 'applicantIC');
-                if (extracted.address) itemsHtml += createItemHtml('Address', extracted.address, 'applicantAddress');
             }
 
-            if (!itemsHtml) {
-                // Show "No data found" message
-                itemsHtml = `<div class="text-sm text-slate-500 italic p-2">No structured data found in this document.</div>`;
-            }
+            if (!itemsHtml) return;
 
             const box = document.createElement('div');
             box.className = 'extracted-data-box';
-            box.innerHTML = `
-                <div class="flex items-center justify-between mb-2">
-                    <h4 class="text-sm font-bold text-emerald-800 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        Detected Data
-                    </h4>
-                    <button type="button" onclick="this.closest('.extracted-data-box').remove()" class="text-xs text-emerald-600 hover:text-emerald-800">Dismiss</button>
-                </div>
-                <div class="space-y-1">
-                    ${itemsHtml}
-                </div>
-            `;
-            
+            box.innerHTML = `<div class="flex items-center justify-between mb-2"><h4 class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Detected Data</h4><button type="button" onclick="this.closest('.extracted-data-box').remove()" class="text-[10px] text-emerald-600 hover:underline">Dismiss</button></div><div class="space-y-1">${itemsHtml}</div>`;
             container.appendChild(box);
         }
 
         function createItemHtml(label, value, targetId) {
-            // Escape value for attribute to prevent XSS issues in onclick
             const safeValue = value.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
-            return `
-                <div class="extracted-item">
-                    <div>
-                        <div class="extracted-label">${label}</div>
-                        <div class="extracted-value">${value}</div>
-                    </div>
-                    <button type="button" class="btn-insert" onclick="insertValue('${targetId}', '${safeValue}')">
-                        Insert
-                    </button>
-                </div>
-            `;
+            return `<div class="extracted-item"><div><div class="extracted-label">${label}</div><div class="extracted-value">${value}</div></div><button type="button" class="btn-insert" onclick="insertValue('${targetId}', '${safeValue}')">Insert</button></div>`;
         }
 
         function insertValue(targetId, value) {
             const el = document.getElementById(targetId);
             if (el) {
-                // Handle SELECT case-insensitive matching
-                if (el.tagName === 'SELECT') {
-                    let matched = false;
-                    for (let i = 0; i < el.options.length; i++) {
-                        if (el.options[i].value.toLowerCase() === value.toLowerCase()) {
-                            el.value = el.options[i].value;
-                            matched = true;
-                            break;
-                        }
-                    }
-                    if (!matched) {
-                        console.warn(`No case-insensitive match found for '${value}' in select #${targetId}`);
-                        // Try direct assignment anyway in case option exists but loop missed something weird
-                        el.value = value;
-                    }
-                } else {
-                    el.value = value;
-                }
-                
-                // Optional: visual feedback
-                el.style.borderColor = '#16a34a'; // Green flash
-                setTimeout(() => el.style.borderColor = '', 1000);
-                
-                // Trigger change event for progress tracking
+                el.value = value;
+                el.classList.add('ring-2', 'ring-emerald-500');
+                setTimeout(() => el.classList.remove('ring-2', 'ring-emerald-500'), 1000);
                 el.dispatchEvent(new Event('change'));
-            } else {
-                console.warn('Target input not found:', targetId);
             }
         }
 
         async function handleExtraction(input, type) {
-            console.log('handleExtraction triggered for:', type);
             const file = input.files[0];
-            if (!file) {
-                console.warn('No file selected');
-                return;
-            }
+            if (!file) return;
+            const previewId = input.id === 'fileTnb1' ? 'previewTnb1' : input.id === 'fileMyKadFront' ? 'previewMyKadFront' : 'previewMyKadPdf';
+            showPreview(file, previewId);
+            storeFile(input.id, file);
 
-            // 1. Show normal preview & store
-            try {
-                const previewId = input.id === 'fileTnb1' ? 'previewTnb1' : 
-                                  input.id === 'fileMyKadFront' ? 'previewMyKadFront' : 'previewMyKadPdf';
-                showPreview(file, previewId);
-                storeFile(input.id, file);
-            } catch (e) {
-                console.error('Error showing preview:', e);
-                alert('Error showing preview: ' + e.message);
-                return;
-            }
-
-            // 2. Start Extraction
             startLoading(type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...');
-
-            // Convert file to Base64 for API
             const reader = new FileReader();
-            reader.onload = async function(e) {
-                const base64 = e.target.result;
-                const endpoint = type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad';
-                
+            reader.onload = async (e) => {
                 try {
-                    console.log('Sending request to:', endpoint);
-                    const res = await fetch(endpoint, {
+                    const res = await fetch(type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            fileData: base64, 
-                            filename: file.name,
-                            sedaId: sedaId // Pass ID for server-side logging
-                        })
+                        body: JSON.stringify({ fileData: e.target.result, filename: file.name, sedaId })
                     });
-                    
-                    console.log('Response status:', res.status);
-                    
-                    if (res.status === 413) {
-                        throw new Error('File is too large. Please upload a smaller file.');
-                    }
-
                     const json = await res.json();
                     stopLoading();
-                    
-                    if ((json.success && json.data) || json.text || json.uuid) {
-                        renderInlineResults(input, type, json);
-                    } else {
-                        console.warn('Extraction returned no data or error:', json);
-                        alert('Extraction failed: ' + (json.error || 'Unknown error from server'));
-                    }
-                } catch (err) {
-                    stopLoading();
-                    console.error('Extraction Error:', err);
-                    alert('Auto-extraction failed: ' + err.message);
-                }
+                    if (json.success || json.data) renderInlineResults(input, type, json);
+                } catch (err) { stopLoading(); alert('Extraction failed'); }
             };
-            
-            reader.onerror = function(e) {
-                stopLoading();
-                console.error('FileReader Error:', e);
-                alert('Failed to read file.');
-            };
-
             reader.readAsDataURL(file);
         }
 
         async function handleVerification(input, type) {
-            console.log('handleVerification triggered for:', type);
             const file = input.files[0];
             if (!file) return;
-
             const previewId = type === 'meter' ? 'previewTnbMeter' : 'previewPropertyProof';
             showPreview(file, previewId);
             storeFile(input.id, file);
 
-            startLoading(type === 'meter' ? 'Verifying TNB Meter...' : 'Verifying Ownership...');
-
+            startLoading(type === 'meter' ? 'Verifying Meter...' : 'Verifying Ownership...');
             const reader = new FileReader();
-            reader.onload = async function(e) {
-                const base64 = e.target.result;
-                const endpoint = type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership';
-                
-                // For ownership, we need context (current name/address)
-                const payload = {
-                    fileData: base64,
-                    filename: file.name,
-                    sedaId: sedaId
-                };
-
-                if (type === 'ownership') {
-                    payload.context = {
-                        name: document.getElementById('applicantName').value,
-                        address: document.getElementById('installAddress').value
-                    };
-                }
-
+            reader.onload = async (e) => {
                 try {
-                    const res = await fetch(endpoint, {
+                    const payload = { fileData: e.target.result, filename: file.name, sedaId };
+                    if (type === 'ownership') payload.context = { name: document.getElementById('applicantName').value, address: document.getElementById('installAddress').value };
+                    const res = await fetch(type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
                     const json = await res.json();
                     stopLoading();
-
-                    if (json.success) {
-                        const result = json.data;
-                        alert(`${type.toUpperCase()} Verification: ${result.remark || (result.quality_ok ? 'Success' : 'Check Remark')}`);
-                    }
-                } catch (err) {
-                    stopLoading();
-                    console.error('Verification Error:', err);
-                }
+                    if (json.success) alert(`${type.toUpperCase()} Verification Done`);
+                } catch (err) { stopLoading(); }
             };
             reader.readAsDataURL(file);
         }
@@ -944,124 +645,62 @@ TENAGA|NO\.)/i) || [])[1];
         }
 
         async function loadData() {
-            if (!sedaId && !shareToken) return alert('No Registration ID provided');
+            if (!sedaId && !shareToken) return alert('No ID provided');
             startLoading('Loading Data...');
-
             try {
                 const res = await fetch(getApiEndpoint());
                 const json = await res.json();
-                
                 if (json.success) {
                     const data = json.data;
-                    const cust = data.customer_profile || {};
-
-                    // Capture linked invoice for navigation
-                    if (data.linked_invoice && Array.isArray(data.linked_invoice) && data.linked_invoice.length > 0) {
-                        linkedInvoiceId = data.linked_invoice[0];
-                    }
-
-                    document.getElementById('statusBadge').textContent = `APP: ${data.reg_status || 'DRAFT'}`;
+                    document.getElementById('statusBadge').textContent = data.reg_status || 'DRAFT';
                     document.getElementById('adminStatusBadge').textContent = `ADMIN: ${data.seda_status || 'PENDING'}`;
-                    
-                    // 1. Auto-fill from Customer
-                    customerName = data.customer_profile?.name || data.linked_customer_name || '';
+                    customerName = data.customer_profile?.name || '';
                     customerPhone = data.customer_profile?.phone || '';
+                    if (customerPhone) checkWhatsAppVerification(customerPhone).then(v => { if(v) document.getElementById('waReminderBtn').classList.remove('hidden'); });
                     
-                    document.getElementById('applicantName').value = customerName;
-                    document.getElementById('applicantPhone').value = customerPhone || data.e_contact_no || '';
+                    document.getElementById('applicantName').value = data.customer_profile?.name || '';
+                    document.getElementById('applicantPhone').value = data.customer_profile?.phone || data.e_contact_no || '';
                     document.getElementById('applicantEmail').value = data.e_email || data.customer_profile?.email || '';
                     document.getElementById('applicantIC').value = data.ic_no || ''; 
-
-                    // Check WhatsApp Verification
-                    if (customerPhone) {
-                        checkWhatsAppVerification(customerPhone).then(verified => {
-                            isWhatsAppVerified = verified;
-                            if (verified) {
-                                document.getElementById('waReminderBtn').classList.remove('hidden');
-                            }
-                        });
-                    }                    
-                    const fullAddr = [cust.address, cust.city, cust.state, cust.postcode].filter(Boolean).join(', ');
-                    if (!document.getElementById('applicantAddress').value) {
-                        document.getElementById('applicantAddress').value = fullAddr;
-                    }
-
-                    // 2. Fill SEDA fields
+                    document.getElementById('applicantAddress').value = [data.customer_profile?.address, data.customer_profile?.city, data.customer_profile?.state, data.customer_profile?.postcode].filter(Boolean).join(', ');
                     document.getElementById('installAddress').value = data.installation_address || '';
                     document.getElementById('city').value = data.city || '';
                     document.getElementById('state').value = data.state || '';
                     document.getElementById('postcode').value = data.postcode || '';
                     document.getElementById('tnbAccount').value = data.tnb_account_no || '';
                     document.getElementById('phaseType').value = data.phase_type || '1';
-                    
                     document.getElementById('emergencyName').value = data.e_contact_name || '';
                     document.getElementById('emergencyRel').value = data.e_contact_relationship || '';
                     document.getElementById('emergencyPhone').value = data.e_contact_no || '';
 
-                    // 3. Show existing files
-        const showExisting = (url, previewId) => {
-            if (!url) return;
-            // Find container for separate view
-            // Logic: The previewId element (e.g. previewMyKadFront) is inside the upload box.
-            // We want to create a sibling container OUTSIDE the upload box for the existing file view.
-            
-            // Get the upload box (parent of preview div)
-            const previewEl = document.getElementById(previewId);
-            const uploadBox = previewEl.closest('.file-upload-box');
-            const inputGroup = uploadBox.closest('.input-group');
-            
-            // Check if we already created a view-box
-            let viewBox = inputGroup.querySelector('.existing-file-view');
-            if (!viewBox) {
-                viewBox = document.createElement('div');
-                viewBox.className = 'existing-file-view mt-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl flex items-center justify-between text-[10px]';
-                inputGroup.appendChild(viewBox);
-            }
+                    const showExisting = (url, previewId) => {
+                        if (!url) return;
+                        const previewEl = document.getElementById(previewId);
+                        const inputGroup = previewEl.closest('.input-group');
+                        let viewBox = inputGroup.querySelector('.existing-file-view');
+                        if (!viewBox) {
+                            viewBox = document.createElement('div');
+                            viewBox.className = 'existing-file-view mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-[10px]';
+                            inputGroup.appendChild(viewBox);
+                        }
+                        const isPdf = url.endsWith('.pdf');
+                        viewBox.innerHTML = `${isPdf ? '<span class="text-red-500 font-bold">PDF</span>' : `<img src="${url}" class="w-8 h-8 object-cover rounded">`}<span class="text-slate-500 font-medium">Existing Document</span></div><a href="${url}" target="_blank" class="text-brand-blue font-bold hover:underline">VIEW</a>`;
+                    };
 
-            if (url.endsWith('.pdf')) {
-                viewBox.innerHTML = `
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-red-500">PDF</span>
-                        <span class="text-slate-300">Existing Document Uploaded</span>
-                    </div>
-                    <a href="${url}" target="_blank" class="text-blue-400 font-bold hover:underline">VIEW PDF</a>
-                `;
-            } else {
-                viewBox.innerHTML = `
-                    <div class="flex items-center gap-2">
-                        <img src="${url}" class="w-8 h-8 object-cover rounded-lg border border-slate-700">
-                        <span class="text-slate-300">Existing Image</span>
-                    </div>
-                    <a href="${url}" target="_blank" class="text-blue-400 font-bold hover:underline">VIEW</a>
-                `;
-            }
-        };
-
-        showExisting(data.ic_copy_front, 'previewMyKadFront');
-        showExisting(data.ic_copy_back, 'previewMyKadBack');
-        showExisting(data.mykad_pdf, 'previewMyKadPdf');
-        showExisting(data.tnb_bill_1, 'previewTnb1');
-        showExisting(data.tnb_bill_2, 'previewTnb2');
-        showExisting(data.tnb_bill_3, 'previewTnb3');
-        showExisting(data.property_ownership_prove, 'previewPropertyProof');
-        showExisting(data.tnb_meter, 'previewTnbMeter');
-
-        if (data.mykad_pdf) setMyKadMode('pdf');
-        else setMyKadMode('images');
-
+                    showExisting(data.ic_copy_front, 'previewMyKadFront');
+                    showExisting(data.ic_copy_back, 'previewMyKadBack');
+                    showExisting(data.mykad_pdf, 'previewMyKadPdf');
+                    showExisting(data.tnb_bill_1, 'previewTnb1');
+                    showExisting(data.property_ownership_prove, 'previewPropertyProof');
+                    showExisting(data.tnb_meter, 'previewTnbMeter');
+                    if (data.mykad_pdf) setMyKadMode('pdf');
                 }
-            } catch (err) {
-                console.error(err);
-                alert('Failed to load SEDA data');
-            } finally {
-                stopLoading();
-            }
+            } catch (err) { alert('Failed to load data'); } finally { stopLoading(); updateFormProgress(); }
         }
 
         async function saveSedaForm(e) {
             if (e) e.preventDefault();
             startLoading('Saving Changes...');
-
             const payload = {
                 installation_address: document.getElementById('installAddress').value,
                 city: document.getElementById('city').value,
@@ -1072,52 +711,13 @@ TENAGA|NO\.)/i) || [])[1];
                 e_contact_name: document.getElementById('emergencyName').value,
                 e_contact_relationship: document.getElementById('emergencyRel').value,
                 e_contact_no: document.getElementById('emergencyPhone').value,
-                // Add new fields
                 ...fileData
             };
-
             try {
-                const res = await fetch(getApiEndpoint(), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                const res = await fetch(getApiEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const json = await res.json();
-                if (json.success) {
-                    alert('Saved successfully!');
-                    // Optionally reload to clean state
-                } else {
-                    throw new Error(json.error);
-                }
-            } catch (err) {
-                alert('Error: ' + err.message);
-            } finally {
-                stopLoading();
-            }
-        }
-
-        document.getElementById('sedaForm').addEventListener('submit', saveSedaForm);
-
-        // --- Progress & Validation Logic ---
-        function injectStatusIndicators() {
-            const inputs = document.querySelectorAll('.input-field');
-            inputs.forEach(input => {
-                if (input.parentNode.classList.contains('input-wrapper')) return;
-                
-                // Create wrapper
-                const wrapper = document.createElement('div');
-                wrapper.className = 'input-wrapper';
-                input.parentNode.insertBefore(wrapper, input);
-                wrapper.appendChild(input);
-                
-                // Create icon container
-                const icon = document.createElement('div');
-                icon.className = 'input-status-icon';
-                icon.id = 'status-icon-' + input.id;
-                // Default to circle
-                icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"></circle></svg>`;
-                wrapper.appendChild(icon);
-            });
+                if (json.success) alert('Saved successfully!'); else throw new Error(json.error);
+            } catch (err) { alert('Error: ' + err.message); } finally { stopLoading(); }
         }
 
         function updateFormProgress() {
@@ -1126,128 +726,45 @@ TENAGA|NO\.)/i) || [])[1];
                 { id: 'check-applicantIC', fields: ['applicantIC'] },
                 { id: 'check-applicantPhone', fields: ['applicantPhone'] },
                 { id: 'check-installAddress', fields: ['installAddress'] },
-                { id: 'check-cityPostcode', fields: ['city', 'postcode'] },
                 { id: 'check-mykad', files: ['mykad_front', 'mykad_back', 'mykad_pdf'] },
                 { id: 'check-tnb_bill_1', files: ['tnb_bill_1'] },
-                { id: 'check-tnb_bill_2', files: ['tnb_bill_2'] },
-                { id: 'check-tnb_bill_3', files: ['tnb_bill_3'] },
                 { id: 'check-property_proof', files: ['property_proof'] },
                 { id: 'check-tnb_meter', files: ['tnb_meter'] }
             ];
 
             let completedCount = 0;
-
             items.forEach(item => {
                 let isDone = true;
-                
-                // Check fields
-                if (item.fields) {
-                    item.fields.forEach(fid => {
-                        const el = document.getElementById(fid);
-                        const icon = document.getElementById('status-icon-' + fid);
-                        if (!el || !el.value.trim()) {
-                            isDone = false;
-                            if (icon) {
-                                icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-width="2"></circle></svg>`;
-                                icon.className = 'input-status-icon';
-                            }
-                        } else {
-                            if (icon) {
-                                icon.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
-                                icon.className = 'input-status-icon valid';
-                            }
-                        }
-                    });
-                }
-
-                // Check files
+                if (item.fields) item.fields.forEach(fid => { if (!document.getElementById(fid)?.value.trim()) isDone = false; });
                 if (item.files) {
                     if (item.id === 'check-mykad') {
-                        const hasPdf = fileData.mykad_pdf || document.getElementById('previewMyKadPdf').style.display === 'block';
-                        const hasFront = fileData.mykad_front || document.getElementById('previewMyKadFront').style.display === 'block';
-                        // Allow just Front image (combined) or PDF
+                        const hasPdf = fileData.mykad_pdf || !!document.getElementById('previewMyKadPdf').closest('.input-group').querySelector('.existing-file-view');
+                        const hasFront = fileData.mykad_front || !!document.getElementById('previewMyKadFront').closest('.input-group').querySelector('.existing-file-view');
                         if (!hasPdf && !hasFront) isDone = false;
                     } else {
                         item.files.forEach(fKey => {
-                            const previewId = fKey.startsWith('tnb_bill_') ? 'previewTnb' + fKey.split('_').pop() : 
-                                            fKey === 'property_proof' ? 'previewPropertyProof' : 
-                                            fKey === 'tnb_meter' ? 'previewTnbMeter' : '';
-                            
-                            // Check newly uploaded file OR existing file view
-                            // We need to find the container related to this key/previewId to check for .existing-file-view
-                            let hasExisting = false;
-                            if (previewId) {
-                                const el = document.getElementById(previewId);
-                                if (el) {
-                                    const grp = el.closest('.input-group');
-                                    if (grp && grp.querySelector('.existing-file-view')) hasExisting = true;
-                                }
-                            }
-
-                            const hasFile = fileData[fKey] || (document.getElementById(previewId) && document.getElementById(previewId).style.display === 'block') || hasExisting;
-                            if (!hasFile) isDone = false;
+                            const previewId = fKey.startsWith('tnb_bill_') ? 'previewTnb' + fKey.split('_').pop() : fKey === 'property_proof' ? 'previewPropertyProof' : fKey === 'tnb_meter' ? 'previewTnbMeter' : '';
+                            const hasExisting = !!document.getElementById(previewId)?.closest('.input-group').querySelector('.existing-file-view');
+                            if (!fileData[fKey] && !hasExisting) isDone = false;
                         });
                     }
                 }
-
-                // Update Header Item
                 const headerEl = document.getElementById(item.id);
                 if (headerEl) {
-                    if (isDone) {
-                        completedCount++;
-                        headerEl.classList.remove('incomplete');
-                        headerEl.classList.add('complete');
-                    } else {
-                        headerEl.classList.add('incomplete');
-                        headerEl.classList.remove('complete');
-                    }
+                    if (isDone) { completedCount++; headerEl.className = 'checklist-item complete'; } 
+                    else { headerEl.className = 'checklist-item incomplete'; }
                 }
             });
 
             const percent = Math.round((completedCount / items.length) * 100);
-            const bar = document.getElementById('formProgress');
-            const text = document.getElementById('overallProgress');
-            if (bar) bar.style.width = percent + '%';
-            if (text) text.innerText = percent + '% COMPLETE';
+            if (document.getElementById('formProgress')) document.getElementById('formProgress').style.width = percent + '%';
+            if (document.getElementById('overallProgress')) document.getElementById('overallProgress').innerText = percent + '% COMPLETE';
         }
 
-        // Attach listeners
-        document.addEventListener('DOMContentLoaded', () => {
-            injectStatusIndicators();
-            updateFormProgress();
-        });
-
-        document.querySelectorAll('input, select, textarea').forEach(el => {
-            el.addEventListener('change', updateFormProgress);
-            el.addEventListener('input', updateFormProgress);
-        });
-
-        // Hook into insertValue
-        const originalInsertValue = insertValue;
-        insertValue = function(targetId, value) {
-            originalInsertValue(targetId, value);
-            updateFormProgress();
-        };
-
-        // Hook into loadData
-        const originalLoadData = loadData;
-        loadData = async function() {
-            await originalLoadData();
-            // Ensure elements are injected before updating status
-            injectStatusIndicators(); 
-            updateFormProgress();
-        };
-
-        // Hook into file handling
-        const originalStoreFile = storeFile;
-        storeFile = function(inputId, file) {
-            originalStoreFile(inputId, file);
-            setTimeout(updateFormProgress, 100); // Delay slightly for fileData update
-        };
-
-        // Initial call
-        // loadData() calls it via hook
-        loadData();
+        document.getElementById('sedaForm').addEventListener('submit', saveSedaForm);
+        document.querySelectorAll('input, select, textarea').forEach(el => { el.addEventListener('change', updateFormProgress); el.addEventListener('input', updateFormProgress); });
+        
+        document.addEventListener('DOMContentLoaded', loadData);
     </script>
     <script src="/js/navigation.js"></script>
 </body>
