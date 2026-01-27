@@ -159,30 +159,37 @@ app.put('/api/agent/profile', requireAuth, async (req, res) => {
 app.get('/api/agent/me', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const bubbleId = req.user.bubbleId;
+    const bubbleId = req.user.bubbleId || req.user.bubble_id || ''; // Handle naming variations in JWT
+
+    if (!userId) {
+      console.error('[AgentMe] No userId found in req.user:', req.user);
+      return res.status(401).json({ error: 'Invalid session data' });
+    }
 
     // Fetch user details and link to agent table for contact info
+    // We use COALESCE to ensure we don't return null for critical display fields
     const query = `
       SELECT 
         u.name, 
         u.email, 
-        u.linked_agent_profile as profile_picture,
+        COALESCE(u.linked_agent_profile, u.profile_picture) as profile_picture,
         a.contact as phone
       FROM "user" u
       LEFT JOIN agent a ON a.linked_user_login = u.bubble_id
-      WHERE u.id::text = $1 OR u.bubble_id = $2
+      WHERE u.id::text = $1 OR (u.bubble_id = $2 AND u.bubble_id IS NOT NULL AND u.bubble_id != '')
       LIMIT 1
     `;
-    const result = await pool.query(query, [userId, bubbleId]);
+    const result = await pool.query(query, [String(userId), String(bubbleId)]);
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Agent not found' });
+      console.warn(`[AgentMe] No user found for ID: ${userId}, BubbleID: ${bubbleId}`);
+      return res.status(404).json({ error: 'Agent not found in database' });
     }
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error fetching agent me:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[AgentMe] Critical Error:', err);
+    res.status(500).json({ error: 'Internal server error', message: err.message });
   }
 });
 

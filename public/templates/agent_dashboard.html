@@ -126,8 +126,14 @@
         async function fetchAgentData() {
             try {
                 const response = await fetch('/api/agent/me');
+                
+                if (response.status === 401) {
+                    // Unauthorized - let the browser handle redirect or force it
+                    window.location.href = '/domestic'; // Domestic will trigger requireAuth redirect
+                    return;
+                }
+
                 if (!response.ok) throw new Error('Failed to fetch profile');
-                const agent = await response.data; // Wait, actually standard fetch is .json()
                 const data = await response.json();
                 
                 if (data.name) document.getElementById('agentName').textContent = data.name;
