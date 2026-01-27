@@ -1,6 +1,14 @@
 const crypto = require('crypto');
 
 /**
+ * Standardized statuses for SEDA registration
+ */
+const SedaStatus = {
+  REG: ['draft', 'submitted', 'verified', 'approved', 'deleted', 'demo'],
+  ADMIN: ['pending', 'verified', 'approved', 'demo']
+};
+
+/**
  * Generate a unique share token
  * @returns {string} Share token
  */
@@ -181,5 +189,6 @@ module.exports = {
   getByShareToken,
   getShareUrl,
   generateShareToken,
-  updateSedaLinkedCustomer
+  updateSedaLinkedCustomer,
+  SedaStatus
 };

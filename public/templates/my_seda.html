@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>SEDA Management | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --brand-900: #020617;
+            --brand-800: #0f172a;
+            --brand-700: #1e293b;
+            --brand-primary: #3b82f6;
+            --brand-secondary: #6366f1;
+            --glass: rgba(15, 23, 42, 0.8);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+        
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--brand-900);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .seda-card {
+            background: var(--brand-800);
+            border: 1px solid var(--brand-700);
+            transition: all 0.2s ease;
+        }
+
+        .seda-card:hover {
+            border-color: var(--brand-primary);
+            background: rgba(15, 23, 42, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .badge {
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .badge-draft { background: #334155; color: #94a3b8; border: 1px solid #475569; }
+        .badge-pending { background: #422006; color: #fbbf24; border: 1px solid #78350f; }
+        .badge-approved { background: #064e3b; color: #34d399; border: 1px solid #065f46; }
+        .badge-verified { background: #1e3a8a; color: #60a5fa; border: 1px solid #1e40af; }
+
+        .loading-spinner {
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--brand-primary);
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 768px) {
+            .mobile-header {
+                padding-top: env(safe-area-inset-top);
+            }
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Top Navigation Bar -->
+    <nav class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 w-full mobile-header">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-4">
+                    <a href="/agent/home" class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+                            <i class="fa-solid fa-bolt text-sm"></i>
+                        </div>
+                        <span class="text-sm font-bold tracking-tight text-white hidden sm:inline">ETERNALGY OS</span>
+                    </a>
+                    <div class="h-4 w-px bg-slate-800 mx-2 hidden sm:block"></div>
+                    <h1 class="text-sm font-bold text-slate-300">SEDA Registrations</h1>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div id="userInfo" class="flex items-center gap-3">
+                        <div class="text-right hidden sm:block">
+                            <p id="userName" class="text-[10px] font-bold text-white">...</p>
+                            <p class="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Sales Agent</p>
+                        </div>
+                        <img id="userAvatar" src="https://ui-avatars.com/api/?name=Agent" class="w-8 h-8 rounded-full border border-slate-700 shadow-sm">
+                    </div>
+                    <div class="h-4 w-px bg-slate-800 mx-2"></div>
+                    <a href="/agent/home" class="text-slate-400 hover:text-white transition-colors p-2">
+                        <i class="fa-solid fa-house text-sm"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 w-full max-w-5xl mx-auto p-4 md:p-10 space-y-8">
+        
+        <!-- Welcome & Summary -->
+        <section class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+                <h2 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+                    Manage <span class="text-blue-500">SEDA</span>
+                </h2>
+                <p class="text-slate-500 text-sm md:text-base font-medium mt-1">Review and complete pending registration forms.</p>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-3 w-full md:w-auto">
+                <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-700 text-center min-w-[80px]">
+                    <p id="stat-total" class="text-lg font-bold text-white">0</p>
+                    <p class="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Total</p>
+                </div>
+                <div class="bg-emerald-900/20 p-3 rounded-xl border border-emerald-900/30 text-center min-w-[80px]">
+                    <p id="stat-paid" class="text-lg font-bold text-emerald-400">0</p>
+                    <p class="text-[8px] font-bold text-emerald-500 uppercase tracking-wider">Paid</p>
+                </div>
+                <div class="bg-amber-900/20 p-3 rounded-xl border border-amber-900/30 text-center min-w-[80px]">
+                    <p id="stat-incomplete" class="text-lg font-bold text-amber-400">0</p>
+                    <p class="text-[8px] font-bold text-amber-500 uppercase tracking-wider">Drafts</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Divider -->
+        <div class="h-px bg-slate-800 w-full"></div>
+
+        <!-- SEDA List -->
+        <section id="sedaList" class="space-y-4">
+            <!-- Loading State -->
+            <div id="loading" class="flex flex-col items-center justify-center py-24">
+                <div class="loading-spinner w-8 h-8 rounded-full mb-4"></div>
+                <p class="text-xs text-slate-500 font-bold uppercase tracking-widest">Scanning database...</p>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden flex flex-col items-center justify-center py-24 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800">
+                <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mb-4">
+                    <i class="fa-solid fa-clipboard-check text-2xl text-slate-600"></i>
+                </div>
+                <h3 class="text-base font-bold text-slate-300">No Registrations Pending</h3>
+                <p class="text-xs text-slate-500 mt-1">All your SEDA forms are either submitted or approved.</p>
+            </div>
+
+            <!-- Items will be injected here -->
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full py-10 text-center border-t border-slate-800/50 mt-auto">
+        <p class="text-[10px] font-bold text-slate-700 uppercase tracking-widest">ETERNALGY OS &bull; SEDA Portal v2.0</p>
+    </footer>
+
+    <script>
+        async function fetchAgentData() {
+            try {
+                const response = await fetch('/api/agent/me');
+                if (!response.ok) return;
+                const data = await response.json();
+                document.getElementById('userName').textContent = data.name || 'Agent';
+                if (data.profile_picture) document.getElementById('userAvatar').src = data.profile_picture;
+            } catch (error) { console.error(error); }
+        }
+
+        function getStatusBadge(status) {
+            const s = (status || 'draft').toLowerCase();
+            let label = status || 'Draft';
+            let className = 'badge-draft';
+
+            if (s.includes('approved')) {
+                className = 'badge-approved';
+            } else if (s.includes('pending')) {
+                className = 'badge-pending';
+            } else if (s.includes('verified')) {
+                className = 'badge-verified';
+            }
+
+            return `<span class="badge ${className}">${label}</span>`;
+        }
+
+        async function loadSedaRegistrations() {
+            const listEl = document.getElementById('sedaList');
+            const loadingEl = document.getElementById('loading');
+            const emptyEl = document.getElementById('emptyState');
+
+            try {
+                const response = await fetch('/api/v1/seda/my-seda');
+                const result = await response.json();
+
+                if (!result.success) throw new Error(result.error);
+
+                loadingEl.classList.add('hidden');
+                
+                const data = result.data || [];
+                if (data.length === 0) {
+                    emptyEl.classList.remove('hidden');
+                    return;
+                }
+
+                // Update Stats
+                document.getElementById('stat-total').textContent = data.length;
+                document.getElementById('stat-paid').textContent = data.filter(i => i.invoice_paid).length;
+                document.getElementById('stat-incomplete').textContent = data.filter(i => (i.reg_status || '').toLowerCase() === 'incomplete' || (i.reg_status || '').toLowerCase() === 'draft').length;
+
+                data.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'seda-card p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6';
+                    
+                    const paymentStatus = item.invoice_paid ? 
+                        `<div class="flex items-center gap-1.5 text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
+                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Paid Invoice
+                         </div>` : 
+                        `<div class="flex items-center gap-1.5 text-slate-500 font-bold text-[10px] uppercase tracking-wider">
+                            <span class="w-1.5 h-1.5 bg-slate-700 rounded-full"></span> Unpaid
+                         </div>`;
+
+                    const attentionBadge = item.has_payment ? 
+                        `<span class="bg-amber-500 text-white text-[8px] font-black px-2 py-0.5 rounded shadow-lg shadow-amber-500/20 animate-bounce">REQUIRED ATTENTION</span>` : '';
+
+                    card.innerHTML = `
+                        <div class="flex items-center gap-5 min-w-0 flex-1">
+                            <div class="w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center shrink-0 border border-slate-700 shadow-inner">
+                                <i class="fa-solid fa-file-invoice text-blue-500 text-xl"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex flex-col gap-1.5 mb-2">
+                                    <div class="flex items-center gap-3">
+                                        <h4 class="text-base font-bold text-white truncate leading-tight">${item.customer_name || 'Unnamed Customer'}</h4>
+                                        ${attentionBadge}
+                                    </div>
+                                    ${paymentStatus}
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                    <span class="flex items-center gap-1.5">
+                                        <i class="fa-solid fa-receipt opacity-40"></i>
+                                        ${item.invoice_number || 'NO INV'}
+                                    </span>
+                                    <span class="flex items-center gap-1.5">
+                                        <i class="fa-solid fa-calendar-day opacity-40"></i>
+                                        ${new Date(item.updated_at).toLocaleDateString()}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end border-t border-slate-800/50 sm:border-0 pt-4 sm:pt-0">
+                            <div class="flex flex-col items-end gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[8px] font-black text-slate-600 uppercase tracking-widest">Application</span>
+                                    ${getStatusBadge(item.reg_status)}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[8px] font-black text-slate-600 uppercase tracking-widest">Admin Status</span>
+                                    ${getStatusBadge(item.seda_status)}
+                                </div>
+                            </div>
+                            <a href="/seda-register?id=${item.bubble_id}" class="h-12 px-8 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center transition-all shadow-lg shadow-blue-500/25 border border-blue-400/20 active:scale-95">
+                                Open Form
+                            </a>
+                        </div>
+                    `;
+                    listEl.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error(error);
+                loadingEl.innerHTML = `<div class="text-rose-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Error loading data
+                </div>`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAgentData();
+            loadSedaRegistrations();
+        });
+    </script>
+</body>
+</html>

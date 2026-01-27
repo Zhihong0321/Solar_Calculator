@@ -218,6 +218,116 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
 // ============================================================
 
 /**
+ * GET /api/v1/seda/my-seda
+ * Get SEDA Registrations for the current logged-in agent
+ * Prioritizes invoices with payment and filters out completed/pending statuses
+ */
+router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
+    const userId = req.user.userId || req.user.id;
+    const client = await pool.connect();
+
+    try {
+        // Query to get SEDA registrations linked to invoices where the current user is the agent
+        // Priorities: 
+        // 1. Invoices with payments (paid_amount > 0)
+        // 2. Exclude statuses: Submitted, Approved (already handled)
+        const query = `
+            SELECT 
+                s.bubble_id,
+                s.reg_status,
+                s.seda_status,
+                s.updated_at,
+                c.name as customer_name,
+                i.invoice_number,
+                i.paid as invoice_paid,
+                i.total_amount as invoice_total,
+                i.paid_amount as invoice_paid_amount,
+                (i.paid_amount > 0) as has_payment
+            FROM seda_registration s
+            LEFT JOIN customer c ON s.linked_customer = c.customer_id
+            JOIN invoice i ON i.bubble_id = ANY(s.linked_invoice)
+            WHERE i.linked_agent = $1
+              AND (
+                s.seda_status IS NULL 
+                OR (
+                    s.seda_status NOT ILIKE 'Submitted%' 
+                    AND s.seda_status NOT ILIKE 'Approved%'
+                )
+              )
+              AND (
+                s.reg_status IS NULL
+                OR (
+                    s.reg_status NOT ILIKE 'Submitted%'
+                    AND s.reg_status NOT ILIKE 'Approved%'
+                )
+              )
+            ORDER BY has_payment DESC, i.paid_amount DESC, s.updated_at DESC
+        `;
+
+        const result = await client.query(query, [userId]);
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error('[My SEDA] Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+/**
+ * PATCH /api/v1/seda/:id/status
+ * Update SEDA registration status (Internal/Admin)
+ */
+router.patch('/api/v1/seda/:id/status', requireAuth, async (req, res) => {
+    const { id } = req.params;
+    const { reg_status, seda_status } = req.body;
+    const client = await pool.connect();
+
+    try {
+        const updates = [];
+        const params = [id];
+
+        if (reg_status) {
+            if (!sedaRepo.SedaStatus.REG.includes(reg_status.toLowerCase())) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: `Invalid reg_status. Allowed: ${sedaRepo.SedaStatus.REG.join(', ')}` 
+                });
+            }
+            params.push(reg_status);
+            updates.push(`reg_status = $${params.length}`);
+        }
+
+        if (seda_status) {
+            if (!sedaRepo.SedaStatus.ADMIN.includes(seda_status.toLowerCase())) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: `Invalid seda_status. Allowed: ${sedaRepo.SedaStatus.ADMIN.join(', ')}` 
+                });
+            }
+            params.push(seda_status);
+            updates.push(`seda_status = $${params.length}`);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ success: false, error: 'No status provided' });
+        }
+
+        await client.query(
+            `UPDATE seda_registration SET ${updates.join(', ')}, updated_at = NOW() WHERE bubble_id = $1`,
+            params
+        );
+
+        res.json({ success: true, message: 'Status updated' });
+    } catch (err) {
+        console.error('Error updating SEDA status:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+/**
  * GET /seda-register
  * Render the SEDA Registration Form
  * Query Params: ?id=SEDA_BUBBLE_ID

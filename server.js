@@ -78,6 +78,11 @@ app.get('/agent/home', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_dashboard.html'));
 });
 
+// SEDA Management Route
+app.get('/my-seda', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'my_seda.html'));
+});
+
 // Agent Profile Management Route
 app.get('/agent/profile', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_profile.html'));
