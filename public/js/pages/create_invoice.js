@@ -871,29 +871,38 @@
 
         // Initialize preview on page load
         document.addEventListener('DOMContentLoaded', async function() {
-            // Fetch User Profile
+            console.log('DOM Content Loaded - Initializing Creation Page');
+            
+            // 1. Initial State: Hide all dynamic containers
+            const packageIdForm = document.getElementById('packageIdForm');
+            const quotationFormContainer = document.getElementById('quotationFormContainer');
+            if (packageIdForm) packageIdForm.classList.add('hidden');
+            if (quotationFormContainer) quotationFormContainer.classList.add('hidden');
+
+            // 2. Fetch User Profile (non-blocking for UI)
             fetchUserProfile();
 
-            // Parse URL parameters
+            // 3. Parse URL parameters
             const urlParams = new URLSearchParams(window.location.search);
             const packageId = urlParams.get('linked_package') || urlParams.get('package_id');
             const panelQty = urlParams.get('panel_qty');
             const panelRating = urlParams.get('panel_rating');
             const editInvoiceId = urlParams.get('edit_invoice_id') || urlParams.get('id');
             
-            // 1. Check for Edit Mode First
-            if (editInvoiceId && (window.location.pathname.includes('edit-invoice') || urlParams.get('edit_invoice_id'))) {
-                window.isEditMode = true;
-                window.editInvoiceId = editInvoiceId;
-                document.querySelector('h1').textContent = 'Edit Quotation';
-                const submitBtn = document.querySelector('button[type="submit"]');
-                if (submitBtn) submitBtn.textContent = 'Save New Version';
-                
-                // Hide package form initially while loading
-                document.getElementById('packageIdForm').classList.add('hidden');
-                
-                // Load Invoice Data
-                try {
+            console.log('Params:', { packageId, panelQty, panelRating, editInvoiceId });
+
+            // 4. Initialization Logic Branching
+            try {
+                // BRANCH A: Edit Mode
+                if (editInvoiceId && (window.location.pathname.includes('edit-invoice') || urlParams.get('edit_invoice_id'))) {
+                    console.log('Entering Edit Mode');
+                    window.isEditMode = true;
+                    window.editInvoiceId = editInvoiceId;
+                    
+                    document.querySelector('h1').textContent = 'Edit Quotation';
+                    const submitBtn = document.querySelector('button[type="submit"]');
+                    if (submitBtn) submitBtn.textContent = 'Save New Version';
+                    
                     const res = await fetch(`/api/v1/invoices/${editInvoiceId}`);
                     if (!res.ok) throw new Error('Failed to fetch invoice');
                     const json = await res.json();
@@ -901,11 +910,12 @@
                     if (json.success && json.data) {
                         const inv = json.data;
                         const invPackageId = inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id;
+                        
                         if (invPackageId) {
                             await fetchPackageDetails(invPackageId);
                         } else {
                             showWarning(`⚠️ This invoice doesn't have a package.`);
-                            document.getElementById('packageIdForm').classList.remove('hidden');
+                            if (packageIdForm) packageIdForm.classList.remove('hidden');
                         }
                         
                         // Pre-fill fields from snapshot/live data
@@ -946,64 +956,56 @@
                             });
                             renderSelectedVouchers();
                         }
+                    } else {
+                        throw new Error(json.error || 'Failed to load invoice data');
                     }
-                } catch (err) {
-                    console.error('Edit initialization failed:', err);
-                    showError('Error loading invoice: ' + err.message);
-                }
-            } 
-            // 2. Explicit Package ID Provided
-            else if (packageId) {
-                console.log('Package ID detected:', packageId);
-                document.getElementById('packageIdForm').classList.add('hidden');
-                fetchPackageDetails(packageId);
-                addPaymentMethodRow();
-                fetchVouchers();
-            } 
-            // 3. Panel/Rating Lookup
-            else if (panelQty && panelRating) {
-                console.log('Panel Lookup detected:', panelQty, panelRating);
-                document.getElementById('packageIdForm').classList.add('hidden');
-                showWarning('🔍 Looking up best matching package...');
-                
-                try {
+                } 
+                // BRANCH B: Direct Creation with Package ID (HIGHEST PRIORITY for creation)
+                else if (packageId) {
+                    console.log('Entering Package Selection Mode:', packageId);
+                    await fetchPackageDetails(packageId);
+                    addPaymentMethodRow();
+                    await fetchVouchers();
+                } 
+                // BRANCH C: Panel/Rating Lookup (Fallback)
+                else if (panelQty && panelRating) {
+                    console.log('Entering Panel Lookup Mode');
+                    showWarning('🔍 Looking up best matching package...');
+                    
                     const ratingInt = parseInt(panelRating.replace(/\D/g, ''));
                     const lookupRes = await fetch(`/readonly/package/lookup?panelQty=${panelQty}&panelType=${ratingInt}`);
                     const lookupData = await lookupRes.json();
                     
                     if (lookupData.packages && lookupData.packages.length > 0) {
-                        showPackage(lookupData.packages[0]);
+                        await showPackage(lookupData.packages[0]);
                         document.getElementById('warningMessage').classList.add('hidden');
                     } else {
-                        showError(`⚠️ No package found matching ${panelQty} panels @ ${panelRating}`);
-                        document.getElementById('packageIdForm').classList.remove('hidden');
+                        throw new Error(`No package found matching ${panelQty} panels @ ${panelRating}`);
                     }
-                } catch (err) {
-                    showError('⚠️ Package lookup failed. Please select manually.');
-                    document.getElementById('packageIdForm').classList.remove('hidden');
+                    addPaymentMethodRow();
+                    await fetchVouchers();
+                } 
+                // BRANCH D: Browse Mode (Default)
+                else {
+                    console.log('Entering Browse Mode');
+                    if (packageIdForm) packageIdForm.classList.remove('hidden');
+                    addPaymentMethodRow();
+                    await fetchVouchers();
                 }
-                addPaymentMethodRow();
-                fetchVouchers();
-            } 
-            // 4. Default: Browse Mode
-            else {
-                console.log('No package params, showing browse prompt');
-                document.getElementById('packageIdForm').classList.remove('hidden');
-                addPaymentMethodRow();
-                fetchVouchers();
+            } catch (err) {
+                console.error('Initialization Error:', err);
+                showError(`⚠️ Initialization failed: ${err.message}`);
+                if (packageIdForm) packageIdForm.classList.remove('hidden');
             }
 
-            // Always pre-fill common fields from URL if present
+            // 5. Pre-fill common fields from URL (Always run if parameters present)
             if (urlParams.get('customer_name')) document.getElementById('customerName').value = urlParams.get('customer_name');
             if (urlParams.get('customer_phone')) document.getElementById('customerPhone').value = urlParams.get('customer_phone');
             if (urlParams.get('customer_address')) document.getElementById('customerAddress').value = urlParams.get('customer_address');
-            if (urlParams.get('discount_given')) {
-                document.getElementById('discountGiven').value = urlParams.get('discount_given');
-                setTimeout(updateInvoicePreview, 500);
-            }
+            if (urlParams.get('discount_given')) document.getElementById('discountGiven').value = urlParams.get('discount_given');
             if (urlParams.get('apply_sst') === 'true') document.getElementById('applySST').checked = true;
 
-            // Setup listeners
+            // 6. Global Listeners setup
             const addManualItemBtn = document.getElementById('addManualItemBtn');
             if (addManualItemBtn) addManualItemBtn.addEventListener('click', () => addManualItem());
 
@@ -1025,6 +1027,7 @@
             const addBtn = document.getElementById('addPaymentMethodBtn');
             if (addBtn) addBtn.addEventListener('click', addPaymentMethodRow);
 
+            // 7. Final UI Update
             updateInvoicePreview();
         });
 
