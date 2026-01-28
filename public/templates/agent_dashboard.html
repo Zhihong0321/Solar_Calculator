@@ -114,7 +114,11 @@
         </nav>
 
         <div class="mt-auto border-t border-slate-100 pt-6">
-            <a href="/agent/profile" class="nav-link">
+            <button onclick="logout()" class="nav-link w-full text-left text-red-600 hover:bg-red-50 hover:text-red-700">
+                <i class="fa-solid fa-right-from-bracket w-5"></i>
+                <span>Logout Session</span>
+            </button>
+            <a href="/agent/profile" class="nav-link mt-1">
                 <i class="fa-solid fa-user-gear w-5"></i>
                 <span>Settings</span>
             </a>
@@ -139,9 +143,14 @@
                 </div>
                 <span class="font-bold text-slate-900 tracking-tight">ETERNALGY OS</span>
             </div>
-            <a href="/agent/profile">
-                <img id="mobileProfilePic" src="https://ui-avatars.com/api/?name=Agent" class="w-8 h-8 rounded-full border border-slate-200 shadow-sm">
-            </a>
+            <div class="flex items-center gap-4">
+                <button onclick="logout()" class="text-red-500 p-1">
+                    <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                </button>
+                <a href="/agent/profile">
+                    <img id="mobileProfilePic" src="https://ui-avatars.com/api/?name=Agent" class="w-8 h-8 rounded-full border border-slate-200 shadow-sm">
+                </a>
+            </div>
         </header>
 
         <!-- Content Area -->
@@ -297,6 +306,19 @@
                 console.error('Error fetching agent data:', error);
             }
         }
+
+        async function logout() {
+            if (!confirm('This will end your session. Proceed?')) return;
+            try {
+                await fetch('/api/admin/logout', { method: 'POST' });
+                window.location.href = '/domestic';
+            } catch (e) {
+                // Fallback to client-side
+                document.cookie = 'auth_token=; Max-Age=0; path=/;';
+                window.location.reload();
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', fetchAgentData);
     </script>
 </body>
