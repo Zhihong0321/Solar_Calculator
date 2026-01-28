@@ -160,7 +160,10 @@
                         class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
                         placeholder="e.g., '500 10%' for RM500 fixed + 10% discount"
                     >
-                    <p class="text-xs text-gray-600 mt-1">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p>
+                    <div class="flex justify-between mt-1">
+                        <p class="text-xs text-gray-600">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p>
+                        <p id="inputMaxDiscountRow" class="text-xs font-bold text-red-600 hidden">Max Allowed: <span id="inputMaxDiscountDisplay">RM 0.00</span></p>
+                    </div>
                 </div>
 
                 <!-- Additional Items Section -->

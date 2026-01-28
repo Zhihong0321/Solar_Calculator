@@ -1161,13 +1161,20 @@
             window.maxDiscountAllowed = parseFloat(pkg.max_discount) || 0;
             const maxDiscountRow = document.getElementById('maxDiscountRow');
             const maxDiscountDisplay = document.getElementById('maxDiscountDisplay');
-            if (maxDiscountRow && maxDiscountDisplay) {
-                if (window.maxDiscountAllowed > 0) {
-                    maxDiscountRow.classList.remove('hidden');
-                    maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)}`;
-                } else {
-                    maxDiscountRow.classList.add('hidden');
-                }
+            
+            // New persistent display under input
+            const inputMaxDiscountRow = document.getElementById('inputMaxDiscountRow');
+            const inputMaxDiscountDisplay = document.getElementById('inputMaxDiscountDisplay');
+
+            if (window.maxDiscountAllowed > 0) {
+                if (maxDiscountRow) maxDiscountRow.classList.remove('hidden');
+                if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)}`;
+                
+                if (inputMaxDiscountRow) inputMaxDiscountRow.classList.remove('hidden');
+                if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)}`;
+            } else {
+                if (maxDiscountRow) maxDiscountRow.classList.add('hidden');
+                if (inputMaxDiscountRow) inputMaxDiscountRow.classList.add('hidden');
             }
             
             if (pkg.invoice_desc) {
