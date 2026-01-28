@@ -102,6 +102,9 @@
         <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div class="flex items-center justify-between w-full md:w-auto">
                 <div class="flex items-center gap-3">
+                    <button onclick="goBackToOffice()" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                        <i class="fa-solid fa-arrow-left text-slate-600"></i>
+                    </button>
                     <div class="h-10 w-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-bold text-xs">OS</div>
                     <div>
                         <div class="flex items-center gap-2">
@@ -374,7 +377,7 @@
 
             <!-- Action Buttons -->
             <div class="pt-10 flex flex-col sm:flex-row justify-end gap-4">
-                <button type="button" onclick="goBackToOffice()" class="w-full sm:w-auto px-8 py-3 border border-slate-200 text-slate-600 font-bold text-sm rounded-xl hover:bg-slate-50 transition-all order-2 sm:order-1">Close</button>
+                <button type="button" onclick="goBackToOffice()" class="w-full sm:w-auto px-8 py-3 border border-slate-200 text-slate-600 font-bold text-sm rounded-xl hover:bg-slate-50 transition-all order-2 sm:order-1">Back to SEDA List</button>
                 <button type="submit" class="w-full sm:w-auto px-8 py-3 bg-slate-900 text-white font-bold text-sm rounded-xl shadow-lg transition-all order-1 sm:order-2 flex items-center justify-center gap-2">
                     <i class="fa-solid fa-check-circle"></i> Complete Registration
                 </button>
@@ -456,8 +459,16 @@ Thank you!`;
         function getApiEndpoint() { return isPublicMode ? `/api/v1/seda-public/${shareToken}` : `/api/v1/seda/${sedaId}`; }
 
         function goBackToOffice() {
-            if (isPublicMode) return alert('You can close this page. Your progress has been saved.');
-            NavManager.goBack('/my-invoice');
+            console.log('[SEDA] Navigating back to SEDA list...');
+            if (isPublicMode) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Public View',
+                    text: 'Your progress has been saved. You can close this window.',
+                });
+                return;
+            }
+            window.location.replace('/my-seda');
         }
 
         function startLoading(text = 'Processing...') {

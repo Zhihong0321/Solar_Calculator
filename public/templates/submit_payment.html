@@ -454,7 +454,6 @@
 
         document.getElementById('paymentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            console.log('[SUBMIT_PAYMENT] Form submitted');
             const btn = document.getElementById('submitBtn');
             const originalText = btn.textContent;
             btn.disabled = true;
@@ -465,6 +464,13 @@
                 const method = formData.get('method');
                 const paymentDate = document.getElementById('paymentDate').value;
                 
+                if (!method || !paymentDate) {
+                    alert('Please select a payment method and date.');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                    return;
+                }
+
                 const payload = {
                     paymentId: editPaymentId || null, // Send ID if editing
                     method: method,
@@ -482,8 +488,6 @@
                         tenure: formData.get('eppTenure')
                     } : null
                 };
-
-                console.log('[SUBMIT_PAYMENT] Sending payload:', payload);
 
                 // Use invoiceData.bubble_id which is reliable in both create and edit modes
                 const targetInvoiceId = invoiceData ? invoiceData.bubble_id : (invoiceBubbleId || editPaymentId); 

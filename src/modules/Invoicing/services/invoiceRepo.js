@@ -545,10 +545,11 @@ async function getInvoiceByBubbleId(client, bubbleId) {
  */
 async function logInvoiceAction(client, invoiceId, actionType, userId, details = {}) {
   try {
+    const bubbleId = `act_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
-      `INSERT INTO invoice_action (invoice_id, action_type, created_by, details, created_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      [invoiceId, actionType, userId, JSON.stringify(details)]
+      `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, created_by, details, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [bubbleId, invoiceId, actionType, userId, JSON.stringify(details)]
     );
   } catch (err) {
     console.error('Error logging invoice action:', err);
