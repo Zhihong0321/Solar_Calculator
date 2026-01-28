@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -75,8 +76,15 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-lg">A</div>
-                    <span class="text-lg font-bold tracking-tight text-slate-900">ATAP Solar</span>
+                    <button onclick="NavManager.goBack()" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                        <i class="fa-solid fa-arrow-left text-slate-600"></i>
+                    </button>
+                    <a href="/agent/home" class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                            <i class="fa-solid fa-bolt text-sm"></i>
+                        </div>
+                        <span class="text-lg font-bold tracking-tight text-slate-900">ETERNALGY OS</span>
+                    </a>
                 </div>
                 <div class="flex items-center gap-4">
                     <a href="/my-invoice" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Quotations</a>
@@ -562,5 +570,6 @@
                             }
                             Swal.close();
                         }    </script>
+    <script src="/js/navigation.js"></script>
 </body>
 </html>
