@@ -617,7 +617,10 @@
                                 <p class="text-[9px] text-slate-500 font-medium">${formatDate(p.payment_date)} • ${p.payment_method || 'CASH'}</p>
                             </div>
                         </div>
-                        <span class="text-[8px] font-bold text-slate-400 uppercase border border-slate-200 px-1 rounded">${p.status || 'PENDING'}</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="window.location.href='/submit-payment?id=${bubbleId}&edit_payment_id=${p.bubble_id}'" class="text-[9px] font-bold text-blue-600 hover:underline uppercase">Edit</button>
+                            <span class="text-[8px] font-bold text-slate-400 uppercase border border-slate-200 px-1 rounded">${p.status || 'PENDING'}</span>
+                        </div>
                     </div>
                 `).join('');
             } else {

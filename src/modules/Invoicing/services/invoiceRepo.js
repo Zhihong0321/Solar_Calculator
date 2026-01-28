@@ -536,28 +536,6 @@ async function getInvoiceByBubbleId(client, bubbleId) {
 }
 
 /**
- * Helper: Log invoice action
- * @param {object} client - Database client
- * @param {string} invoiceId - Invoice bubble_id
- * @param {string} actionType - Action type
- * @param {string} userId - User ID
- * @param {object} details - Action details
- */
-async function logInvoiceAction(client, invoiceId, actionType, userId, details = {}) {
-  try {
-    const bubbleId = `act_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_action (bubble_id, invoice_id, action_type, created_by, details, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())`,
-      [bubbleId, invoiceId, actionType, userId, JSON.stringify(details)]
-    );
-  } catch (err) {
-    console.error('Error logging invoice action:', err);
-    // Non-blocking
-  }
-}
-
-/**
  * Helper: Insert the main invoice record
  * @private
  */
@@ -1289,40 +1267,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
  * @returns {Promise<Array>} List of actions
  */
 async function getInvoiceHistory(client, bubbleId) {
-  try {
-    // 1. Get root_id of the requested invoice
-    const invoiceRes = await client.query(
-      `SELECT root_id, bubble_id FROM invoice WHERE bubble_id = $1`,
-      [bubbleId]
-    );
-    
-    if (invoiceRes.rows.length === 0) return [];
-    
-    const rootId = invoiceRes.rows[0].root_id || invoiceRes.rows[0].bubble_id;
-
-    // 2. Fetch actions for all invoices in this family (sharing root_id)
-    // We join with invoice to get the version number for context
-    const query = `
-      SELECT 
-        ia.bubble_id as action_id,
-        ia.action_type,
-        ia.details,
-        ia.created_by,
-        ia.created_at,
-        inv.invoice_number,
-        inv.version
-      FROM invoice_action ia
-      JOIN invoice inv ON ia.invoice_id = inv.bubble_id
-      WHERE inv.root_id = $1 OR inv.bubble_id = $1
-      ORDER BY ia.created_at DESC
-    `;
-    
-    const result = await client.query(query, [rootId]);
-    return result.rows;
-  } catch (err) {
-    console.error('Error getting invoice history:', err);
-    return [];
-  }
+  return [];
 }
 
 /**
@@ -1386,16 +1331,7 @@ async function deleteSampleInvoices(client, userId) {
  * @returns {Promise<object|null>} Action record
  */
 async function getInvoiceActionById(client, actionId) {
-  try {
-    const result = await client.query(
-      `SELECT * FROM invoice_action WHERE bubble_id = $1`,
-      [actionId]
-    );
-    return result.rows.length > 0 ? result.rows[0] : null;
-  } catch (err) {
-    console.error('Error getting invoice action:', err);
-    return null;
-  }
+  return null;
 }
 
 /**
@@ -1453,7 +1389,6 @@ module.exports = {
   getInvoiceByBubbleId,
   getInvoiceHistory,
   getInvoiceActionById,
-  logInvoiceAction,
   deleteSampleInvoices,
   verifyOwnership
 };
