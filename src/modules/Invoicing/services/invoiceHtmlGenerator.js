@@ -213,6 +213,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         <span>SEDA Form</span>
       </button>
       ` : ''}
+      ${invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
       <button onclick="viewProposal('${invoice.share_token}')"
          class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -220,6 +221,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         </svg>
         <span>View Proposal</span>
       </button>
+      ` : ''}
       <button onclick="downloadInvoicePdf('${invoice.share_token}')"
          class="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
