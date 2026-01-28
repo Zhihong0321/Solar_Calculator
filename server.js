@@ -57,7 +57,7 @@ app.get('/', (req, res) => {
   if (req.cookies.auth_token) {
     return res.redirect('/agent/home');
   }
-  res.redirect('/domestic');
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
 app.get('/domestic', (req, res) => {
