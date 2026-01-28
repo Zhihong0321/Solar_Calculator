@@ -546,12 +546,8 @@
             const content = document.getElementById('content');
             const empty = document.getElementById('empty');
             
-            loading.classList.remove('hidden');
-            // Don't hide content if we already have items to prevent page collapse/scroll reset
-            if (allInvoices.length === 0) {
-                content.classList.add('hidden');
-            }
-            empty.classList.add('hidden');
+            if (loading) loading.classList.remove('hidden');
+            if (empty) empty.classList.add('hidden');
 
             try {
                 const offset = (page - 1) * limit;
@@ -568,29 +564,34 @@
                 allInvoices = data.data.invoices || [];
                 total = data.data.total || 0;
 
-                document.getElementById('totalCount').textContent = total;
-                const totalVal = allInvoices.reduce((sum, i) => sum + (parseFloat(i.total_amount) || 0), 0);
-                document.getElementById('totalValue').textContent = formatCurrency(totalVal);
-                
-                if (allInvoices.length > 0) {
-                    const latest = allInvoices[0];
-                    const name = latest.customer_name || '-';
-                    document.getElementById('lastCreated').textContent = `${formatDate(latest.invoice_date)} (${name})`;
+                // --- ROBUST UI UPDATE SECTION ---
+                try {
+                    safeUpdate('totalCount', total);
+                    if (allInvoices.length > 0) {
+                        const latest = allInvoices[0];
+                        const name = latest.customer_name || '-';
+                        const dateText = `${formatDate(latest.invoice_date)} (${name})`;
+                        safeUpdate('lastCreated', dateText);
+                    }
+                } catch (uiErr) {
+                    console.warn('[loadQuotations] Non-fatal UI update error:', uiErr);
                 }
 
-                loading.classList.add('hidden');
+                if (loading) loading.classList.add('hidden');
                 
                 if (allInvoices.length === 0) {
-                    empty.classList.remove('hidden');
+                    if (empty) empty.classList.remove('hidden');
+                    if (content) content.classList.add('hidden');
                     return;
                 }
 
-                content.classList.remove('hidden');
+                if (content) content.classList.remove('hidden');
                 renderInvoices();
 
             } catch (err) {
-                console.error(err);
-                alert('Failed to load data.');
+                console.error('[loadQuotations] Fatal Error:', err);
+                if (loading) loading.classList.add('hidden');
+                // Don't alert here to prevent annoying popups, just log
             }
         }
 
