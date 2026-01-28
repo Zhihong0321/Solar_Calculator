@@ -454,6 +454,7 @@
 
         document.getElementById('paymentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            console.log('[SUBMIT_PAYMENT] Form submitted');
             const btn = document.getElementById('submitBtn');
             const originalText = btn.textContent;
             btn.disabled = true;
@@ -462,11 +463,12 @@
             try {
                 const formData = new FormData(e.target);
                 const method = formData.get('method');
+                const paymentDate = document.getElementById('paymentDate').value;
                 
                 const payload = {
                     paymentId: editPaymentId || null, // Send ID if editing
                     method: method,
-                    date: formData.get('paymentDate'),
+                    date: paymentDate,
                     referenceNo: formData.get('referenceNo'),
                     notes: formData.get('notes'),
                     proof: formData.get('proofFile') ? {
@@ -481,6 +483,8 @@
                     } : null
                 };
 
+                console.log('[SUBMIT_PAYMENT] Sending payload:', payload);
+
                 // Use invoiceData.bubble_id which is reliable in both create and edit modes
                 const targetInvoiceId = invoiceData ? invoiceData.bubble_id : (invoiceBubbleId || editPaymentId); 
 
@@ -491,7 +495,11 @@
                 });
 
                 const result = await res.json();
-                if (!result.success) throw new Error(result.error);
+                if (!result.success) {
+                    console.error('[SUBMIT_PAYMENT] Server Error JSON:', result);
+                    alert('Error from server: ' + (result.error || 'Unknown error'));
+                    throw new Error(result.error || 'Unknown server error');
+                }
 
                 // Success
                 alert('Payment submitted successfully!');

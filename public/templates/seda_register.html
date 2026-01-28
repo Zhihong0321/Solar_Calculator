@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         :root {
             --primary: #0f172a;
@@ -717,7 +718,18 @@ Thank you!`;
                 const res = await fetch(getApiEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const json = await res.json();
                 if (json.success) {
-                    goBackToOffice();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Progress Saved',
+                        text: 'Your registration details have been updated successfully.',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000,
+                        timerProgressBar: true
+                    });
+                    // Refresh data to show any server-side updates/filenames
+                    await loadData();
                 } else throw new Error(json.error);
             } catch (err) { alert('Error: ' + err.message); } finally { stopLoading(); }
         }

@@ -22,10 +22,12 @@ router.get('/submit-payment', (req, res) => {
  */
 router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
+    console.log('[PAYMENT] Body:', JSON.stringify(req.body, null, 2));
     const { method, date, referenceNo, notes, proof, epp, paymentBank, paymentId } = req.body;
     const userId = req.user.userId;
 
     if (!method || !date) {
+        console.error('[PAYMENT] Missing method or date:', { method, date });
         return res.status(400).json({ success: false, error: 'Payment method and date are required.' });
     }
 
