@@ -47,17 +47,18 @@ router.get('/api/vouchers', requireAuth, async (req, res) => {
     try {
         client = await pool.connect();
         const query = `
-            SELECT bubble_id, code, discount_amount, type, description, expiry_date
+            SELECT bubble_id, voucher_code, discount_amount, discount_percent, title, invoice_description, terms_conditions
             FROM voucher
-            WHERE is_active = true 
-              AND (expiry_date IS NULL OR expiry_date > NOW())
+            WHERE active = true 
+              AND public = true
+              AND ("delete" = false OR "delete" IS NULL)
             ORDER BY created_at DESC
         `;
         const result = await client.query(query);
         
         res.json({
             success: true,
-            data: result.rows
+            vouchers: result.rows
         });
     } catch (err) {
         console.error('Error fetching vouchers:', err);

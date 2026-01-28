@@ -869,15 +869,24 @@
             document.getElementById('totalAmount').textContent = `RM ${totalAmount.toFixed(2)}`;
         }
 
+        function hideAllUI() {
+            const packageIdForm = document.getElementById('packageIdForm');
+            const quotationFormContainer = document.getElementById('quotationFormContainer');
+            const errorMessage = document.getElementById('errorMessage');
+            const warningMessage = document.getElementById('warningMessage');
+            
+            if (packageIdForm) packageIdForm.classList.add('hidden');
+            if (quotationFormContainer) quotationFormContainer.classList.add('hidden');
+            if (errorMessage) errorMessage.classList.add('hidden');
+            if (warningMessage) warningMessage.classList.add('hidden');
+        }
+
         // Initialize preview on page load
         document.addEventListener('DOMContentLoaded', async function() {
             console.log('DOM Content Loaded - Initializing Creation Page');
             
-            // 1. Initial State: Hide all dynamic containers
-            const packageIdForm = document.getElementById('packageIdForm');
-            const quotationFormContainer = document.getElementById('quotationFormContainer');
-            if (packageIdForm) packageIdForm.classList.add('hidden');
-            if (quotationFormContainer) quotationFormContainer.classList.add('hidden');
+            // 1. Initial State: Force hide everything immediately
+            hideAllUI();
 
             // 2. Fetch User Profile (non-blocking for UI)
             fetchUserProfile();
@@ -889,19 +898,21 @@
             const panelRating = urlParams.get('panel_rating');
             const editInvoiceId = urlParams.get('edit_invoice_id') || urlParams.get('id');
             
-            console.log('Params:', { packageId, panelQty, panelRating, editInvoiceId });
+            console.log('Params detected:', { packageId, panelQty, panelRating, editInvoiceId });
 
             // 4. Initialization Logic Branching
             try {
                 // BRANCH A: Edit Mode
                 if (editInvoiceId && (window.location.pathname.includes('edit-invoice') || urlParams.get('edit_invoice_id'))) {
-                    console.log('Entering Edit Mode');
+                    console.log('Mode: EDIT');
                     window.isEditMode = true;
                     window.editInvoiceId = editInvoiceId;
                     
                     document.querySelector('h1').textContent = 'Edit Quotation';
                     const submitBtn = document.querySelector('button[type="submit"]');
                     if (submitBtn) submitBtn.textContent = 'Save New Version';
+                    
+                    showWarning('Loading your quotation...');
                     
                     const res = await fetch(`/api/v1/invoices/${editInvoiceId}`);
                     if (!res.ok) throw new Error('Failed to fetch invoice');
@@ -915,15 +926,14 @@
                             await fetchPackageDetails(invPackageId);
                         } else {
                             showWarning(`⚠️ This invoice doesn't have a package.`);
-                            if (packageIdForm) packageIdForm.classList.remove('hidden');
+                            document.getElementById('packageIdForm').classList.remove('hidden');
                         }
                         
-                        // Pre-fill fields from snapshot/live data
+                        // ... pre-fill logic
                         if (inv.customer_name_snapshot) document.getElementById('customerName').value = inv.customer_name_snapshot;
                         if (inv.customer_phone_snapshot) document.getElementById('customerPhone').value = inv.customer_phone_snapshot;
                         if (inv.customer_address_snapshot) document.getElementById('customerAddress').value = inv.customer_address_snapshot;
                         
-                        // Handle Discount
                         let discountVal = '';
                         if (inv.discount_fixed > 0) discountVal += inv.discount_fixed;
                         if (inv.discount_percent > 0) discountVal += (discountVal ? ' ' : '') + `${inv.discount_percent}%`;
@@ -956,21 +966,26 @@
                             });
                             renderSelectedVouchers();
                         }
+                        // Clear loading warning if everything is okay
+                        document.getElementById('warningMessage').classList.add('hidden');
                     } else {
                         throw new Error(json.error || 'Failed to load invoice data');
                     }
                 } 
-                // BRANCH B: Direct Creation with Package ID (HIGHEST PRIORITY for creation)
+                // BRANCH B: Direct Creation with Package ID
                 else if (packageId) {
-                    console.log('Entering Package Selection Mode:', packageId);
+                    console.log('Mode: CREATE (Explicit ID)');
+                    showWarning('Loading package details...');
                     await fetchPackageDetails(packageId);
                     addPaymentMethodRow();
                     await fetchVouchers();
+                    // Clear loading warning
+                    document.getElementById('warningMessage').classList.add('hidden');
                 } 
-                // BRANCH C: Panel/Rating Lookup (Fallback)
+                // BRANCH C: Panel/Rating Lookup
                 else if (panelQty && panelRating) {
-                    console.log('Entering Panel Lookup Mode');
-                    showWarning('🔍 Looking up best matching package...');
+                    console.log('Mode: CREATE (Panel Lookup)');
+                    showWarning('🔍 Searching for the best solar package for you...');
                     
                     const ratingInt = parseInt(panelRating.replace(/\D/g, ''));
                     const lookupRes = await fetch(`/readonly/package/lookup?panelQty=${panelQty}&panelType=${ratingInt}`);
@@ -985,27 +1000,30 @@
                     addPaymentMethodRow();
                     await fetchVouchers();
                 } 
-                // BRANCH D: Browse Mode (Default)
+                // BRANCH D: Browse Mode
                 else {
-                    console.log('Entering Browse Mode');
-                    if (packageIdForm) packageIdForm.classList.remove('hidden');
+                    console.log('Mode: BROWSE');
+                    document.getElementById('packageIdForm').classList.remove('hidden');
                     addPaymentMethodRow();
                     await fetchVouchers();
                 }
             } catch (err) {
-                console.error('Initialization Error:', err);
-                showError(`⚠️ Initialization failed: ${err.message}`);
-                if (packageIdForm) packageIdForm.classList.remove('hidden');
+                console.error('Initialization Failed:', err);
+                showError(`Failed to initialize: ${err.message}`);
+                // If it failed but wasn't browse mode, show browse as fallback
+                if (!packageId && !(panelQty && panelRating)) {
+                    document.getElementById('packageIdForm').classList.remove('hidden');
+                }
             }
 
-            // 5. Pre-fill common fields from URL (Always run if parameters present)
+            // Always pre-fill common fields from URL
             if (urlParams.get('customer_name')) document.getElementById('customerName').value = urlParams.get('customer_name');
             if (urlParams.get('customer_phone')) document.getElementById('customerPhone').value = urlParams.get('customer_phone');
             if (urlParams.get('customer_address')) document.getElementById('customerAddress').value = urlParams.get('customer_address');
             if (urlParams.get('discount_given')) document.getElementById('discountGiven').value = urlParams.get('discount_given');
             if (urlParams.get('apply_sst') === 'true') document.getElementById('applySST').checked = true;
 
-            // 6. Global Listeners setup
+            // Setup listeners
             const addManualItemBtn = document.getElementById('addManualItemBtn');
             if (addManualItemBtn) addManualItemBtn.addEventListener('click', () => addManualItem());
 
@@ -1027,7 +1045,6 @@
             const addBtn = document.getElementById('addPaymentMethodBtn');
             if (addBtn) addBtn.addEventListener('click', addPaymentMethodRow);
 
-            // 7. Final UI Update
             updateInvoicePreview();
         });
 
