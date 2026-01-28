@@ -881,8 +881,8 @@
             const panelRating = urlParams.get('panel_rating');
             const editInvoiceId = urlParams.get('edit_invoice_id') || urlParams.get('id');
             
-            // Store edit mode state
-            if (editInvoiceId && window.location.pathname.includes('edit-invoice')) {
+            // 1. Check for Edit Mode First
+            if (editInvoiceId && (window.location.pathname.includes('edit-invoice') || urlParams.get('edit_invoice_id'))) {
                 window.isEditMode = true;
                 window.editInvoiceId = editInvoiceId;
                 document.querySelector('h1').textContent = 'Edit Quotation';
@@ -895,24 +895,74 @@
                 // Load Invoice Data
                 try {
                     const res = await fetch(`/api/v1/invoices/${editInvoiceId}`);
-                    // ... (rest of edit mode logic remains same)
+                    if (!res.ok) throw new Error('Failed to fetch invoice');
+                    const json = await res.json();
+                    
+                    if (json.success && json.data) {
+                        const inv = json.data;
+                        const invPackageId = inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id;
+                        if (invPackageId) {
+                            await fetchPackageDetails(invPackageId);
+                        } else {
+                            showWarning(`⚠️ This invoice doesn't have a package.`);
+                            document.getElementById('packageIdForm').classList.remove('hidden');
+                        }
+                        
+                        // Pre-fill fields from snapshot/live data
+                        if (inv.customer_name_snapshot) document.getElementById('customerName').value = inv.customer_name_snapshot;
+                        if (inv.customer_phone_snapshot) document.getElementById('customerPhone').value = inv.customer_phone_snapshot;
+                        if (inv.customer_address_snapshot) document.getElementById('customerAddress').value = inv.customer_address_snapshot;
+                        
+                        // Handle Discount
+                        let discountVal = '';
+                        if (inv.discount_fixed > 0) discountVal += inv.discount_fixed;
+                        if (inv.discount_percent > 0) discountVal += (discountVal ? ' ' : '') + `${inv.discount_percent}%`;
+                        document.getElementById('discountGiven').value = discountVal;
+                        
+                        if (inv.sst_amount > 0) document.getElementById('applySST').checked = true;
+                        window.currentAgentMarkup = inv.agent_markup || 0;
+
+                        if (inv.items) {
+                            inv.items.forEach(item => {
+                                const type = (item.item_type || '').toLowerCase();
+                                if (type === 'extra' || (!type && !item.is_a_package)) {
+                                    addManualItem({
+                                        description: item.description,
+                                        qty: parseFloat(item.qty) || 1,
+                                        unit_price: parseFloat(item.unit_price) || 0
+                                    });
+                                }
+                            });
+                        }
+                        
+                        await fetchVouchers();
+                        if (inv.voucher_code) {
+                            const codes = inv.voucher_code.split(',').map(s => s.trim());
+                            codes.forEach(code => {
+                                const v = availableVouchers.find(av => av.voucher_code === code);
+                                if (v && !selectedVouchers.find(sv => sv.voucher_code === v.voucher_code)) {
+                                    selectedVouchers.push(v);
+                                }
+                            });
+                            renderSelectedVouchers();
+                        }
+                    }
                 } catch (err) {
-                    console.error(err);
+                    console.error('Edit initialization failed:', err);
                     showError('Error loading invoice: ' + err.message);
                 }
-                
-            } else if (packageId) {
-                // Create Mode with explicit Package ID
+            } 
+            // 2. Explicit Package ID Provided
+            else if (packageId) {
+                console.log('Package ID detected:', packageId);
                 document.getElementById('packageIdForm').classList.add('hidden');
                 fetchPackageDetails(packageId);
-                
-                // Add first payment method row (default: Cash, 100%)
                 addPaymentMethodRow();
-                
-                // Fetch vouchers
                 fetchVouchers();
-            } else if (panelQty && panelRating) {
-                // Auto-lookup mode by panels
+            } 
+            // 3. Panel/Rating Lookup
+            else if (panelQty && panelRating) {
+                console.log('Panel Lookup detected:', panelQty, panelRating);
                 document.getElementById('packageIdForm').classList.add('hidden');
                 showWarning('🔍 Looking up best matching package...');
                 
@@ -922,85 +972,60 @@
                     const lookupData = await lookupRes.json();
                     
                     if (lookupData.packages && lookupData.packages.length > 0) {
-                        const bestPkg = lookupData.packages[0];
-                        showPackage(bestPkg);
-                        // Clear lookup warning
+                        showPackage(lookupData.packages[0]);
                         document.getElementById('warningMessage').classList.add('hidden');
                     } else {
                         showError(`⚠️ No package found matching ${panelQty} panels @ ${panelRating}`);
                         document.getElementById('packageIdForm').classList.remove('hidden');
                     }
                 } catch (err) {
-                    console.error('Lookup failed:', err);
                     showError('⚠️ Package lookup failed. Please select manually.');
                     document.getElementById('packageIdForm').classList.remove('hidden');
                 }
-
-                // Add first payment method row
                 addPaymentMethodRow();
                 fetchVouchers();
-            } else {
-                // Show prompt to browse if no parameters
+            } 
+            // 4. Default: Browse Mode
+            else {
+                console.log('No package params, showing browse prompt');
                 document.getElementById('packageIdForm').classList.remove('hidden');
-                
-                // Add first payment method row (default: Cash, 100%)
                 addPaymentMethodRow();
-                
-                // Fetch vouchers
                 fetchVouchers();
             }
 
-            // Pre-fill other fields from URL regardless of mode
+            // Always pre-fill common fields from URL if present
             if (urlParams.get('customer_name')) document.getElementById('customerName').value = urlParams.get('customer_name');
             if (urlParams.get('customer_phone')) document.getElementById('customerPhone').value = urlParams.get('customer_phone');
             if (urlParams.get('customer_address')) document.getElementById('customerAddress').value = urlParams.get('customer_address');
             if (urlParams.get('discount_given')) {
                 document.getElementById('discountGiven').value = urlParams.get('discount_given');
-                // Use setTimeout to ensure updateInvoicePreview runs after package data might have loaded
                 setTimeout(updateInvoicePreview, 500);
             }
             if (urlParams.get('apply_sst') === 'true') document.getElementById('applySST').checked = true;
 
-            // Manual Item Listener
+            // Setup listeners
             const addManualItemBtn = document.getElementById('addManualItemBtn');
-            if (addManualItemBtn) {
-                addManualItemBtn.addEventListener('click', () => addManualItem());
-            }
+            if (addManualItemBtn) addManualItemBtn.addEventListener('click', () => addManualItem());
 
-            // Voucher listeners
             const voucherSelect = document.getElementById('voucherSelectDropdown');
-            if (voucherSelect) {
-                voucherSelect.addEventListener('change', () => {
-                    updateVoucherInfo();
-                    // Do not update invoice preview on selection change, only on Add
-                });
-            }
+            if (voucherSelect) voucherSelect.addEventListener('change', () => updateVoucherInfo());
             
             const addVoucherBtn = document.getElementById('addVoucherBtn');
-            if (addVoucherBtn) {
-                addVoucherBtn.addEventListener('click', addVoucher);
-            }
+            if (addVoucherBtn) addVoucherBtn.addEventListener('click', addVoucher);
 
-            updateInvoicePreview();
-            
-            // Update preview when SST toggle changes
             const sstToggle = document.getElementById('applySST');
-            if (sstToggle) {
-                sstToggle.addEventListener('change', updateInvoicePreview);
-            }
+            if (sstToggle) sstToggle.addEventListener('change', updateInvoicePreview);
             
-            // Update preview when discount input changes
             const discountInput = document.getElementById('discountGiven');
             if (discountInput) {
                 discountInput.addEventListener('input', updateInvoicePreview);
                 discountInput.addEventListener('change', updateInvoicePreview);
             }
             
-            // Add payment method button
             const addBtn = document.getElementById('addPaymentMethodBtn');
-            if (addBtn) {
-                addBtn.addEventListener('click', addPaymentMethodRow);
-            }
+            if (addBtn) addBtn.addEventListener('click', addPaymentMethodRow);
+
+            updateInvoicePreview();
         });
 
         async function fetchUserProfile() {
