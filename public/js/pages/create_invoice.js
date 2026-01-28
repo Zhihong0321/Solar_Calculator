@@ -737,11 +737,11 @@
 
             // Validation for Max Discount
             const totalDiscountValue = (discount.fixed || 0) + (packagePrice * (discount.percent || 0) / 100);
-            const discountInput = document.getElementById('discountGiven');
+            const discountInputField = document.getElementById('discountGiven');
             if (window.maxDiscountAllowed > 0 && totalDiscountValue > window.maxDiscountAllowed) {
-                if (discountInput) {
-                    discountInput.classList.add('border-red-500', 'bg-red-50');
-                    discountInput.classList.remove('border-gray-300', 'bg-white');
+                if (discountInputField) {
+                    discountInputField.classList.add('border-red-500', 'bg-red-50');
+                    discountInputField.classList.remove('border-gray-300', 'bg-white');
                 }
                 const warningMsg = document.createElement('div');
                 warningMsg.className = 'text-xs text-red-600 font-bold mt-1';
@@ -752,11 +752,11 @@
                 const existingWarning = document.getElementById('discountLimitWarning');
                 if (existingWarning) existingWarning.remove();
                 
-                if (discountInput) discountInput.parentNode.appendChild(warningMsg);
+                if (discountInputField) discountInputField.parentNode.appendChild(warningMsg);
             } else {
-                if (discountInput) {
-                    discountInput.classList.remove('border-red-500', 'bg-red-50');
-                    discountInput.classList.add('border-gray-300', 'bg-white');
+                if (discountInputField) {
+                    discountInputField.classList.remove('border-red-500', 'bg-red-50');
+                    discountInputField.classList.add('border-gray-300', 'bg-white');
                 }
                 const existingWarning = document.getElementById('discountLimitWarning');
                 if (existingWarning) existingWarning.remove();
