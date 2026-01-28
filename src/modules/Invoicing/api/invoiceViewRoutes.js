@@ -120,8 +120,9 @@ router.get('/proposal/:shareToken', async (req, res) => {
       const invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
 
       if (invoice) {
-        // Proposals currently use the portable-proposal static HTML or the same invoice template
-        res.sendFile(path.join(__dirname, '../../../../portable-proposal/index.html'));
+        // Use generateProposalHtml to inject data into the portable-proposal template
+        const html = invoiceHtmlGenerator.generateProposalHtml(invoice);
+        res.send(html);
       } else {
         res.status(404).send('Proposal not found');
       }

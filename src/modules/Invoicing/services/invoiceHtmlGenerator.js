@@ -2,6 +2,8 @@
  * HTML Invoice Generator Module
  * Generates HTML for invoice display
  */
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Generate invoice HTML
@@ -587,6 +589,98 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   return html;
 }
 
+/**
+ * Generate proposal HTML using the portable-proposal template
+ * @param {object} invoice - Invoice object with items
+ * @param {object} options - Generation options
+ * @returns {string} HTML content
+ */
+function generateProposalHtml(invoice, options = {}) {
+  const proposalTemplatePath = path.join(__dirname, '../../../../portable-proposal/index.html');
+  if (!fs.existsSync(proposalTemplatePath)) {
+    console.error('[HTML Generator] Proposal template not found at:', proposalTemplatePath);
+    return 'Proposal template not found';
+  }
+
+  let html = fs.readFileSync(proposalTemplatePath, 'utf8');
+  const templateData = invoice.template || {};
+
+  // Replaces placeholders in the HTML
+  const replacements = {
+    '{{PROPOSAL_URL}}': `/proposal/${invoice.share_token}`,
+    '{{COMPANY_NAME}}': templateData.company_name || 'Atap Solar',
+    '{{COMPANY_ADDRESS}}': templateData.company_address || '',
+    '{{COMPANY_PHONE}}': templateData.company_phone || '',
+    '{{COMPANY_EMAIL}}': templateData.company_email || '',
+    '{{INVOICE_NUMBER}}': invoice.invoice_number || '',
+    '{{INVOICE_STATUS}}': invoice.status || '',
+    '{{INVOICE_DATE}}': invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('en-MY', { year: 'numeric', month: 'short', day: 'numeric' }) : '',
+    '{{CUSTOMER_NAME}}': invoice.customer_name || 'Valued Customer',
+    '{{CUSTOMER_ADDRESS}}': invoice.customer_address || '',
+    '{{CUSTOMER_PHONE}}': invoice.customer_phone || '',
+    '{{CUSTOMER_EMAIL}}': invoice.customer_email || '',
+    '{{CUSTOMER_IMAGE}}': invoice.profile_picture || '',
+    '{{SUBTOTAL}}': (parseFloat(invoice.subtotal) || 0).toFixed(2),
+    '{{SST_RATE}}': '6',
+    '{{SST_AMOUNT}}': (parseFloat(invoice.sst_amount) || 0).toFixed(2),
+    '{{TOTAL_AMOUNT}}': (parseFloat(invoice.total_amount) || 0).toFixed(2),
+    '{{BANK_NAME}}': templateData.bank_name || '',
+    '{{BANK_ACCOUNT}}': templateData.bank_account_no || '',
+    '{{BANK_ACCOUNT_NAME}}': templateData.bank_account_name || '',
+    '{{CREATED_BY}}': invoice.created_by_user_name || 'System',
+    '{{TERMS_AND_CONDITIONS}}': (templateData.terms_and_conditions || '').replace(/\n/g, '<br>')
+  };
+
+  // Generate Items HTML
+  let itemsHtml = '';
+  (invoice.items || []).forEach(item => {
+    const isDiscount = item.item_type === 'discount' || item.item_type === 'voucher';
+    const priceClass = isDiscount ? 'text-red-600' : 'text-slate-900';
+    itemsHtml += `
+      <div class="px-3 py-3 flex gap-3 items-start">
+        <div class="flex-1">
+          <p class="text-sm font-medium text-slate-900 leading-snug">${item.description ? item.description.replace(/\n/g, '<br>') : ''}</p>
+          ${!isDiscount && item.qty ? `<p class="text-[10px] text-slate-400 mt-0.5">Qty: ${parseFloat(item.qty)}</p>` : ''}
+        </div>
+        <div class="text-right w-24">
+          <p class="text-sm font-semibold ${priceClass}">${isDiscount ? '-' : ''}RM ${Math.abs(parseFloat(item.total_price)).toFixed(2)}</p>
+        </div>
+      </div>
+    `;
+  });
+  replacements['{{INVOICE_ITEMS}}'] = itemsHtml;
+
+  // Perform basic placeholder replacements
+  for (const [key, value] of Object.entries(replacements)) {
+    html = html.split(key).join(value);
+  }
+
+  // Perform JS variable replacements
+  let customerImage = invoice.profile_picture || '';
+  if (customerImage.startsWith('//')) customerImage = 'https:' + customerImage;
+  
+  html = html.replace(/var CUSTOMER_NAME\s*=\s*".*";/, `var CUSTOMER_NAME    = "${(invoice.customer_name || 'Valued Customer').replace(/"/g, '\\"')}";`);
+  html = html.replace(/var CUSTOMER_ADDRESS\s*=\s*".*";/, `var CUSTOMER_ADDRESS = "${(invoice.customer_address || '').replace(/\n/g, ', ').replace(/"/g, '\\"')}";`);
+  html = html.replace(/var CUSTOMER_IMAGE\s*=\s*".*";/, `var CUSTOMER_IMAGE   = "${customerImage.replace(/"/g, '\\"')}";`);
+  
+  const systemSizeStr = invoice.system_size_kwp ? `${invoice.system_size_kwp.toFixed(2)} kWp System` : 'Solar System';
+  html = html.replace(/var SYSTEM_SIZE\s*=\s*".*";/, `var SYSTEM_SIZE      = "${systemSizeStr}";`);
+  
+  if (invoice.customer_signature) {
+    let sigUrl = invoice.customer_signature;
+    if (sigUrl.startsWith('//')) sigUrl = 'https:' + sigUrl;
+    html = html.replace(/var CUSTOMER_SIGNATURE\s*=\s*".*";/, `var CUSTOMER_SIGNATURE   = "${sigUrl.replace(/"/g, '\\"')}";`);
+  }
+  if (invoice.signature_date) {
+    html = html.replace(/var SIGNATURE_DATE\s*=\s*".*";/, `var SIGNATURE_DATE       = "${invoice.signature_date}";`);
+  }
+
+  // Also replace the {{CUSTOMER_IMAGE}} placeholder in the HTML
+  html = html.split('{{CUSTOMER_IMAGE}}').join(customerImage);
+
+  return html;
+}
+
 // Alias for backward compatibility
 function generateInvoiceHtmlSync(invoice, template, options) {
   return generateInvoiceHtml(invoice, template, options);
@@ -594,5 +688,6 @@ function generateInvoiceHtmlSync(invoice, template, options) {
 
 module.exports = {
   generateInvoiceHtml,
-  generateInvoiceHtmlSync
+  generateInvoiceHtmlSync,
+  generateProposalHtml
 };

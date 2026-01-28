@@ -496,6 +496,12 @@
             document.getElementById('sign-button-container').style.display = 'flex';
         }
 
+        // Show profile image if available
+        if (CUSTOMER_CONFIG.image && CUSTOMER_CONFIG.image.trim() !== "") {
+            const profileImageContainer = document.getElementById('proposal-profile-image-container');
+            if (profileImageContainer) profileImageContainer.style.display = 'block';
+        }
+
         // Signature Modal Logic
         let signaturePad;
         const modal = document.getElementById('signatureModal');
