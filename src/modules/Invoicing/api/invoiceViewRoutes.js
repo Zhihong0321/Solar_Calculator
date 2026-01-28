@@ -64,6 +64,47 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
 });
 
 /**
+ * POST /view/:tokenOrId/signature
+ * Save customer signature for an invoice
+ */
+router.post('/view/:tokenOrId/signature', async (req, res) => {
+  try {
+    const { tokenOrId } = req.params;
+    const { signature } = req.body; // Base64 signature data
+
+    if (!signature) {
+      return res.status(400).json({ success: false, error: 'Signature data is required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      // 1. Resolve bubble_id from token/id
+      const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);
+      if (!bubbleId) {
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      // 2. Update invoice with signature and date
+      await client.query(
+        `UPDATE invoice 
+         SET customer_signature = $1, 
+             signature_date = NOW(),
+             updated_at = NOW()
+         WHERE bubble_id = $2`,
+        [signature, bubbleId]
+      );
+
+      res.json({ success: true, message: 'Signature saved successfully' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error saving signature:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+/**
  * GET /proposal/:shareToken
  * Public view of a proposal
  */

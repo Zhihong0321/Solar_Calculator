@@ -88,6 +88,8 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   <title>Quotation ${invoice.invoice_number}</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -202,7 +204,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   <div class="invoice-container relative">
     
     <!-- Action Buttons (Web View Only) -->
-    ${!options.forPdf && invoice.share_token ? `
+    ${!options.forPdf ? `
     <div class="mb-4 flex justify-end gap-2 no-print">
       ${invoice.linked_seda_registration ? `
       <button onclick="window.open('/seda-register?id=${invoice.linked_seda_registration}', '_blank')"
@@ -213,7 +215,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         <span>SEDA Form</span>
       </button>
       ` : ''}
-      ${invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
+      ${invoice.share_token && invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
       <button onclick="viewProposal('${invoice.share_token}')"
          class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -222,6 +224,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         <span>View Proposal</span>
       </button>
       ` : ''}
+      ${invoice.share_token ? `
       <button onclick="downloadInvoicePdf('${invoice.share_token}')"
          class="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,11 +232,128 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         </svg>
         <span id="pdfButtonText">Download PDF</span>
       </button>
+      ` : ''}
+      ${(!invoice.customer_signature || invoice.customer_signature.trim() === '') ? `
+      <button onclick="openSignatureModal()"
+         class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+        </svg>
+        <span>Sign Quotation</span>
+      </button>
+      ` : ''}
     </div>
     ` : ''}
 
     ${!options.forPdf ? `
+    <!-- Signature Modal -->
+    <div id="signatureModal" class="fixed inset-0 z-[100] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) closeSignatureModal()">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="signatureBox">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Customer Signature</h3>
+            <p class="text-[10px] text-slate-500 font-medium">Please sign within the box below</p>
+          </div>
+          <button onclick="closeSignatureModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-white transition-all">✕</button>
+        </div>
+        <div class="p-6">
+          <div class="relative bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg overflow-hidden touch-none" style="height: 240px;">
+            <canvas id="signatureCanvas" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
+          </div>
+          <div class="flex justify-between items-center mt-6 gap-3">
+            <button onclick="clearSignature()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 uppercase tracking-widest transition-colors">Clear Space</button>
+            <div class="flex gap-2 flex-1">
+              <button onclick="closeSignatureModal()" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-50 transition-all uppercase tracking-widest">Cancel</button>
+              <button onclick="saveSignature()" id="saveSignBtn" class="flex-[2] px-4 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 shadow-lg transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+                Confirm & Sign
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
+      let signaturePad;
+      const modal = document.getElementById('signatureModal');
+      const box = document.getElementById('signatureBox');
+      const canvas = document.getElementById('signatureCanvas');
+
+      function openSignatureModal() {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+          box.classList.remove('scale-95', 'opacity-0');
+          resizeCanvas();
+          if (!signaturePad) {
+            signaturePad = new SignaturePad(canvas, {
+              backgroundColor: 'rgba(255, 255, 255, 0)',
+              penColor: '#0f172a'
+            });
+          }
+        }, 10);
+      }
+
+      function closeSignatureModal() {
+        box.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+          modal.classList.add('hidden');
+        }, 200);
+      }
+
+      function resizeCanvas() {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
+        if (signaturePad) signaturePad.clear();
+      }
+
+      window.onresize = resizeCanvas;
+
+      function clearSignature() {
+        if (signaturePad) signaturePad.clear();
+      }
+
+      async function saveSignature() {
+        if (!signaturePad || signaturePad.isEmpty()) {
+          return Swal.fire({ icon: 'warning', title: 'Empty Signature', text: 'Please provide your signature before confirming.', confirmButtonColor: '#0f172a' });
+        }
+
+        const btn = document.getElementById('saveSignBtn');
+        const originalText = btn.innerHTML;
+        
+        try {
+          btn.disabled = true;
+          btn.innerHTML = '<svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
+
+          const dataUrl = signaturePad.toDataURL('image/png');
+          const response = await fetch('/view/${invoice.share_token}/signature', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signature: dataUrl })
+          });
+
+          const result = await response.json();
+          if (result.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Signed!',
+              text: 'Your signature has been securely recorded.',
+              timer: 2000,
+              showConfirmButton: false
+            }).then(() => {
+              window.location.reload();
+            });
+          } else {
+            throw new Error(result.error || 'Failed to save signature');
+          }
+        } catch (err) {
+          Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#0f172a' });
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      }
+
       async function downloadInvoicePdf(shareToken) {
         const button = document.querySelector('button[onclick*="downloadInvoicePdf"]');
         const buttonText = document.getElementById('pdfButtonText');

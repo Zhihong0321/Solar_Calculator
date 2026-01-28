@@ -202,9 +202,6 @@
                 backBtn.href = `/invoice-office?id=${invoiceBubbleId}`;
             }
 
-            // Set default date to today
-            document.getElementById('paymentDate').valueAsDate = new Date();
-
             try {
                 // If editing, load payment first to get invoice ID
                 if (editPaymentId) {
