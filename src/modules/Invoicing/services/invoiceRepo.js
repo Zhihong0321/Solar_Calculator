@@ -90,7 +90,7 @@ async function generateInvoiceNumber(client) {
 async function getPackageById(client, packageId) {
   try {
     const result = await client.query(
-      `SELECT bubble_id, package_name as name, price, panel, panel_qty, invoice_desc, type
+      `SELECT bubble_id, package_name as name, price, panel, panel_qty, invoice_desc, type, max_discount
        FROM package
        WHERE bubble_id = $1`,
       [packageId]
@@ -819,6 +819,14 @@ async function createInvoiceOnTheFly(client, data) {
     // 3. Calculate Financials
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
 
+    // 3.5 Validate Max Discount
+    const maxDiscountAllowed = parseFloat(deps.pkg.max_discount) || 0;
+    const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
+    
+    if (maxDiscountAllowed > 0 && totalDiscountValue > (maxDiscountAllowed + 0.01)) { // Added small buffer for float precision
+        throw new Error(`Total discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the maximum allowed discount for this package (RM ${maxDiscountAllowed.toFixed(2)})`);
+    }
+
     // 4. Create Invoice Header
     const invoice = await _createInvoiceRecord(client, data, financials, deps, voucherInfo);
 
@@ -1152,6 +1160,14 @@ async function updateInvoiceTransaction(client, data) {
     const packagePrice = parseFloat(pkg.price) || 0;
     const voucherInfo = await _processVouchers(client, data, packagePrice);
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
+
+    // Validate Max Discount
+    const maxDiscountAllowed = parseFloat(pkg.max_discount) || 0;
+    const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
+    
+    if (maxDiscountAllowed > 0 && totalDiscountValue > (maxDiscountAllowed + 0.01)) {
+        throw new Error(`Total discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the maximum allowed discount for this package (RM ${maxDiscountAllowed.toFixed(2)})`);
+    }
 
     const { finalTotalAmount } = financials;
 

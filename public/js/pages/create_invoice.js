@@ -734,6 +734,33 @@
                 itemsList.appendChild(percentDiscountItem);
                 subtotal -= percentAmount;
             }
+
+            // Validation for Max Discount
+            const totalDiscountValue = (discount.fixed || 0) + (packagePrice * (discount.percent || 0) / 100);
+            const discountInput = document.getElementById('discountGiven');
+            if (window.maxDiscountAllowed > 0 && totalDiscountValue > window.maxDiscountAllowed) {
+                if (discountInput) {
+                    discountInput.classList.add('border-red-500', 'bg-red-50');
+                    discountInput.classList.remove('border-gray-300', 'bg-white');
+                }
+                const warningMsg = document.createElement('div');
+                warningMsg.className = 'text-xs text-red-600 font-bold mt-1';
+                warningMsg.id = 'discountLimitWarning';
+                warningMsg.textContent = `⚠️ Exceeds max allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)}`;
+                
+                // Remove existing warning if any
+                const existingWarning = document.getElementById('discountLimitWarning');
+                if (existingWarning) existingWarning.remove();
+                
+                if (discountInput) discountInput.parentNode.appendChild(warningMsg);
+            } else {
+                if (discountInput) {
+                    discountInput.classList.remove('border-red-500', 'bg-red-50');
+                    discountInput.classList.add('border-gray-300', 'bg-white');
+                }
+                const existingWarning = document.getElementById('discountLimitWarning');
+                if (existingWarning) existingWarning.remove();
+            }
             
             // Add Voucher Items
             selectedVouchers.forEach(voucher => {
@@ -1120,6 +1147,19 @@
             document.getElementById('packagePrice').value = pkg.price || 0;
             document.getElementById('packageName').value = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
             document.getElementById('packageIdHidden').value = pkg.bubble_id;
+            
+            // Handle Max Discount
+            window.maxDiscountAllowed = parseFloat(pkg.max_discount) || 0;
+            const maxDiscountRow = document.getElementById('maxDiscountRow');
+            const maxDiscountDisplay = document.getElementById('maxDiscountDisplay');
+            if (maxDiscountRow && maxDiscountDisplay) {
+                if (window.maxDiscountAllowed > 0) {
+                    maxDiscountRow.classList.remove('hidden');
+                    maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)}`;
+                } else {
+                    maxDiscountRow.classList.add('hidden');
+                }
+            }
             
             if (pkg.invoice_desc) {
                 const descContainer = document.getElementById('packageDescContainer');

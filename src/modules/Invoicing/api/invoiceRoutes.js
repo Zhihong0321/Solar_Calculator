@@ -104,27 +104,30 @@ router.get('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
  * Create a new invoice
  */
 router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
-    let client = null;
     try {
         const invoiceData = req.body;
         const userId = req.user.userId;
 
-        client = await pool.connect();
-        await client.query('BEGIN');
+        // Add userId to payload as expected by service
+        invoiceData.userId = userId;
 
-        const result = await invoiceService.createInvoiceOnTheFly(client, invoiceData, userId);
+        const result = await invoiceService.createInvoice(pool, invoiceData);
 
-        await client.query('COMMIT');
-        res.json({
-            success: true,
-            data: result
-        });
+        if (result.success) {
+            res.json({
+                success: true,
+                data: result.data,
+                invoice_link: result.data.shareToken ? `/view/${result.data.shareToken}` : null
+            });
+        } else {
+            res.status(400).json({
+                success: false,
+                error: result.error
+            });
+        }
     } catch (err) {
-        if (client) await client.query('ROLLBACK');
         console.error('Error creating invoice:', err);
         res.status(500).json({ success: false, error: err.message });
-    } finally {
-        if (client) client.release();
     }
 });
 
@@ -190,20 +193,29 @@ router.put('/api/v1/invoices/:bubbleId/restore', requireAuth, async (req, res) =
 router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
     const userId = req.user.userId;
-    let client = null;
+    const invoiceData = req.body;
+    
     try {
-        client = await pool.connect();
-        await client.query('BEGIN');
+        // Add userId to payload
+        invoiceData.userId = userId;
+
+        const result = await invoiceService.createInvoiceVersion(pool, bubbleId, invoiceData);
         
-        const newInvoice = await invoiceService.createNewVersion(client, bubbleId, userId);
-        
-        await client.query('COMMIT');
-        res.json({ success: true, data: newInvoice });
+        if (result.success) {
+            res.json({ 
+                success: true, 
+                data: result.data,
+                invoice_link: result.data.shareToken ? `/view/${result.data.shareToken}` : null
+            });
+        } else {
+            res.status(400).json({ 
+                success: false, 
+                error: result.error 
+            });
+        }
     } catch (err) {
-        if (client) await client.query('ROLLBACK');
+        console.error('Error creating invoice version:', err);
         res.status(500).json({ success: false, error: err.message });
-    } finally {
-        if (client) client.release();
     }
 });
 
