@@ -70,7 +70,7 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
 router.post('/view/:tokenOrId/signature', async (req, res) => {
   try {
     const { tokenOrId } = req.params;
-    const { signature } = req.body; // Base64 signature data
+    const { signature } = req.body;
 
     if (!signature) {
       return res.status(400).json({ success: false, error: 'Signature data is required' });
@@ -78,13 +78,14 @@ router.post('/view/:tokenOrId/signature', async (req, res) => {
 
     const client = await pool.connect();
     try {
-      // 1. Resolve bubble_id from token/id
       const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);
       if (!bubbleId) {
+        console.error('[SIGNATURE] Could not resolve bubbleId for token:', tokenOrId);
         return res.status(404).json({ success: false, error: 'Invoice not found' });
       }
 
-      // 2. Update invoice with signature and date
+      console.log('[SIGNATURE] Saving for bubbleId:', bubbleId);
+
       await client.query(
         `UPDATE invoice 
          SET customer_signature = $1, 
@@ -95,12 +96,15 @@ router.post('/view/:tokenOrId/signature', async (req, res) => {
       );
 
       res.json({ success: true, message: 'Signature saved successfully' });
+    } catch (dbErr) {
+      console.error('[SIGNATURE] Database error:', dbErr);
+      throw dbErr;
     } finally {
       client.release();
     }
   } catch (err) {
-    console.error('Error saving signature:', err);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    console.error('[SIGNATURE] Critical error:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

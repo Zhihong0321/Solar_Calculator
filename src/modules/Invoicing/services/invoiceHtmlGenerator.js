@@ -233,15 +233,6 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         <span id="pdfButtonText">Download PDF</span>
       </button>
       ` : ''}
-      ${(!invoice.customer_signature || invoice.customer_signature.trim() === '') ? `
-      <button onclick="openSignatureModal()"
-         class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-        </svg>
-        <span>Sign Quotation</span>
-      </button>
-      ` : ''}
     </div>
     ` : ''}
 
@@ -532,7 +523,6 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       </div>
     </div>
 
-    <!-- Terms (40% smaller request applied here: text-[6px]) -->
     ${terms ? `
     <section class="mb-4 pt-4 border-t border-slate-200">
       <p class="label-text mb-1">Terms & Conditions</p>
@@ -540,6 +530,19 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         ${terms.replace(/\n/g, '<br>')}
       </div>
     </section>
+    ` : ''}
+
+    <!-- Sign Button Below TNC (Mobile optimized center alignment) -->
+    ${(!options.forPdf && (!invoice.customer_signature || invoice.customer_signature.trim() === '')) ? `
+    <div class="mt-8 flex justify-center no-print">
+      <button onclick="openSignatureModal()"
+         class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold px-8 py-4 rounded-xl shadow-xl transform transition-all active:scale-95">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+        </svg>
+        <span>Sign this Quotation</span>
+      </button>
+    </div>
     ` : ''}
 
     <!-- Created By -->
