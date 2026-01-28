@@ -668,8 +668,8 @@ Thank you!`;
                 const json = await res.json();
                 if (json.success) {
                     const data = json.data;
-                    document.getElementById('statusBadge').textContent = data.reg_status || 'DRAFT';
-                    document.getElementById('adminStatusBadge').textContent = `ADMIN: ${data.seda_status || 'PENDING'}`;
+                    if (document.getElementById('statusBadge')) document.getElementById('statusBadge').textContent = data.reg_status || 'DRAFT';
+                    if (document.getElementById('adminStatusBadge')) document.getElementById('adminStatusBadge').textContent = `ADMIN: ${data.seda_status || 'PENDING'}`;
                     customerName = data.customer_profile?.name || '';
                     customerPhone = data.customer_profile?.phone || '';
                     if (customerPhone) {
