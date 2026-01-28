@@ -153,7 +153,7 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
                     epp ? epp.tenure : null,
                     method === 'epp' ? 'EPP' : null
                 ]
-            });
+            );
         }
 
         await client.query('COMMIT');
