@@ -453,7 +453,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           return `
           <div class="px-3 py-3 flex gap-3 items-start">
             <div class="flex-1">
-              <p class="text-sm font-medium text-slate-900 leading-snug">${item.description}</p>
+              <p class="text-sm font-medium text-slate-900 leading-snug">${item.description ? item.description.replace(/\n/g, '<br>') : ''}</p>
               ${!isDiscount && item.qty ? `<p class="text-[10px] text-slate-400 mt-0.5">Qty: ${parseFloat(item.qty)}</p>` : ''}
             </div>
             <div class="text-right w-24">
