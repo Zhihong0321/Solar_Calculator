@@ -881,12 +881,26 @@
             if (warningMessage) warningMessage.classList.add('hidden');
         }
 
+        function pageLog(msg, color = 'gray-400') {
+            const log = document.getElementById('debugLog');
+            if (log) {
+                const span = document.createElement('div');
+                span.textContent = `> ${msg}`;
+                log.appendChild(span);
+            }
+            console.log(`[PageLog] ${msg}`);
+        }
+
         // Initialize preview on page load
         document.addEventListener('DOMContentLoaded', async function() {
             console.log('DOM Content Loaded - Initializing Creation Page');
             
+            const detectionStatus = document.getElementById('detectionStatus');
+            const detectedPackageIdEl = document.getElementById('detectedPackageId');
+
             // 1. Initial State: Force hide everything immediately
             hideAllUI();
+            pageLog('Initializing creation page...');
 
             // 2. Fetch User Profile (non-blocking for UI)
             fetchUserProfile();
@@ -898,13 +912,23 @@
             const panelRating = urlParams.get('panel_rating');
             const editInvoiceId = urlParams.get('edit_invoice_id') || urlParams.get('id');
             
-            console.log('Params detected:', { packageId, panelQty, panelRating, editInvoiceId });
+            if (packageId) {
+                if (detectedPackageIdEl) detectedPackageIdEl.textContent = packageId;
+                if (detectionStatus) detectionStatus.textContent = 'PACKAGE DETECTED';
+                pageLog(`URL contains package ID: ${packageId}`);
+            } else if (panelQty && panelRating) {
+                if (detectionStatus) detectionStatus.textContent = 'PANEL SPECS DETECTED';
+                pageLog(`URL contains specs: ${panelQty} panels @ ${panelRating}`);
+            } else {
+                if (detectionStatus) detectionStatus.textContent = 'NO PACKAGE PARAMS';
+                pageLog('No package identification found in URL.');
+            }
 
             // 4. Initialization Logic Branching
             try {
                 // BRANCH A: Edit Mode
                 if (editInvoiceId && (window.location.pathname.includes('edit-invoice') || urlParams.get('edit_invoice_id'))) {
-                    console.log('Mode: EDIT');
+                    pageLog(`Entering Edit Mode for: ${editInvoiceId}`);
                     window.isEditMode = true;
                     window.editInvoiceId = editInvoiceId;
                     
@@ -923,6 +947,7 @@
                         const invPackageId = inv.linked_package || inv.legacy_pid_to_be_deleted || inv.package_id;
                         
                         if (invPackageId) {
+                            pageLog(`Invoice linked to package: ${invPackageId}`);
                             await fetchPackageDetails(invPackageId);
                         } else {
                             showWarning(`⚠️ This invoice doesn't have a package.`);
@@ -974,9 +999,10 @@
                 } 
                 // BRANCH B: Direct Creation with Package ID
                 else if (packageId) {
-                    console.log('Mode: CREATE (Explicit ID)');
+                    pageLog('Attempting to fetch package details...');
                     showWarning('Loading package details...');
                     await fetchPackageDetails(packageId);
+                    pageLog('Package details loaded successfully.');
                     addPaymentMethodRow();
                     await fetchVouchers();
                     // Clear loading warning
@@ -984,7 +1010,7 @@
                 } 
                 // BRANCH C: Panel/Rating Lookup
                 else if (panelQty && panelRating) {
-                    console.log('Mode: CREATE (Panel Lookup)');
+                    pageLog(`Attempting lookup for ${panelQty} panels @ ${panelRating}...`);
                     showWarning('🔍 Searching for the best solar package for you...');
                     
                     const ratingInt = parseInt(panelRating.replace(/\D/g, ''));
@@ -992,7 +1018,9 @@
                     const lookupData = await lookupRes.json();
                     
                     if (lookupData.packages && lookupData.packages.length > 0) {
-                        await showPackage(lookupData.packages[0]);
+                        const pkg = lookupData.packages[0];
+                        pageLog(`Lookup found: ${pkg.package_name} (${pkg.bubble_id})`);
+                        await showPackage(pkg);
                         document.getElementById('warningMessage').classList.add('hidden');
                     } else {
                         throw new Error(`No package found matching ${panelQty} panels @ ${panelRating}`);
@@ -1002,13 +1030,13 @@
                 } 
                 // BRANCH D: Browse Mode
                 else {
-                    console.log('Mode: BROWSE');
+                    pageLog('No parameters found, prompting user to browse.');
                     document.getElementById('packageIdForm').classList.remove('hidden');
                     addPaymentMethodRow();
                     await fetchVouchers();
                 }
             } catch (err) {
-                console.error('Initialization Failed:', err);
+                pageLog(`FATAL ERROR: ${err.message}`, 'red-400');
                 showError(`Failed to initialize: ${err.message}`);
                 // If it failed but wasn't browse mode, show browse as fallback
                 if (!packageId && !(panelQty && panelRating)) {
