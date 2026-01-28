@@ -131,6 +131,26 @@ async function createInvoice(pool, invoiceRequestPayload) {
   const client = await pool.connect();
 
   try {
+    // 0. Normalize Data (Handle field name variations from frontend)
+    if (invoiceRequestPayload.linked_package && !invoiceRequestPayload.packageId) {
+        invoiceRequestPayload.packageId = invoiceRequestPayload.linked_package;
+    }
+    if (invoiceRequestPayload.template_id && !invoiceRequestPayload.templateId) {
+        invoiceRequestPayload.templateId = invoiceRequestPayload.template_id;
+    }
+    if (invoiceRequestPayload.discount_given && !invoiceRequestPayload.discountGiven) {
+        invoiceRequestPayload.discountGiven = invoiceRequestPayload.discount_given;
+    }
+    if (invoiceRequestPayload.epp_fee_amount && !invoiceRequestPayload.eppFeeAmount) {
+        invoiceRequestPayload.eppFeeAmount = invoiceRequestPayload.epp_fee_amount;
+    }
+    if (invoiceRequestPayload.epp_fee_description && !invoiceRequestPayload.eppFeeDescription) {
+        invoiceRequestPayload.eppFeeDescription = invoiceRequestPayload.epp_fee_description;
+    }
+    if (invoiceRequestPayload.extra_items && !invoiceRequestPayload.extraItems) {
+        invoiceRequestPayload.extraItems = invoiceRequestPayload.extra_items;
+    }
+
     // 1. Validation Layer
     const validation = validateInvoiceData(invoiceRequestPayload);
     if (!validation.valid) {
@@ -251,6 +271,26 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
   const client = await pool.connect();
 
   try {
+    // 0. Normalize Data
+    if (invoiceRequestPayload.linked_package && !invoiceRequestPayload.packageId) {
+        invoiceRequestPayload.packageId = invoiceRequestPayload.linked_package;
+    }
+    if (invoiceRequestPayload.template_id && !invoiceRequestPayload.templateId) {
+        invoiceRequestPayload.templateId = invoiceRequestPayload.template_id;
+    }
+    if (invoiceRequestPayload.discount_given && !invoiceRequestPayload.discountGiven) {
+        invoiceRequestPayload.discountGiven = invoiceRequestPayload.discount_given;
+    }
+    if (invoiceRequestPayload.epp_fee_amount && !invoiceRequestPayload.eppFeeAmount) {
+        invoiceRequestPayload.eppFeeAmount = invoiceRequestPayload.epp_fee_amount;
+    }
+    if (invoiceRequestPayload.epp_fee_description && !invoiceRequestPayload.eppFeeDescription) {
+        invoiceRequestPayload.eppFeeDescription = invoiceRequestPayload.epp_fee_description;
+    }
+    if (invoiceRequestPayload.extra_items && !invoiceRequestPayload.extraItems) {
+        invoiceRequestPayload.extraItems = invoiceRequestPayload.extra_items;
+    }
+
     // 1. Validation (Same as createInvoice but packageId is optional as we fetch from original)
     // We relax packageId check here as it comes from original invoice
     if (!invoiceRequestPayload.userId) {
