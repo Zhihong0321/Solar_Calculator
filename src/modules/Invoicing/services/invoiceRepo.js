@@ -1380,6 +1380,7 @@ module.exports = {
   getTemplateById,
   getVoucherByCode,
   createInvoiceOnTheFly,
+  resolveInvoiceBubbleId,
   getInvoiceByShareToken: getPublicInvoice, // Alias for backward compatibility
   getPublicInvoice,
   recordInvoiceView,
