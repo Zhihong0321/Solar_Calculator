@@ -123,16 +123,23 @@
                     </div>
                 </div>
 
-                <!-- Reference & Notes -->
+                <!-- Amount & Date -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Amount (RM)</label>
+                        <input type="number" name="amount" id="paymentAmount" step="0.01" required class="w-full border border-gray-300 rounded-lg p-2.5 font-bold text-blue-600" placeholder="0.00">
+                        <p class="text-[10px] text-gray-500 mt-1">Enter the actual amount paid.</p>
+                    </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Payment Date</label>
                         <input type="date" name="paymentDate" id="paymentDate" required class="w-full border border-gray-300 rounded-lg p-2.5">
                     </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Reference No.</label>
-                        <input type="text" name="referenceNo" placeholder="e.g. DUITNOW-123456" class="w-full border border-gray-300 rounded-lg p-2.5">
-                    </div>
+                </div>
+
+                <!-- Reference No -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Reference No.</label>
+                    <input type="text" name="referenceNo" placeholder="e.g. DUITNOW-123456" class="w-full border border-gray-300 rounded-lg p-2.5">
                 </div>
 
                 <div>
@@ -234,6 +241,7 @@
             document.querySelector(`input[name="method"][value="${methodVal}"]`).checked = true;
             toggleSections();
 
+            document.getElementById('paymentAmount').value = p.amount || '';
             document.getElementById('paymentDate').value = new Date(p.payment_date).toISOString().split('T')[0];
             document.querySelector('input[name="referenceNo"]').value = getRefFromRemark(p.remark) || ''; 
             document.querySelector('textarea[name="notes"]').value = getNoteFromRemark(p.remark) || '';
@@ -463,16 +471,18 @@
                 const formData = new FormData(e.target);
                 const method = formData.get('method');
                 const paymentDate = document.getElementById('paymentDate').value;
+                const amount = document.getElementById('paymentAmount').value;
                 
-                if (!method || !paymentDate) {
-                    alert('Please select a payment method and date.');
+                if (!method || !paymentDate || !amount) {
+                    alert('Please enter amount, select a payment method and date.');
                     btn.disabled = false;
                     btn.textContent = originalText;
                     return;
                 }
 
                 const payload = {
-                    paymentId: editPaymentId || null, // Send ID if editing
+                    paymentId: editPaymentId || null, 
+                    amount: parseFloat(amount),
                     method: method,
                     date: paymentDate,
                     referenceNo: formData.get('referenceNo'),

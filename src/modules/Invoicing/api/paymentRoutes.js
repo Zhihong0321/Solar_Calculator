@@ -22,7 +22,7 @@ router.get('/submit-payment', (req, res) => {
  */
 router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const { method, date, referenceNo, notes, proof, epp, paymentBank, paymentId } = req.body;
+    const { method, date, referenceNo, notes, proof, epp, paymentBank, paymentId, amount } = req.body;
     const userId = req.user.userId;
 
     if (!method || !date) {
@@ -43,6 +43,9 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
             throw new Error('Invoice not found');
         }
         const invoice = invoiceCheck.rows[0];
+
+        // Determine actual payment amount (prefer provided amount, fallback to full invoice total)
+        const finalAmount = amount !== undefined && amount !== null ? parseFloat(amount) : parseFloat(invoice.total_amount);
 
         // Map Method to Standard Strings
         let standardMethod = 'CASH';
@@ -97,7 +100,7 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
                      WHERE bubble_id = $9 AND (created_by = $10 OR 1=1)`, // 1=1 for safety if admin edits
                     [
                         standardMethod,
-                        invoice.total_amount,
+                        finalAmount,
                         date,
                         remark,
                         paymentBank || (epp ? epp.bank : null),
@@ -117,7 +120,7 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
                      WHERE bubble_id = $9 AND (created_by = $10 OR 1=1)`,
                     [
                         standardMethod,
-                        invoice.total_amount,
+                        finalAmount,
                         date,
                         remark,
                         paymentBank || (epp ? epp.bank : null),
@@ -140,7 +143,7 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
                 [
                     newPaymentId, 
-                    invoice.total_amount, 
+                    finalAmount, 
                     date, 
                     attachmentUrl ? [attachmentUrl] : [], 
                     remark, 
