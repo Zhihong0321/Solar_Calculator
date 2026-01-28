@@ -80,6 +80,18 @@ router.get('/api/v1/seda-public/:shareToken', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Registration not found or expired' });
         }
 
+        // Fetch invoice details for signature status and share link
+        let invoice = null;
+        if (seda.linked_invoice && seda.linked_invoice.length > 0) {
+            const invRes = await client.query(
+                'SELECT customer_signature, share_token, invoice_number FROM invoice WHERE bubble_id = $1',
+                [seda.linked_invoice[0]]
+            );
+            if (invRes.rows.length > 0) {
+                invoice = invRes.rows[0];
+            }
+        }
+
         res.json({
             success: true,
             data: {
@@ -92,7 +104,8 @@ router.get('/api/v1/seda-public/:shareToken', async (req, res) => {
                     city: seda.city,
                     state: seda.state,
                     postcode: seda.postcode
-                }
+                },
+                invoice_details: invoice
             }
         });
     } catch (err) {
@@ -551,11 +564,24 @@ router.get('/api/v1/seda/:id', async (req, res) => {
             }
         }
 
+        // Fetch invoice details for signature status and share link
+        let invoice = null;
+        if (seda.linked_invoice && seda.linked_invoice.length > 0) {
+            const invRes = await client.query(
+                'SELECT customer_signature, share_token, invoice_number FROM invoice WHERE bubble_id = $1',
+                [seda.linked_invoice[0]]
+            );
+            if (invRes.rows.length > 0) {
+                invoice = invRes.rows[0];
+            }
+        }
+
         res.json({ 
             success: true, 
             data: {
                 ...seda,
-                customer_profile: customer // Attach customer data
+                customer_profile: customer, // Attach customer data
+                invoice_details: invoice
             } 
         });
     } catch (err) {

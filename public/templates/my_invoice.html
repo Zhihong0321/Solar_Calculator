@@ -133,25 +133,56 @@
         </div>
     </nav>
 
-    <!-- Stats Bar -->
-    <div class="bg-white border-b border-slate-100 w-full">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div class="grid grid-cols-3 gap-2 sm:gap-4">
-                <div class="border-l-2 border-slate-200 pl-2 sm:pl-3">
-                    <p class="text-[9px] sm:text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total</p>
-                    <p class="text-base sm:text-lg font-bold text-slate-800" id="totalCount">0</p>
-                </div>
-                <div class="border-l-2 border-slate-200 pl-2 sm:pl-3">
-                    <p class="text-[9px] sm:text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Pipeline</p>
-                    <p class="text-base sm:text-lg font-bold text-slate-800" id="totalValue">RM 0</p>
-                </div>
-                <div class="border-l-2 border-slate-200 pl-2 sm:pl-3 overflow-hidden">
-                    <p class="text-[9px] sm:text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Latest</p>
-                    <p class="text-xs sm:text-sm font-semibold text-slate-700 truncate" id="lastCreated">-</p>
-                </div>
+    <!-- Quick Filter Nav -->
+    <div class="bg-white border-b border-slate-200 w-full sticky top-[56px] z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex overflow-x-auto no-scrollbar py-3 gap-2 sm:gap-4 items-center">
+                <button onclick="setQuickFilter('')" id="btn-filter-all" class="quick-filter-btn active">
+                    All
+                </button>
+                <button onclick="setQuickFilter('unpaid')" id="btn-filter-unpaid" class="quick-filter-btn">
+                    Draft
+                </button>
+                <button onclick="setQuickFilter('partial')" id="btn-filter-partial" class="quick-filter-btn">
+                    Deposited
+                </button>
+                <button onclick="setQuickFilter('paid')" id="btn-filter-paid" class="quick-filter-btn">
+                    Fully Paid
+                </button>
             </div>
         </div>
     </div>
+
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .quick-filter-btn {
+            white-space: nowrap;
+            padding: 0.5rem 1.25rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            transition: all 0.2s;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+        }
+        
+        .quick-filter-btn:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+        
+        .quick-filter-btn.active {
+            background: #0f172a;
+            color: white;
+            border-color: #0f172a;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+    </style>
 
     <!-- Main Content -->
     <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -332,6 +363,25 @@
         let filterStartDate = '';
         let filterEndDate = '';
         let filterPaymentStatus = '';
+
+        function setQuickFilter(status) {
+            filterPaymentStatus = status;
+            page = 1;
+            
+            // Update active state of buttons
+            const buttons = document.querySelectorAll('.quick-filter-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            const activeId = status === '' ? 'btn-filter-all' : `btn-filter-${status}`;
+            const activeBtn = document.getElementById(activeId);
+            if (activeBtn) activeBtn.classList.add('active');
+            
+            // Also sync the modal dropdown if it exists
+            const dropdown = document.getElementById('filterPaymentStatus');
+            if (dropdown) dropdown.value = status;
+            
+            loadQuotations();
+        }
 
         function openFilterModal() {
             document.getElementById('filterModal').classList.remove('hidden');
