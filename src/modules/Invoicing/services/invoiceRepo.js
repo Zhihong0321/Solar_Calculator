@@ -558,15 +558,16 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
     const query = `
       INSERT INTO invoice 
       (bubble_id, template_id, linked_customer, linked_agent, linked_package, invoice_number, 
-       status, total_amount, paid_amount, balance_due, invoice_date, created_by, share_token, follow_up_date)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       status, total_amount, paid_amount, balance_due, invoice_date, created_by, share_token, follow_up_date, voucher_code)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     const values = [
       bubbleId, data.templateId || 'default', customerBubbleId, linkedAgent, 
       data.packageId, invoiceNumber, data.status || 'draft', 
       finalTotalAmount, 0, finalTotalAmount, data.invoiceDate || new Date(), 
-      finalCreatedBy, shareToken, data.followUpDate || null
+      finalCreatedBy, shareToken, data.followUpDate || null,
+      validVoucherCodes.join(', ') || null
     ];
 
     const invoiceResult = await client.query(query, values);
@@ -1160,8 +1161,9 @@ async function updateInvoiceTransaction(client, data) {
             balance_due = $4 - COALESCE(paid_amount, 0),
             status = $5,
             follow_up_date = $6,
+            voucher_code = $7,
             updated_at = NOW()
-        WHERE bubble_id = $7
+        WHERE bubble_id = $8
     `;
     const updateValues = [
         data.templateId || 'default',
@@ -1170,6 +1172,7 @@ async function updateInvoiceTransaction(client, data) {
         finalTotalAmount,
         data.status || currentData.status,
         data.followUpDate || null,
+        voucherInfo.validVoucherCodes.join(', ') || null,
         bubbleId
     ];
     await client.query(updateQuery, updateValues);

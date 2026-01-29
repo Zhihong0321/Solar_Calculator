@@ -150,6 +150,9 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.extra_items && !invoiceRequestPayload.extraItems) {
         invoiceRequestPayload.extraItems = invoiceRequestPayload.extra_items;
     }
+    if (invoiceRequestPayload.voucher_codes && !invoiceRequestPayload.voucherCodes) {
+        invoiceRequestPayload.voucherCodes = invoiceRequestPayload.voucher_codes;
+    }
 
     // 1. Validation Layer
     const validation = validateInvoiceData(invoiceRequestPayload);
@@ -289,6 +292,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     }
     if (invoiceRequestPayload.extra_items && !invoiceRequestPayload.extraItems) {
         invoiceRequestPayload.extraItems = invoiceRequestPayload.extra_items;
+    }
+    if (invoiceRequestPayload.voucher_codes && !invoiceRequestPayload.voucherCodes) {
+        invoiceRequestPayload.voucherCodes = invoiceRequestPayload.voucher_codes;
     }
 
     // 1. Validation (Same as createInvoice but packageId is optional as we fetch from original)
