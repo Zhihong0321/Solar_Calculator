@@ -125,6 +125,7 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
     const {
         installation_address, city, state, postcode, tnb_account_no, phase_type,
         e_contact_name, e_contact_relationship, e_contact_no,
+        ic_no, email,
         mykad_front, mykad_back, mykad_pdf,
         tnb_bill_1, tnb_bill_2, tnb_bill_3,
         property_proof, tnb_meter
@@ -215,6 +216,25 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
                 id
             ]
         );
+
+        // Update linked customer with IC No and Email if provided
+        if (ic_no || email) {
+            const sedaRes = await client.query(
+                'SELECT linked_customer FROM seda_registration WHERE bubble_id = $1',
+                [id]
+            );
+            if (sedaRes.rows.length > 0 && sedaRes.rows[0].linked_customer) {
+                const customerId = sedaRes.rows[0].linked_customer;
+                await client.query(
+                    `UPDATE customer 
+                     SET ic_no = COALESCE($1, ic_no),
+                         email = COALESCE($2, email),
+                         updated_at = NOW()
+                     WHERE customer_id = $3`,
+                    [ic_no || null, email || null, customerId]
+                );
+            }
+        }
 
         res.json({ success: true, message: 'Saved successfully' });
 
@@ -601,6 +621,7 @@ router.post('/api/v1/seda/:id', async (req, res) => {
     const { 
         installation_address, city, state, postcode, tnb_account_no, phase_type,
         e_contact_name, e_contact_relationship, e_contact_no,
+        ic_no, email,
         // Files (Base64)
         mykad_front, mykad_back, mykad_pdf,
         tnb_bill_1, tnb_bill_2, tnb_bill_3,
@@ -690,6 +711,25 @@ router.post('/api/v1/seda/:id', async (req, res) => {
                 id
             ]
         );
+
+        // Update linked customer with IC No and Email if provided
+        if (ic_no || email) {
+            const sedaRes = await client.query(
+                'SELECT linked_customer FROM seda_registration WHERE bubble_id = $1',
+                [id]
+            );
+            if (sedaRes.rows.length > 0 && sedaRes.rows[0].linked_customer) {
+                const customerId = sedaRes.rows[0].linked_customer;
+                await client.query(
+                    `UPDATE customer 
+                     SET ic_no = COALESCE($1, ic_no),
+                         email = COALESCE($2, email),
+                         updated_at = NOW()
+                     WHERE customer_id = $3`,
+                    [ic_no || null, email || null, customerId]
+                );
+            }
+        }
 
         res.json({ success: true, message: 'Saved successfully' });
 
