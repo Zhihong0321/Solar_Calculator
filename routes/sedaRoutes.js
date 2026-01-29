@@ -227,7 +227,7 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
                 const customerId = sedaRes.rows[0].linked_customer;
                 await client.query(
                     `UPDATE customer 
-                     SET ic_no = COALESCE($1, ic_no),
+                     SET ic_number = COALESCE($1, ic_number),
                          email = COALESCE($2, email),
                          updated_at = NOW()
                      WHERE customer_id = $3`,
@@ -722,7 +722,7 @@ router.post('/api/v1/seda/:id', async (req, res) => {
                 const customerId = sedaRes.rows[0].linked_customer;
                 await client.query(
                     `UPDATE customer 
-                     SET ic_no = COALESCE($1, ic_no),
+                     SET ic_number = COALESCE($1, ic_number),
                          email = COALESCE($2, email),
                          updated_at = NOW()
                      WHERE customer_id = $3`,

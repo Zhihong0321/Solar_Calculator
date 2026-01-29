@@ -139,8 +139,9 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
                     bubble_id, amount, payment_date, attachment, remark, 
                     linked_invoice, created_by, status, payment_method, 
                     payment_method_v2, issuer_bank, epp_month, epp_type,
+                    linked_agent, linked_customer,
                     created_at, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())`,
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())`,
                 [
                     newPaymentId, 
                     finalAmount, 
@@ -154,7 +155,9 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
                     standardMethod,
                     paymentBank || (epp ? epp.bank : null),
                     epp ? epp.tenure : null,
-                    method === 'epp' ? 'EPP' : null
+                    method === 'epp' ? 'EPP' : null,
+                    invoice.linked_agent || null,
+                    invoice.linked_customer || null
                 ]
             );
         }
