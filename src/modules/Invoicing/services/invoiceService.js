@@ -153,8 +153,17 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.voucher_codes && !invoiceRequestPayload.voucherCodes) {
         invoiceRequestPayload.voucherCodes = invoiceRequestPayload.voucher_codes;
     }
+    if (invoiceRequestPayload.customer_name && !invoiceRequestPayload.customerName) {
+        invoiceRequestPayload.customerName = invoiceRequestPayload.customer_name;
+    }
+    if (invoiceRequestPayload.customer_phone && !invoiceRequestPayload.customerPhone) {
+        invoiceRequestPayload.customerPhone = invoiceRequestPayload.customer_phone;
+    }
+    if (invoiceRequestPayload.customer_address && !invoiceRequestPayload.customerAddress) {
+        invoiceRequestPayload.customerAddress = invoiceRequestPayload.customer_address;
+    }
 
-    // 1. Validation Layer
+    // 1. Validation Layer Layer
     const validation = validateInvoiceData(invoiceRequestPayload);
     if (!validation.valid) {
       return {
@@ -296,8 +305,17 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.voucher_codes && !invoiceRequestPayload.voucherCodes) {
         invoiceRequestPayload.voucherCodes = invoiceRequestPayload.voucher_codes;
     }
+    if (invoiceRequestPayload.customer_name && !invoiceRequestPayload.customerName) {
+        invoiceRequestPayload.customerName = invoiceRequestPayload.customer_name;
+    }
+    if (invoiceRequestPayload.customer_phone && !invoiceRequestPayload.customerPhone) {
+        invoiceRequestPayload.customerPhone = invoiceRequestPayload.customer_phone;
+    }
+    if (invoiceRequestPayload.customer_address && !invoiceRequestPayload.customerAddress) {
+        invoiceRequestPayload.customerAddress = invoiceRequestPayload.customer_address;
+    }
 
-    // 1. Validation (Same as createInvoice but packageId is optional as we fetch from original)
+    // 1. Validation Layer (Same as createInvoice but packageId is optional as we fetch from original)
     // We relax packageId check here as it comes from original invoice
     if (!invoiceRequestPayload.userId) {
       return { success: false, error: 'User ID is required.' };

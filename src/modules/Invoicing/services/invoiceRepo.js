@@ -394,16 +394,16 @@ function reconstructFromSnapshot(actionDetails) {
  */
 async function getInvoiceByBubbleId(client, bubbleId) {
   try {
-    // Query 1: Get invoice with snapshot data and live joins for fallback
+    // Query 1: Get invoice with live joins
     const invoiceResult = await client.query(
       `SELECT 
         i.*,
-        COALESCE(i.customer_name_snapshot, c.name, 'Valued Customer') as customer_name,
-        COALESCE(i.customer_email_snapshot, c.email) as customer_email,
-        COALESCE(i.customer_phone_snapshot, c.phone) as customer_phone,
-        COALESCE(i.customer_address_snapshot, c.address) as customer_address,
-        COALESCE(i.profile_picture_snapshot, c.profile_picture) as profile_picture,
-        COALESCE(i.package_name_snapshot, pkg.package_name) as package_name
+        COALESCE(c.name, 'Valued Customer') as customer_name,
+        c.email as customer_email,
+        c.phone as customer_phone,
+        c.address as customer_address,
+        c.profile_picture as profile_picture,
+        pkg.package_name as package_name
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
