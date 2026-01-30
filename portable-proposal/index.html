@@ -473,7 +473,14 @@
                 } else {
                     // Standard image insertion
                     const img = document.createElement('img');
-                    img.src = `images/${part.baseName}-chunk-${i}.webp`;
+                    
+                    // Special case for part01-chunk-2 (75% saving image)
+                    if (part.baseName === 'part01' && i === 2) {
+                        img.src = `images/75-saving.jpg`;
+                    } else {
+                        img.src = `images/${part.baseName}-chunk-${i}.webp`;
+                    }
+
                     img.alt = `${part.baseName} part ${i}`;
                     img.className = 'proposal-image';
                     img.loading = 'lazy';
