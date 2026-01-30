@@ -444,6 +444,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const sedaId = urlParams.get('id');
         let fileData = {};
+        let pendingFiles = 0;
         let extractionInterval = null;
         let linkedInvoiceId = null;
         let customerPhone = null;
@@ -580,6 +581,7 @@ Thank you!`;
         }
 
         function storeFile(inputId, file) {
+            pendingFiles++;
             const reader = new FileReader();
             reader.onload = (e) => {
                 const keyMap = {
@@ -589,6 +591,11 @@ Thank you!`;
                 };
                 const key = keyMap[inputId];
                 if (key) fileData[key] = e.target.result;
+                pendingFiles--;
+            };
+            reader.onerror = () => {
+                pendingFiles--;
+                console.error('File read error');
             };
             reader.readAsDataURL(file);
         }
@@ -727,11 +734,11 @@ Thank you!`;
                         });
                     }
                     
-                    document.getElementById('applicantName').value = data.customer_profile?.name || '';
-                    document.getElementById('applicantPhone').value = data.customer_profile?.phone || data.e_contact_no || '';
-                    document.getElementById('applicantEmail').value = data.e_email || data.customer_profile?.email || '';
+                    document.getElementById('applicantName').value = data.customer_profile?.name || data.customer_name || '';
+                    document.getElementById('applicantPhone').value = data.customer_profile?.phone || data.phone || data.e_contact_no || '';
+                    document.getElementById('applicantEmail').value = data.e_email || data.email || data.customer_profile?.email || '';
                     document.getElementById('applicantIC').value = data.ic_no || ''; 
-                    document.getElementById('applicantAddress').value = [data.customer_profile?.address, data.customer_profile?.city, data.customer_profile?.state, data.customer_profile?.postcode].filter(Boolean).join(', ');
+                    document.getElementById('applicantAddress').value = [data.customer_profile?.address || data.address, data.customer_profile?.city || data.city, data.customer_profile?.state || data.state, data.customer_profile?.postcode || data.postcode].filter(Boolean).join(', ');
                     document.getElementById('installAddress').value = data.installation_address || '';
                     document.getElementById('city').value = data.city || '';
                     document.getElementById('state').value = data.state || '';
@@ -752,14 +759,25 @@ Thank you!`;
                             viewBox.className = 'existing-file-view mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-[10px]';
                             inputGroup.appendChild(viewBox);
                         }
-                        const isPdf = url.endsWith('.pdf');
-                        viewBox.innerHTML = `${isPdf ? '<span class="text-red-500 font-bold">PDF</span>' : `<img src="${url}" class="w-8 h-8 object-cover rounded">`}<span class="text-slate-500 font-medium">Existing Document</span></div><a href="${url}" target="_blank" class="text-brand-blue font-bold hover:underline">VIEW</a>`;
+                        const isPdf = url.toLowerCase().endsWith('.pdf');
+                        viewBox.innerHTML = `
+                            <div class="flex items-center gap-2">
+                                ${isPdf ? 
+                                    '<div class="w-8 h-8 bg-red-100 text-red-600 rounded flex items-center justify-center font-bold text-[8px]">PDF</div>' : 
+                                    `<img src="${url}" class="w-8 h-8 object-cover rounded">`
+                                }
+                                <span class="text-slate-500 font-medium">Existing Document</span>
+                            </div>
+                            <a href="${url}" target="_blank" class="text-brand-blue font-bold hover:underline px-2 py-1 bg-white border border-slate-200 rounded">VIEW</a>
+                        `;
                     };
 
                     showExisting(data.ic_copy_front, 'previewMyKadFront');
                     showExisting(data.ic_copy_back, 'previewMyKadBack');
                     showExisting(data.mykad_pdf, 'previewMyKadPdf');
                     showExisting(data.tnb_bill_1, 'previewTnb1');
+                    showExisting(data.tnb_bill_2, 'previewTnb2');
+                    showExisting(data.tnb_bill_3, 'previewTnb3');
                     showExisting(data.property_ownership_prove, 'previewPropertyProof');
                     showExisting(data.tnb_meter, 'previewTnbMeter');
                     if (data.mykad_pdf) setMyKadMode('pdf');
@@ -820,6 +838,17 @@ Thank you!`;
 
         async function saveSedaForm(e) {
             if (e) e.preventDefault();
+
+            // Wait for any pending file reads
+            if (pendingFiles > 0) {
+                startLoading('Preparing files...');
+                let checks = 0;
+                while (pendingFiles > 0 && checks < 100) {
+                    await new Promise(r => setTimeout(r, 100));
+                    checks++;
+                }
+            }
+
             startLoading('Saving Changes...');
             const payload = {
                 installation_address: document.getElementById('installAddress').value,
