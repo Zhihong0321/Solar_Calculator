@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
+const { aiRouter } = require('../../AIRouter/aiRouter');
 const { API_KEYS, MODEL } = require('../services/extractionService');
 
 const router = express.Router();
@@ -197,19 +198,21 @@ async function runFixBubbleTokensPatch(client, res) {
 }
 
 /**
- * Health Check: Google AI API Keys
+ * Health Check: AI Router Status
+ * 
+ * Tests both Google AI and UniAPI providers through the AI Router.
+ * Also returns current quota statistics.
  */
 router.post('/api/admin/health/ai-keys', requireAuth, requireAdminAccess, async (req, res) => {
     const results = [];
     
-    // Test payload: Minimal "Hello"
-    const payload = {
-        contents: [{ parts: [{ text: "Hello" }] }]
-    };
-
+    // Test message for health check
+    const testMessage = { role: 'user', content: 'Say "Health check OK" and nothing else.' };
+    
+    // ===== Test Google AI (via Router with forceGoogle) =====
     for (let i = 0; i < API_KEYS.length; i++) {
         const key = API_KEYS[i];
-        const keyMask = `Key ${i + 1} (...${key.slice(-4)})`;
+        const keyMask = `Google Key ${i + 1} (...${key.slice(-4)})`;
         const start = Date.now();
         let status = 'unknown';
         let statusCode = 0;
@@ -217,40 +220,63 @@ router.post('/api/admin/health/ai-keys', requireAuth, requireAdminAccess, async 
         let error = null;
 
         try {
-            const fetchRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            // Test through AI Router with forceGoogle option
+            const response = await aiRouter.chatCompletion({
+                messages: [testMessage]
+            }, { forceGoogle: true });
             
-            statusCode = fetchRes.status;
             latency = Date.now() - start;
-
-            if (fetchRes.ok) {
-                status = 'healthy';
-            } else {
-                status = 'failed';
-                const text = await fetchRes.text();
-                error = `Status ${statusCode}: ${text.substring(0, 100)}`;
-            }
+            status = 'healthy';
+            statusCode = 200;
         } catch (err) {
             latency = Date.now() - start;
             status = 'error';
             error = err.message;
+            statusCode = err.message.includes('QUOTA') ? 429 : 500;
         }
 
         results.push({
             key: keyMask,
+            provider: 'google',
             status,
             statusCode,
             latency: `${latency}ms`,
             error
         });
     }
+    
+    // ===== Test UniAPI (via Router with forceUniapi) =====
+    const uniapiStart = Date.now();
+    let uniapiStatus = 'unknown';
+    let uniapiError = null;
+    
+    try {
+        await aiRouter.chatCompletion({
+            messages: [testMessage]
+        }, { forceUniapi: true });
+        
+        uniapiStatus = 'healthy';
+    } catch (err) {
+        uniapiStatus = 'error';
+        uniapiError = err.message;
+    }
+    
+    results.push({
+        key: 'UniAPI Key',
+        provider: 'uniapi',
+        status: uniapiStatus,
+        statusCode: uniapiStatus === 'healthy' ? 200 : 500,
+        latency: `${Date.now() - uniapiStart}ms`,
+        error: uniapiError
+    });
+    
+    // ===== Get Quota Statistics =====
+    const quotaStats = aiRouter.getStats();
 
     res.json({
         success: true,
-        results
+        results,
+        quota: quotaStats
     });
 });
 
