@@ -32,11 +32,29 @@ const { aiRouter } = require('../../AIRouter/aiRouter');
  * @throws {Error} If JSON parsing fails
  */
 function extractJson(text) {
-    const cleanJson = text
-        .replace(/```json\n?/g, '')  // Remove opening code block
-        .replace(/\n?```/g, '')      // Remove closing code block
+    // If response is already an object (shouldn't happen but safety check)
+    if (typeof text === 'object') return text;
+    
+    // Clean up the text - remove markdown code blocks and extra whitespace
+    let cleanJson = text
+        .replace(/^```json\s*/i, '')   // Remove opening ```json
+        .replace(/^```\s*/i, '')       // Remove opening ```
+        .replace(/\s*```$/i, '')       // Remove closing ```
         .trim();
-    return JSON.parse(cleanJson);
+    
+    // Try to find JSON object if there's surrounding text
+    const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+        cleanJson = jsonMatch[0];
+    }
+    
+    try {
+        return JSON.parse(cleanJson);
+    } catch (err) {
+        console.error('[ExtractionService] JSON Parse Error:', err.message);
+        console.error('[ExtractionService] Raw text:', text.substring(0, 200));
+        throw new Error(`Invalid JSON response: ${err.message}`);
+    }
 }
 
 /**
@@ -61,6 +79,20 @@ function buildMultimodalContent(prompt, fileBuffer, mimeType) {
 }
 
 /**
+ * STRICT system prompt for JSON-only responses
+ * This is prepended to all extraction requests to enforce format
+ */
+const STRICT_JSON_SYSTEM_PROMPT = `You are a data extraction API. Your ONLY purpose is to extract specific fields from documents and return them as valid JSON.
+
+CRITICAL RULES:
+1. Return ONLY a JSON object - no greetings, no explanations, no markdown formatting
+2. Do NOT ask follow-up questions
+3. Do NOT add conversational text like "Here is the extracted data" or "What would you like next?"
+4. If a field cannot be found, use empty string "" or null
+5. Ensure the JSON is valid and parseable
+6. Never wrap the JSON in code blocks (no \\\`\\\`\\\`json)`;
+
+/**
  * Generic AI caller through the AI Router
  * 
  * @param {string} prompt - The prompt text
@@ -78,12 +110,16 @@ async function callAI(prompt, fileBuffer, mimeType, taskName) {
         if (fileBuffer && mimeType) {
             content = buildMultimodalContent(prompt, fileBuffer, mimeType);
         } else {
-            content = `${prompt}\n\nReturn ONLY valid JSON.`;
+            content = prompt;
         }
         
-        // Call AI through router - handles provider selection automatically
+        // Call AI through router with system prompt
+        // The router now enforces JSON format at API level
         const response = await aiRouter.chatCompletion({
-            messages: [{ role: 'user', content }]
+            messages: [
+                { role: 'system', content: STRICT_JSON_SYSTEM_PROMPT },
+                { role: 'user', content }
+            ]
         });
         
         // Extract and parse JSON from response
@@ -113,20 +149,16 @@ async function callAI(prompt, fileBuffer, mimeType, taskName) {
  * @returns {string} result.quality_remark - Quality description
  */
 async function verifyMykad(fileBuffer, mimeType = 'image/jpeg') {
-    const prompt = `
-Analyze this Malaysian MyKad (ID Card). 
-1. Extract 'customer_name' (full name).
-2. Extract 'mykad_id' (12 digits only, no dashes).
-3. Assess 'quality_ok': true if the document is clearly visible, not blurry, and not cut off.
-4. Provide 'quality_remark': describe any issues (e.g., "clear visibility", "blur detected", "glare on IC number").
+    const prompt = `TASK: Extract information from Malaysian MyKad (ID Card).
 
-Return ONLY JSON:
-{
-  "customer_name": "string",
-  "mykad_id": "string",
-  "quality_ok": boolean,
-  "quality_remark": "string"
-}`;
+EXTRACT THESE EXACT FIELDS:
+- customer_name: Full name as printed on MyKad
+- mykad_id: 12-digit IC number (numbers only, NO dashes)
+- quality_ok: Boolean - true if clearly visible, not blurry, not cut off
+- quality_remark: Brief description of quality (e.g., "clear", "blurry", "glare")
+
+STRICT OUTPUT FORMAT - RETURN ONLY THIS JSON:
+{"customer_name":"","mykad_id":"","quality_ok":false,"quality_remark":""}`;
 
     return await callAI(prompt, fileBuffer, mimeType, 'Verify MyKad');
 }
@@ -147,22 +179,16 @@ Return ONLY JSON:
  * @returns {string} result.tnb_account - 12-digit account number
  */
 async function verifyTnbBill(fileBuffer, mimeType = 'application/pdf') {
-    const prompt = `
-Analyze this TNB (Tenaga Nasional Berhad) electricity bill.
+    const prompt = `TASK: Extract information from TNB (Tenaga Nasional Berhad) electricity bill.
 
-EXTRACT ONLY THESE 4 FIELDS - DO NOT extract any other information:
-1. 'customer_name': The customer name printed on the bill (account holder).
-2. 'address': The complete billing address as shown on the bill.
-3. 'state': The Malaysian state extracted from the address (e.g., "Johor", "Melaka", "Negeri Sembilan", "Selangor", "Kuala Lumpur", "Penang", "Perak", "Kedah", "Kelantan", "Terengganu", "Pahang", "Selangor", "Sabah", "Sarawak").
-4. 'tnb_account': The 12-digit account number.
+EXTRACT THESE EXACT 4 FIELDS ONLY:
+- customer_name: Name of account holder printed on bill
+- address: Complete billing address as shown on bill
+- state: Malaysian state from address (Johor/Melaka/Negeri Sembilan/Selangor/Kuala Lumpur/Penang/Perak/Kedah/Kelantan/Terengganu/Pahang/Sabah/Sarawak)
+- tnb_account: 12-digit TNB account number
 
-Return ONLY JSON with these 4 fields:
-{
-  "customer_name": "string",
-  "address": "string",
-  "state": "string",
-  "tnb_account": "string"
-}`;
+STRICT OUTPUT FORMAT - RETURN ONLY THIS JSON:
+{"customer_name":"","address":"","state":"","tnb_account":""}`;
 
     return await callAI(prompt, fileBuffer, mimeType, 'Verify TNB Bill');
 }
@@ -179,18 +205,15 @@ Return ONLY JSON with these 4 fields:
  * @returns {string} result.remark - Status description
  */
 async function verifyTnbMeter(fileBuffer, mimeType = 'image/jpeg') {
-    const prompt = `
-Analyze this photo. 
-1. Is it a photo of an electricity meter (TNB Meter)?
-2. Is 'is_clear': true if the meter reading or serial number is potentially legible?
-3. Provide 'remark': e.g., "Clear meter photo", "Too dark", "Not a meter".
+    const prompt = `TASK: Verify if this photo shows a TNB electricity meter.
 
-Return ONLY JSON:
-{
-  "is_tnb_meter": boolean,
-  "is_clear": boolean,
-  "remark": "string"
-}`;
+EXTRACT THESE EXACT FIELDS:
+- is_tnb_meter: Boolean - true if photo shows TNB electricity meter
+- is_clear: Boolean - true if meter reading/serial is potentially readable
+- remark: Brief status (e.g., "Clear meter", "Too dark", "Not a meter")
+
+STRICT OUTPUT FORMAT - RETURN ONLY THIS JSON:
+{"is_tnb_meter":false,"is_clear":false,"remark":""}`;
 
     return await callAI(prompt, fileBuffer, mimeType, 'Verify TNB Meter');
 }
@@ -212,26 +235,21 @@ Return ONLY JSON:
  * @returns {string} result.remark - Summary of findings
  */
 async function verifyOwnership(fileBuffer, mimeType = 'application/pdf', context) {
-    const prompt = `
-Analyze this property document (e.g., Cukai Pintu, SPA, or Grant).
-Compare it with the provided context:
+    const prompt = `TASK: Verify property ownership document against applicant info.
+
+APPLICANT CONTEXT:
 - Target Name: ${context.name || 'Unknown'}
 - Target Address: ${context.address || 'Unknown'}
 
-1. Extract 'owner_name' from document.
-2. Extract 'property_address' from document.
-3. 'name_match': true if the owner name matches the target name (allow minor variations or partial matches).
-4. 'address_match': true if the document address matches the target address.
-5. Provide 'remark': Summarize the findings (e.g., "Name and Address matched").
+EXTRACT THESE EXACT FIELDS:
+- owner_name: Property owner name from document
+- property_address: Full property address from document  
+- name_match: Boolean - true if owner_name matches target name (allow minor variations)
+- address_match: Boolean - true if property_address matches target address
+- remark: Brief summary (e.g., "Name and Address matched", "Name mismatch")
 
-Return ONLY JSON:
-{
-  "owner_name": "string",
-  "property_address": "string",
-  "name_match": boolean,
-  "address_match": boolean,
-  "remark": "string"
-}`;
+STRICT OUTPUT FORMAT - RETURN ONLY THIS JSON:
+{"owner_name":"","property_address":"","name_match":false,"address_match":false,"remark":""}`;
 
     return await callAI(prompt, fileBuffer, mimeType, 'Verify Ownership');
 }

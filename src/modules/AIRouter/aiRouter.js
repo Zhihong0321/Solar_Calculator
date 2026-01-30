@@ -393,16 +393,19 @@ class GoogleAIAdapter {
             contents: [{ parts }]
         };
         
-        // Add generation config for temperature/max_tokens
-        if (temperature !== undefined || max_tokens !== undefined) {
-            payload.generationConfig = {};
-            if (temperature !== undefined) {
-                payload.generationConfig.temperature = temperature;
-            }
-            if (max_tokens !== undefined) {
-                payload.generationConfig.maxOutputTokens = max_tokens;
-            }
+        // Build generation config
+        payload.generationConfig = {};
+        
+        if (temperature !== undefined) {
+            payload.generationConfig.temperature = temperature;
         }
+        if (max_tokens !== undefined) {
+            payload.generationConfig.maxOutputTokens = max_tokens;
+        }
+        
+        // CRITICAL: Enforce JSON output format
+        // This prevents the model from adding conversational text
+        payload.generationConfig.responseMimeType = 'application/json';
         
         return payload;
     }
@@ -518,7 +521,9 @@ class UniapiAdapter {
             model: CONFIG.uniapi.model,
             messages: openaiRequest.messages,
             temperature: openaiRequest.temperature,
-            max_tokens: openaiRequest.max_tokens
+            max_tokens: openaiRequest.max_tokens,
+            // CRITICAL: Enforce JSON output format (OpenAI-compatible)
+            response_format: { type: 'json_object' }
         };
         
         // Remove undefined values from payload
