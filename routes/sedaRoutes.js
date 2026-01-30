@@ -417,15 +417,16 @@ router.post('/api/v1/seda/extract-tnb', async (req, res) => {
         const result = await extractionService.verifyTnbBill(buffer, mimeType);
         
         if (sedaId) {
-            const statusText = result.consecutive_months_found ? 'PASSED CHECK' : 'FAILED HISTORY CHECK';
-            const logEntry = `\n[${new Date().toISOString().split('T')[0]}] TNB BILL upload = ${statusText} (${result.quality_remark})`;
+            const statusText = result.tnb_account ? 'EXTRACTED' : 'FAILED EXTRACTION';
+            const logEntry = `\n[${new Date().toISOString().split('T')[0]}] TNB BILL upload = ${statusText} (Account: ${result.tnb_account || 'N/A'}, State: ${result.state || 'N/A'})`;
             
             await client.query(
                 `UPDATE seda_registration 
                  SET special_remark = COALESCE(special_remark, '') || $1,
-                     check_tnb_bill_and_meter_image = $2
-                 WHERE bubble_id = $3`,
-                [logEntry, result.consecutive_months_found, sedaId]
+                     tnb_account_no = COALESCE($2, tnb_account_no),
+                     state = COALESCE($3, state)
+                 WHERE bubble_id = $4`,
+                [logEntry, result.tnb_account, result.state, sedaId]
             );
         }
 

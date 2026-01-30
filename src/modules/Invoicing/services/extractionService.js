@@ -133,31 +133,35 @@ Return ONLY JSON:
 
 /**
  * 2. TNB Bill Verification
- * Extracts account number and verifies 3 consecutive months of history.
+ * Extracts customer information and account details from TNB bill.
+ * 
+ * WARNING: Only extracts these 4 fields - DO NOT add other fields:
+ * - customer_name, address, state, tnb_account
  * 
  * @param {Buffer} fileBuffer - PDF or image file buffer (TNB bill)
  * @param {string} mimeType - MIME type (default: 'application/pdf')
- * @returns {Promise<Object>} Verification result
+ * @returns {Promise<Object>} Extracted bill information
+ * @returns {string} result.customer_name - Customer name on bill
+ * @returns {string} result.address - Full billing address
+ * @returns {string} result.state - Malaysian state (Johor, Melaka, Selangor, etc.)
  * @returns {string} result.tnb_account - 12-digit account number
- * @returns {boolean} result.consecutive_months_found - Has 3+ months history
- * @returns {boolean} result.quality_ok - Document legibility
- * @returns {string} result.quality_remark - Status description
  */
 async function verifyTnbBill(fileBuffer, mimeType = 'application/pdf') {
     const prompt = `
 Analyze this TNB (Tenaga Nasional Berhad) electricity bill.
-1. Extract 'tnb_account': 12-digit account number.
-2. Analyze the 'Kajian Penggunaan' (Usage History) table/chart.
-3. Determine 'consecutive_months_found': true if there are at least 3 consecutive months of usage records shown in the history chart for the period immediately preceding this bill.
-4. Assess 'quality_ok': true if dates and account numbers are legible.
-5. Provide 'quality_remark': e.g., "3 months consecutive found", "History table blurry", "Only 1 month found".
 
-Return ONLY JSON:
+EXTRACT ONLY THESE 4 FIELDS - DO NOT extract any other information:
+1. 'customer_name': The customer name printed on the bill (account holder).
+2. 'address': The complete billing address as shown on the bill.
+3. 'state': The Malaysian state extracted from the address (e.g., "Johor", "Melaka", "Negeri Sembilan", "Selangor", "Kuala Lumpur", "Penang", "Perak", "Kedah", "Kelantan", "Terengganu", "Pahang", "Selangor", "Sabah", "Sarawak").
+4. 'tnb_account': The 12-digit account number.
+
+Return ONLY JSON with these 4 fields:
 {
-  "tnb_account": "string",
-  "consecutive_months_found": boolean,
-  "quality_ok": boolean,
-  "quality_remark": "string"
+  "customer_name": "string",
+  "address": "string",
+  "state": "string",
+  "tnb_account": "string"
 }`;
 
     return await callAI(prompt, fileBuffer, mimeType, 'Verify TNB Bill');
