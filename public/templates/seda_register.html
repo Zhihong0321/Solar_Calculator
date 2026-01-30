@@ -510,7 +510,7 @@ Thank you!`;
         function getApiEndpoint() { return isPublicMode ? `/api/v1/seda-public/${shareToken}` : `/api/v1/seda/${sedaId}`; }
 
         function goBackToOffice() {
-            console.log('[SEDA] Navigating back to SEDA list...');
+            console.log('[SEDA] Navigating back...');
             if (isPublicMode) {
                 Swal.fire({
                     icon: 'info',
@@ -519,7 +519,11 @@ Thank you!`;
                 });
                 return;
             }
-            window.location.replace('/my-seda');
+            if (typeof NavManager !== 'undefined') {
+                NavManager.goBack('/my-seda');
+            } else {
+                window.location.replace('/my-seda');
+            }
         }
 
         function startLoading(text = 'Processing...') {

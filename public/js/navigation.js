@@ -3,87 +3,77 @@
  * Handles history tracking and smart "Back" behavior.
  */
 const NavManager = {
-    MAX_HISTORY: 10,
     STORAGE_KEY: 'atap_nav_history',
 
     /**
      * Initialize on page load: record current URL
      */
     init() {
-        const currentUrl = window.location.href;
+        const currentUrl = window.location.pathname + window.location.search;
         let history = this.getHistory();
 
-        // 1. Detect if we are just refreshing the current page
-        if (history.length > 0 && history[history.length - 1] === currentUrl) {
-            return;
+        // If history is empty, initialize with home
+        if (history.length === 0 && currentUrl !== '/agent/home') {
+            history.push('/agent/home');
         }
 
-        // 2. Add current page to stack
-        history.push(currentUrl);
+        // Avoid adding same page multiple times in a row
+        const lastPage = history[history.length - 1];
+        if (lastPage !== currentUrl) {
+            // If we are navigating to a page that is already in history (but not the last one)
+            // we might want to trim history to that point to avoid loops
+            const existingIndex = history.indexOf(currentUrl);
+            if (existingIndex !== -1) {
+                // Trim history to this point (we've returned to a previous state)
+                history = history.slice(0, existingIndex + 1);
+            } else {
+                history.push(currentUrl);
+            }
+        }
 
-        // 3. Keep only last N steps
-        if (history.length > this.MAX_HISTORY) {
+        // Limit history size
+        if (history.length > 15) {
             history.shift();
         }
 
         this.saveHistory(history);
-        console.log(`[NavManager] Tracked: ${currentUrl.split('/').pop() || 'index'}. History depth: ${history.length}`);
+        console.log(`[NavManager] Path: ${currentUrl}. Depth: ${history.length}`);
     },
 
-    /**
-     * Get history array from storage
-     */
     getHistory() {
         try {
             const stored = sessionStorage.getItem(this.STORAGE_KEY);
             return stored ? JSON.parse(stored) : [];
-        } catch (e) {
-            console.error('[NavManager] Storage error:', e);
-            return [];
-        }
+        } catch (e) { return []; }
     },
 
-    /**
-     * Save history array to storage
-     */
     saveHistory(history) {
         try {
             sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(history));
-        } catch (e) {
-            console.error('[NavManager] Save error:', e);
-        }
+        } catch (e) {}
     },
 
     /**
      * Standardized Go Back logic
-     * @param {string} fallback - URL to use if history is empty
      */
-    goBack(fallback = '/my-invoice') {
+    goBack(fallback = '/agent/home') {
         let history = this.getHistory();
-        
-        // The current page is the last item in the stack
-        // Remove it first
-        history.pop();
-        
+        const currentUrl = window.location.pathname + window.location.search;
+
+        // Remove current page
+        if (history.length > 0 && history[history.length - 1] === currentUrl) {
+            history.pop();
+        }
+
         if (history.length > 0) {
-            // Get the actual previous page
             const previousUrl = history.pop();
-            
-            // Save the state before navigating
-            // (The page we navigate to will add itself back to history on load)
             this.saveHistory(history);
-            
-            console.log(`[NavManager] Navigating back to: ${previousUrl}`);
             window.location.href = previousUrl;
         } else {
-            console.log(`[NavManager] History empty, using fallback: ${fallback}`);
             window.location.href = fallback;
         }
     },
 
-    /**
-     * Clear history (e.g. on logout)
-     */
     clear() {
         sessionStorage.removeItem(this.STORAGE_KEY);
     }
