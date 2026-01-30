@@ -461,13 +461,27 @@ router.post('/api/v1/seda/extract-mykad', async (req, res) => {
             const statusText = result.quality_ok ? 'PASSED CHECK' : 'QUALITY WARNING';
             const logEntry = `\n[${new Date().toISOString().split('T')[0]}] MYKAD Upload = ${statusText} (Name: ${result.customer_name})`;
             
-            await client.query(
-                `UPDATE seda_registration 
-                 SET special_remark = COALESCE(special_remark, '') || $1,
-                     check_mykad = $2
-                 WHERE bubble_id = $3`,
-                [logEntry, result.quality_ok, sedaId]
-            );
+            // If quality passes, auto-populate name and IC number into form
+            if (result.quality_ok) {
+                await client.query(
+                    `UPDATE seda_registration 
+                     SET special_remark = COALESCE(special_remark, '') || $1,
+                         check_mykad = $2,
+                         customer_name = COALESCE($3, customer_name),
+                         ic_no = COALESCE($4, ic_no)
+                     WHERE bubble_id = $5`,
+                    [logEntry, result.quality_ok, result.customer_name, result.mykad_id, sedaId]
+                );
+            } else {
+                // Quality failed - only log, don't populate
+                await client.query(
+                    `UPDATE seda_registration 
+                     SET special_remark = COALESCE(special_remark, '') || $1,
+                         check_mykad = $2
+                     WHERE bubble_id = $3`,
+                    [logEntry, result.quality_ok, sedaId]
+                );
+            }
         }
 
         res.json({ success: true, data: result });
