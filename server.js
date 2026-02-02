@@ -13,6 +13,7 @@ const Invoicing = require('./src/modules/Invoicing');
 const SolarCalculator = require('./src/modules/SolarCalculator');
 const Customer = require('./src/modules/Customer');
 const Chat = require('./src/modules/Chat');
+const Referral = require('./src/modules/Referral');
 const sedaRoutes = require('./routes/sedaRoutes');
 
 const app = express();
@@ -43,6 +44,7 @@ app.use(Invoicing.router);
 app.use(SolarCalculator.router);
 app.use(Customer.router);
 app.use(Chat.router);
+app.use(Referral.router);
 app.use(sedaRoutes);
 
 // --- Global Routes & Static Files ---

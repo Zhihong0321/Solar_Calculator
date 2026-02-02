@@ -28,10 +28,10 @@ function exampleBrowserIntegration() {
     invoice_date: '2026-01-12',
     due_date: '2026-02-11',
     status: 'Draft',
-    customer_name_snapshot: 'John Doe',
-    customer_address_snapshot: '123 Main Street\nKL, Malaysia',
-    customer_phone_snapshot: '+60 12-345-6789',
-    customer_email_snapshot: 'john@example.com',
+    customer_name: 'John Doe',
+    customer_address: '123 Main Street\nKL, Malaysia',
+    customer_phone: '+60 12-345-6789',
+    customer_email: 'john@example.com',
     subtotal: 15000.00,
     discount_amount: 500.00,
     voucher_amount: 0.00,
@@ -105,10 +105,10 @@ function exampleServerSideRendering() {
     invoice_date: '2026-01-12',
     due_date: '2026-02-11',
     status: 'Sent',
-    customer_name_snapshot: 'Jane Smith',
-    customer_address_snapshot: '456 Oak Avenue\nSelangor, Malaysia',
-    customer_phone_snapshot: '+60 13-456-7890',
-    customer_email_snapshot: 'jane@example.com',
+    customer_name: 'Jane Smith',
+    customer_address: '456 Oak Avenue\nSelangor, Malaysia',
+    customer_phone: '+60 13-456-7890',
+    customer_email: 'jane@example.com',
     subtotal: 25000.00,
     discount_amount: 0.00,
     voucher_amount: 1000.00,
@@ -160,10 +160,10 @@ function exampleServerSideRendering() {
   html = html.replace(/{{STATUS}}/g, invoiceData.status || 'Draft');
   html = html.replace(/{{INVOICE_DATE}}/g, invoiceData.invoice_date || '');
   html = html.replace(/{{DUE_DATE}}/g, invoiceData.due_date || '');
-  html = html.replace(/{{CUSTOMER_NAME}}/g, invoiceData.customer_name_snapshot || 'Valued Customer');
-  html = html.replace(/{{CUSTOMER_ADDRESS}}/g, invoiceData.customer_address_snapshot || '');
-  html = html.replace(/{{CUSTOMER_PHONE}}/g, invoiceData.customer_phone_snapshot || '');
-  html = html.replace(/{{CUSTOMER_EMAIL}}/g, invoiceData.customer_email_snapshot || '');
+  html = html.replace(/{{CUSTOMER_NAME}}/g, invoiceData.customer_name || 'Valued Customer');
+  html = html.replace(/{{CUSTOMER_ADDRESS}}/g, invoiceData.customer_address || '');
+  html = html.replace(/{{CUSTOMER_PHONE}}/g, invoiceData.customer_phone || '');
+  html = html.replace(/{{CUSTOMER_EMAIL}}/g, invoiceData.customer_email || '');
   html = html.replace(/{{SUBTOTAL}}/g, (invoiceData.subtotal || 0).toFixed(2));
   html = html.replace(/{{SST_RATE}}/g, invoiceData.sst_rate || 6);
   html = html.replace(/{{SST_AMOUNT}}/g, (invoiceData.sst_amount || 0).toFixed(2));
