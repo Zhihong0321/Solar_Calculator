@@ -9,6 +9,11 @@ let matchedBillData = null; // Store results from Step 1
 let workingHours = {};
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+// Store current simulation parameters for recalculation
+let currentSimulationParams = null;
+let currentPanelQuantity = null;
+let currentPackageData = null;
+
 // Hourly Solar Generation Map (Percentage of daily yield)
 const HOURLY_SOLAR_MAP = {
     7: 0.02, 8: 0.05, 9: 0.09, 10: 0.12, 11: 0.15, 12: 0.16, 
@@ -178,15 +183,9 @@ function displayBillBreakdown(t) {
     `;
 }
 
-async function executeFullAnalysis() {
-    if (!matchedBillData) return;
-
-    const sunPeak = parseFloat(document.getElementById('sunPeakHour').value);
-    const panelRating = parseInt(document.getElementById('panelRating').value);
-    const baseLoadPct = parseFloat(document.getElementById('baseLoadPercent').value) / 100;
-    const smpPrice = parseFloat(document.getElementById('smpPrice').value);
-
-    const totalMonthlyKwh = parseFloat(matchedBillData.usage_kwh);
+// Calculate solar savings based on panel quantity
+async function calculateSolarSavings(panelQty, params) {
+    const { sunPeak, panelRating, baseLoadPct, smpPrice, totalMonthlyKwh } = params;
     
     let weeklyWorkingHours = 0;
     DAYS.forEach(day => {
@@ -199,25 +198,7 @@ async function executeFullAnalysis() {
         ? (totalMonthlyKwh * (1 - baseLoadPct)) / (weeklyWorkingHours * 4.33)
         : 0;
 
-    // 2. Recommend System Size - STABLE (Based on Monthly Usage only)
-    // Target system size to cover ~80% of total monthly generation potential
-    const sunPeakStandard = 3.4;
-    const targetMonthlyGen = totalMonthlyKwh * 0.8; 
-    const recommendedKw = (targetMonthlyGen / 30 / sunPeakStandard);
-    let recommendedPanels = Math.max(1, Math.ceil((recommendedKw * 1000) / panelRating));
-    
-    // Find closest package
-    let pkg = db.packages
-        .filter(p => p.panel_qty >= recommendedPanels && (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
-        .sort((a,b) => a.panel_qty - b.panel_qty)[0];
-
-    if (!pkg) {
-        pkg = db.packages
-            .filter(p => p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential')
-            .sort((a,b) => Math.abs(a.panel_qty - recommendedPanels))[0];
-    }
-
-    const finalPanels = pkg ? pkg.panel_qty : recommendedPanels;
+    const finalPanels = panelQty;
     const systemSizeKwp = (finalPanels * panelRating) / 1000;
     const dailyGenKwh = systemSizeKwp * sunPeak;
 
@@ -255,43 +236,148 @@ async function executeFullAnalysis() {
     const monthlyExportKwh = weeklyExportKwh * 4.33;
     const newTotalUsageKwh = Math.max(0, totalMonthlyKwh - monthlyOffsetKwh);
 
+    const response = await fetch(`/api/commercial/lookup-by-usage?usage=${newTotalUsageKwh}`);
+    const data = await response.json();
+    const newBillData = data.tariff;
+
+    const billSaving = parseFloat(matchedBillData.total_bill) - parseFloat(newBillData.total_bill);
+    const exportEarnings = monthlyExportKwh * smpPrice;
+    const totalMonthlySavings = billSaving + exportEarnings;
+
+    // Find package for this panel quantity
+    let pkg = db.packages
+        .filter(p => p.panel_qty === panelQty && (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
+        .sort((a,b) => a.price - b.price)[0];
+
+    // If no exact match, find closest
+    if (!pkg) {
+        pkg = db.packages
+            .filter(p => p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential')
+            .sort((a,b) => Math.abs(a.panel_qty - panelQty))[0];
+    }
+
+    // Calculate system cost - interpolate if no exact package match
+    let systemCost;
+    if (pkg && pkg.panel_qty === panelQty) {
+        systemCost = pkg.price;
+    } else if (pkg) {
+        // Estimate cost based on closest package price per panel
+        const costPerPanel = pkg.price / pkg.panel_qty;
+        systemCost = costPerPanel * panelQty;
+    } else {
+        systemCost = systemSizeKwp * 3500;
+    }
+
+    const payback = totalMonthlySavings > 0 ? systemCost / (totalMonthlySavings * 12) : 0;
+
+    return {
+        systemSizeKwp,
+        finalPanels,
+        panelRating,
+        monthlyGen: dailyGenKwh * 30,
+        monthlyOffsetKwh,
+        monthlyExportKwh,
+        oldBill: matchedBillData,
+        newBill: newBillData,
+        billSaving,
+        exportEarnings,
+        totalMonthlySavings,
+        systemCost,
+        payback,
+        pkg,
+        dailyData
+    };
+}
+
+async function executeFullAnalysis() {
+    if (!matchedBillData) return;
+
+    const sunPeak = parseFloat(document.getElementById('sunPeakHour').value);
+    const panelRating = parseInt(document.getElementById('panelRating').value);
+    const baseLoadPct = parseFloat(document.getElementById('baseLoadPercent').value) / 100;
+    const smpPrice = parseFloat(document.getElementById('smpPrice').value);
+
+    const totalMonthlyKwh = parseFloat(matchedBillData.usage_kwh);
+    
+    // Store parameters for later recalculation
+    currentSimulationParams = { sunPeak, panelRating, baseLoadPct, smpPrice, totalMonthlyKwh };
+    
+    // 2. Recommend System Size - STABLE (Based on Monthly Usage only)
+    // Target system size to cover ~80% of total monthly generation potential
+    const sunPeakStandard = 3.4;
+    const targetMonthlyGen = totalMonthlyKwh * 0.8; 
+    const recommendedKw = (targetMonthlyGen / 30 / sunPeakStandard);
+    let recommendedPanels = Math.max(1, Math.ceil((recommendedKw * 1000) / panelRating));
+    
+    // Find closest package for initial calculation
+    let pkg = db.packages
+        .filter(p => p.panel_qty >= recommendedPanels && (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
+        .sort((a,b) => a.panel_qty - b.panel_qty)[0];
+
+    if (!pkg) {
+        pkg = db.packages
+            .filter(p => p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential')
+            .sort((a,b) => Math.abs(a.panel_qty - recommendedPanels))[0];
+    }
+
+    // Use package panel quantity or recommended
+    const initialPanels = pkg ? pkg.panel_qty : recommendedPanels;
+    currentPanelQuantity = initialPanels;
+    currentPackageData = pkg;
+
     try {
-        const response = await fetch(`/api/commercial/lookup-by-usage?usage=${newTotalUsageKwh}`);
-        const data = await response.json();
-        const newBillData = data.tariff;
-
-        const billSaving = parseFloat(matchedBillData.total_bill) - parseFloat(newBillData.total_bill);
-        const exportEarnings = monthlyExportKwh * smpPrice;
-        const totalMonthlySavings = billSaving + exportEarnings;
-
-        const systemCost = pkg ? pkg.price : systemSizeKwp * 3500;
-        const payback = systemCost / (totalMonthlySavings * 12);
-
-        displayFullROIResults({
-            systemSizeKwp,
-            finalPanels,
-            panelRating,
-            monthlyGen: dailyGenKwh * 30,
-            monthlyOffsetKwh,
-            monthlyExportKwh,
-            oldBill: matchedBillData,
-            newBill: newBillData,
-            billSaving,
-            exportEarnings,
-            totalMonthlySavings,
-            systemCost,
-            payback,
-            pkg,
-            dailyData
-        });
-
+        const results = await calculateSolarSavings(initialPanels, currentSimulationParams);
+        displayFullROIResults(results, recommendedPanels);
     } catch (err) {
-        console.error('Failed to lookup new bill:', err);
+        console.error('Failed to calculate savings:', err);
         alert('Simulation failed. Check console for details.');
     }
 }
 
-function displayFullROIResults(data) {
+// Update calculations when panel quantity changes
+async function updatePanelQuantity(change) {
+    if (!currentSimulationParams || currentPanelQuantity === null) return;
+    
+    const newQuantity = Math.max(1, currentPanelQuantity + change);
+    if (newQuantity === currentPanelQuantity) return;
+    
+    currentPanelQuantity = newQuantity;
+    
+    // Show loading state
+    const updateBtn = document.getElementById('updateCalculationBtn');
+    if (updateBtn) {
+        updateBtn.innerHTML = 'Recalculating...';
+        updateBtn.disabled = true;
+    }
+    
+    try {
+        const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
+        displayFullROIResults(results, null, true);
+    } catch (err) {
+        console.error('Failed to recalculate:', err);
+        alert('Recalculation failed. Check console for details.');
+    }
+}
+
+// Set specific panel quantity from input
+async function setPanelQuantity(qty) {
+    if (!currentSimulationParams) return;
+    
+    const newQuantity = Math.max(1, parseInt(qty) || 1);
+    if (newQuantity === currentPanelQuantity) return;
+    
+    currentPanelQuantity = newQuantity;
+    
+    try {
+        const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
+        displayFullROIResults(results, null, true);
+    } catch (err) {
+        console.error('Failed to recalculate:', err);
+        alert('Recalculation failed. Check console for details.');
+    }
+}
+
+function displayFullROIResults(data, recommendedPanels = null, isRecalculation = false) {
     const resultsDiv = document.getElementById('calculatorResults');
     
     // Create or find the ROI container to ensure we replace instead of append
@@ -302,25 +388,62 @@ function displayFullROIResults(data) {
         resultsDiv.appendChild(roiContainer);
     }
 
+    // Calculate efficiency
+    const efficiency = data.monthlyGen > 0 ? Math.round((data.monthlyOffsetKwh/data.monthlyGen)*100) : 0;
+    
+    // Determine if this is a custom panel quantity (different from package)
+    const isCustomQty = data.pkg && data.pkg.panel_qty !== data.finalPanels;
+    const pricePerPanel = data.pkg ? data.pkg.price / data.pkg.panel_qty : 3500 * (data.panelRating / 1000);
+    const estimatedCost = isCustomQty ? pricePerPanel * data.finalPanels : data.systemCost;
+
     roiContainer.innerHTML = `
-        <div class="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div class="space-y-12 ${isRecalculation ? '' : 'animate-in fade-in slide-in-from-bottom-4 duration-700'}">
             <!-- Professional Executive Summary -->
             <section class="bg-black text-white p-6 md:p-10 -mx-4 md:mx-0 shadow-[10px_10px_0px_0px_rgba(0,0,0,0.1)] border border-white/10">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 border-b border-white/20 pb-6">
-                    <div>
+                    <div class="flex-1">
                         <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-emerald-400 mb-1">SYSTEM_SPECIFICATION</h2>
                         <div class="text-2xl md:text-3xl font-bold tracking-tight">${data.systemSizeKwp.toFixed(2)} kWp <span class="text-xs md:text-sm opacity-50 font-normal">(${data.finalPanels} x ${data.panelRating}W)</span></div>
+                        ${recommendedPanels ? `<p class="text-[10px] opacity-50 mt-1">Recommended: ${recommendedPanels} panels (${data.panelRating}W)</p>` : ''}
                     </div>
                     <div class="text-left md:text-right">
                         <p class="text-[10px] uppercase opacity-50 font-bold mb-1">Model_Efficiency</p>
-                        <p class="text-lg md:text-xl font-bold text-white">${Math.round((data.monthlyOffsetKwh/data.monthlyGen)*100)}% (Direct Offset)</p>
+                        <p class="text-lg md:text-xl font-bold text-white">${efficiency}% (Direct Offset)</p>
                     </div>
+                </div>
+
+                <!-- Panel Quantity Adjustment -->
+                <div class="bg-white/5 border border-white/10 p-4 md:p-6 mb-6">
+                    <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+                        <div class="flex-1">
+                            <label class="text-[10px] uppercase tracking-widest text-emerald-400 font-bold block mb-2">Adjust Panel Quantity</label>
+                            <p class="text-[10px] opacity-60">Fine-tune system size to optimize ROI</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="updatePanelQuantity(-1)" class="w-12 h-12 bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-xl font-bold transition-colors">
+                                −
+                            </button>
+                            <input 
+                                type="number" 
+                                id="panelQtyInput" 
+                                value="${data.finalPanels}" 
+                                min="1"
+                                class="w-20 h-12 bg-white/10 border border-white/20 text-center text-xl font-bold text-white"
+                                onchange="setPanelQuantity(this.value)"
+                            >
+                            <button onclick="updatePanelQuantity(1)" class="w-12 h-12 bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-xl font-bold transition-colors">
+                                +
+                            </button>
+                        </div>
+                    </div>
+                    ${isCustomQty ? `<p class="text-[10px] text-amber-400 mt-3 font-semibold">* Estimated cost based on ${data.pkg.package_name} pricing</p>` : ''}
                 </div>
 
                 <div class="grid grid-cols-1 gap-8">
                     <p class="text-[10px] text-white/50 uppercase leading-relaxed">
                         Precision simulation based on 24/7 building load modeling and hourly solar yield projection. 
                         Self-consumption optimized for configured premise working hours.
+                        ${isRecalculation ? '<span class="text-emerald-400">[ Updated ]</span>' : ''}
                     </p>
                 </div>
             </section>
@@ -421,7 +544,7 @@ function displayFullROIResults(data) {
                                 </div>
                                 <div class="flex justify-between items-baseline border-b border-divider/50 pb-2">
                                     <span class="text-xs uppercase tier-3">NEM_NOVA_SMP_Rate</span>
-                                    <span class="text-sm font-bold">RM ${parseFloat(document.getElementById('smpPrice').value).toFixed(2)} /kWh</span>
+                                    <span class="text-sm font-bold">RM ${currentSimulationParams ? currentSimulationParams.smpPrice.toFixed(2) : parseFloat(document.getElementById('smpPrice').value).toFixed(2)} /kWh</span>
                                 </div>
                                 <div class="flex justify-between items-baseline pt-2">
                                     <span class="text-xs uppercase font-bold text-orange-600">EARNING_FROM_EXPORT_CREDIT</span>
@@ -440,12 +563,47 @@ function displayFullROIResults(data) {
                     </div>
                 </div>
 
+                <!-- System Cost & Payback Section -->
+                <div class="bg-black text-white p-6 md:p-8 mt-8 border border-white/10">
+                    <h4 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-emerald-400 mb-6 border-b border-white/20 pb-2">07_SYSTEM_INVESTMENT_ANALYSIS</h4>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-baseline border-b border-white/10 pb-2">
+                                <span class="text-xs uppercase opacity-60">System_Size</span>
+                                <span class="text-sm font-bold">${data.systemSizeKwp.toFixed(2)} kWp</span>
+                            </div>
+                            <div class="flex justify-between items-baseline border-b border-white/10 pb-2">
+                                <span class="text-xs uppercase opacity-60">Panel_Quantity</span>
+                                <span class="text-sm font-bold">${data.finalPanels} panels</span>
+                            </div>
+                            <div class="flex justify-between items-baseline border-b border-white/10 pb-2">
+                                <span class="text-xs uppercase opacity-60">Panel_Rating</span>
+                                <span class="text-sm font-bold">${data.panelRating}W</span>
+                            </div>
+                            <div class="flex justify-between items-baseline pt-2">
+                                <span class="text-xs uppercase font-bold text-emerald-400">ESTIMATED_SYSTEM_COST</span>
+                                <span class="text-xl font-bold text-emerald-400">RM ${formatCurrency(data.systemCost)}</span>
+                            </div>
+                            ${isCustomQty ? `<p class="text-[9px] text-amber-400 font-semibold">* Cost estimated from ${data.pkg.package_name}</p>` : ''}
+                        </div>
+                        <div class="flex flex-col justify-center items-center md:items-end text-center md:text-right">
+                            <p class="text-[10px] uppercase opacity-60 mb-2">Estimated_Payback_Period</p>
+                            <p class="text-4xl md:text-5xl font-bold text-white">${data.payback.toFixed(1)}</p>
+                            <p class="text-sm uppercase tracking-widest opacity-80 mt-1">Years</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="bg-emerald-50 border-2 border-emerald-600 p-6 md:p-8 mt-10 shadow-[6px_6px_0px_0px_rgba(16,185,129,0.1)]">
-                    <h4 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-emerald-800 mb-6 border-b border-emerald-200 pb-2">06_TOTAL_ECONOMIC_BENEFIT</h4>
+                    <h4 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-emerald-800 mb-6 border-b border-emerald-200 pb-2">08_TOTAL_ECONOMIC_BENEFIT</h4>
                     <div class="space-y-3 text-center md:text-left">
                         <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-emerald-700">
                             <span class="text-xs font-bold uppercase tracking-widest">NET_MONTHLY_ECONOMIC_SAVINGS</span>
                             <span class="text-3xl md:text-5xl font-bold">RM ${formatCurrency(data.totalMonthlySavings)}</span>
+                        </div>
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-emerald-600 mt-4 pt-4 border-t border-emerald-200">
+                            <span class="text-xs font-bold uppercase tracking-widest">Annual_Savings_Projection</span>
+                            <span class="text-xl font-bold">RM ${formatCurrency(data.totalMonthlySavings * 12)}</span>
                         </div>
                         <p class="text-[9px] text-emerald-600 uppercase font-semibold leading-relaxed mt-4">
                             *This figure includes both direct utility bill reduction and credit income generated via energy export to the grid.
@@ -455,7 +613,7 @@ function displayFullROIResults(data) {
             </section>
 
             <div class="flex flex-col items-center gap-4 pt-10 border-t border-divider">
-                <div class="text-[10px] uppercase font-bold tier-3 opacity-60">Modeling_Hardware: ${data.pkg ? data.pkg.package_name : 'Custom_Commercial_Build'}</div>
+                <div class="text-[10px] uppercase font-bold tier-3 opacity-60">Modeling_Hardware: ${data.pkg ? data.pkg.package_name : 'Custom_Commercial_Build'}${isCustomQty ? ' (Cost Interpolated)' : ''}</div>
                 <button onclick="window.print()" class="text-[10px] font-bold uppercase tracking-widest border-2 border-fact px-10 py-4 hover:bg-black hover:text-white transition-all shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">
                     [ DOWNLOAD_FULL_PRECISION_REPORT ]
                 </button>
@@ -463,10 +621,14 @@ function displayFullROIResults(data) {
         </div>
     `;
 
-    roiContainer.scrollIntoView({ behavior: 'smooth' });
+    if (!isRecalculation) {
+        roiContainer.scrollIntoView({ behavior: 'smooth' });
+    }
     
     // Render the Pie Chart
-    renderSavingsPieChart(data.billSaving, data.exportEarnings);
+    setTimeout(() => {
+        renderSavingsPieChart(data.billSaving, data.exportEarnings);
+    }, 0);
 }
 
 function renderSavingsPieChart(billSaving, exportSaving) {
