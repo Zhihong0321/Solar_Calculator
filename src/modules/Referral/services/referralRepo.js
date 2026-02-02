@@ -104,16 +104,9 @@ async function getReferralByBubbleId(client, bubbleId) {
  * @param {string} shareToken - Invoice share token
  */
 async function getCustomerIdFromShareToken(client, shareToken) {
-  console.log('[ReferralRepo] Looking up customer for share token:', shareToken);
-  const result = await client.query(
-    `SELECT linked_customer FROM invoice WHERE share_token = $1 AND share_enabled = true`,
-    [shareToken]
-  );
-  console.log('[ReferralRepo] Query result rows:', result.rows.length);
-  if (result.rows.length > 0) {
-    console.log('[ReferralRepo] linked_customer value:', result.rows[0].linked_customer);
-  }
-  return result.rows.length > 0 ? result.rows[0].linked_customer : null;
+  const invoiceRepo = require('../../Invoicing/services/invoiceRepo');
+  const invoice = await invoiceRepo.getPublicInvoice(client, shareToken);
+  return invoice ? invoice.linked_customer : null;
 }
 
 /**
