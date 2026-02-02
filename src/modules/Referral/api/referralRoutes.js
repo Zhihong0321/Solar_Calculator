@@ -92,6 +92,15 @@ router.post('/api/v1/referrals', async (req, res) => {
     
     client = await pool.connect();
     
+    // Check mobile number uniqueness
+    const exists = await referralRepo.checkMobileNumberExists(client, mobileNumber);
+    if (exists) {
+      return res.status(409).json({ 
+        success: false, 
+        error: 'This mobile number has already been referred' 
+      });
+    }
+    
     // Get customer ID and agent ID
     const customerId = await referralRepo.getCustomerIdFromShareToken(client, shareToken);
     if (!customerId) {

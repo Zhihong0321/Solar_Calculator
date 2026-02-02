@@ -41,6 +41,19 @@ async function getReferralsByAgentId(client, agentId) {
 }
 
 /**
+ * Check if mobile number already exists in referrals
+ * @param {object} client - Database client
+ * @param {string} mobileNumber - Mobile number to check
+ */
+async function checkMobileNumberExists(client, mobileNumber) {
+  const result = await client.query(
+    `SELECT bubble_id FROM referral WHERE mobile_number = $1 LIMIT 1`,
+    [mobileNumber]
+  );
+  return result.rows.length > 0;
+}
+
+/**
  * Create new referral
  * @param {object} client - Database client
  * @param {object} data - Referral data
@@ -129,5 +142,6 @@ module.exports = {
   updateReferralStatus,
   getReferralByBubbleId,
   getCustomerIdFromShareToken,
-  getAgentIdFromCustomer
+  getAgentIdFromCustomer,
+  checkMobileNumberExists
 };
