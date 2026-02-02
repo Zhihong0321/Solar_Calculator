@@ -14,7 +14,7 @@ async function getReferralsByCustomerId(client, customerId) {
     `SELECT r.*, c.name as referral_customer_name, c.customer_id as referral_customer_id
      FROM referral r
      LEFT JOIN customer c ON r.linked_invoice IS NOT NULL AND c.customer_id = (
-       SELECT linked_customer FROM invoice WHERE bubble_id = r.linked_invoice LIMIT 1
+       SELECT i.linked_customer FROM invoice i WHERE i.bubble_id = r.linked_invoice LIMIT 1
      )
      WHERE r.linked_customer_profile = $1
      ORDER BY r.created_at DESC`,
