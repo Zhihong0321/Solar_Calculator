@@ -26,20 +26,26 @@ router.get('/api/v1/referrals/by-token/:shareToken', async (req, res) => {
   let client = null;
   try {
     const { shareToken } = req.params;
+    console.log('[Referral API] Share token received:', shareToken);
+    
     client = await pool.connect();
     
     // Get customer ID from share token
     const customerId = await referralRepo.getCustomerIdFromShareToken(client, shareToken);
+    console.log('[Referral API] Customer ID resolved:', customerId);
+    
     if (!customerId) {
+      console.error('[Referral API] No customer found for share token:', shareToken);
       return res.status(404).json({ success: false, error: 'Invalid share token or customer not found' });
     }
     
     // Get referrals
     const referrals = await referralRepo.getReferralsByCustomerId(client, customerId);
+    console.log('[Referral API] Referrals found:', referrals.length);
     
     res.json({ success: true, data: { referrals, customerId } });
   } catch (err) {
-    console.error('Error fetching referrals:', err);
+    console.error('[Referral API] Error fetching referrals:', err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     if (client) client.release();
