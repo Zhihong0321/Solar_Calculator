@@ -14,6 +14,7 @@ const SolarCalculator = require('./src/modules/SolarCalculator');
 const Customer = require('./src/modules/Customer');
 const Chat = require('./src/modules/Chat');
 const Referral = require('./src/modules/Referral');
+const Email = require('./src/modules/Email');
 const sedaRoutes = require('./routes/sedaRoutes');
 
 const app = express();
@@ -45,6 +46,7 @@ app.use(SolarCalculator.router);
 app.use(Customer.router);
 app.use(Chat.router);
 app.use(Referral.router);
+app.use(Email.router);
 app.use(sedaRoutes);
 
 // --- Global Routes & Static Files ---
@@ -93,6 +95,11 @@ app.get('/agent/profile', requireAuth, (req, res) => {
 // Agent Referral Management Route
 app.get('/my-referal', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'my_referal.html'));
+});
+
+// Agent Email Management Route
+app.get('/my-emails', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'my_emails.html'));
 });
 
 /**
