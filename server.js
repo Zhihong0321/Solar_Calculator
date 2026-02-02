@@ -90,6 +90,11 @@ app.get('/agent/profile', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_profile.html'));
 });
 
+// Agent Referral Management Route
+app.get('/my-referal', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'my_referal.html'));
+});
+
 /**
  * API: Get full agent profile
  */

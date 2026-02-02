@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const pool = require('../../../core/database/pool');
+const { requireAuth } = require('../../../core/middleware/auth');
 const referralRepo = require('../services/referralRepo');
 
 const router = express.Router();
@@ -17,6 +18,27 @@ router.get('/referral-dashboard/:shareToken', async (req, res) => {
 /**
  * API ROUTES
  */
+
+/**
+ * GET /api/v1/referrals/my-referrals
+ * Get all referrals for the logged-in agent
+ */
+router.get('/api/v1/referrals/my-referrals', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const userId = req.user.userId;
+    client = await pool.connect();
+    
+    const referrals = await referralRepo.getReferralsByAgentId(client, userId);
+    
+    res.json({ success: true, data: referrals });
+  } catch (err) {
+    console.error('[Referral API] Error fetching agent referrals:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
 
 /**
  * GET /api/v1/referrals/by-token/:shareToken
@@ -98,15 +120,26 @@ router.post('/api/v1/referrals', async (req, res) => {
 
 /**
  * PUT /api/v1/referrals/:bubbleId/status
- * Update referral status (for agent use)
+ * Update referral status (agent only)
  */
-router.put('/api/v1/referrals/:bubbleId/status', async (req, res) => {
+router.put('/api/v1/referrals/:bubbleId/status', requireAuth, async (req, res) => {
   let client = null;
   try {
     const { bubbleId } = req.params;
     const { status, linkedInvoice, dealValue } = req.body;
+    const userId = req.user.userId;
     
     client = await pool.connect();
+    
+    // Verify ownership
+    const referral = await referralRepo.getReferralByBubbleId(client, bubbleId);
+    if (!referral) {
+      return res.status(404).json({ success: false, error: 'Referral not found' });
+    }
+    
+    if (referral.linked_agent !== userId) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
     
     // Calculate commission if deal value provided
     let commissionEarned = null;
@@ -114,20 +147,16 @@ router.put('/api/v1/referrals/:bubbleId/status', async (req, res) => {
       commissionEarned = parseFloat(dealValue) * 0.02; // 2% commission
     }
     
-    const referral = await referralRepo.updateReferralStatus(client, bubbleId, {
+    const updated = await referralRepo.updateReferralStatus(client, bubbleId, {
       status,
       linkedInvoice,
       dealValue,
       commissionEarned
     });
     
-    if (!referral) {
-      return res.status(404).json({ success: false, error: 'Referral not found' });
-    }
-    
-    res.json({ success: true, data: referral });
+    res.json({ success: true, data: updated });
   } catch (err) {
-    console.error('Error updating referral:', err);
+    console.error('[Referral API] Error updating referral:', err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     if (client) client.release();

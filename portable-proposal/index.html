@@ -474,9 +474,13 @@
                     // Standard image insertion
                     const img = document.createElement('img');
                     
-                    // Special case for part01-chunk-2 (75% saving image)
+                    // Special cases for specific images
                     if (part.baseName === 'part01' && i === 2) {
                         img.src = `images/75-saving.jpg`;
+                    } else if (part.baseName === 'part01' && i === 3) {
+                        img.src = `images/part01-chunk-3.jpg`;
+                    } else if (part.baseName === 'part01' && i === 4) {
+                        img.src = `images/part01-chunk-4.jpg`;
                     } else {
                         img.src = `images/${part.baseName}-chunk-${i}.webp`;
                     }
