@@ -57,39 +57,34 @@ class EmailService {
   }
 
   async getReceivedEmails(fullEmail, limit = 50, offset = 0) {
-    const query = `
-      SELECT id, email_id, from_email, to_email, subject, received_at, text_content, 
-             (html_content IS NOT NULL) as has_html, attachments
-      FROM received_emails
-      WHERE to_email = $1
-      ORDER BY received_at DESC
-      LIMIT $2 OFFSET $3
-    `;
-    const { rows } = await pool.query(query, [fullEmail, limit, offset]);
-    return rows;
+    const response = await fetch(`https://ee-mail-production.up.railway.app/received-emails?domain=${fullEmail.split('@')[1]}&limit=${limit}&to=${fullEmail}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch received emails');
+    
+    // Map API response to match existing frontend expectations if necessary
+    return data.data || [];
   }
 
   async getSentEmails(fullEmail, limit = 50, offset = 0) {
-    const query = `
-      SELECT id, resend_id as email_id, from_email, to_email, subject, sent_at, status, text_content,
-             (html_content IS NOT NULL) as has_html
-      FROM emails
-      WHERE from_email = $1
-      ORDER BY sent_at DESC
-      LIMIT $2 OFFSET $3
-    `;
-    const { rows } = await pool.query(query, [fullEmail, limit, offset]);
-    return rows;
+    const response = await fetch(`https://ee-mail-production.up.railway.app/emails?domain=${fullEmail.split('@')[1]}&limit=${limit}&from=${fullEmail}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch sent emails');
+    
+    return data.data || [];
   }
 
   async getEmailDetails(id, type = 'received') {
-    const isReceived = type === 'received';
-    const table = isReceived ? 'received_emails' : 'emails';
-    const dateCol = isReceived ? 'received_at' : 'sent_at';
+    const endpoint = type === 'received' ? 'received-emails' : 'emails';
+    const response = await fetch(`https://ee-mail-production.up.railway.app/${endpoint}/${id}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to fetch email details');
     
-    const query = `SELECT *, ${dateCol} as date FROM ${table} WHERE id = $1`;
-    const { rows } = await pool.query(query, [id]);
-    return rows[0] || null;
+    const email = data.data;
+    if (email) {
+        // Map date field for frontend consistency
+        email.date = type === 'received' ? email.received_at : email.sent_at;
+    }
+    return email;
   }
 
   async isEmailOwnedByAgent(fullEmail, agentBubbleId) {
@@ -99,10 +94,21 @@ class EmailService {
   }
 
   async sendEmail({ from, to, subject, text, html, attachments }) {
+    // Ensure domain is passed for the new API
+    const domain = from.split('@')[1];
+    
     const response = await fetch('https://ee-mail-production.up.railway.app/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, subject, text, html, attachments })
+      body: JSON.stringify({ 
+        from, 
+        to, 
+        subject, 
+        text, 
+        html, 
+        attachments,
+        domain 
+      })
     });
 
     const data = await response.json();
