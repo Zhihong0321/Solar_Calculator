@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Agent Registration | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        :root {
+            --primary: #0f172a;
+            --brand-blue: #3b82f6;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-400: #94a3b8;
+            --slate-500: #64748b;
+            --slate-600: #475569;
+            --slate-900: #0f172a;
+        }
+        
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%); color: var(--slate-900); margin: 0; padding: 0; min-height: 100vh; }
+
+        .input-field {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 1px solid var(--slate-200);
+            border-radius: 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: var(--brand-blue);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+
+        .upload-box {
+            border: 2px dashed var(--slate-200);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: white;
+        }
+        .upload-box:hover {
+            border-color: var(--brand-blue);
+            background: var(--slate-50);
+        }
+        .upload-box.has-file {
+            border-style: solid;
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .btn-primary {
+            background: var(--slate-900);
+            color: white;
+            padding: 0.875rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 700;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn-primary:hover {
+            background: #1e293b;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .form-card {
+            background: white;
+            border: 1px solid var(--slate-200);
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4 md:p-8">
+
+    <div class="w-full max-w-2xl">
+        <!-- Logo & Header -->
+        <div class="flex flex-col items-center mb-10">
+            <div class="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white mb-4 shadow-xl">
+                <i class="fa-solid fa-bolt text-3xl"></i>
+            </div>
+            <h1 class="text-2xl font-black tracking-tight text-slate-900 uppercase">Eternalgy Agent OS</h1>
+            <p class="text-slate-500 font-medium mt-1">Registration Page</p>
+        </div>
+
+        <!-- Registration Form -->
+        <div class="form-card p-6 md:p-10">
+            <form id="registrationForm" class="space-y-8">
+                <!-- Personal Info -->
+                <div class="space-y-4">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Personal Information</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Full Name</label>
+                            <input type="text" id="name" name="name" required class="input-field" placeholder="As per MyKad">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Mobile Number</label>
+                            <input type="tel" id="contact" name="contact" required class="input-field" placeholder="e.g. 0123456789">
+                        </div>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Email Address</label>
+                        <input type="email" id="email" name="email" required class="input-field" placeholder="your@email.com">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Residential Address</label>
+                        <textarea id="address" name="address" required rows="3" class="input-field py-3" placeholder="Full mailing address"></textarea>
+                    </div>
+                </div>
+
+                <!-- MyKad Upload -->
+                <div class="space-y-4">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Identification (MyKad)</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Front Photo</label>
+                            <div id="box-ic-front" class="upload-box" onclick="document.getElementById('ic_front').click()">
+                                <i class="fa-solid fa-id-card text-2xl text-slate-300 mb-2"></i>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase">Click to Upload Front</p>
+                                <input type="file" id="ic_front" accept="image/*" class="hidden" onchange="handleFile(this, 'box-ic-front')">
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Back Photo</label>
+                            <div id="box-ic-back" class="upload-box" onclick="document.getElementById('ic_back').click()">
+                                <i class="fa-solid fa-id-card text-2xl text-slate-300 mb-2"></i>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase">Click to Upload Back</p>
+                                <input type="file" id="ic_back" accept="image/*" class="hidden" onchange="handleFile(this, 'box-ic-back')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Info -->
+                <div class="space-y-4">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Additional Details</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Introducer (Optional)</label>
+                            <input type="text" id="introducer" name="introducer" class="input-field" placeholder="Name or Agent ID">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Position (Optional)</label>
+                            <select id="agent_type" name="agent_type" class="input-field">
+                                <option value="">Select Position</option>
+                                <option value="Sales Agent">Sales Agent</option>
+                                <option value="Referral Partner">Referral Partner</option>
+                                <option value="Strategic Partner">Referral Strategic Partner</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Section -->
+                <div class="pt-6 border-t border-slate-100">
+                    <button type="submit" id="submitBtn" class="btn-primary">
+                        <i class="fa-solid fa-user-plus"></i>
+                        Complete Registration
+                    </button>
+                    <p class="text-center text-[10px] text-slate-400 mt-4 font-medium uppercase tracking-tighter">
+                        By registering, you agree to our Terms of Service & Privacy Policy
+                    </p>
+                </div>
+            </form>
+        </div>
+
+        <footer class="mt-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest pb-8">
+            ETERNALGY OS &bull; Enterprise Grade System
+        </footer>
+    </div>
+
+    <script>
+        const fileData = {
+            ic_front: null,
+            ic_back: null
+        };
+
+        function handleFile(input, boxId) {
+            const box = document.getElementById(boxId);
+            const file = input.files[0];
+            if (!file) return;
+
+            // Check file size (max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File is too large. Max 10MB allowed.');
+                input.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                fileData[input.id] = e.target.result;
+                box.classList.add('has-file');
+                const label = box.querySelector('p');
+                label.textContent = file.name;
+                label.classList.add('text-emerald-600');
+                box.querySelector('i').classList.replace('text-slate-300', 'text-emerald-500');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        document.getElementById('registrationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const originalContent = btn.innerHTML;
+
+            // Validation
+            if (!fileData.ic_front || !fileData.ic_back) {
+                return Swal.fire({
+                    icon: 'warning',
+                    title: 'Missing MyKad Photos',
+                    text: 'Please upload both front and back photos of your MyKad.',
+                    confirmButtonColor: '#0f172a'
+                });
+            }
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+
+                const formData = {
+                    name: document.getElementById('name').value,
+                    contact: document.getElementById('contact').value,
+                    email: document.getElementById('email').value,
+                    address: document.getElementById('address').value,
+                    introducer: document.getElementById('introducer').value,
+                    agent_type: document.getElementById('agent_type').value,
+                    ic_front: fileData.ic_front,
+                    ic_back: fileData.ic_back
+                };
+
+                const response = await fetch('/api/agent/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Registration Successful!',
+                        text: 'Your application has been received. Our team will contact you shortly.',
+                        confirmButtonColor: '#0f172a'
+                    }).then(() => {
+                        window.location.href = '/';
+                    });
+                } else {
+                    throw new Error(result.error || 'Failed to register');
+                }
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Registration Failed',
+                    text: err.message,
+                    confirmButtonColor: '#0f172a'
+                });
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        });
+    </script>
+</body>
+</html>

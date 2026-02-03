@@ -1,5 +1,7 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
@@ -56,12 +58,82 @@ app.use('/proposal', express.static('portable-proposal'));
 const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'storage');
 app.use('/uploads', express.static(storagePath));
 app.use('/seda-files', express.static(path.join(storagePath, 'seda_registration')));
+app.use('/agent-docs', express.static(path.join(storagePath, 'agent_documents')));
 
 app.get('/', (req, res) => {
   if (req.cookies.auth_token) {
     return res.redirect('/agent/home');
   }
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+
+// Agent Registration Route
+app.get('/agent-registration', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_registration.html'));
+});
+
+/**
+ * API: Agent Registration
+ */
+app.post('/api/agent/register', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { name, contact, email, address, introducer, agent_type, ic_front, ic_back } = req.body;
+
+    // Basic Validation
+    if (!name || !contact || !email) {
+      return res.status(400).json({ error: 'Name, Mobile, and Email are required.' });
+    }
+
+    const bubble_id = `agent_${crypto.randomBytes(8).toString('hex')}`;
+    const uploadDir = path.join(storagePath, 'agent_documents');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Helper to save base64 image
+    const saveImage = (base64Data, prefix) => {
+      if (!base64Data) return null;
+      const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const ext = matches[1].split('/')[1] || 'jpg';
+        const buffer = Buffer.from(matches[2], 'base64');
+        const filename = `${prefix}_${bubble_id}_${Date.now()}.${ext}`;
+        fs.writeFileSync(path.join(uploadDir, filename), buffer);
+        
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.get('host');
+        return `${protocol}://${host}/agent-docs/${filename}`;
+      }
+      return null;
+    };
+
+    const icFrontUrl = saveImage(ic_front, 'ic_front');
+    const icBackUrl = saveImage(ic_back, 'ic_back');
+
+    await client.query('BEGIN');
+
+    // Insert into agent table
+    const query = `
+      INSERT INTO agent (
+        bubble_id, name, contact, email, address, introducer, agent_type, ic_front, ic_back, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+      RETURNING *
+    `;
+    const result = await client.query(query, [
+      bubble_id, name, contact, email, address, introducer, agent_type, icFrontUrl, icBackUrl
+    ]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, agent: result.rows[0] });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Agent Registration Error:', err);
+    res.status(500).json({ error: 'Failed to complete registration.' });
+  } finally {
+    client.release();
+  }
 });
 
 app.get('/domestic', (req, res) => {

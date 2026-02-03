@@ -7,13 +7,18 @@ class EmailService {
     return rows;
   }
 
-  async claimEmailAccount(agentBubbleId, emailPrefix) {
+  async claimEmailAccount(agentBubbleId, emailPrefix, domain = 'eternalgy.me') {
+    const allowedDomains = ['atap.solar', 'eternalgy.com', 'eternalgy.me'];
+    if (!allowedDomains.includes(domain)) {
+      throw new Error('Invalid domain selected.');
+    }
+
     // 1. Validate prefix
     if (!emailPrefix || !/^[a-zA-Z0-9._-]+$/.test(emailPrefix)) {
       throw new Error('Invalid email prefix. Use only alphanumeric characters, dots, underscores, or hyphens.');
     }
 
-    const fullEmail = `${emailPrefix.toLowerCase()}@eternalgy.me`;
+    const fullEmail = `${emailPrefix.toLowerCase()}@${domain}`;
 
     const client = await pool.connect();
     try {

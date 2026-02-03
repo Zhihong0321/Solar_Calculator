@@ -156,16 +156,21 @@
     <div id="claimModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
         <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div class="p-6 border-b border-slate-100">
-                <h3 class="text-lg font-bold text-slate-900">Claim @eternalgy.me Account</h3>
+                <h3 class="text-lg font-bold text-slate-900">Claim Official Email</h3>
                 <p class="text-xs text-slate-500 mt-1">Personalize your professional presence.</p>
             </div>
             <div class="p-6 space-y-4">
                 <div>
                     <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Account Prefix</label>
-                    <div class="flex items-center">
-                        <input type="text" id="prefixInput" placeholder="yourname" class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-l-xl text-sm font-medium focus:outline-none focus:border-brand-blue transition-colors">
-                        <div class="bg-slate-100 border border-l-0 border-slate-200 px-4 py-2.5 rounded-r-xl text-sm font-bold text-slate-500">@eternalgy.me</div>
-                    </div>
+                    <input type="text" id="prefixInput" placeholder="yourname" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-brand-blue transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Select Domain</label>
+                    <select id="domainSelect" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 focus:outline-none focus:border-brand-blue transition-colors">
+                        <option value="atap.solar">@atap.solar</option>
+                        <option value="eternalgy.com">@eternalgy.com</option>
+                        <option value="eternalgy.me">@eternalgy.me</option>
+                    </select>
                     <p class="text-[9px] text-slate-400 mt-2">Only letters, numbers, dots, and hyphens allowed. Max 3 accounts.</p>
                 </div>
             </div>
@@ -449,13 +454,14 @@
 
         async function claimAccount() {
             const prefix = document.getElementById('prefixInput').value;
+            const domain = document.getElementById('domainSelect').value;
             if (!prefix) return alert('Please enter a prefix');
             
             try {
                 const res = await fetch('/api/email/accounts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prefix })
+                    body: JSON.stringify({ prefix, domain })
                 });
                 const data = await res.json();
                 if (data.success) {

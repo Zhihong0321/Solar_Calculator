@@ -48,9 +48,9 @@ router.get('/api/email/accounts', requireAuth, resolveAgent, async (req, res) =>
  * Claim a new email account
  */
 router.post('/api/email/accounts', requireAuth, resolveAgent, async (req, res) => {
-  const { prefix } = req.body;
+  const { prefix, domain } = req.body;
   try {
-    const account = await emailService.claimEmailAccount(req.agentBubbleId, prefix);
+    const account = await emailService.claimEmailAccount(req.agentBubbleId, prefix, domain);
     res.json({ success: true, account });
   } catch (err) {
     res.status(400).json({ error: err.message });
