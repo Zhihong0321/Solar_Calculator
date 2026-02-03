@@ -98,11 +98,11 @@ class EmailService {
     return rows.length > 0;
   }
 
-  async sendEmail({ from, to, subject, text, html }) {
+  async sendEmail({ from, to, subject, text, html, attachments }) {
     const response = await fetch('https://ee-mail-production.up.railway.app/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, subject, text, html })
+      body: JSON.stringify({ from, to, subject, text, html, attachments })
     });
 
     const data = await response.json();

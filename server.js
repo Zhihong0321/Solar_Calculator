@@ -85,14 +85,22 @@ app.post('/api/agent/register', async (req, res) => {
       return res.status(400).json({ error: 'Name, Mobile, and Email are required.' });
     }
 
-    const bubble_id = `agent_${crypto.randomBytes(8).toString('hex')}`;
+    // Check if email already exists in user table
+    const checkUser = await client.query('SELECT id FROM "user" WHERE email = $1', [email]);
+    if (checkUser.rows.length > 0) {
+      return res.status(400).json({ error: 'This email is already registered.' });
+    }
+
+    const agent_bubble_id = `agent_${crypto.randomBytes(8).toString('hex')}`;
+    const user_bubble_id = `user_${crypto.randomBytes(8).toString('hex')}`;
+    
     const uploadDir = path.join(storagePath, 'agent_documents');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
     // Helper to save base64 image
-    const saveImage = (base64Data, prefix) => {
+    const saveImage = (base64Data, prefix, bubble_id) => {
       if (!base64Data) return null;
       const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (matches && matches.length === 3) {
@@ -108,24 +116,37 @@ app.post('/api/agent/register', async (req, res) => {
       return null;
     };
 
-    const icFrontUrl = saveImage(ic_front, 'ic_front');
-    const icBackUrl = saveImage(ic_back, 'ic_back');
+    const icFrontUrl = saveImage(ic_front, 'ic_front', agent_bubble_id);
+    const icBackUrl = saveImage(ic_back, 'ic_back', agent_bubble_id);
 
     await client.query('BEGIN');
 
-    // Insert into agent table
-    const query = `
-      INSERT INTO agent (
-        bubble_id, name, contact, email, address, introducer, agent_type, ic_front, ic_back, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+    // 1. Create User first
+    const userQuery = `
+      INSERT INTO "user" (
+        bubble_id, email, access_level, linked_agent_profile, user_signed_up, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       RETURNING *
     `;
-    const result = await client.query(query, [
-      bubble_id, name, contact, email, address, introducer, agent_type, icFrontUrl, icBackUrl
+    await client.query(userQuery, [
+      user_bubble_id, email, ['pending'], agent_bubble_id, false
+    ]);
+
+    // 2. Create Agent linked back to user
+    const agentQuery = `
+      INSERT INTO agent (
+        bubble_id, name, contact, email, address, introducer, agent_type, 
+        ic_front, ic_back, linked_user_login, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      RETURNING *
+    `;
+    const agentResult = await client.query(agentQuery, [
+      agent_bubble_id, name, contact, email, address, introducer, agent_type, 
+      icFrontUrl, icBackUrl, user_bubble_id
     ]);
 
     await client.query('COMMIT');
-    res.json({ success: true, agent: result.rows[0] });
+    res.json({ success: true, agent: agentResult.rows[0] });
 
   } catch (err) {
     await client.query('ROLLBACK');

@@ -136,7 +136,7 @@ router.get('/api/email/details/:id', requireAuth, resolveAgent, async (req, res)
  * Send a new email
  */
 router.post('/api/email/send', requireAuth, resolveAgent, async (req, res) => {
-  const { from, to, subject, text, html } = req.body;
+  const { from, to, subject, text, html, attachments } = req.body;
   try {
     // Security check: ensure agent owns the "from" email
     const owned = await emailService.isEmailOwnedByAgent(from, req.agentBubbleId);
@@ -144,7 +144,7 @@ router.post('/api/email/send', requireAuth, resolveAgent, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized: You do not own this email account.' });
     }
 
-    const result = await emailService.sendEmail({ from, to, subject, text, html });
+    const result = await emailService.sendEmail({ from, to, subject, text, html, attachments });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
