@@ -131,4 +131,37 @@ router.get('/api/email/details/:id', requireAuth, resolveAgent, async (req, res)
   }
 });
 
+/**
+ * POST /api/email/send
+ * Send a new email
+ */
+router.post('/api/email/send', requireAuth, resolveAgent, async (req, res) => {
+  const { from, to, subject, text, html } = req.body;
+  try {
+    // Security check: ensure agent owns the "from" email
+    const owned = await emailService.isEmailOwnedByAgent(from, req.agentBubbleId);
+    if (!owned) {
+      return res.status(403).json({ error: 'Unauthorized: You do not own this email account.' });
+    }
+
+    const result = await emailService.sendEmail({ from, to, subject, text, html });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/email/stats
+ * Get overall email statistics
+ */
+router.get('/api/email/stats', requireAuth, async (req, res) => {
+  try {
+    const stats = await emailService.getEmailStats();
+    res.json({ success: true, stats });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

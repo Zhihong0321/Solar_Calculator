@@ -53,8 +53,8 @@ class EmailService {
 
   async getReceivedEmails(fullEmail, limit = 50, offset = 0) {
     const query = `
-      SELECT id, from_email, to_email, subject, received_at, text_content, 
-             (html_content IS NOT NULL) as has_html
+      SELECT id, email_id, from_email, to_email, subject, received_at, text_content, 
+             (html_content IS NOT NULL) as has_html, attachments
       FROM received_emails
       WHERE to_email = $1
       ORDER BY received_at DESC
@@ -66,7 +66,7 @@ class EmailService {
 
   async getSentEmails(fullEmail, limit = 50, offset = 0) {
     const query = `
-      SELECT id, from_email, to_email, subject, sent_at, status, text_content,
+      SELECT id, resend_id as email_id, from_email, to_email, subject, sent_at, status, text_content,
              (html_content IS NOT NULL) as has_html
       FROM emails
       WHERE from_email = $1
@@ -91,6 +91,29 @@ class EmailService {
     const query = 'SELECT id FROM agent_email_accounts WHERE full_email = $1 AND agent_bubble_id = $2';
     const { rows } = await pool.query(query, [fullEmail, agentBubbleId]);
     return rows.length > 0;
+  }
+
+  async sendEmail({ from, to, subject, text, html }) {
+    const response = await fetch('https://ee-mail-production.up.railway.app/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to, subject, text, html })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to send email');
+    }
+    return data;
+  }
+
+  async getEmailStats() {
+    const response = await fetch('https://ee-mail-production.up.railway.app/stats');
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to fetch email stats');
+    }
+    return data.data;
   }
 }
 

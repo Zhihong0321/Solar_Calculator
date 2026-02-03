@@ -119,6 +119,10 @@
                 </div>
             </div>
             <div class="flex items-center gap-3">
+                <button onclick="showComposeModal()" id="btnCompose" class="hidden md:flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-800 transition-all">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span>Compose</span>
+                </button>
                 <button onclick="refreshEmails()" class="p-2 text-slate-400 hover:text-slate-600">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
@@ -172,6 +176,42 @@
         </div>
     </div>
 
+    <!-- Compose Email Modal -->
+    <div id="composeModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">New Message</h3>
+                    <p id="composeFrom" class="text-xs text-slate-500 mt-1">From: ...</p>
+                </div>
+                <button onclick="hideComposeModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Recipient</label>
+                    <input type="email" id="composeTo" placeholder="customer@example.com" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-brand-blue transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Subject</label>
+                    <input type="text" id="composeSubject" placeholder="Regarding your solar quote" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-brand-blue transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Message</label>
+                    <textarea id="composeText" rows="10" placeholder="Type your message here..." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-brand-blue transition-colors resize-none"></textarea>
+                </div>
+            </div>
+            <div class="p-6 bg-slate-50 flex gap-3">
+                <button onclick="hideComposeModal()" class="px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-all text-sm">Discard</button>
+                <button onclick="sendEmail()" id="btnSendEmail" class="flex-1 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-all text-sm flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Send Message</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentEmail = null;
         let currentTab = 'received';
@@ -207,8 +247,62 @@
             currentEmail = email;
             document.getElementById('currentAccountTitle').textContent = email;
             document.getElementById('inboxSentToggle').classList.remove('hidden');
+            document.getElementById('btnCompose').classList.remove('hidden');
             renderAccounts();
             loadEmails();
+        }
+
+        function showComposeModal() {
+            if (!currentEmail) return alert('Please select an account first');
+            document.getElementById('composeFrom').textContent = `From: ${currentEmail}`;
+            document.getElementById('composeModal').classList.remove('hidden');
+        }
+
+        function hideComposeModal() {
+            document.getElementById('composeModal').classList.add('hidden');
+            // Clear inputs
+            document.getElementById('composeTo').value = '';
+            document.getElementById('composeSubject').value = '';
+            document.getElementById('composeText').value = '';
+        }
+
+        async function sendEmail() {
+            const to = document.getElementById('composeTo').value;
+            const subject = document.getElementById('composeSubject').value;
+            const text = document.getElementById('composeText').value;
+            const btn = document.getElementById('btnSendEmail');
+
+            if (!to || !subject || !text) return alert('Please fill in all fields');
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Sending...';
+
+                const res = await fetch('/api/email/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        from: currentEmail,
+                        to,
+                        subject,
+                        text
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    alert('Email sent successfully!');
+                    hideComposeModal();
+                    if (currentTab === 'sent') loadEmails();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Failed to send email: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Message';
+            }
         }
 
         function switchTab(tab) {
@@ -260,9 +354,20 @@
                         <span class="text-xs font-bold text-slate-900 truncate max-w-[150px]">
                             ${currentTab === 'received' ? email.from_email : email.to_email}
                         </span>
-                        <span class="text-[9px] text-slate-400 font-bold uppercase whitespace-nowrap">
-                            ${new Date(email.received_at || email.sent_at).toLocaleDateString()}
-                        </span>
+                        <div class="flex flex-col items-end">
+                            <span class="text-[9px] text-slate-400 font-bold uppercase whitespace-nowrap">
+                                ${new Date(email.received_at || email.sent_at).toLocaleDateString()}
+                            </span>
+                            ${currentTab === 'sent' ? `
+                                <span class="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md mt-1 ${
+                                    email.status === 'sent' ? 'bg-blue-50 text-blue-600' : 
+                                    email.status === 'delivered' ? 'bg-green-50 text-green-600' : 
+                                    'bg-slate-50 text-slate-500'
+                                }">
+                                    ${email.status}
+                                </span>
+                            ` : ''}
+                        </div>
                     </div>
                     <p class="text-[11px] font-bold text-slate-700 truncate">${email.subject || '(No Subject)'}</p>
                     <p class="text-[10px] text-slate-400 line-clamp-2 mt-1">${email.text_content || '...'}</p>
@@ -300,8 +405,17 @@
                                 <p class="text-xs font-bold text-slate-900">${email.from_email}</p>
                                 <p class="text-[10px] text-slate-400 font-medium">To: ${email.to_email}</p>
                             </div>
-                            <div class="ml-auto text-[10px] text-slate-400 font-bold uppercase">
-                                ${new Date(email.date).toLocaleString()}
+                            <div class="ml-auto flex flex-col items-end gap-1">
+                                <div class="text-[10px] text-slate-400 font-bold uppercase">
+                                    ${new Date(email.date).toLocaleString()}
+                                </div>
+                                ${email.status ? `
+                                    <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-lg ${
+                                        email.status === 'sent' ? 'bg-blue-100 text-blue-700' : 
+                                        email.status === 'delivered' ? 'bg-green-100 text-green-700' : 
+                                        'bg-slate-100 text-slate-600'
+                                    }">${email.status}</span>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -317,10 +431,11 @@
                             <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Attachments</h4>
                             <div class="flex flex-wrap gap-2">
                                 ${email.attachments.map(att => `
-                                    <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600">
+                                    <a href="https://ee-mail-production.up.railway.app/attachments/${email.email_id || email.id}/${encodeURIComponent(att.filename)}/download" target="_blank" class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">
                                         <i class="fa-solid fa-file"></i>
                                         <span>${att.filename || 'Attachment'}</span>
-                                    </div>
+                                        <i class="fa-solid fa-download ml-2 text-[10px] text-slate-400"></i>
+                                    </a>
                                 `).join('')}
                             </div>
                         </div>
