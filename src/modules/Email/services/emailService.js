@@ -8,7 +8,7 @@ class EmailService {
   }
 
   async claimEmailAccount(agentBubbleId, emailPrefix, domain = 'eternalgy.me') {
-    const allowedDomains = ['atap.solar', 'eternalgy.com', 'eternalgy.me'];
+    const allowedDomains = ['brightfield.com.my', 'eternalgy.com', 'eternalgy.me'];
     if (!allowedDomains.includes(domain)) {
       throw new Error('Invalid domain selected.');
     }
