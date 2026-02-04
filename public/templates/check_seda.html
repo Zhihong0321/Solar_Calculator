@@ -194,7 +194,21 @@
 
                 if (!result.success) throw new Error(result.error);
                 
-                const profiles = Array.isArray(result.data) ? result.data : (result.data ? [result.data] : []);
+                // Handle different response formats from SEDA Manager
+                let profiles = [];
+                const rawData = result.data;
+
+                if (Array.isArray(rawData)) {
+                    profiles = rawData;
+                } else if (rawData && typeof rawData === 'object') {
+                    if (rawData.detail) {
+                        // Error message from API like "Profile not found"
+                        listEl.innerHTML = `<div class="p-12 text-center text-slate-400 text-sm font-medium">${rawData.detail}</div>`;
+                        return;
+                    }
+                    // Might be a single profile object from search
+                    profiles = [rawData];
+                }
                 
                 if (profiles.length === 0) {
                     listEl.innerHTML = `<div class="p-12 text-center text-slate-400 text-sm font-medium">No profiles found</div>`;
@@ -244,7 +258,9 @@
 
                 if (!result.success) throw new Error(result.error);
                 
-                const apps = result.data || [];
+                // The SEDA Manager API returns { success: true, applications: [...], ... }
+                // Since our proxy wraps it as { success: true, data: { ... } }
+                const apps = result.data?.applications || [];
                 
                 if (apps.length === 0) {
                     listEl.innerHTML = `<div class="p-12 text-center text-slate-400 text-sm font-medium">No applications found matching "${keyword}"</div>`;
