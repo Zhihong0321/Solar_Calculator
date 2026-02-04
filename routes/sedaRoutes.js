@@ -758,4 +758,38 @@ router.post('/api/v1/seda/:id', async (req, res) => {
     }
 });
 
+/**
+ * GET /check-seda
+ * Render the Check SEDA page
+ */
+router.get('/check-seda', requireAuth, (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const templatePath = path.join(__dirname, '..', 'public', 'templates', 'check_seda.html');
+    res.sendFile(templatePath);
+});
+
+/**
+ * PROXY ROUTES for SEDA Manager API
+ * This avoids CORS issues and keeps the external URL central.
+ */
+const SEDA_MANAGER_URL = 'https://seda-manager-production.up.railway.app';
+
+router.get('/api/v1/seda-proxy/*', requireAuth, async (req, res) => {
+    const subPath = req.params[0];
+    const query = new URLSearchParams(req.query).toString();
+    const targetUrl = `${SEDA_MANAGER_URL}/api/v1/${subPath}${query ? '?' + query : ''}`;
+    
+    try {
+        const response = await fetch(targetUrl);
+        const data = await response.json();
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error('[SEDA Proxy] Error:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch from SEDA Manager' });
+    }
+});
+
 module.exports = router;

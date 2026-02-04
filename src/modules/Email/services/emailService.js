@@ -61,8 +61,22 @@ class EmailService {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch received emails');
     
-    // Map API response to match existing frontend expectations if necessary
-    return data.data || [];
+    const emails = data.data || [];
+    if (emails.length > 0) {
+      // Sync is_read status from local DB
+      const ids = emails.map(e => e.id);
+      const { rows } = await pool.query('SELECT id, is_read FROM received_emails WHERE id = ANY($1)', [ids]);
+      const readStatusMap = rows.reduce((map, row) => {
+        map[row.id] = row.is_read;
+        return map;
+      }, {});
+
+      emails.forEach(e => {
+        e.is_read = readStatusMap[e.id] || false;
+      });
+    }
+
+    return emails;
   }
 
   async getSentEmails(fullEmail, limit = 50, offset = 0) {
@@ -83,8 +97,26 @@ class EmailService {
     if (email) {
         // Map date field for frontend consistency
         email.date = type === 'received' ? email.received_at : email.sent_at;
+
+        if (type === 'received') {
+          // Sync is_read status from local DB
+          const { rows } = await pool.query('SELECT is_read FROM received_emails WHERE id = $1', [id]);
+          email.is_read = rows.length > 0 ? rows[0].is_read : false;
+
+          // Automatically mark as read if it's currently unread
+          if (!email.is_read) {
+            await this.markAsRead(id);
+            email.is_read = true;
+          }
+        }
     }
     return email;
+  }
+
+  async markAsRead(id) {
+    const query = 'UPDATE received_emails SET is_read = TRUE WHERE id = $1';
+    await pool.query(query, [id]);
+    return true;
   }
 
   async isEmailOwnedByAgent(fullEmail, agentBubbleId) {

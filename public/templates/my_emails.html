@@ -427,7 +427,7 @@
             }
 
             list.innerHTML = emails.map(email => `
-                <div onclick="loadEmailDetail(${email.id})" class="email-item p-4">
+                <div onclick="loadEmailDetail(${email.id})" class="email-item p-4 ${currentTab === 'received' && !email.is_read ? 'unread' : ''}" data-email-id="${email.id}">
                     <div class="flex justify-between items-start mb-1">
                         <span class="text-xs font-bold text-slate-900 truncate max-w-[150px]">
                             ${currentTab === 'received' ? email.from_email : email.to_email}
@@ -465,6 +465,9 @@
                 const data = await res.json();
                 if (data.success) {
                     renderEmailDetail(data.email);
+                    // Mark as read in UI
+                    const el = document.querySelector(`.email-item[data-email-id="${id}"]`);
+                    if (el) el.classList.remove('unread');
                 }
             } catch (err) {
                 detail.innerHTML = `<div class="p-10 text-center text-red-400 text-xs">${err.message}</div>`;
