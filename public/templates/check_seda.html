@@ -78,8 +78,6 @@
             color: white;
         }
 
-    <style>
-        /* ... previous styles ... */
         .no-margin-divider > div {
             border-bottom: 1px solid var(--slate-100);
         }
@@ -127,8 +125,60 @@
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
-    <!-- ... nav and search container ... -->
-    
+
+    <!-- Top Navigation -->
+    <nav class="top-nav px-4 sm:px-6 lg:px-8 py-3">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <button onclick="NavManager.goBack()" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                    <i class="fa-solid fa-arrow-left text-slate-600"></i>
+                </button>
+                <a href="/agent/home" class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white">
+                        <i class="fa-solid fa-bolt text-sm"></i>
+                    </div>
+                    <span class="text-sm font-bold tracking-tight text-slate-900">ETERNALGY OS</span>
+                </a>
+                <div class="h-4 w-px bg-slate-200 mx-2 hidden sm:block"></div>
+                <h1 class="text-sm font-bold text-slate-500">Check SEDA</h1>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tabs & Search -->
+    <div class="search-container px-4 sm:px-6 lg:px-8">
+        <div class="max-w-5xl mx-auto space-y-6">
+            <div class="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+                <button onclick="switchTab('profiles')" id="tab-profiles" class="tab-btn active">Profiles List</button>
+                <button onclick="switchTab('trace')" id="tab-trace" class="tab-btn">Trace Application</button>
+            </div>
+
+            <!-- Profiles Search -->
+            <div id="profiles-search" class="flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="profileQuery" placeholder="Search profiles by name..." 
+                        class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all">
+                </div>
+                <button onclick="fetchProfiles(0)" class="px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                    Search Profiles
+                </button>
+            </div>
+
+            <!-- Trace Search -->
+            <div id="trace-search" class="hidden flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-hashtag absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="traceKeyword" placeholder="Enter keyword (App No, IC, CA, Officer...)" 
+                        class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all">
+                </div>
+                <button onclick="traceApplications()" class="px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                    Trace Status
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Results Area -->
     <main class="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-8 flex flex-col gap-4">
         <div id="resultsWrapper" class="flex flex-col">
@@ -143,7 +193,7 @@
                 </div>
             </div>
             
-            <!-- Pagination Bar (Outside for visibility) -->
+            <!-- Pagination Bar -->
             <div id="paginationBar" class="pagination-bar hidden">
                 <button id="prevBtn" class="page-btn" disabled>
                     <i class="fa-solid fa-chevron-left"></i>
@@ -162,9 +212,27 @@
     <script>
         let currentTab = 'profiles';
         let currentOffset = 0;
-        const PAGE_LIMIT = 10; // Lowered for better mobile experience
+        const PAGE_LIMIT = 10;
 
-        // ... switchTab function ...
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('tab-profiles').classList.toggle('active', tab === 'profiles');
+            document.getElementById('tab-trace').classList.toggle('active', tab === 'trace');
+            
+            document.getElementById('profiles-search').classList.toggle('hidden', tab !== 'profiles');
+            document.getElementById('trace-search').classList.toggle('hidden', tab !== 'trace');
+            
+            document.getElementById('paginationBar').classList.add('hidden');
+            document.getElementById('resultsList').innerHTML = `
+                <div class="py-24 text-center">
+                    <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                        <i class="fa-solid fa-magnifying-glass text-2xl text-slate-300"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest">Ready to Search</h3>
+                    <p class="text-xs text-slate-400 mt-2">Enter details above to fetch data from SEDA Manager</p>
+                </div>
+            `;
+        }
 
         async function fetchProfiles(offset = 0) {
             const query = document.getElementById('profileQuery').value;
@@ -224,10 +292,9 @@
                     </div>
                 `).join('');
 
-                // Update Pagination
                 if (total > PAGE_LIMIT) {
                     paginationBar.classList.remove('hidden');
-                    paginationBar.style.display = 'flex'; // Ensure visible
+                    paginationBar.style.display = 'flex';
                     const start = offset + 1;
                     const end = Math.min(offset + PAGE_LIMIT, total);
                     document.getElementById('paginationInfo').textContent = `${start}-${end} / ${total}`;
@@ -246,7 +313,6 @@
                 listEl.innerHTML = `<div class="p-12 text-center text-red-500 text-xs font-bold uppercase">${err.message}</div>`;
             }
         }
-        // ... rest of script ...
 
         async function traceApplications() {
             const keyword = document.getElementById('traceKeyword').value;
