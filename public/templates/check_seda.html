@@ -274,8 +274,8 @@
                                 <i class="fa-solid fa-file-lines"></i>
                             </div>
                             <div>
-                                <h4 class="text-sm font-bold text-slate-800">${a.application_no || 'N/A'}</h4>
-                                <p class="text-[11px] text-slate-500 font-medium mt-0.5">${a.customer_name || 'Unknown'}</p>
+                                <h4 class="text-sm font-bold text-slate-800">${a.application_number || 'N/A'}</h4>
+                                <p class="text-[11px] text-slate-500 font-medium mt-0.5">${a.applicant || 'Unknown'}</p>
                                 <div class="flex flex-wrap items-center gap-2 mt-2">
                                     <span class="badge ${a.status?.toLowerCase().includes('approved') ? 'badge-success' : 'badge-info'}">${a.status || 'Unknown'}</span>
                                     <span class="text-[9px] text-slate-400 font-bold uppercase">Officer: ${a.seda_officer || 'N/A'}</span>
