@@ -7,9 +7,16 @@
 // Helper function to find the closest tariff based on adjusted total (bill + afa)
 const findClosestTariff = async (client, targetAmount, afaRate) => {
   const query = `
-    SELECT *, (COALESCE(bill_total_normal, 0)::numeric + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)) as adjusted_total
-    FROM tnb_tariff_2025
-    WHERE (COALESCE(bill_total_normal, 0)::numeric + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)) <= $1::numeric
+    SELECT *,
+      (
+        (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
+        + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)
+      ) as adjusted_total
+    FROM domestic_am_tariff
+    WHERE (
+      (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
+      + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)
+    ) <= $1::numeric
     ORDER BY adjusted_total DESC
     LIMIT 1
   `;
@@ -21,8 +28,12 @@ const findClosestTariff = async (client, targetAmount, afaRate) => {
 
   // Fallback to lowest
   const fallbackQuery = `
-    SELECT *, (COALESCE(bill_total_normal, 0)::numeric + (COALESCE(usage_kwh, 0)::numeric * $1::numeric)) as adjusted_total
-    FROM tnb_tariff_2025
+    SELECT *,
+      (
+        (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
+        + (COALESCE(usage_kwh, 0)::numeric * $1::numeric)
+      ) as adjusted_total
+    FROM domestic_am_tariff
     ORDER BY adjusted_total ASC
     LIMIT 1
   `;
@@ -34,7 +45,7 @@ const findClosestTariff = async (client, targetAmount, afaRate) => {
 const lookupTariffByUsage = async (client, usageValue) => {
     if (usageValue <= 0) {
        const lowestUsageQuery = `
-           SELECT * FROM tnb_tariff_2025
+           SELECT * FROM domestic_am_tariff
            ORDER BY usage_kwh ASC
            LIMIT 1
        `;
@@ -42,7 +53,7 @@ const lookupTariffByUsage = async (client, usageValue) => {
        return res.rows.length > 0 ? res.rows[0] : null;
     } else {
        const tariffQuery = `
-         SELECT * FROM tnb_tariff_2025
+         SELECT * FROM domestic_am_tariff
          WHERE usage_kwh <= $1
          ORDER BY usage_kwh DESC
          LIMIT 1
@@ -52,7 +63,7 @@ const lookupTariffByUsage = async (client, usageValue) => {
        
        // Fallback
        const fallbackQuery = `
-         SELECT * FROM tnb_tariff_2025
+         SELECT * FROM domestic_am_tariff
          ORDER BY usage_kwh ASC
          LIMIT 1
        `;
@@ -74,17 +85,19 @@ const buildBillBreakdown = (tariffRow, afaRate) => {
     return null;
   }
 
-  const usage = parseCurrencyValue(tariffRow.usage_normal);
-  const network = parseCurrencyValue(tariffRow.network);
-  const capacity = parseCurrencyValue(tariffRow.capacity);
-  const sst = parseCurrencyValue(tariffRow.sst_normal);
-  const eei = parseCurrencyValue(tariffRow.eei);
+  const usage = parseCurrencyValue(tariffRow.energy_charge ?? tariffRow.usage_normal);
+  const network = parseCurrencyValue(tariffRow.network_charge ?? tariffRow.network);
+  const capacity = parseCurrencyValue(tariffRow.capacity_charge ?? tariffRow.capacity);
+  const sst = parseCurrencyValue(tariffRow.sst_tax ?? tariffRow.sst_normal);
+  const eei = parseCurrencyValue(tariffRow.energy_efficiency_incentive ?? tariffRow.eei);
   const usageKwh = parseCurrencyValue(tariffRow.usage_kwh);
+  const fuelAdjustment = parseCurrencyValue(tariffRow.fuel_adjustment);
   const afa = usageKwh * afaRate;
-  const total = parseCurrencyValue(
-    tariffRow.bill_total_normal,
+  const baseTotal = parseCurrencyValue(
+    tariffRow.total_bill ?? tariffRow.bill_total_normal,
     usage + network + capacity + sst + eei
-  ) + afa;
+  ) - fuelAdjustment;
+  const total = baseTotal + afa;
 
   return {
     usage,
@@ -112,7 +125,7 @@ const calculateBreakdownDelta = (beforeValue, afterValue) => {
  * @param {object} pool - Database pool
  * @param {object} params - Input parameters
  */
-async function calculateSolarSavings(pool, params) {
+async function calculateSolarSavings(mainPool, tariffPool, params) {
     const {
       amount,
       sunPeakHour,
@@ -158,10 +171,11 @@ async function calculateSolarSavings(pool, params) {
     if (!morningPercent || morningPercent < 1 || morningPercent > 100) throw new Error('Morning Usage must be between 1% and 100%');
     if (!smp || smp < 0.19 || smp > 0.2703) throw new Error('SMP price must be between RM 0.19 and RM 0.2703');
 
-    const client = await pool.connect();
+    const tariffClient = await tariffPool.connect();
+    const mainClient = await mainPool.connect();
     
     try {
-        const tariff = await findClosestTariff(client, billAmount, historicalAfaRate);
+        const tariff = await findClosestTariff(tariffClient, billAmount, historicalAfaRate);
 
         if (!tariff) {
           throw new Error('No tariff data found for calculation');
@@ -192,7 +206,7 @@ async function calculateSolarSavings(pool, params) {
             ORDER BY p.price ASC
             LIMIT 1
           `;
-          packageResult = await client.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
+          packageResult = await mainClient.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
         } else {
           const packageByWattQuery = `
             SELECT p.*
@@ -209,7 +223,7 @@ async function calculateSolarSavings(pool, params) {
             ORDER BY p.price ASC
             LIMIT 1
           `;
-          packageResult = await client.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage]);
+          packageResult = await mainClient.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage]);
         }
 
         let selectedPackage = null;
@@ -258,8 +272,8 @@ async function calculateSolarSavings(pool, params) {
         const backupGenerationKwh = Math.min(exceededGeneration, netUsageKwh * 0.1);
         const donatedKwh = Math.max(0, exceededGeneration - backupGenerationKwh);
 
-        const baselineTariff = await lookupTariffByUsage(client, netUsageBaselineForLookup);
-        const afterTariff = await lookupTariffByUsage(client, netUsageForLookup);
+        const baselineTariff = await lookupTariffByUsage(tariffClient, netUsageBaselineForLookup);
+        const afterTariff = await lookupTariffByUsage(tariffClient, netUsageForLookup);
 
         // Savings
         const morningUsageRate = 0.4869;
@@ -530,7 +544,8 @@ async function calculateSolarSavings(pool, params) {
         };
 
     } finally {
-        client.release();
+        tariffClient.release();
+        mainClient.release();
     }
 }
 

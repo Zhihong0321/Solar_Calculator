@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../../../core/database/pool');
+const tariffPool = require('../../../core/database/tariffPool');
 const { findClosestTariff, calculateSolarSavings } = require('../services/solarCalculatorService');
 
 const router = express.Router();
@@ -33,11 +34,11 @@ router.get('/api/schema', async (req, res) => {
   }
 });
 
-// API endpoint to get tnb_tariff_2025 data
+// API endpoint to get tariff data
 router.get('/api/tnb-tariff', async (req, res) => {
   try {
-    const client = await pool.connect();
-    const result = await client.query('SELECT * FROM tnb_tariff_2025 LIMIT 10');
+    const client = await tariffPool.connect();
+    const result = await client.query('SELECT * FROM domestic_am_tariff LIMIT 10');
     client.release();
     res.json({ data: result.rows, count: result.rowCount });
   } catch (err) {
@@ -203,7 +204,7 @@ router.get('/api/calculate-bill', async (req, res) => {
     const inputAmount = parseFloat(req.query.amount);
     const historicalAfaRate = parseFloat(req.query.afaRate) || 0;
     if (!inputAmount || inputAmount <= 0) return res.status(400).json({ error: 'Invalid bill amount' });
-    client = await pool.connect();
+    client = await tariffPool.connect();
     const tariff = await findClosestTariff(client, inputAmount, historicalAfaRate);
     if (!tariff) return res.status(404).json({ error: 'No tariff data found' });
     res.json({ tariff, inputAmount, afaRate: historicalAfaRate });
@@ -217,7 +218,7 @@ router.get('/api/calculate-bill', async (req, res) => {
 // API endpoint for solar savings calculation
 router.get('/api/solar-calculation', async (req, res) => {
   try {
-    const result = await calculateSolarSavings(pool, req.query);
+    const result = await calculateSolarSavings(pool, tariffPool, req.query);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Failed to calculate solar savings', details: err.message });
@@ -314,16 +315,32 @@ router.get('/api/packages', async (req, res) => {
 
 router.get('/api/all-data', async (req, res) => {
   try {
-    const client = await pool.connect();
-    const tariffs = await client.query('SELECT usage_kwh, usage_normal, network, capacity, sst_normal, eei, bill_total_normal, retail, kwtbb_normal FROM tnb_tariff_2025 ORDER BY usage_kwh ASC');
-    const packages = await client.query(`
+    const tariffClient = await tariffPool.connect();
+    const mainClient = await pool.connect();
+    const tariffs = await tariffClient.query(`
+      SELECT
+        usage_kwh,
+        energy_charge AS usage_normal,
+        network_charge AS network,
+        capacity_charge AS capacity,
+        sst_tax AS sst_normal,
+        energy_efficiency_incentive AS eei,
+        total_bill AS bill_total_normal,
+        retail_charge AS retail,
+        kwtbb_fund AS kwtbb_normal,
+        fuel_adjustment
+      FROM domestic_am_tariff
+      ORDER BY usage_kwh ASC
+    `);
+    const packages = await mainClient.query(`
       SELECT p.id, p.bubble_id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special, p.max_discount, p.invoice_desc,
              pr.bubble_id as product_bubble_id, pr.solar_output_rating
       FROM package p
       JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
       WHERE p.active = true
     `);
-    client.release();
+    tariffClient.release();
+    mainClient.release();
     res.json({ tariffs: tariffs.rows, packages: packages.rows });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch all data', details: err.message });
