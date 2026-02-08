@@ -19,6 +19,7 @@ npm install
 2. Configure environment variables (copy from Railway):
 ```bash
 DATABASE_URL=your_postgresql_connection_string
+DATABASE_URL_TARIFF=your_tariff_postgresql_connection_string
 ```
 
 3. Start the application:

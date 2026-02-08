@@ -1,7 +1,11 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const connectionString = 'postgresql://postgres:tkaYtCcfkqfsWKjQguFMqIcANbJNcNZA@shinkansen.proxy.rlwy.net:34999/railway';
+const connectionString = process.env.DATABASE_URL_TARIFF || process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL_TARIFF (or DATABASE_URL) is required to run this script.');
+}
 
 const pool = new Pool({
   connectionString: connectionString,
@@ -13,8 +17,8 @@ async function checkUsage() {
     const client = await pool.connect();
     
     const result = await client.query(`
-      SELECT usage_kwh, bill_total_normal 
-      FROM tnb_tariff_2025 
+      SELECT usage_kwh, total_bill 
+      FROM domestic_am_tariff 
       WHERE usage_kwh = 2080
     `);
     
@@ -23,9 +27,9 @@ async function checkUsage() {
         
         // Find the closest records
         const closestResult = await client.query(`
-          (SELECT usage_kwh, bill_total_normal FROM tnb_tariff_2025 WHERE usage_kwh < 2080 ORDER BY usage_kwh DESC LIMIT 1)
+          (SELECT usage_kwh, total_bill FROM domestic_am_tariff WHERE usage_kwh < 2080 ORDER BY usage_kwh DESC LIMIT 1)
           UNION ALL
-          (SELECT usage_kwh, bill_total_normal FROM tnb_tariff_2025 WHERE usage_kwh > 2080 ORDER BY usage_kwh ASC LIMIT 1)
+          (SELECT usage_kwh, total_bill FROM domestic_am_tariff WHERE usage_kwh > 2080 ORDER BY usage_kwh ASC LIMIT 1)
         `);
         console.log('Closest records:');
         console.table(closestResult.rows);

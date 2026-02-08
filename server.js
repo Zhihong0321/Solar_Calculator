@@ -14,17 +14,32 @@ app.use(express.static('public'));
 // Database connection
 const { Pool } = require('pg');
 
+const mainConnectionString = process.env.DATABASE_URL;
+const tariffConnectionString = process.env.DATABASE_URL_TARIFF || process.env.DATABASE_URL;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:tkaYtCcfkqfsWKjQguFMqIcANbJNcNZA@shinkansen.proxy.rlwy.net:34999/railway',
+  connectionString: mainConnectionString,
+  ssl: { rejectUnauthorized: false }
+});
+
+const tariffPool = new Pool({
+  connectionString: tariffConnectionString,
   ssl: { rejectUnauthorized: false }
 });
 
 // Helper function to find the closest tariff based on adjusted total (bill + afa)
 const findClosestTariff = async (client, targetAmount, afaRate) => {
   const query = `
-    SELECT *, (COALESCE(bill_total_normal, 0)::numeric + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)) as adjusted_total
-    FROM tnb_tariff_2025
-    WHERE (COALESCE(bill_total_normal, 0)::numeric + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)) <= $1::numeric
+    SELECT *,
+      (
+        (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
+        + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)
+      ) as adjusted_total
+    FROM domestic_am_tariff
+    WHERE (
+      (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
+      + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)
+    ) <= $1::numeric
     ORDER BY adjusted_total DESC
     LIMIT 1
   `;
@@ -36,8 +51,12 @@ const findClosestTariff = async (client, targetAmount, afaRate) => {
 
   // Fallback to lowest
   const fallbackQuery = `
-    SELECT *, (COALESCE(bill_total_normal, 0)::numeric + (COALESCE(usage_kwh, 0)::numeric * $1::numeric)) as adjusted_total
-    FROM tnb_tariff_2025
+    SELECT *,
+      (
+        (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
+        + (COALESCE(usage_kwh, 0)::numeric * $1::numeric)
+      ) as adjusted_total
+    FROM domestic_am_tariff
     ORDER BY adjusted_total ASC
     LIMIT 1
   `;
@@ -98,11 +117,11 @@ app.get('/api/schema', async (req, res) => {
   }
 });
 
-// API endpoint to get tnb_tariff_2025 data
+// API endpoint to get tariff data
 app.get('/api/tnb-tariff', async (req, res) => {
   try {
-    const client = await pool.connect();
-    const result = await client.query('SELECT * FROM tnb_tariff_2025 LIMIT 10');
+    const client = await tariffPool.connect();
+    const result = await client.query('SELECT * FROM domestic_am_tariff LIMIT 10');
     client.release();
     res.json({ data: result.rows, count: result.rowCount });
   } catch (err) {
@@ -359,7 +378,7 @@ app.get('/api/calculate-bill', async (req, res) => {
       return res.status(400).json({ error: 'Invalid bill amount provided' });
     }
 
-    client = await pool.connect();
+    client = await tariffPool.connect();
     const tariff = await findClosestTariff(client, inputAmount, historicalAfaRate);
 
     if (!tariff) {
@@ -441,10 +460,11 @@ app.get('/api/solar-calculation', async (req, res) => {
     }
 
     // First get the TNB tariff data for the bill amount
-    const client = await pool.connect();
+    const tariffClient = await tariffPool.connect();
+    const mainClient = await pool.connect();
     
     try {
-        const tariff = await findClosestTariff(client, billAmount, historicalAfaRate);
+        const tariff = await findClosestTariff(tariffClient, billAmount, historicalAfaRate);
 
         if (!tariff) {
           return res.status(404).json({ error: 'No tariff data found for calculation' });
@@ -481,7 +501,7 @@ app.get('/api/solar-calculation', async (req, res) => {
             ORDER BY p.price ASC
             LIMIT 1
           `;
-          packageResult = await client.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
+          packageResult = await mainClient.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
         } else {
           const packageByWattQuery = `
             SELECT p.*
@@ -498,7 +518,7 @@ app.get('/api/solar-calculation', async (req, res) => {
             ORDER BY p.price ASC
             LIMIT 1
           `;
-          packageResult = await client.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage]);
+          packageResult = await mainClient.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage]);
         }
 
         let selectedPackage = null;
@@ -561,29 +581,29 @@ app.get('/api/solar-calculation', async (req, res) => {
         const lookupTariff = async (usageValue) => {
              if (usageValue <= 0) {
                 const lowestUsageQuery = `
-                    SELECT * FROM tnb_tariff_2025
+                    SELECT * FROM domestic_am_tariff
                     ORDER BY usage_kwh ASC
                     LIMIT 1
                 `;
-                const res = await client.query(lowestUsageQuery);
+                const res = await tariffClient.query(lowestUsageQuery);
                 return res.rows.length > 0 ? res.rows[0] : null;
              } else {
                 const tariffQuery = `
-                  SELECT * FROM tnb_tariff_2025
+                  SELECT * FROM domestic_am_tariff
                   WHERE usage_kwh <= $1
                   ORDER BY usage_kwh DESC
                   LIMIT 1
                 `;
-                const res = await client.query(tariffQuery, [usageValue]);
+                const res = await tariffClient.query(tariffQuery, [usageValue]);
                 if (res.rows.length > 0) return res.rows[0];
                 
                 // Fallback
                 const fallbackQuery = `
-                  SELECT * FROM tnb_tariff_2025
+                  SELECT * FROM domestic_am_tariff
                   ORDER BY usage_kwh ASC
                   LIMIT 1
                 `;
-                const fallbackRes = await client.query(fallbackQuery);
+                const fallbackRes = await tariffClient.query(fallbackQuery);
                 return fallbackRes.rows.length > 0 ? fallbackRes.rows[0] : null;
              }
         };
@@ -618,17 +638,19 @@ app.get('/api/solar-calculation', async (req, res) => {
             return null;
           }
 
-          const usage = parseCurrencyValue(tariffRow.usage_normal);
-          const network = parseCurrencyValue(tariffRow.network);
-          const capacity = parseCurrencyValue(tariffRow.capacity);
-          const sst = parseCurrencyValue(tariffRow.sst_normal);
-          const eei = parseCurrencyValue(tariffRow.eei);
+          const usage = parseCurrencyValue(tariffRow.energy_charge ?? tariffRow.usage_normal);
+          const network = parseCurrencyValue(tariffRow.network_charge ?? tariffRow.network);
+          const capacity = parseCurrencyValue(tariffRow.capacity_charge ?? tariffRow.capacity);
+          const sst = parseCurrencyValue(tariffRow.sst_tax ?? tariffRow.sst_normal);
+          const eei = parseCurrencyValue(tariffRow.energy_efficiency_incentive ?? tariffRow.eei);
           const usageKwh = parseCurrencyValue(tariffRow.usage_kwh);
+          const fuelAdjustment = parseCurrencyValue(tariffRow.fuel_adjustment);
           const afa = usageKwh * afaRate;
-          const total = parseCurrencyValue(
-            tariffRow.bill_total_normal,
+          const baseTotal = parseCurrencyValue(
+            tariffRow.total_bill ?? tariffRow.bill_total_normal,
             usage + network + capacity + sst + eei
-          ) + afa;
+          ) - fuelAdjustment;
+          const total = baseTotal + afa;
 
           return {
             usage,
@@ -931,7 +953,8 @@ app.get('/api/solar-calculation', async (req, res) => {
           }
         });
     } finally {
-        client.release();
+        tariffClient.release();
+        mainClient.release();
     }
 
   } catch (err) {
@@ -942,9 +965,24 @@ app.get('/api/solar-calculation', async (req, res) => {
 
 app.get('/api/all-data', async (req, res) => {
   try {
-    const client = await pool.connect();
-    const tariffs = await client.query('SELECT usage_kwh, usage_normal, network, capacity, sst_normal, eei, bill_total_normal, retail, kwtbb_normal FROM tnb_tariff_2025 ORDER BY usage_kwh ASC');
-    const packages = await client.query(`
+    const tariffClient = await tariffPool.connect();
+    const mainClient = await pool.connect();
+    const tariffs = await tariffClient.query(`
+      SELECT
+        usage_kwh,
+        energy_charge AS usage_normal,
+        network_charge AS network,
+        capacity_charge AS capacity,
+        sst_tax AS sst_normal,
+        energy_efficiency_incentive AS eei,
+        total_bill AS bill_total_normal,
+        retail_charge AS retail,
+        kwtbb_fund AS kwtbb_normal,
+        fuel_adjustment
+      FROM domestic_am_tariff
+      ORDER BY usage_kwh ASC
+    `);
+    const packages = await mainClient.query(`
       SELECT p.id, p.bubble_id, p.name as package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special, p.max_discount, p.invoice_desc,
              pr.bubble_id as product_bubble_id, pr.solar_output_rating
       FROM package p
@@ -954,7 +992,8 @@ app.get('/api/all-data', async (req, res) => {
       )
       WHERE p.active = true AND p.type = 'Residential'
     `);
-    client.release();
+    tariffClient.release();
+    mainClient.release();
     res.json({
       tariffs: tariffs.rows,
       packages: packages.rows
