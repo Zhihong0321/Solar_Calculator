@@ -9,6 +9,23 @@
 const crypto = require('crypto');
 
 /**
+ * CNY 2026 Promotion Utility
+ * Valid until 2026-02-28
+ */
+function getCNY2026PromoDiscount(panelQty) {
+  const now = new Date();
+  const expiry = new Date('2026-03-01T00:00:00'); // Valid until end of Feb 28
+  if (now >= expiry) return 0;
+
+  const qty = parseInt(panelQty) || 0;
+  if (qty >= 12 && qty <= 18) return 1000;
+  if (qty >= 19 && qty <= 25) return 1500;
+  if (qty >= 26 && qty <= 30) return 2000;
+  if (qty >= 31) return 2500; // Covers 31-36 and 36+ as per user requirement
+  return 0;
+}
+
+/**
  * Generate a unique share token
  * @returns {string} Share token
  */
@@ -337,7 +354,7 @@ async function _processVouchers(client, { voucherCodes, voucherCode }, packagePr
  * Helper: Calculate all financial totals
  * @private
  */
-function _calculateFinancials(data, packagePrice, totalVoucherAmount) {
+function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty = 0) {
   const { agentMarkup = 0, discountFixed = 0, discountPercent = 0, applySst = false, eppFeeAmount = 0, extraItems = [] } = data;
 
   const markupAmount = parseFloat(agentMarkup) || 0;
@@ -355,9 +372,12 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount) {
     percentDiscountVal = (packagePrice * discountPercent) / 100;
   }
   
+  // CNY 2026 Promo Discount
+  const cnyPromoDiscount = getCNY2026PromoDiscount(panelQty);
+  
   // Subtotal after ALL adjustments (discounts, vouchers, epp fees, extra items)
-  // taxable subtotal = package + markup + extra items - discounts - vouchers
-  const taxableSubtotal = Math.max(0, priceWithMarkup + extraItemsTotal - discountFixed - percentDiscountVal - totalVoucherAmount);
+  // taxable subtotal = package + markup + extra items - discounts - vouchers - promo
+  const taxableSubtotal = Math.max(0, priceWithMarkup + extraItemsTotal - discountFixed - percentDiscountVal - totalVoucherAmount - cnyPromoDiscount);
   
   // Calculate SST (6% rate)
   const sstRate = applySst ? 6.0 : 0;
@@ -373,7 +393,8 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount) {
     taxableSubtotal,
     sstRate,
     sstAmount,
-    finalTotalAmount
+    finalTotalAmount,
+    cnyPromoDiscount
   };
 }
 
@@ -607,6 +628,28 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   );
   createdItemIds.push(packageItemBubbleId);
 
+  // 1.2 CNY 2026 Promo Item (Auto-Applied)
+  if (financials.cnyPromoDiscount > 0) {
+    const promoItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+    await client.query(
+      `INSERT INTO invoice_item
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
+      [
+        promoItemBubbleId,
+        invoiceId,
+        `CNY 2026 Promo Discount (Panel Qty: ${pkg.panel_qty})`,
+        1,
+        -financials.cnyPromoDiscount,
+        -financials.cnyPromoDiscount,
+        'discount',
+        5, // Early in the list
+        false
+      ]
+    );
+    createdItemIds.push(promoItemBubbleId);
+  }
+
   // 1.5 Extra Items
   if (Array.isArray(data.extraItems) && data.extraItems.length > 0) {
     let extraItemSortOrder = 50;
@@ -797,7 +840,7 @@ async function createInvoiceOnTheFly(client, data) {
     const voucherInfo = await _processVouchers(client, data, packagePrice);
 
     // 3. Calculate Financials
-    const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
+    const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, deps.pkg ? deps.pkg.panel_qty : 0);
 
     // 3.5 Validate Max Discount
     const maxDiscountAllowed = parseFloat(deps.pkg.max_discount) || 0;
@@ -1139,7 +1182,7 @@ async function updateInvoiceTransaction(client, data) {
     // 4. Calculate Financials
     const packagePrice = parseFloat(pkg.price) || 0;
     const voucherInfo = await _processVouchers(client, data, packagePrice);
-    const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount);
+    const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
 
     // Validate Max Discount
     const maxDiscountAllowed = parseFloat(pkg.max_discount) || 0;
