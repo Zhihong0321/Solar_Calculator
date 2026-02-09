@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -13,20 +14,24 @@
             font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
         }
+
         body {
             background-color: #f8fafc;
             color: #1e293b;
             padding-top: env(safe-area-inset-top);
             padding-bottom: max(1rem, env(safe-area-inset-bottom));
         }
+
         .line-divider {
             border-bottom: 1px solid #e2e8f0;
         }
+
         .package-item:hover {
             background-color: #f1f5f9;
         }
     </style>
 </head>
+
 <body class="min-h-screen p-4 md:p-8">
     <div class="max-w-3xl mx-auto bg-white shadow-sm border border-slate-200 overflow-hidden">
         <div class="p-6 line-divider">
@@ -34,30 +39,55 @@
             <p class="text-slate-500 text-sm mt-1">Select a package category to begin.</p>
         </div>
 
-        <!-- CNY 2026 Promo Banner -->
-        <div class="p-0 border-b border-slate-200">
-            <img src="/get-promo-now.jpg" alt="CNY 2026 Promo" class="w-full h-auto">
+        <!-- CNY 2026 Promo Banner (CSS Fallback) -->
+        <div
+            class="px-6 py-8 border-b border-slate-200 bg-gradient-to-br from-red-600 to-red-900 flex flex-col items-center justify-center text-center shadow-inner relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-10 transform rotate-12 select-none text-8xl">🐎</div>
+            <div class="absolute bottom-0 left-0 p-4 opacity-10 transform -rotate-12 select-none text-8xl">🏮</div>
+            <div class="text-orange-200 font-bold uppercase tracking-[0.3em] text-[10px] mb-2">Exclusive Year of the
+                Horse Reward</div>
+            <h2 class="text-3xl font-black text-white mb-3 tracking-tight">CNY 2026 PROMO</h2>
+            <div class="flex items-center gap-2 mb-4">
+                <div class="h-[1px] w-8 bg-orange-400"></div>
+                <span class="text-yellow-400 font-bold text-xl uppercase italic tracking-wider">Up to RM 2,500
+                    Reward</span>
+                <div class="h-[1px] w-8 bg-orange-400"></div>
+            </div>
+            <div
+                class="text-red-100 text-xs font-medium bg-black/20 rounded-full px-4 py-1.5 backdrop-blur-sm border border-white/5">
+                Reward automatically applied to your quotation based on panel count
+            </div>
         </div>
 
         <!-- Step 1: Select Category -->
         <div id="categoryStep" class="p-0">
-            <button onclick="selectCategory('Residential')" class="w-full text-left p-6 line-divider flex justify-between items-center hover:bg-slate-50 transition-colors">
+            <button onclick="selectCategory('Residential')"
+                class="w-full text-left p-6 line-divider flex justify-between items-center hover:bg-slate-50 transition-colors">
                 <div>
                     <h2 class="text-lg font-bold">1) Residential</h2>
                     <p class="text-slate-500 text-sm">Domestic solar solutions for homes.</p>
                 </div>
-                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
             </button>
-            <button onclick="selectCategory('Commercial')" class="w-full text-left p-6 line-divider flex justify-between items-center hover:bg-slate-50 transition-colors">
+            <button onclick="selectCategory('Commercial')"
+                class="w-full text-left p-6 line-divider flex justify-between items-center hover:bg-slate-50 transition-colors">
                 <div>
                     <h2 class="text-lg font-bold">2) Commercial</h2>
                     <p class="text-slate-500 text-sm">Industrial and business solar solutions.</p>
                 </div>
-                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
             </button>
             <div class="p-6">
-                <button onclick="NavManager.goBack()" class="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors inline-flex items-center gap-1">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                <button onclick="NavManager.goBack()"
+                    class="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors inline-flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                        </path>
+                    </svg>
                     Back to Previous Page
                 </button>
             </div>
@@ -67,11 +97,14 @@
         <div id="packageStep" class="hidden">
             <div class="bg-slate-50 p-4 line-divider flex justify-between items-center">
                 <h2 class="font-bold text-slate-700" id="selectedCategoryTitle">Residential Packages</h2>
-                <button onclick="goBackToCategories()" class="text-xs font-bold text-blue-600 uppercase tracking-wider">Change Category</button>
+                <button onclick="goBackToCategories()"
+                    class="text-xs font-bold text-blue-600 uppercase tracking-wider">Change Category</button>
             </div>
-            
+
             <div id="loadingPackages" class="p-12 text-center hidden">
-                <div class="inline-block w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+                <div
+                    class="inline-block w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin">
+                </div>
                 <p class="text-slate-500 text-sm mt-4 font-medium">Loading available packages...</p>
             </div>
 
@@ -101,7 +134,7 @@
         async function loadPackages(category) {
             const list = document.getElementById('packageList');
             const loader = document.getElementById('loadingPackages');
-            
+
             list.innerHTML = '';
             loader.classList.remove('hidden');
 
@@ -115,8 +148,8 @@
                     data.packages.forEach(pkg => {
                         const div = document.createElement('div');
                         div.className = 'package-item p-6 cursor-pointer transition-colors';
-                        
-                        const systemSize = pkg.solar_output_rating && pkg.panel_qty 
+
+                        const systemSize = pkg.solar_output_rating && pkg.panel_qty
                             ? ((pkg.solar_output_rating * pkg.panel_qty) / 1000).toFixed(2) + ' kWp'
                             : '-';
 
@@ -157,4 +190,5 @@
     </script>
     <script src="/js/navigation.js"></script>
 </body>
+
 </html>
