@@ -16,6 +16,29 @@ const EPP_RATES = {
     "OCBC": { 6: 4.00, 12: 5.00, 18: 6.00, 24: 7.00, 36: 8.00, 48: 9.00 }
 };
 
+const MICRO_INVERTER_MODELS = [
+    { id: 'mi_s2', name: 'SAJ M2-1.0K S2 Micro Inverter', price: 500, originalPrice: 1000 },
+    { id: 'mi_s4', name: 'SAJ M4-1.8K S4 Micro Inverter', price: 1000, originalPrice: 1500 }
+];
+
+// Read micro inverter qty inputs and return items with qty > 0
+function getMicroInverterItems() {
+    const items = [];
+    MICRO_INVERTER_MODELS.forEach(model => {
+        const qtyInput = document.getElementById(`${model.id}_qty`);
+        const qty = parseInt(qtyInput?.value) || 0;
+        if (qty > 0) {
+            items.push({
+                description: `${model.name} (RM${model.originalPrice.toLocaleString()} → RM${model.price.toLocaleString()})`,
+                qty: qty,
+                unit_price: model.price,
+                total_price: qty * model.price
+            });
+        }
+    });
+    return items;
+}
+
 const BANKS = Object.keys(EPP_RATES);
 let paymentMethodCounter = 0;
 let availableVouchers = [];
@@ -441,6 +464,9 @@ function updatePaymentMethodInfo(index) {
             extraItemsTotal += item.qty * item.unit_price;
         }
     });
+    getMicroInverterItems().forEach(mi => {
+        extraItemsTotal += mi.total_price;
+    });
 
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
@@ -500,6 +526,9 @@ function calculateAllEPPFees() {
         if (item.qty > 0) {
             extraItemsTotal += item.qty * item.unit_price;
         }
+    });
+    getMicroInverterItems().forEach(mi => {
+        extraItemsTotal += mi.total_price;
     });
 
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
@@ -738,6 +767,22 @@ function updateInvoicePreview() {
             itemsList.appendChild(el);
             subtotal += itemTotal;
         }
+    });
+
+    // Add Micro Inverter Items
+    const microInverterItems = getMicroInverterItems();
+    microInverterItems.forEach(mi => {
+        const el = document.createElement('div');
+        el.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        el.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-amber-800">${mi.description}</div>
+                        <div class="text-sm text-gray-600">${mi.qty} × RM ${mi.unit_price.toFixed(2)}</div>
+                    </div>
+                    <div class="font-semibold text-amber-800">RM ${mi.total_price.toFixed(2)}</div>
+                `;
+        itemsList.appendChild(el);
+        subtotal += mi.total_price;
     });
 
     // Add fixed discount item if exists
@@ -1104,6 +1149,15 @@ document.addEventListener('DOMContentLoaded', async function () {
         discountInput.addEventListener('change', updateInvoicePreview);
     }
 
+    // Micro Inverter qty inputs
+    MICRO_INVERTER_MODELS.forEach(model => {
+        const input = document.getElementById(`${model.id}_qty`);
+        if (input) {
+            input.addEventListener('input', updateInvoicePreview);
+            input.addEventListener('change', updateInvoicePreview);
+        }
+    });
+
     const addBtn = document.getElementById('addPaymentMethodBtn');
     if (addBtn) addBtn.addEventListener('click', addPaymentMethodRow);
 
@@ -1275,13 +1329,14 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     // Calculate EPP fees
     const eppData = calculateAllEPPFees();
 
-    // Prepare extra items (Manual Items)
+    // Prepare extra items (Manual Items + Micro Inverters)
     const extraItems = manualItems.map(item => ({
         description: item.description,
         qty: item.qty,
         unit_price: item.unit_price,
         total_price: item.qty * item.unit_price
     }));
+    getMicroInverterItems().forEach(mi => extraItems.push(mi));
 
     // Prepare request data
     const requestData = {
