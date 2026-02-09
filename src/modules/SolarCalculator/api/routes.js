@@ -76,8 +76,8 @@ router.get('/readonly/package/lookup', async (req, res) => {
                pr.id as product_id, pr.bubble_id, pr.solar_output_rating
         FROM package p
         JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
-        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = 'Residential' AND p.panel_qty = $1 AND pr.bubble_id = $2
-        ORDER BY p.price ASC LIMIT 10`;
+        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = 'Residential' AND pr.bubble_id = $2
+        ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10`;
       result = await client.query(queryByBubble, [qty, bubbleIdRaw]);
     } else {
       const queryByWatt = `
@@ -85,8 +85,8 @@ router.get('/readonly/package/lookup', async (req, res) => {
                pr.id as product_id, pr.bubble_id, pr.solar_output_rating
         FROM package p
         JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
-        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = 'Residential' AND p.panel_qty = $1 AND pr.solar_output_rating = $2
-        ORDER BY p.price ASC LIMIT 10`;
+        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = 'Residential' AND pr.solar_output_rating = $2
+        ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10`;
       const wattRaw = req.query.panelType;
       const watt = wattRaw ? parseInt(wattRaw, 10) : null;
       result = await client.query(queryByWatt, [qty, watt]);
@@ -292,10 +292,10 @@ router.get('/api/packages', async (req, res) => {
   try {
     const { type } = req.query;
     if (!type) return res.status(400).json({ error: 'Type is required' });
-    
+
     const client = await pool.connect();
     let dbType = type === 'Residential' ? 'Residential' : 'Tariff B&D Low Voltage';
-    
+
     const query = `
       SELECT p.id, p.bubble_id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active,
              pr.solar_output_rating
@@ -304,7 +304,7 @@ router.get('/api/packages', async (req, res) => {
       WHERE p.active = true AND p.type = $1
       ORDER BY p.price ASC
     `;
-    
+
     const result = await client.query(query, [dbType]);
     client.release();
     res.json({ success: true, packages: result.rows });

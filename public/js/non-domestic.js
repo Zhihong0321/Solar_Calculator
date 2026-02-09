@@ -16,7 +16,7 @@ let currentPackageData = null;
 
 // Hourly Solar Generation Map (Percentage of daily yield)
 const HOURLY_SOLAR_MAP = {
-    7: 0.02, 8: 0.05, 9: 0.09, 10: 0.12, 11: 0.15, 12: 0.16, 
+    7: 0.02, 8: 0.05, 9: 0.09, 10: 0.12, 11: 0.15, 12: 0.16,
     13: 0.15, 14: 0.12, 15: 0.08, 16: 0.04, 17: 0.02
 };
 
@@ -25,7 +25,7 @@ DAYS.forEach(day => {
     workingHours[day.toLowerCase()] = { start: 8, end: 18 };
 });
 
-window.onload = function() {
+window.onload = function () {
     testConnection();
     initializeData();
     initWorkingHoursUI();
@@ -70,7 +70,7 @@ function initWorkingHoursUI() {
             }
 
             workingHours[dayKey] = { start, end };
-            
+
             startLabel.innerText = formatTime(start);
             endLabel.innerText = formatTime(end);
 
@@ -82,11 +82,11 @@ function initWorkingHoursUI() {
 
         startInput.oninput = updateSlider;
         endInput.oninput = updateSlider;
-        updateSlider(); 
+        updateSlider();
     });
 }
 
-window.setDayOff = function(dayKey) {
+window.setDayOff = function (dayKey) {
     const startInput = document.getElementById(`${dayKey}-start`);
     const endInput = document.getElementById(`${dayKey}-end`);
     if (startInput && endInput) {
@@ -104,7 +104,7 @@ function formatTime(decimalHour) {
     return `${displayH}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
-document.getElementById('billForm').addEventListener('submit', async function(e) {
+document.getElementById('billForm').addEventListener('submit', async function (e) {
     e.preventDefault();
     const billAmount = parseFloat(document.getElementById('billAmount').value);
 
@@ -126,7 +126,7 @@ document.getElementById('billForm').addEventListener('submit', async function(e)
 
         matchedBillData = data.tariff;
         displayBillBreakdown(matchedBillData);
-        
+
         document.getElementById('simulation-params').classList.remove('hidden');
         document.getElementById('simulation-params').scrollIntoView({ behavior: 'smooth' });
 
@@ -186,7 +186,7 @@ function displayBillBreakdown(t) {
 // Calculate solar savings based on panel quantity
 async function calculateSolarSavings(panelQty, params) {
     const { sunPeak, panelRating, baseLoadPct, smpPrice, totalMonthlyKwh } = params;
-    
+
     let weeklyWorkingHours = 0;
     DAYS.forEach(day => {
         const h = workingHours[day.toLowerCase()];
@@ -194,7 +194,7 @@ async function calculateSolarSavings(panelQty, params) {
     });
 
     const hourlyBaseLoad = (totalMonthlyKwh * baseLoadPct) / 720;
-    const hourlyOperationalLoad = weeklyWorkingHours > 0 
+    const hourlyOperationalLoad = weeklyWorkingHours > 0
         ? (totalMonthlyKwh * (1 - baseLoadPct)) / (weeklyWorkingHours * 4.33)
         : 0;
 
@@ -212,7 +212,7 @@ async function calculateSolarSavings(panelQty, params) {
         const hours = workingHours[dayKey];
         let dayOffset = 0;
         let dayExport = 0;
-        
+
         for (let h = 0; h < 24; h++) {
             const isWorking = h >= hours.start && h < hours.end;
             const currentLoad = isWorking ? (hourlyBaseLoad + hourlyOperationalLoad) : hourlyBaseLoad;
@@ -244,17 +244,10 @@ async function calculateSolarSavings(panelQty, params) {
     const exportEarnings = monthlyExportKwh * smpPrice;
     const totalMonthlySavings = billSaving + exportEarnings;
 
-    // Find package for this panel quantity
+    // Find closest package for this panel quantity
     let pkg = db.packages
-        .filter(p => p.panel_qty === panelQty && (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
-        .sort((a,b) => a.price - b.price)[0];
-
-    // If no exact match, find closest
-    if (!pkg) {
-        pkg = db.packages
-            .filter(p => p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential')
-            .sort((a,b) => Math.abs(a.panel_qty - panelQty))[0];
-    }
+        .filter(p => (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
+        .sort((a, b) => Math.abs(a.panel_qty - panelQty) - Math.abs(b.panel_qty - panelQty) || a.price - b.price)[0];
 
     // Calculate system cost - interpolate if no exact package match
     let systemCost;
@@ -298,27 +291,21 @@ async function executeFullAnalysis() {
     const smpPrice = parseFloat(document.getElementById('smpPrice').value);
 
     const totalMonthlyKwh = parseFloat(matchedBillData.usage_kwh);
-    
+
     // Store parameters for later recalculation
     currentSimulationParams = { sunPeak, panelRating, baseLoadPct, smpPrice, totalMonthlyKwh };
-    
+
     // 2. Recommend System Size - STABLE (Based on Monthly Usage only)
     // Target system size to cover ~80% of total monthly generation potential
     const sunPeakStandard = 3.4;
-    const targetMonthlyGen = totalMonthlyKwh * 0.8; 
+    const targetMonthlyGen = totalMonthlyKwh * 0.8;
     const recommendedKw = (targetMonthlyGen / 30 / sunPeakStandard);
     let recommendedPanels = Math.max(1, Math.ceil((recommendedKw * 1000) / panelRating));
-    
+
     // Find closest package for initial calculation
     let pkg = db.packages
-        .filter(p => p.panel_qty >= recommendedPanels && (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
-        .sort((a,b) => a.panel_qty - b.panel_qty)[0];
-
-    if (!pkg) {
-        pkg = db.packages
-            .filter(p => p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential')
-            .sort((a,b) => Math.abs(a.panel_qty - recommendedPanels))[0];
-    }
+        .filter(p => (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
+        .sort((a, b) => Math.abs(a.panel_qty - recommendedPanels) - Math.abs(b.panel_qty - recommendedPanels) || a.price - b.price)[0];
 
     // Use package panel quantity or recommended
     const initialPanels = pkg ? pkg.panel_qty : recommendedPanels;
@@ -337,19 +324,19 @@ async function executeFullAnalysis() {
 // Update calculations when panel quantity changes
 async function updatePanelQuantity(change) {
     if (!currentSimulationParams || currentPanelQuantity === null) return;
-    
+
     const newQuantity = Math.max(1, currentPanelQuantity + change);
     if (newQuantity === currentPanelQuantity) return;
-    
+
     currentPanelQuantity = newQuantity;
-    
+
     // Show loading state
     const updateBtn = document.getElementById('updateCalculationBtn');
     if (updateBtn) {
         updateBtn.innerHTML = 'Recalculating...';
         updateBtn.disabled = true;
     }
-    
+
     try {
         const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
         displayFullROIResults(results, null, true);
@@ -362,12 +349,12 @@ async function updatePanelQuantity(change) {
 // Set specific panel quantity from input
 async function setPanelQuantity(qty) {
     if (!currentSimulationParams) return;
-    
+
     const newQuantity = Math.max(1, parseInt(qty) || 1);
     if (newQuantity === currentPanelQuantity) return;
-    
+
     currentPanelQuantity = newQuantity;
-    
+
     try {
         const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
         displayFullROIResults(results, null, true);
@@ -379,7 +366,7 @@ async function setPanelQuantity(qty) {
 
 function displayFullROIResults(data, recommendedPanels = null, isRecalculation = false) {
     const resultsDiv = document.getElementById('calculatorResults');
-    
+
     // Create or find the ROI container to ensure we replace instead of append
     let roiContainer = document.getElementById('roi-results-view');
     if (!roiContainer) {
@@ -389,8 +376,8 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
     }
 
     // Calculate efficiency
-    const efficiency = data.monthlyGen > 0 ? Math.round((data.monthlyOffsetKwh/data.monthlyGen)*100) : 0;
-    
+    const efficiency = data.monthlyGen > 0 ? Math.round((data.monthlyOffsetKwh / data.monthlyGen) * 100) : 0;
+
     // Determine if this is a custom panel quantity (different from package)
     const isCustomQty = data.pkg && data.pkg.panel_qty !== data.finalPanels;
     const pricePerPanel = data.pkg ? data.pkg.price / data.pkg.panel_qty : 3500 * (data.panelRating / 1000);
@@ -453,10 +440,10 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
                 <h3 class="text-xs font-bold uppercase tracking-widest tier-2 border-b-2 border-fact inline-block pb-1">04.1_DAILY_YIELD_PROJECTION</h3>
                 <div class="space-y-4">
                     ${data.dailyData.map(d => {
-                        const total = d.offset + d.export;
-                        const offsetPct = (d.offset / total) * 100;
-                        const exportPct = (d.export / total) * 100;
-                        return `
+        const total = d.offset + d.export;
+        const offsetPct = (d.offset / total) * 100;
+        const exportPct = (d.export / total) * 100;
+        return `
                         <div class="border-b border-divider/30 pb-4">
                             <div class="flex justify-between items-center mb-1">
                                 <span class="text-[10px] font-bold uppercase tracking-wider">${d.day}</span>
@@ -472,7 +459,7 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
                             </div>
                         </div>
                         `;
-                    }).join('')}
+    }).join('')}
                 </div>
             </section>
 
@@ -624,7 +611,7 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
     if (!isRecalculation) {
         roiContainer.scrollIntoView({ behavior: 'smooth' });
     }
-    
+
     // Render the Pie Chart
     setTimeout(() => {
         renderSavingsPieChart(data.billSaving, data.exportEarnings);
@@ -662,7 +649,7 @@ function renderSavingsPieChart(billSaving, exportSaving) {
     });
 }
 
-function formatCurrency(v) { return Number(v||0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function formatCurrency(v) { return Number(v || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 async function testConnection() {
     const s = document.getElementById('dbStatus');

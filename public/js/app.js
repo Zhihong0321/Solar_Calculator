@@ -19,7 +19,7 @@ const chartInstances = {
 };
 
 // --- Initialization ---
-window.onload = function() {
+window.onload = function () {
     testConnection();
     Promise.all([initializeData(), fetchConfig()]).then(() => {
         if (document.getElementById('reverseCalcForm')) {
@@ -75,7 +75,7 @@ async function initializeData() {
 }
 
 function initReversePage() {
-    document.getElementById('reverseCalcForm').addEventListener('submit', function(e) {
+    document.getElementById('reverseCalcForm').addEventListener('submit', function (e) {
         e.preventDefault();
         runReverseSimulation();
     });
@@ -85,15 +85,14 @@ function updateScenarioUI(id, status, value, desc, sunPeak = null, morningUsage 
     const statusEl = document.getElementById(id + '_status');
     const valEl = document.getElementById(id + '_value');
     const descEl = document.getElementById(id + '_desc');
-    
+
     if (statusEl) {
         statusEl.innerText = status;
-        statusEl.className = `px-2.5 md:px-3 py-1 text-[10px] md:text-xs font-semibold uppercase tracking-wide ${
-            status === 'REALISTIC' ? 'bg-emerald-100 text-emerald-800' : 
-            (status === 'IMPOSSIBLE' || status === 'RIDICULOUS' ? 'bg-rose-100 text-rose-800' : 'bg-orange-100 text-orange-800')
-        }`;
+        statusEl.className = `px-2.5 md:px-3 py-1 text-[10px] md:text-xs font-semibold uppercase tracking-wide ${status === 'REALISTIC' ? 'bg-emerald-100 text-emerald-800' :
+                (status === 'IMPOSSIBLE' || status === 'RIDICULOUS' ? 'bg-rose-100 text-rose-800' : 'bg-orange-100 text-orange-800')
+            }`;
     }
-    
+
     // Calculate and append Confidence Level if sunPeak is provided
     let valueHtml = value;
     if (sunPeak !== null && sunPeak > 3.4) {
@@ -103,15 +102,15 @@ function updateScenarioUI(id, status, value, desc, sunPeak = null, morningUsage 
         confidence = Math.max(0, 90 - penalty).toFixed(1);
         valueHtml += ` <span class="text-[10px] md:text-xs font-semibold ${confidence < 50 ? 'text-rose-600' : 'text-orange-500'}">[Confidence: ${confidence}%]</span>`;
     }
-    
+
     if (valEl) valEl.innerHTML = valueHtml;
-    
+
     // Add Warning Note for high morning usage
     let finalDesc = desc || '';
     if (morningUsage !== null && morningUsage > 50) {
         finalDesc += `<br><span class="text-[9px] md:text-[10px] text-rose-600 font-semibold mt-1.5 block leading-relaxed">NOTE: In a typical residential scenario, daytime usage is usually low as occupants are often away from home. Please be cautious of high morning offset estimations.</span>`;
     }
-    
+
     if (descEl) descEl.innerHTML = finalDesc;
 }
 
@@ -139,7 +138,7 @@ function runReverseSimulation() {
         percentDiscount: 0,
         fixedDiscount: 0,
         batterySize: 0,
-        overridePanels: 1, 
+        overridePanels: 1,
         panelType: systemSizeKwp * 1000
     };
 
@@ -159,14 +158,14 @@ function runReverseSimulation() {
             const mid = (low + high) / 2;
             const p = { ...baseParams, ...fixedParams, [paramName]: mid };
             const savings = getSavings(p);
-            
+
             if (Math.abs(savings - promisedSaving) < bestDiff) {
                 bestDiff = Math.abs(savings - promisedSaving);
                 bestVal = mid;
             }
 
             if (savings < promisedSaving) {
-                low = mid; 
+                low = mid;
             } else {
                 high = mid;
             }
@@ -178,7 +177,7 @@ function runReverseSimulation() {
     updateScenarioUI('s1', 'Testing...', '--');
     setTimeout(() => {
         const s1 = solve('sunPeakHour', 0, 12, { morningUsage: 30 });
-        updateScenarioUI('s1', 
+        updateScenarioUI('s1',
             s1.val > 8 ? 'RIDICULOUS' : (s1.val > 4.5 ? 'OPTIMISTIC' : 'REALISTIC'),
             s1.val.toFixed(2) + ' h',
             `Achieves RM ${s1.achieved.toFixed(2)}`,
@@ -192,7 +191,7 @@ function runReverseSimulation() {
     setTimeout(() => {
         const s2 = solve('morningUsage', 0, 100, { sunPeakHour: 3.4 });
         const isMaxed = s2.val > 99 && s2.achieved < promisedSaving - 5;
-        
+
         updateScenarioUI('s2',
             isMaxed ? 'IMPOSSIBLE' : (s2.val > 70 ? 'UNREALISTIC' : 'REALISTIC'),
             isMaxed ? '> 100%' : s2.val.toFixed(1) + '%',
@@ -213,14 +212,14 @@ function runReverseSimulation() {
             s3.val,
             70
         );
-        
+
         const isRidiculous = s1.val > 5.0 || (s2.val > 99 && s2.achieved < promisedSaving);
         const isOptimistic = !isRidiculous && (s1.val > 4.0 || s2.val > 60);
-        
+
         const verdictTitle = document.getElementById('verdictTitle');
         const verdictDesc = document.getElementById('verdictDesc');
         const verdictBanner = document.getElementById('verdictBanner');
-        
+
         if (isRidiculous) {
             verdictTitle.innerText = "UNREALISTIC";
             verdictDesc.innerText = "The promised savings are likely inflated. Required sun hours or self-consumption rates exceed typical Malaysian standards.";
@@ -266,8 +265,8 @@ class SolarCalculator {
 
     calculate(params) {
         const {
-            amount, sunPeakHour, morningUsage, panelType, 
-            smpPrice, afaRate, historicalAfaRate, 
+            amount, sunPeakHour, morningUsage, panelType,
+            smpPrice, afaRate, historicalAfaRate,
             percentDiscount, fixedDiscount, batterySize, overridePanels,
             systemPhase = 3
         } = params;
@@ -280,7 +279,7 @@ class SolarCalculator {
         // 2. Recommendation (Using Server's Math.floor rule)
         const recommendedPanels = Math.max(1, Math.floor(monthlyUsageKwh / sunPeakHour / 30 / 0.62)) + 1;
         const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
-        
+
         // Calculate system size in kWp
         const systemSizeKwp = (actualPanelQty * panelType) / 1000;
 
@@ -288,16 +287,15 @@ class SolarCalculator {
         const sedaLimit = systemPhase == 1 ? 5.01 : 15.01;
         const requiresSedaFee = systemSizeKwp >= sedaLimit;
 
-        // 3. Package Lookup
+        // 3. Package Lookup (Closest Match Logic)
         let selectedPackage = this.packages
-            .filter(p => 
-                p.panel_qty === actualPanelQty && 
-                p.active === true && 
+            .filter(p =>
+                p.active === true &&
                 (p.special === false || p.special === null) &&
                 p.type === 'Residential' &&
                 p.solar_output_rating === panelType
             )
-            .sort((a, b) => a.price - b.price)[0] || null;
+            .sort((a, b) => Math.abs(a.panel_qty - actualPanelQty) - Math.abs(b.panel_qty - actualPanelQty) || a.price - b.price)[0] || null;
 
         // 4. Solar Gen
         const dailySolarGeneration = (actualPanelQty * panelType * sunPeakHour) / 1000;
@@ -325,7 +323,7 @@ class SolarCalculator {
         // ATAP Solar Malaysia: Max export = reduced import from grid
         const potentialExport = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
         const exportKwh = Math.min(potentialExport, netUsageKwh);
-        
+
         // Backup Generation Logic:
         // Exceeded generation is used as a weather buffer, capped at 10% of reduced import
         const exceededGeneration = Math.max(0, potentialExport - exportKwh);
@@ -379,7 +377,7 @@ class SolarCalculator {
             const afterPercent = systemCostBeforeDiscount * (1 - (percentDiscount || 0) / 100);
             finalSystemCost = Math.max(0, afterPercent - (fixedDiscount || 0));
             totalDiscountAmount = systemCostBeforeDiscount - finalSystemCost;
-            
+
             console.log('[Calculator] System Cost:', {
                 base: systemCostBeforeDiscount,
                 percentDiscount: percentDiscount,
@@ -482,27 +480,27 @@ const EPP_RATES = {
     "OCBC": { 6: 4.00, 12: 5.00, 18: 6.00, 24: 7.00, 36: 8.00, 48: 9.00 }
 };
 
-window.updateEPPCalculation = function(event) {
+window.updateEPPCalculation = function (event) {
     const bankSelect = document.getElementById('eppBank');
     const tenureSelect = document.getElementById('eppTenure');
     const resultDiv = document.getElementById('eppResult');
     const feeDiv = document.getElementById('eppFee');
     const netDiv = document.getElementById('eppNet');
     const noteDiv = document.getElementById('eppNote');
-    
+
     if (!bankSelect || !tenureSelect || !latestSolarData || !latestSolarData.finalSystemCost) return;
 
     const bank = bankSelect.value;
     const fullPrice = parseFloat(latestSolarData.finalSystemCost);
-    
+
     // Update tenure options ONLY if bank changed or tenure is empty
     if (!event || (event && event.target.id === 'eppBank') || tenureSelect.options.length === 0) {
         const rates = EPP_RATES[bank] || {};
-        const tenures = Object.keys(rates).sort((a,b) => parseInt(a)-parseInt(b));
+        const tenures = Object.keys(rates).sort((a, b) => parseInt(a) - parseInt(b));
         const currentTenure = tenureSelect.value;
-        
+
         tenureSelect.innerHTML = tenures.map(t => `<option value="${t}">${t} Months</option>`).join('');
-        
+
         // Try to preserve selection if possible, else select max
         if (tenures.includes(currentTenure)) {
             tenureSelect.value = currentTenure;
@@ -523,7 +521,7 @@ window.updateEPPCalculation = function(event) {
     const netProceeds = financedAmount - feeAmount;
 
     if (resultDiv) resultDiv.textContent = `RM ${formatCurrency(monthlyInstallment)}`;
-    
+
     if (feeDiv) {
         feeDiv.innerHTML = `
             <div class="space-y-1">
@@ -550,7 +548,7 @@ window.updateEPPCalculation = function(event) {
             </div>
         `;
     }
-    
+
     if (netDiv) {
         netDiv.innerHTML = `<span class="text-gray-500">Net Receivable (95%):</span> <span class="text-emerald-600 font-bold ml-2">RM ${formatCurrency(netProceeds)}</span>`;
     }
@@ -563,12 +561,12 @@ window.updateEPPCalculation = function(event) {
 // --- Sun Peak Detector ---
 let lastDetectedSunPeak = 3.4;
 
-window.openSunPeakDetector = function() {
+window.openSunPeakDetector = function () {
     document.getElementById('sunPeakModal').classList.remove('hidden');
     document.getElementById('sunPeakResult').classList.add('hidden');
     document.getElementById('sunPeakAddress').value = '';
     document.getElementById('sunPeakAddress').focus();
-    
+
     // Add one-time listener for Enter key
     const addressInput = document.getElementById('sunPeakAddress');
     const handleEnter = (e) => {
@@ -580,12 +578,12 @@ window.openSunPeakDetector = function() {
     addressInput.addEventListener('keydown', handleEnter);
 };
 
-window.closeSunPeakDetector = function() {
+window.closeSunPeakDetector = function () {
     document.getElementById('sunPeakModal').classList.add('hidden');
     // Reset state if needed
 };
 
-window.detectSunPeak = async function() {
+window.detectSunPeak = async function () {
     const address = document.getElementById('sunPeakAddress').value;
     if (!address) return showNotification('Please enter an address', 'error');
 
@@ -606,14 +604,14 @@ window.detectSunPeak = async function() {
 
         if (response.ok && data.solar_data) {
             widgetContainer.innerHTML = data.widget_html;
-            
+
             // Extract numeric value from range (e.g., "4.2+" -> 4.2)
             const rangeStr = data.solar_data.match.range || "3.4";
             const peakVal = parseFloat(rangeStr.replace('+', '')) || 3.4;
-            
+
             lastDetectedSunPeak = peakVal;
             valDisplay.innerText = peakVal.toFixed(1) + ' h';
-            
+
             resultDiv.classList.remove('hidden');
         } else {
             showNotification('Could not detect solar data for this address.', 'error');
@@ -628,7 +626,7 @@ window.detectSunPeak = async function() {
     }
 };
 
-window.applyDetectedSunPeak = function() {
+window.applyDetectedSunPeak = function () {
     const sunPeakInput = document.getElementById('sunPeakHour');
     if (sunPeakInput) {
         sunPeakInput.value = lastDetectedSunPeak.toFixed(1);
@@ -640,7 +638,7 @@ window.applyDetectedSunPeak = function() {
 
 // --- Interaction Handlers ---
 
-document.getElementById('billForm').addEventListener('submit', function(e) {
+document.getElementById('billForm').addEventListener('submit', function (e) {
     e.preventDefault();
     if (!db.tariffs.length) return showNotification('System initializing...', 'info');
     const billAmount = parseFloat(document.getElementById('billAmount').value);
@@ -656,7 +654,7 @@ document.getElementById('billForm').addEventListener('submit', function(e) {
     }
 });
 
-window.calculateSolarSavings = function() {
+window.calculateSolarSavings = function () {
     if (!db.tariffs.length) return;
     const params = {
         amount: parseFloat(document.getElementById('billAmount').value),
@@ -681,7 +679,7 @@ window.calculateSolarSavings = function() {
     originalSolarData = JSON.parse(JSON.stringify(latestSolarData)); // Capture baseline for Investment Delta
 };
 
-window.triggerSpontaneousUpdate = function(source) {
+window.triggerSpontaneousUpdate = function (source) {
     if (!latestSolarParams) {
         console.warn('[triggerSpontaneousUpdate] latestSolarParams is null/undefined');
         return;
@@ -736,24 +734,24 @@ async function requestPanelUpdate(newCount) {
     runAndDisplay();
 }
 
-window.adjustBatterySize = function(delta) {
+window.adjustBatterySize = function (delta) {
     if (!latestSolarParams) return;
     latestSolarParams.batterySize = Math.max(0, (latestSolarParams.batterySize || 0) + delta);
     runAndDisplay();
 };
 
-window.adjustPanelCount = function(delta) {
+window.adjustPanelCount = function (delta) {
     if (!latestSolarData) return;
     requestPanelUpdate(Math.max(1, latestSolarData.actualPanels + delta));
 };
 
-window.commitPanelInputChange = function(event) {
+window.commitPanelInputChange = function (event) {
     const val = parseInt(event.target.value);
     if (!val || val < 1) { event.target.value = latestSolarData.actualPanels; return; }
     requestPanelUpdate(val);
 };
 
-window.syncAndTrigger = function(id, value) {
+window.syncAndTrigger = function (id, value) {
     const el = document.getElementById(id);
     if (el) {
         el.value = value;
@@ -761,7 +759,7 @@ window.syncAndTrigger = function(id, value) {
     }
 };
 
-window.generateInvoiceLink = function() {
+window.generateInvoiceLink = function () {
     if (!latestSolarData || !latestSolarData.selectedPackage || !latestSolarData.selectedPackage.linked_package) {
         showNotification('No valid package selected for quotation. Please ensure a package is matched.', 'error');
         return;
@@ -813,7 +811,7 @@ function displayBillBreakdown(data) {
                     <div class="flex justify-between tier-3 uppercase text-[10px] md:text-xs tracking-wide mb-4 border-b border-divider pb-1.5"><span>Component</span><span>Value_(RM)</span></div>
                     ${['usage_normal', 'network', 'capacity', 'retail', 'eei', 'sst_normal', 'kwtbb_normal'].map(key => `
                         <div class="flex justify-between py-1.5 gap-4 border-b border-divider/50">
-                            <span class="tier-2 truncate text-sm">${key.replace('_normal','').toUpperCase()}</span>
+                            <span class="tier-2 truncate text-sm">${key.replace('_normal', '').toUpperCase()}</span>
                             <span class="tier-1 font-semibold whitespace-nowrap text-sm">${formatCurrency(tariff[key])}</span>
                         </div>
                     `).join('')}
@@ -875,7 +873,7 @@ function renderInput(id, label, type, val, step, min, max) {
         <div class="space-y-2.5">
             <label class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">${label}</label>
             <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
-                <input type="${type}" id="${id}" step="${step}" ${min?`min="${min}"`:''} ${max?`max="${max}"`:''} value="${val}" oninput="triggerSpontaneousUpdate('${id}')" onchange="triggerSpontaneousUpdate('${id}')" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
+                <input type="${type}" id="${id}" step="${step}" ${min ? `min="${min}"` : ''} ${max ? `max="${max}"` : ''} value="${val}" oninput="triggerSpontaneousUpdate('${id}')" onchange="triggerSpontaneousUpdate('${id}')" class="w-full text-lg md:text-xl font-bold bg-transparent border-none outline-none py-1">
             </div>
         </div>
     `;
@@ -900,14 +898,14 @@ function displaySolarCalculation(data) {
     const ds = data.details;
     const b = ds.battery.baseline;
 
-        solarDiv.innerHTML = `
+    solarDiv.innerHTML = `
         <div class="space-y-10 md:space-y-16">
             <section class="bg-black text-white p-6 md:p-8 -mx-4 md:-mx-6 shadow-xl">
                 <h2 class="text-[10px] md:text-xs font-bold uppercase tracking-wide mb-6 md:mb-8 opacity-70 border-b border-white/20 pb-1.5 inline-block">ROI_EXECUTIVE_SUMMARY</h2>
                 <div class="space-y-6 text-sm md:text-base">
                     <div class="flex flex-col sm:flex-row justify-between gap-3 text-right sm:text-left">
                         <div><p class="opacity-70 text-[10px] md:text-xs tracking-wide uppercase">Original_Bill</p><p class="font-bold text-base md:text-lg">RM ${formatCurrency(ds.billBefore)}</p></div>
-                        <div class="sm:text-right"><p class="opacity-70 text-[10px] md:text-xs tracking-wide uppercase">System_Size</p><p class="font-bold text-base md:text-lg">${((data.actualPanels * data.config.panelType)/1000).toFixed(2)} kWp</p></div>
+                        <div class="sm:text-right"><p class="opacity-70 text-[10px] md:text-xs tracking-wide uppercase">System_Size</p><p class="font-bold text-base md:text-lg">${((data.actualPanels * data.config.panelType) / 1000).toFixed(2)} kWp</p></div>
                     </div>
                     <div class="h-px bg-white/20"></div>
                     <div class="space-y-4">
@@ -967,7 +965,7 @@ function displaySolarCalculation(data) {
 
             <section class="pt-2 border-y-2 border-fact py-6 md:py-8">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-                    <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">ROI_Percent</span><div class="text-2xl md:text-3xl font-bold text-emerald-600">${formatPercentage((data.monthlySavings*12/data.finalSystemCost)*100,2)}%</div></div>
+                    <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">ROI_Percent</span><div class="text-2xl md:text-3xl font-bold text-emerald-600">${formatPercentage((data.monthlySavings * 12 / data.finalSystemCost) * 100, 2)}%</div></div>
                     <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">Payback</span><div class="text-2xl md:text-3xl font-bold">${data.paybackPeriod} yr</div></div>
                     <div><span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold block mb-1">Net_Cost</span><div class="text-2xl md:text-3xl font-bold">RM ${formatCurrency(data.finalSystemCost)}</div></div>
                 </div>
@@ -1023,7 +1021,7 @@ function displaySolarCalculation(data) {
                             <span class="tier-2 uppercase tracking-tight">${i.label}</span>
                             <span class="text-right">${formatCurrency(i.before)}</span>
                             <span class="text-right">${formatCurrency(i.after)}</span>
-                            <span class="text-right font-bold ${i.delta>=0?'text-emerald-600':'text-rose-600'}">${i.delta>=0?'-':'+'}${formatCurrency(Math.abs(i.delta))}</span>
+                            <span class="text-right font-bold ${i.delta >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${i.delta >= 0 ? '-' : '+'}${formatCurrency(Math.abs(i.delta))}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -1059,7 +1057,7 @@ function renderFloatingPanelModulation(data) {
         document.body.appendChild(bar);
     }
     const delta = originalSolarData ? parseFloat(data.selectedPackage?.price || 0) - parseFloat(originalSolarData.selectedPackage?.price || 0) : 0;
-    
+
     // Minimalist "Pill" Design
     bar.innerHTML = `
         <div class="bg-paper border-2 border-fact shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] pointer-events-auto flex items-center gap-3 px-3 py-2">
@@ -1092,7 +1090,7 @@ function renderFloatingPanelModulation(data) {
             <div class="flex items-center gap-1">
                 <div class="flex flex-col items-end leading-none">
                     <span class="text-[8px] md:text-[9px] font-semibold uppercase tracking-wide tier-3">Panel</span>
-                    ${Math.abs(delta) > 1 ? `<span class="text-[8px] md:text-[9px] font-bold ${delta>0?'text-rose-600':'text-emerald-600'}">${delta>0?'+':'-'}RM${Math.round(Math.abs(delta)).toLocaleString('en-MY')}</span>` : ''}
+                    ${Math.abs(delta) > 1 ? `<span class="text-[8px] md:text-[9px] font-bold ${delta > 0 ? 'text-rose-600' : 'text-emerald-600'}">${delta > 0 ? '+' : '-'}RM${Math.round(Math.abs(delta)).toLocaleString('en-MY')}</span>` : ''}
                 </div>
                 <div class="flex items-center bg-white border border-fact">
                     <button onclick="adjustPanelCount(-1)" class="w-5 h-5 md:w-6 md:h-6 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">-</button>
@@ -1107,14 +1105,14 @@ function renderFloatingPanelModulation(data) {
 
 // --- Utils & Charts ---
 
-function formatCurrency(v) { return Number(v||0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-function formatPercentage(v, d=1) { return Number(v||0).toFixed(d); }
-function showNotification(m, t='info') {
+function formatCurrency(v) { return Number(v || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function formatPercentage(v, d = 1) { return Number(v || 0).toFixed(d); }
+function showNotification(m, t = 'info') {
     const n = document.createElement('div');
-    n.className = `fixed bottom-6 right-4 md:bottom-8 md:right-8 border p-3 md:p-4 z-[10001] text-[10px] md:text-xs uppercase font-semibold shadow-lg max-w-[calc(100vw-2rem)] ${t==='error'?'border-rose-600 bg-rose-50':'border-fact bg-paper'}`;
+    n.className = `fixed bottom-6 right-4 md:bottom-8 md:right-8 border p-3 md:p-4 z-[10001] text-[10px] md:text-xs uppercase font-semibold shadow-lg max-w-[calc(100vw-2rem)] ${t === 'error' ? 'border-rose-600 bg-rose-50' : 'border-fact bg-paper'}`;
     n.innerHTML = `<div class="flex items-center gap-4 md:gap-8"><span>[ ${m} ]</span><button onclick="this.parentElement.parentElement.remove()" class="font-bold hover:opacity-70">X</button></div>`;
     document.body.appendChild(n);
-    setTimeout(()=>n.remove(), 5000);
+    setTimeout(() => n.remove(), 5000);
 }
 
 function showPanelRecommendationPopup(data) {
@@ -1157,23 +1155,23 @@ function createCharts(d) {
     if (chartInstances.combined) chartInstances.combined.destroy();
 
     const commonOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } } } };
-    
+
     chartInstances.electricity = new Chart(ctx1, {
         type: 'line',
-        data: { labels: d.electricityUsagePattern.map(p=>p.hour+':00'), datasets: [{ data: d.electricityUsagePattern.map(p=>p.usage), borderColor: '#f59e0b', fill: true, tension: 0.4 }] },
+        data: { labels: d.electricityUsagePattern.map(p => p.hour + ':00'), datasets: [{ data: d.electricityUsagePattern.map(p => p.usage), borderColor: '#f59e0b', fill: true, tension: 0.4 }] },
         options: commonOpts
     });
 
     const net = d.electricityUsagePattern.map((u, i) => Math.max(0, u.usage - d.solarGenerationPattern[i].generation).toFixed(3));
     chartInstances.combined = new Chart(ctx2, {
         type: 'line',
-        data: { 
-            labels: d.electricityUsagePattern.map(p=>p.hour+':00'), 
+        data: {
+            labels: d.electricityUsagePattern.map(p => p.hour + ':00'),
             datasets: [
-                { label: 'Original', data: d.electricityUsagePattern.map(p=>p.usage), borderColor: '#f59e0b', tension: 0.4 },
-                { label: 'Solar', data: d.solarGenerationPattern.map(p=>p.generation), borderColor: '#10b981', tension: 0.4 },
+                { label: 'Original', data: d.electricityUsagePattern.map(p => p.usage), borderColor: '#f59e0b', tension: 0.4 },
+                { label: 'Solar', data: d.solarGenerationPattern.map(p => p.generation), borderColor: '#10b981', tension: 0.4 },
                 { label: 'Net', data: net, borderColor: '#dc2626', fill: true, tension: 0.4 }
-            ] 
+            ]
         },
         options: { ...commonOpts, plugins: { legend: { display: true, position: 'top' } } }
     });
