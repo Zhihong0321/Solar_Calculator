@@ -362,8 +362,19 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
 
   // Calculate total of extra items
   let extraItemsTotal = 0;
+  let extraItemsNegativeTotal = 0;
   if (Array.isArray(extraItems)) {
-      extraItemsTotal = extraItems.reduce((sum, item) => sum + (parseFloat(item.total_price) || 0), 0);
+      extraItems.forEach(item => {
+          const tp = parseFloat(item.total_price) || 0;
+          extraItemsTotal += tp;
+          if (tp < 0) extraItemsNegativeTotal += tp;
+      });
+  }
+
+  // Security: Cap negative extra items at 5% of package price
+  const maxNegative = -(packagePrice * 0.05);
+  if (extraItemsNegativeTotal < maxNegative && packagePrice > 0) {
+      throw new Error(`Additional items discount (RM ${Math.abs(extraItemsNegativeTotal).toFixed(2)}) exceeds the maximum allowed 5% of package price (RM ${Math.abs(maxNegative).toFixed(2)}).`);
   }
 
   // Calculate discount amount from percent
