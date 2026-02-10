@@ -125,6 +125,9 @@ document.getElementById('billForm').addEventListener('submit', async function (e
         }
 
         matchedBillData = data.tariff;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:127',message:'matchedBillData set from API response',data:{matchedBillData:matchedBillData,hasTotalBill:!!matchedBillData?.total_bill,responseOk:response.ok,dataKeys:Object.keys(data),tariffKeys:matchedBillData?Object.keys(matchedBillData):null},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         displayBillBreakdown(matchedBillData);
 
         document.getElementById('simulation-params').classList.remove('hidden');
@@ -185,6 +188,9 @@ function displayBillBreakdown(t) {
 
 // Calculate solar savings based on panel quantity
 async function calculateSolarSavings(panelQty, params) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:187',message:'calculateSolarSavings entry',data:{panelQty:panelQty,matchedBillDataExists:!!matchedBillData,matchedBillData:matchedBillData,hasTotalBill:!!matchedBillData?.total_bill,matchedBillDataKeys:matchedBillData?Object.keys(matchedBillData):null},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const { sunPeak, panelRating, baseLoadPct, smpPrice, totalMonthlyKwh } = params;
 
     let weeklyWorkingHours = 0;
@@ -236,9 +242,57 @@ async function calculateSolarSavings(panelQty, params) {
     const monthlyExportKwh = weeklyExportKwh * 4.33;
     const newTotalUsageKwh = Math.max(0, totalMonthlyKwh - monthlyOffsetKwh);
 
+    // Validate matchedBillData before proceeding
+    if (!matchedBillData) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:243',message:'matchedBillData is undefined in calculateSolarSavings',data:{panelQty:panelQty},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        throw new Error('matchedBillData is not available. Please complete Step 1 first.');
+    }
+    if (!matchedBillData.total_bill) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:247',message:'matchedBillData missing total_bill property',data:{matchedBillData:matchedBillData,matchedBillDataKeys:Object.keys(matchedBillData)},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        throw new Error('matchedBillData is missing total_bill property. Please re-submit Step 1.');
+    }
+
     const response = await fetch(`/api/commercial/lookup-by-usage?usage=${newTotalUsageKwh}`);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:252',message:'API response received for lookup-by-usage',data:{responseOk:response.ok,responseStatus:response.status,newTotalUsageKwh:newTotalUsageKwh},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    
+    if (!response.ok) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:256',message:'API lookup-by-usage returned error',data:{responseStatus:response.status,responseStatusText:response.statusText},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Failed to lookup tariff by usage: ${errorData.error || response.statusText || 'Server error'}`);
+    }
+    
     const data = await response.json();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:262',message:'Parsed API response data',data:{dataKeys:Object.keys(data),hasTariff:!!data.tariff,dataTariff:data.tariff,dataError:data.error},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+    
+    if (!data.tariff) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:266',message:'API response missing tariff property',data:{data:data,dataKeys:Object.keys(data)},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        throw new Error('API response missing tariff data. Please try again.');
+    }
+    
     const newBillData = data.tariff;
+    
+    if (!newBillData.total_bill) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:272',message:'newBillData missing total_bill property',data:{newBillData:newBillData,newBillDataKeys:Object.keys(newBillData)},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        throw new Error('New bill data missing total_bill property.');
+    }
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:277',message:'Before accessing total_bill properties',data:{matchedBillDataExists:!!matchedBillData,matchedBillDataHasTotalBill:!!matchedBillData?.total_bill,newBillDataExists:!!newBillData,newBillDataHasTotalBill:!!newBillData?.total_bill},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     const billSaving = parseFloat(matchedBillData.total_bill) - parseFloat(newBillData.total_bill);
     const exportEarnings = monthlyExportKwh * smpPrice;
@@ -283,7 +337,13 @@ async function calculateSolarSavings(panelQty, params) {
 }
 
 async function executeFullAnalysis() {
-    if (!matchedBillData) return;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:300',message:'executeFullAnalysis entry - checking matchedBillData',data:{matchedBillDataExists:!!matchedBillData,matchedBillData:matchedBillData,hasTotalBill:!!matchedBillData?.total_bill,matchedBillDataType:typeof matchedBillData,matchedBillDataKeys:matchedBillData?Object.keys(matchedBillData):null},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    if (!matchedBillData || !matchedBillData.total_bill) {
+        alert('Please complete Step 1 (Bill Analysis) first to get matched bill data.');
+        return;
+    }
 
     const sunPeak = parseFloat(document.getElementById('sunPeakHour').value);
     const panelRating = parseInt(document.getElementById('panelRating').value);
@@ -313,9 +373,15 @@ async function executeFullAnalysis() {
     currentPackageData = pkg;
 
     try {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:315',message:'Before calling calculateSolarSavings',data:{matchedBillDataExists:!!matchedBillData,matchedBillData:matchedBillData,hasTotalBill:!!matchedBillData?.total_bill,initialPanels:initialPanels},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         const results = await calculateSolarSavings(initialPanels, currentSimulationParams);
         displayFullROIResults(results, recommendedPanels);
     } catch (err) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'non-domestic.js:319',message:'Error caught in executeFullAnalysis',data:{errorMessage:err.message,errorStack:err.stack,matchedBillDataExists:!!matchedBillData,matchedBillData:matchedBillData},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         console.error('Failed to calculate savings:', err);
         alert('Simulation failed. Check console for details.');
     }

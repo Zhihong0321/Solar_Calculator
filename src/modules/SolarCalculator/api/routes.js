@@ -274,9 +274,13 @@ router.get('/api/commercial/lookup-by-usage', async (req, res) => {
     client.release();
 
     if (result.rows.length === 0) {
-      const fallbackClient = await commercialPool.connect();
+      // Fallback: get the lowest usage record
+      const fallbackClient = await tnbPool.connect();
       const fallbackResult = await fallbackClient.query('SELECT * FROM bill_simulation_lookup WHERE tariff_group = \'LV_COMMERCIAL\' ORDER BY usage_kwh ASC LIMIT 1');
       fallbackClient.release();
+      if (fallbackResult.rows.length === 0) {
+        return res.status(404).json({ error: 'No tariff data found in database' });
+      }
       return res.json({ tariff: fallbackResult.rows[0], matched: false });
     }
 
