@@ -14,6 +14,18 @@ let paymentMethodCounter = 0;
 let availableVouchers = [];
 let selectedVouchers = [];
 
+const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
+
+// Calculate total negative amount from all extra items (manual)
+function getExtraItemsNegativeTotal() {
+    let negativeTotal = 0;
+    manualItems.forEach(item => {
+        const lineTotal = (item.qty || 0) * (item.unit_price || 0);
+        if (lineTotal < 0) negativeTotal += lineTotal;
+    });
+    return negativeTotal; // Will be <= 0
+}
+
 // Dynamic Additional Items State
 let manualItems = [];
 
@@ -690,6 +702,21 @@ function updateInvoicePreview() {
         }
     });
 
+    // Validate extra items discount cap (5% of package price)
+    const extraItemsNegative = getExtraItemsNegativeTotal(); // <= 0
+    const maxAllowedNegative = -(packagePrice * EXTRA_ITEMS_MAX_DISCOUNT_PERCENT / 100);
+    const extraItemsDiscountWarning = document.getElementById('extraItemsDiscountWarning');
+    if (extraItemsNegative < maxAllowedNegative && packagePrice > 0) {
+        window._extraItemsDiscountExceeded = true;
+        if (extraItemsDiscountWarning) {
+            extraItemsDiscountWarning.classList.remove('hidden');
+            extraItemsDiscountWarning.textContent = `Additional items discount exceeds the maximum allowed (${EXTRA_ITEMS_MAX_DISCOUNT_PERCENT}% of package price = RM ${Math.abs(maxAllowedNegative).toFixed(2)}).`;
+        }
+    } else {
+        window._extraItemsDiscountExceeded = false;
+        if (extraItemsDiscountWarning) extraItemsDiscountWarning.classList.add('hidden');
+    }
+
     // Add fixed discount item if exists
     if (discount.fixed > 0) {
         const fixedDiscountItem = document.createElement('div');
@@ -1119,6 +1146,18 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     e.preventDefault();
     const formData = new FormData(this);
     const data = Object.fromEntries(formData);
+
+    // Block submission if extra items discount exceeds 5% cap
+    if (window._extraItemsDiscountExceeded) {
+        const pkgPrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+        const maxRM = (pkgPrice * EXTRA_ITEMS_MAX_DISCOUNT_PERCENT / 100).toFixed(2);
+        Swal.fire({
+            icon: 'error',
+            title: 'Discount Limit Exceeded',
+            text: `Additional items discount cannot exceed ${EXTRA_ITEMS_MAX_DISCOUNT_PERCENT}% of the package price (RM ${maxRM}). Please adjust the negative item amounts.`
+        });
+        return;
+    }
 
     // Show loading state
     const submitBtn = this.querySelector('button[type="submit"]');
