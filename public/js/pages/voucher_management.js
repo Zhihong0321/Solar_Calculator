@@ -41,7 +41,16 @@ async function fetchVouchers() {
             return;
         }
 
-        allVouchers = await response.json();
+        const data = await response.json();
+        console.log('API Response:', data); // Debug log
+
+        if (Array.isArray(data)) {
+            allVouchers = data;
+        } else {
+            console.error('Expected array but got:', data);
+            allVouchers = [];
+        }
+
         renderVouchers();
         updateStats();
     } catch (error) {

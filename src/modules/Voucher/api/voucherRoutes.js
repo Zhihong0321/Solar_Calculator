@@ -11,7 +11,7 @@ const { requireAuth } = require('../../../core/middleware/auth');
 router.get('/api/vouchers', requireAuth, async (req, res) => {
     try {
         const vouchers = await voucherRepo.getAllVouchers(pool);
-        res.json(vouchers);
+        res.json(vouchers || []);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch vouchers' });
     }
