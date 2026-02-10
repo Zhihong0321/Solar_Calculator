@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Presentation - Eternalgy</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #ffffff;
+            color: #1a202c;
+            line-height: 1.5;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 896px;
+            margin: 0 auto;
+            background-color: white;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            position: relative;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background-color: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid #f3f4f6;
+            padding: 1rem 1.5rem;
+        }
+
+        .header-content {
+            max-width: 1024px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            height: 2.5rem;
+            width: auto;
+        }
+
+        .header-badge {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #1e3a8a;
+            letter-spacing: 0.05em;
+        }
+
+        .image-stack {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .proposal-image {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .relative-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .customer-overlay {
+            position: absolute;
+            top: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 600px;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            z-index: 20;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .overlay-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .customer-name {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 0.25rem;
+        }
+
+        .customer-details {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 1rem;
+        }
+
+        .system-badge {
+            display: inline-block;
+            background-color: #2563eb;
+            color: #ffffff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .footer-spacer {
+            height: 4rem;
+        }
+
+        /* Quotation Section Styles - Copied from invoiceHtmlGenerator */
+        .label-text {
+            font-size: 10px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .quotation-section {
+            background-color: #ffffff;
+            border-top: 3px solid #2563eb;
+            margin-top: 3rem;
+            padding: 0;
+        }
+
+        .quotation-section * {
+            box-sizing: border-box;
+        }
+
+        .divider {
+            border-bottom: 1px solid #e2e8f0;
+            margin: 16px 0;
+        }
+        .terms-text {
+            font-size: 8px !important;
+            line-height: 1.15;
+            color: #64748b;
+            text-align: justify;
+        }
+        @media print {
+            body { background: white; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-content">
+            <img src="images/logo-08.png" alt="Eternalgy Logo" class="logo">
+            <div class="flex items-center gap-4">
+                <a href="{{PROPOSAL_URL}}" target="_blank" class="header-badge hover:text-blue-600 transition-colors">OFFICIAL PROPOSAL</a>
+                <button id="downloadPdfBtn" onclick="downloadProposalPdf()" class="hidden bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium px-3 py-1.5 rounded shadow transition-colors flex items-center gap-1.5 no-print">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span>Download PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="image-stack" id="image-stack">
+            <!-- Images will be inserted here by JavaScript -->
+        </div>
+        <div class="footer-spacer"></div>
+    </div>
+
+    <!-- QUOTATION HTML TEMPLATE - Server replaces placeholders with actual data -->
+    <div class="quotation-section">
+        <div class="quotation-container relative" style="padding: 1.5rem; max-width: 1024px; margin: 0 auto;">
+
+            <!-- Header -->
+            <header class="flex flex-col gap-4 mb-6">
+                <div class="flex justify-between items-start">
+                    <img src="images/logo-08.png" alt="{{COMPANY_NAME}}" style="height: 4rem; object-contain;">
+                    <div class="text-right">
+                        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">QUOTATION</h1>
+                        <p class="text-sm font-medium text-slate-500">#{{INVOICE_NUMBER}}</p>
+                        <div class="mt-1 inline-block px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-bold text-slate-700 uppercase tracking-wide">
+                            {{INVOICE_STATUS}}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row justify-between gap-4 text-sm text-slate-600 mt-2">
+                    <!-- From -->
+                    <div>
+                       <p class="font-bold text-slate-900">{{COMPANY_NAME}}</p>
+                       <p class="whitespace-pre-line text-xs leading-relaxed">{{COMPANY_ADDRESS}}</p>
+                       <div class="mt-1 text-xs">
+                         <span>Tel: {{COMPANY_PHONE}}</span><br>
+                         <span>Email: {{COMPANY_EMAIL}}</span>
+                       </div>
+                    </div>
+                    
+                    <!-- Dates -->
+                    <div class="sm:text-right flex flex-col sm:items-end gap-1">
+                        <div>
+                            <span class="label-text block">Date Issued</span>
+                            <span class="font-medium text-slate-900">{{INVOICE_DATE}}</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="divider"></div>
+
+            <!-- Bill To -->
+            <section class="mb-6 flex gap-6 items-start">
+                <div class="flex-1">
+                    <p class="label-text mb-1">Bill To</p>
+                    <p class="text-lg font-bold text-slate-900 leading-none mb-1">
+                        {{CUSTOMER_NAME}}
+                    </p>
+                    <p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed mb-1">{{CUSTOMER_ADDRESS}}</p>
+                    <div class="text-xs text-slate-500">
+                        {{CUSTOMER_PHONE}}<br>
+                        {{CUSTOMER_EMAIL}}
+                    </div>
+                </div>
+                <div class="flex-shrink-0" id="proposal-profile-image-container" style="display: none;">
+                    <img src="{{CUSTOMER_IMAGE}}" alt="Customer Profile" id="proposal-profile-image" class="w-20 h-20 rounded-lg object-cover border border-slate-200 shadow-sm">
+                </div>
+            </section>
+
+            <!-- Line Items -->
+            <section class="mb-6">
+                <div class="bg-slate-50 rounded-t-lg border-b border-slate-200 px-3 py-2 flex text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div class="flex-1">Description</div>
+                    <div class="text-right w-24">Amount</div>
+                </div>
+                <div class="divide-y divide-slate-100 border-b border-slate-100">
+                    {{INVOICE_ITEMS}}
+                </div>
+            </section>
+
+            <!-- Summary & Payment -->
+            <div class="flex flex-col sm:flex-row gap-8 mb-8">
+                
+                <!-- Totals (Right on Desktop, Top on Mobile) -->
+                <div class="flex-1 sm:max-w-xs order-1 sm:order-2" style="margin-left: auto;">
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between text-slate-600">
+                            <span>Subtotal</span>
+                            <span>RM {{SUBTOTAL}}</span>
+                        </div>
+                        <div class="flex justify-between text-slate-600">
+                            <span>SST ({{SST_RATE}}%)</span>
+                            <span>RM {{SST_AMOUNT}}</span>
+                        </div>
+                        <div class="flex justify-between font-bold text-lg text-slate-900 pt-2">
+                            <span>Total</span>
+                            <span>RM {{TOTAL_AMOUNT}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Details -->
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-100 mb-8">
+                <p class="label-text mb-2">Payment Details</p>
+                <div class="space-y-1 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Bank</span>
+                        <span class="font-medium text-slate-900 text-right">{{BANK_NAME}}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Account No.</span>
+                        <span class="font-medium text-slate-900 text-right">{{BANK_ACCOUNT}}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Account Name</span>
+                        <span class="font-medium text-slate-900 text-right">{{BANK_ACCOUNT_NAME}}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Created By -->
+            <div class="text-right text-xs text-slate-400 mb-4">
+                Quotation Created by: <span class="font-medium text-slate-600">{{CREATED_BY}}</span>
+            </div>
+
+            <!-- Terms & Conditions -->
+            <section class="mb-4 pt-4 border-t border-slate-200">
+                <p class="label-text mb-1">Terms & Conditions</p>
+                <div class="terms-text">
+                    {{TERMS_AND_CONDITIONS}}
+                </div>
+            </section>
+
+            <!-- Sign Button Below TNC (Mobile optimized center alignment) -->
+            <div id="sign-button-container" class="mt-8 mb-8 flex justify-center no-print" style="display: none;">
+                <button id="signQuotationBtn" onclick="openSignatureModal()"
+                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-base font-bold px-8 py-4 rounded-xl shadow-xl transform transition-all active:scale-95">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                    </svg>
+                    <span>Sign this Quotation</span>
+                </button>
+            </div>
+
+            <!-- Signature Section -->
+            <div id="signature-display-section" style="display: none;" class="mt-12 pt-8 border-t border-slate-200">
+                <div class="max-w-xs">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Read, Agreed, Signed by</p>
+                    <div class="h-24 flex items-center mb-2">
+                        <img id="display-signature-img" src="" alt="Customer Signature" class="max-h-full object-contain">
+                    </div>
+                    <div class="border-t border-slate-400 pt-2">
+                        <p class="text-xs font-bold text-slate-900 uppercase">{{CUSTOMER_NAME}}</p>
+                        <p class="text-[10px] text-slate-500">{{CUSTOMER_PHONE}} • {{CUSTOMER_EMAIL}}</p>
+                        <p class="text-[9px] text-slate-400 mt-1 uppercase" id="display-signature-date"></p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Signature Modal -->
+    <div id="signatureModal" class="fixed inset-0 z-[100] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) closeSignatureModal()">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="signatureBox">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Customer Signature</h3>
+            <p class="text-[10px] text-slate-500 font-medium">Please sign within the box below</p>
+          </div>
+          <button onclick="closeSignatureModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-white transition-all">✕</button>
+        </div>
+        <div class="p-6">
+          <div class="relative bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg overflow-hidden touch-none" style="height: 240px;">
+            <canvas id="signatureCanvas" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
+          </div>
+          <div class="flex justify-between items-center mt-6 gap-3">
+            <button onclick="clearSignature()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 uppercase tracking-widest transition-colors">Clear Space</button>
+            <div class="flex gap-2 flex-1">
+              <button onclick="closeSignatureModal()" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-50 transition-all uppercase tracking-widest">Cancel</button>
+              <button onclick="saveSignature()" id="saveSignBtn" class="flex-[2] px-4 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 shadow-lg transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+                Confirm & Sign
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEMPLATE FOR THE OVERLAY (Hidden by default, cloned by JS) -->
+    <template id="overlay-template">
+        <div class="customer-overlay">
+            <div id="disp-image-container" class="hidden mb-4 flex justify-center">
+                <img id="disp-image" src="" alt="" class="w-20 h-20 rounded-full border-2 border-white/50 object-cover shadow-lg">
+            </div>
+            <div class="overlay-title">Prepared For</div>
+            <div class="customer-name" id="disp-name">Customer Name</div>
+            <div class="customer-details" id="disp-address">123 Solar Street, Green City</div>
+            <div class="system-badge" id="disp-system">System Size: 0kW</div>
+        </div>
+    </template>
+
+    <script>
+        // ==========================================
+        //  AI AGENT CONFIGURATION BLOCK
+        //  Instructions for AI:
+        //  1. Locate the variables below.
+        //  2. Replace the string values with the specific customer details.
+        //  3. Do not modify variable names (e.g., KEEP 'var CUSTOMER_NAME').
+        // ==========================================
+
+        var CUSTOMER_NAME    = "Mr. John Doe";                     // Target: Name of the client
+        var CUSTOMER_ADDRESS = "88 Sunny Side Avenue, California"; // Target: Full address line
+        var CUSTOMER_IMAGE   = "";                                 // Target: Profile picture URL
+        var SYSTEM_SIZE      = "12.5 kWp System";                  // Target: System capacity (e.g. 10 kW)
+        var SHOW_OVERLAY     = true;                               // Target: true or false
+        
+        // Advanced Layout Config (Optional)
+        var OVERLAY_POSITION_TOP = "28%";                          // Target: Vertical position on the first image
+        var CUSTOMER_SIGNATURE   = "";                                 // Target: Base64 signature data
+        var SIGNATURE_DATE       = "";                                 // Target: Date of signature
+
+        // ==========================================
+        //  END AI CONFIGURATION
+        // ==========================================
+
+        const CUSTOMER_CONFIG = {
+            showOverlay: SHOW_OVERLAY,
+            name: CUSTOMER_NAME,
+            address: CUSTOMER_ADDRESS,
+            image: CUSTOMER_IMAGE,
+            systemSize: SYSTEM_SIZE,
+            verticalPosition: OVERLAY_POSITION_TOP,
+            signature: CUSTOMER_SIGNATURE,
+            signatureDate: SIGNATURE_DATE
+        };
+
+        // Data from manifest
+        const manifest = [
+          { "baseName": "part01", "numChunks": 12 },
+          { "baseName": "part02", "numChunks": 19 },
+          { "baseName": "part03", "numChunks": 6 }
+        ];
+
+        const container = document.getElementById('image-stack');
+        const overlayTemplate = document.getElementById('overlay-template');
+
+        let isFirstImage = true;
+
+        manifest.forEach(part => {
+            for (let i = 0; i < part.numChunks; i++) {
+                
+                // For the very first image, we need a wrapper to hold the overlay
+                if (isFirstImage && CUSTOMER_CONFIG.showOverlay) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'relative-wrapper';
+
+                    // 1. Create Image
+                    const img = document.createElement('img');
+                    img.src = `images/${part.baseName}-chunk-${i}.webp`;
+                    img.alt = `${part.baseName} part ${i}`;
+                    img.className = 'proposal-image';
+                    img.loading = 'eager'; // Load first image immediately
+                    
+                    wrapper.appendChild(img);
+
+                    // 2. Create Overlay
+                    const overlayClone = overlayTemplate.content.cloneNode(true);
+                    const overlayDiv = overlayClone.querySelector('.customer-overlay');
+                    
+                    // Populate Data
+                    overlayClone.querySelector('#disp-name').textContent = CUSTOMER_CONFIG.name;
+                    overlayClone.querySelector('#disp-address').textContent = CUSTOMER_CONFIG.address;
+                    overlayClone.querySelector('#disp-system').textContent = CUSTOMER_CONFIG.systemSize;
+                    
+                    if (CUSTOMER_CONFIG.image) {
+                        const imgEl = overlayClone.querySelector('#disp-image');
+                        const containerEl = overlayClone.querySelector('#disp-image-container');
+                        imgEl.src = CUSTOMER_CONFIG.image;
+                        containerEl.classList.remove('hidden');
+                    }
+                    
+                    // Apply Custom Position
+                    if(CUSTOMER_CONFIG.verticalPosition) {
+                        overlayDiv.style.top = CUSTOMER_CONFIG.verticalPosition;
+                    }
+
+                    wrapper.appendChild(overlayClone);
+                    container.appendChild(wrapper);
+
+                    isFirstImage = false;
+                } else {
+                    // Standard image insertion
+                    const img = document.createElement('img');
+                    
+                    // Special cases for specific images
+                    if (part.baseName === 'part01' && i === 2) {
+                        img.src = `images/75-saving.jpg`;
+                    } else if (part.baseName === 'part01' && i === 3) {
+                        img.src = `images/part01-chunk-3.jpg`;
+                    } else if (part.baseName === 'part01' && i === 4) {
+                        img.src = `images/part01-chunk-4.jpg`;
+                    } else if (part.baseName === 'part02' && i === 8) {
+                        img.src = `images/part02-chunk-8.jpg`;
+                    } else {
+                        img.src = `images/${part.baseName}-chunk-${i}.webp`;
+                    }
+
+                    img.alt = `${part.baseName} part ${i}`;
+                    img.className = 'proposal-image';
+                    img.loading = 'lazy';
+                    container.appendChild(img);
+                }
+            }
+        });
+
+        // Initialize Signature Section
+        if (CUSTOMER_CONFIG.signature && CUSTOMER_CONFIG.signature.trim() !== "") {
+            document.getElementById('signature-display-section').style.display = 'block';
+            document.getElementById('display-signature-img').src = CUSTOMER_CONFIG.signature;
+            if (CUSTOMER_CONFIG.signatureDate) {
+                document.getElementById('display-signature-date').textContent = "Signed on " + new Date(CUSTOMER_CONFIG.signatureDate).toLocaleDateString('en-MY', {
+                    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+            }
+            document.getElementById('sign-button-container').style.display = 'none';
+        } else {
+            document.getElementById('sign-button-container').style.display = 'flex';
+        }
+
+        // Show profile image if available
+        if (CUSTOMER_CONFIG.image && CUSTOMER_CONFIG.image.trim() !== "") {
+            const profileImageContainer = document.getElementById('proposal-profile-image-container');
+            if (profileImageContainer) profileImageContainer.style.display = 'block';
+        }
+
+        // Signature Modal Logic
+        let signaturePad;
+        const modal = document.getElementById('signatureModal');
+        const box = document.getElementById('signatureBox');
+        const canvas = document.getElementById('signatureCanvas');
+
+        function openSignatureModal() {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                box.classList.remove('scale-95', 'opacity-0');
+                resizeCanvas();
+                if (!signaturePad) {
+                    signaturePad = new SignaturePad(canvas, {
+                        backgroundColor: 'rgba(255, 255, 255, 0)',
+                        penColor: '#0f172a'
+                    });
+                }
+            }, 10);
+        }
+
+        function closeSignatureModal() {
+            box.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function resizeCanvas() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+            if (signaturePad) signaturePad.clear();
+        }
+
+        window.onresize = resizeCanvas;
+
+        function clearSignature() {
+            if (signaturePad) signaturePad.clear();
+        }
+
+        async function saveSignature() {
+            if (!signaturePad || signaturePad.isEmpty()) {
+                return Swal.fire({ icon: 'warning', title: 'Empty Signature', text: 'Please provide your signature before confirming.', confirmButtonColor: '#0f172a' });
+            }
+
+            const btn = document.getElementById('saveSignBtn');
+            const originalText = btn.innerHTML;
+            
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<span>Saving...</span>';
+
+                const dataUrl = signaturePad.toDataURL('image/png');
+                
+                // Extract share token from URL
+                const pathParts = window.location.pathname.split('/');
+                const shareToken = pathParts[pathParts.length - 1];
+
+                const response = await fetch(`/view/${shareToken}/signature`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ signature: dataUrl })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Signed!',
+                        text: 'Your signature has been securely recorded.',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    throw new Error(result.error || 'Failed to save signature');
+                }
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#0f172a' });
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        async function downloadProposalPdf() {
+            const button = document.getElementById('downloadPdfBtn');
+            const originalText = button.innerHTML;
+            
+            try {
+                // Extract share token from URL
+                const pathParts = window.location.pathname.split('/');
+                const shareToken = pathParts[pathParts.length - 1]; // Assumes /proposal/:shareToken
+
+                if (!shareToken) {
+                    throw new Error('Could not determine proposal ID');
+                }
+
+                button.disabled = true;
+                button.classList.add('opacity-75', 'cursor-not-allowed');
+                button.innerHTML = '<span>Preparing...</span>';
+
+                const response = await fetch(`/proposal/${shareToken}/pdf`);
+                const data = await response.json();
+
+                if (data.success && data.downloadUrl) {
+                    let downloadUrl = data.downloadUrl;
+                    if (!downloadUrl.startsWith('http')) downloadUrl = 'https://' + downloadUrl;
+                    window.open(downloadUrl, '_blank');
+                } else {
+                    alert('Failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Error downloading PDF:', err);
+                alert('Error: ' + err.message);
+            } finally {
+                button.disabled = false;
+                button.classList.remove('opacity-75', 'cursor-not-allowed');
+                button.innerHTML = originalText;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,75 +1,339 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
+
+// --- Core Resources ---
+const pool = require('./src/core/database/pool');
+const { requireAuth } = require('./src/core/middleware/auth');
+
+// --- Feature Modules ---
+const Invoicing = require('./src/modules/Invoicing');
+const SolarCalculator = require('./src/modules/SolarCalculator');
+const Customer = require('./src/modules/Customer');
+const Chat = require('./src/modules/Chat');
+const Referral = require('./src/modules/Referral');
+const Email = require('./src/modules/Email');
+const Voucher = require('./src/modules/Voucher');
+const sedaRoutes = require('./routes/sedaRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Trust Proxy for Railway/Load Balancers
+app.set('trust proxy', 1);
+
+// --- Global Middleware ---
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: true
+}));
+
+app.use((req, res, next) => {
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Access-Control-Allow-Origin', '*');
+  next();
+});
+
+app.use(cookieParser());
+app.use(express.json({ limit: '50mb' }));
+
+// --- Module Mounting ---
+app.use(Invoicing.router);
+app.use(SolarCalculator.router);
+app.use(Customer.router);
+app.use(Chat.router);
+app.use(Referral.router);
+app.use(Email.router);
+app.use(Voucher.router);
+app.use(sedaRoutes);
+
+// --- Global Routes & Static Files ---
 app.use(express.static('public'));
+app.use('/proposal', express.static('portable-proposal'));
 
-// Database connection
-const { Pool } = require('pg');
+const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'storage');
+app.use('/uploads', express.static(storagePath));
+app.use('/seda-files', express.static(path.join(storagePath, 'seda_registration')));
+app.use('/agent-docs', express.static(path.join(storagePath, 'agent_documents')));
 
-const mainConnectionString = process.env.DATABASE_URL;
-const tariffConnectionString = process.env.DATABASE_URL_TARIFF || process.env.DATABASE_URL;
-
-const pool = new Pool({
-  connectionString: mainConnectionString,
-  ssl: { rejectUnauthorized: false }
-});
-
-const tariffPool = new Pool({
-  connectionString: tariffConnectionString,
-  ssl: { rejectUnauthorized: false }
-});
-
-// Helper function to find the closest tariff based on adjusted total (bill + afa)
-const findClosestTariff = async (client, targetAmount, afaRate) => {
-  const query = `
-    SELECT *,
-      (
-        (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
-        + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)
-      ) as adjusted_total
-    FROM domestic_am_tariff
-    WHERE (
-      (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
-      + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)
-    ) <= $1::numeric
-    ORDER BY adjusted_total DESC
-    LIMIT 1
-  `;
-  const result = await client.query(query, [targetAmount, afaRate]);
-
-  if (result.rows.length > 0) {
-    return result.rows[0];
-  }
-
-  // Fallback to lowest
-  const fallbackQuery = `
-    SELECT *,
-      (
-        (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
-        + (COALESCE(usage_kwh, 0)::numeric * $1::numeric)
-      ) as adjusted_total
-    FROM domestic_am_tariff
-    ORDER BY adjusted_total ASC
-    LIMIT 1
-  `;
-  const fallbackResult = await client.query(fallbackQuery, [afaRate]);
-  return fallbackResult.rows.length > 0 ? fallbackResult.rows[0] : null;
-};
-
-// Routes
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  if (req.cookies.auth_token) {
+    return res.redirect('/agent/home');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
-// API endpoint to test database connection
+// Agent Registration Route
+app.get('/agent-registration', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_registration.html'));
+});
+
+/**
+ * API: Agent Registration
+ */
+app.post('/api/agent/register', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { name, contact, email, address, introducer, agent_type, ic_front, ic_back, profile_picture } = req.body;
+
+    // Basic Validation
+    if (!name || !contact || !email || !profile_picture) {
+      return res.status(400).json({ error: 'Name, Mobile, Email, and Profile Picture are required.' });
+    }
+
+    // Check if email already exists in user table
+    const checkUser = await client.query('SELECT id FROM "user" WHERE email = $1', [email]);
+    if (checkUser.rows.length > 0) {
+      return res.status(400).json({ error: 'This email is already registered.' });
+    }
+
+    const agent_bubble_id = `agent_${crypto.randomBytes(8).toString('hex')}`;
+    const user_bubble_id = `user_${crypto.randomBytes(8).toString('hex')}`;
+
+    const uploadDir = path.join(storagePath, 'agent_documents');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Helper to save base64 image
+    const saveImage = (base64Data, prefix, bubble_id) => {
+      if (!base64Data) return null;
+      const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const ext = matches[1].split('/')[1] || 'jpg';
+        const buffer = Buffer.from(matches[2], 'base64');
+        const filename = `${prefix}_${bubble_id}_${Date.now()}.${ext}`;
+        fs.writeFileSync(path.join(uploadDir, filename), buffer);
+
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.get('host');
+        return `${protocol}://${host}/agent-docs/${filename}`;
+      }
+      return null;
+    };
+
+    const icFrontUrl = saveImage(ic_front, 'ic_front', agent_bubble_id);
+    const icBackUrl = saveImage(ic_back, 'ic_back', agent_bubble_id);
+    const profilePicUrl = saveImage(profile_picture, 'profile', user_bubble_id);
+
+    await client.query('BEGIN');
+
+    // 1. Create User first
+    const userQuery = `
+      INSERT INTO "user" (
+        bubble_id, email, access_level, linked_agent_profile, user_signed_up, profile_picture, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+      RETURNING *
+    `;
+    await client.query(userQuery, [
+      user_bubble_id, email, ['pending'], agent_bubble_id, false, profilePicUrl
+    ]);
+
+    // 2. Create Agent linked back to user
+    const agentQuery = `
+      INSERT INTO agent (
+        bubble_id, name, contact, email, address, introducer, agent_type, 
+        ic_front, ic_back, linked_user_login, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      RETURNING *
+    `;
+    const agentResult = await client.query(agentQuery, [
+      agent_bubble_id, name, contact, email, address, introducer, agent_type,
+      icFrontUrl, icBackUrl, user_bubble_id
+    ]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, agent: agentResult.rows[0] });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Agent Registration Error:', err);
+    res.status(500).json({ error: 'Failed to complete registration.' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/domestic', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'domestic.html'));
+});
+
+app.get('/non-domestic', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'non-domestic.html'));
+});
+
+// Chat Page Routes
+app.get('/invoice-chat', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'invoice_chat.html'));
+});
+
+// Agent Launcher Route
+app.get('/agent/home', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_dashboard.html'));
+});
+
+// SEDA Management Route
+app.get('/my-seda', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'my_seda.html'));
+});
+
+// Agent Profile Management Route
+app.get('/agent/profile', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_profile.html'));
+});
+
+// Agent Referral Management Route
+app.get('/my-referal', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'my_referal.html'));
+});
+
+// Agent Email Management Route
+app.get('/my-emails', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'my_emails.html'));
+});
+
+// Voucher Management Route
+app.get('/voucher-management', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'voucher_management.html'));
+});
+
+/**
+ * API: Get full agent profile
+ */
+app.get('/api/agent/profile', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const bubbleId = req.user.bubbleId;
+
+    const query = `
+      SELECT 
+        a.name, 
+        u.email, 
+        u.profile_picture,
+        a.contact,
+        a.banker,
+        a.bankin_account
+      FROM "user" u
+      LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
+      WHERE u.id::text = $1 OR u.bubble_id = $2
+      LIMIT 1
+    `;
+    const result = await pool.query(query, [userId, bubbleId]);
+    res.json(result.rows[0] || {});
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+/**
+ * API: Update agent profile
+ */
+app.put('/api/agent/profile', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { name, contact, email, banker, bankin_account } = req.body;
+    const userId = req.user.userId;
+    const bubbleId = req.user.bubbleId;
+
+    // Validation: Phone must start with 0 and be 10-11 digits
+    if (!/^0\d{9,10}$/.test(contact)) {
+      return res.status(400).json({ error: 'Invalid mobile number format. Must start with 0 and be 10-11 digits.' });
+    }
+
+    await client.query('BEGIN');
+
+    // 1. Update User table (No 'name' column in user table)
+    await client.query(
+      `UPDATE "user" SET email = $1, updated_at = NOW() 
+       WHERE id::text = $2 OR bubble_id = $3`,
+      [email, userId, bubbleId]
+    );
+
+    // 2. Update Agent table
+    await client.query(
+      `UPDATE agent SET name = $1, contact = $2, email = $3, banker = $4, bankin_account = $5, updated_at = NOW() 
+       WHERE linked_user_login = $6 OR bubble_id = $7`,
+      [name, contact, email, banker, bankin_account, bubbleId, bubbleId]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Update Profile Error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * API: Get current logged in agent details (minimal for header)
+ */
+app.get('/api/agent/me', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id;
+    const bubbleId = req.user.bubbleId || req.user.bubble_id;
+
+    if (!userId) {
+      console.error('[AgentMe] No userId found in req.user:', req.user);
+      return res.status(401).json({ error: 'Invalid session data' });
+    }
+
+    // Verified Query based on confirmed schema:
+    // Identity (Name, Contact) lives in 'agent'
+    // Profile Image lives in 'user'
+    const query = `
+      SELECT 
+        a.name, 
+        u.email, 
+        u.profile_picture,
+        u.access_level,
+        a.contact as phone
+      FROM "user" u
+      LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
+      WHERE u.id::text = $1 OR (u.bubble_id = $2 AND u.bubble_id IS NOT NULL AND u.bubble_id != '')
+      LIMIT 1
+    `;
+    const result = await pool.query(query, [String(userId), String(bubbleId || '')]);
+
+    if (result.rows.length === 0) {
+      console.warn(`[AgentMe] No user found for ID: ${userId}`);
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('[AgentMe] Critical Error:', err);
+    // Return detailed error for debugging purposes
+    res.status(500).json({
+      error: 'Internal server error',
+      message: err.message,
+      stack: err.stack,
+      hint: 'Check if all columns (name, email, linked_agent_profile, profile_picture) exist in "user" table and contact in "agent" table.'
+    });
+  }
+});
+
+app.get('/select-package', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'select_package.html'));
+});
+
+app.get('/chat-dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'chat_dashboard.html'));
+});
+
+app.get('/chat-settings', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'chat_settings.html'));
+});
+
+// API endpoint to test database connection (Core Health)
 app.get('/api/health', async (req, res) => {
   try {
     const client = await pool.connect();
@@ -82,996 +346,10 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// API endpoint to explore database schema and tables
-app.get('/api/schema', async (req, res) => {
-  try {
-    const client = await pool.connect();
-
-    // Get all tables
-    const tablesQuery = `
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-      ORDER BY table_name;
-    `;
-    const tablesResult = await client.query(tablesQuery);
-
-    // Get column info for each table
-    const schema = {};
-    for (const table of tablesResult.rows) {
-      const columnsQuery = `
-        SELECT column_name, data_type, is_nullable, column_default
-        FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = $1
-        ORDER BY ordinal_position;
-      `;
-      const columnsResult = await client.query(columnsQuery, [table.table_name]);
-      schema[table.table_name] = columnsResult.rows;
-    }
-
-    client.release();
-    res.json({ tables: tablesResult.rows.map(t => t.table_name), schema });
-  } catch (err) {
-    console.error('Schema query error:', err);
-    res.status(500).json({ error: 'Failed to fetch schema', details: err.message });
-  }
-});
-
-// API endpoint to get tariff data
-app.get('/api/tnb-tariff', async (req, res) => {
-  try {
-    const client = await tariffPool.connect();
-    const result = await client.query('SELECT * FROM domestic_am_tariff LIMIT 10');
-    client.release();
-    res.json({ data: result.rows, count: result.rowCount });
-  } catch (err) {
-    console.error('TNB tariff query error:', err);
-    res.status(500).json({ error: 'Failed to fetch TNB tariff data', details: err.message });
-  }
-});
-
-// API endpoint to explore package table schema and data
-app.get('/api/package-info', async (req, res) => {
-  try {
-    const client = await pool.connect();
-
-    // Get package table structure
-    const schemaQuery = `
-      SELECT column_name, data_type, is_nullable, column_default
-      FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = 'package'
-      ORDER BY ordinal_position;
-    `;
-    const schemaResult = await client.query(schemaQuery);
-
-    // Get sample package data
-    const dataQuery = 'SELECT * FROM package LIMIT 10';
-    const dataResult = await client.query(dataQuery);
-
-    client.release();
-    res.json({
-      schema: schemaResult.rows,
-      sampleData: dataResult.rows,
-      totalRecords: dataResult.rowCount
-    });
-  } catch (err) {
-    console.error('Package info query error:', err);
-    res.status(500).json({ error: 'Failed to fetch package information', details: err.message });
-  }
-});
-
-// API endpoint to explore product table and package.Panel relationship
-app.get('/api/product-info', async (req, res) => {
-  try {
-    const client = await pool.connect();
-
-    // Get product table structure
-    const productSchemaQuery = `
-      SELECT column_name, data_type, is_nullable, column_default
-      FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = 'product'
-      ORDER BY ordinal_position;
-    `;
-    const productSchemaResult = await client.query(productSchemaQuery);
-
-    // Get sample product data
-    const productDataQuery = 'SELECT * FROM product LIMIT 10';
-    const productDataResult = await client.query(productDataQuery);
-
-    // Test the relationship between package and product
-    const relationshipQuery = `
-      SELECT
-        p.id as package_id,
-        p.package_name,
-        p.panel_qty,
-        p.panel,
-        pr.id as product_id,
-        pr.solar_output_rating
-      FROM package p
-      LEFT JOIN product pr ON p.panel = pr.id
-      WHERE p.active = true
-      LIMIT 10;
-    `;
-    const relationshipResult = await client.query(relationshipQuery);
-
-    client.release();
-    res.json({
-      productSchema: productSchemaResult.rows,
-      productSampleData: productDataResult.rows,
-      packageProductRelationship: relationshipResult.rows
-    });
-  } catch (err) {
-    console.error('Product info query error:', err);
-    res.status(500).json({ error: 'Failed to fetch product information', details: err.message });
-  }
-});
-
-// READ-ONLY endpoints for schema and sample data investigation (safe for Railway)
-// These endpoints do not mutate data and are intended to confirm actual structures
-// and provide dropdown-friendly product options without assumptions.
-
-// Get only the product table schema from information_schema
-app.get('/readonly/schema/product', async (req, res) => {
-  try {
-    const client = await pool.connect();
-    const schemaQuery = `
-      SELECT column_name, data_type, is_nullable, column_default
-      FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = 'product'
-      ORDER BY ordinal_position;
-    `;
-    const schemaResult = await client.query(schemaQuery);
-    client.release();
-    res.json({
-      table: 'product',
-      columns: schemaResult.rows
-    });
-  } catch (err) {
-    console.error('Readonly product schema error:', err);
-    res.status(500).json({ error: 'Failed to fetch product schema', details: err.message });
-  }
-});
-
-// Get dropdown-friendly product options
-// Label: product.name; Value: product.solar_output_rating (numeric)
-// Filters: solar_output_rating > 0; active = true IF the column exists as boolean
-app.get('/readonly/product/options', async (req, res) => {
-  try {
-    const client = await pool.connect();
-
-    // Inspect product schema to build safe query dynamically
-    const schemaQuery = `
-      SELECT column_name, data_type
-      FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = 'product';
-    `;
-    const schemaResult = await client.query(schemaQuery);
-    const cols = schemaResult.rows;
-    const hasActive = cols.some(c => c.column_name === 'active' && c.data_type.includes('boolean'));
-    const hasName = cols.some(c => c.column_name === 'name');
-    const hasWatt = cols.some(c => c.column_name === 'solar_output_rating');
-    const hasBubble = cols.some(c => c.column_name === 'bubble_id');
-
-    if (!hasWatt) {
-      client.release();
-      return res.status(400).json({
-        error: 'solar_output_rating column not found on product table',
-        schemaColumns: cols
-      });
-    }
-
-    // Build query safely
-    const selectFields = [];
-    if (hasBubble) selectFields.push('bubble_id');
-    if (hasName) selectFields.push('name');
-    if (hasWatt) selectFields.push('solar_output_rating');
-
-    const whereClauses = ['solar_output_rating > 0'];
-    if (hasActive) {
-      whereClauses.push('active = true');
-    }
-
-    const query = `
-      SELECT ${selectFields.join(', ')}
-      FROM product
-      ${whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : ''}
-      ORDER BY ${hasWatt ? 'solar_output_rating DESC' : (hasName ? 'name ASC' : (hasBubble ? 'bubble_id ASC' : '1'))}
-      LIMIT 100;
-    `;
-
-    const result = await client.query(query);
-    client.release();
-
-    // Map to dropdown options
-    const options = result.rows.map(row => ({
-      bubble_id: hasBubble ? row.bubble_id : null,
-      label: hasName && row.name ? row.name : `${row.solar_output_rating}W`,
-      value: row.solar_output_rating
-    })).filter(opt => opt.bubble_id); // exclude rows without bubble_id
-
-    res.json({
-      schemaFlags: { hasActive, hasName, hasWatt, hasBubble },
-      recordCount: result.rowCount,
-      options
-    });
-  } catch (err) {
-    console.error('Readonly product options error:', err);
-    res.status(500).json({ error: 'Failed to fetch product options', details: err.message });
-  }
-});
-
-// Return limited product rows for verification/testing
-app.get('/readonly/product/sample', async (req, res) => {
-  try {
-    const limitRaw = req.query.limit;
-    let limit = parseInt(limitRaw, 10);
-    if (Number.isNaN(limit) || limit <= 0 || limit > 100) {
-      limit = 10;
-    }
-
-    const client = await pool.connect();
-    const result = await client.query('SELECT * FROM product LIMIT $1', [limit]);
-    client.release();
-    res.json({ data: result.rows, count: result.rowCount, limit });
-  } catch (err) {
-    console.error('Readonly product sample error:', err);
-    res.status(500).json({ error: 'Failed to fetch product sample', details: err.message });
-  }
-});
-
-// Debug endpoint to test panel filtering
-app.get('/api/debug-panel-filter', async (req, res) => {
-  try {
-    const { panelQty = 1, panelType = 620 } = req.query;
-    const client = await pool.connect();
-
-    // First, check basic package data
-    const packageQuery = `SELECT * FROM package WHERE panel_qty = $1 AND active = true LIMIT 5`;
-    const packageResult = await client.query(packageQuery, [parseInt(panelQty)]);
-
-    // Check if package.panel values exist
-    const panelCheckQuery = `SELECT DISTINCT panel FROM package WHERE panel IS NOT NULL LIMIT 10`;
-    const panelCheckResult = await client.query(panelCheckQuery);
-
-    // Check product table
-    const productQuery = `SELECT id, solar_output_rating FROM product LIMIT 10`;
-    const productResult = await client.query(productQuery);
-
-    // Try the JOIN carefully
-    let joinResult = { error: 'Not attempted' };
-    try {
-      const joinQuery = `
-        SELECT p.id, p.panel_qty, p.panel, pr.id as product_id, pr.solar_output_rating
-        FROM package p
-        LEFT JOIN product pr ON p.panel = pr.id
-        WHERE p.panel_qty = $1 AND p.active = true
-        LIMIT 3
-      `;
-      const joinQueryResult = await client.query(joinQuery, [parseInt(panelQty)]);
-      joinResult = joinQueryResult.rows;
-    } catch (joinErr) {
-      joinResult = { error: joinErr.message };
-    }
-
-    client.release();
-    res.json({
-      packages: packageResult.rows,
-      panelValues: panelCheckResult.rows,
-      products: productResult.rows,
-      joinTest: joinResult,
-      searchParams: { panelQty: parseInt(panelQty), panelType: panelType.toString() }
-    });
-  } catch (err) {
-    console.error('Debug panel filter error:', err);
-    res.status(500).json({ error: 'Debug query failed', details: err.message });
-  }
-});
-
-// API endpoint to calculate bill breakdown based on input amount
-app.get('/api/calculate-bill', async (req, res) => {
-  let client;
-  try {
-    const inputAmount = parseFloat(req.query.amount);
-    const historicalAfaRate = parseFloat(req.query.afaRate) || 0;
-
-    if (!inputAmount || inputAmount <= 0) {
-      return res.status(400).json({ error: 'Invalid bill amount provided' });
-    }
-
-    client = await tariffPool.connect();
-    const tariff = await findClosestTariff(client, inputAmount, historicalAfaRate);
-
-    if (!tariff) {
-      return res.status(404).json({ error: 'No tariff data found in database' });
-    }
-
-    res.json({
-      tariff: tariff,
-      inputAmount: inputAmount,
-      afaRate: historicalAfaRate,
-      message: 'Found closest matching tariff'
-    });
-
-  } catch (err) {
-    console.error('Calculate bill error:', err);
-    res.status(500).json({ 
-      error: 'Failed to calculate bill breakdown', 
-      details: err.message,
-      code: err.code
-    });
-  } finally {
-    if (client) client.release();
-  }
-});
-
-// API endpoint for solar savings calculation
-app.get('/api/solar-calculation', async (req, res) => {
-  try {
-    const {
-      amount,
-      sunPeakHour,
-      morningUsage,
-      panelType,
-      panelBubbleId,
-      smpPrice,
-      percentDiscount,
-      fixedDiscount,
-      afaRate: afaRateRaw,
-      historicalAfaRate: historicalAfaRateRaw
-    } = req.query;
-
-    // Validate inputs
-    const billAmount = parseFloat(amount);
-    const peakHour = parseFloat(sunPeakHour);
-    const morningPercent = parseFloat(morningUsage);
-    const panelWattage = parseInt(panelType) || 620; // Default to 620W
-    const selectedPanelBubbleId = typeof panelBubbleId === 'string' && panelBubbleId.trim().length > 0
-      ? panelBubbleId.trim()
-      : null;
-    const smp = parseFloat(smpPrice);
-    const discountPercent = parseFloat(percentDiscount) || 0;
-    const discountFixed = parseFloat(fixedDiscount) || 0;
-    const afaRate = parseFloat(afaRateRaw) || 0;
-    const historicalAfaRate = parseFloat(historicalAfaRateRaw) || 0;
-    const batterySizeVal = parseFloat(req.query.batterySize) || 0;
-    const overridePanelsRaw = req.query.overridePanels;
-    let overridePanels = null;
-    if (overridePanelsRaw !== undefined) {
-      const parsedOverride = parseInt(overridePanelsRaw, 10);
-      if (!Number.isNaN(parsedOverride) && parsedOverride >= 1) {
-        overridePanels = parsedOverride;
-      }
-    }
-
-    if (!billAmount || billAmount <= 0) {
-      return res.status(400).json({ error: 'Invalid bill amount' });
-    }
-
-    if (!peakHour || peakHour < 3.0 || peakHour > 4.5) {
-      return res.status(400).json({ error: 'Sun Peak Hour must be between 3.0 and 4.5' });
-    }
-
-    if (!morningPercent || morningPercent < 1 || morningPercent > 100) {
-      return res.status(400).json({ error: 'Morning Usage must be between 1% and 100%' });
-    }
-
-    if (!smp || smp < 0.19 || smp > 0.2703) {
-      return res.status(400).json({ error: 'SMP price must be between RM 0.19 and RM 0.2703' });
-    }
-
-    // First get the TNB tariff data for the bill amount
-    const tariffClient = await tariffPool.connect();
-    const mainClient = await pool.connect();
-    
-    try {
-        const tariff = await findClosestTariff(tariffClient, billAmount, historicalAfaRate);
-
-        if (!tariff) {
-          return res.status(404).json({ error: 'No tariff data found for calculation' });
-        }
-
-        const monthlyUsageKwh = tariff.usage_kwh || 0;
-
-        // NEW PANEL RECOMMENDATION FORMULA
-        // Formula: usage_kwh / sun_peak_hour / 30 / 0.62 = X, then floor(X)
-        const recommendedPanelsRaw = Math.floor(monthlyUsageKwh / peakHour / 30 / 0.62);
-
-        // Ensure minimum of 1 panel for recommendation
-        const recommendedPanels = Math.max(1, recommendedPanelsRaw);
-        const actualPanelQty = overridePanels !== null ? overridePanels : recommendedPanels;
-
-        // Search for Residential package within filtered product pool
-        // Rule: Always filter by selected product type
-        // - If panelBubbleId provided: match product bubble_id
-        // - Else: match product wattage (solar_output_rating)
-        let packageResult = { rows: [] };
-        if (selectedPanelBubbleId) {
-          const packageByBubbleQuery = `
-            SELECT p.*
-            FROM package p
-            JOIN product pr ON (
-              CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-              OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-            )
-            WHERE p.panel_qty = $1
-              AND p.active = true
-              AND (p.special IS FALSE OR p.special IS NULL)
-              AND p.type = $2
-              AND pr.bubble_id = $3
-            ORDER BY p.price ASC
-            LIMIT 1
-          `;
-          packageResult = await mainClient.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
-        } else {
-          const packageByWattQuery = `
-            SELECT p.*
-            FROM package p
-            JOIN product pr ON (
-              CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-              OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-            )
-            WHERE p.panel_qty = $1
-              AND p.active = true
-              AND (p.special IS FALSE OR p.special IS NULL)
-              AND p.type = $2
-              AND pr.solar_output_rating = $3
-            ORDER BY p.price ASC
-            LIMIT 1
-          `;
-          packageResult = await mainClient.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage]);
-        }
-
-        let selectedPackage = null;
-        if (packageResult.rows.length > 0) {
-          selectedPackage = packageResult.rows[0];
-        } else {
-          // No package in filtered pool; do NOT fallback across products
-          selectedPackage = null;
-        }
-
-        // Calculate solar generation using selected panel wattage
-        const panelWatts = panelWattage;
-        const dailySolarGeneration = (actualPanelQty * panelWatts * peakHour) / 1000; // kWh per day
-        const monthlySolarGeneration = dailySolarGeneration * 30;
-
-        // Calculate morning usage split
-        const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
-
-        const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
-        
-        // --- Battery Logic Start ---
-        // Hard Cap 1: Daily Excess Solar Energy
-        const dailyExcessSolar = Math.max(0, monthlySolarGeneration - morningUsageKwh) / 30;
-        
-        // Hard Cap 2: Daily Grid Import (Night Usage)
-        const dailyNightUsage = Math.max(0, monthlyUsageKwh - morningUsageKwh) / 30;
-        
-        // Hard Cap 3: Battery Capacity
-        const dailyBatteryCap = batterySizeVal;
-
-        // Max Discharge = Lowest of the 3 caps
-        const dailyMaxDischarge = Math.min(dailyExcessSolar, dailyNightUsage, dailyBatteryCap);
-        const monthlyMaxDischarge = dailyMaxDischarge * 30;
-
-        // Step 1: New Total Import from Grid (after solar & battery)
-        // Original logic: netUsageKwh = monthlyUsageKwh - morningSelfConsumption
-        // New logic: netUsageKwh = (monthlyUsageKwh - morningSelfConsumption) - monthlyMaxDischarge
-        
-        // --- Baseline Logic (No Battery) ---
-        // We calculate the baseline separately to preserve "After Solar (No Battery)" values for comparison
-        const netUsageBaseline = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
-        const netUsageBaselineForLookup = Math.max(0, Math.floor(netUsageBaseline));
-        const exportKwhBaseline = Math.max(0, monthlySolarGeneration - morningUsageKwh);
-        
-        // --- Battery Logic (With Battery) ---
-        const netUsageKwh = Math.max(0, monthlyUsageKwh - morningSelfConsumption - monthlyMaxDischarge);
-        const netUsageForLookup = Math.max(0, Math.floor(netUsageKwh));
-
-        // Step 3 (Calc Prep): Export Energy
-        // Original: monthlySolarGeneration - morningUsageKwh
-        // New: (monthlySolarGeneration - morningUsageKwh) - monthlyMaxDischarge
-        const exportKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
-        // --- Battery Logic End ---
-
-        // Calculate the post-solar bill using the reduced usage (excluding export)
-        let afterTariff = null;
-        let baselineTariff = null;
-
-        // Helper function to lookup tariff
-        const lookupTariff = async (usageValue) => {
-             if (usageValue <= 0) {
-                const lowestUsageQuery = `
-                    SELECT * FROM domestic_am_tariff
-                    ORDER BY usage_kwh ASC
-                    LIMIT 1
-                `;
-                const res = await tariffClient.query(lowestUsageQuery);
-                return res.rows.length > 0 ? res.rows[0] : null;
-             } else {
-                const tariffQuery = `
-                  SELECT * FROM domestic_am_tariff
-                  WHERE usage_kwh <= $1
-                  ORDER BY usage_kwh DESC
-                  LIMIT 1
-                `;
-                const res = await tariffClient.query(tariffQuery, [usageValue]);
-                if (res.rows.length > 0) return res.rows[0];
-                
-                // Fallback
-                const fallbackQuery = `
-                  SELECT * FROM domestic_am_tariff
-                  ORDER BY usage_kwh ASC
-                  LIMIT 1
-                `;
-                const fallbackRes = await tariffClient.query(fallbackQuery);
-                return fallbackRes.rows.length > 0 ? fallbackRes.rows[0] : null;
-             }
-        };
-
-        baselineTariff = await lookupTariff(netUsageBaselineForLookup);
-        afterTariff = await lookupTariff(netUsageForLookup);
-
-        // NEW SAVING FORMULA
-        // 1. Morning usage saving: morning_kwh * (RM 0.4869 + AFA)
-        const morningUsageRate = 0.4869; // RM per kWh for morning usage
-        const morningSaving = morningUsageKwh * (morningUsageRate + afaRate);
-
-        // 2. Export calculation
-        const exportRate = smp; // RM per kWh for export (SMP price)
-        const exportSaving = exportKwh * exportRate;
-        const exportSavingBaseline = exportKwhBaseline * exportRate;
-
-        // 3. Total saving
-        const totalMonthlySavings = morningSaving + exportSaving;
-        const totalMonthlySavingsBaseline = morningSaving + exportSavingBaseline;
-
-        const parseCurrencyValue = (value, fallback = 0) => {
-          if (value === null || value === undefined) {
-            return fallback;
-          }
-          const numeric = Number(value);
-          return Number.isNaN(numeric) ? fallback : numeric;
-        };
-
-        const buildBillBreakdown = (tariffRow) => {
-          if (!tariffRow) {
-            return null;
-          }
-
-          const usage = parseCurrencyValue(tariffRow.energy_charge ?? tariffRow.usage_normal);
-          const network = parseCurrencyValue(tariffRow.network_charge ?? tariffRow.network);
-          const capacity = parseCurrencyValue(tariffRow.capacity_charge ?? tariffRow.capacity);
-          const sst = parseCurrencyValue(tariffRow.sst_tax ?? tariffRow.sst_normal);
-          const eei = parseCurrencyValue(tariffRow.energy_efficiency_incentive ?? tariffRow.eei);
-          const usageKwh = parseCurrencyValue(tariffRow.usage_kwh);
-          const fuelAdjustment = parseCurrencyValue(tariffRow.fuel_adjustment);
-          const afa = usageKwh * afaRate;
-          const baseTotal = parseCurrencyValue(
-            tariffRow.total_bill ?? tariffRow.bill_total_normal,
-            usage + network + capacity + sst + eei
-          ) - fuelAdjustment;
-          const total = baseTotal + afa;
-
-          return {
-            usage,
-            network,
-            capacity,
-            sst,
-            eei,
-            afa,
-            total,
-            totalBase: total - afa
-          };
-        };
-
-        const beforeBreakdown = buildBillBreakdown(tariff);
-        const afterBreakdown = buildBillBreakdown(afterTariff);
-        const baselineBreakdown = buildBillBreakdown(baselineTariff);
-
-        const billBefore = beforeBreakdown ? beforeBreakdown.total : 0;
-        const billBeforeBase = beforeBreakdown ? beforeBreakdown.totalBase : 0;
-        
-        // Baseline Bills (No Battery)
-        const afterBillBaseline = baselineBreakdown ? baselineBreakdown.total : null;
-        const afterBillBaselineBase = baselineBreakdown ? baselineBreakdown.totalBase : null;
-        const afterUsageMatchedBaseline = baselineTariff && baselineTariff.usage_kwh !== null 
-           ? parseFloat(baselineTariff.usage_kwh) 
-           : null;
-        const billReductionBaseline = afterBillBaseline !== null 
-           ? Math.max(0, billBefore - afterBillBaseline) 
-           : morningSaving;
-
-        // With Battery Bills
-        const afterBill = afterBreakdown ? afterBreakdown.total : null;
-        const afterBillBase = afterBreakdown ? afterBreakdown.totalBase : null;
-        const afterUsageMatched = afterTariff && afterTariff.usage_kwh !== null
-          ? parseFloat(afterTariff.usage_kwh)
-          : null;
-
-        const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
-
-        // AFA Impact Calculation
-        const usageReduction = monthlyUsageKwh - (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh);
-        const afaSaving = usageReduction * afaRate;
-        const baseBillReduction = billReduction - afaSaving;
-
-        const calculateBreakdownDelta = (beforeValue, afterValue) => {
-          const before = parseCurrencyValue(beforeValue);
-          if (afterValue === null || afterValue === undefined) {
-            return before;
-          }
-          const after = parseCurrencyValue(afterValue);
-          return before - after;
-        };
-
-        const breakdownItems = [
-          { key: 'usage', label: 'Usage' },
-          { key: 'network', label: 'Network' },
-          { key: 'capacity', label: 'Capacity Fee' },
-          { key: 'sst', label: 'SST' },
-          { key: 'eei', label: 'EEI' },
-          { key: 'afa', label: 'AFA Charge' }
-        ].map((item) => {
-          const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
-          const afterValue = afterBreakdown ? afterBreakdown[item.key] : null;
-          return {
-            ...item,
-            before: beforeValue,
-            after: afterValue,
-            delta: calculateBreakdownDelta(beforeValue, afterValue)
-          };
-        });
-
-        const totals = {
-          before: beforeBreakdown ? beforeBreakdown.total : billBefore,
-          after: afterBreakdown ? afterBreakdown.total : afterBill,
-          delta: calculateBreakdownDelta(
-            beforeBreakdown ? beforeBreakdown.total : billBefore,
-            afterBreakdown ? afterBreakdown.total : afterBill
-          )
-        };
-
-        const savingsBreakdown = {
-          billReduction: Number(billReduction.toFixed(2)),
-          exportCredit: Number(exportSaving.toFixed(2)),
-          afaImpact: Number(afaSaving.toFixed(2)),
-          baseBillReduction: Number(baseBillReduction.toFixed(2)),
-          total: Number((billReduction + exportSaving).toFixed(2))
-        };
-
-        // Use actual package price if available, otherwise fallback to calculation
-        let systemCostBeforeDiscount = null;
-        let finalSystemCost = null;
-        let percentDiscountAmount = null;
-        let fixedDiscountAmount = null;
-        let totalDiscountAmount = null;
-        let paybackPeriod = null;
-
-        if (selectedPackage && selectedPackage.price) {
-          // Use actual package price from database
-          systemCostBeforeDiscount = parseFloat(selectedPackage.price);
-          
-          // Apply discount logic: Percent discount first, then fixed amount discount
-          // Step 1: Apply percentage discount
-          percentDiscountAmount = (systemCostBeforeDiscount * discountPercent) / 100;
-          const priceAfterPercent = systemCostBeforeDiscount - percentDiscountAmount;
-          
-          // Step 2: Apply fixed amount discount
-          fixedDiscountAmount = discountFixed;
-          
-          // Calculate final system cost
-          finalSystemCost = Math.max(0, priceAfterPercent - fixedDiscountAmount);
-          totalDiscountAmount = systemCostBeforeDiscount - finalSystemCost;
-
-          // Calculate payback period only when system cost is available
-          if (totalMonthlySavings > 0 && finalSystemCost > 0) {
-            paybackPeriod = (finalSystemCost / (totalMonthlySavings * 12)).toFixed(1);
-          } else {
-            paybackPeriod = 'N/A';
-          }
-        }
-
-        // Generate 24-hour electricity usage pattern
-        const dailyUsageKwh = monthlyUsageKwh / 30;
-        const electricityUsagePattern = [];
-        for (let hour = 0; hour < 24; hour++) {
-          let usageMultiplier;
-
-          // Human activity pattern - higher usage in morning and evening
-          if (hour >= 6 && hour <= 9) {
-            // Morning peak (considering morning usage %)
-            usageMultiplier = 1.8 * (morningPercent / 100);
-          } else if (hour >= 18 && hour <= 22) {
-            // Evening peak
-            usageMultiplier = 2.2;
-          } else if (hour >= 10 && hour <= 17) {
-            // Day time (lower if high morning usage)
-            usageMultiplier = 0.8 * (1 - (morningPercent / 100) * 0.3);
-          } else {
-            // Night time
-            usageMultiplier = 0.3;
-          }
-
-          electricityUsagePattern.push({
-            hour: hour,
-            usage: (dailyUsageKwh * usageMultiplier / 10).toFixed(3) // Divide by 10 to normalize
-          });
-        }
-
-        // Generate 24-hour solar generation pattern
-        const solarGenerationPattern = [];
-
-        for (let hour = 0; hour < 24; hour++) {
-          let generationMultiplier = 0;
-
-          // Solar generation follows bell curve around peak sun hours
-          const sunriseHour = 7;
-          const sunsetHour = 19;
-          const peakHour = 12; // Noon
-
-          if (hour >= sunriseHour && hour <= sunsetHour) {
-            // Bell curve calculation
-            const hoursFromPeak = Math.abs(hour - peakHour);
-            const maxHoursFromPeak = 5; // 5 hours from peak (7am to 7pm range)
-            generationMultiplier = Math.cos((hoursFromPeak / maxHoursFromPeak) * (Math.PI / 2));
-            generationMultiplier = Math.max(0, generationMultiplier);
-          }
-
-          solarGenerationPattern.push({
-            hour: hour,
-            generation: (dailySolarGeneration * generationMultiplier / 8).toFixed(3) // Divide by 8 to normalize
-          });
-        }
-
-        res.json({
-          config: {
-            sunPeakHour: peakHour,
-            morningUsage: morningPercent,
-            panelType: panelWattage,
-            smpPrice: smp,
-            afaRate: afaRate,
-            batterySize: batterySizeVal
-          },
-          // PANEL RECOMMENDATION RESULTS
-          recommendedPanels: recommendedPanels,
-          actualPanels: actualPanelQty,
-          panelAdjustment: actualPanelQty - recommendedPanels,
-          overrideApplied: overridePanels !== null,
-          packageSearchQty: actualPanelQty,
-          selectedPackage: selectedPackage ? {
-            packageName: selectedPackage.package_name,
-            panelQty: selectedPackage.panel_qty,
-            price: selectedPackage.price,
-            panelWattage: panelWattage, // Use selected panel wattage instead of DB value
-            type: selectedPackage.type,
-            maxDiscount: selectedPackage.max_discount,
-            special: selectedPackage.special,
-            invoiceDesc: selectedPackage.invoice_desc,
-            id: selectedPackage.id
-          } : null,
-
-          solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${(actualPanelQty * panelWatts / 1000).toFixed(1)} kW system)`,
-          monthlySavings: totalMonthlySavings.toFixed(2),
-          systemCostBeforeDiscount: systemCostBeforeDiscount !== null ? systemCostBeforeDiscount.toFixed(2) : null,
-          percentDiscountAmount: percentDiscountAmount !== null ? percentDiscountAmount.toFixed(2) : null,
-          fixedDiscountAmount: fixedDiscountAmount !== null ? fixedDiscountAmount.toFixed(2) : null,
-          totalDiscountAmount: totalDiscountAmount !== null ? totalDiscountAmount.toFixed(2) : null,
-          finalSystemCost: finalSystemCost !== null ? finalSystemCost.toFixed(2) : null,
-          paybackPeriod: paybackPeriod,
-          details: {
-            monthlyUsageKwh: monthlyUsageKwh,
-            monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
-            morningUsageKwh: morningUsageKwh.toFixed(2),
-            morningSaving: morningSaving.toFixed(2),
-            exportKwh: exportKwh.toFixed(2),
-            exportSaving: exportSaving.toFixed(2),
-            morningUsageRate: morningUsageRate,
-            exportRate: exportRate,
-            netUsageKwh: netUsageKwh.toFixed(2),
-            afterUsageKwh: (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh).toFixed(2),
-            billBefore: billBefore.toFixed(2),
-            billAfter: afterBill !== null ? afterBill.toFixed(2) : null,
-            billReduction: billReduction.toFixed(2),
-            billBreakdown: {
-              before: beforeBreakdown,
-              after: afterBreakdown,
-              items: breakdownItems,
-              totals
-            },
-            savingsBreakdown: savingsBreakdown,
-            battery: {
-              size: batterySizeVal,
-              dailyDischarge: dailyMaxDischarge.toFixed(2),
-              monthlyDischarge: monthlyMaxDischarge.toFixed(2),
-              caps: {
-                 excessSolar: dailyExcessSolar.toFixed(2),
-                 nightUsage: dailyNightUsage.toFixed(2),
-                 batterySize: dailyBatteryCap.toFixed(2)
-              },
-              baseline: {
-                 billReduction: billReductionBaseline.toFixed(2),
-                 exportCredit: exportSavingBaseline.toFixed(2),
-                 afaImpact: ((monthlyUsageKwh - (afterUsageMatchedBaseline || netUsageBaseline)) * afaRate).toFixed(2),
-                 baseBillReduction: (billReductionBaseline - ((monthlyUsageKwh - (afterUsageMatchedBaseline || netUsageBaseline)) * afaRate)).toFixed(2),
-                 totalSavings: totalMonthlySavingsBaseline.toFixed(2),
-                 billAfter: afterBillBaseline !== null ? afterBillBaseline.toFixed(2) : null,
-                 usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null,
-                 billBreakdown: {
-                    before: beforeBreakdown,
-                    after: baselineBreakdown,
-                    items: [
-                      { key: 'usage', label: 'Usage' },
-                      { key: 'network', label: 'Network' },
-                      { key: 'capacity', label: 'Capacity Fee' },
-                      { key: 'sst', label: 'SST' },
-                      { key: 'eei', label: 'EEI' },
-                      { key: 'afa', label: 'AFA Charge' }
-                    ].map((item) => {
-                      const beforeValue = beforeBreakdown ? beforeBreakdown[item.key] : 0;
-                      const afterValue = baselineBreakdown ? baselineBreakdown[item.key] : null;
-                      return {
-                        ...item,
-                        before: beforeValue,
-                        after: afterValue,
-                        delta: calculateBreakdownDelta(beforeValue, afterValue)
-                      };
-                    }),
-                    totals: {
-                      before: beforeBreakdown ? beforeBreakdown.total : billBefore,
-                      after: baselineBreakdown ? baselineBreakdown.total : null,
-                      delta: calculateBreakdownDelta(
-                        beforeBreakdown ? beforeBreakdown.total : billBefore,
-                        baselineBreakdown ? baselineBreakdown.total : null
-                      )
-                    }
-                 }
-              }
-            }
-          },
-          billComparison: {
-            before: {
-              usageKwh: monthlyUsageKwh,
-              billAmount: billBefore
-            },
-            after: afterBill !== null ? {
-              usageKwh: afterUsageMatched !== null ? afterUsageMatched : netUsageKwh,
-              billAmount: afterBill
-            } : null,
-            lookupUsageKwh: netUsageForLookup,
-            actualNetUsageKwh: parseFloat(netUsageKwh.toFixed(2))
-          },
-          billBreakdownComparison: {
-            before: beforeBreakdown,
-            after: afterBreakdown,
-            items: breakdownItems,
-            totals
-          },
-          savingsBreakdown: savingsBreakdown,
-          charts: {
-            electricityUsagePattern: electricityUsagePattern,
-            solarGenerationPattern: solarGenerationPattern
-          }
-        });
-    } finally {
-        tariffClient.release();
-        mainClient.release();
-    }
-
-  } catch (err) {
-    console.error('Solar calculation error:', err);
-    res.status(500).json({ error: 'Failed to calculate solar savings', details: err.message });
-  }
-});
-
-app.get('/api/all-data', async (req, res) => {
-  try {
-    const tariffClient = await tariffPool.connect();
-    const mainClient = await pool.connect();
-    const tariffs = await tariffClient.query(`
-      SELECT
-        usage_kwh,
-        energy_charge AS usage_normal,
-        network_charge AS network,
-        capacity_charge AS capacity,
-        sst_tax AS sst_normal,
-        energy_efficiency_incentive AS eei,
-        total_bill AS bill_total_normal,
-        retail_charge AS retail,
-        kwtbb_fund AS kwtbb_normal,
-        fuel_adjustment
-      FROM domestic_am_tariff
-      ORDER BY usage_kwh ASC
-    `);
-    const packages = await mainClient.query(`
-      SELECT p.id, p.bubble_id, p.name as package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special, p.max_discount, p.invoice_desc,
-             pr.bubble_id as product_bubble_id, pr.solar_output_rating
-      FROM package p
-      JOIN product pr ON (
-        CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-        OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-      )
-      WHERE p.active = true AND p.type = 'Residential'
-    `);
-    tariffClient.release();
-    mainClient.release();
-    res.json({
-      tariffs: tariffs.rows,
-      packages: packages.rows
-    });
-  } catch (err) {
-    console.error('All data fetch error:', err);
-    res.status(500).json({ error: 'Failed to fetch all data', details: err.message });
-  }
+app.get('/api/version', (req, res) => {
+  res.json({ version: '3.2', timestamp: new Date(), message: 'Includes Voucher Fix' });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-// Readonly lookup: verify package price by panel_qty and optional panel bubble_id
-app.get('/readonly/package/lookup', async (req, res) => {
-  try {
-    const qtyRaw = req.query.panelQty;
-    const bubbleIdRaw = req.query.panelBubbleId || null;
-
-    if (!qtyRaw) {
-      return res.status(400).json({ error: 'panelQty is required' });
-    }
-    const qty = parseInt(qtyRaw, 10);
-    if (Number.isNaN(qty) || qty <= 0) {
-      return res.status(400).json({ error: 'panelQty must be a positive integer' });
-    }
-
-    const client = await pool.connect();
-    let result;
-    if (bubbleIdRaw) {
-      const queryByBubble = `
-        SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
-               pr.id as product_id, pr.bubble_id, pr.solar_output_rating
-        FROM package p
-        JOIN product pr ON (
-          CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-          OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-        )
-        WHERE p.active = true
-          AND (p.special IS FALSE OR p.special IS NULL)
-          AND p.type = 'Residential'
-          AND p.panel_qty = $1
-          AND pr.bubble_id = $2
-        ORDER BY p.price ASC
-        LIMIT 10
-      `;
-      result = await client.query(queryByBubble, [qty, bubbleIdRaw]);
-    } else {
-      const queryByWatt = `
-        SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
-               pr.id as product_id, pr.bubble_id, pr.solar_output_rating
-        FROM package p
-        JOIN product pr ON (
-          CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-          OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-        )
-        WHERE p.active = true
-          AND (p.special IS FALSE OR p.special IS NULL)
-          AND p.type = 'Residential'
-          AND p.panel_qty = $1
-          AND pr.solar_output_rating = $2
-        ORDER BY p.price ASC
-        LIMIT 10
-      `;
-      const wattRaw = req.query.panelType;
-      const watt = wattRaw ? parseInt(wattRaw, 10) : null;
-      result = await client.query(queryByWatt, [qty, watt]);
-    }
-    client.release();
-
-    return res.json({
-      searchParams: { panelQty: qty, panelBubbleId: bubbleIdRaw },
-      count: result.rowCount,
-      packages: result.rows
-    });
-  } catch (err) {
-    console.error('Readonly package lookup error:', err);
-    return res.status(500).json({ error: 'Failed to lookup packages', details: err.message });
-  }
+  console.log(`[Modular Monolith] Server running on port ${PORT}`);
 });

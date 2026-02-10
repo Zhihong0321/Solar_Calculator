@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Quotations</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+    <style>
+        :root {
+            --primary: #334155;
+            --primary-hover: #475569;
+            --accent: #64748b;
+            --success: #166534;
+            --warning: #854d0e;
+            --danger: #991b1b;
+            --info: #1e40af;
+        }
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        body {
+            background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
+            min-height: 100vh;
+            min-height: 100svh;
+        }
+        .loading-spinner {
+            border: 2px solid #e5e7eb;
+            border-top-color: var(--primary);
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .floating-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 -8px 32px -4px rgba(0, 0, 0, 0.1);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        input[type="date"], input[type="text"], input[type="number"], select {
+            background: #f8fafc;
+            border: 1px solid #d1d5db;
+            color: #1f2937;
+            transition: all 0.15s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.1);
+        }
+        .badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        .badge-draft { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+        .badge-sent { background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; }
+        .badge-paid { background: #f0fdf4; color: #166534; border: 1px solid #dcfce7; }
+        .badge-cancelled { background: #fef2f2; color: #991b1b; border: 1px solid #fee2e2; }
+        .badge-payment_submitted { background: #faf5ff; color: #6b21a8; border: 1px solid #f3e8ff; }
+
+        /* Driver.js Custom Styling */
+        .driver-popover {
+            background-color: #ffffff;
+            color: #1e293b;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+        }
+        .driver-popover-title {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #0f172a;
+        }
+        .driver-popover-description {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #475569;
+        }
+        .driver-popover-btn {
+            background: #0f172a !important;
+            color: white !important;
+            text-shadow: none !important;
+            border: none !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            padding: 6px 12px !important;
+            border-radius: 6px !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 pb-24 overflow-x-hidden w-full">
+    
+    <!-- Navbar -->
+    <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 w-full" style="padding-top: env(safe-area-inset-top);">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-14 items-center">
+                <div class="flex items-center gap-4">
+                    <button onclick="NavManager.goBack()" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                        <i class="fa-solid fa-arrow-left text-slate-600"></i>
+                    </button>
+                    <a href="/agent/home" class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white">
+                            <i class="fa-solid fa-bolt text-sm"></i>
+                        </div>
+                        <span class="text-sm font-bold tracking-tight text-slate-900">ETERNALGY OS</span>
+                    </a>
+                    <div class="h-4 w-px bg-slate-200 mx-2 hidden sm:block"></div>
+                    <h1 class="text-sm font-bold text-slate-500 hidden sm:block">Quotations</h1>
+                </div>
+                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                    <button onclick="startTutorial()" class="text-[10px] sm:text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Tutorial
+                    </button>
+                    <button onclick="logout()" class="text-[10px] sm:text-xs font-medium text-red-600 hover:text-red-800 transition-colors px-2 py-1.5 rounded-md hover:bg-red-50">Logout</button>
+                    <a href="/my-customers" class="text-[10px] sm:text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors px-2 py-1.5 rounded-md hover:bg-slate-50">Customers</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Quick Filter Nav -->
+    <div class="bg-white border-b border-slate-200 w-full sticky top-[56px] z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex overflow-x-auto no-scrollbar py-3 gap-2 sm:gap-4 items-center">
+                <button onclick="setQuickFilter('')" id="btn-filter-all" class="quick-filter-btn active">
+                    All
+                </button>
+                <button onclick="setQuickFilter('unpaid')" id="btn-filter-unpaid" class="quick-filter-btn">
+                    Draft
+                </button>
+                <button onclick="setQuickFilter('partial')" id="btn-filter-partial" class="quick-filter-btn">
+                    Deposited
+                </button>
+                <button onclick="setQuickFilter('paid')" id="btn-filter-paid" class="quick-filter-btn">
+                    Fully Paid
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .quick-filter-btn {
+            white-space: nowrap;
+            padding: 0.5rem 1.25rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            transition: all 0.2s;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+        }
+        
+        .quick-filter-btn:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+        
+        .quick-filter-btn.active {
+            background: #0f172a;
+            color: white;
+            border-color: #0f172a;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+
+    <!-- Main Content -->
+    <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        <!-- Loading -->
+        <div id="loading" class="flex flex-col items-center justify-center py-24">
+            <div class="loading-spinner h-7 w-7 rounded-full mb-3"></div>
+            <p class="text-slate-500 text-xs font-medium">Loading quotations...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty" class="hidden flex flex-col items-center justify-center py-20">
+            <div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-700">No quotations found</h3>
+            <p class="text-slate-500 text-xs mt-1">Create a new quotation to get started.</p>
+        </div>
+
+        <!-- Content -->
+        <div id="content" class="hidden w-full space-y-8">
+            <!-- Follow-up Section -->
+            <div id="followUpContainer" class="hidden">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></div>
+                    <h2 class="text-sm font-bold text-amber-800 uppercase tracking-widest">Follow-up Required</h2>
+                </div>
+                <div id="followUpInvoices" class="divide-y divide-slate-200 border border-amber-200 rounded-xl bg-amber-50/30 overflow-hidden shadow-sm">
+                </div>
+            </div>
+
+            <!-- Normal List Section -->
+            <div id="normalListContainer">
+                <div id="normalListHeader" class="hidden flex items-center gap-2 mb-4">
+                    <h2 class="text-sm font-bold text-slate-500 uppercase tracking-widest">All Quotations</h2>
+                </div>
+                <div id="invoices" class="divide-y divide-slate-200 border-t border-slate-200 w-full">
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div id="pagination" class="hidden mt-6 flex justify-center items-center gap-2">
+                <button id="prevBtn" onclick="changePage(-1)" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    Prev
+                </button>
+                <span class="text-xs text-slate-600 px-2"><span id="pageNum" class="font-semibold text-slate-800">1</span> / <span id="totalPages" class="font-medium text-slate-500">1</span></span>
+                <button id="nextBtn" onclick="changePage(1)" class="btn-secondary px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                    Next
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Panel -->
+    <div class="fixed bottom-0 left-0 right-0 z-50 px-2 pb-2">
+        <div class="floating-panel rounded-2xl mx-auto max-w-lg w-full">
+            <div class="flex items-center justify-between px-4 py-3">
+                <a href="/select-package" class="btn-primary px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm bg-slate-900 text-white">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 4v16m8-8H4"></path></svg>
+                    New Quotation
+                </a>
+                
+                <div class="flex items-center gap-2">
+                    <div id="userInfo" class="hidden flex flex-col items-end mr-2 text-right">
+                         <span id="userDisplayName" class="text-[10px] font-bold text-slate-700 leading-tight"></span>
+                         <span id="userDisplayPhone" class="text-[9px] text-slate-500 font-mono leading-tight"></span>
+                    </div>
+                    <button onclick="openFilterModal()" class="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
+                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+                        Filter
+                    </button>
+                    <button onclick="openDebugModal()" class="text-slate-300 hover:text-red-500 font-bold text-xs p-2 transition-colors">[!]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Modal -->
+    <div id="filterModal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="closeFilterModal()"></div>
+        <div class="fixed inset-0 z-10 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all">
+                <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h3 class="text-sm font-bold text-slate-800">Filter Quotations</h3>
+                    <button onclick="closeFilterModal()" class="text-slate-400 hover:text-slate-600">✕</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">Date Range</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="date" id="filterStartDate" class="w-full px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-slate-200 focus:border-slate-400">
+                            <input type="date" id="filterEndDate" class="w-full px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-slate-200 focus:border-slate-400">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">Payment Status</label>
+                        <select id="filterPaymentStatus" class="w-full px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-slate-200 focus:border-slate-400">
+                            <option value="">All Statuses</option>
+                            <option value="unpaid">0% (Unpaid)</option>
+                            <option value="partial">1% - 99% (Partial)</option>
+                            <option value="paid">100% (Fully Paid)</option>
+                            <option value="deleted">Deleted Invoices</option>
+                        </select>
+                    </div>
+                    <div class="pt-2 flex gap-2">
+                        <button onclick="applyFilters()" class="flex-1 bg-slate-900 text-white py-2.5 rounded-lg text-sm font-bold shadow-md hover:bg-slate-800 transition-colors">Apply Filters</button>
+                        <button onclick="clearFilters()" class="px-4 py-2.5 border border-slate-200 bg-white rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors">Clear</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Modal -->
+    <div id="debugModal" class="fixed inset-0 z-[100] hidden">
+        <div class="fixed inset-0 bg-black/80 backdrop-blur-sm" onclick="closeDebugModal()"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div class="bg-slate-900 px-6 py-4 flex justify-between items-center">
+                    <h3 class="text-white font-bold text-sm tracking-wider uppercase">Debug Access</h3>
+                    <button onclick="closeDebugModal()" class="text-slate-400 hover:text-white">✕</button>
+                </div>
+                
+                <div id="debugStep1" class="p-6">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Enter Passkey</label>
+                    <input type="password" id="debugPasskey" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-center font-mono text-lg tracking-widest focus:ring-2 focus:ring-slate-900 focus:outline-none" placeholder="******">
+                    <button onclick="verifyDebugPasskey()" class="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-lg transition-colors">Access Console</button>
+                </div>
+
+                <div id="debugStep2" class="hidden p-6">
+                    <p class="text-xs text-slate-500 font-bold uppercase mb-3">Select User to Impersonate</p>
+                    <div id="debugUserList" class="space-y-2 max-h-64 overflow-y-auto mb-4 border border-slate-100 rounded-lg p-1">
+                        <div class="flex items-center justify-center py-8">
+                            <div class="loading-spinner h-6 w-6 rounded-full border-slate-300 border-t-slate-900"></div>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-100">
+                        <p class="text-xs text-slate-500 font-bold uppercase mb-2">Maintenance Tools</p>
+                        <button onclick="recompileSnapshots()" class="w-full border border-orange-200 bg-orange-50 text-orange-700 font-bold py-2 rounded-lg hover:bg-orange-100 text-xs mb-2">
+                            Batch Recompile Snapshots
+                        </button>
+                    </div>
+                    <button onclick="logout()" class="w-full border border-red-200 text-red-600 font-bold py-2 rounded-lg hover:bg-red-50 text-xs">Logout Current Session</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onclick="closeHistoryModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all w-full max-w-lg">
+                    <div class="bg-white px-5 py-4 border-b border-slate-100">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-semibold text-slate-900" id="modal-title">Activity History</h3>
+                            <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                                <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="historyList" class="max-h-[60vh] overflow-y-auto p-5"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let page = 1;
+        const limit = 20;
+        let total = 0;
+        let allInvoices = [];
+
+        // Filters
+        let filterStartDate = '';
+        let filterEndDate = '';
+        let filterPaymentStatus = '';
+
+        function setQuickFilter(status) {
+            filterPaymentStatus = status;
+            page = 1;
+            
+            // Update active state of buttons
+            const buttons = document.querySelectorAll('.quick-filter-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            const activeId = status === '' ? 'btn-filter-all' : `btn-filter-${status}`;
+            const activeBtn = document.getElementById(activeId);
+            if (activeBtn) activeBtn.classList.add('active');
+            
+            // Also sync the modal dropdown if it exists
+            const dropdown = document.getElementById('filterPaymentStatus');
+            if (dropdown) dropdown.value = status;
+            
+            loadQuotations();
+        }
+
+        function openFilterModal() {
+            document.getElementById('filterModal').classList.remove('hidden');
+        }
+
+        function closeFilterModal() {
+            document.getElementById('filterModal').classList.add('hidden');
+        }
+
+        function applyFilters() {
+            filterStartDate = document.getElementById('filterStartDate').value;
+            filterEndDate = document.getElementById('filterEndDate').value;
+            filterPaymentStatus = document.getElementById('filterPaymentStatus').value;
+            page = 1;
+            loadQuotations();
+            closeFilterModal();
+        }
+
+        function clearFilters() {
+            document.getElementById('filterStartDate').value = '';
+            document.getElementById('filterEndDate').value = '';
+            document.getElementById('filterPaymentStatus').value = '';
+            filterStartDate = '';
+            filterEndDate = '';
+            filterPaymentStatus = '';
+            page = 1;
+            loadQuotations();
+            closeFilterModal();
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount || 0);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        function formatWhatsAppNumber(phone) {
+            if (!phone) return '';
+            // Remove all non-numeric characters
+            let cleaned = phone.replace(/\D/g, '');
+            // If it doesn't start with 6, prepend it
+            if (cleaned.length > 0 && !cleaned.startsWith('6')) {
+                cleaned = '6' + cleaned;
+            }
+            return cleaned;
+        }
+
+        function getStatusBadgeClass(status) {
+            const s = (status || 'draft').toLowerCase();
+            const classes = {
+                'paid': 'badge-paid',
+                'sent': 'badge-sent',
+                'payment_submitted': 'badge-payment_submitted',
+                'cancelled': 'badge-cancelled',
+                'draft': 'badge-draft'
+            };
+            return classes[s] || classes.draft;
+        }
+
+        function getPaymentPercent(inv) {
+            // Strictly use percent_of_total_amount from invoice table
+            const val = inv.percent_of_total_amount;
+            if (val !== undefined && val !== null) {
+                const num = parseFloat(val);
+                return isNaN(num) ? 0 : Math.round(num);
+            }
+            // Fallback
+            const total = parseFloat(inv.total_amount) || 0;
+            const received = parseFloat(inv.total_received) || 0;
+            if (total === 0) return 0;
+            return Math.round((received / total) * 100);
+        }
+
+        async function deleteInvoice(bubbleId) {
+            if (!confirm('Are you sure you want to delete this invoice? This action moves it to the trash.')) return;
+            
+            try {
+                const res = await fetch(`/api/v1/invoices/${bubbleId}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) {
+                    allInvoices = allInvoices.filter(i => i.bubble_id !== bubbleId);
+                    renderInvoices();
+                } else alert('Error: ' + json.error);
+            } catch (e) { alert('Delete failed: ' + e.message); }
+        }
+
+        async function cleanupSamples() {
+            if (!confirm('Permanently delete all "Sample Quotation" records?')) return;
+            try {
+                const res = await fetch('/api/v1/invoices/cleanup-samples', { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    loadQuotations();
+                } else throw new Error(data.error);
+            } catch (err) { alert('Error: ' + err.message); }
+        }
+
+        async function openHistoryModal(bubbleId) {
+            document.getElementById('historyModal').classList.remove('hidden');
+            const container = document.getElementById('historyList');
+            container.innerHTML = '<div class="text-center py-4"><div class="loading-spinner h-6 w-6 rounded-full mx-auto border-slate-300 border-t-slate-600"></div></div>';
+
+            try {
+                const res = await fetch(`/api/v1/invoices/${bubbleId}/history`);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+                if (data.data.length === 0) {
+                    container.innerHTML = '<p class="text-center text-slate-500 py-4 text-sm">No history recorded.</p>';
+                    return;
+                }
+                
+                container.innerHTML = data.data.map((action, index) => {
+                    const date = new Date(action.created_at).toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const isLast = index === data.data.length - 1;
+                    const details = action.details || {};
+                    const hasSnapshot = !!details.snapshot;
+                    
+                    return `
+                        <div class="relative pl-5 ${!isLast ? 'pb-5 border-l border-slate-200' : ''}">
+                            <div class="absolute -left-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-slate-300 ring-4 ring-white"></div>
+                            <div class="flex justify-between items-baseline mb-0.5">
+                                <p class="text-xs font-semibold text-slate-700">${action.action_type.replace(/_/g, ' ')}</p>
+                                <span class="text-[10px] text-slate-400 font-mono">${date}</span>
+                            </div>
+                            <p class="text-xs text-slate-600 mb-1">${details.description || details.change_summary || 'Update recorded'}</p>
+                            ${hasSnapshot ? `
+                                <a href="/api/v1/invoices/actions/${action.action_id}/snapshot" target="_blank" class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                    View Snapshot
+                                </a>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                container.innerHTML = `<p class="text-red-500 text-center text-xs">${err.message}</p>`;
+            }
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+
+        async function restoreInvoice(bubbleId) {
+            if (!confirm('Are you sure you want to restore this invoice? It will be moved back to drafts.')) return;
+            
+            try {
+                const res = await fetch(`/api/v1/invoices/${bubbleId}/restore`, { method: 'PUT' });
+                const json = await res.json();
+                if (json.success) {
+                    loadQuotations();
+                } else alert('Error: ' + json.error);
+            } catch (e) { alert('Restore failed: ' + e.message); }
+        }
+
+        async function loadQuotations() {
+            const loading = document.getElementById('loading');
+            const content = document.getElementById('content');
+            const empty = document.getElementById('empty');
+            
+            if (loading) loading.classList.remove('hidden');
+            if (empty) empty.classList.add('hidden');
+
+            try {
+                const offset = (page - 1) * limit;
+                let query = `?limit=${limit}&offset=${offset}`;
+
+                if (filterStartDate) query += `&startDate=${filterStartDate}`;
+                if (filterEndDate) query += `&endDate=${filterEndDate}`;
+                if (filterPaymentStatus) query += `&paymentStatus=${filterPaymentStatus}`;
+
+                const res = await fetch(`/api/v1/invoices/my-invoices${query}`);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error);
+
+                allInvoices = data.data.invoices || [];
+                total = data.data.total || 0;
+
+                // --- ROBUST UI UPDATE SECTION ---
+                try {
+                    safeUpdate('totalCount', total);
+                    if (allInvoices.length > 0) {
+                        const latest = allInvoices[0];
+                        const name = latest.customer_name || '-';
+                        const dateText = `${formatDate(latest.invoice_date)} (${name})`;
+                        safeUpdate('lastCreated', dateText);
+                    }
+                } catch (uiErr) {
+                    console.warn('[loadQuotations] Non-fatal UI update error:', uiErr);
+                }
+
+                if (loading) loading.classList.add('hidden');
+                
+                if (allInvoices.length === 0) {
+                    if (empty) empty.classList.remove('hidden');
+                    if (content) content.classList.add('hidden');
+                    return;
+                }
+
+                if (content) content.classList.remove('hidden');
+                renderInvoices();
+
+            } catch (err) {
+                console.error('[loadQuotations] Fatal Error:', err);
+                if (loading) loading.classList.add('hidden');
+                // Don't alert here to prevent annoying popups, just log
+            }
+        }
+
+        function renderInvoices() {
+            const container = document.getElementById('invoices');
+            const followUpContainer = document.getElementById('followUpContainer');
+            const followUpList = document.getElementById('followUpInvoices');
+            const normalListHeader = document.getElementById('normalListHeader');
+            
+            // Prevent layout collapse and scroll reset
+            const currentHeight = container.offsetHeight;
+            if (currentHeight > 0) container.style.minHeight = currentHeight + 'px';
+
+            const now = new Date();
+            const followUpInvoices = [];
+            const normalInvoices = [];
+
+            allInvoices.forEach(inv => {
+                if (inv.follow_up_date && new Date(inv.follow_up_date) <= now && inv.status !== 'deleted' && inv.status !== 'paid') {
+                    followUpInvoices.push(inv);
+                } else {
+                    normalInvoices.push(inv);
+                }
+            });
+
+            const renderInvoiceItem = (inv, isFollowUp = false) => {
+                const statusClass = getStatusBadgeClass(inv.status);
+                const paymentPercent = getPaymentPercent(inv);
+                const isPaidFull = paymentPercent >= 100;
+                const isDeleted = inv.status === 'deleted';
+                const pendingPayments = inv.pending_payments || [];
+                
+                // Explicit Color logic
+                let accentColor = isFollowUp ? 'border-amber-500' : 'border-slate-300';
+                let bgColor = isFollowUp ? 'bg-amber-50/50' : 'bg-white';
+                
+                if (isDeleted) {
+                    accentColor = 'border-rose-500';
+                    bgColor = 'bg-rose-50/40';
+                } else if (isPaidFull) {
+                    accentColor = 'border-emerald-500';
+                    bgColor = 'bg-emerald-50/40';
+                } else if (paymentPercent > 0 && !isFollowUp) {
+                    accentColor = 'border-blue-500';
+                    bgColor = 'bg-blue-50/20';
+                }
+
+                const totalPaidVal = parseFloat(inv.total_received) || 0;
+                const totalAmtVal = parseFloat(inv.total_amount) || 0;
+                const waNumber = formatWhatsAppNumber(inv.customer_phone);
+
+                // Countdown logic
+                let countdownHtml = '';
+                if (inv.follow_up_date && !isFollowUp && !isPaidFull && !isDeleted) {
+                    const target = new Date(inv.follow_up_date).getTime();
+                    const nowTime = new Date().getTime();
+                    if (target > nowTime) {
+                        countdownHtml = `<span class="countdown-timer bg-red-600 text-white font-mono font-bold px-2 rounded text-[9px] h-[1.25rem] inline-flex items-center animate-pulse" data-target="${inv.follow_up_date}">--:--:--:--</span>`;
+                    }
+                }
+
+                return `
+                    <div class="flex flex-col border-l-4 ${accentColor} ${bgColor} hover:bg-slate-50/80 transition-colors w-full min-w-0 border-b border-slate-100">
+                        <!-- Row 1: Identity & Profile -->
+                        <div class="flex items-center gap-3 px-4 py-3 min-w-0">
+                            <!-- Profile Pic Column -->
+                            <div class="flex-shrink-0 self-start mt-1">
+                                ${inv.profile_picture ? 
+                                    `<img src="${inv.profile_picture}" class="h-11 w-11 rounded-full object-cover border-2 border-white shadow-sm" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(inv.customer_name || 'U')}&background=random'">` :
+                                    `<div class="h-11 w-11 rounded-full bg-slate-200 border-2 border-white shadow-sm flex items-center justify-center text-slate-400 font-bold text-lg">
+                                        ${(inv.customer_name || 'U').charAt(0).toUpperCase()}
+                                    </div>`
+                                }
+                            </div>
+
+                            <!-- Nested Info Rows -->
+                            <div class="flex-1 min-w-0">
+                                <!-- Info Row 1: Inv No & Status -->
+                                <div class="flex items-center gap-2 mb-0.5">
+                                    <span class="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-tight">#${inv.invoice_number || 'DRAFT'}</span>
+                                    <span class="badge ${statusClass}" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">${(inv.status || 'Draft').replace('_', ' ')}</span>
+                                    ${countdownHtml ? countdownHtml.replace('px-1.5 py-0.5 rounded text-[8px]', 'px-2 rounded text-[9px] h-[1.25rem] inline-flex items-center') : ''}
+                                    ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">FULLY PAID</span>' : ''}
+                                    ${isFollowUp ? '<span class="badge bg-amber-100 text-amber-700 border border-amber-200 font-bold animate-pulse" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">FOLLOW UP</span>' : ''}
+                                </div>
+                                
+                                <!-- Info Row 2: Customer Name & WhatsApp -->
+                                <div class="flex items-center gap-2">
+                                    <h3 class="text-sm sm:text-base font-bold ${isDeleted ? 'text-slate-400 line-through' : 'text-slate-900'} truncate leading-tight">
+                                        ${inv.customer_name || 'Unknown Customer'}
+                                    </h3>
+                                    ${waNumber ? `
+                                        <a href="https://wa.me/${waNumber}" target="_blank" class="p-0.5 text-emerald-500 hover:text-emerald-600 transition-colors" title="WhatsApp Customer">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.353-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.131.569-.071 1.758-.714 2.007-1.404.25-.69.25-1.282.175-1.404-.075-.074-.27-.149-.568-.298zM12.01 21.496c-1.939 0-3.841-.52-5.511-1.505l-.393-.232-4.095 1.073 1.092-3.993-.254-.404c-1.084-1.726-1.657-3.734-1.657-5.79 0-6.079 4.944-11.022 11.024-11.022 2.944 0 5.712 1.147 7.793 3.227 2.082 2.08 3.228 4.85 3.228 7.795 0 6.079-4.944 11.022-11.024 11.022zm8.506-18.303c-2.274-2.274-5.297-3.526-8.506-3.526-6.633 0-12.03 5.396-12.03 12.03 0 2.12.551 4.189 1.595 6.03l-1.695 6.195 6.34-1.663c1.776.968 3.774 1.48 5.815 1.48 6.633 0 12.03-5.396 12.03-12.03 0-3.207-1.252-6.231-3.526-8.505z"/></svg>
+                                        </a>
+                                    ` : ''}
+                                </div>
+
+                                <!-- Info Row 3: Package & Date -->
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 font-medium mt-0.5 opacity-80">
+                                    <span class="flex items-center gap-1 truncate">
+                                        <svg class="w-3 h-3 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                        <span class="truncate">${inv.package_name || '-'}</span>
+                                    </span>
+                                    <span class="flex items-center gap-1 flex-shrink-0">
+                                        <svg class="w-3 h-3 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M6.75 3V4.5M17.25 3V4.5M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"></path></svg>
+                                        ${formatDate(inv.invoice_date)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Financials & Action Buttons -->
+                        <div class="px-4 pb-3 flex flex-col gap-2.5">
+                            <!-- Financials Section (Nested Row 2.1) -->
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 border-t border-slate-50">
+                                <div class="flex-1 min-w-0 max-w-md">
+                                    <div class="flex justify-between items-baseline mb-1">
+                                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Progress</p>
+                                        <p class="text-[10px] font-black ${isPaidFull ? 'text-emerald-600' : 'text-slate-900'}">
+                                            ${formatCurrency(totalPaidVal)} / ${formatCurrency(totalAmtVal)} (${paymentPercent}%)
+                                        </p>
+                                    </div>
+                                    <div class="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
+                                        <div class="${isPaidFull ? 'bg-emerald-500' : 'bg-blue-500'} h-full rounded-full transition-all duration-500" style="width: ${paymentPercent}%"></div>
+                                    </div>
+                                </div>
+                                
+                                ${pendingPayments.length > 0 ? `
+                                    <div class="flex flex-wrap gap-1">
+                                        ${pendingPayments.map(p => `
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-bold bg-orange-50 text-orange-600 border border-orange-100">
+                                                PENDING: ${formatCurrency(p.amount)}
+                                            </span>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+
+                            <!-- Buttons Section (Nested Row 2.2) -->
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex flex-1 items-center gap-2">
+                                    ${isDeleted ? `
+                                        <button onclick="restoreInvoice('${inv.bubble_id}')" class="flex-1 text-center py-2 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-800 transition-all uppercase tracking-wider shadow-md">
+                                            Restore Invoice
+                                        </button>
+                                    ` : `
+                                        <a href="/invoice-office?id=${inv.bubble_id}" class="flex-1 text-center py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white text-[10px] font-bold rounded-lg hover:from-blue-700 hover:to-indigo-800 transition-all uppercase tracking-wider shadow-md border border-blue-400/20">
+                                            Open Office
+                                        </a>
+                                        <a href="/invoice-chat?id=${inv.bubble_id}" class="px-3 py-2 border border-slate-200 bg-white text-slate-600 rounded-lg hover:bg-slate-50 transition-all flex items-center justify-center shadow-sm" title="Open Chat">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                        </a>
+                                    `}
+                                </div>
+                                
+                                <div class="flex items-center gap-1">
+                                    ${!isDeleted ? `
+                                    <button onclick="deleteInvoice('${inv.bubble_id}')" class="p-2 text-rose-400 hover:text-rose-600 transition-colors" title="Delete">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                    ` : ''}
+                                    ${inv.share_url && inv.customer_name && inv.customer_name !== 'Sample Quotation' ? `
+                                        <a href="${inv.share_url}" target="_blank" class="p-2 text-slate-300 hover:text-blue-500 transition-colors" title="View Public Link">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                        </a>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            if (followUpInvoices.length > 0) {
+                followUpContainer.classList.remove('hidden');
+                followUpList.innerHTML = followUpInvoices.map(inv => renderInvoiceItem(inv, true)).join('');
+                normalListHeader.classList.remove('hidden');
+            } else {
+                followUpContainer.classList.add('hidden');
+                followUpList.innerHTML = '';
+                normalListHeader.classList.add('hidden');
+            }
+
+            container.innerHTML = normalInvoices.map(inv => renderInvoiceItem(inv, false)).join('');
+
+            // Reset min-height
+            container.style.minHeight = '';
+
+            const totalPages = Math.ceil(total / limit);
+            document.getElementById('pageNum').textContent = page;
+            document.getElementById('totalPages').textContent = totalPages || 1;
+            document.getElementById('pagination').classList.toggle('hidden', totalPages <= 1);
+            document.getElementById('prevBtn').disabled = page <= 1;
+            document.getElementById('nextBtn').disabled = page >= totalPages;
+        }
+
+        function changePage(d) {
+            page += d;
+            loadQuotations();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Countdown Timer Logic
+        function updateAllCountdowns() {
+            const timers = document.querySelectorAll('.countdown-timer');
+            const now = new Date().getTime();
+
+            timers.forEach(timer => {
+                const target = new Date(timer.dataset.target).getTime();
+                const diff = target - now;
+
+                if (diff <= 0) {
+                    // If time passed, reload to move to Follow-up section
+                    // We check if it was already marked as passed to avoid infinite reloads
+                    if (timer.textContent !== 'EXPIRED') {
+                        timer.textContent = 'EXPIRED';
+                        loadQuotations();
+                    }
+                    return;
+                }
+
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                const pad = (n) => String(n).padStart(2, '0');
+                timer.textContent = `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+            });
+        }
+
+        setInterval(updateAllCountdowns, 1000);
+
+        // --- Debug Features ---
+        let debugPasskey = '';
+
+        function openDebugModal() {
+            document.getElementById('debugModal').classList.remove('hidden');
+            document.getElementById('debugPasskey').focus();
+        }
+
+        function closeDebugModal() {
+            document.getElementById('debugModal').classList.add('hidden');
+            document.getElementById('debugPasskey').value = '';
+            document.getElementById('debugStep1').classList.remove('hidden');
+            document.getElementById('debugStep2').classList.add('hidden');
+        }
+
+        async function verifyDebugPasskey() {
+            const key = document.getElementById('debugPasskey').value;
+            if (key === '012784') {
+                debugPasskey = key;
+                document.getElementById('debugStep1').classList.add('hidden');
+                document.getElementById('debugStep2').classList.remove('hidden');
+                loadDebugUsers();
+            } else alert('Access Denied');
+        }
+
+        async function loadDebugUsers() {
+            try {
+                const res = await fetch('/api/debug/users', { headers: { 'x-debug-passkey': debugPasskey } });
+                const json = await res.json();
+                const list = document.getElementById('debugUserList');
+                if (json.success) {
+                    list.innerHTML = json.users.map(u => `
+                        <button onclick="impersonateUser(${u.id})" class="w-full text-left p-3 hover:bg-slate-50 rounded-md transition-colors flex justify-between items-center group border-b border-slate-50 last:border-0">
+                            <div>
+                                <div class="font-bold text-slate-800 text-sm">${u.agent_name || 'Unknown Agent'}</div>
+                                <div class="text-[10px] text-slate-500 font-mono">${u.email || 'No Email'}</div>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">${u.invoice_count} inv</span>
+                                <span class="text-[9px] text-slate-400 mt-1">${new Date(u.created_at).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                            </div>
+                        </button>
+                    `).join('');
+                } else list.innerHTML = `<p class="text-red-500 text-xs p-4">${json.error}</p>`;
+            } catch (e) { console.error(e); }
+        }
+
+        async function impersonateUser(userId) {
+            if (!confirm('Switch to this user account?')) return;
+            try {
+                const res = await fetch('/api/debug/login-as', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-debug-passkey': debugPasskey },
+                    body: JSON.stringify({ userId })
+                });
+                if ((await res.json()).success) window.location.reload();
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function recompileSnapshots() {
+            if (!confirm('Run Batch Recompile?')) return;
+            const btn = event.target;
+            btn.textContent = 'Processing...';
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/debug/recompile-snapshots', { method: 'POST', headers: { 'x-debug-passkey': debugPasskey } });
+                const json = await res.json();
+                if (json.success) { alert(json.message); loadQuotations(); }
+            } catch (e) { alert('Error: ' + e.message); } finally { btn.textContent = 'Batch Recompile Snapshots'; btn.disabled = false; }
+        }
+
+        async function logout() {
+            if (!confirm('This will reset your session. Proceed?')) return;
+            try {
+                await fetch('/api/admin/logout', { method: 'POST' });
+                window.location.href = '/my-invoice';
+            } catch (e) {
+                // Fallback to client-side
+                document.cookie = 'auth_token=; Max-Age=0; path=/;';
+                window.location.reload();
+            }
+        }
+
+        async function fetchUserInfo() {
+            try {
+                const res = await fetch('/api/user/me');
+                const data = await res.json();
+                if (data.success && data.user) {
+                    const info = document.getElementById('userInfo');
+                    const name = document.getElementById('userDisplayName');
+                    const phone = document.getElementById('userDisplayPhone');
+                    info.classList.remove('hidden');
+                    
+                    name.textContent = data.user.name || data.user.email || 'User';
+                    phone.textContent = data.user.contact || '';
+                }
+            } catch (e) { console.warn('Failed to fetch user info'); }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadQuotations();
+            fetchUserInfo();
+        });
+    </script>
+    <script src="/js/navigation.js"></script>
+    <script src="/js/tutorial-my-invoice.js"></script>
+</body>
+</html>

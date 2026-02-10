@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Calculator - Systematic Paper Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Inter"', 'sans-serif']
+                    },
+                    colors: {
+                        paper: '#FAF9F6',
+                        fact: '#000000',
+                        label: '#404040',
+                        context: '#666666',
+                        divider: '#D1D5DB',
+                        primary: '#000000'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        body { 
+            background-color: #FAF9F6; 
+            color: #000000; 
+            line-height: 1.5; 
+        }
+        .tier-1 { color: #000000; font-weight: 600; }
+        .tier-2 { color: #2D2D2D; font-weight: 500; }
+        .tier-3 { color: #5A5A5A; font-weight: 400; }
+        input, select { 
+            background: transparent; 
+            border: none; 
+            border-bottom: 1px solid #D1D5DB; 
+            border-radius: 0; 
+            outline: none; 
+            font-size: 1.125rem;
+            padding: 0.5rem 0;
+        }
+        input:focus, select:focus { 
+            border-bottom: 2px solid #000000; 
+        }
+        .ledger-line { border-top: 1px solid #D1D5DB; }
+        .ledger-double-line { border-top: 2px solid #000000; }
+        /* Hide arrows from number input */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+        /* Better touch targets for mobile */
+        button, a { 
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Optimize text rendering */
+        h1, h2, h3, h4 { letter-spacing: -0.02em; }
+    </style>
+</head>
+<body class="bg-paper text-fact min-h-screen font-mono selection:bg-black selection:text-white overflow-x-hidden">
+    <!-- DARK HEADER ZONE -->
+    <header class="bg-black text-white py-6 md:py-8 mb-8 md:mb-10 -mt-4 md:-mt-6">
+        <div class="mx-auto w-full max-w-4xl px-4 md:px-6">
+            <div class="flex flex-col sm:flex-row items-start justify-between gap-4">
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold uppercase tracking-tight">Solar_Calculator_v2.0</h1>
+                    <p class="mt-1.5 text-[10px] md:text-xs opacity-60 uppercase tracking-wide">Systematic ROI Analysis & Tariff Pairing</p>
+                    <a href="/non-domestic" class="mt-4 ml-2 inline-block text-[10px] font-semibold uppercase tracking-wide border border-white/30 px-3 py-1.5 hover:bg-white hover:text-black transition-colors">
+                        Commercial ->
+                    </a>
+                    <a href="/reverse.html" class="mt-4 inline-block text-[10px] font-semibold uppercase tracking-wide border border-white/30 px-3 py-1.5 hover:bg-white hover:text-black transition-colors">
+                        Analyze_Competitor ->
+                    </a>
+                    <a href="https://eternalgy-solar-process-flow.netlify.app" target="_blank" class="mt-4 ml-2 inline-block text-[10px] font-semibold uppercase tracking-wide border border-white/30 px-3 py-1.5 hover:bg-white hover:text-black transition-colors">
+                        Calculator ->
+                    </a>
+                </div>
+                <img src="logo.png" alt="Eternalgy" class="h-7 md:h-9 w-auto brightness-0 invert mt-1">
+            </div>
+        </div>
+    </header>
+
+    <div class="mx-auto w-full max-w-4xl px-4 pb-8 md:px-6 md:pb-12">
+        <main class="space-y-10 md:space-y-16">
+            <!-- Phase 01: System Status -->
+            <section id="dbStatus" class="text-[10px] md:text-xs uppercase tracking-wide tier-3 flex items-center gap-3">
+                <span>[ STATUS: CHECKING_DB ]</span>
+                <div class="h-px grow bg-divider"></div>
+            </section>
+
+            <!-- Phase 02: Intake -->
+            <section id="intake-section" class="pt-2">
+                <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">01_BILL_INTAKE</h2>
+                
+                <form id="billForm" class="grid gap-6 md:grid-cols-2 md:gap-x-8 md:gap-y-6">
+                    <div class="space-y-3">
+                        <label for="billAmount" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Monthly_TNB_Bill (RM)</label>
+                        <div class="flex items-baseline gap-2 border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                            <span class="text-base md:text-lg tier-2 font-semibold">RM</span>
+                            <input
+                                type="number"
+                                id="billAmount"
+                                name="billAmount"
+                                step="0.01"
+                                min="0"
+                                placeholder="000.00"
+                                class="w-full text-xl md:text-2xl font-bold tracking-tight bg-transparent border-none outline-none"
+                                required
+                            >
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label for="historicalAfaRate" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Historical_AFA_Period</label>
+                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                            <select
+                                id="historicalAfaRate"
+                                name="historicalAfaRate"
+                                class="w-full text-sm md:text-base font-semibold py-1.5 cursor-pointer bg-transparent border-none outline-none"
+                            >
+                                <option value="0.0000">JUL_2025 (0.00 sen)</option>
+                                <option value="-0.0145">AUG_2025 (-1.45 sen)</option>
+                                <option value="-0.0110">SEP_2025 (-1.10 sen)</option>
+                                <option value="-0.0650">OCT_2025 (-6.50 sen)</option>
+                                <option value="-0.0891">NOV_2025 (-8.91 sen)</option>
+                                <option value="-0.0642">DEC_2025 (-6.42 sen)</option>
+                                <option value="-0.0499">JAN_2026 (-4.99 sen)</option>
+                                <option value="-0.0509">FEB_2026 (-5.09 sen)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label for="systemPhase" class="block text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Electrical_System_Phase</label>
+                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                            <select
+                                id="systemPhase"
+                                name="systemPhase"
+                                class="w-full text-sm md:text-base font-semibold py-1.5 cursor-pointer bg-transparent border-none outline-none"
+                            >
+                                <option value="3">3 Phase (Default)</option>
+                                <option value="1">1 Phase</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2 pt-2">
+                        <button
+                            type="submit"
+                            class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
+                        >
+                            Execute_Bill_Analysis ->
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="calculatorResults" class="space-y-20 md:space-y-32"></section>
+
+            <!-- Diagnostics moved to footer -->
+            <footer class="pt-10 md:pt-16 border-t border-divider space-y-8 md:space-y-10">
+                <details class="group">
+                    <summary class="list-none cursor-pointer text-[10px] md:text-xs uppercase tracking-wide tier-3 hover:tier-2 transition-colors font-semibold">
+                        [+] SYSTEM_DIAGNOSTICS
+                    </summary>
+                    <div class="mt-5 md:mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+                        <button onclick="testConnection()" class="text-left text-[10px] md:text-xs uppercase tracking-wide tier-2 hover:tier-1 font-semibold border border-divider p-2.5 md:p-3 hover:bg-black hover:text-white transition-all">Test_DB</button>
+                        <button onclick="getSchema()" class="text-left text-[10px] md:text-xs uppercase tracking-wide tier-2 hover:tier-1 font-semibold border border-divider p-2.5 md:p-3 hover:bg-black hover:text-white transition-all">Dump_Schema</button>
+                        <button onclick="getTnbTariff()" class="text-left text-[10px] md:text-xs uppercase tracking-wide tier-2 hover:tier-1 font-semibold border border-divider p-2.5 md:p-3 hover:bg-black hover:text-white transition-all">TNB_Data</button>
+                        <button onclick="getPackageInfo()" class="text-left text-[10px] md:text-xs uppercase tracking-wide tier-2 hover:tier-1 font-semibold border border-divider p-2.5 md:p-3 hover:bg-black hover:text-white transition-all">Pkg_Info</button>
+                    </div>
+                    <div id="results" class="mt-5 md:mt-6 text-[10px] md:text-xs tier-3 overflow-x-auto whitespace-pre bg-black/5 p-3 md:p-4 border border-divider"></div>
+                </details>
+                
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-3 text-[10px] md:text-xs tier-3 uppercase tracking-wide font-semibold">
+                    <span>Eternalgy // Solar Intelligence Suite</span>
+                    <span>v2.0_Minimalist_Paper</span>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script src="/js/app.js"></script>
+
+    <!-- Sun Peak Detector Modal -->
+    <div id="sunPeakModal" class="fixed inset-0 z-[10002] hidden bg-black/60 backdrop-blur-sm overflow-y-auto">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="bg-paper border-2 border-fact shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] w-full max-w-md p-6 space-y-6 relative my-auto">
+                <button onclick="closeSunPeakDetector()" class="absolute top-4 right-4 text-xs font-bold uppercase tracking-widest hover:opacity-70">[ CLOSE ]</button>
+                
+                <div class="space-y-2">
+                    <h3 class="text-xs font-bold uppercase tracking-widest tier-2 border-b-2 border-fact inline-block pb-1">SUN_PEAK_DETECTOR</h3>
+                    <p class="text-[10px] uppercase tracking-wide tier-3">Enter Malaysian address to detect local solar potential.</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label for="sunPeakAddress" class="block text-[10px] uppercase tracking-wide tier-3 font-semibold">MALAYSIA_ADDRESS</label>
+                        <div class="border-b-2 border-divider focus-within:border-fact transition-colors pb-1.5">
+                            <input
+                                type="text"
+                                id="sunPeakAddress"
+                                placeholder="e.g. Taman Nada Alam, Nilai"
+                                class="w-full text-sm font-bold bg-transparent border-none outline-none py-1"
+                            >
+                        </div>
+                    </div>
+                    <button
+                        onclick="detectSunPeak()"
+                        id="detectSunPeakBtn"
+                        class="w-full text-xs font-bold uppercase tracking-wide border-2 border-fact px-6 py-3 hover:bg-black hover:text-white transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none"
+                    >
+                        Analyze_Solar_Yield ->
+                    </button>
+                </div>
+
+                <div id="sunPeakResult" class="hidden space-y-4 pt-4 border-t border-divider">
+                    <div id="sunPeakWidgetContainer" class="flex justify-center bg-white/50 p-2 border border-divider overflow-hidden">
+                        <!-- Widget will be injected here -->
+                    </div>
+                    <div class="text-center space-y-1">
+                        <div id="sunPeakValue" class="text-2xl font-bold tracking-tight">--</div>
+                        <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold">Detected_Sun_Peak_Hours</div>
+                    </div>
+                    <button
+                        onclick="applyDetectedSunPeak()"
+                        class="w-full text-xs font-bold uppercase tracking-wide bg-black text-white px-6 py-3 hover:opacity-90 transition-all"
+                    >
+                        Apply_To_Calculator
+                    </button>
+                </div>
+                
+                <div id="sunPeakLoading" class="hidden flex flex-col items-center justify-center py-8 space-y-4">
+                    <div class="w-8 h-8 border-4 border-divider border-t-fact animate-spin rounded-full"></div>
+                    <div class="text-[10px] font-bold uppercase tracking-widest animate-pulse">Analyzing_Satellite_Data...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

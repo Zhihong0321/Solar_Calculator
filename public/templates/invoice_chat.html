@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Invoice Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SolarChat">
+    <link rel="apple-touch-icon" href="/logo.png">
+
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { 
+            background-color: #f0f2f5; 
+            height: 100vh;
+            height: 100dvh;
+            overscroll-behavior: none;
+        }
+        .chat-bg {
+            background-color: #efeae2;
+            background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
+            background-opacity: 0.4;
+        }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+
+        footer {
+            padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+        }
+    </style>
+</head>
+<body class="flex flex-col overflow-hidden w-full">
+
+    <!-- Header -->
+    <header class="bg-[#1e3a8a] text-white px-4 flex items-center justify-between shrink-0 shadow-md z-10" style="padding-top: max(0.75rem, env(safe-area-inset-top)); padding-bottom: 0.75rem;">
+        <div class="flex items-center gap-3">
+            <button onclick="goBack()" class="p-1 hover:bg-white/10 rounded-full transition-colors" title="Back to Invoice Office">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+            </button>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
+                    INV
+                </div>
+                <div>
+                    <h1 class="font-bold text-sm leading-tight" id="headerTitle">Loading...</h1>
+                    <p class="text-xs text-white/80" id="headerSubtitle">Connecting...</p>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="window.location.href='/invoice-office?id=' + invoiceId" class="p-2 hover:bg-white/10 rounded-full transition-colors" title="Invoice Office">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+            </button>
+            <button onclick="window.location.href='/chat-dashboard'" class="p-2 hover:bg-white/10 rounded-full transition-colors" title="Chat Dashboard">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Chat Area -->
+    <main class="flex-1 chat-bg overflow-y-auto p-4 space-y-2 relative" id="chatContainer">
+        <!-- Messages will appear here -->
+        <div class="text-center text-xs text-gray-500 my-4 bg-white/50 py-1 px-3 rounded-lg inline-block mx-auto shadow-sm">
+            Messages are end-to-end encrypted... just kidding. This is an internal chat.
+        </div>
+    </main>
+
+    <!-- Input Area -->
+    <footer class="bg-[#f0f2f5] px-4 py-2 shrink-0 relative">
+        <!-- Tag Menu Overlay (Mobile Friendly) -->
+        <div id="tagMenu" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm" onclick="toggleTagMenu()">
+            <div class="bg-white shadow-2xl rounded-2xl overflow-hidden border border-gray-100 w-full max-w-xs animate-in fade-in zoom-in duration-200" onclick="event.stopPropagation()">
+                <div class="bg-[#1e3a8a] px-4 py-3 flex justify-between items-center">
+                    <span class="text-xs font-bold text-white uppercase tracking-widest">Tag Role for Attention</span>
+                    <button onclick="toggleTagMenu()" class="text-white/70 hover:text-white">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-px bg-gray-100">
+                    <button id="agentTagBtn" onclick="sendTag('agent')" class="bg-white px-4 py-4 text-center hover:bg-slate-50 transition-colors group">
+                        <div class="text-slate-900 font-bold text-sm">Agent</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1 agent-name-label">Loading...</div>
+                    </button>
+                    <button onclick="sendTag('admin')" class="bg-white px-4 py-4 text-center hover:bg-purple-50 transition-colors group">
+                        <div class="text-purple-600 font-bold text-sm">Admin</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Management</div>
+                    </button>
+                    <button onclick="sendTag('finance')" class="bg-white px-4 py-4 text-center hover:bg-green-50 transition-colors group">
+                        <div class="text-green-600 font-bold text-sm">Finance</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Payments</div>
+                    </button>
+                    <button onclick="sendTag('hr')" class="bg-white px-4 py-4 text-center hover:bg-blue-50 transition-colors group">
+                        <div class="text-blue-600 font-bold text-sm">HR</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Personnel</div>
+                    </button>
+                    <button onclick="sendTag('project')" class="bg-white px-4 py-4 text-center hover:bg-orange-50 transition-colors group">
+                        <div class="text-orange-600 font-bold text-sm">Project</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Operations</div>
+                    </button>
+                    <button onclick="sendTag('ceo')" class="bg-white px-4 py-4 text-center hover:bg-red-50 transition-colors group">
+                        <div class="text-red-600 font-bold text-sm">CEO</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Urgent</div>
+                    </button>
+                    <button onclick="sendTag('engineering')" class="bg-white px-4 py-4 text-center hover:bg-cyan-50 transition-colors group">
+                        <div class="text-cyan-600 font-bold text-sm">Engineering</div>
+                        <div class="text-[10px] text-gray-400 uppercase mt-1">Technical</div>
+                    </button>
+                </div>
+                <div class="bg-gray-50 p-3 text-center">
+                    <p class="text-[10px] text-gray-400 italic font-medium">Tagged role will see this in their dashboard.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-end gap-2 max-w-4xl mx-auto relative">
+            <!-- Tag Button -->
+            <button onclick="toggleTagMenu()" class="p-3 text-gray-500 hover:bg-gray-200 rounded-full transition-colors relative" title="Tag Role">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path></svg>
+            </button>
+
+            <!-- Attachment -->
+            <label class="p-3 text-gray-500 hover:bg-gray-200 rounded-full cursor-pointer transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                <input type="file" id="fileInput" class="hidden" onchange="handleFileUpload(this)">
+            </label>
+
+            <!-- Text Input -->
+            <div class="flex-1 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center p-2">
+                <textarea id="messageInput" rows="1" class="w-full resize-none outline-none text-sm text-gray-800 placeholder-gray-500 max-h-32" placeholder="Type a message" onkeydown="handleEnter(event)"></textarea>
+            </div>
+
+            <!-- Send Button -->
+            <button onclick="sendMessage()" class="p-3 bg-[#1e3a8a] text-white rounded-full hover:bg-[#1e40af] shadow-md transition-all active:scale-95">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+            </button>
+        </div>
+    </footer>
+
+    <!-- File Preview Modal -->
+    <div id="previewModal" class="fixed inset-0 z-50 hidden bg-black/80 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-sm w-full p-4 space-y-4">
+            <h3 class="font-bold text-gray-800">Send File?</h3>
+            <div id="previewContent" class="text-sm text-gray-600 bg-gray-50 p-3 rounded border border-gray-200 truncate"></div>
+            <div class="flex justify-end gap-2">
+                <button onclick="cancelUpload()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded text-sm font-medium">Cancel</button>
+                <button onclick="confirmUpload()" class="px-4 py-2 bg-[#1e3a8a] text-white rounded text-sm font-medium">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const invoiceId = urlParams.get('id');
+        let currentUser = null; // Can be populated if we have an auth endpoint that returns user info, or inferred.
+        // For "Left/Right" logic, we need to know "My ID". 
+        // Since the backend uses cookies, we don't easily have "My ID" in JS without an endpoint.
+        // I will assume the backend can return "currentUserId" in the history response or I'll add a profile endpoint.
+        // Or, simpler: The history API returns "isMine: true/false" for each message? No, API is generic.
+        // I will add a small logic to fetch "who am I" or assume based on first message sent?
+        // Better: decode JWT from cookie? HttpOnly cookie prevents this.
+        // I will assume the GET /chat history endpoint returns { messages, currentUserId }. I'll update the controller.
+        
+        // Wait, I can't easily update controller now without another tool call. 
+        // I'll try to use a simple "me" endpoint or just check if I can parse a non-http-only cookie if it exists?
+        // No, let's fetch profile first.
+        // Actually, I'll update the Chat Controller to return `currentUserId` in the `getChatHistory` response.
+        
+        const chatContainer = document.getElementById('chatContainer');
+        const msgInput = document.getElementById('messageInput');
+        let myUserId = null;
+        let agentName = "Agent";
+        let lastMsgCount = 0;
+        let lastHistoryHash = "";
+        let selectedFile = null;
+
+        async function init() {
+            if (!invoiceId) {
+                alert('Invoice ID missing');
+                NavManager.goBack();
+                return;
+            }
+            
+            await loadHistory(true); // Initial load scrolls to bottom
+
+            // Polling
+            setInterval(() => loadHistory(false), 3000);
+            
+            // Handle keyboard resize
+            window.visualViewport?.addEventListener('resize', () => {
+                if (chatContainer.scrollHeight - chatContainer.scrollTop <= chatContainer.clientHeight + 150) {
+                    scrollToBottom();
+                }
+            });
+        }
+
+        async function loadHistory(forceScroll = false) {
+            try {
+                const res = await fetch(`/api/v1/chat/${invoiceId}`);
+                
+                // Handle Auth Failure
+                if (res.status === 401) {
+                    const json = await res.json();
+                    const returnTo = encodeURIComponent(window.location.href);
+                    window.location.href = `${json.redirect || 'https://auth.atap.solar'}/?return_to=${returnTo}`;
+                    return;
+                }
+
+                const json = await res.json();
+                
+                if (json.success) {
+                    // Update Header
+                    document.getElementById('headerTitle').textContent = json.customerName || 'Customer Chat';
+                    document.getElementById('headerSubtitle').textContent = `Invoice #${invoiceId.substring(0,8)}...`;
+                    
+                    if (json.currentUserId) myUserId = json.currentUserId;
+                    if (json.agentName) {
+                        agentName = json.agentName;
+                        const agentTagBtn = document.getElementById('agentTagBtn');
+                        if (agentTagBtn) {
+                            agentTagBtn.querySelector('.agent-name-label').textContent = agentName;
+                        }
+                    }
+
+                    // Create a hash of messages to detect any change (count OR status)
+                    const currentHash = json.messages.length + "_" + json.messages.map(m => m.is_tag_active ? '1' : '0').join('');
+
+                    // Only re-render if hash changed or forceScroll (initial)
+                    if (forceScroll || currentHash !== lastHistoryHash) {
+                        const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop <= chatContainer.clientHeight + 100;
+                        const previousScrollTop = chatContainer.scrollTop;
+                        
+                        renderMessages(json.messages);
+                        lastHistoryHash = currentHash;
+                        lastMsgCount = json.messages.length;
+
+                        if (forceScroll || isAtBottom) {
+                            scrollToBottom();
+                        } else {
+                            // Maintain relative scroll position from top
+                            chatContainer.scrollTop = previousScrollTop;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderMessages(messages) {
+            chatContainer.innerHTML = ''; // Clear for now
+            
+            let lastHeaderDate = null;
+
+            messages.forEach(msg => {
+                const isMe = String(msg.sender_id) === String(myUserId);
+                const msgDate = new Date(msg.created_at);
+                
+                // Format Header (Segmented Day)
+                const headerText = getHeaderDateLabel(msgDate);
+                
+                // Date Divider (Segmented Day)
+                if (headerText !== lastHeaderDate) {
+                    const div = document.createElement('div');
+                    div.className = 'flex justify-center my-4 sticky top-2 z-10';
+                    div.innerHTML = `<span class="bg-white/80 shadow-sm text-gray-500 text-[10px] py-1 px-3 rounded-lg uppercase font-bold tracking-widest backdrop-blur-sm border border-black/5">${headerText}</span>`;
+                    chatContainer.appendChild(div);
+                    lastHeaderDate = headerText;
+                }
+
+                // Message Bubble
+                const row = document.createElement('div');
+                row.className = `flex w-full mb-1 ${isMe ? 'justify-end' : 'justify-start'}`;
+                
+                const bubble = document.createElement('div');
+                bubble.className = `max-w-[85%] rounded-lg px-2 py-1 shadow-sm relative text-sm flex flex-col ${isMe ? 'bg-[#dcf8c6] rounded-tr-none' : 'bg-white rounded-tl-none border border-gray-100'}`;
+                
+                // Sender Name (only for others)
+                if (!isMe) {
+                    const name = document.createElement('span');
+                    name.className = 'text-[10px] font-bold text-blue-600 mb-0.5 leading-none';
+                    name.textContent = msg.sender_name;
+                    bubble.appendChild(name);
+                }
+
+                // Content
+                if (msg.message_type === 'image') {
+                    bubble.innerHTML += `
+                        <a href="${msg.content}" target="_blank" class="block overflow-hidden rounded mt-1 mb-1">
+                            <img src="${msg.content}" class="max-w-full max-h-64 object-cover">
+                        </a>
+                    `;
+                } else if (msg.message_type === 'file') {
+                    bubble.innerHTML += `
+                        <div class="flex items-center gap-3 bg-black/5 p-2 rounded mt-1 mb-1 min-w-[200px]">
+                            <div class="bg-red-500 text-white p-2 rounded">PDF</div>
+                            <div class="overflow-hidden">
+                                <a href="${msg.content}" target="_blank" class="block text-sm font-medium hover:underline truncate">${msg.file_meta?.originalName || 'File'}</a>
+                                <span class="text-[10px] text-gray-500">${msg.file_meta?.size ? (msg.file_meta.size/1024).toFixed(1)+' KB' : ''}</span>
+                            </div>
+                        </div>
+                    `;
+                } else if (msg.message_type === 'tag') {
+                    const roleColors = {
+                        'admin': 'bg-purple-100 text-purple-800 border-purple-200',
+                        'finance': 'bg-green-100 text-green-800 border-green-200',
+                        'hr': 'bg-blue-100 text-blue-800 border-blue-200',
+                        'project': 'bg-orange-100 text-orange-800 border-orange-200',
+                        'ceo': 'bg-red-100 text-red-800 border-red-200',
+                        'engineering': 'bg-cyan-100 text-cyan-800 border-cyan-200',
+                        'agent': 'bg-slate-100 text-slate-800 border-slate-200'
+                    };
+                    const colorClass = roleColors[msg.tag_role?.toLowerCase()] || 'bg-gray-100 text-gray-800 border-gray-200';
+                    const displayRole = msg.tag_role ? msg.tag_role.charAt(0).toUpperCase() + msg.tag_role.slice(1) : 'Unknown';
+                    
+                    const isTaggedForMe = msg.user_tag_status === 'pending';
+                    const hasAcked = msg.user_tag_status === 'acknowledged';
+
+                    let ackBtn = '';
+                    if (isTaggedForMe) {
+                        ackBtn = `<button onclick="acknowledgeTag('${msg.id}')" class="mt-2 w-full py-1 bg-white border border-gray-300 rounded text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors uppercase tracking-wide shadow-sm">Acknowledge</button>`;
+                    } else if (hasAcked) {
+                        ackBtn = `<div class="mt-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest border-t border-black/5 pt-1">Acknowledged</div>`;
+                    } else if (msg.message_type === 'tag') {
+                        // Not for me, but it's a tag message
+                        ackBtn = `<div class="mt-2 text-center text-[10px] font-bold text-gray-400 opacity-30 uppercase tracking-widest border-t border-black/5 pt-1">Tag: ${displayRole}</div>`;
+                    }
+
+                    bubble.innerHTML += `
+                        <div class="mt-1 mb-1 min-w-[200px]">
+                            <div class="flex items-center gap-2 p-2 rounded border ${colorClass}">
+                                <div class="font-bold text-xs uppercase tracking-wider flex-1">@${displayRole}</div>
+                                <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                            </div>
+                            <div class="text-xs text-gray-600 italic mt-1 px-1">Attention required for ${displayRole}</div>
+                            ${ackBtn}
+                        </div>
+                    `;
+                } else {
+                    const text = document.createElement('p');
+                    text.className = 'text-gray-800 whitespace-pre-wrap leading-snug';
+                    text.textContent = msg.content;
+                    bubble.appendChild(text);
+                }
+
+                // Time (Respecting local timezone)
+                const time = document.createElement('span');
+                time.className = 'text-[9px] text-gray-500 self-end ml-2 mt-1 min-w-fit opacity-70 font-medium';
+                time.textContent = msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                bubble.appendChild(time);
+
+                row.appendChild(bubble);
+                chatContainer.appendChild(row);
+            });
+        }
+
+        function getHeaderDateLabel(date) {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+
+            const compareDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+            if (compareDate.getTime() === today.getTime()) {
+                return "Today";
+            } else if (compareDate.getTime() === yesterday.getTime()) {
+                return "Yesterday";
+            } else {
+                // Format: 11/JAN/2026
+                const day = String(date.getDate()).padStart(2, '0');
+                const month = date.toLocaleString('default', { month: 'short' }).toUpperCase();
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+            }
+        }
+
+        function toggleTagMenu() {
+            document.getElementById('tagMenu').classList.toggle('hidden');
+        }
+
+        async function sendTag(role) {
+            toggleTagMenu();
+            try {
+                const res = await fetch(`/api/v1/chat/${invoiceId}/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        messageType: 'tag', 
+                        tagRole: role.toLowerCase(), 
+                        content: `Tagged @${role.toUpperCase()}` 
+                    })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadHistory(true);
+                } else {
+                    alert(`Failed to tag: ${json.error || 'Unknown Error'}`);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error while tagging');
+            }
+        }
+
+        async function acknowledgeTag(msgId) {
+            try {
+                const res = await fetch(`/api/v1/chat/message/${msgId}/ack`, {
+                    method: 'PUT'
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadHistory(false); // Refresh but don't force scroll
+                } else {
+                    alert('Failed to acknowledge: ' + json.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error');
+            }
+        }
+
+        async function sendMessage() {
+            const text = msgInput.value.trim();
+            if (!text && !selectedFile) return;
+
+            msgInput.value = '';
+            
+            // Optimistic UI? No, wait for server response to ensure consistency.
+            
+            try {
+                const formData = new FormData();
+                if (selectedFile) {
+                    formData.append('file', selectedFile);
+                }
+                formData.append('content', text); // Can be empty if file only
+
+                const res = await fetch(`/api/v1/chat/${invoiceId}/message`, {
+                    method: 'POST',
+                    body: formData // No headers (browser sets multipart)
+                });
+                
+                const json = await res.json();
+                if (json.success) {
+                    selectedFile = null;
+                    await loadHistory(true);
+                } else {
+                    alert('Failed to send: ' + json.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error');
+            }
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function handleFileUpload(input) {
+            if (input.files.length > 0) {
+                const file = input.files[0];
+                if (file.size > 3 * 1024 * 1024) {
+                    alert('File too large (Max 3MB)');
+                    input.value = '';
+                    return;
+                }
+                selectedFile = file;
+                
+                // Show confirmation modal
+                document.getElementById('previewContent').textContent = `${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+                document.getElementById('previewModal').classList.remove('hidden');
+            }
+        }
+
+        function confirmUpload() {
+            document.getElementById('previewModal').classList.add('hidden');
+            sendMessage();
+        }
+
+        function cancelUpload() {
+            selectedFile = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('previewModal').classList.add('hidden');
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function goBack() {
+            NavManager.goBack();
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+    <script src="/js/navigation.js"></script>
+</body>
+</html>

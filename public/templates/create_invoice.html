@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Create Quotation</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
+        <!-- User Welcome Section -->
+        <div id="userWelcome"
+            class="hidden mb-4 flex items-center justify-between bg-blue-50 px-4 py-2 rounded-lg border border-blue-100">
+            <span class="text-sm font-medium text-blue-800">Welcome, <span id="userNameDisplay"
+                    class="font-bold">User</span></span>
+        </div>
+
+        <!-- Debug Status Bar -->
+        <div id="debugStatus"
+            class="mb-4 p-3 bg-gray-800 text-white rounded-lg font-mono text-[10px] flex flex-col gap-1">
+            <div class="flex justify-between border-b border-gray-700 pb-1">
+                <span>URL DETECTION STATUS:</span>
+                <span id="detectionStatus" class="text-yellow-400 font-bold">INITIALIZING...</span>
+            </div>
+            <div class="flex justify-between">
+                <span>DETECTED PACKAGE ID:</span>
+                <span id="detectedPackageId" class="text-green-400 font-bold">NONE</span>
+            </div>
+            <div id="debugLog" class="text-[9px] text-gray-400 mt-1 italic"></div>
+        </div>
+
+        <h1 class="text-2xl font-bold mb-6 text-gray-900">Create Quotation</h1>
+
+        <!-- CNY 2026 Promo Banner (CSS Fallback) -->
+        <div
+            class="mb-6 rounded-lg overflow-hidden border-2 border-orange-200 bg-gradient-to-r from-red-600 to-red-800 p-6 flex flex-col items-center justify-center text-center shadow-lg relative">
+            <div class="absolute top-2 right-4 text-4xl opacity-20 select-none">🐎</div>
+            <div class="absolute bottom-2 left-4 text-4xl opacity-20 select-none">🏮</div>
+            <div class="text-orange-300 font-bold uppercase tracking-[0.2em] text-xs mb-1">Chinese New Year 2026</div>
+            <h2 class="text-3xl font-black text-white mb-2 drop-shadow-md">CNY SPECIAL PROMO</h2>
+            <div class="bg-white/10 backdrop-blur-sm rounded-full px-6 py-2 border border-white/20 mb-3">
+                <span class="text-white font-bold text-lg italic">Get up to <span class="text-yellow-400 text-2xl">RM
+                        2,500</span> Reward</span>
+            </div>
+            <p class="text-red-100 text-[10px] font-medium uppercase tracking-wider">Auto-applied reward based on total
+                solar panels</p>
+        </div>
+
+        <div id="errorMessage" class="hidden mb-6 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3 flex-1">
+                    <h3 class="text-sm font-semibold text-red-900 mb-1">Error</h3>
+                    <p class="text-red-800 font-medium" id="errorText"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="warningMessage" class="hidden mb-6 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3 flex-1">
+                    <h3 class="text-sm font-semibold text-yellow-900 mb-1">Notice</h3>
+                    <p class="text-yellow-800" id="warningText"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="packageIdForm" class="mb-6 p-6 bg-slate-50 border border-slate-200 rounded-lg text-center">
+            <div class="mb-4">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+            </div>
+            <h2 class="text-lg font-bold text-slate-900 mb-2">No Package Selected</h2>
+            <p class="text-slate-600 mb-6 text-sm">Please select a solar package from our catalog to begin creating your
+                quotation.</p>
+            <a href="/select-package"
+                class="inline-flex items-center justify-center bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-8 rounded-lg shadow-sm transition-all text-sm uppercase tracking-widest">
+                Browse Packages
+            </a>
+        </div>
+
+        <div id="quotationFormContainer" class="hidden space-y-6">
+            <!-- Package Information -->
+            <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300">
+                <h2 class="font-bold text-lg mb-3 text-gray-900">Package Information</h2>
+                <div class="space-y-2 text-gray-800">
+                    <p><strong class="text-gray-900">Name:</strong> <span class="text-gray-800"
+                            id="packageNameDisplay">-</span></p>
+                    <p><strong class="text-gray-900">Price:</strong> <span class="text-gray-800 font-semibold"
+                            id="packagePriceDisplay">RM 0.00</span></p>
+                    <p id="maxDiscountRow" class="hidden"><strong class="text-gray-900">Max Discount Allowed:</strong>
+                        <span class="text-red-600 font-semibold" id="maxDiscountDisplay">RM 0.00</span>
+                    </p>
+                    <div id="packageDescContainer" class="hidden mt-3 pt-3 border-t border-blue-200">
+                        <strong class="text-gray-900 block mb-2">Description:</strong>
+                        <pre class="whitespace-pre-wrap text-sm text-gray-800 bg-white p-3 rounded border border-gray-200 font-sans"
+                            id="packageDescDisplay"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quotation Items Preview -->
+            <div class="bg-gray-50 p-4 rounded-lg border-2 border-gray-300">
+                <h2 class="font-bold text-lg mb-4 text-gray-900">Quotation Items Preview</h2>
+                <div id="quotationItemsList" class="space-y-2 mb-4">
+                    <!-- Items will be populated by JavaScript -->
+                </div>
+                <div class="border-t-2 border-gray-300 pt-4 mt-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-semibold text-gray-900">Subtotal:</span>
+                        <span class="font-semibold text-gray-900" id="subtotal">RM 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2" id="sstRow" style="display: none;">
+                        <span class="text-gray-700">SST (6%):</span>
+                        <span class="text-gray-700" id="sstAmount">RM 0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-2 border-t border-gray-300">
+                        <span class="text-xl font-bold text-gray-900">Total Amount:</span>
+                        <span class="text-xl font-bold text-green-600" id="totalAmount">RM 0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Micro Inverter Section -->
+            <div class="bg-amber-50 p-4 rounded-lg border-2 border-amber-300">
+                <h2 class="font-bold text-lg mb-3 text-amber-900">Micro Inverter</h2>
+                <div class="space-y-3">
+                    <div class="bg-white p-3 rounded border border-amber-200 shadow-sm flex items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-900 text-sm">SAJ M2-1.0K S2 Micro Inverter</div>
+                            <div class="text-xs text-gray-500"><span class="line-through text-red-400">RM 1,000</span> <span class="font-bold text-amber-700">RM 500</span></div>
+                        </div>
+                        <div class="w-24">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase">Qty</label>
+                            <input type="number" id="mi_s2_qty" min="0" value="0"
+                                class="w-full text-sm border border-amber-300 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500 text-center">
+                        </div>
+                    </div>
+                    <div class="bg-white p-3 rounded border border-amber-200 shadow-sm flex items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-900 text-sm">SAJ M4-1.8K S4 Micro Inverter</div>
+                            <div class="text-xs text-gray-500"><span class="line-through text-red-400">RM 1,500</span> <span class="font-bold text-amber-700">RM 1,000</span></div>
+                        </div>
+                        <div class="w-24">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase">Qty</label>
+                            <input type="number" id="mi_s4_qty" min="0" value="0"
+                                class="w-full text-sm border border-amber-300 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500 text-center">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quotation Details Form -->
+            <form id="quotationForm" class="space-y-4">
+                <input type="hidden" name="linked_package" id="packageIdHidden">
+                <input type="hidden" name="template_id" id="templateIdHidden">
+                <input type="hidden" id="packagePrice" value="0">
+                <input type="hidden" id="packageName" value="">
+                <input type="hidden" id="profilePicture">
+
+                <div class="flex items-center gap-4 mb-6 bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
+                    <div id="profilePreview"
+                        class="h-16 w-16 rounded-lg bg-white border border-gray-300 flex items-center justify-center overflow-hidden">
+                        <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-700 uppercase">Customer Profile Picture</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Will be saved to our server from WhatsApp.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Customer Name</label>
+                        <input type="text" name="customer_name" id="customerName"
+                            class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                            placeholder="Optional - leave blank for 'Sample Quotation'"
+                            oninput="toggleFollowUpSection()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Customer Phone</label>
+                        <div class="relative">
+                            <input type="text" name="customer_phone" id="customerPhone"
+                                class="w-full border-2 border-gray-300 rounded px-3 py-2 pr-10 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                                placeholder="e.g., 60123456789">
+                            <button type="button" onclick="checkWhatsApp()"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-green-600 transition-colors"
+                                title="Check WhatsApp">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.347-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-2.578l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.801.976 3.846 1.491 5.913 1.492h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Follow-up Reminder Section (Visible only when Customer Name is provided) -->
+                <div id="followUpSection" class="hidden bg-amber-50 p-4 rounded-lg border-2 border-amber-200">
+                    <label class="block text-sm font-semibold mb-2 text-amber-900">Follow-up Reminder</label>
+                    <div class="flex gap-4">
+                        <div class="flex-1">
+                            <select name="follow_up_days" id="followUpDays"
+                                class="w-full border-2 border-amber-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-amber-500 focus:outline-none">
+                                <option value="7" selected>7 Days (Recommended)</option>
+                                <option value="3">3 Days</option>
+                                <option value="0">No Reminder</option>
+                            </select>
+                        </div>
+                        <div class="flex-[2] flex items-center">
+                            <p class="text-xs text-amber-700 italic">Pinned to top of dashboard once date passes.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-900">Customer Address</label>
+                    <textarea name="customer_address" id="customerAddress" rows="3"
+                        class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                        placeholder="Optional"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-gray-900">Discount Given</label>
+                    <input type="text" name="discount_given" id="discountGiven"
+                        class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none"
+                        placeholder="e.g., '500 10%' for RM500 fixed + 10% discount">
+                    <div class="flex justify-between mt-1">
+                        <p class="text-xs text-gray-600">Format: Fixed amount and/or percentage (e.g., "500 10%" or
+                            "500" or "10%")</p>
+                        <p id="inputMaxDiscountRow" class="text-xs font-bold text-red-600 hidden">Max Allowed: <span
+                                id="inputMaxDiscountDisplay">RM 0.00</span></p>
+                    </div>
+                </div>
+
+                <!-- Additional Items Section -->
+                <div class="bg-indigo-50 p-4 rounded-lg border-2 border-indigo-200">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-bold text-lg text-gray-900">Additional Items</h2>
+                        <button type="button" id="addManualItemBtn"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded shadow-sm transition-all">
+                            + Add Item
+                        </button>
+                    </div>
+                    <div id="manualItemsContainer" class="space-y-3">
+                        <!-- Manual items will be added here -->
+                    </div>
+                    <p id="extraItemsDiscountWarning" class="hidden text-xs text-red-600 font-bold mt-2 bg-red-50 border border-red-300 rounded px-3 py-2"></p>
+                </div>
+
+                <!-- Voucher Section -->
+                <div class="bg-green-50 p-4 rounded-lg border-2 border-green-200">
+                    <label class="block text-sm font-semibold mb-2 text-gray-900">Vouchers</label>
+                    <div class="flex gap-2 mb-3">
+                        <select id="voucherSelectDropdown"
+                            class="flex-1 min-w-0 border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-green-500 focus:outline-none">
+                            <option value="">-- Select a Voucher --</option>
+                        </select>
+                        <button type="button" id="addVoucherBtn"
+                            class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded shadow-sm transition-colors">
+                            Add
+                        </button>
+                    </div>
+
+                    <!-- Selected Vouchers List -->
+                    <div id="selectedVouchersContainer" class="hidden space-y-2 mb-2">
+                        <h4 class="text-xs font-semibold text-green-800 uppercase tracking-wide">Applied Vouchers:</h4>
+                        <div id="selectedVouchersList" class="space-y-2">
+                            <!-- Items populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Voucher Info Preview (for the currently selected item in dropdown) -->
+                    <div id="voucherInfo" class="hidden mt-2 p-3 bg-white rounded border border-green-100 shadow-sm">
+                        <p class="text-sm font-semibold text-green-800" id="voucherTitle"></p>
+                        <p class="text-xs text-green-700 mt-1" id="voucherDesc"></p>
+                        <p class="text-xs text-green-600 mt-1 italic" id="voucherTerms"></p>
+                    </div>
+                </div>
+
+                <!-- SST Toggle (default: OFF) -->
+                <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+                    <input type="checkbox" name="apply_sst" id="applySST"
+                        class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                    <label for="applySST" class="text-sm font-semibold text-gray-900">Apply 6% SST (Sales & Service
+                        Tax)</label>
+                </div>
+
+                <!-- Payment Methods Section -->
+                <div class="bg-purple-50 p-4 rounded-lg border-2 border-purple-300">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="font-bold text-lg text-gray-900">Payment Methods</h2>
+                        <button type="button" id="addPaymentMethodBtn"
+                            class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold px-4 py-2 rounded shadow-md transition-colors">
+                            + Add Payment Method
+                        </button>
+                    </div>
+                    <div id="paymentMethodsContainer" class="space-y-4">
+                        <!-- Payment method rows will be added here -->
+                    </div>
+                    <div id="paymentSummary" class="mt-4 pt-4 border-t border-purple-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-semibold text-gray-700">Effective Payment:</span>
+                            <span class="text-sm font-semibold text-gray-900" id="totalPaymentAmount">RM 0.00
+                                (0%)</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-semibold text-gray-700">Unpaid Balance:</span>
+                            <span class="text-sm font-semibold text-red-600" id="unpaidBalanceAmount">RM 0.00
+                                (100%)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-semibold text-gray-700">Total EPP Fees:</span>
+                            <span class="text-sm font-semibold text-purple-700" id="totalEPPFees">RM 0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button type="submit"
+                        class="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-lg shadow-md transition-colors">
+                        Create Quotation
+                    </button>
+                    <button type="button" onclick="NavManager.goBack()"
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-8 py-3 rounded-lg shadow-md transition-colors inline-flex items-center">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/navigation.js"></script>
+    <script src="/js/pages/create_invoice.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Check SEDA | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #334155;
+            --primary-hover: #475569;
+            --brand-blue: #3b82f6;
+            --success: #166534;
+            --warning: #854d0e;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-400: #94a3b8;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+        }
+        
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%); color: var(--slate-900); min-height: 100vh; margin: 0; }
+        
+        .top-nav { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--slate-200); position: sticky; top: 0; z-index: 50; }
+
+        .search-container {
+            background: white;
+            border-bottom: 1px solid var(--slate-200);
+            padding: 1.5rem 0;
+        }
+
+        .data-card { 
+            background: white; 
+            border: 1px solid var(--slate-200); 
+            transition: all 0.2s ease; 
+        }
+        .data-card:hover { transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+
+        .badge {
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 1px solid transparent;
+        }
+        .badge-info { background: #eff6ff; color: #1e40af; border-color: #dbeafe; }
+        .badge-success { background: #f0fdf4; color: #166534; border-color: #dcfce7; }
+
+        .loading-spinner {
+            border: 2px solid var(--slate-200);
+            border-top-color: var(--primary);
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .tab-btn {
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+            color: var(--slate-400);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .tab-btn.active {
+            background: var(--slate-900);
+            color: white;
+        }
+
+        .no-margin-divider > div {
+            border-bottom: 1px solid var(--slate-100);
+        }
+        .no-margin-divider > div:last-child {
+            border-bottom: none;
+        }
+
+        .pagination-bar {
+            background: white;
+            border: 1px solid var(--slate-200);
+            border-radius: 1rem;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 1rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .page-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            border: 1px solid var(--slate-200);
+            border-radius: 0.75rem;
+            color: var(--slate-900);
+            background: white;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .page-btn:hover:not(:disabled) {
+            background: var(--slate-50);
+            border-color: var(--slate-300);
+            transform: translateY(-1px);
+        }
+        .page-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .page-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Top Navigation -->
+    <nav class="top-nav px-4 sm:px-6 lg:px-8 py-3">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <button onclick="NavManager.goBack()" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                    <i class="fa-solid fa-arrow-left text-slate-600"></i>
+                </button>
+                <a href="/agent/home" class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white">
+                        <i class="fa-solid fa-bolt text-sm"></i>
+                    </div>
+                    <span class="text-sm font-bold tracking-tight text-slate-900">ETERNALGY OS</span>
+                </a>
+                <div class="h-4 w-px bg-slate-200 mx-2 hidden sm:block"></div>
+                <h1 class="text-sm font-bold text-slate-500">Check SEDA</h1>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Tabs & Search -->
+    <div class="search-container px-4 sm:px-6 lg:px-8">
+        <div class="max-w-5xl mx-auto space-y-6">
+            <div class="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+                <button onclick="switchTab('profiles')" id="tab-profiles" class="tab-btn active">Profiles List</button>
+                <button onclick="switchTab('trace')" id="tab-trace" class="tab-btn">Trace Application</button>
+            </div>
+
+            <!-- Profiles Search -->
+            <div id="profiles-search" class="flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="profileQuery" placeholder="Search profiles by name..." 
+                        class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all">
+                </div>
+                <button onclick="fetchProfiles(0)" class="px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                    Search Profiles
+                </button>
+            </div>
+
+            <!-- Trace Search -->
+            <div id="trace-search" class="hidden flex flex-col sm:flex-row gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-hashtag absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="traceKeyword" placeholder="Enter keyword (App No, IC, CA, Officer...)" 
+                        class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all">
+                </div>
+                <button onclick="traceApplications()" class="px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                    Trace Status
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Area -->
+    <main class="flex-1 w-full max-w-5xl mx-auto p-4 sm:p-8 flex flex-col gap-4">
+        <div id="resultsWrapper" class="flex flex-col">
+            <div id="resultsList" class="bg-white rounded-2xl border border-slate-200 overflow-hidden no-margin-divider">
+                <!-- Initial State -->
+                <div class="py-24 text-center">
+                    <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                        <i class="fa-solid fa-magnifying-glass text-2xl text-slate-300"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest">Ready to Search</h3>
+                    <p class="text-xs text-slate-400 mt-2">Enter details above to fetch data from SEDA Manager</p>
+                </div>
+            </div>
+            
+            <!-- Pagination Bar -->
+            <div id="paginationBar" class="pagination-bar hidden">
+                <button id="prevBtn" class="page-btn" disabled>
+                    <i class="fa-solid fa-chevron-left"></i>
+                    <span>Prev</span>
+                </button>
+                <span id="paginationInfo" class="text-[10px] font-black text-slate-400 uppercase tracking-widest">0 / 0</span>
+                <button id="nextBtn" class="page-btn" disabled>
+                    <span>Next</span>
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/navigation.js"></script>
+    <script>
+        let currentTab = 'profiles';
+        let currentOffset = 0;
+        const PAGE_LIMIT = 10;
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('tab-profiles').classList.toggle('active', tab === 'profiles');
+            document.getElementById('tab-trace').classList.toggle('active', tab === 'trace');
+            
+            document.getElementById('profiles-search').classList.toggle('hidden', tab !== 'profiles');
+            document.getElementById('trace-search').classList.toggle('hidden', tab !== 'trace');
+            
+            document.getElementById('paginationBar').classList.add('hidden');
+            document.getElementById('resultsList').innerHTML = `
+                <div class="py-24 text-center">
+                    <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                        <i class="fa-solid fa-magnifying-glass text-2xl text-slate-300"></i>
+                    </div>
+                    <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest">Ready to Search</h3>
+                    <p class="text-xs text-slate-400 mt-2">Enter details above to fetch data from SEDA Manager</p>
+                </div>
+            `;
+        }
+
+        async function fetchProfiles(offset = 0) {
+            const query = document.getElementById('profileQuery').value;
+            const listEl = document.getElementById('resultsList');
+            const paginationBar = document.getElementById('paginationBar');
+            
+            currentOffset = offset;
+
+            listEl.innerHTML = `
+                <div class="py-24 flex flex-col items-center">
+                    <div class="loading-spinner w-8 h-8 rounded-full mb-4"></div>
+                    <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Fetching profiles...</p>
+                </div>
+            `;
+            paginationBar.classList.add('hidden');
+
+            try {
+                const basePath = query ? 'profiles/search' : 'profiles';
+                const params = new URLSearchParams({
+                    limit: PAGE_LIMIT,
+                    offset: offset
+                });
+                if (query) params.append('name', query);
+
+                const url = `/api/v1/seda-proxy/${basePath}?${params.toString()}`;
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (!result.success) throw new Error(result.error);
+                
+                const data = result.data || {};
+                const profiles = data.profiles || [];
+                const total = data.total || 0;
+                
+                if (profiles.length === 0) {
+                    listEl.innerHTML = `<div class="p-12 text-center text-slate-400 text-sm font-medium">No profiles found</div>`;
+                    return;
+                }
+
+                listEl.innerHTML = profiles.map(p => `
+                    <div class="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div class="flex items-center gap-4 min-w-0">
+                            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h4 class="text-sm font-bold text-slate-800 truncate">${p.name}</h4>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="badge badge-info">${p.type}</span>
+                                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter truncate">${p.registration_number || 'No Reg No'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="viewProfileDetails('${p.id}')" class="shrink-0 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-100 transition-all">
+                            Details
+                        </button>
+                    </div>
+                `).join('');
+
+                if (total > PAGE_LIMIT) {
+                    paginationBar.classList.remove('hidden');
+                    paginationBar.style.display = 'flex';
+                    const start = offset + 1;
+                    const end = Math.min(offset + PAGE_LIMIT, total);
+                    document.getElementById('paginationInfo').textContent = `${start}-${end} / ${total}`;
+                    
+                    const prevBtn = document.getElementById('prevBtn');
+                    const nextBtn = document.getElementById('nextBtn');
+                    
+                    prevBtn.disabled = offset === 0;
+                    nextBtn.disabled = end >= total;
+                    
+                    prevBtn.onclick = () => { fetchProfiles(offset - PAGE_LIMIT); window.scrollTo({top: 0, behavior: 'smooth'}); };
+                    nextBtn.onclick = () => { fetchProfiles(offset + PAGE_LIMIT); window.scrollTo({top: 0, behavior: 'smooth'}); };
+                }
+
+            } catch (err) {
+                listEl.innerHTML = `<div class="p-12 text-center text-red-500 text-xs font-bold uppercase">${err.message}</div>`;
+            }
+        }
+
+        async function traceApplications() {
+            const keyword = document.getElementById('traceKeyword').value;
+            if (!keyword) return alert('Please enter a keyword to trace');
+            
+            const listEl = document.getElementById('resultsList');
+            const paginationBar = document.getElementById('paginationBar');
+            
+            listEl.innerHTML = `
+                <div class="py-24 flex flex-col items-center">
+                    <div class="loading-spinner w-8 h-8 rounded-full mb-4"></div>
+                    <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Tracing applications...</p>
+                </div>
+            `;
+            paginationBar.classList.add('hidden');
+
+            try {
+                const response = await fetch(`/api/v1/seda-proxy/applications/search?keyword=${encodeURIComponent(keyword)}`);
+                const result = await response.json();
+
+                if (!result.success) throw new Error(result.error);
+                
+                const apps = result.data?.applications || [];
+                
+                if (apps.length === 0) {
+                    listEl.innerHTML = `<div class="p-12 text-center text-slate-400 text-sm font-medium">No applications found matching "${keyword}"</div>`;
+                    return;
+                }
+
+                listEl.innerHTML = apps.map(a => `
+                    <div class="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                        <div class="flex items-start gap-4">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                                <i class="fa-solid fa-file-lines"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">${a.application_number || 'N/A'}</h4>
+                                <p class="text-[11px] text-slate-500 font-medium mt-0.5">${a.applicant || 'Unknown'}</p>
+                                <div class="flex flex-wrap items-center gap-2 mt-2">
+                                    <span class="badge ${a.status?.toLowerCase().includes('approved') ? 'badge-success' : 'badge-info'}">${a.status || 'Unknown'}</span>
+                                    <span class="text-[9px] text-slate-400 font-bold uppercase">Officer: ${a.seda_officer || 'N/A'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 sm:border-l sm:pl-4 border-slate-100">
+                             <div class="text-right hidden sm:block">
+                                <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Updated</p>
+                                <p class="text-[10px] font-bold text-slate-700">${a.last_updated || 'N/A'}</p>
+                             </div>
+                             <button onclick="viewAppDetails('${a.id}')" class="flex-1 sm:flex-none px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-all">
+                                View
+                             </button>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                listEl.innerHTML = `<div class="p-12 text-center text-red-500 text-xs font-bold uppercase">${err.message}</div>`;
+            }
+        }
+
+        function viewProfileDetails(id) {
+            alert('Profile details for: ' + id);
+        }
+
+        function viewAppDetails(id) {
+            alert('Application details for: ' + id);
+        }
+    </script>
+</body>
+</html>

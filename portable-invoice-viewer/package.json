@@ -1,0 +1,22 @@
+{
+  "name": "portable-invoice-viewer",
+  "version": "1.0.0",
+  "description": "Self-contained HTML template for rendering Invoice/Quotation documents",
+  "main": "example-integration.js",
+  "scripts": {
+    "test": "node example-integration.js",
+    "demo": "node example-integration.js"
+  },
+  "keywords": [
+    "invoice",
+    "quotation",
+    "template",
+    "html",
+    "portable"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "express": "^4.18.2"
+  }
+}

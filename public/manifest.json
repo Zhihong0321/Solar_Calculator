@@ -1,0 +1,26 @@
+{
+  "name": "Atap Solar Chat",
+  "short_name": "SolarChat",
+  "id": "/chat-dashboard",
+  "description": "Internal communication for Solar Calculator v2",
+  "start_url": "/chat-dashboard",
+  "scope": "/",
+  "display": "fullscreen",
+  "background_color": "#f0f2f5",
+  "theme_color": "#1e3a8a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

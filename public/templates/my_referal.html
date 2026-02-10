@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Referrals | ETERNALGY OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { background: #0f172a; color: #f1f5f9; }
+        .card { background: #1e293b; border: 1px solid #334155; }
+        .card:hover { border-color: #475569; }
+    </style>
+</head>
+<body class="min-h-screen">
+    
+    <!-- Header -->
+    <div class="bg-slate-900 border-b border-slate-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <a href="/agent/home" class="text-slate-400 hover:text-white transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                    </a>
+                    <h1 class="text-2xl font-bold text-white">My Referrals</h1>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-slate-400">Total Commission Earned</p>
+                    <p class="text-2xl font-bold text-emerald-400" id="totalCommission">RM 0.00</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="card rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-1">Total Referrals</p>
+                <p class="text-3xl font-bold text-white" id="totalCount">0</p>
+            </div>
+            <div class="card rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-1">Pending</p>
+                <p class="text-3xl font-bold text-yellow-400" id="pendingCount">0</p>
+            </div>
+            <div class="card rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-1">Contacted</p>
+                <p class="text-3xl font-bold text-blue-400" id="contactedCount">0</p>
+            </div>
+            <div class="card rounded-xl p-6">
+                <p class="text-slate-400 text-sm mb-1">Successful</p>
+                <p class="text-3xl font-bold text-emerald-400" id="successfulCount">0</p>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="card rounded-xl p-4 mb-6">
+            <div class="flex flex-wrap gap-2">
+                <button onclick="filterStatus('all')" class="filter-btn active px-4 py-2 rounded-lg text-sm font-semibold transition">All</button>
+                <button onclick="filterStatus('Pending')" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold transition">Pending</button>
+                <button onclick="filterStatus('Contacted')" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold transition">Contacted</button>
+                <button onclick="filterStatus('Successful')" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold transition">Successful</button>
+                <button onclick="filterStatus('Declined')" class="filter-btn px-4 py-2 rounded-lg text-sm font-semibold transition">Declined</button>
+            </div>
+        </div>
+        
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-12">
+            <svg class="animate-spin h-12 w-12 text-blue-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-slate-400">Loading referrals...</p>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-16">
+            <svg class="w-24 h-24 text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+            <p class="text-slate-400 text-lg">No referrals yet</p>
+        </div>
+        
+        <!-- Referrals Table -->
+        <div id="referralsTable" class="hidden card rounded-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-slate-800 border-b border-slate-700">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">Customer</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">Referral Name</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">Mobile</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">Relationship</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">Commission</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-4 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="referralsList" class="divide-y divide-slate-700">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+    </div>
+    
+    <script>
+        let allReferrals = [];
+        let currentFilter = 'all';
+        
+        // Load referrals
+        document.addEventListener('DOMContentLoaded', loadReferrals);
+        
+        async function loadReferrals() {
+            try {
+                const response = await fetch('/api/v1/referrals/my-referrals');
+                const result = await response.json();
+                
+                if (result.success) {
+                    allReferrals = result.data;
+                    displayReferrals();
+                } else {
+                    throw new Error(result.error || 'Failed to load referrals');
+                }
+            } catch (err) {
+                console.error('Error loading referrals:', err);
+                document.getElementById('loadingState').classList.add('hidden');
+                Swal.fire({ icon: 'error', title: 'Error', text: err.message, background: '#1e293b', color: '#f1f5f9' });
+            }
+        }
+        
+        function displayReferrals() {
+            document.getElementById('loadingState').classList.add('hidden');
+            
+            const filtered = currentFilter === 'all' ? allReferrals : allReferrals.filter(r => r.status === currentFilter);
+            
+            if (filtered.length === 0) {
+                document.getElementById('emptyState').classList.remove('hidden');
+                document.getElementById('referralsTable').classList.add('hidden');
+                updateStats();
+                return;
+            }
+            
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('referralsTable').classList.remove('hidden');
+            
+            const tbody = document.getElementById('referralsList');
+            tbody.innerHTML = '';
+            
+            filtered.forEach(referral => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-700 transition';
+                
+                const statusColors = {
+                    'Pending': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+                    'Contacted': 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                    'Successful': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+                    'Declined': 'bg-red-500/20 text-red-400 border-red-500/30'
+                };
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-slate-300">${referral.customer_name || '-'}</td>
+                    <td class="px-6 py-4 text-sm font-semibold text-white">${referral.name}</td>
+                    <td class="px-6 py-4 text-sm text-slate-300">${referral.mobile_number}</td>
+                    <td class="px-6 py-4 text-sm text-slate-300">${referral.relationship || '-'}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-3 py-1 text-xs font-bold rounded-full border ${statusColors[referral.status] || 'bg-slate-500/20 text-slate-400'}">
+                            ${referral.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm font-bold ${referral.commission_earned > 0 ? 'text-emerald-400' : 'text-slate-500'}">
+                        ${referral.commission_earned > 0 ? 'RM ' + parseFloat(referral.commission_earned).toFixed(2) : '-'}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-400">${new Date(referral.created_at).toLocaleDateString('en-MY')}</td>
+                    <td class="px-6 py-4">
+                        <button onclick="updateStatus('${referral.bubble_id}')" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">
+                            Update
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            updateStats();
+        }
+        
+        function updateStats() {
+            const total = allReferrals.length;
+            const pending = allReferrals.filter(r => r.status === 'Pending').length;
+            const contacted = allReferrals.filter(r => r.status === 'Contacted').length;
+            const successful = allReferrals.filter(r => r.status === 'Successful').length;
+            const totalCommission = allReferrals.reduce((sum, r) => sum + parseFloat(r.commission_earned || 0), 0);
+            
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('pendingCount').textContent = pending;
+            document.getElementById('contactedCount').textContent = contacted;
+            document.getElementById('successfulCount').textContent = successful;
+            document.getElementById('totalCommission').textContent = `RM ${totalCommission.toFixed(2)}`;
+        }
+        
+        function filterStatus(status) {
+            currentFilter = status;
+            
+            // Update button styles
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-blue-600', 'text-white');
+                btn.classList.add('text-slate-400', 'bg-slate-700');
+            });
+            
+            event.target.classList.add('active', 'bg-blue-600', 'text-white');
+            event.target.classList.remove('text-slate-400', 'bg-slate-700');
+            
+            displayReferrals();
+        }
+        
+        async function updateStatus(bubbleId) {
+            const referral = allReferrals.find(r => r.bubble_id === bubbleId);
+            
+            const { value: formValues } = await Swal.fire({
+                title: 'Update Referral Status',
+                html: `
+                    <div class="text-left space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">Status</label>
+                            <select id="status" class="w-full px-4 py-2 border rounded-lg bg-slate-800 text-white border-slate-600">
+                                <option value="Pending" ${referral.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                                <option value="Contacted" ${referral.status === 'Contacted' ? 'selected' : ''}>Contacted</option>
+                                <option value="Successful" ${referral.status === 'Successful' ? 'selected' : ''}>Successful</option>
+                                <option value="Declined" ${referral.status === 'Declined' ? 'selected' : ''}>Declined</option>
+                            </select>
+                        </div>
+                        <div id="dealValueDiv" style="display: none;">
+                            <label class="block text-sm font-semibold mb-2">Deal Value (RM)</label>
+                            <input type="number" id="dealValue" class="w-full px-4 py-2 border rounded-lg bg-slate-800 text-white border-slate-600" placeholder="e.g., 50000">
+                            <p class="text-xs text-slate-400 mt-1">2% commission will be calculated</p>
+                        </div>
+                    </div>
+                `,
+                background: '#1e293b',
+                color: '#f1f5f9',
+                showCancelButton: true,
+                confirmButtonText: 'Update',
+                confirmButtonColor: '#3b82f6',
+                didOpen: () => {
+                    const statusSelect = document.getElementById('status');
+                    const dealValueDiv = document.getElementById('dealValueDiv');
+                    
+                    statusSelect.addEventListener('change', () => {
+                        dealValueDiv.style.display = statusSelect.value === 'Successful' ? 'block' : 'none';
+                    });
+                    
+                    if (statusSelect.value === 'Successful') {
+                        dealValueDiv.style.display = 'block';
+                    }
+                },
+                preConfirm: () => {
+                    const status = document.getElementById('status').value;
+                    const dealValue = document.getElementById('dealValue').value;
+                    
+                    if (status === 'Successful' && (!dealValue || dealValue <= 0)) {
+                        Swal.showValidationMessage('Please enter a valid deal value');
+                        return false;
+                    }
+                    
+                    return { status, dealValue: dealValue ? parseFloat(dealValue) : null };
+                }
+            });
+            
+            if (formValues) {
+                try {
+                    const response = await fetch(`/api/v1/referrals/${bubbleId}/status`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formValues)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        await Swal.fire({
+                            icon: 'success',
+                            title: 'Updated!',
+                            text: 'Referral status updated successfully',
+                            background: '#1e293b',
+                            color: '#f1f5f9',
+                            confirmButtonColor: '#3b82f6'
+                        });
+                        loadReferrals();
+                    } else {
+                        throw new Error(result.error || 'Failed to update');
+                    }
+                } catch (err) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: err.message,
+                        background: '#1e293b',
+                        color: '#f1f5f9',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                }
+            }
+        }
+        
+        // Style filter buttons on load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (!btn.classList.contains('active')) {
+                    btn.classList.add('text-slate-400', 'bg-slate-700');
+                } else {
+                    btn.classList.add('bg-blue-600', 'text-white');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

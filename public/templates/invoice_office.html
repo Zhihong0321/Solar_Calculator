@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Invoice Office</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+        }
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { background-color: var(--slate-50); color: var(--slate-800); min-height: 100vh; min-height: 100svh; }
+        .section-card { background: white; border: 1px solid var(--slate-200); border-radius: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .section-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--slate-200); display: flex; align-items: center; justify-content: space-between; }
+        .section-title { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate-700); }
+        .btn-action { font-size: 0.75rem; font-weight: 600; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.15s ease; border: 1px solid var(--slate-200); background: white; color: var(--slate-700); }
+        .btn-action:hover { background: var(--slate-50); border-color: var(--slate-300); }
+        .btn-primary { background: var(--slate-900); color: white; border: none; }
+        .btn-primary:hover { background: var(--slate-800); }
+        
+        .progress-dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; }
+        .progress-dot.complete { background-color: var(--success); }
+        .progress-dot.incomplete { background-color: var(--slate-200); border: 2px solid var(--slate-300); }
+        
+        .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--slate-300); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--slate-400); }
+
+        header { padding-top: env(safe-area-inset-top); }
+        main { padding-bottom: max(2rem, env(safe-area-inset-bottom)); }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="text-center">
+            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-slate-900 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status"></div>
+            <p class="mt-4 text-sm font-semibold text-slate-900">Loading Digital Office...</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-4">
+                    <button onclick="NavManager.goBack()" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                        <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <div class="flex items-center gap-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h1 class="text-base font-bold text-slate-900 leading-tight" id="headerInvoiceNum">Invoice Office</h1>
+                                <span id="officeCountdown" class="hidden bg-red-600 text-white font-mono font-bold px-1.5 py-0.5 rounded text-[10px] animate-pulse">--:--:--:--</span>
+                            </div>
+                            <p class="text-xs text-slate-500 font-medium" id="headerCustomerName">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button id="resyncBtn" onclick="resyncFromErp()" class="flex items-center gap-1.5 px-3 py-1.5 border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-md hover:bg-amber-100 transition-all uppercase tracking-wider shadow-sm" title="Sync latest data from ERP v1">
+                        <svg id="resyncIcon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span id="resyncText" class="hidden xs:inline">Resync from ERP v1</span>
+                        <span class="xs:hidden">Resync</span>
+                    </button>
+                    <button onclick="goToChat()" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors relative group" title="Open Chat">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full hidden" id="chatBadge"></span>
+                    </button>
+                    <div class="hidden sm:flex flex-col items-end mr-4">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Total Balance</span>
+                        <span class="text-lg font-bold text-slate-900 leading-none" id="headerBalance">RM 0.00</span>
+                    </div>
+                    <span id="headerStatusBadge" class="px-2 py-1 bg-slate-100 text-slate-700 text-[10px] font-bold rounded-md border border-slate-200 uppercase tracking-wider">Loading</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+        
+        <!-- Main Stats Card -->
+        <div class="section-card bg-slate-900 text-white border-none p-6 md:p-8 relative overflow-hidden">
+            <!-- Profile Picture Decoration -->
+            <div id="mainProfileImageContainer" class="hidden absolute -top-2 -right-2 p-4 md:p-6 opacity-90 hover:opacity-100 transition-opacity duration-500 transform rotate-3">
+                <img id="mainProfileImage" src="" alt="" class="w-24 h-24 md:w-40 md:h-24 object-cover rounded-2xl shadow-2xl border-4 border-slate-800/50">
+            </div>
+
+            <div class="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="space-y-1">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Amount</p>
+                    <p class="text-2xl font-bold" id="mainTotalAmount">RM 0.00</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Paid Amount</p>
+                    <p class="text-2xl font-bold text-emerald-400" id="mainPaidAmount">RM 0.00</p>
+                </div>
+                <div class="space-y-1">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Invoice Date</p>
+                    <p class="text-2xl font-bold" id="mainInvoiceDate">-</p>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-slate-800">
+                <div class="flex items-start gap-3">
+                    <div class="p-2 bg-slate-800 rounded-lg">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Installation Address</p>
+                        <p class="text-sm font-medium leading-relaxed" id="mainAddress">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Two Column Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- Left Column: Payment & SEDA -->
+            <div class="space-y-8">
+                
+                <!-- Payment Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">Payment Section</h2>
+                        <div id="paymentActionContainer">
+                            <button onclick="goToPayment()" class="btn-action btn-primary">Submit Payment</button>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-4">
+                        <div id="fullyPaidIndicator" class="hidden mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-center gap-3">
+                            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span class="text-emerald-800 font-black uppercase tracking-widest text-sm">Fully Paid</span>
+                        </div>
+                        <div class="space-y-2">
+                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Verified Payments</h3>
+                            <div id="verifiedPaymentsList" class="space-y-2">
+                                <p class="text-xs text-slate-400 italic">No verified payments found.</p>
+                            </div>
+                        </div>
+                        <div class="pt-4 border-t border-slate-100">
+                            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Submitted (Pending)</h3>
+                            <div id="pendingPaymentsList" class="space-y-2">
+                                <p class="text-xs text-slate-400 italic">No pending submissions.</p>
+                            </div>
+                        </div>
+                        <div id="newPaymentActionContainer" class="pt-4 mt-2">
+                            <button onclick="goToPayment()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-widest rounded-lg shadow-sm transition-all flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                Submit New Payment
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Follow-up Management -->
+                <section class="section-card border-amber-200 bg-amber-50/10">
+                    <div class="section-header border-amber-100 bg-amber-50/30">
+                        <div class="flex items-center gap-2">
+                            <div class="h-2 w-2 rounded-full bg-amber-500"></div>
+                            <h2 class="section-title text-amber-800">Follow-up Reminder</h2>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div id="followUpActive" class="hidden mb-4 p-3 bg-white border border-amber-200 rounded-lg flex items-center justify-between">
+                            <div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Active Reminder</p>
+                                <p class="text-xs font-bold text-slate-700" id="followUpText">Scheduled for Jan 28, 2026</p>
+                            </div>
+                            <button onclick="updateFollowUp(0)" class="text-[10px] font-bold text-red-600 hover:underline uppercase tracking-tighter">Cancel</button>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="updateFollowUp(3)" class="py-2.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-amber-50 hover:border-amber-300 transition-all uppercase tracking-wider">Set 3 Days</button>
+                            <button onclick="updateFollowUp(7)" class="py-2.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-amber-50 hover:border-amber-300 transition-all uppercase tracking-wider">Set 7 Days</button>
+                        </div>
+                        <p class="text-[9px] text-slate-400 italic mt-3 text-center">Invoices with expired reminders will be pinned to the top of your dashboard.</p>
+                    </div>
+                </section>
+
+                <!-- SEDA Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">SEDA Registration</h2>
+                        <button onclick="goToSeda()" class="btn-action btn-primary">Go to SEDA Form</button>
+                    </div>
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-bold text-slate-700 uppercase" id="sedaProgressText">Progress: 0%</span>
+                            <div class="flex gap-2">
+                                <span id="sedaRegStatusBadge" class="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase">APP: DRAFT</span>
+                                <span id="sedaAdminStatusBadge" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 uppercase">ADMIN: PENDING</span>
+                            </div>
+                        </div>
+                        <!-- Progress Dots Grid -->
+                        <div class="grid grid-cols-6 sm:grid-cols-11 gap-2">
+                            <div class="flex flex-col items-center gap-1.5" title="Applicant Name">
+                                <div id="dot-name" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Name</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="IC Number">
+                                <div id="dot-ic" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">IC</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="Contact No">
+                                <div id="dot-contact" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Cont.</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="Installation Address">
+                                <div id="dot-addr" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Addr</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="City & Postcode">
+                                <div id="dot-city" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">City</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="MyKad Copy">
+                                <div id="dot-mykad" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Kad</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="TNB Bill 1">
+                                <div id="dot-tnb1" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">B1</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="TNB Bill 2">
+                                <div id="dot-tnb2" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">B2</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="TNB Bill 3">
+                                <div id="dot-tnb3" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">B3</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="Ownership Proof">
+                                <div id="dot-owner" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Own.</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-1.5" title="TNB Meter Photo">
+                                <div id="dot-meter" class="progress-dot incomplete"></div>
+                                <span class="text-[8px] text-slate-400 font-bold uppercase">Mtr.</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Right Column: Quotation & Media -->
+            <div class="space-y-8">
+                
+                <!-- Quotation Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">Quotation Section</h2>
+                        <button onclick="goToEdit()" class="btn-action btn-primary">Edit Invoice</button>
+                    </div>
+                    <div class="p-0 overflow-hidden">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-100">
+                                    <th class="px-4 py-3 font-bold text-slate-500 uppercase tracking-widest">Item Description</th>
+                                    <th class="px-4 py-3 font-bold text-slate-500 uppercase tracking-widest text-right">Qty</th>
+                                    <th class="px-4 py-3 font-bold text-slate-500 uppercase tracking-widest text-right">Price (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsList">
+                                <tr>
+                                    <td colspan="3" class="px-4 py-8 text-center text-slate-400 italic">No items found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Roof Images Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">Roof Images</h2>
+                        <label class="btn-action btn-primary cursor-pointer flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Batch Upload
+                            <input type="file" multiple accept="image/*" class="hidden" onchange="uploadRoofImages(this)">
+                        </label>
+                    </div>
+                    <div class="p-4">
+                        <div id="roofImagesGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <p class="col-span-full text-xs text-slate-400 italic py-4">No roof images uploaded yet.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- PV System Drawing Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">PV System Drawing</h2>
+                        <div class="flex items-center gap-2 ml-auto">
+                            <button onclick="quickTagEngineering('PV System Drawing', this)" class="btn-action bg-red-50 text-red-700 border-red-200 hover:bg-red-100 flex items-center gap-1" title="Tag Engineering Dept">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                                Request
+                            </button>
+                            <label class="btn-action btn-primary cursor-pointer flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                Upload Drawing
+                                <input type="file" multiple accept="image/*,application/pdf" class="hidden" onchange="uploadPvSystemDrawings(this)">
+                            </label>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div id="pvDrawingsList" class="space-y-2">
+                            <p class="text-xs text-slate-400 italic">No PV system drawings uploaded yet.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Engineering Drawings -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">Engineering Drawings</h2>
+                        <button onclick="quickTagEngineering('Engineering Drawing', this)" class="btn-action bg-red-50 text-red-700 border-red-200 hover:bg-red-100 flex items-center gap-1 ml-auto" title="Tag Engineering Dept">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                            Request
+                        </button>
+                    </div>
+                    <div class="p-4">
+                        <div id="engDrawingsList" class="space-y-2">
+                            <p class="text-xs text-slate-400 italic">No drawings available.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Customer Signature -->
+                <section class="section-card" id="signatureSection" style="display: none;">
+                    <div class="section-header">
+                        <h2 class="section-title">Customer Signature</h2>
+                    </div>
+                    <div class="p-6 flex flex-col items-center text-center">
+                        <div class="h-32 mb-4 w-full flex items-center justify-center bg-slate-50 rounded-lg border border-slate-100">
+                            <img id="signatureImage" src="" alt="Customer Signature" class="max-h-full max-w-full object-contain">
+                        </div>
+                        <div class="w-full pt-4 border-t border-slate-100">
+                            <p class="text-xs font-bold text-slate-900 uppercase" id="signerName"></p>
+                            <p class="text-[10px] text-slate-500 font-medium" id="signerDetails"></p>
+                            <p class="text-[10px] text-emerald-600 font-bold mt-1 uppercase" id="signDate"></p>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Photo Modal -->
+    <div id="photoModal" class="fixed inset-0 z-[100] hidden bg-slate-900/90 backdrop-blur-sm overflow-y-auto" onclick="closePhotoModal()">
+        <div class="min-h-full flex items-center justify-center p-4">
+            <img id="modalImage" class="max-w-full max-h-full rounded-lg shadow-2xl transition-transform duration-300 transform scale-95 my-auto" src="" alt="">
+            <button class="absolute top-4 right-4 text-white hover:text-slate-300 transition-colors">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const bubbleId = urlParams.get('id');
+        let currentData = null;
+
+        async function init() {
+            if (!bubbleId) {
+                alert('Invoice ID is missing!');
+                NavManager.goBack();
+                return;
+            }
+            await loadData();
+        }
+
+        async function loadData() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}`);
+                const json = await res.json();
+
+                if (json.success) {
+                    currentData = json.data;
+                    console.log('[loadData] API Response:', json);
+                    console.log('[loadData] Items:', json.data.items);
+                    console.log('[loadData] Items type:', Array.isArray(json.data.items) ? 'Array' : typeof json.data.items);
+
+                    renderHeader(json.data.invoice);
+                    renderStats(json.data.invoice);
+                    renderPayments(json.data.payments);
+                    renderItems(json.data.items || []); // Ensure items is always an array
+                    renderSeda(json.data.seda);
+                    renderRoofImages(json.data.invoice.linked_roof_image, json.data.seda?.roof_images);
+                    renderPvSystemDrawings(json.data.invoice.pv_system_drawing);
+                    renderEngDrawings(json.data.seda);
+                    renderSignature(json.data.invoice);
+                    renderFollowUp(json.data.invoice.follow_up_date);
+                } else {
+                    alert('Error: ' + json.error);
+                }
+            } catch (err) {
+                console.error('[loadData] Error:', err);
+                alert('Failed to load data: ' + err.message);
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        function renderFollowUp(dateStr) {
+            const container = document.getElementById('followUpActive');
+            const text = document.getElementById('followUpText');
+            const countdown = document.getElementById('officeCountdown');
+
+            if (!dateStr) {
+                container.classList.add('hidden');
+                countdown.classList.add('hidden');
+                countdown.dataset.target = '';
+                return;
+            }
+
+            const date = new Date(dateStr);
+            const now = new Date();
+
+            if (date <= now) {
+                container.classList.remove('hidden');
+                text.innerHTML = `<span class="text-red-600">Reminder Expired!</span> <span class="block text-[10px] text-slate-400 font-normal">Passed on ${formatDate(dateStr)}</span>`;
+                countdown.classList.add('hidden');
+                countdown.dataset.target = '';
+            } else {
+                container.classList.remove('hidden');
+                text.textContent = `Scheduled for ${formatDate(dateStr)}`;
+                countdown.classList.remove('hidden');
+                countdown.dataset.target = dateStr;
+                updateOfficeCountdown(); // Initial run
+            }
+        }
+
+        async function updateFollowUp(days) {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            if (days > 0) btn.textContent = 'Setting...';
+            else btn.textContent = 'Canceling...';
+
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/follow-up`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ followUpDays: days })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadData();
+                } else {
+                    alert('Failed to update reminder: ' + json.error);
+                }
+            } catch (err) {
+                alert('Update failed.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        function updateOfficeCountdown() {
+            const el = document.getElementById('officeCountdown');
+            if (!el || el.classList.contains('hidden')) return;
+
+            const targetStr = el.dataset.target;
+            if (!targetStr) return;
+
+            const target = new Date(targetStr).getTime();
+            const now = new Date().getTime();
+            const diff = target - now;
+
+            if (diff <= 0) {
+                el.classList.add('hidden');
+                loadData(); // Refresh to show "Expired" UI
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            const pad = (n) => String(n).padStart(2, '0');
+            el.textContent = `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+
+        setInterval(updateOfficeCountdown, 1000);
+
+        function renderSignature(inv) {
+            const section = document.getElementById('signatureSection');
+            if (!inv.customer_signature) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            
+            let sigUrl = inv.customer_signature;
+            if (sigUrl.startsWith('//')) sigUrl = 'https:' + sigUrl;
+            
+            document.getElementById('signatureImage').src = sigUrl;
+            document.getElementById('signerName').textContent = inv.customer_name_snapshot || 'Customer';
+            document.getElementById('signerDetails').textContent = `${inv.customer_phone_snapshot || ''} ${inv.customer_email_snapshot ? '• ' + inv.customer_email_snapshot : ''}`;
+            
+            if (inv.signature_date) {
+                const date = new Date(inv.signature_date).toLocaleString('en-MY', {
+                    timeZone: 'Asia/Kuala_Lumpur',
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+                document.getElementById('signDate').textContent = `SIGNED ON ${date}`;
+            } else {
+                document.getElementById('signDate').textContent = '';
+            }
+        }
+
+        function renderHeader(inv) {
+            document.getElementById('headerInvoiceNum').textContent = inv.invoice_number || 'DRAFT';
+            document.getElementById('headerCustomerName').textContent = inv.customer_name || 'Unknown Customer';
+            document.getElementById('headerStatusBadge').textContent = (inv.status || 'Draft').replace('_', ' ');
+            
+            // Handle Profile Image - Now in Main Stats Card
+            const imgContainer = document.getElementById('mainProfileImageContainer');
+            const imgEl = document.getElementById('mainProfileImage');
+            const profilePic = inv.profile_picture_snapshot || inv.profile_picture;
+            
+            if (profilePic) {
+                imgEl.src = profilePic;
+                imgContainer.classList.remove('hidden');
+            } else {
+                imgContainer.classList.add('hidden');
+            }
+
+            const balance = parseFloat(inv.total_amount) - parseFloat(inv.paid_amount || 0);
+            document.getElementById('headerBalance').textContent = formatCurrency(balance);
+        }
+
+        function renderStats(inv) {
+            const total = parseFloat(inv.total_amount) || 0;
+            const paid = parseFloat(inv.paid_amount || 0);
+            const isFullyPaid = paid >= total && total > 0;
+
+            document.getElementById('mainTotalAmount').textContent = formatCurrency(total);
+            document.getElementById('mainPaidAmount').textContent = formatCurrency(paid);
+            document.getElementById('mainInvoiceDate').textContent = formatDate(inv.invoice_date);
+            document.getElementById('mainAddress').textContent = inv.customer_address || '-';
+
+            // Fully Paid UI Logic
+            const indicator = document.getElementById('fullyPaidIndicator');
+            const submitBtn1 = document.getElementById('paymentActionContainer');
+            const submitBtn2 = document.getElementById('newPaymentActionContainer');
+
+            if (isFullyPaid) {
+                indicator.classList.remove('hidden');
+                submitBtn1.classList.add('hidden');
+                submitBtn2.classList.add('hidden');
+            } else {
+                indicator.classList.add('hidden');
+                submitBtn1.classList.remove('hidden');
+                submitBtn2.classList.remove('hidden');
+            }
+        }
+
+        function renderPayments(payments) {
+            const verified = payments.filter(p => p.status === 'verified');
+            const pending = payments.filter(p => p.status !== 'verified');
+
+            const verifiedList = document.getElementById('verifiedPaymentsList');
+            const pendingList = document.getElementById('pendingPaymentsList');
+
+            if (verified.length > 0) {
+                verifiedList.innerHTML = verified.map(p => `
+                    <div class="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                            <div>
+                                <p class="text-[11px] font-bold text-emerald-800">${formatCurrency(p.amount)}</p>
+                                <p class="text-[9px] text-emerald-600 font-medium">${formatDate(p.payment_date)} • ${p.payment_method || 'CASH'}</p>
+                            </div>
+                        </div>
+                        ${p.attachment ? `<button onclick="viewImage('${p.attachment[0]}')" class="text-[9px] font-bold text-emerald-700 hover:underline">[VIEW PROOF]</button>` : ''}
+                    </div>
+                `).join('');
+            } else {
+                verifiedList.innerHTML = '<p class="text-xs text-slate-400 italic">No verified payments found.</p>';
+            }
+
+            if (pending.length > 0) {
+                pendingList.innerHTML = pending.map(p => `
+                    <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full bg-slate-300"></div>
+                            <div>
+                                <p class="text-[11px] font-bold text-slate-700">${formatCurrency(p.amount)}</p>
+                                <p class="text-[9px] text-slate-500 font-medium">${formatDate(p.payment_date)} • ${p.payment_method || 'CASH'}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="window.location.href='/submit-payment?id=${bubbleId}&edit_payment_id=${p.bubble_id}'" class="text-[9px] font-bold text-blue-600 hover:underline uppercase">Edit</button>
+                            <span class="text-[8px] font-bold text-slate-400 uppercase border border-slate-200 px-1 rounded">${p.status || 'PENDING'}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                pendingList.innerHTML = '<p class="text-xs text-slate-400 italic">No pending submissions.</p>';
+            }
+        }
+
+        function renderItems(items) {
+            const container = document.getElementById('itemsList');
+
+            // Handle edge cases: items might be undefined, null, or not an array
+            const itemsArray = Array.isArray(items) ? items : [];
+
+            console.log('[renderItems] Rendering', itemsArray.length, 'items');
+
+            if (itemsArray.length > 0) {
+                container.innerHTML = itemsArray.map(item => {
+                    // Safely extract values with defaults
+                    const name = item.product_name || item.description || 'Item';
+                    const desc = item.description || '';
+                    const qty = parseFloat(item.qty) || 0;
+                    const price = parseFloat(item.total_price) || 0;
+                    const itemType = item.item_type || '';
+
+                    // Apply different styling based on item type
+                    let nameClass = 'font-medium text-slate-800';
+                    if (itemType === 'discount' || itemType === 'voucher') {
+                        nameClass = 'font-medium text-red-600';
+                    }
+
+                    return `
+                        <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                            <td class="px-4 py-3">
+                                <p class="${nameClass}">${name}</p>
+                                ${desc ? `<p class="text-[10px] text-slate-400 mt-0.5">${desc}</p>` : ''}
+                            </td>
+                            <td class="px-4 py-3 text-right text-slate-600 font-medium">${qty.toFixed(0)}</td>
+                            <td class="px-4 py-3 text-right text-slate-900 font-bold">${formatCurrency(price).replace('RM ','')}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                // Explicitly show "No items found" message
+                container.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="px-4 py-8 text-center text-slate-400 italic">
+                            No items found for this quotation.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderSeda(seda) {
+            if (!seda) {
+                document.getElementById('sedaProgressText').textContent = 'Progress: 0% (No Form Created)';
+                document.getElementById('sedaRegStatusBadge').textContent = 'APP: MISSING';
+                document.getElementById('sedaAdminStatusBadge').textContent = 'ADMIN: MISSING';
+                return;
+            }
+
+            document.getElementById('sedaRegStatusBadge').textContent = `APP: ${seda.reg_status || 'DRAFT'}`;
+            document.getElementById('sedaAdminStatusBadge').textContent = `ADMIN: ${seda.seda_status || 'PENDING'}`;
+            
+            const checks = [
+                { id: 'dot-name', val: !!(seda.linked_customer_name || seda.customer_profile?.name) },
+                { id: 'dot-ic', val: !!seda.ic_no },
+                { id: 'dot-contact', val: !!(seda.e_contact_no || seda.customer_profile?.phone) },
+                { id: 'dot-addr', val: !!seda.installation_address },
+                { id: 'dot-city', val: !!(seda.city && seda.postcode) },
+                { id: 'dot-mykad', val: !!(seda.ic_copy_front && seda.ic_copy_back) || !!seda.mykad_pdf },
+                { id: 'dot-tnb1', val: !!seda.tnb_bill_1 },
+                { id: 'dot-tnb2', val: !!seda.tnb_bill_2 },
+                { id: 'dot-tnb3', val: !!seda.tnb_bill_3 },
+                { id: 'dot-owner', val: !!seda.property_ownership_prove },
+                { id: 'dot-meter', val: !!seda.tnb_meter }
+            ];
+
+            let completed = 0;
+            checks.forEach(c => {
+                const el = document.getElementById(c.id);
+                if (c.val) {
+                    el.className = 'progress-dot complete';
+                    completed++;
+                } else {
+                    el.className = 'progress-dot incomplete';
+                }
+            });
+
+            const percent = Math.round((completed / checks.length) * 100);
+            document.getElementById('sedaProgressText').textContent = `Progress: ${percent}%`;
+        }
+
+        function renderRoofImages(invImages = [], sedaImages = []) {
+            const container = document.getElementById('roofImagesGrid');
+            const allImages = [...(invImages || []), ...(sedaImages || [])];
+            
+            if (allImages.length > 0) {
+                container.innerHTML = allImages.map(url => `
+                    <div class="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                        <img src="${url}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${url}')">
+                        <button onclick="deleteRoofImage('${url}')" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p class="col-span-full text-xs text-slate-400 italic py-4">No roof images uploaded yet.</p>';
+            }
+        }
+
+        function renderPvSystemDrawings(drawings = []) {
+            const container = document.getElementById('pvDrawingsList');
+            const allDrawings = drawings || [];
+            
+            if (allDrawings.length > 0) {
+                container.innerHTML = allDrawings.map((url, i) => {
+                    const isPdf = url.toLowerCase().endsWith('.pdf');
+                    return `
+                    <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm group">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 ${isPdf ? 'bg-red-50' : 'bg-indigo-50'} rounded-lg">
+                                <svg class="w-4 h-4 ${isPdf ? 'text-red-600' : 'text-indigo-600'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            </div>
+                            <span class="text-[11px] font-bold text-slate-700 uppercase">PV Drawing #${i+1}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <a href="${url}" target="_blank" class="text-[10px] font-bold text-indigo-600 hover:underline uppercase">Open</a>
+                            <button onclick="deletePvSystemDrawing('${url}')" class="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase">Delete</button>
+                        </div>
+                    </div>
+                `;}).join('');
+            } else {
+                container.innerHTML = '<p class="text-xs text-slate-400 italic">No PV system drawings uploaded yet.</p>';
+            }
+        }
+
+        function renderEngDrawings(seda) {
+            const container = document.getElementById('engDrawingsList');
+            const drawings = [
+                ...(seda?.drawing_engineering_seda_pdf || []),
+                ...(seda?.drawing_pdf_system || [])
+            ];
+
+            if (drawings.length > 0) {
+                container.innerHTML = drawings.map((url, i) => `
+                    <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-indigo-50 rounded-lg">
+                                <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            </div>
+                            <span class="text-[11px] font-bold text-slate-700 uppercase">Engineering Drawing #${i+1}</span>
+                        </div>
+                        <a href="${url}" target="_blank" class="text-[10px] font-bold text-indigo-600 hover:underline">OPEN PDF</a>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p class="text-xs text-slate-400 italic">No drawings available.</p>';
+            }
+        }
+
+        // --- Event Handlers ---
+
+        async function resyncFromErp() {
+            if (!bubbleId) return;
+            
+            const btn = document.getElementById('resyncBtn');
+            const icon = document.getElementById('resyncIcon');
+            const text = document.getElementById('resyncText');
+            
+            if (btn.disabled) return;
+
+            // Start Loading state
+            btn.disabled = true;
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+            icon.classList.add('animate-spin');
+            text.textContent = 'Syncing...';
+
+            try {
+                const response = await fetch('https://admin.atap.solar/api/sync/invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bubble_id: bubbleId,
+                        force: false,
+                        skipUsers: true,
+                        skipAgents: true
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert('Resync successful! Reloading data...');
+                    await loadData();
+                } else {
+                    alert('Sync failed: ' + (result.error || result.message || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('[Resync] Error:', err);
+                alert('Connection error during sync. Please try again.');
+            } finally {
+                // Stop Loading state
+                btn.disabled = false;
+                btn.classList.remove('opacity-70', 'cursor-not-allowed');
+                icon.classList.remove('animate-spin');
+                text.textContent = 'Resync from ERP v1';
+            }
+        }
+
+        function goToChat() { window.location.href = `/invoice-chat?id=${bubbleId}`; }
+        function goToEdit() { window.location.href = `/edit-invoice?id=${bubbleId}`; }
+        function goToPayment() { window.location.href = `/submit-payment?id=${bubbleId}`; }
+        function goToSeda() {
+            if (currentData?.invoice?.linked_seda_registration) {
+                window.location.href = `/seda-register?id=${currentData.invoice.linked_seda_registration}`;
+            } else {
+                alert('SEDA registration has not been initialized for this invoice yet.');
+            }
+        }
+
+        async function uploadRoofImages(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+
+            const imagesToUpload = [];
+            for (const file of files) {
+                if (file.size > 1.5 * 1024 * 1024) {
+                    alert(`Skipping ${file.name}: File exceeds 1.5MB limit.`);
+                    continue;
+                }
+                const base64 = await toBase64(file);
+                imagesToUpload.push({ name: file.name, data: base64 });
+            }
+
+            if (imagesToUpload.length === 0) return;
+
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/roof-images`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ images: imagesToUpload })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadData();
+                } else {
+                    alert('Upload failed: ' + json.error);
+                }
+            } catch (err) {
+                alert('Upload failed.');
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        async function deleteRoofImage(url) {
+            if (!confirm('Permanently delete this roof image?')) return;
+            
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/roof-image`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                if ((await res.json()).success) {
+                    await loadData();
+                }
+            } catch (err) { alert('Delete failed'); }
+        }
+
+        async function uploadPvSystemDrawings(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+
+            const drawingsToUpload = [];
+            for (const file of files) {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`Skipping ${file.name}: File exceeds 5MB limit.`);
+                    continue;
+                }
+                const base64 = await toBase64(file);
+                drawingsToUpload.push({ name: file.name, data: base64 });
+            }
+
+            if (drawingsToUpload.length === 0) return;
+
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/pv-system-drawings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ drawings: drawingsToUpload })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadData();
+                } else {
+                    alert('Upload failed: ' + json.error);
+                }
+            } catch (err) {
+                alert('Upload failed.');
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        async function deletePvSystemDrawing(url) {
+            if (!confirm('Permanently delete this PV system drawing?')) return;
+            
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/pv-system-drawing`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                if ((await res.json()).success) {
+                    await loadData();
+                }
+            } catch (err) { alert('Delete failed'); }
+        }
+
+        function viewImage(url) {
+            const modal = document.getElementById('photoModal');
+            const img = document.getElementById('modalImage');
+            img.src = url;
+            modal.classList.remove('hidden');
+            setTimeout(() => img.classList.remove('scale-95'), 10);
+        }
+
+        function closePhotoModal() {
+            const modal = document.getElementById('photoModal');
+            const img = document.getElementById('modalImage');
+            img.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        async function quickTagEngineering(type, btn) {
+            if (!confirm(`Request ${type} from Engineering Department? This will tag them in the chat.`)) return;
+
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Sending...`;
+
+            try {
+                const res = await fetch(`/api/v1/chat/${bubbleId}/message`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        messageType: 'tag', 
+                        tagRole: 'engineering', 
+                        content: `Request for ${type}` 
+                    })
+                });
+                const json = await res.json();
+                
+                if (json.success) {
+                    alert(`Request sent to Engineering team!`);
+                } else {
+                    alert(`Failed to send request: ${json.error}`);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Network error while sending request.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        }
+
+        // --- Helpers ---
+        function formatCurrency(v) { return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(v || 0); }
+        function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+    <script src="/js/navigation.js"></script>
+</body>
+</html>

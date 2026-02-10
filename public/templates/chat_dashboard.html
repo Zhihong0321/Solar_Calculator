@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Chat Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SolarChat">
+    <link rel="apple-touch-icon" href="/logo.png">
+
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { 
+            background-color: #f0f2f5; 
+            height: 100vh;
+            height: 100dvh;
+            overscroll-behavior: none;
+        }
+        .chat-row:hover { background-color: #f5f6f6; }
+        .unread-badge {
+            background-color: #25d366;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .tag-badge {
+            background-color: #1e3a8a;
+            color: white;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="flex flex-col overflow-hidden w-full">
+
+    <!-- Header -->
+    <header class="bg-[#1e3a8a] text-white px-6 flex items-center justify-between shrink-0 shadow-md z-10" style="padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: 1rem;">
+        <div class="flex items-center gap-3">
+            <button onclick="goBack()" class="p-1 hover:bg-white/10 rounded-full transition-colors" title="Go Back">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </button>
+            <h1 class="font-bold text-lg">Ongoing Conversations</h1>
+            <div id="totalPendingBadge" class="hidden bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                0 WAITING
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <button onclick="window.location.href='/chat-settings'" class="p-2 hover:bg-white/10 rounded-full transition-colors" title="Settings">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </button>
+            <button onclick="location.reload()" class="p-2 hover:bg-white/10 rounded-full transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Search/Filter Bar -->
+    <div class="bg-white px-4 py-2 border-b border-gray-200 shrink-0">
+        <div class="relative max-w-md mx-auto">
+            <input type="text" id="searchInput" oninput="filterThreads()" placeholder="Search customer or message..." 
+                   class="w-full bg-gray-100 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Threads List -->
+    <main class="flex-1 overflow-y-auto bg-white" id="threadContainer">
+        <div class="flex flex-col" id="threadsList">
+            <!-- Loading State -->
+            <div class="p-8 text-center text-gray-500">
+                <div class="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-blue-600 rounded-full mb-4"></div>
+                <p>Loading conversations...</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let allThreads = [];
+        let lastThreadsCount = 0;
+        let lastThreadsHash = "";
+
+        // Global variable to store the install prompt event
+        window.deferredInstallPrompt = null;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('Capture beforeinstallprompt');
+            e.preventDefault();
+            window.deferredInstallPrompt = e;
+        });
+
+        async function init() {
+            await loadThreads();
+            // Polling every 10 seconds for the dashboard
+            setInterval(loadThreads, 10000);
+
+            // Register Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(() => console.log('Service Worker Registered'))
+                    .catch(err => console.error('SW Registration Failed', err));
+            }
+        }
+
+        async function loadThreads() {
+            try {
+                const res = await fetch('/api/v1/chat/threads');
+                
+                if (res.status === 401) {
+                    const json = await res.json();
+                    const returnTo = encodeURIComponent(window.location.href);
+                    window.location.href = `${json.redirect || 'https://auth.atap.solar'}/?return_to=${returnTo}`;
+                    return;
+                }
+
+                const json = await res.json();
+                if (json.success) {
+                    allThreads = json.threads;
+                    
+                    // Update Total Pending Badge
+                    const totalPending = json.pendingCount || 0;
+                    const badge = document.getElementById('totalPendingBadge');
+                    if (totalPending > 0) {
+                        badge.textContent = `${totalPending} WAITING`;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+
+                    // Simple hash to detect changes
+                    const currentHash = JSON.stringify(allThreads.map(t => ({ id: t.invoice_id, msg: t.last_message_at, count: t.my_pending_tags })));
+                    
+                    if (allThreads.length !== lastThreadsCount || currentHash !== lastThreadsHash) {
+                        renderThreads(allThreads);
+                        lastThreadsCount = allThreads.length;
+                        lastThreadsHash = currentHash;
+                    }
+                }
+            } catch (err) {
+                console.error('Load Threads Error:', err);
+                if (allThreads.length === 0) {
+                    document.getElementById('threadsList').innerHTML = `
+                        <div class="p-8 text-center text-red-500">
+                            <p>Failed to load conversations. Please try again later.</p>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function renderThreads(threads) {
+            const container = document.getElementById('threadsList');
+            
+            // Prevent collapse
+            const currentHeight = container.offsetHeight;
+            if (currentHeight > 0) container.style.minHeight = currentHeight + 'px';
+
+            if (threads.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-gray-500">
+                        <p>No active conversations found.</p>
+                    </div>
+                `;
+                container.style.minHeight = '';
+                return;
+            }
+
+            container.innerHTML = threads.map(thread => {
+                const date = thread.last_message_at ? formatTime(new Date(thread.last_message_at)) : '';
+                const lastMsg = formatLastMessage(thread);
+                
+                return `
+                    <div onclick="openChat('${thread.invoice_id}')" 
+                         class="chat-row flex items-center gap-4 px-4 py-3 cursor-pointer border-b border-gray-100 transition-colors">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0">
+                            ${thread.customer_name ? thread.customer_name.charAt(0).toUpperCase() : 'C'}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline mb-1">
+                                <div class="flex items-center gap-2 truncate">
+                                    <h3 class="font-semibold text-gray-900 truncate">${thread.customer_name || 'Unknown Customer'}</h3>
+                                    ${thread.invoice_number ? `<span class="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">#${thread.invoice_number}</span>` : ''}
+                                </div>
+                                <span class="text-[11px] text-gray-500 whitespace-nowrap">${date}</span>
+                            </div>
+                            <div class="flex justify-between items-center gap-2">
+                                <p class="text-sm text-gray-500 truncate flex-1">${lastMsg}</p>
+                                ${thread.my_pending_tags > 0 ? 
+                                    `<span class="bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded animate-pulse whitespace-nowrap">WAITING FOR RESPONSE</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.style.minHeight = '';
+        }
+
+        function formatLastMessage(thread) {
+            if (!thread.last_message_at) return 'No messages yet';
+            
+            if (thread.last_message_type === 'image') return '📷 Photo';
+            if (thread.last_message_type === 'file') return '📄 File';
+            if (thread.last_message_type === 'tag') return '🏷️ Role Tag';
+            
+            return thread.last_message || '';
+        }
+
+        function formatTime(date) {
+            const now = new Date();
+            const timeZone = 'Asia/Kuala_Lumpur';
+
+            // Format date in Malaysia timezone for comparison
+            const options = { timeZone, year: 'numeric', month: 'numeric', day: 'numeric' };
+            const dateStr = date.toLocaleDateString('en-MY', options);
+            const nowStr = now.toLocaleDateString('en-MY', options);
+            const isToday = dateStr === nowStr;
+
+            if (isToday) {
+                return date.toLocaleTimeString('en-MY', { timeZone, hour: '2-digit', minute: '2-digit' });
+            }
+
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            const yesterdayStr = yesterday.toLocaleDateString('en-MY', options);
+            if (dateStr === yesterdayStr) {
+                return 'Yesterday';
+            }
+
+            return date.toLocaleDateString('en-MY', { timeZone, month: 'short', day: 'numeric' });
+        }
+
+        function filterThreads() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allThreads.filter(t => 
+                (t.customer_name && t.customer_name.toLowerCase().includes(query)) ||
+                (t.last_message && t.last_message.toLowerCase().includes(query))
+            );
+            renderThreads(filtered);
+        }
+
+        function openChat(invoiceId) {
+            window.location.href = `/invoice-chat?id=${invoiceId}`;
+        }
+
+        function goBack() {
+            NavManager.goBack();
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+    <script src="/js/navigation.js"></script>
+</body>
+</html>

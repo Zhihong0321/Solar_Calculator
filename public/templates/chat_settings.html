@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Chat Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SolarChat">
+    <link rel="apple-touch-icon" href="/logo.png">
+
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { 
+            background-color: #f0f2f5; 
+            height: 100vh;
+            height: 100dvh;
+            overscroll-behavior: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col overflow-hidden w-full">
+
+    <!-- Header -->
+    <header class="bg-[#1e3a8a] text-white px-6 flex items-center justify-between shrink-0 shadow-md z-10" style="padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: 1rem;">
+        <div class="flex items-center gap-3">
+            <button onclick="window.location.href='/chat-dashboard'" class="p-1 hover:bg-white/10 rounded-full transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </button>
+            <h1 class="font-bold text-lg">Settings</h1>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-6 space-y-6">
+        <!-- App Installation Section -->
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="p-4 border-b border-gray-50 flex items-center gap-3">
+                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                </div>
+                <h2 class="font-bold text-gray-900">Application</h2>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-semibold text-gray-900">Install as PWA</p>
+                        <p class="text-xs text-gray-500 mt-1">Access the chat directly from your home screen like a native app.</p>
+                    </div>
+                </div>
+
+                <button id="installBtn" class="hidden w-full bg-[#1e3a8a] text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-900/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Install to Phone
+                </button>
+
+                <!-- Android Manual Fallback (Hidden if button is shown or iOS) -->
+                <div id="androidInstructions" class="hidden space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <p class="text-sm font-bold text-gray-900">To install on Android:</p>
+                    <ol class="text-xs text-gray-700 space-y-3 list-decimal list-inside">
+                        <li>Tap the <span class="font-bold">three dots (⋮)</span> in the top right corner of Chrome.</li>
+                        <li>Select <span class="font-bold">"Install app"</span> or <span class="font-bold">"Add to Home screen"</span>.</li>
+                    </ol>
+                </div>
+
+                <!-- iOS Instructions (Always visible on iOS if not installed) -->
+                <div id="iosInstructions" class="hidden space-y-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                    <p class="text-sm font-bold text-blue-900">To install on iPhone:</p>
+                    <ol class="text-xs text-blue-800 space-y-3 list-decimal list-inside">
+                        <li>Tap the <span class="bg-white px-1.5 py-0.5 rounded shadow-sm border border-blue-200 inline-block mx-1">
+                            <svg class="w-4 h-4 inline text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                        </span> Share button in Safari.</li>
+                        <li>Scroll down and select <span class="font-bold">"Add to Home Screen"</span>.</li>
+                        <li>Tap <span class="font-bold text-blue-600">"Add"</span> in the top right corner.</li>
+                    </ol>
+                </div>
+
+                <p id="alreadyInstalled" class="hidden text-center text-xs text-emerald-600 font-bold bg-emerald-50 py-3 rounded-xl border border-emerald-100">
+                    ✓ Application is already installed
+                </p>
+            </div>
+        </section>
+
+        <!-- Placeholder for future settings -->
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden opacity-50">
+            <div class="p-4 border-b border-gray-50 flex items-center gap-3">
+                <div class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                </div>
+                <h2 class="font-bold text-gray-900">Notifications</h2>
+            </div>
+            <div class="p-6 text-center text-xs text-gray-400">
+                Notification settings coming soon.
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const installBtn = document.getElementById('installBtn');
+        const iosInstructions = document.getElementById('iosInstructions');
+        const androidInstructions = document.getElementById('androidInstructions');
+        const alreadyInstalled = document.getElementById('alreadyInstalled');
+
+        // Check if already in standalone mode
+        const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+        // Function to check if prompt is available
+        function checkInstallable() {
+            if (isStandalone) {
+                alreadyInstalled.classList.remove('hidden');
+                installBtn.classList.add('hidden');
+                androidInstructions.classList.add('hidden');
+                return;
+            }
+
+            if (window.deferredPrompt) {
+                installBtn.classList.remove('hidden');
+                androidInstructions.classList.add('hidden');
+            } else if (!isIos) {
+                // If on Android but no prompt, show manual instructions
+                androidInstructions.classList.remove('hidden');
+            }
+        }
+
+        // iOS detection
+        const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+        // Catch the event if it fires
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredPrompt = e;
+            installBtn.classList.remove('hidden');
+            androidInstructions.classList.add('hidden');
+        });
+
+        if (isIos && !isStandalone) {
+            iosInstructions.classList.remove('hidden');
+        }
+
+        // Initial check
+        checkInstallable();
+        
+        // If it's Android but no prompt yet, show a hint
+        if (!isIos && !isStandalone && !window.deferredPrompt) {
+            // Some browsers need a tiny bit of time or don't support the prompt API
+            setTimeout(() => {
+                if (!window.deferredPrompt) {
+                    console.log('Still no prompt after delay');
+                    // We don't hide the button entirely if it's potentially installable
+                    // But we keep it hidden unless the event fired
+                }
+            }, 2000);
+        }
+
+        installBtn.addEventListener('click', async () => {
+            const promptEvent = window.deferredPrompt || (window.opener && window.opener.deferredInstallPrompt);
+            
+            if (!promptEvent) {
+                alert('Install prompt not ready. Please try refreshing the main dashboard first, or use your browser menu "Add to Home Screen".');
+                return;
+            }
+            
+            // Show the install prompt
+            promptEvent.prompt();
+            
+            // Wait for the user to respond to the prompt
+            const { outcome } = await promptEvent.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            
+            // We've used the prompt, and can't use it again, throw it away
+            window.deferredPrompt = null;
+            if (window.opener) window.opener.deferredInstallPrompt = null;
+            
+            installBtn.classList.add('hidden');
+        });
+
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA was installed');
+            installBtn.classList.add('hidden');
+            iosInstructions.classList.add('hidden');
+            alreadyInstalled.classList.remove('hidden');
+        });
+    </script>
+</body>
+</html>
