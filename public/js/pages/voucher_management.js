@@ -46,6 +46,8 @@ async function fetchVouchers() {
 
         if (Array.isArray(data)) {
             allVouchers = data;
+        } else if (data.vouchers && Array.isArray(data.vouchers)) {
+            allVouchers = data.vouchers;
         } else {
             console.error('Expected array but got:', data);
             allVouchers = [];
