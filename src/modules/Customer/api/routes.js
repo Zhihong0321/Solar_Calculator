@@ -26,6 +26,70 @@ router.get('/my-customers', requireAuth, (req, res) => {
 // --- API ---
 
 /**
+ * POST /api/customers/check-whatsapp
+ * Check if a user is on WhatsApp (Proxy to avoid CORS)
+ */
+router.post('/api/customers/check-whatsapp', requireAuth, async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'Phone number is required' });
+    }
+
+    const externalApiUrl = 'https://whatsapp-api-server-production-c15f.up.railway.app/api/check-user';
+
+    // Create a promise to handle the https request
+    const checkWhatsAppUser = () => {
+      return new Promise((resolve, reject) => {
+        const request = https.request(externalApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }, (response) => {
+          let data = '';
+
+          response.on('data', (chunk) => {
+            data += chunk;
+          });
+
+          response.on('end', () => {
+            try {
+              if (response.statusCode >= 200 && response.statusCode < 300) {
+                resolve(JSON.parse(data));
+              } else {
+                reject(new Error(`External API returned ${response.statusCode}: ${data}`));
+              }
+            } catch (e) {
+              reject(new Error('Failed to parse external API response'));
+            }
+          });
+        });
+
+        request.on('error', (err) => {
+          reject(err);
+        });
+
+        request.write(JSON.stringify({ phone }));
+        request.end();
+      });
+    };
+
+    const result = await checkWhatsAppUser();
+    res.json(result);
+
+  } catch (err) {
+    console.error('Error checking WhatsApp user:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to connect to WhatsApp API server',
+      details: err.message
+    });
+  }
+});
+
+
+/**
  * POST /api/customers/whatsapp-photo
  * Download and store WhatsApp profile picture
  */
@@ -36,7 +100,7 @@ router.post('/api/customers/whatsapp-photo', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Photo URL and phone required' });
     }
 
-    const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH 
+    const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH
       ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'customer_profiles')
       : path.resolve(__dirname, '../../../../storage/customer_profiles');
 
@@ -48,7 +112,7 @@ router.post('/api/customers/whatsapp-photo', requireAuth, async (req, res) => {
     const filepath = path.join(storagePath, filename);
 
     const file = fs.createWriteStream(filepath);
-    
+
     https.get(photoUrl, (response) => {
       if (response.statusCode !== 200) {
         res.status(500).json({ success: false, error: `Failed to download image: ${response.statusCode}` });
@@ -63,7 +127,7 @@ router.post('/api/customers/whatsapp-photo', requireAuth, async (req, res) => {
         res.json({ success: true, localUrl: publicUrl });
       });
     }).on('error', (err) => {
-      fs.unlink(filepath, () => {}); // Delete temp file
+      fs.unlink(filepath, () => { }); // Delete temp file
       console.error('Error saving WhatsApp photo:', err);
       res.status(500).json({ success: false, error: 'Failed to save profile picture' });
     });
@@ -83,10 +147,10 @@ router.get('/api/customers', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { limit, offset, search } = req.query;
-    
+
     client = await pool.connect();
     const result = await customerRepo.getCustomersByUserId(client, userId, { limit, offset, search });
-    
+
     res.json({
       success: true,
       data: result
@@ -104,7 +168,7 @@ router.post('/api/customers', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { name, phone, email, address, city, state, postcode, profilePicture } = req.body;
-    
+
     if (!name) {
       return res.status(400).json({ success: false, error: 'Name is required' });
     }
@@ -113,7 +177,7 @@ router.post('/api/customers', requireAuth, async (req, res) => {
     const customer = await customerRepo.createCustomer(client, {
       name, phone, email, address, city, state, postcode, userId, profilePicture
     });
-    
+
     res.json({
       success: true,
       data: customer
@@ -141,7 +205,7 @@ router.put('/api/customers/:id', requireAuth, async (req, res) => {
     const customer = await customerRepo.updateCustomer(client, id, {
       name, phone, email, address, city, state, postcode, userId, profilePicture
     });
-    
+
     if (!customer) {
       return res.status(404).json({ success: false, error: 'Customer not found or permission denied' });
     }
@@ -170,7 +234,7 @@ router.delete('/api/customers/:id', requireAuth, async (req, res) => {
 
     client = await pool.connect();
     await customerRepo.deleteCustomer(client, id, userId);
-    
+
     res.json({
       success: true,
       message: 'Customer deleted successfully'
@@ -195,7 +259,7 @@ router.get('/api/customers/:id/history', requireAuth, async (req, res) => {
 
     client = await pool.connect();
     const history = await customerRepo.getCustomerHistory(client, id, userId);
-    
+
     res.json({
       success: true,
       data: history

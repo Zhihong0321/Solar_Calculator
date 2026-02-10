@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>SEDA Registration | ETERNALGY OS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -24,25 +26,93 @@
             --slate-800: #1e293b;
             --slate-900: #0f172a;
         }
-        
-        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
-        body { background-color: var(--slate-50); color: var(--slate-900); padding-top: env(safe-area-inset-top); padding-bottom: max(2rem, env(safe-area-inset-bottom)); margin: 0; }
-        
+
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--slate-50);
+            color: var(--slate-900);
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: max(2rem, env(safe-area-inset-bottom));
+            margin: 0;
+        }
+
         /* Navigation Style */
-        .top-nav { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--slate-200); position: sticky; top: 0; z-index: 50; }
+        .top-nav {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--slate-200);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
 
         /* Card Styles */
-        .form-card { background: white; border: 1px solid var(--slate-200); border-radius: 1rem; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05); padding: 2rem; }
-        
-        .section-title { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--slate-500); border-bottom: 1px solid var(--slate-100); padding-bottom: 0.75rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.75rem; }
-        
+        .form-card {
+            background: white;
+            border: 1px solid var(--slate-200);
+            border-radius: 1rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+            padding: 2rem;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--slate-500);
+            border-bottom: 1px solid var(--slate-100);
+            padding-bottom: 0.75rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
         /* Input Styles */
-        .input-group { margin-bottom: 1.5rem; }
-        .input-label { display: block; font-size: 0.7rem; font-weight: 700; color: var(--slate-500); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .input-field { width: 100%; border: 1px solid var(--slate-200); padding: 0.75rem 1rem; font-size: 0.9rem; border-radius: 0.75rem; transition: all 0.15s ease; background-color: white; color: var(--slate-900); }
-        .input-field:focus { outline: none; border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-        .input-field:disabled { opacity: 0.5; cursor: not-allowed; background-color: var(--slate-50); }
-        
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--slate-500);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .input-field {
+            width: 100%;
+            border: 1px solid var(--slate-200);
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            border-radius: 0.75rem;
+            transition: all 0.15s ease;
+            background-color: white;
+            color: var(--slate-900);
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--brand-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .input-field:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: var(--slate-50);
+        }
+
         /* File Upload */
         .file-upload-box {
             border: 2px dashed var(--slate-200);
@@ -54,42 +124,145 @@
             background: var(--slate-50);
             position: relative;
         }
-        .file-upload-box:hover { border-color: var(--brand-blue); background: white; }
-        
+
+        .file-upload-box:hover {
+            border-color: var(--brand-blue);
+            background: white;
+        }
+
         /* Badges */
-        .status-badge { font-size: 0.65rem; font-weight: 800; padding: 0.2rem 0.6rem; border-radius: 0.5rem; border: 1px solid transparent; text-transform: uppercase; }
-        .badge-yellow { background: #fefce8; color: #854d0e; border-color: #fef08a; }
-        .badge-blue { background: #eff6ff; color: #1e40af; border-color: #dbeafe; }
-        .badge-green { background: #f0fdf4; color: #166534; border-color: #dcfce7; }
+        .status-badge {
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 0.2rem 0.6rem;
+            border-radius: 0.5rem;
+            border: 1px solid transparent;
+            text-transform: uppercase;
+        }
+
+        .badge-yellow {
+            background: #fefce8;
+            color: #854d0e;
+            border-color: #fef08a;
+        }
+
+        .badge-blue {
+            background: #eff6ff;
+            color: #1e40af;
+            border-color: #dbeafe;
+        }
+
+        .badge-green {
+            background: #f0fdf4;
+            color: #166534;
+            border-color: #dcfce7;
+        }
 
         /* Checklist Dots */
-        .checklist-dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; }
-        .checklist-item { display: flex; align-items: center; gap: 0.375rem; font-size: 9px; font-weight: 700; color: var(--slate-400); text-transform: uppercase; white-space: nowrap; }
-        .checklist-item.complete { color: var(--success); }
-        .checklist-item.complete .checklist-dot { background-color: var(--success); }
-        .checklist-item.incomplete .checklist-dot { background-color: var(--slate-200); }
+        .checklist-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 9999px;
+        }
 
-        .loading-overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px); z-index: 100; display: none; align-items: center; justify-content: center; }
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--slate-400);
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .checklist-item.complete {
+            color: var(--success);
+        }
+
+        .checklist-item.complete .checklist-dot {
+            background-color: var(--success);
+        }
+
+        .checklist-item.incomplete .checklist-dot {
+            background-color: var(--slate-200);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
 
         /* Extracted Data Box */
-        .extracted-data-box { margin-top: 0.75rem; padding: 0.75rem; background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 0.75rem; }
-        .extracted-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.25rem 0; border-bottom: 1px solid rgba(0,0,0,0.03); }
-        .extracted-label { font-size: 0.65rem; font-weight: 700; color: #166534; text-transform: uppercase; }
-        .extracted-value { font-size: 0.8rem; font-weight: 500; color: var(--slate-900); }
-        .btn-insert { font-size: 0.65rem; font-weight: 800; color: var(--brand-blue); background: white; border: 1px solid #dbeafe; padding: 0.25rem 0.5rem; border-radius: 0.25rem; transition: all 0.1s; }
-        .btn-insert:hover { background: var(--brand-blue); color: white; }
+        .extracted-data-box {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: #f0fdf4;
+            border: 1px solid #dcfce7;
+            border-radius: 0.75rem;
+        }
+
+        .extracted-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+        }
+
+        .extracted-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #166534;
+            text-transform: uppercase;
+        }
+
+        .extracted-value {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--slate-900);
+        }
+
+        .btn-insert {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--brand-blue);
+            background: white;
+            border: 1px solid #dbeafe;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            transition: all 0.1s;
+        }
+
+        .btn-insert:hover {
+            background: var(--brand-blue);
+            color: white;
+        }
 
         @media (max-width: 768px) {
-            .checklist-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 0.5rem !important; }
+            .checklist-grid {
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 0.5rem !important;
+            }
         }
     </style>
 </head>
+
 <body>
-    
+
     <!-- Extraction Loading Overlay -->
     <div id="loading" class="loading-overlay">
         <div class="text-center">
-            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-slate-900 border-r-transparent align-[-0.125em] mb-4"></div>
+            <div
+                class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-slate-900 border-r-transparent align-[-0.125em] mb-4">
+            </div>
             <div class="text-sm font-bold text-slate-900 mb-2" id="loadingText">Processing Document...</div>
             <div class="w-48 h-1.5 bg-slate-200 rounded-full overflow-hidden mx-auto">
                 <div id="progressBar" class="h-full bg-slate-900 w-0 transition-all duration-300"></div>
@@ -116,7 +289,8 @@
 
             <div class="flex items-center gap-3">
                 <div id="statusBadge" class="status-badge badge-yellow scale-90">DRAFT</div>
-                <button onclick="saveSedaForm()" class="p-2 text-slate-600 hover:text-slate-900 transition-colors" title="Save Progress">
+                <button onclick="saveSedaForm()" class="p-2 text-slate-600 hover:text-slate-900 transition-colors"
+                    title="Save Progress">
                     <i class="fa-solid fa-floppy-disk text-lg"></i>
                 </button>
             </div>
@@ -132,10 +306,12 @@
         <div class="flex items-center justify-between gap-4">
             <div id="mobileOverallProgress" class="text-[10px] font-black text-slate-400 uppercase">0% DONE</div>
             <div class="flex items-center gap-2">
-                <button id="waReminderBtn-mobile" onclick="sendWhatsAppReminder()" class="hidden px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-lg border border-emerald-100 flex items-center gap-1.5 uppercase">
+                <button id="waReminderBtn-mobile" onclick="sendWhatsAppReminder()"
+                    class="hidden px-3 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-lg border border-emerald-100 flex items-center gap-1.5 uppercase">
                     <i class="fa-brands fa-whatsapp text-sm"></i> Reminder
                 </button>
-                <button onclick="saveSedaForm()" class="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 uppercase">
+                <button onclick="saveSedaForm()"
+                    class="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 uppercase">
                     <i class="fa-solid fa-floppy-disk text-sm"></i> Save
                 </button>
             </div>
@@ -145,28 +321,46 @@
     <!-- Desktop Checklist Panel (Hidden on Mobile) -->
     <div class="hidden md:block bg-white border-b border-slate-100 py-2">
         <div class="max-w-5xl mx-auto px-8 flex items-center justify-between">
-            <div id="overallProgress" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">0% COMPLETE</div>
+            <div id="overallProgress" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">0% COMPLETE
+            </div>
             <div class="flex gap-6">
-                <div id="check-applicantName" class="checklist-item incomplete"><div class="checklist-dot"></div> Name</div>
-                <div id="check-applicantIC" class="checklist-item incomplete"><div class="checklist-dot"></div> IC No</div>
-                <div id="check-applicantPhone" class="checklist-item incomplete"><div class="checklist-dot"></div> Contact</div>
-                <div id="check-installAddress" class="checklist-item incomplete"><div class="checklist-dot"></div> Address</div>
-                <div id="check-mykad" class="checklist-item incomplete"><div class="checklist-dot"></div> MyKad</div>
-                <div id="check-tnb_bill_1" class="checklist-item incomplete"><div class="checklist-dot"></div> TNB 1</div>
-                <div id="check-property_proof" class="checklist-item incomplete"><div class="checklist-dot"></div> Proof</div>
-                <div id="check-tnb_meter" class="checklist-item incomplete"><div class="checklist-dot"></div> Meter</div>
+                <div id="check-applicantName" class="checklist-item incomplete">
+                    <div class="checklist-dot"></div> Name
+                </div>
+                <div id="check-applicantIC" class="checklist-item incomplete">
+                    <div class="checklist-dot"></div> IC No
+                </div>
+                <div id="check-applicantPhone" class="checklist-item incomplete">
+                    <div class="checklist-dot"></div> Contact
+                </div>
+                <div id="check-installAddress" class="checklist-item incomplete">
+                    <div class="checklist-dot"></div> Address
+                </div>
+                <div id="check-mykad" class="checklist-item incomplete">
+                    <div class="checklist-dot"></div> MyKad
+                </div>
+                <div id="check-tnb_bill_1" class="checklist-item incomplete">
+                    <div class="checklist-dot"></div> TNB 1
+                </div>
+                <div id="check-property_proof" class="checklist-item incomplete">
+                    <div class="checklist-dot"></div> Proof
+                </div>
+                <div id="check-tnb_meter" class="checklist-item incomplete">
+                    <div class="checklist-dot"></div> Meter
+                </div>
             </div>
         </div>
     </div>
 
     <div class="max-w-4xl mx-auto px-4 mt-8">
-        
+
         <form id="sedaForm" class="space-y-8">
-            
+
             <!-- Applicant Details -->
             <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">01</span>
+                    <span
+                        class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">01</span>
                     Applicant Information
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -196,14 +390,16 @@
             <!-- Signature Status & Action Block -->
             <div id="signatureBlock" class="form-card border-slate-200 hidden">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-6 h-6 rounded bg-emerald-600 text-white text-[10px]">
+                    <span
+                        class="flex items-center justify-center w-6 h-6 rounded bg-emerald-600 text-white text-[10px]">
                         <i class="fa-solid fa-signature"></i>
                     </span>
                     Quotation Signature
                 </h2>
-                
+
                 <div id="signedContent" class="hidden">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Customer Signature found</p>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Customer Signature
+                        found</p>
                     <div class="h-32 flex items-center mb-4 bg-slate-50 rounded-lg border border-slate-100 p-4">
                         <img id="sigImage" src="" alt="Customer Signature" class="max-h-full object-contain mx-auto">
                     </div>
@@ -222,17 +418,20 @@
                             <div>
                                 <h3 class="text-sm font-bold text-amber-900 mb-1">Quotation Not Signed</h3>
                                 <p class="text-xs text-amber-700 leading-relaxed">
-                                    The customer hasn't signed the official quotation yet. You can view the quotation or share the link with them below.
+                                    The customer hasn't signed the official quotation yet. You can view the quotation or
+                                    share the link with them below.
                                 </p>
                             </div>
                         </div>
                     </div>
 
                     <div class="flex flex-col sm:flex-row gap-3">
-                        <button type="button" id="viewInvoiceBtn" class="flex-1 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                        <button type="button" id="viewInvoiceBtn"
+                            class="flex-1 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
                             <i class="fa-solid fa-eye text-slate-400"></i> View Quotation
                         </button>
-                        <button type="button" id="shareInvoiceBtn" class="flex-1 px-6 py-3 bg-slate-900 text-white font-bold text-sm rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
+                        <button type="button" id="shareInvoiceBtn"
+                            class="flex-1 px-6 py-3 bg-slate-900 text-white font-bold text-sm rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
                             <i class="fa-solid fa-share-nodes"></i> Share Sign Link
                         </button>
                     </div>
@@ -242,14 +441,17 @@
             <!-- Installation Address -->
             <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">02</span>
+                    <span
+                        class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">02</span>
                     Installation Site
                 </h2>
                 <div class="space-y-4">
                     <div class="input-group">
                         <label class="input-label">Installation Address</label>
-                        <textarea id="installAddress" rows="3" class="input-field" placeholder="Same as registered address?"></textarea>
-                        <button type="button" onclick="copyAddress()" class="text-[10px] text-brand-blue font-bold mt-2 hover:underline flex items-center gap-1 uppercase tracking-wider">
+                        <textarea id="installAddress" rows="3" class="input-field"
+                            placeholder="Same as registered address?"></textarea>
+                        <button type="button" onclick="copyAddress()"
+                            class="text-[10px] text-brand-blue font-bold mt-2 hover:underline flex items-center gap-1 uppercase tracking-wider">
                             <i class="fa-solid fa-copy"></i> Copy from Registered Address
                         </button>
                     </div>
@@ -290,12 +492,17 @@
             <!-- MyKad Upload -->
             <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">03</span>
+                    <span
+                        class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">03</span>
                     MyKad / Identity Document
                 </h2>
                 <div class="flex gap-2 mb-6">
-                    <button type="button" onclick="setMyKadMode('images')" id="btnModeImages" class="px-4 py-2 text-xs font-bold rounded-lg transition-all bg-slate-900 text-white">Upload Images</button>
-                    <button type="button" onclick="setMyKadMode('pdf')" id="btnModePdf" class="px-4 py-2 text-xs font-bold rounded-lg transition-all text-slate-500 hover:bg-slate-100">Upload PDF</button>
+                    <button type="button" onclick="setMyKadMode('images')" id="btnModeImages"
+                        class="px-4 py-2 text-xs font-bold rounded-lg transition-all bg-slate-900 text-white">Upload
+                        Images</button>
+                    <button type="button" onclick="setMyKadMode('pdf')" id="btnModePdf"
+                        class="px-4 py-2 text-xs font-bold rounded-lg transition-all text-slate-500 hover:bg-slate-100">Upload
+                        PDF</button>
                 </div>
 
                 <div id="sectionMyKadImages" class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -303,7 +510,8 @@
                         <label class="input-label">MyKad Front</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadFront').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload image</p>
-                            <input type="file" id="fileMyKadFront" accept="image/*" class="hidden" onchange="handleExtraction(this, 'mykad')">
+                            <input type="file" id="fileMyKadFront" accept="image/*" class="hidden"
+                                onchange="handleExtraction(this, 'mykad')">
                             <div id="previewMyKadFront" class="file-preview"></div>
                         </div>
                     </div>
@@ -311,7 +519,8 @@
                         <label class="input-label">MyKad Back</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadBack').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload image</p>
-                            <input type="file" id="fileMyKadBack" accept="image/*" class="hidden" onchange="handleFile(this, 'previewMyKadBack')">
+                            <input type="file" id="fileMyKadBack" accept="image/*" class="hidden"
+                                onchange="handleFile(this, 'previewMyKadBack')">
                             <div id="previewMyKadBack" class="file-preview"></div>
                         </div>
                     </div>
@@ -322,7 +531,8 @@
                         <label class="input-label">MyKad PDF (Full Document)</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadPdf').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload PDF</p>
-                            <input type="file" id="fileMyKadPdf" accept="application/pdf" class="hidden" onchange="handleExtraction(this, 'mykad')">
+                            <input type="file" id="fileMyKadPdf" accept="application/pdf" class="hidden"
+                                onchange="handleExtraction(this, 'mykad')">
                             <div id="previewMyKadPdf" class="file-preview"></div>
                         </div>
                     </div>
@@ -332,7 +542,8 @@
             <!-- TNB Bills -->
             <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">04</span>
+                    <span
+                        class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">04</span>
                     TNB Bills (Last 3 Months)
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -348,13 +559,14 @@
                         </select>
                     </div>
                 </div>
-                
+
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="input-group">
                         <label class="input-label">Bill Month 1 (Latest)</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileTnb1').click()">
                             <p class="text-xs text-slate-400 font-medium">Upload PDF (Auto-Extract)</p>
-                            <input type="file" id="fileTnb1" accept="application/pdf" class="hidden" onchange="handleExtraction(this, 'tnb')">
+                            <input type="file" id="fileTnb1" accept="application/pdf" class="hidden"
+                                onchange="handleExtraction(this, 'tnb')">
                             <div id="previewTnb1" class="file-preview"></div>
                         </div>
                     </div>
@@ -362,7 +574,8 @@
                         <label class="input-label">Bill Month 2</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileTnb2').click()">
                             <p class="text-xs text-slate-400 font-medium">Upload PDF</p>
-                            <input type="file" id="fileTnb2" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb2')">
+                            <input type="file" id="fileTnb2" accept="application/pdf" class="hidden"
+                                onchange="handleFile(this, 'previewTnb2')">
                             <div id="previewTnb2" class="file-preview"></div>
                         </div>
                     </div>
@@ -370,7 +583,8 @@
                         <label class="input-label">Bill Month 3</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileTnb3').click()">
                             <p class="text-xs text-slate-400 font-medium">Upload PDF</p>
-                            <input type="file" id="fileTnb3" accept="application/pdf" class="hidden" onchange="handleFile(this, 'previewTnb3')">
+                            <input type="file" id="fileTnb3" accept="application/pdf" class="hidden"
+                                onchange="handleFile(this, 'previewTnb3')">
                             <div id="previewTnb3" class="file-preview"></div>
                         </div>
                     </div>
@@ -380,11 +594,12 @@
             <!-- Emergency Contact -->
             <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">05</span>
+                    <span
+                        class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">05</span>
                     Emergency Contact
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                     <div class="input-group">
+                    <div class="input-group">
                         <label class="input-label">Name</label>
                         <input type="text" id="emergencyName" class="input-field">
                     </div>
@@ -392,7 +607,7 @@
                         <label class="input-label">Relationship</label>
                         <input type="text" id="emergencyRel" class="input-field">
                     </div>
-                     <div class="input-group">
+                    <div class="input-group">
                         <label class="input-label">Contact No</label>
                         <input type="text" id="emergencyPhone" class="input-field">
                     </div>
@@ -402,7 +617,8 @@
             <!-- Supporting Documents -->
             <div class="form-card">
                 <h2 class="section-title">
-                    <span class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">06</span>
+                    <span
+                        class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">06</span>
                     Supporting Documents
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -410,7 +626,8 @@
                         <label class="input-label">Property Ownership Proof (PDF/Image)</label>
                         <div class="file-upload-box" onclick="document.getElementById('filePropertyProof').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload document</p>
-                            <input type="file" id="filePropertyProof" accept="application/pdf,image/*" class="hidden" onchange="handleVerification(this, 'ownership')">
+                            <input type="file" id="filePropertyProof" accept="application/pdf,image/*" class="hidden"
+                                onchange="handleVerification(this, 'ownership')">
                             <div id="previewPropertyProof" class="file-preview"></div>
                         </div>
                     </div>
@@ -418,7 +635,8 @@
                         <label class="input-label">TNB Meter Image</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileTnbMeter').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload photo</p>
-                            <input type="file" id="fileTnbMeter" accept="image/*" class="hidden" onchange="handleVerification(this, 'meter')">
+                            <input type="file" id="fileTnbMeter" accept="image/*" class="hidden"
+                                onchange="handleVerification(this, 'meter')">
                             <div id="previewTnbMeter" class="file-preview"></div>
                         </div>
                     </div>
@@ -427,8 +645,11 @@
 
             <!-- Action Buttons -->
             <div class="pt-10 flex flex-col sm:flex-row justify-end gap-4">
-                <button type="button" onclick="goBackToOffice()" class="w-full sm:w-auto px-8 py-3 border border-slate-200 text-slate-600 font-bold text-sm rounded-xl hover:bg-slate-50 transition-all order-2 sm:order-1">Back to SEDA List</button>
-                <button type="submit" class="w-full sm:w-auto px-8 py-3 bg-slate-900 text-white font-bold text-sm rounded-xl shadow-lg transition-all order-1 sm:order-2 flex items-center justify-center gap-2">
+                <button type="button" onclick="goBackToOffice()"
+                    class="w-full sm:w-auto px-8 py-3 border border-slate-200 text-slate-600 font-bold text-sm rounded-xl hover:bg-slate-50 transition-all order-2 sm:order-1">Back
+                    to SEDA List</button>
+                <button type="submit"
+                    class="w-full sm:w-auto px-8 py-3 bg-slate-900 text-white font-bold text-sm rounded-xl shadow-lg transition-all order-1 sm:order-2 flex items-center justify-center gap-2">
                     <i class="fa-solid fa-check-circle"></i> Complete Registration
                 </button>
             </div>
@@ -456,7 +677,7 @@
             if (!phone) return false;
             try {
                 const cleanPhone = phone.replace(/\D/g, '').replace(/^0/, '60');
-                const res = await fetch('https://whatsapp-api-server-production-c15f.up.railway.app/api/check-user', {
+                const res = await fetch('/api/customers/check-whatsapp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ phone: cleanPhone })
@@ -483,7 +704,7 @@
             if (missingBills.length > 0) missing.push(`- TNB Bills (${missingBills.join(', ')})`);
             if (!checkDone('check-tnb_meter')) missing.push('- Photo of Home TNB Meter');
             if (!checkDone('check-property_proof')) missing.push('- Property Ownership Proof (S&P / Geran)');
-            
+
             const eName = document.getElementById('emergencyName').value.trim();
             const ePhone = document.getElementById('emergencyPhone').value.trim();
             if (!eName || !ePhone) missing.push('- Emergency Contact Name & Phone');
@@ -492,7 +713,7 @@
 
             const cleanPhone = customerPhone.replace(/\D/g, '');
             const finalPhone = cleanPhone.startsWith('60') ? cleanPhone : (cleanPhone.startsWith('0') ? '6' + cleanPhone : '60' + cleanPhone);
-            
+
             const message = `Hi ${customerName || 'Customer'},
 
 This is a friendly reminder from Eternalgy regarding your SEDA registration. We noticed that some documents are still missing:
@@ -503,7 +724,7 @@ You can upload them directly using this secure link:
 ${window.location.href}
 
 Thank you!`;
-            
+
             window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`, '_blank');
         }
 
@@ -532,7 +753,7 @@ Thank you!`;
             document.getElementById('loadingText').innerText = text;
             overlay.style.display = 'flex';
             bar.style.width = '0%';
-            
+
             let progress = 0;
             clearInterval(extractionInterval);
             extractionInterval = setInterval(() => {
@@ -614,7 +835,7 @@ Thank you!`;
                     try {
                         const parsed = JSON.parse(finalStep.content.answer);
                         if (parsed.answer) extracted.tnb_account = (parsed.answer.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i) || [])[1];
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 return extracted;
             }
@@ -714,7 +935,7 @@ Thank you!`;
 
         function copyAddress() {
             const addr = document.getElementById('applicantAddress').value;
-            if(addr) document.getElementById('installAddress').value = addr;
+            if (addr) document.getElementById('installAddress').value = addr;
         }
 
         async function loadData() {
@@ -730,18 +951,18 @@ Thank you!`;
                     customerName = data.customer_profile?.name || '';
                     customerPhone = data.customer_profile?.phone || '';
                     if (customerPhone) {
-                        checkWhatsAppVerification(customerPhone).then(v => { 
-                            if(v) {
+                        checkWhatsAppVerification(customerPhone).then(v => {
+                            if (v) {
                                 document.getElementById('waReminderBtn')?.classList.remove('hidden');
                                 document.getElementById('waReminderBtn-mobile')?.classList.remove('hidden');
                             }
                         });
                     }
-                    
+
                     document.getElementById('applicantName').value = data.customer_profile?.name || data.customer_name || '';
                     document.getElementById('applicantPhone').value = data.customer_profile?.phone || data.phone || data.e_contact_no || '';
                     document.getElementById('applicantEmail').value = data.e_email || data.email || data.customer_profile?.email || '';
-                    document.getElementById('applicantIC').value = data.ic_no || ''; 
+                    document.getElementById('applicantIC').value = data.ic_no || '';
                     document.getElementById('applicantAddress').value = [data.customer_profile?.address || data.address, data.customer_profile?.city || data.city, data.customer_profile?.state || data.state, data.customer_profile?.postcode || data.postcode].filter(Boolean).join(', ');
                     document.getElementById('installAddress').value = data.installation_address || '';
                     document.getElementById('city').value = data.city || '';
@@ -766,10 +987,10 @@ Thank you!`;
                         const isPdf = url.toLowerCase().endsWith('.pdf');
                         viewBox.innerHTML = `
                             <div class="flex items-center gap-2">
-                                ${isPdf ? 
-                                    '<div class="w-8 h-8 bg-red-100 text-red-600 rounded flex items-center justify-center font-bold text-[8px]">PDF</div>' : 
-                                    `<img src="${url}" class="w-8 h-8 object-cover rounded">`
-                                }
+                                ${isPdf ?
+                                '<div class="w-8 h-8 bg-red-100 text-red-600 rounded flex items-center justify-center font-bold text-[8px]">PDF</div>' :
+                                `<img src="${url}" class="w-8 h-8 object-cover rounded">`
+                            }
                                 <span class="text-slate-500 font-medium">Existing Document</span>
                             </div>
                             <a href="${url}" target="_blank" class="text-brand-blue font-bold hover:underline px-2 py-1 bg-white border border-slate-200 rounded">VIEW</a>
@@ -789,11 +1010,11 @@ Thank you!`;
                     // --- Handle Signature Block ---
                     const sigBlock = document.getElementById('signatureBlock');
                     const invoice = data.invoice_details;
-                    
+
                     if (invoice) {
                         sigBlock.classList.remove('hidden');
                         const isSigned = invoice.customer_signature && invoice.customer_signature.trim() !== "";
-                        
+
                         if (isSigned) {
                             document.getElementById('signedContent').classList.remove('hidden');
                             document.getElementById('unsignedContent').classList.add('hidden');
@@ -801,9 +1022,9 @@ Thank you!`;
                         } else {
                             document.getElementById('signedContent').classList.add('hidden');
                             document.getElementById('unsignedContent').classList.remove('hidden');
-                            
+
                             const invoiceUrl = `${window.location.origin}/view/${invoice.share_token}`;
-                            
+
                             document.getElementById('viewInvoiceBtn').onclick = () => window.open(invoiceUrl, '_blank');
                             document.getElementById('shareInvoiceBtn').onclick = () => shareInvoice(invoiceUrl, invoice.invoice_number);
                         }
@@ -919,7 +1140,7 @@ Thank you!`;
                 }
                 const headerEl = document.getElementById(item.id);
                 if (headerEl) {
-                    if (isDone) { completedCount++; headerEl.className = 'checklist-item complete'; } 
+                    if (isDone) { completedCount++; headerEl.className = 'checklist-item complete'; }
                     else { headerEl.className = 'checklist-item incomplete'; }
                 }
             });
@@ -932,9 +1153,10 @@ Thank you!`;
 
         document.getElementById('sedaForm').addEventListener('submit', saveSedaForm);
         document.querySelectorAll('input, select, textarea').forEach(el => { el.addEventListener('change', updateFormProgress); el.addEventListener('input', updateFormProgress); });
-        
+
         document.addEventListener('DOMContentLoaded', loadData);
     </script>
     <script src="/js/navigation.js"></script>
 </body>
+
 </html>

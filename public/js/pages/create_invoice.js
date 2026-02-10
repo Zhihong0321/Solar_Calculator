@@ -1453,7 +1453,7 @@ async function checkWhatsApp() {
     btn.style.color = '#16a34a';
 
     try {
-        const res = await fetch('https://whatsapp-api-server-production-c15f.up.railway.app/api/check-user', {
+        const res = await fetch('/api/customers/check-whatsapp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone })
