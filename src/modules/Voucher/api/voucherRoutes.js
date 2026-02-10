@@ -8,6 +8,27 @@ const { requireAuth } = require('../../../core/middleware/auth');
  * GET /api/vouchers
  * List all vouchers
  */
+router.get('/api/vouchers_v2', requireAuth, async (req, res) => {
+    try {
+        const { status } = req.query;
+        let where = '';
+        if (status === 'deleted') where = 'WHERE "delete" = TRUE';
+        else if (status === 'active') where = 'WHERE active = TRUE AND ("delete" IS NULL OR "delete" = FALSE)';
+        else if (status === 'inactive') where = 'WHERE active = FALSE AND ("delete" IS NULL OR "delete" = FALSE)';
+
+        // RAW QUERY BYPASSING REPO
+        const result = await pool.query(`SELECT * FROM voucher ${where} ORDER BY created_at DESC`);
+
+        console.log(`[API V2] Status: ${status}, Count: ${result.rows.length}`);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+/**
+ * GET /api/vouchers
 router.get('/api/vouchers', requireAuth, async (req, res) => {
     try {
         const { status } = req.query; // 'active', 'inactive', 'deleted', 'all'

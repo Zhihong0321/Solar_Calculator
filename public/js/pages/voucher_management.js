@@ -63,8 +63,13 @@ async function fetchVouchers() {
         const timestamp = new Date().getTime();
         let statusParam = currentTab;
 
-        const response = await fetch(`/api/vouchers?status=${statusParam}&t=${timestamp}`);
+        const response = await fetch(`/api/vouchers_v2?status=${statusParam}&t=${timestamp}`);
 
+        if (response.status === 404) {
+            console.error('SERVER NOT UPDATED - V2 API MISSING');
+            showToast('Server not updated yet. Please wait.', 'error');
+            return;
+        }
         if (response.status === 401) {
             window.location.href = '/domestic';
             return;
