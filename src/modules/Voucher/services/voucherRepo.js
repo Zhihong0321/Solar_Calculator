@@ -5,18 +5,25 @@
 const crypto = require('crypto');
 
 /**
- * Get all vouchers
+ * Get all vouchers filtered by status
  * @param {object} pool - Database pool
+ * @param {string} status - 'active' (default) or 'deleted'
  * @returns {Promise<Array>} List of vouchers
  */
-async function getAllVouchers(pool) {
+async function getAllVouchers(pool, status = 'active') {
     try {
+        let whereClause = `WHERE "delete" IS NOT TRUE OR "delete" IS NULL`;
+
+        if (status === 'deleted') {
+            whereClause = `WHERE "delete" = TRUE`;
+        }
+
         const result = await pool.query(
-            `SELECT * FROM voucher WHERE "delete" IS NOT TRUE OR "delete" IS NULL ORDER BY created_at DESC`
+            `SELECT * FROM voucher ${whereClause} ORDER BY created_at DESC`
         );
         return result.rows;
     } catch (err) {
-        console.error('Error fetching all vouchers:', err);
+        console.error('Error fetching vouchers:', err);
         throw err;
     }
 }
@@ -211,11 +218,33 @@ async function deleteVoucher(pool, id) {
     }
 }
 
+/**
+ * Restore a soft-deleted voucher
+ * @param {object} pool - Database pool
+ * @param {number|string} id - Voucher ID or bubble_id
+ * @returns {Promise<boolean>} Success status
+ */
+async function restoreVoucher(pool, id) {
+    const isNumeric = !isNaN(id);
+    const identifierColumn = isNumeric ? 'id' : 'bubble_id';
+
+    const query = `UPDATE voucher SET "delete" = NULL, updated_at = NOW() WHERE ${identifierColumn} = $1`;
+
+    try {
+        const result = await pool.query(query, [id]);
+        return result.rowCount > 0;
+    } catch (err) {
+        console.error('Error restoring voucher:', err);
+        throw err;
+    }
+}
+
 module.exports = {
     getAllVouchers,
     getVoucherById,
     createVoucher,
     updateVoucher,
     deleteVoucher,
+    restoreVoucher,
     checkVoucherCodeExists
 };

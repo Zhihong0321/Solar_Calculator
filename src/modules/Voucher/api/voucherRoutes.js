@@ -10,10 +10,27 @@ const { requireAuth } = require('../../../core/middleware/auth');
  */
 router.get('/api/vouchers', requireAuth, async (req, res) => {
     try {
-        const vouchers = await voucherRepo.getAllVouchers(pool);
+        const { status } = req.query; // 'active' or 'deleted'
+        const vouchers = await voucherRepo.getAllVouchers(pool, status);
         res.json(vouchers || []);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch vouchers' });
+    }
+});
+
+/**
+ * POST /api/vouchers/:id/restore
+ * Restore a deleted voucher
+ */
+router.post('/api/vouchers/:id/restore', requireAuth, async (req, res) => {
+    try {
+        const success = await voucherRepo.restoreVoucher(pool, req.params.id);
+        if (!success) {
+            return res.status(404).json({ error: 'Voucher not found' });
+        }
+        res.json({ success: true, message: 'Voucher restored successfully' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to restore voucher' });
     }
 });
 

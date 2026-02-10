@@ -3,6 +3,7 @@
  */
 
 let allVouchers = [];
+let currentTab = 'active';
 
 // DOM Elements
 const voucherList = document.getElementById('voucherList');
@@ -16,6 +17,8 @@ const toastIcon = document.getElementById('toastIcon');
 
 const discountTypeSelect = document.getElementById('voucher_type');
 const valuePrefix = document.getElementById('valuePrefix');
+const tabActive = document.getElementById('tabActive');
+const tabDeleted = document.getElementById('tabDeleted');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,11 +34,29 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * Switch between Active and Deleted tabs
+ */
+function switchTab(tab) {
+    currentTab = tab;
+
+    // Update UI tabs
+    if (tab === 'active') {
+        tabActive.className = 'px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-colors';
+        tabDeleted.className = 'px-4 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent hover:border-slate-200 transition-colors';
+    } else {
+        tabDeleted.className = 'px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-colors';
+        tabActive.className = 'px-4 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent hover:border-slate-200 transition-colors';
+    }
+
+    fetchVouchers();
+}
+
+/**
  * Fetch all vouchers from API
  */
 async function fetchVouchers() {
     try {
-        const response = await fetch('/api/vouchers');
+        const response = await fetch(`/api/vouchers?status=${currentTab}`);
         if (response.status === 401) {
             window.location.href = '/domestic';
             return;
@@ -66,11 +87,15 @@ async function fetchVouchers() {
  */
 function renderVouchers() {
     if (allVouchers.length === 0) {
+        const message = currentTab === 'active'
+            ? 'No active vouchers found.<br>Click "Create Voucher" to get started.'
+            : 'Recycle bin is empty.';
+
         voucherList.innerHTML = `
             <div class="col-span-full py-20 flex flex-col items-center justify-center text-slate-400 bg-white rounded-3xl border-2 border-dashed border-slate-100">
                 <i class="fa-solid fa-ticket text-5xl mb-4 opacity-20"></i>
                 <p class="font-bold text-lg">No vouchers found</p>
-                <p class="text-sm">Click "Create Voucher" to get started.</p>
+                <p class="text-sm text-center">${message}</p>
             </div>
         `;
         return;
@@ -78,26 +103,55 @@ function renderVouchers() {
 
     voucherList.innerHTML = allVouchers.map(voucher => {
         const isActive = voucher.active;
+        const expiryDate = voucher.available_until ? new Date(voucher.available_until) : null;
+        const isExpired = expiryDate && expiryDate < new Date();
+
+        // "Active" means explicitly active AND not expired
+        const isValid = isActive && !isExpired;
+
+        // Dynamic styling: Light green for valid, White for others. Gray for deleted.
+        let cardBgClass = isValid ? 'bg-green-50 border-green-200' : 'bg-white border-slate-100';
+        if (currentTab === 'deleted') cardBgClass = 'bg-slate-50 border-slate-200 grayscale opacity-75';
+
         const discountText = voucher.voucher_type === 'Percentage Discount'
             ? `${voucher.discount_percent}% OFF`
             : `RM ${parseFloat(voucher.discount_amount || 0).toLocaleString()} OFF`;
 
+        // Action Buttons Logic
+        let actionButtons = '';
+        if (currentTab === 'active') {
+            actionButtons = `
+                <div class="flex gap-2">
+                    <button onclick="editVoucher('${voucher.bubble_id}')" class="w-9 h-9 rounded-xl hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                    <button onclick="deleteVoucher('${voucher.bubble_id}')" class="w-9 h-9 rounded-xl hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            `;
+        } else {
+            actionButtons = `
+                <div class="flex gap-2">
+                    <button onclick="restoreVoucher('${voucher.bubble_id}')" class="px-3 h-9 rounded-xl hover:bg-green-50 flex items-center justify-center gap-1 text-slate-400 hover:text-green-600 transition-all font-bold text-xs bg-white shadow-sm border border-slate-200">
+                        <i class="fa-solid fa-rotate-left"></i> Restore
+                    </button>
+                </div>
+            `;
+        }
+
         return `
-            <div class="voucher-card bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full relative overflow-hidden">
-                ${!isActive ? '<div class="absolute top-0 right-0 bg-slate-100 text-slate-400 text-[9px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">Inactive</div>' : ''}
+            <div class="voucher-card ${cardBgClass} p-6 rounded-3xl shadow-sm border flex flex-col h-full relative overflow-hidden transition-all duration-300">
+                ${!isActive && currentTab === 'active' ? '<div class="absolute top-0 right-0 bg-slate-100 text-slate-400 text-[9px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">Inactive</div>' : ''}
+                ${isActive && isExpired && currentTab === 'active' ? '<div class="absolute top-0 right-0 bg-red-100 text-red-500 text-[9px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">Expired</div>' : ''}
+                ${isValid && currentTab === 'active' ? '<div class="absolute top-0 right-0 bg-green-200 text-green-700 text-[9px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">Active</div>' : ''}
+                ${currentTab === 'deleted' ? '<div class="absolute top-0 right-0 bg-slate-200 text-slate-500 text-[9px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-widest">Deleted</div>' : ''}
                 
                 <div class="flex items-start justify-between mb-6">
                     <div class="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-900 shadow-inner">
                         <i class="fa-solid fa-ticket text-xl"></i>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="editVoucher('${voucher.bubble_id}')" class="w-9 h-9 rounded-xl hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all">
-                            <i class="fa-solid fa-pen-to-square"></i>
-                        </button>
-                        <button onclick="deleteVoucher('${voucher.bubble_id}')" class="w-9 h-9 rounded-xl hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                    </div>
+                    ${actionButtons}
                 </div>
 
                 <div class="flex-1">
@@ -151,6 +205,11 @@ function updateStats() {
  * Open modal for creation/edit
  */
 function openModal(id = null) {
+    if (currentTab === 'deleted') {
+        showToast('Cannot edit deleted vouchers. Restore them first.', 'error');
+        return;
+    }
+
     voucherForm.reset();
     voucherIdInput.value = '';
     modalTitle.textContent = 'Create New Voucher';
@@ -238,17 +297,35 @@ async function handleFormSubmit(e) {
  * Delete a voucher
  */
 async function deleteVoucher(id) {
-    if (!confirm('Are you sure you want to delete this voucher? This cannot be undone.')) return;
+    if (!confirm('Move this voucher to recycle bin?')) return;
 
     try {
         const response = await fetch(`/api/vouchers/${id}`, { method: 'DELETE' });
         if (!response.ok) throw new Error('Failed to delete voucher');
 
-        showToast('Voucher deleted', 'success');
+        showToast('Voucher moved to Recycle Bin', 'success');
         fetchVouchers();
     } catch (error) {
         console.error('Error deleting voucher:', error);
         showToast('Failed to delete voucher', 'error');
+    }
+}
+
+/**
+ * Restore a deleted voucher
+ */
+async function restoreVoucher(id) {
+    if (!confirm('Restore this voucher?')) return;
+
+    try {
+        const response = await fetch(`/api/vouchers/${id}/restore`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to restore voucher');
+
+        showToast('Voucher restored!', 'success');
+        fetchVouchers();
+    } catch (error) {
+        console.error('Error restoring voucher:', error);
+        showToast('Failed to restore voucher', 'error');
     }
 }
 
