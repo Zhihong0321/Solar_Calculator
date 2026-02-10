@@ -74,6 +74,7 @@ async function fetchVouchers() {
             allVouchers = [];
         }
 
+        console.log(`Fetched ${allVouchers.length} vouchers for tab '${currentTab}'`);
         renderVouchers();
         updateStats();
     } catch (error) {
@@ -161,7 +162,7 @@ function renderVouchers() {
 
                 <div class="flex-1">
                     <h3 class="font-extrabold text-slate-900 mb-1 truncate" title="${voucher.title}">${voucher.title || 'Untitled Voucher'}</h3>
-                    <p class="text-[10px] font-black text-brand-blue uppercase tracking-widest mb-4 inline-block px-2 py-1 bg-blue-50 rounded-lg">
+                    <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-4 inline-block px-2 py-1 bg-blue-50 rounded-lg">
                         ${voucher.voucher_code}
                     </p>
                     

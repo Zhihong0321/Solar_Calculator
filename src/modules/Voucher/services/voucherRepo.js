@@ -15,7 +15,9 @@ async function getAllVouchers(pool, status = 'active') {
         let whereClause = `WHERE "delete" IS NOT TRUE OR "delete" IS NULL`;
 
         if (status === 'deleted') {
-            whereClause = `WHERE "delete" = TRUE`;
+            whereClause = `WHERE COALESCE("delete", false) = TRUE`;
+        } else {
+            whereClause = `WHERE COALESCE("delete", false) = FALSE`;
         }
 
         const result = await pool.query(
