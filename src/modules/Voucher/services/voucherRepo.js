@@ -10,22 +10,22 @@ const crypto = require('crypto');
  * @param {string} status - 'active' (default), 'inactive', or 'deleted'
  * @returns {Promise<Array>} List of vouchers
  */
-async function getAllVouchers(pool, status = 'active') {
+async function getAllVouchers(pool, status = 'all') {
     try {
         let whereClause = '';
 
+        // Only filter if explicitly requested, otherwise return EVERYTHING
         if (status === 'deleted') {
             whereClause = `WHERE COALESCE("delete", false) = TRUE`;
+        } else if (status === 'active') {
+            whereClause = `WHERE active = TRUE AND COALESCE("delete", false) = FALSE`;
         } else if (status === 'inactive') {
             whereClause = `WHERE active = FALSE AND COALESCE("delete", false) = FALSE`;
-        } else if (status === 'all') {
-            whereClause = ''; // Return EVERYTHING
-        } else {
-            // Default 'active' tab shows only ACTIVE vouchers
-            whereClause = `WHERE active = TRUE AND COALESCE("delete", false) = FALSE`;
         }
+        // Default 'all' or unknown status returns everything
+        // whereClause remains ''
 
-        console.log(`Executing getAllVouchers with status: ${status}, Clause: ${whereClause}`);
+        console.log(`Executing getAllVouchers with status: ${status}, Clause: ${whereClause || 'NONE'}`);
         const result = await pool.query(
             `SELECT * FROM voucher ${whereClause} ORDER BY created_at DESC`
         );
