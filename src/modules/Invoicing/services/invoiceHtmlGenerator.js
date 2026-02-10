@@ -77,7 +77,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   // Generate HTML - Premium Mobile-Optimized Design
   // Use the specific requested logo
   const displayLogoUrl = '/logo-08.png';
-  
+
   const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -415,14 +415,14 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           <div>
             <span class="label-text block">Date Issued</span>
             <span class="font-medium text-slate-900">
-              <span class="local-time" data-iso="${(() => { try { return new Date(invoice.invoice_date).toISOString(); } catch(e) { return ''; } })()}" data-show-time="false">${invoice.invoice_date || '-'}</span>
+              <span class="local-time" data-iso="${(() => { try { return new Date(invoice.invoice_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="false">${invoice.invoice_date || '-'}</span>
             </span>
           </div>
           ${invoice.due_date ? `
           <div>
             <span class="label-text block">Due Date</span>
             <span class="font-medium text-slate-900">
-              <span class="local-time" data-iso="${(() => { try { return new Date(invoice.due_date).toISOString(); } catch(e) { return ''; } })()}" data-show-time="false">${invoice.due_date || '-'}</span>
+              <span class="local-time" data-iso="${(() => { try { return new Date(invoice.due_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="false">${invoice.due_date || '-'}</span>
             </span>
           </div>` : ''}
         </div>
@@ -459,9 +459,9 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       </div>
       <div class="divide-y divide-slate-100 border-b border-slate-100">
         ${items.map(item => {
-          const isDiscount = item.item_type === 'discount' || item.item_type === 'voucher';
-          const priceClass = isDiscount ? 'text-red-600' : 'text-slate-900';
-          return `
+    const isDiscount = item.item_type === 'discount' || item.item_type === 'voucher';
+    const priceClass = isDiscount ? 'text-red-600' : 'text-slate-900';
+    return `
           <div class="px-3 py-3 flex gap-3 items-start">
             <div class="flex-1">
               <p class="text-sm font-medium text-slate-900 leading-snug">${item.description ? item.description.replace(/\n/g, '<br>') : ''}</p>
@@ -472,9 +472,28 @@ function generateInvoiceHtml(invoice, template, options = {}) {
             </div>
           </div>
           `;
-        }).join('')}
+  }).join('')}
       </div>
     </section>
+
+    <!-- Warranties -->
+    ${invoice.warranties && invoice.warranties.length > 0 ? `
+    <section class="mb-6 avoid-break">
+       <div class="bg-slate-50 rounded-t-lg border-b border-slate-200 px-3 py-2 flex text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+         Product Warranties
+       </div>
+       <div class="border border-t-0 border-slate-100 rounded-b-lg p-4 bg-white">
+         <div class="space-y-3">
+           ${invoice.warranties.map(w => `
+             <div class="flex flex-col sm:flex-row gap-1 sm:gap-4 sm:items-start text-sm">
+               <div class="sm:w-1/3 font-medium text-slate-700">${w.name || 'Product'}</div>
+               <div class="flex-1 text-slate-500 text-xs whitespace-pre-line leading-relaxed">${w.terms || ''}</div>
+             </div>
+           `).join('<div class="border-t border-slate-50 my-2"></div>')}
+         </div>
+       </div>
+    </section>
+    ` : ''}
 
     <!-- Summary & Payment -->
     <div class="flex flex-col sm:flex-row gap-8 mb-8">
@@ -564,10 +583,10 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     <!-- Signature Section -->
     ${(() => {
       if (!invoice.customer_signature) return '';
-      
+
       let sigUrl = invoice.customer_signature;
       if (sigUrl.startsWith('//')) sigUrl = 'https:' + sigUrl;
-      
+
       return `
       <section class="mt-12 pt-8 border-t border-slate-200">
         <div class="max-w-xs">
@@ -578,7 +597,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           <div class="border-t border-slate-400 pt-2">
               <p class="text-xs font-bold text-slate-900 uppercase">${invoice.customer_name || 'Customer'}</p>
               <p class="text-[10px] text-slate-500">${invoice.customer_phone || ''} ${(invoice.customer_email) ? '• ' + (invoice.customer_email) : ''}</p>
-              ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on <span class="local-time" data-iso="${(() => { try { return new Date(invoice.signature_date).toISOString(); } catch(e) { return ''; } })()}" data-show-time="true">${invoice.signature_date}</span></p>` : ''}
+              ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on <span class="local-time" data-iso="${(() => { try { return new Date(invoice.signature_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="true">${invoice.signature_date}</span></p>` : ''}
           </div>
         </div>
       </section>
@@ -667,14 +686,14 @@ function generateProposalHtml(invoice, options = {}) {
   // Perform JS variable replacements
   let customerImage = invoice.profile_picture || '';
   if (customerImage.startsWith('//')) customerImage = 'https:' + customerImage;
-  
+
   html = html.replace(/var CUSTOMER_NAME\s*=\s*".*";/, `var CUSTOMER_NAME    = "${(invoice.customer_name || 'Valued Customer').replace(/"/g, '\\"')}";`);
   html = html.replace(/var CUSTOMER_ADDRESS\s*=\s*".*";/, `var CUSTOMER_ADDRESS = "${(invoice.customer_address || '').replace(/\n/g, ', ').replace(/"/g, '\\"')}";`);
   html = html.replace(/var CUSTOMER_IMAGE\s*=\s*".*";/, `var CUSTOMER_IMAGE   = "${customerImage.replace(/"/g, '\\"')}";`);
-  
+
   const systemSizeStr = invoice.system_size_kwp ? `${invoice.system_size_kwp.toFixed(2)} kWp System` : 'Solar System';
   html = html.replace(/var SYSTEM_SIZE\s*=\s*".*";/, `var SYSTEM_SIZE      = "${systemSizeStr}";`);
-  
+
   if (invoice.customer_signature) {
     let sigUrl = invoice.customer_signature;
     if (sigUrl.startsWith('//')) sigUrl = 'https:' + sigUrl;

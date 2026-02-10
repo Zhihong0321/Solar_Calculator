@@ -61,7 +61,7 @@ async function generateInvoiceNumber(client) {
     } else {
       // Fallback/Safety: If record missing, try to initialize based on max existing or start at 1
       // We'll lock table or just try insert. Since this is rare, we'll do a safe insert.
-      
+
       // Get actual max from table just to be safe if parameter was missing
       const lastInvoiceResult = await client.query(
         `SELECT invoice_number
@@ -70,14 +70,14 @@ async function generateInvoiceNumber(client) {
          ORDER BY invoice_number DESC
          LIMIT 1`
       );
-      
+
       let maxExisting = 0;
       if (lastInvoiceResult.rows.length > 0) {
-         try {
-            maxExisting = parseInt(lastInvoiceResult.rows[0].invoice_number.replace('INV-', '')) || 0;
-         } catch (e) {}
+        try {
+          maxExisting = parseInt(lastInvoiceResult.rows[0].invoice_number.replace('INV-', '')) || 0;
+        } catch (e) { }
       }
-      
+
       nextNum = maxExisting + 1;
 
       // Initialize the parameter for next time
@@ -95,6 +95,62 @@ async function generateInvoiceNumber(client) {
   } catch (err) {
     console.error('Error generating invoice number:', err);
     throw new Error('Failed to generate invoice number');
+  }
+}
+
+/**
+ * Fetch warranty info for a package
+ * @private
+ */
+async function _fetchWarrantyInfo(client, packageId) {
+  try {
+    // 1. Get Package Details
+    const pkgRes = await client.query(
+      `SELECT panel, linked_package_item 
+       FROM package 
+       WHERE bubble_id = $1`,
+      [packageId]
+    );
+
+    if (pkgRes.rows.length === 0) return [];
+    const pkg = pkgRes.rows[0];
+
+    // 2. Collect Product IDs
+    const productIds = [];
+    if (pkg.panel) productIds.push(pkg.panel);
+
+    // 3. Check Package Items for more products
+    const linkedItems = pkg.linked_package_item;
+    if (Array.isArray(linkedItems) && linkedItems.length > 0) {
+      const itemsRes = await client.query(
+        `SELECT product FROM package_item WHERE bubble_id = ANY($1::text[])`,
+        [linkedItems]
+      );
+      itemsRes.rows.forEach(item => {
+        if (item.product) productIds.push(item.product);
+      });
+    }
+
+    if (productIds.length === 0) return [];
+
+    // 4. Fetch Product Warranties
+    const uniqueIds = [...new Set(productIds)];
+    const productsRes = await client.query(
+      `SELECT name, product_warranty_desc, warranty_name 
+       FROM product 
+       WHERE (bubble_id = ANY($1::text[]) OR id::text = ANY($1::text[]))
+       AND (product_warranty_desc IS NOT NULL OR warranty_name IS NOT NULL)`,
+      [uniqueIds]
+    );
+
+    return productsRes.rows.map(p => ({
+      name: p.name,
+      terms: p.product_warranty_desc || p.warranty_name || 'Standard Warranty'
+    }));
+
+  } catch (err) {
+    console.error('Error fetching warranty info:', err);
+    return [];
   }
 }
 
@@ -208,15 +264,15 @@ async function findOrCreateCustomer(client, data) {
       'SELECT id, customer_id, phone, address, profile_picture FROM customer WHERE name = $1 LIMIT 1',
       [name]
     );
-    
+
     if (findRes.rows.length > 0) {
       const customer = findRes.rows[0];
       const id = customer.id;
       const bubbleId = customer.customer_id;
-      
+
       // Update if details changed
       if (
-        (phone && phone !== customer.phone) || 
+        (phone && phone !== customer.phone) ||
         (address && address !== customer.address) ||
         (profilePicture && profilePicture !== customer.profile_picture)
       ) {
@@ -260,11 +316,11 @@ async function _fetchDependencies(client, data) {
   let linkedAgent = null;
   try {
     const userRes = await client.query(
-        'SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1',
-        [String(userId)]
+      'SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1',
+      [String(userId)]
     );
     if (userRes.rows.length > 0) {
-        linkedAgent = userRes.rows[0].linked_agent_profile;
+      linkedAgent = userRes.rows[0].linked_agent_profile;
     }
   } catch (e) {
     console.warn('[DB] Agent lookup failed during invoice creation for user', userId);
@@ -284,7 +340,7 @@ async function _fetchDependencies(client, data) {
     createdBy: userId,
     profilePicture: profilePicture
   });
-  
+
   const internalCustomerId = customerResult ? customerResult.id : null;
   const customerBubbleId = customerResult ? customerResult.bubbleId : null;
 
@@ -326,7 +382,7 @@ async function _processVouchers(client, { voucherCodes, voucherCode }, packagePr
     if (voucher) {
       let amount = 0;
       let desc = '';
-      
+
       if (voucher.discount_amount) {
         amount = parseFloat(voucher.discount_amount) || 0;
         desc = voucher.invoice_description || `Voucher: ${code}`;
@@ -334,7 +390,7 @@ async function _processVouchers(client, { voucherCodes, voucherCode }, packagePr
         amount = (packagePrice * parseFloat(voucher.discount_percent)) / 100;
         desc = voucher.invoice_description || `Voucher: ${code}`;
       }
-      
+
       if (amount > 0) {
         totalVoucherAmount += amount;
         validVoucherCodes.push(code);
@@ -364,17 +420,17 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
   let extraItemsTotal = 0;
   let extraItemsNegativeTotal = 0;
   if (Array.isArray(extraItems)) {
-      extraItems.forEach(item => {
-          const tp = parseFloat(item.total_price) || 0;
-          extraItemsTotal += tp;
-          if (tp < 0) extraItemsNegativeTotal += tp;
-      });
+    extraItems.forEach(item => {
+      const tp = parseFloat(item.total_price) || 0;
+      extraItemsTotal += tp;
+      if (tp < 0) extraItemsNegativeTotal += tp;
+    });
   }
 
   // Security: Cap negative extra items at 5% of package price
   const maxNegative = -(packagePrice * 0.05);
   if (extraItemsNegativeTotal < maxNegative && packagePrice > 0) {
-      throw new Error(`Additional items discount (RM ${Math.abs(extraItemsNegativeTotal).toFixed(2)}) exceeds the maximum allowed 5% of package price (RM ${Math.abs(maxNegative).toFixed(2)}).`);
+    throw new Error(`Additional items discount (RM ${Math.abs(extraItemsNegativeTotal).toFixed(2)}) exceeds the maximum allowed 5% of package price (RM ${Math.abs(maxNegative).toFixed(2)}).`);
   }
 
   // Calculate discount amount from percent
@@ -382,14 +438,14 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
   if (discountPercent > 0) {
     percentDiscountVal = (packagePrice * discountPercent) / 100;
   }
-  
+
   // CNY 2026 Promo Discount
   const cnyPromoDiscount = getCNY2026PromoDiscount(panelQty);
-  
+
   // Subtotal after ALL adjustments (discounts, vouchers, epp fees, extra items)
   // taxable subtotal = package + markup + extra items - discounts - vouchers - promo
   const taxableSubtotal = Math.max(0, priceWithMarkup + extraItemsTotal - discountFixed - percentDiscountVal - totalVoucherAmount - cnyPromoDiscount);
-  
+
   // Calculate SST (6% rate)
   const sstRate = applySst ? 6.0 : 0;
   const sstAmount = applySst ? (taxableSubtotal * sstRate) / 100 : 0;
@@ -478,11 +534,11 @@ async function getInvoiceByBubbleId(client, bubbleId) {
 
     // Derive Discount and Voucher amounts from items
     invoice.discount_amount = invoice.items
-        .filter(item => item.item_type === 'discount')
-        .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+      .filter(item => item.item_type === 'discount')
+      .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
     invoice.voucher_amount = invoice.items
-        .filter(item => item.item_type === 'voucher')
-        .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+      .filter(item => item.item_type === 'voucher')
+      .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
 
     // Queries 3-6: Run in parallel if possible
     const parallelQueries = [];
@@ -557,6 +613,20 @@ async function getInvoiceByBubbleId(client, bubbleId) {
       }
     })();
 
+    // Query 7: Fetch Warranty Info from Package
+    if (invoice.linked_package) {
+      parallelQueries.push(
+        _fetchWarrantyInfo(client, invoice.linked_package)
+          .then(warranties => {
+            invoice.warranties = warranties;
+          })
+          .catch(err => {
+            console.warn('Failed to fetch warranties:', err);
+            invoice.warranties = [];
+          })
+      );
+    }
+
     // Wait for all parallel queries to complete
     await Promise.all([...parallelQueries, getTemplatePromise]);
 
@@ -573,10 +643,10 @@ async function getInvoiceByBubbleId(client, bubbleId) {
  */
 async function _createInvoiceRecord(client, data, financials, deps, voucherInfo) {
   const {
-    taxableSubtotal, markupAmount, sstRate, sstAmount, 
-    percentDiscountVal, finalTotalAmount 
+    taxableSubtotal, markupAmount, sstRate, sstAmount,
+    percentDiscountVal, finalTotalAmount
   } = financials;
-  
+
   const { pkg, internalCustomerId, customerBubbleId, template, linkedAgent } = deps;
   const { validVoucherCodes, totalVoucherAmount } = voucherInfo;
   const { discountFixed = 0, discountPercent = 0, userId, customerName, customerAddress, customerPhone } = data;
@@ -587,23 +657,23 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   const finalCreatedBy = String(userId);
 
-    const query = `
+  const query = `
       INSERT INTO invoice 
       (bubble_id, template_id, linked_customer, linked_agent, linked_package, invoice_number, 
        status, total_amount, paid_amount, balance_due, invoice_date, created_by, share_token, follow_up_date, voucher_code)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
-    const values = [
-      bubbleId, data.templateId || 'default', customerBubbleId, linkedAgent, 
-      data.packageId, invoiceNumber, data.status || 'draft', 
-      finalTotalAmount, 0, finalTotalAmount, data.invoiceDate || new Date(), 
-      finalCreatedBy, shareToken, data.followUpDate || null,
-      validVoucherCodes.join(', ') || null
-    ];
+  const values = [
+    bubbleId, data.templateId || 'default', customerBubbleId, linkedAgent,
+    data.packageId, invoiceNumber, data.status || 'draft',
+    finalTotalAmount, 0, finalTotalAmount, data.invoiceDate || new Date(),
+    finalCreatedBy, shareToken, data.followUpDate || null,
+    validVoucherCodes.join(', ') || null
+  ];
 
-    const invoiceResult = await client.query(query, values);
-    return invoiceResult.rows[0];
+  const invoiceResult = await client.query(query, values);
+  return invoiceResult.rows[0];
 }
 
 /**
@@ -665,24 +735,24 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   if (Array.isArray(data.extraItems) && data.extraItems.length > 0) {
     let extraItemSortOrder = 50;
     for (const item of data.extraItems) {
-        const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-        await client.query(
-            `INSERT INTO invoice_item
+      const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+      await client.query(
+        `INSERT INTO invoice_item
              (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-            [
-                itemBubbleId,
-                invoiceId,
-                item.description || 'Extra Item',
-                item.qty || 1,
-                item.unit_price || 0,
-                item.total_price || 0,
-                'extra',
-                extraItemSortOrder++,
-                false
-            ]
-        );
-        createdItemIds.push(itemBubbleId);
+        [
+          itemBubbleId,
+          invoiceId,
+          item.description || 'Extra Item',
+          item.qty || 1,
+          item.unit_price || 0,
+          item.total_price || 0,
+          'extra',
+          extraItemSortOrder++,
+          false
+        ]
+      );
+      createdItemIds.push(itemBubbleId);
     }
   }
 
@@ -821,8 +891,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   // Update Invoice with Linked Items (Legacy requirement)
   if (createdItemIds.length > 0) {
     await client.query(
-        `UPDATE invoice SET linked_invoice_item = $1 WHERE bubble_id = $2`,
-        [createdItemIds, invoiceId]
+      `UPDATE invoice SET linked_invoice_item = $1 WHERE bubble_id = $2`,
+      [createdItemIds, invoiceId]
     );
   }
 }
@@ -856,9 +926,9 @@ async function createInvoiceOnTheFly(client, data) {
     // 3.5 Validate Max Discount
     const maxDiscountAllowed = parseFloat(deps.pkg.max_discount) || 0;
     const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
-    
+
     if (maxDiscountAllowed > 0 && totalDiscountValue > (maxDiscountAllowed + 0.01)) { // Added small buffer for float precision
-        throw new Error(`Total discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the maximum allowed discount for this package (RM ${maxDiscountAllowed.toFixed(2)})`);
+      throw new Error(`Total discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the maximum allowed discount for this package (RM ${maxDiscountAllowed.toFixed(2)})`);
     }
 
     // 4. Create Invoice Header
@@ -881,7 +951,7 @@ async function createInvoiceOnTheFly(client, data) {
     };
   } catch (err) {
     // Rollback on error
-    await client.query('ROLLBACK').catch(() => {});
+    await client.query('ROLLBACK').catch(() => { });
     console.error('Error creating invoice:', err);
     throw err;
   }
@@ -915,7 +985,7 @@ async function getPublicInvoice(client, tokenOrId) {
   try {
     const bubbleId = await resolveInvoiceBubbleId(client, tokenOrId);
     if (!bubbleId) return null;
-    
+
     // Reuse the working logic from getInvoiceByBubbleId
     return await getInvoiceByBubbleId(client, bubbleId);
   } catch (err) {
@@ -969,7 +1039,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
         JOIN agent a ON u.linked_agent_profile = a.bubble_id
         WHERE u.id::text = $1 OR u.bubble_id = $1
     `, [userId]);
-    
+
     if (userRes.rows.length > 0) {
       agentProfileId = userRes.rows[0].bubble_id;
     }
@@ -1041,13 +1111,13 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   // Payment Status Filtering logic based on calculated total_received
   if (paymentStatus) {
     if (paymentStatus === 'unpaid') {
-        filterClause += ` AND (total_received IS NULL OR total_received <= 0) AND status != 'deleted'`;
+      filterClause += ` AND (total_received IS NULL OR total_received <= 0) AND status != 'deleted'`;
     } else if (paymentStatus === 'partial') {
-        filterClause += ` AND total_received > 0 AND total_received < total_amount AND status != 'deleted'`;
+      filterClause += ` AND total_received > 0 AND total_received < total_amount AND status != 'deleted'`;
     } else if (paymentStatus === 'paid') {
-        filterClause += ` AND total_received >= total_amount AND total_amount > 0 AND status != 'deleted'`;
+      filterClause += ` AND total_received >= total_amount AND total_amount > 0 AND status != 'deleted'`;
     } else if (paymentStatus === 'deleted') {
-        filterClause += ` AND status = 'deleted'`;
+      filterClause += ` AND status = 'deleted'`;
     }
   }
 
@@ -1070,20 +1140,20 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   const countParams = params.slice(0, params.length - 2);
 
   try {
-      const [result, countResult] = await Promise.all([
-        client.query(query, params),
-        client.query(countQuery, countParams)
-      ]);
+    const [result, countResult] = await Promise.all([
+      client.query(query, params),
+      client.query(countQuery, countParams)
+    ]);
 
-      return {
-        invoices: result.rows,
-        total: parseInt(countResult.rows[0].total, 10),
-        limit,
-        offset
-      };
+    return {
+      invoices: result.rows,
+      total: parseInt(countResult.rows[0].total, 10),
+      limit,
+      offset
+    };
   } catch (err) {
-      console.error('Error fetching invoices:', err);
-      throw err;
+    console.error('Error fetching invoices:', err);
+    throw err;
   }
 }
 
@@ -1105,17 +1175,17 @@ async function getPublicVouchers(client) {
   } catch (err) {
     // If sort_order doesn't exist, try without it
     try {
-        const result = await client.query(
-            `SELECT * FROM voucher 
+      const result = await client.query(
+        `SELECT * FROM voucher 
              WHERE public = true 
                AND active = true 
                AND (delete = false OR delete IS NULL)
              ORDER BY created_at DESC`
-          );
-          return result.rows;
+      );
+      return result.rows;
     } catch (retryErr) {
-        console.error('Error fetching public vouchers:', retryErr);
-        return [];
+      console.error('Error fetching public vouchers:', retryErr);
+      return [];
     }
   }
 }
@@ -1158,8 +1228,8 @@ async function updateInvoiceTransaction(client, data) {
 
     // 1. Fetch current record
     const currentRes = await client.query(
-        'SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent, version, paid_amount FROM invoice WHERE bubble_id = $1',
-        [bubbleId]
+      'SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent, version, paid_amount FROM invoice WHERE bubble_id = $1',
+      [bubbleId]
     );
     const currentData = currentRes.rows[0];
     if (!currentData) throw new Error('Invoice not found');
@@ -1170,24 +1240,24 @@ async function updateInvoiceTransaction(client, data) {
 
     let linkedAgent = currentData.linked_agent;
     if (!linkedAgent) {
-        const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [String(data.userId)]);
-        if (userRes.rows.length > 0) linkedAgent = userRes.rows[0].linked_agent_profile;
+      const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [String(data.userId)]);
+      if (userRes.rows.length > 0) linkedAgent = userRes.rows[0].linked_agent_profile;
     }
 
     // Resolve Customer
     let customerBubbleId = currentData.linked_customer;
 
     if (data.customerName) {
-        const custResult = await findOrCreateCustomer(client, {
-            name: data.customerName,
-            phone: data.customerPhone,
-            address: data.customerAddress,
-            profilePicture: data.profilePicture || null,
-            createdBy: data.userId
-        });
-        if (custResult) {
-            customerBubbleId = custResult.bubbleId;
-        }
+      const custResult = await findOrCreateCustomer(client, {
+        name: data.customerName,
+        phone: data.customerPhone,
+        address: data.customerAddress,
+        profilePicture: data.profilePicture || null,
+        createdBy: data.userId
+      });
+      if (custResult) {
+        customerBubbleId = custResult.bubbleId;
+      }
     }
 
     // 4. Calculate Financials
@@ -1198,9 +1268,9 @@ async function updateInvoiceTransaction(client, data) {
     // Validate Max Discount
     const maxDiscountAllowed = parseFloat(pkg.max_discount) || 0;
     const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
-    
+
     if (maxDiscountAllowed > 0 && totalDiscountValue > (maxDiscountAllowed + 0.01)) {
-        throw new Error(`Total discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the maximum allowed discount for this package (RM ${maxDiscountAllowed.toFixed(2)})`);
+      throw new Error(`Total discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the maximum allowed discount for this package (RM ${maxDiscountAllowed.toFixed(2)})`);
     }
 
     const { finalTotalAmount } = financials;
@@ -1220,14 +1290,14 @@ async function updateInvoiceTransaction(client, data) {
         WHERE bubble_id = $8
     `;
     const updateValues = [
-        data.templateId || 'default',
-        data.packageId || currentData.linked_package,
-        customerBubbleId,
-        finalTotalAmount,
-        data.status || currentData.status,
-        data.followUpDate || null,
-        voucherInfo.validVoucherCodes.join(', ') || null,
-        bubbleId
+      data.templateId || 'default',
+      data.packageId || currentData.linked_package,
+      customerBubbleId,
+      finalTotalAmount,
+      data.status || currentData.status,
+      data.followUpDate || null,
+      voucherInfo.validVoucherCodes.join(', ') || null,
+      bubbleId
     ];
     await client.query(updateQuery, updateValues);
 
@@ -1241,11 +1311,11 @@ async function updateInvoiceTransaction(client, data) {
     // Return the updated state
     const result = await getInvoiceByBubbleId(client, bubbleId);
     return {
-        ...result,
-        customerBubbleId: customerBubbleId
+      ...result,
+      customerBubbleId: customerBubbleId
     };
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
+    await client.query('ROLLBACK').catch(() => { });
     throw err;
   }
 }
@@ -1256,10 +1326,10 @@ async function updateInvoiceTransaction(client, data) {
  */
 async function _createInvoiceVersionRecord(client, org, data, financials, voucherInfo, customerData, linkedAgent) {
   const {
-    taxableSubtotal, markupAmount, sstRate, sstAmount, 
-    percentDiscountVal, finalTotalAmount 
+    taxableSubtotal, markupAmount, sstRate, sstAmount,
+    percentDiscountVal, finalTotalAmount
   } = financials;
-  
+
   const { validVoucherCodes, totalVoucherAmount } = voucherInfo;
   const { id: customerId, bubbleId: customerBubbleId, name: customerName, address: customerAddress, phone: customerPhone } = customerData;
 
@@ -1275,7 +1345,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
 
   const bubbleId = crypto.randomUUID().toString();
   const shareToken = generateShareToken();
-  const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); 
+  const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const finalCreatedBy = String(data.userId);
   const version = (org.version || 1) + 1;
   const rootId = org.root_id || org.bubble_id;
@@ -1342,7 +1412,7 @@ async function deleteSampleInvoices(client, userId) {
     try {
       const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]);
       if (userRes.rows.length > 0) userBubbleId = userRes.rows[0].linked_agent_profile;
-    } catch (e) {}
+    } catch (e) { }
 
     const params = [String(userId)];
     let whereClause = `(created_by = $1::varchar`;
@@ -1358,9 +1428,9 @@ async function deleteSampleInvoices(client, userId) {
       FROM invoice 
       WHERE ${whereClause}
     `;
-    
+
     const targets = await client.query(findQuery, params);
-    
+
     if (targets.rows.length === 0) {
       await client.query('ROLLBACK');
       return 0;
@@ -1406,26 +1476,26 @@ async function verifyOwnership(client, userId, resourceCreatedBy, resourceLinked
 
   // 2. Fetch user details to check aliases and assigned agent profile
   try {
-      const userRes = await client.query('SELECT bubble_id, linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [String(userId)]);
-      if (userRes.rows.length === 0) return false;
-      
-      const user = userRes.rows[0];
-      const userBubbleId = user.bubble_id;
-      const userAgentProfile = user.linked_agent_profile;
+    const userRes = await client.query('SELECT bubble_id, linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1', [String(userId)]);
+    if (userRes.rows.length === 0) return false;
 
-      // Check if User's Bubble ID matches the creator
-      if (userBubbleId && resourceCreatedBy && String(resourceCreatedBy) === String(userBubbleId)) return true;
-      
-      // Check if User's Agent Profile matches the creator (Legacy support)
-      if (userAgentProfile && resourceCreatedBy && String(resourceCreatedBy) === String(userAgentProfile)) return true;
+    const user = userRes.rows[0];
+    const userBubbleId = user.bubble_id;
+    const userAgentProfile = user.linked_agent_profile;
 
-      // CRITICAL: Check if User's Agent Profile matches the assigned agent on the invoice
-      if (userAgentProfile && resourceLinkedAgent && String(resourceLinkedAgent) === String(userAgentProfile)) return true;
-      
-      return false;
+    // Check if User's Bubble ID matches the creator
+    if (userBubbleId && resourceCreatedBy && String(resourceCreatedBy) === String(userBubbleId)) return true;
+
+    // Check if User's Agent Profile matches the creator (Legacy support)
+    if (userAgentProfile && resourceCreatedBy && String(resourceCreatedBy) === String(userAgentProfile)) return true;
+
+    // CRITICAL: Check if User's Agent Profile matches the assigned agent on the invoice
+    if (userAgentProfile && resourceLinkedAgent && String(resourceLinkedAgent) === String(userAgentProfile)) return true;
+
+    return false;
   } catch (err) {
-      console.error('Error verifying ownership:', err);
-      return false;
+    console.error('Error verifying ownership:', err);
+    return false;
   }
 }
 
