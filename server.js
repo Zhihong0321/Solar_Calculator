@@ -346,6 +346,10 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+app.get('/api/version', (req, res) => {
+  res.json({ version: '3.2', timestamp: new Date(), message: 'Includes Voucher Fix' });
+});
+
 app.listen(PORT, () => {
   console.log(`[Modular Monolith] Server running on port ${PORT}`);
 });

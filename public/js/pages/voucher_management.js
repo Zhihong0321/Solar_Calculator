@@ -1,9 +1,7 @@
 /**
  * Voucher Management Page Logic
- * Version 3.0 - Resilient Fetching
+ * Simplified & Robust
  */
-
-console.log('Frontend Voucher Script Loaded (V3)');
 
 let currentVouchers = [];
 let currentTab = 'active';
@@ -42,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 function switchTab(tab) {
     currentTab = tab;
-    console.log(`Switching to tab: ${tab}`);
 
     // Reset all tabs
     [tabActive, tabInactive, tabDeleted].forEach(el => {
@@ -60,20 +57,11 @@ function switchTab(tab) {
 
 /**
  * Fetch vouchers specific to the current tab
- * Using explicit status allows it to work with older backend versions too
  */
 async function fetchVouchers() {
     try {
-        const timestamp = new Date().getTime(); // Cache buster
-        // Map tab to status query
-        // Note: Old Backend treats 'inactive' as default (non-deleted), New Backend treats it as specific.
-        // We will filter client-side anyway to be safe.
+        const timestamp = new Date().getTime();
         let statusParam = currentTab;
-        if (currentTab === 'inactive' || currentTab === 'active') {
-            // Requesting 'all' might fail on old backend, requesting specific helps if supported.
-            // Let's stick to requesting the specific status.
-            statusParam = currentTab;
-        }
 
         const response = await fetch(`/api/vouchers?status=${statusParam}&t=${timestamp}`);
 
@@ -83,19 +71,15 @@ async function fetchVouchers() {
         }
 
         const data = await response.json();
-        console.log(`API Response for ${currentTab}:`, data);
 
         let rawVouchers = [];
         if (Array.isArray(data)) {
             rawVouchers = data;
         } else if (data.vouchers && Array.isArray(data.vouchers)) {
             rawVouchers = data.vouchers;
-        } else {
-            console.error('Expected array but got:', data);
         }
 
-        // Client-Side Robust Filtering
-        // This ensures that even if backend returns mixed results (old version), we show the right thing.
+        // Additional Client-Side Filtering to fail-safe against mixed backend responses
         currentVouchers = rawVouchers.filter(v => {
             const isDeleted = !!v.delete;
             const isActive = !!v.active;
@@ -106,9 +90,8 @@ async function fetchVouchers() {
             return false;
         });
 
-        console.log(`Renderable count for ${currentTab}: ${currentVouchers.length}`);
         renderVouchers();
-        updateStats(); // Note: Stats will only reflect current tab now
+        updateStats();
     } catch (error) {
         console.error('Error fetching vouchers:', error);
         showToast('Failed to load vouchers', 'error');
@@ -121,7 +104,7 @@ async function fetchVouchers() {
 function renderVouchers() {
     if (currentVouchers.length === 0) {
         let message = 'No vouchers found.';
-        if (currentTab === 'active') message = 'No active vouchers.<br>Click "Create Voucher" to get started.';
+        if (currentTab === 'active') message = 'No active vouchers.';
         if (currentTab === 'inactive') message = 'No inactive vouchers.';
         if (currentTab === 'deleted') message = 'Recycle bin is empty.';
 
@@ -141,7 +124,6 @@ function renderVouchers() {
         const isExpired = expiryDate && expiryDate < new Date();
         const isValid = isActive && !isExpired;
 
-        // Dynamic styling
         let cardBgClass;
         if (currentTab === 'deleted') {
             cardBgClass = 'bg-slate-50 border-slate-200 grayscale opacity-75';
@@ -155,7 +137,6 @@ function renderVouchers() {
             ? `${voucher.discount_percent}% OFF`
             : `RM ${parseFloat(voucher.discount_amount || 0).toLocaleString()} OFF`;
 
-        // Action Buttons Logic
         let actionButtons = '';
         if (currentTab === 'deleted') {
             actionButtons = `
@@ -163,11 +144,9 @@ function renderVouchers() {
                     <button onclick="restoreVoucher('${voucher.bubble_id}')" class="px-3 h-9 rounded-xl hover:bg-green-50 flex items-center justify-center gap-1 text-slate-400 hover:text-green-600 transition-all font-bold text-xs bg-white shadow-sm border border-slate-200">
                         <i class="fa-solid fa-rotate-left"></i> Restore
                     </button>
-                    <!-- Optional Permanent Delete -->
                 </div>
             `;
         } else {
-            // Active or Inactive tabs need Edit/Delete/Toggle
             actionButtons = `
                 <div class="flex items-center gap-3">
                     <label class="relative inline-flex items-center cursor-pointer group" title="Toggle Active Status">
@@ -237,13 +216,8 @@ function renderVouchers() {
  * Update stats numbers
  */
 function updateStats() {
-    // With specific fetching, we only know the count of the current tab accurately.
-    // So we just show "Loaded"
     const total = currentVouchers.length;
     document.getElementById('statTotal').textContent = total > 0 ? total : '--';
-
-    // We can't know other stats. Hide them or leave dashes?
-    // Let's leave dashes.
     document.getElementById('statActive').textContent = '--';
     document.getElementById('statPublic').textContent = '--';
 }

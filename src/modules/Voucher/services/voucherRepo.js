@@ -14,18 +14,18 @@ async function getAllVouchers(pool, status = 'all') {
     try {
         let whereClause = '';
 
-        // Only filter if explicitly requested, otherwise return EVERYTHING
+        // Only filter if explicitly requested
         if (status === 'deleted') {
-            whereClause = `WHERE COALESCE("delete", false) = TRUE`;
+            whereClause = `WHERE "delete" = TRUE`;
         } else if (status === 'active') {
-            whereClause = `WHERE active = TRUE AND COALESCE("delete", false) = FALSE`;
+            // Active AND Not Deleted
+            whereClause = `WHERE active = TRUE AND ("delete" IS NULL OR "delete" = FALSE)`;
         } else if (status === 'inactive') {
-            whereClause = `WHERE active = FALSE AND COALESCE("delete", false) = FALSE`;
+            // Inactive AND Not Deleted
+            whereClause = `WHERE active = FALSE AND ("delete" IS NULL OR "delete" = FALSE)`;
         }
-        // Default 'all' or unknown status returns everything
-        // whereClause remains ''
 
-        console.log(`Executing getAllVouchers with status: ${status}, Clause: ${whereClause || 'NONE'}`);
+        console.log(`[Repo] GetVouchers Status: ${status}, SQL: ${whereClause || 'ALL'}`);
         const result = await pool.query(
             `SELECT * FROM voucher ${whereClause} ORDER BY created_at DESC`
         );
