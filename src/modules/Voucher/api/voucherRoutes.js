@@ -10,7 +10,8 @@ const { requireAuth } = require('../../../core/middleware/auth');
  */
 router.get('/api/vouchers', requireAuth, async (req, res) => {
     try {
-        const { status } = req.query; // 'active' or 'deleted'
+        const { status } = req.query; // 'active', 'inactive', 'deleted', 'all'
+        console.log(`[API] Fetching vouchers with status: ${status}`);
         const vouchers = await voucherRepo.getAllVouchers(pool, status);
         res.json(vouchers || []);
     } catch (err) {

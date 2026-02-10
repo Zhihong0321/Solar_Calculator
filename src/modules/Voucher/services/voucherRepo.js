@@ -18,11 +18,14 @@ async function getAllVouchers(pool, status = 'active') {
             whereClause = `WHERE COALESCE("delete", false) = TRUE`;
         } else if (status === 'inactive') {
             whereClause = `WHERE active = FALSE AND COALESCE("delete", false) = FALSE`;
+        } else if (status === 'all') {
+            whereClause = ''; // Return EVERYTHING
         } else {
             // Default 'active' tab shows only ACTIVE vouchers
             whereClause = `WHERE active = TRUE AND COALESCE("delete", false) = FALSE`;
         }
 
+        console.log(`Executing getAllVouchers with status: ${status}, Clause: ${whereClause}`);
         const result = await pool.query(
             `SELECT * FROM voucher ${whereClause} ORDER BY created_at DESC`
         );

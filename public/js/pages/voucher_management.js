@@ -1,6 +1,9 @@
 /**
  * Voucher Management Page Logic
+ * Version 2.0 - Client Side Filtering
  */
+
+console.log('Frontend Voucher Script Loaded (V2)');
 
 let allVouchers = [];
 let currentTab = 'active';
@@ -39,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 function switchTab(tab) {
     currentTab = tab;
+    console.log(`Switching to tab: ${tab}`);
 
     // Reset all tabs
     [tabActive, tabInactive, tabDeleted].forEach(el => {
@@ -51,21 +55,26 @@ function switchTab(tab) {
     if (tab === 'inactive') tabInactive.className = activeClass;
     if (tab === 'deleted') tabDeleted.className = activeClass;
 
-    fetchVouchers();
+    renderVouchers(); // Just re-render, data is already fetched (or fetch if empty)
+    if (allVouchers.length === 0) fetchVouchers();
 }
 
 /**
- * Fetch all vouchers from API
+ * Fetch all vouchers from API (Status: ALL)
  */
 async function fetchVouchers() {
     try {
-        const response = await fetch(`/api/vouchers?status=${currentTab}`);
+        // Fetch ALL vouchers to client side for filtering
+        const timestamp = new Date().getTime(); // Cache buster
+        const response = await fetch(`/api/vouchers?status=all&t=${timestamp}`);
+
         if (response.status === 401) {
             window.location.href = '/domestic';
             return;
         }
 
         const data = await response.json();
+        console.log('API Response Raw:', data);
 
         if (Array.isArray(data)) {
             allVouchers = data;
@@ -76,7 +85,7 @@ async function fetchVouchers() {
             allVouchers = [];
         }
 
-        console.log(`Fetched ${allVouchers.length} vouchers for tab '${currentTab}'`);
+        console.log(`Loaded ${allVouchers.length} total vouchers.`);
         renderVouchers();
         updateStats();
     } catch (error) {
@@ -86,10 +95,29 @@ async function fetchVouchers() {
 }
 
 /**
- * Render voucher list
+ * Render voucher list based on current tab filter
  */
 function renderVouchers() {
-    if (allVouchers.length === 0) {
+    console.log(`Rendering vouchers for tab: ${currentTab}`);
+
+    // Filter Logic
+    const filteredVouchers = allVouchers.filter(v => {
+        const isDeleted = !!v.delete; // Ensure boolean
+        const isActive = !!v.active;   // Ensure boolean
+
+        if (currentTab === 'deleted') {
+            return isDeleted;
+        } else if (currentTab === 'inactive') {
+            return !isActive && !isDeleted;
+        } else {
+            // Active Tab
+            return isActive && !isDeleted;
+        }
+    });
+
+    console.log(`Filtered count: ${filteredVouchers.length}`);
+
+    if (filteredVouchers.length === 0) {
         let message = 'No vouchers found.';
         if (currentTab === 'active') message = 'No active vouchers.<br>Click "Create Voucher" to get started.';
         if (currentTab === 'inactive') message = 'No inactive vouchers.';
@@ -105,12 +133,10 @@ function renderVouchers() {
         return;
     }
 
-    voucherList.innerHTML = allVouchers.map(voucher => {
-        const isActive = voucher.active;
+    voucherList.innerHTML = filteredVouchers.map(voucher => {
+        const isActive = !!voucher.active;
         const expiryDate = voucher.available_until ? new Date(voucher.available_until) : null;
         const isExpired = expiryDate && expiryDate < new Date();
-
-        // "Active" means explicitly active AND not expired
         const isValid = isActive && !isExpired;
 
         // Dynamic styling
@@ -118,9 +144,8 @@ function renderVouchers() {
         if (currentTab === 'deleted') {
             cardBgClass = 'bg-slate-50 border-slate-200 grayscale opacity-75';
         } else if (currentTab === 'inactive') {
-            cardBgClass = 'bg-slate-50 border-slate-200'; // Make inactive visually distinct but not "deleted"
+            cardBgClass = 'bg-slate-50 border-slate-200';
         } else {
-            // Active tab
             cardBgClass = isValid ? 'bg-green-50 border-green-200' : 'bg-white border-slate-100';
         }
 
@@ -209,21 +234,13 @@ function renderVouchers() {
  * Update stats numbers
  */
 function updateStats() {
-    // Stats logic is tricky with filtered fetching. 
-    // Ideally user wants global stats.
-    // For now, we only have current tab data.
-    // We can't update global stats accurately without a separate API call or 'all' fetch.
-    // To handle this gracefully, we'll just not update them or show '--' if not available.
-    // Or we could fetch stats separately.
-    // Given the user constraint, I will leave stats as is (showing numbers for current view or potentially incorrect).
-    // Better: Only show count for current view?
+    const total = allVouchers.length;
+    // We can compute stats client side now!
+    const activeVouchers = allVouchers.filter(v => v.active && !v.delete).length;
 
-    // For now, let's just show total count of CURRENT LIST.
-    document.getElementById('statTotal').textContent = allVouchers.length;
-
-    // Hide or disable other stats if they are misleading?
-    // Let's assume user just wants to know "How many here".
-    // statActive is repurposed for "Filtered Count".
+    // For now stick to total
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statActive').textContent = activeVouchers;
 }
 
 /**
@@ -327,18 +344,11 @@ async function toggleActive(id) {
         if (!response.ok) throw new Error('Failed to toggle active status');
 
         const data = await response.json();
-
-        // Logic: specific message based on where it moved
         const newStatus = data.active;
-        if (newStatus && currentTab === 'inactive') {
-            showToast('Voucher activated and moved to Active tab', 'success');
-        } else if (!newStatus && currentTab === 'active') {
-            showToast('Voucher deactivated and moved to Inactive tab', 'success');
-        } else {
-            showToast('Status updated', 'success');
-        }
 
-        fetchVouchers();
+        // Optimistic UI update or refresh
+        showToast(data.active ? 'Voucher activated' : 'Voucher deactivated', 'success');
+        fetchVouchers(); // This will re-fetch EVERYTHING and re-filter
     } catch (error) {
         console.error('Error toggling status:', error);
         showToast('Failed to toggle status', 'error');
