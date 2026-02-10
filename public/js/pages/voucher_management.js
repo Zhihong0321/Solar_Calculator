@@ -123,6 +123,29 @@ function renderVouchers() {
         return;
     }
 
+    // Sorting Logic: Non-Expired First, Then by Title
+    currentVouchers.sort((a, b) => {
+        const now = new Date();
+        const expiryA = a.available_until ? new Date(a.available_until) : null;
+        const expiryB = b.available_until ? new Date(b.available_until) : null;
+
+        // Check if expired (if no expiry, it's not expired)
+        const isExpiredA = expiryA && expiryA < now;
+        const isExpiredB = expiryB && expiryB < now;
+
+        // 1. Sort by Expiry Status (Active first)
+        if (isExpiredA !== isExpiredB) {
+            return isExpiredA ? 1 : -1; // If A is expired, it goes last (1)
+        }
+
+        // 2. Sort by Title (Alphabetical)
+        const titleA = (a.title || '').toLowerCase();
+        const titleB = (b.title || '').toLowerCase();
+        if (titleA < titleB) return -1;
+        if (titleA > titleB) return 1;
+        return 0;
+    });
+
     voucherList.innerHTML = currentVouchers.map(voucher => {
         const isActive = !!voucher.active;
         const expiryDate = voucher.available_until ? new Date(voucher.available_until) : null;
