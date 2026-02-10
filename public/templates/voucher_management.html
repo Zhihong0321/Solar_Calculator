@@ -216,7 +216,11 @@
                                 class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium">
                                 <option value="Fixed Amount Discount">Fixed Amount (RM)</option>
                                 <option value="Percentage Discount">Percentage (%)</option>
+                                <option value="Gift">GIFT (Product Redemption)</option>
                             </select>
+                            <p id="giftTypeDesc" class="hidden text-[10px] text-slate-500 font-medium mt-1">
+                                不影响总额的礼物选择礼物（比如 tng reload, 是另外转账到客户户口）
+                            </p>
                         </div>
                         <div id="amountField" class="space-y-2">
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Value</label>
@@ -227,6 +231,21 @@
                                     class="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-bold">
                             </div>
                         </div>
+                    </div>
+
+                    <div id="commissionDeductionField"
+                        class="hidden space-y-2 bg-orange-50 p-4 rounded-xl border border-orange-100">
+                        <label class="text-xs font-bold text-orange-700 uppercase tracking-wider px-1">
+                            Commission Deduction Amount
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400 font-bold">RM</span>
+                            <input type="number" id="deductable_from_commission" placeholder="0.00"
+                                class="w-full pl-12 pr-4 py-3 rounded-xl border border-orange-200 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all font-bold text-orange-900 bg-white">
+                        </div>
+                        <p class="text-[10px] text-orange-600 font-medium mt-1">
+                            比如送 TNG Reload, 电视，需要在 算佣金时，从结账总额扣除数目：）
+                        </p>
                     </div>
 
                     <div class="space-y-2">

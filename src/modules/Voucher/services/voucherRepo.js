@@ -128,7 +128,8 @@ async function createVoucher(pool, data) {
         terms_conditions,
         available_until,
         public = true,
-        created_by
+        created_by,
+        deductable_from_commission
     } = data;
 
     const bubble_id = `voucher_${crypto.randomBytes(8).toString('hex')}`;
@@ -136,15 +137,16 @@ async function createVoucher(pool, data) {
     // Safe Integer Parsing for Percent
     const safePercent = discount_percent ? parseInt(discount_percent, 10) : null;
     const safeAmount = discount_amount ? parseFloat(discount_amount) : null;
+    const safeDeductable = deductable_from_commission ? parseFloat(deductable_from_commission) : 0;
 
     const query = `
     INSERT INTO voucher (
       bubble_id, title, voucher_code, voucher_type, 
       discount_amount, discount_percent, active, 
       voucher_availability, terms_conditions, available_until, 
-      public, created_by, created_at, updated_at, created_date
+      public, created_by, deductable_from_commission, created_at, updated_at, created_date
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW(), NOW()
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW(), NOW()
     ) RETURNING *
   `;
 
@@ -152,7 +154,7 @@ async function createVoucher(pool, data) {
         bubble_id, title, voucher_code, voucher_type,
         safeAmount, safePercent, active,
         voucher_availability || null, terms_conditions || null, available_until || null,
-        public, created_by || null
+        public, created_by || null, safeDeductable
     ];
 
     try {
@@ -182,7 +184,8 @@ async function updateVoucher(pool, id, data) {
         voucher_availability,
         terms_conditions,
         available_until,
-        public
+        public,
+        deductable_from_commission
     } = data;
 
     const isNumeric = !isNaN(id);
@@ -199,6 +202,17 @@ async function updateVoucher(pool, id, data) {
         safeAmount = discount_amount ? parseFloat(discount_amount) : null;
     }
 
+    let safeDeductable = undefined;
+    if (deductable_from_commission !== undefined) {
+        safeDeductable = deductable_from_commission ? parseFloat(deductable_from_commission) : 0;
+    }
+
+    // Dynamic query construction is hard with hardcoded indices.
+    // However, since we are rewriting the whole function block, we can just update indices.
+    // Param Indices:
+    // 1: title, 2: code, 3: type, 4: amount, 5: percent, 6: active, 
+    // 7: availability, 8: terms, 9: until, 10: public, 11: deductable, 12: id
+
     const query = `
     UPDATE voucher SET
       title = COALESCE($1, title),
@@ -211,9 +225,10 @@ async function updateVoucher(pool, id, data) {
       terms_conditions = COALESCE($8, terms_conditions),
       available_until = COALESCE($9, available_until),
       public = COALESCE($10, public),
+      deductable_from_commission = COALESCE($11, deductable_from_commission),
       updated_at = NOW(),
       modified_date = NOW()
-    WHERE ${identifierColumn} = $11
+    WHERE ${identifierColumn} = $12
     RETURNING *
   `;
 
@@ -221,7 +236,7 @@ async function updateVoucher(pool, id, data) {
         title, voucher_code, voucher_type,
         safeAmount, safePercent, active,
         voucher_availability, terms_conditions, available_until,
-        public, id
+        public, safeDeductable, id
     ];
 
     try {

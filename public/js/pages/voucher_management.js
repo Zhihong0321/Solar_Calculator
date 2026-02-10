@@ -28,7 +28,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle discount type change UI
     discountTypeSelect.addEventListener('change', (e) => {
-        valuePrefix.textContent = e.target.value === 'Percentage Discount' ? '%' : 'RM';
+        const type = e.target.value;
+        const isGift = type === 'Gift';
+
+        valuePrefix.textContent = type === 'Percentage Discount' ? '%' : 'RM';
+
+        // Toggle Gift-specific UI
+        const giftDesc = document.getElementById('giftTypeDesc');
+        const commField = document.getElementById('commissionDeductionField');
+
+        if (giftDesc) giftDesc.classList.toggle('hidden', !isGift);
+        if (commField) commField.classList.toggle('hidden', !isGift);
     });
 
     // Form submission
@@ -275,6 +285,12 @@ function openModal(id = null) {
             document.getElementById('discount_value').value = voucher.voucher_type === 'Percentage Discount'
                 ? voucher.discount_percent
                 : voucher.discount_amount;
+
+            // Populate Commission Deduction
+            if (document.getElementById('deductable_from_commission')) {
+                document.getElementById('deductable_from_commission').value = voucher.deductable_from_commission || '';
+            }
+
             document.getElementById('invoice_description').value = voucher.invoice_description || '';
             document.getElementById('voucher_availability').value = voucher.voucher_availability || '';
             document.getElementById('available_until').value = voucher.available_until ? voucher.available_until.split('T')[0] : '';
@@ -282,7 +298,9 @@ function openModal(id = null) {
             document.getElementById('active').checked = !!voucher.active;
             document.getElementById('public').checked = !!voucher.public;
 
-            valuePrefix.textContent = voucher.voucher_type === 'Percentage Discount' ? '%' : 'RM';
+            // Trigger change event to update UI state
+            const event = new Event('change');
+            document.getElementById('voucher_type').dispatchEvent(event);
         }
     }
 
@@ -309,8 +327,9 @@ async function handleFormSubmit(e) {
         title: document.getElementById('title').value,
         voucher_code: document.getElementById('voucher_code').value.toUpperCase(),
         voucher_type: voucherType,
-        discount_amount: voucherType === 'Fixed Amount Discount' ? value : null,
+        discount_amount: voucherType === 'Fixed Amount Discount' ? value : (voucherType === 'Gift' ? value : null),
         discount_percent: voucherType === 'Percentage Discount' ? value : null,
+        deductable_from_commission: document.getElementById('deductable_from_commission').value || 0,
         invoice_description: document.getElementById('invoice_description').value,
         voucher_availability: document.getElementById('voucher_availability').value || null,
         available_until: document.getElementById('available_until').value || null,
