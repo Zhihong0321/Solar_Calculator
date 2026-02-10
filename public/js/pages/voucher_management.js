@@ -1,11 +1,11 @@
 /**
  * Voucher Management Page Logic
- * Version 2.0 - Client Side Filtering
+ * Version 3.0 - Resilient Fetching
  */
 
-console.log('Frontend Voucher Script Loaded (V2)');
+console.log('Frontend Voucher Script Loaded (V3)');
 
-let allVouchers = [];
+let currentVouchers = [];
 let currentTab = 'active';
 
 // DOM Elements
@@ -26,7 +26,7 @@ const tabDeleted = document.getElementById('tabDeleted');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    fetchVouchers();
+    switchTab('active');
 
     // Handle discount type change UI
     discountTypeSelect.addEventListener('change', (e) => {
@@ -55,18 +55,27 @@ function switchTab(tab) {
     if (tab === 'inactive') tabInactive.className = activeClass;
     if (tab === 'deleted') tabDeleted.className = activeClass;
 
-    renderVouchers(); // Just re-render, data is already fetched (or fetch if empty)
-    if (allVouchers.length === 0) fetchVouchers();
+    fetchVouchers();
 }
 
 /**
- * Fetch all vouchers from API (Status: ALL)
+ * Fetch vouchers specific to the current tab
+ * Using explicit status allows it to work with older backend versions too
  */
 async function fetchVouchers() {
     try {
-        // Fetch ALL vouchers to client side for filtering
         const timestamp = new Date().getTime(); // Cache buster
-        const response = await fetch(`/api/vouchers?status=all&t=${timestamp}`);
+        // Map tab to status query
+        // Note: Old Backend treats 'inactive' as default (non-deleted), New Backend treats it as specific.
+        // We will filter client-side anyway to be safe.
+        let statusParam = currentTab;
+        if (currentTab === 'inactive' || currentTab === 'active') {
+            // Requesting 'all' might fail on old backend, requesting specific helps if supported.
+            // Let's stick to requesting the specific status.
+            statusParam = currentTab;
+        }
+
+        const response = await fetch(`/api/vouchers?status=${statusParam}&t=${timestamp}`);
 
         if (response.status === 401) {
             window.location.href = '/domestic';
@@ -74,20 +83,32 @@ async function fetchVouchers() {
         }
 
         const data = await response.json();
-        console.log('API Response Raw:', data);
+        console.log(`API Response for ${currentTab}:`, data);
 
+        let rawVouchers = [];
         if (Array.isArray(data)) {
-            allVouchers = data;
+            rawVouchers = data;
         } else if (data.vouchers && Array.isArray(data.vouchers)) {
-            allVouchers = data.vouchers;
+            rawVouchers = data.vouchers;
         } else {
             console.error('Expected array but got:', data);
-            allVouchers = [];
         }
 
-        console.log(`Loaded ${allVouchers.length} total vouchers.`);
+        // Client-Side Robust Filtering
+        // This ensures that even if backend returns mixed results (old version), we show the right thing.
+        currentVouchers = rawVouchers.filter(v => {
+            const isDeleted = !!v.delete;
+            const isActive = !!v.active;
+
+            if (currentTab === 'deleted') return isDeleted;
+            if (currentTab === 'inactive') return !isActive && !isDeleted;
+            if (currentTab === 'active') return isActive && !isDeleted;
+            return false;
+        });
+
+        console.log(`Renderable count for ${currentTab}: ${currentVouchers.length}`);
         renderVouchers();
-        updateStats();
+        updateStats(); // Note: Stats will only reflect current tab now
     } catch (error) {
         console.error('Error fetching vouchers:', error);
         showToast('Failed to load vouchers', 'error');
@@ -95,29 +116,10 @@ async function fetchVouchers() {
 }
 
 /**
- * Render voucher list based on current tab filter
+ * Render voucher list
  */
 function renderVouchers() {
-    console.log(`Rendering vouchers for tab: ${currentTab}`);
-
-    // Filter Logic
-    const filteredVouchers = allVouchers.filter(v => {
-        const isDeleted = !!v.delete; // Ensure boolean
-        const isActive = !!v.active;   // Ensure boolean
-
-        if (currentTab === 'deleted') {
-            return isDeleted;
-        } else if (currentTab === 'inactive') {
-            return !isActive && !isDeleted;
-        } else {
-            // Active Tab
-            return isActive && !isDeleted;
-        }
-    });
-
-    console.log(`Filtered count: ${filteredVouchers.length}`);
-
-    if (filteredVouchers.length === 0) {
+    if (currentVouchers.length === 0) {
         let message = 'No vouchers found.';
         if (currentTab === 'active') message = 'No active vouchers.<br>Click "Create Voucher" to get started.';
         if (currentTab === 'inactive') message = 'No inactive vouchers.';
@@ -133,7 +135,7 @@ function renderVouchers() {
         return;
     }
 
-    voucherList.innerHTML = filteredVouchers.map(voucher => {
+    voucherList.innerHTML = currentVouchers.map(voucher => {
         const isActive = !!voucher.active;
         const expiryDate = voucher.available_until ? new Date(voucher.available_until) : null;
         const isExpired = expiryDate && expiryDate < new Date();
@@ -161,6 +163,7 @@ function renderVouchers() {
                     <button onclick="restoreVoucher('${voucher.bubble_id}')" class="px-3 h-9 rounded-xl hover:bg-green-50 flex items-center justify-center gap-1 text-slate-400 hover:text-green-600 transition-all font-bold text-xs bg-white shadow-sm border border-slate-200">
                         <i class="fa-solid fa-rotate-left"></i> Restore
                     </button>
+                    <!-- Optional Permanent Delete -->
                 </div>
             `;
         } else {
@@ -234,13 +237,15 @@ function renderVouchers() {
  * Update stats numbers
  */
 function updateStats() {
-    const total = allVouchers.length;
-    // We can compute stats client side now!
-    const activeVouchers = allVouchers.filter(v => v.active && !v.delete).length;
+    // With specific fetching, we only know the count of the current tab accurately.
+    // So we just show "Loaded"
+    const total = currentVouchers.length;
+    document.getElementById('statTotal').textContent = total > 0 ? total : '--';
 
-    // For now stick to total
-    document.getElementById('statTotal').textContent = total;
-    document.getElementById('statActive').textContent = activeVouchers;
+    // We can't know other stats. Hide them or leave dashes?
+    // Let's leave dashes.
+    document.getElementById('statActive').textContent = '--';
+    document.getElementById('statPublic').textContent = '--';
 }
 
 /**
@@ -257,7 +262,8 @@ function openModal(id = null) {
     modalTitle.textContent = 'Create New Voucher';
 
     if (id) {
-        const voucher = allVouchers.find(v => v.bubble_id === id);
+        // Need to find in currentVouchers
+        const voucher = currentVouchers.find(v => v.bubble_id === id);
         if (voucher) {
             modalTitle.textContent = 'Edit Voucher';
             voucherIdInput.value = voucher.bubble_id;
@@ -344,11 +350,10 @@ async function toggleActive(id) {
         if (!response.ok) throw new Error('Failed to toggle active status');
 
         const data = await response.json();
-        const newStatus = data.active;
 
         // Optimistic UI update or refresh
         showToast(data.active ? 'Voucher activated' : 'Voucher deactivated', 'success');
-        fetchVouchers(); // This will re-fetch EVERYTHING and re-filter
+        fetchVouchers(); // Refresh list to reflect move
     } catch (error) {
         console.error('Error toggling status:', error);
         showToast('Failed to toggle status', 'error');
