@@ -7,17 +7,20 @@ const crypto = require('crypto');
 /**
  * Get all vouchers filtered by status
  * @param {object} pool - Database pool
- * @param {string} status - 'active' (default) or 'deleted'
+ * @param {string} status - 'active' (default), 'inactive', or 'deleted'
  * @returns {Promise<Array>} List of vouchers
  */
 async function getAllVouchers(pool, status = 'active') {
     try {
-        let whereClause = `WHERE "delete" IS NOT TRUE OR "delete" IS NULL`;
+        let whereClause = '';
 
         if (status === 'deleted') {
             whereClause = `WHERE COALESCE("delete", false) = TRUE`;
+        } else if (status === 'inactive') {
+            whereClause = `WHERE active = FALSE AND COALESCE("delete", false) = FALSE`;
         } else {
-            whereClause = `WHERE COALESCE("delete", false) = FALSE`;
+            // Default 'active' tab shows only ACTIVE vouchers
+            whereClause = `WHERE active = TRUE AND COALESCE("delete", false) = FALSE`;
         }
 
         const result = await pool.query(
@@ -75,6 +78,34 @@ async function checkVoucherCodeExists(pool, code, excludeId = null) {
         return false;
     }
 }
+
+/**
+ * Toggle voucher active status
+ * @param {object} pool - Database pool
+ * @param {number|string} id - Voucher ID or bubble_id
+ * @returns {Promise<boolean>} New active status
+ */
+async function toggleVoucherStatus(pool, id) {
+    const isNumeric = !isNaN(id);
+    const identifierColumn = isNumeric ? 'id' : 'bubble_id';
+
+    // Toggle the boolean value
+    const query = `
+        UPDATE voucher 
+        SET active = NOT active, updated_at = NOW() 
+        WHERE ${identifierColumn} = $1 
+        RETURNING active
+    `;
+
+    try {
+        const result = await pool.query(query, [id]);
+        return result.rows.length > 0 ? result.rows[0].active : null;
+    } catch (err) {
+        console.error('Error toggling voucher status:', err);
+        throw err;
+    }
+}
+
 
 /**
  * Create a new voucher
@@ -195,33 +226,6 @@ async function updateVoucher(pool, id, data) {
         return result.rows.length > 0 ? result.rows[0] : null;
     } catch (err) {
         console.error('Error updating voucher:', err);
-        throw err;
-    }
-}
-
-/**
- * Toggle voucher active status
- * @param {object} pool - Database pool
- * @param {number|string} id - Voucher ID or bubble_id
- * @returns {Promise<boolean>} New active status
- */
-async function toggleVoucherStatus(pool, id) {
-    const isNumeric = !isNaN(id);
-    const identifierColumn = isNumeric ? 'id' : 'bubble_id';
-
-    // Toggle the boolean value
-    const query = `
-        UPDATE voucher 
-        SET active = NOT active, updated_at = NOW() 
-        WHERE ${identifierColumn} = $1 
-        RETURNING active
-    `;
-
-    try {
-        const result = await pool.query(query, [id]);
-        return result.rows.length > 0 ? result.rows[0].active : null;
-    } catch (err) {
-        console.error('Error toggling voucher status:', err);
         throw err;
     }
 }
