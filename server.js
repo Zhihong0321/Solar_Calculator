@@ -17,6 +17,7 @@ const Customer = require('./src/modules/Customer');
 const Chat = require('./src/modules/Chat');
 const Referral = require('./src/modules/Referral');
 const Email = require('./src/modules/Email');
+const Voucher = require('./src/modules/Voucher');
 const sedaRoutes = require('./routes/sedaRoutes');
 
 const app = express();
@@ -27,7 +28,7 @@ app.set('trust proxy', 1);
 
 // --- Global Middleware ---
 app.use(cors({
-  origin: '*', 
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   credentials: true
@@ -49,6 +50,7 @@ app.use(Customer.router);
 app.use(Chat.router);
 app.use(Referral.router);
 app.use(Email.router);
+app.use(Voucher.router);
 app.use(sedaRoutes);
 
 // --- Global Routes & Static Files ---
@@ -93,7 +95,7 @@ app.post('/api/agent/register', async (req, res) => {
 
     const agent_bubble_id = `agent_${crypto.randomBytes(8).toString('hex')}`;
     const user_bubble_id = `user_${crypto.randomBytes(8).toString('hex')}`;
-    
+
     const uploadDir = path.join(storagePath, 'agent_documents');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -108,7 +110,7 @@ app.post('/api/agent/register', async (req, res) => {
         const buffer = Buffer.from(matches[2], 'base64');
         const filename = `${prefix}_${bubble_id}_${Date.now()}.${ext}`;
         fs.writeFileSync(path.join(uploadDir, filename), buffer);
-        
+
         const protocol = req.headers['x-forwarded-proto'] || req.protocol;
         const host = req.get('host');
         return `${protocol}://${host}/agent-docs/${filename}`;
@@ -142,7 +144,7 @@ app.post('/api/agent/register', async (req, res) => {
       RETURNING *
     `;
     const agentResult = await client.query(agentQuery, [
-      agent_bubble_id, name, contact, email, address, introducer, agent_type, 
+      agent_bubble_id, name, contact, email, address, introducer, agent_type,
       icFrontUrl, icBackUrl, user_bubble_id
     ]);
 
@@ -194,6 +196,11 @@ app.get('/my-referal', requireAuth, (req, res) => {
 // Agent Email Management Route
 app.get('/my-emails', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'my_emails.html'));
+});
+
+// Voucher Management Route
+app.get('/voucher-management', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'voucher_management.html'));
 });
 
 /**
@@ -287,6 +294,7 @@ app.get('/api/agent/me', requireAuth, async (req, res) => {
         a.name, 
         u.email, 
         u.profile_picture,
+        u.access_level,
         a.contact as phone
       FROM "user" u
       LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
@@ -294,7 +302,7 @@ app.get('/api/agent/me', requireAuth, async (req, res) => {
       LIMIT 1
     `;
     const result = await pool.query(query, [String(userId), String(bubbleId || '')]);
-    
+
     if (result.rows.length === 0) {
       console.warn(`[AgentMe] No user found for ID: ${userId}`);
       return res.status(404).json({ error: 'Agent not found' });
@@ -304,8 +312,8 @@ app.get('/api/agent/me', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[AgentMe] Critical Error:', err);
     // Return detailed error for debugging purposes
-    res.status(500).json({ 
-      error: 'Internal server error', 
+    res.status(500).json({
+      error: 'Internal server error',
       message: err.message,
       stack: err.stack,
       hint: 'Check if all columns (name, email, linked_agent_profile, profile_picture) exist in "user" table and contact in "agent" table.'
