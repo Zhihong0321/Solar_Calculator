@@ -75,6 +75,22 @@ router.post('/api/vouchers', requireAuth, async (req, res) => {
 });
 
 /**
+ * PATCH /api/vouchers/:id/toggle
+ * Toggle active status
+ */
+router.patch('/api/vouchers/:id/toggle', requireAuth, async (req, res) => {
+    try {
+        const newStatus = await voucherRepo.toggleVoucherStatus(pool, req.params.id);
+        if (newStatus === null) {
+            return res.status(404).json({ error: 'Voucher not found' });
+        }
+        res.json({ success: true, active: newStatus });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to toggle status' });
+    }
+});
+
+/**
  * PUT /api/vouchers/:id
  * Update an existing voucher
  */

@@ -121,11 +121,16 @@ function renderVouchers() {
         let actionButtons = '';
         if (currentTab === 'active') {
             actionButtons = `
-                <div class="flex gap-2">
-                    <button onclick="editVoucher('${voucher.bubble_id}')" class="w-9 h-9 rounded-xl hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all">
+                <div class="flex items-center gap-3">
+                    <label class="relative inline-flex items-center cursor-pointer group" title="Toggle Active Status">
+                        <input type="checkbox" class="sr-only peer" onchange="toggleActive('${voucher.bubble_id}')" ${isActive ? 'checked' : ''}>
+                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500 hover:bg-slate-300 peer-checked:hover:bg-green-600"></div>
+                    </label>
+                    <div class="h-4 w-px bg-slate-200 mx-1"></div>
+                    <button onclick="editVoucher('${voucher.bubble_id}')" class="w-8 h-8 rounded-lg hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-blue-500 transition-all">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
-                    <button onclick="deleteVoucher('${voucher.bubble_id}')" class="w-9 h-9 rounded-xl hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all">
+                    <button onclick="deleteVoucher('${voucher.bubble_id}')" class="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-all">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
@@ -290,6 +295,26 @@ async function handleFormSubmit(e) {
     } catch (error) {
         console.error('Error saving voucher:', error);
         showToast(error.message, 'error');
+    }
+}
+
+/**
+ * Toggle active status
+ */
+async function toggleActive(id) {
+    try {
+        const response = await fetch(`/api/vouchers/${id}/toggle`, { method: 'PATCH' });
+        if (!response.ok) throw new Error('Failed to toggle active status');
+
+        const data = await response.json();
+
+        // Optimistic UI update or refresh
+        showToast(data.active ? 'Voucher activated' : 'Voucher deactivated', 'success');
+        fetchVouchers(); // Refresh to update visual state (Active/Inactive badge)
+    } catch (error) {
+        console.error('Error toggling status:', error);
+        showToast('Failed to toggle status', 'error');
+        fetchVouchers(); // Revert state on error
     }
 }
 
