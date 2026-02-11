@@ -276,6 +276,26 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     </div>
 
     <script>
+      function resetSignature() {
+        Swal.fire({
+          title: 'Re-sign Quotation?',
+          text: "This will clear the current signature and allow you to sign again.",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#0f172a',
+          cancelButtonColor: '#f1f5f9',
+          confirmButtonText: 'Yes, Re-sign',
+          cancelButtonText: 'Cancel',
+          customClass: {
+            cancelButton: 'text-slate-600'
+          }
+        }).then((result) => {
+          if (result.isConfirmed) {
+            openSignatureModal();
+          }
+        });
+      }
+
       let signaturePad;
       const modal = document.getElementById('signatureModal');
       const box = document.getElementById('signatureBox');
@@ -592,16 +612,36 @@ function generateInvoiceHtml(invoice, template, options = {}) {
 
       return `
       <section class="mt-12 pt-8 border-t border-slate-200">
-        <div class="max-w-xs">
-          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Read, Agreed, Signed by</p>
-          <div class="h-24 flex items-center mb-2">
-              <img src="${sigUrl}" alt="Customer Signature" class="max-h-full object-contain">
+        <div class="flex flex-col sm:flex-row justify-between items-end gap-6">
+          <div class="max-w-xs">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Read, Agreed, Signed by</p>
+            <div class="h-24 flex items-center mb-2 relative group">
+                <img src="${sigUrl}" alt="Customer Signature" class="max-h-full object-contain">
+                ${!options.forPdf ? `
+                <button onclick="resetSignature()" class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-white shadow-sm border border-slate-200 text-slate-600 hover:text-red-600 p-1.5 rounded-lg transition-all no-print" title="Re-sign">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                  </svg>
+                </button>
+                ` : ''}
+            </div>
+            <div class="border-t border-slate-400 pt-2">
+                <p class="text-xs font-bold text-slate-900 uppercase">${invoice.customer_name || 'Customer'}</p>
+                <p class="text-[10px] text-slate-500">${invoice.customer_phone || ''} ${(invoice.customer_email) ? '• ' + (invoice.customer_email) : ''}</p>
+                ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on <span class="local-time" data-iso="${(() => { try { return new Date(invoice.signature_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="true">${invoice.signature_date}</span></p>` : ''}
+            </div>
           </div>
-          <div class="border-t border-slate-400 pt-2">
-              <p class="text-xs font-bold text-slate-900 uppercase">${invoice.customer_name || 'Customer'}</p>
-              <p class="text-[10px] text-slate-500">${invoice.customer_phone || ''} ${(invoice.customer_email) ? '• ' + (invoice.customer_email) : ''}</p>
-              ${invoice.signature_date ? `<p class="text-[9px] text-slate-400 mt-1 uppercase">Signed on <span class="local-time" data-iso="${(() => { try { return new Date(invoice.signature_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="true">${invoice.signature_date}</span></p>` : ''}
+          
+          ${!options.forPdf ? `
+          <div class="no-print">
+            <button onclick="resetSignature()" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest flex items-center gap-2 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              Re-sign Quotation
+            </button>
           </div>
+          ` : ''}
         </div>
       </section>
       `;
