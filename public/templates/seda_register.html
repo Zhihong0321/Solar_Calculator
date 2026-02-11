@@ -1023,7 +1023,8 @@ Thank you!`;
                             document.getElementById('signedContent').classList.add('hidden');
                             document.getElementById('unsignedContent').classList.remove('hidden');
 
-                            const invoiceUrl = `${window.location.origin}/view/${invoice.share_token}`;
+                            const identifier = invoice.share_token || invoice.bubble_id;
+                            const invoiceUrl = `${window.location.origin}/view/${identifier}`;
 
                             document.getElementById('viewInvoiceBtn').onclick = () => window.open(invoiceUrl, '_blank');
                             document.getElementById('shareInvoiceBtn').onclick = () => shareInvoice(invoiceUrl, invoice.invoice_number);

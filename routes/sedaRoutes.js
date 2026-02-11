@@ -84,7 +84,7 @@ router.get('/api/v1/seda-public/:shareToken', async (req, res) => {
         let invoice = null;
         if (seda.linked_invoice && seda.linked_invoice.length > 0) {
             const invRes = await client.query(
-                'SELECT customer_signature, share_token, invoice_number FROM invoice WHERE bubble_id = $1',
+                'SELECT bubble_id, customer_signature, share_token, invoice_number FROM invoice WHERE bubble_id = $1',
                 [seda.linked_invoice[0]]
             );
             if (invRes.rows.length > 0) {
@@ -604,7 +604,7 @@ router.get('/api/v1/seda/:id', async (req, res) => {
         let invoice = null;
         if (seda.linked_invoice && seda.linked_invoice.length > 0) {
             const invRes = await client.query(
-                'SELECT customer_signature, share_token, invoice_number FROM invoice WHERE bubble_id = $1',
+                'SELECT bubble_id, customer_signature, share_token, invoice_number FROM invoice WHERE bubble_id = $1',
                 [seda.linked_invoice[0]]
             );
             if (invRes.rows.length > 0) {
