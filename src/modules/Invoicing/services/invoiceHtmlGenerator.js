@@ -332,7 +332,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           const pathParts = window.location.pathname.split('/');
           const identifier = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
           
-          const response = await fetch(`/view/${identifier}/signature`, {
+          const response = await fetch('/view/' + identifier + '/signature', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ signature: dataUrl })
