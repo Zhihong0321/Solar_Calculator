@@ -1,6 +1,12 @@
 const { Pool } = require('pg');
 
-const connectionString = process.env.DATABASE_URL_TARIFF || process.env.DATABASE_URL;
+let connectionString = process.env.DATABASE_URL_TARIFF || process.env.DATABASE_URL;
+
+// Safety check for common misconfigurations
+if (connectionString === 'base') {
+  console.warn('[Tariff Pool] DATABASE_URL_TARIFF is set to "base". Using direct fallback URL.');
+  connectionString = "postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway";
+}
 
 if (!connectionString) {
   console.warn('[Tariff Pool] No database connection string found (DATABASE_URL_TARIFF or DATABASE_URL).');
