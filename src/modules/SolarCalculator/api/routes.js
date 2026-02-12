@@ -318,12 +318,8 @@ router.get('/api/packages', async (req, res) => {
 });
 
 router.get('/api/all-data', async (req, res) => {
-  console.log('[all-data] Request received');
-  console.log('[all-data] DATABASE_URL_TARIFF length:', process.env.DATABASE_URL_TARIFF ? process.env.DATABASE_URL_TARIFF.length : 'MISSING');
-  console.log('[all-data] DATABASE_URL_TARIFF value (masked):', process.env.DATABASE_URL_TARIFF ? (process.env.DATABASE_URL_TARIFF.substring(0, 10) + '...') : 'N/A');
   let tariffClient, mainClient;
   try {
-    console.log('[all-data] Connecting to tariffPool...');
     try {
       tariffClient = await tariffPool.connect();
     } catch (connErr) {
@@ -339,10 +335,8 @@ router.get('/api/all-data', async (req, res) => {
         throw connErr;
       }
     }
-    console.log('[all-data] Connecting to main pool...');
     mainClient = await pool.connect();
     
-    console.log('[all-data] Fetching tariffs...');
     const tariffs = await tariffClient.query(`
       SELECT
         usage_kwh,
@@ -359,7 +353,6 @@ router.get('/api/all-data', async (req, res) => {
       ORDER BY usage_kwh ASC
     `);
     
-    console.log('[all-data] Fetching packages...');
     const packages = await mainClient.query(`
       SELECT p.id, p.bubble_id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special, p.max_discount, p.invoice_desc,
              pr.bubble_id as product_bubble_id, pr.solar_output_rating
@@ -370,13 +363,12 @@ router.get('/api/all-data', async (req, res) => {
     
     tariffClient.release();
     mainClient.release();
-    console.log('[all-data] Success:', tariffs.rows.length, 'tariffs,', packages.rows.length, 'packages');
     res.json({ tariffs: tariffs.rows, packages: packages.rows });
   } catch (err) {
     console.error('[all-data] ERROR:', err);
     if (tariffClient) tariffClient.release();
     if (mainClient) mainClient.release();
-    res.status(500).json({ error: 'Failed to fetch all data', details: err.message, stack: err.stack });
+    res.status(500).json({ error: 'Failed to fetch all data', details: err.message });
   }
 });
 
