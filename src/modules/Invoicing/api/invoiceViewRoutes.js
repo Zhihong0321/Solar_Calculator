@@ -45,21 +45,22 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (!invoice) {
-        return res.status(404).send('Invoice not found');
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
       }
 
       const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { isPdf: true });
-      const pdfBuffer = await externalPdfService.generatePdf(html);
+      // This returns { success: true, downloadUrl: ... }, NOT a buffer
+      const pdfResult = await externalPdfService.generatePdf(html);
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename=Invoice-${invoice.invoice_number || 'INV'}.pdf`);
-      res.send(pdfBuffer);
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(pdfResult);
     } finally {
       client.release();
     }
   } catch (err) {
     console.error('Error generating PDF:', err);
-    res.status(500).send('Error generating PDF');
+    res.status(500).json({ success: false, error: 'Error generating PDF: ' + err.message });
   }
 });
 
@@ -146,22 +147,23 @@ router.get('/proposal/:shareToken/pdf', async (req, res) => {
       const invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
 
       if (!invoice) {
-        return res.status(404).send('Proposal not found');
+        return res.status(404).json({ success: false, error: 'Proposal not found' });
       }
 
       // If generateProposalHtml is missing, fallback to generateInvoiceHtml
       const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { isPdf: true });
-      const pdfBuffer = await externalPdfService.generatePdf(html);
+      // This returns { success: true, downloadUrl: ... }, NOT a buffer
+      const pdfResult = await externalPdfService.generatePdf(html);
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename=Proposal-${invoice.invoice_number || 'PRO'}.pdf`);
-      res.send(pdfBuffer);
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(pdfResult);
     } finally {
       client.release();
     }
   } catch (err) {
     console.error('Error generating Proposal PDF:', err);
-    res.status(500).send('Error generating PDF');
+    res.status(500).json({ success: false, error: 'Error generating PDF: ' + err.message });
   }
 });
 
