@@ -18,6 +18,7 @@ const Chat = require('./src/modules/Chat');
 const Referral = require('./src/modules/Referral');
 const Email = require('./src/modules/Email');
 const Voucher = require('./src/modules/Voucher');
+const SalesTeam = require('./src/modules/SalesTeam');
 const sedaRoutes = require('./routes/sedaRoutes');
 const ActivityReport = require('./src/modules/ActivityReport');
 
@@ -52,6 +53,7 @@ app.use(Chat.router);
 app.use(Referral.router);
 app.use(Email.router);
 app.use(Voucher.router);
+app.use(SalesTeam.router);
 app.use(sedaRoutes);
 app.use(ActivityReport.router);
 

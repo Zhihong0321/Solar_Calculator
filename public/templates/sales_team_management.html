@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Sales Team Management | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --brand-blue: #3b82f6;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-900: #0f172a;
+        }
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%); color: var(--slate-900); margin: 0; padding: 0; width: 100%; overflow-x: hidden; min-height: 100vh; }
+        .sidebar { background: white; border-right: 1px solid var(--slate-200); }
+        .nav-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.75rem; color: var(--slate-600); font-weight: 600; font-size: 0.875rem; transition: all 0.15s ease; }
+        .nav-link:hover { background: var(--slate-50); color: var(--slate-900); }
+        .nav-link.active { background: var(--slate-900); color: white; }
+        @media (max-width: 768px) { .sidebar { display: none; } }
+        
+        .team-card { transition: all 0.2s ease; }
+        .team-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
+        .member-card { transition: all 0.2s ease; cursor: grab; }
+        .member-card:hover { background: var(--slate-50); }
+        .member-card.dragging { opacity: 0.5; cursor: grabbing; }
+        
+        .drop-zone { transition: all 0.2s ease; }
+        .drop-zone.drag-over { background: rgba(59, 130, 246, 0.1); border-color: var(--brand-blue); }
+        
+        .modal { animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        
+        .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    </style>
+</head>
+<body class="flex">
+    <!-- Sidebar -->
+    <aside class="sidebar hidden md:flex flex-col w-64 fixed h-full z-20 p-6">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white">
+                <i class="fa-solid fa-bolt text-lg"></i>
+            </div>
+            <span class="text-lg font-bold tracking-tight text-slate-900">ETERNALGY OS</span>
+        </div>
+        <nav class="space-y-1 flex-1">
+            <a href="/agent/home" class="nav-link"><i class="fa-solid fa-house w-5"></i><span>Dashboard</span></a>
+            <a href="/activity-review" class="nav-link"><i class="fa-solid fa-chart-line w-5"></i><span>Activity Review</span></a>
+            <a href="/sales-team-management" class="nav-link active"><i class="fa-solid fa-users-gear w-5"></i><span>Team Management</span></a>
+            <a href="/my-customers" class="nav-link"><i class="fa-solid fa-users w-5"></i><span>All Customers</span></a>
+            <a href="/my-invoice" class="nav-link"><i class="fa-solid fa-file-invoice-dollar w-5"></i><span>All Invoices</span></a>
+        </nav>
+        <div class="mt-auto border-t border-slate-100 pt-6">
+            <button onclick="logout()" class="nav-link w-full text-left text-red-600 hover:bg-red-50">
+                <i class="fa-solid fa-right-from-bracket w-5"></i><span>Logout</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 w-full md:ml-64 flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900">Sales Team Management</h1>
+                    <p class="text-xs text-slate-500 mt-0.5">Create teams and assign sales personnel</p>
+                </div>
+                <button onclick="showCreateTeamModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors">
+                    <i class="fa-solid fa-plus"></i> New Team
+                </button>
+            </div>
+        </header>
+
+        <div class="w-full max-w-7xl mx-auto p-6 md:p-8 space-y-6">
+            <!-- Stats Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white rounded-xl border border-slate-200 p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fa-solid fa-users text-blue-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-slate-900" id="totalPersonnel">0</p>
+                            <p class="text-xs text-slate-500">Total Sales Personnel</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i class="fa-solid fa-people-group text-green-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-slate-900" id="totalTeams">0</p>
+                            <p class="text-xs text-slate-500">Active Teams</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                            <i class="fa-solid fa-user-clock text-amber-600"></i>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-slate-900" id="unassignedCount">0</p>
+                            <p class="text-xs text-slate-500">Unassigned</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Teams Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                <!-- Unassigned Section -->
+                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden drop-zone" id="unassignedZone" data-team="">
+                    <div class="p-4 border-b border-slate-200 bg-amber-50">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-user-clock text-amber-600"></i>
+                                <h3 class="text-sm font-bold text-slate-900">Unassigned</h3>
+                            </div>
+                            <span class="badge bg-amber-200 text-amber-800" id="unassignedBadge">0</span>
+                        </div>
+                    </div>
+                    <div class="p-3 space-y-2 min-h-[200px]" id="unassignedMembers">
+                        <div class="text-center text-slate-400 text-sm py-8">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Teams will be rendered here -->
+                <div id="teamsContainer"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Create Team Modal -->
+    <div id="createTeamModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+        <div class="modal bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div class="p-6 border-b border-slate-200">
+                <h3 class="text-lg font-bold text-slate-900">Create New Team</h3>
+                <p class="text-xs text-slate-500 mt-1">Enter a name for the new sales team</p>
+            </div>
+            <div class="p-6">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Team Name</label>
+                <input type="text" id="newTeamName" placeholder="e.g., Johor Bahru, Kluang, Seremban" 
+                    class="w-full border border-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-[10px] text-slate-400 mt-2">Team tag will be: team-<span id="teamTagPreview">xxx</span></p>
+            </div>
+            <div class="p-6 border-t border-slate-200 flex gap-3">
+                <button onclick="hideCreateTeamModal()" class="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button onclick="createTeam()" class="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800">Create Team</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Member Modal -->
+    <div id="assignModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+        <div class="modal bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div class="p-6 border-b border-slate-200">
+                <h3 class="text-lg font-bold text-slate-900">Assign to Team</h3>
+                <p class="text-xs text-slate-500 mt-1" id="assignMemberName">Select a team for this member</p>
+            </div>
+            <div class="p-6">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Select Team</label>
+                <select id="assignTeamSelect" class="w-full border border-slate-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- Select Team --</option>
+                </select>
+            </div>
+            <div class="p-6 border-t border-slate-200 flex gap-3">
+                <button onclick="hideAssignModal()" class="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
+                <button onclick="confirmAssign()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">Assign</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allPersonnel = [];
+        let allTeams = [];
+        let selectedMember = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadData();
+            setupDragAndDrop();
+        });
+
+        async function loadData() {
+            try {
+                const [personnelRes, teamsRes] = await Promise.all([
+                    fetch('/api/sales-team/all-personnel'),
+                    fetch('/api/sales-team/teams')
+                ]);
+
+                const personnelData = await personnelRes.json();
+                const teamsData = await teamsRes.json();
+
+                if (personnelData.success) {
+                    allPersonnel = personnelData.data;
+                    document.getElementById('totalPersonnel').textContent = allPersonnel.length;
+                }
+
+                if (teamsData.success) {
+                    allTeams = teamsData.data;
+                    document.getElementById('totalTeams').textContent = allTeams.length;
+                    renderTeams();
+                    renderPersonnel();
+                    updateTeamSelect();
+                }
+            } catch (e) {
+                console.error('Error loading data:', e);
+                alert('Failed to load team data. Please refresh the page.');
+            }
+        }
+
+        function renderTeams() {
+            const container = document.getElementById('teamsContainer');
+            container.innerHTML = allTeams.map(team => `
+                <div class="bg-white rounded-xl border border-slate-200 overflow-hidden team-card drop-zone" data-team="${team.team_tag}">
+                    <div class="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-people-group text-blue-600"></i>
+                                <h3 class="text-sm font-bold text-slate-900">${team.displayName}</h3>
+                            </div>
+                            <span class="badge bg-blue-100 text-blue-700">${team.member_count || 0}</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1 font-mono">${team.team_tag}</p>
+                    </div>
+                    <div class="p-3 space-y-2 min-h-[200px] team-members" id="team-${team.team_tag}">
+                        <div class="text-center text-slate-400 text-sm py-4">No members</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Re-setup drop zones
+            setupDragAndDrop();
+        }
+
+        function renderPersonnel() {
+            const unassignedContainer = document.getElementById('unassignedMembers');
+            const unassigned = allPersonnel.filter(p => !p.team_tag);
+            const assigned = {};
+
+            // Group by team
+            allPersonnel.filter(p => p.team_tag).forEach(p => {
+                if (!assigned[p.team_tag]) assigned[p.team_tag] = [];
+                assigned[p.team_tag].push(p);
+            });
+
+            // Render unassigned
+            document.getElementById('unassignedCount').textContent = unassigned.length;
+            document.getElementById('unassignedBadge').textContent = unassigned.length;
+            
+            if (unassigned.length === 0) {
+                unassignedContainer.innerHTML = '<div class="text-center text-slate-400 text-sm py-8">All personnel assigned</div>';
+            } else {
+                unassignedContainer.innerHTML = unassigned.map(p => renderMemberCard(p)).join('');
+            }
+
+            // Render team members
+            allTeams.forEach(team => {
+                const teamContainer = document.getElementById(`team-${team.team_tag}`);
+                if (teamContainer) {
+                    const members = assigned[team.team_tag] || [];
+                    if (members.length === 0) {
+                        teamContainer.innerHTML = '<div class="text-center text-slate-400 text-sm py-4">No members</div>';
+                    } else {
+                        teamContainer.innerHTML = members.map(p => renderMemberCard(p)).join('');
+                    }
+                }
+            });
+
+            // Setup drag handlers
+            setupDragHandlers();
+        }
+
+        function renderMemberCard(person) {
+            const initials = (person.name || person.email || '??').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            const avatar = person.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name || person.email || 'User')}&background=3b82f6&color=fff&bold=true`;
+            
+            return `
+                <div class="member-card flex items-center gap-3 p-2 rounded-lg border border-slate-100 bg-slate-50" 
+                     draggable="true" 
+                     data-user-id="${person.id || person.bubble_id}"
+                     data-user-bubble="${person.bubble_id}">
+                    <img src="${avatar}" class="w-8 h-8 rounded-full object-cover border border-slate-200" onerror="this.src='https://ui-avatars.com/api/?name=U'">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-slate-900 truncate">${person.name || 'Unknown'}</p>
+                        <p class="text-[10px] text-slate-400 truncate">${person.email || ''}</p>
+                    </div>
+                    <button onclick="showAssignModal('${person.id || person.bubble_id}', '${person.name || person.email}')" 
+                            class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                        <i class="fa-solid fa-arrow-right-arrow-left text-xs"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        function setupDragAndDrop() {
+            const dropZones = document.querySelectorAll('.drop-zone');
+            
+            dropZones.forEach(zone => {
+                zone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    zone.classList.add('drag-over');
+                });
+
+                zone.addEventListener('dragleave', () => {
+                    zone.classList.remove('drag-over');
+                });
+
+                zone.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    zone.classList.remove('drag-over');
+                    
+                    const userId = e.dataTransfer.getData('text/plain');
+                    const newTeam = zone.dataset.team || null; // null for unassigned
+                    
+                    if (userId) {
+                        await moveMember(userId, newTeam);
+                    }
+                });
+            });
+        }
+
+        function setupDragHandlers() {
+            const members = document.querySelectorAll('.member-card');
+            
+            members.forEach(member => {
+                member.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', member.dataset.userId);
+                    member.classList.add('dragging');
+                });
+
+                member.addEventListener('dragend', () => {
+                    member.classList.remove('dragging');
+                });
+            });
+        }
+
+        async function moveMember(userId, newTeamTag) {
+            try {
+                let res;
+                if (newTeamTag) {
+                    res = await fetch('/api/sales-team/assign', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, teamTag: newTeamTag })
+                    });
+                } else {
+                    res = await fetch('/api/sales-team/remove', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId })
+                    });
+                }
+
+                const data = await res.json();
+                if (data.success) {
+                    await loadData(); // Refresh all data
+                } else {
+                    alert(data.error || 'Failed to move member');
+                }
+            } catch (e) {
+                console.error('Error moving member:', e);
+                alert('Failed to move member');
+            }
+        }
+
+        function showCreateTeamModal() {
+            document.getElementById('createTeamModal').classList.remove('hidden');
+            document.getElementById('createTeamModal').classList.add('flex');
+            document.getElementById('newTeamName').value = '';
+            document.getElementById('teamTagPreview').textContent = 'xxx';
+            document.getElementById('newTeamName').focus();
+        }
+
+        function hideCreateTeamModal() {
+            document.getElementById('createTeamModal').classList.add('hidden');
+            document.getElementById('createTeamModal').classList.remove('flex');
+        }
+
+        // Update team tag preview as user types
+        document.getElementById('newTeamName').addEventListener('input', (e) => {
+            const name = e.target.value.toLowerCase()
+                .replace(/[^a-z0-9-]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+            document.getElementById('teamTagPreview').textContent = name || 'xxx';
+        });
+
+        async function createTeam() {
+            const name = document.getElementById('newTeamName').value.trim();
+            if (!name) {
+                alert('Please enter a team name');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/sales-team/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ teamName: name })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    hideCreateTeamModal();
+                    await loadData();
+                } else {
+                    alert(data.error || 'Failed to create team');
+                }
+            } catch (e) {
+                console.error('Error creating team:', e);
+                alert('Failed to create team');
+            }
+        }
+
+        function updateTeamSelect() {
+            const select = document.getElementById('assignTeamSelect');
+            select.innerHTML = '<option value="">-- Select Team --</option>' +
+                '<option value="">(Unassigned)</option>' +
+                allTeams.map(t => `<option value="${t.team_tag}">${t.displayName}</option>`).join('');
+        }
+
+        function showAssignModal(userId, userName) {
+            selectedMember = userId;
+            document.getElementById('assignMemberName').textContent = `Assign: ${userName}`;
+            document.getElementById('assignTeamSelect').value = '';
+            document.getElementById('assignModal').classList.remove('hidden');
+            document.getElementById('assignModal').classList.add('flex');
+        }
+
+        function hideAssignModal() {
+            document.getElementById('assignModal').classList.add('hidden');
+            document.getElementById('assignModal').classList.remove('flex');
+            selectedMember = null;
+        }
+
+        async function confirmAssign() {
+            const teamTag = document.getElementById('assignTeamSelect').value;
+            
+            if (!selectedMember) {
+                alert('No member selected');
+                return;
+            }
+
+            try {
+                let res;
+                if (teamTag) {
+                    res = await fetch('/api/sales-team/assign', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: selectedMember, teamTag })
+                    });
+                } else {
+                    res = await fetch('/api/sales-team/remove', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: selectedMember })
+                    });
+                }
+
+                const data = await res.json();
+                if (data.success) {
+                    hideAssignModal();
+                    await loadData();
+                } else {
+                    alert(data.error || 'Failed to assign member');
+                }
+            } catch (e) {
+                console.error('Error assigning member:', e);
+                alert('Failed to assign member');
+            }
+        }
+
+        async function logout() {
+            if (!confirm('End your session?')) return;
+            await fetch('/api/admin/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+
+        // Close modals on outside click
+        document.getElementById('createTeamModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) hideCreateTeamModal();
+        });
+        document.getElementById('assignModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) hideAssignModal();
+        });
+    </script>
+</body>
+</html>
