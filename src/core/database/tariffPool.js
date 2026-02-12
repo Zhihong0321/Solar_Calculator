@@ -3,8 +3,9 @@ const { Pool } = require('pg');
 let connectionString = process.env.DATABASE_URL_TARIFF || process.env.DATABASE_URL;
 
 // Safety check for common misconfigurations
-if (connectionString === 'base') {
-  console.warn('[Tariff Pool] DATABASE_URL_TARIFF is set to "base". Using direct fallback URL.');
+// ENOTFOUND base means the hostname is literally 'base'
+if (connectionString && (connectionString === 'base' || connectionString.includes('@base') || connectionString.includes('//base'))) {
+  console.warn('[Tariff Pool] DATABASE_URL_TARIFF has invalid "base" hostname. Using direct fallback URL.');
   connectionString = "postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway";
 }
 
