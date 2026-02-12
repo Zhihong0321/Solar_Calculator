@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Activity Report | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --primary-hover: #1e293b;
+            --brand-blue: #3b82f6;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+        }
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%); color: var(--slate-900); margin: 0; padding: 0; width: 100%; overflow-x: hidden; min-height: 100vh; }
+        .sidebar { background: white; border-right: 1px solid var(--slate-200); }
+        .nav-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.75rem; color: var(--slate-600); font-weight: 600; font-size: 0.875rem; transition: all 0.15s ease; }
+        .nav-link:hover { background: var(--slate-50); color: var(--slate-900); }
+        .nav-link.active { background: var(--slate-900); color: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        @media (max-width: 768px) {
+            .mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom); background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border-top: 1px solid var(--slate-200); }
+            .sidebar { display: none; }
+        }
+    </style>
+</head>
+<body class="flex">
+    <!-- Desktop Sidebar -->
+    <aside class="sidebar hidden md:flex flex-col w-64 fixed h-full z-20 p-6">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white">
+                <i class="fa-solid fa-bolt text-lg"></i>
+            </div>
+            <span class="text-lg font-bold tracking-tight text-slate-900">ETERNALGY OS</span>
+        </div>
+        <nav class="space-y-1 flex-1">
+            <a href="/agent/home" class="nav-link"><i class="fa-solid fa-house-chimney w-5"></i><span>Dashboard</span></a>
+            <a href="/my-customers" class="nav-link"><i class="fa-solid fa-users w-5"></i><span>Customers</span></a>
+            <a href="/my-invoice" class="nav-link"><i class="fa-solid fa-file-invoice-dollar w-5"></i><span>Invoices</span></a>
+            <a href="/activity-report" class="nav-link active"><i class="fa-solid fa-chart-line w-5"></i><span>Activity Report</span></a>
+            <a href="/my-seda" class="nav-link"><i class="fa-solid fa-stamp w-5"></i><span>SEDA</span></a>
+        </nav>
+        <div class="mt-auto border-t border-slate-100 pt-6">
+            <button onclick="logout()" class="nav-link w-full text-left text-red-600 hover:bg-red-50 hover:text-red-700">
+                <i class="fa-solid fa-right-from-bracket w-5"></i><span>Logout</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 w-full md:ml-64 flex flex-col min-h-screen relative">
+        <!-- Mobile Header -->
+        <header class="md:hidden flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 sticky top-0 z-30 w-full">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white">
+                    <i class="fa-solid fa-bolt text-sm"></i>
+                </div>
+                <span class="font-bold text-slate-900 tracking-tight">Activity Report</span>
+            </div>
+            <button onclick="logout()" class="text-red-500 p-1"><i class="fa-solid fa-right-from-bracket text-lg"></i></button>
+        </header>
+
+        <div class="w-full max-w-6xl p-6 md:p-12 space-y-8">
+            <!-- Header -->
+            <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Activity Report</h1>
+                    <p class="text-slate-500 font-medium mt-1">Track your daily activities and KPI points</p>
+                </div>
+                <button onclick="openSubmitModal()" class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 text-sm">
+                    <i class="fa-solid fa-plus text-xs"></i> Submit Activity
+                </button>
+            </section>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl p-5 border border-slate-200">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Today's Points</p>
+                    <h3 id="todayPoints" class="text-3xl font-black text-slate-900 mt-1">0</h3>
+                </div>
+                <div class="bg-white rounded-xl p-5 border border-slate-200">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Weekly Points</p>
+                    <h3 id="weekPoints" class="text-3xl font-black text-brand-blue mt-1">0</h3>
+                </div>
+                <div class="bg-white rounded-xl p-5 border border-slate-200">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Today's Activities</p>
+                    <h3 id="todayActivities" class="text-3xl font-black text-slate-900 mt-1">0</h3>
+                </div>
+                <div class="bg-white rounded-xl p-5 border border-slate-200">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Weekly Activities</p>
+                    <h3 id="weekActivities" class="text-3xl font-black text-slate-900 mt-1">0</h3>
+                </div>
+            </div>
+
+            <!-- Activity History -->
+            <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div class="p-5 border-b border-slate-200 flex items-center justify-between">
+                    <h2 class="text-sm font-bold text-slate-900">Activity History</h2>
+                    <div class="flex gap-2">
+                        <select id="filterActivityType" onchange="loadActivities()" class="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+                            <option value="">All Types</option>
+                        </select>
+                        <input type="date" id="filterDate" onchange="loadActivities()" class="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+                    </div>
+                </div>
+                <div id="activityList" class="divide-y divide-slate-100">
+                    <div class="p-8 text-center text-slate-400 text-sm">Loading...</div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Mobile Nav -->
+        <nav class="md:hidden mobile-bottom-nav fixed bottom-0 left-0 right-0 px-6 py-3 flex items-center justify-between z-40 w-full">
+            <a href="/agent/home" class="flex flex-col items-center text-slate-400"><i class="fa-solid fa-house text-lg"></i><span class="text-[9px] font-medium mt-1">Home</span></a>
+            <a href="/my-customers" class="flex flex-col items-center text-slate-400"><i class="fa-solid fa-users text-lg"></i><span class="text-[9px] font-medium mt-1">Leads</span></a>
+            <a href="/activity-report" class="flex flex-col items-center text-slate-900"><i class="fa-solid fa-chart-line text-lg"></i><span class="text-[9px] font-bold mt-1">Activity</span></a>
+            <a href="/my-invoice" class="flex flex-col items-center text-slate-400"><i class="fa-solid fa-file-invoice-dollar text-lg"></i><span class="text-[9px] font-medium mt-1">Billing</span></a>
+            <a href="/agent/profile" class="flex flex-col items-center text-slate-400"><i class="fa-solid fa-user text-lg"></i><span class="text-[9px] font-medium mt-1">Profile</span></a>
+        </nav>
+    </main>
+
+    <!-- Submit Modal -->
+    <div id="submitModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div class="p-5 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-900">Submit Activity</h3>
+                <button onclick="closeSubmitModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <form id="activityForm" class="p-5 space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Activity Date</label>
+                    <input type="date" id="activityDate" required class="mt-1 w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Activity Type</label>
+                    <select id="activityType" required onchange="onActivityTypeChange()" class="mt-1 w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm">
+                        <option value="">Select type...</option>
+                    </select>
+                    <p id="pointsDisplay" class="mt-1 text-xs text-slate-500"></p>
+                </div>
+                <div id="followUpSection" class="hidden">
+                    <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Follow-up Type</label>
+                    <select id="followUpSubtype" class="mt-1 w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm">
+                        <option value="">Select subtype...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Description / Customer Name</label>
+                    <textarea id="remark" rows="3" class="mt-1 w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm" placeholder="Enter activity details..."></textarea>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeSubmitModal()" class="flex-1 border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl font-bold text-sm">Cancel</button>
+                    <button type="submit" class="flex-1 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-bold text-sm">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let activityConfig = { activityTypes: [], followUpSubtypes: [] };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('activityDate').valueAsDate = new Date();
+            document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
+            await Promise.all([loadConfig(), loadStats(), loadActivities()]);
+        });
+
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/activity/config');
+                const data = await res.json();
+                if (data.success) {
+                    activityConfig = data.data;
+                    populateDropdowns();
+                }
+            } catch (e) { console.error('Load config error:', e); }
+        }
+
+        function populateDropdowns() {
+            const typeSelect = document.getElementById('activityType');
+            const filterSelect = document.getElementById('filterActivityType');
+            const subtypeSelect = document.getElementById('followUpSubtype');
+
+            activityConfig.activityTypes.forEach(item => {
+                typeSelect.innerHTML += `<option value="${item.type}" data-points="${item.points}">${item.type} (${item.points} pts)</option>`;
+                filterSelect.innerHTML += `<option value="${item.type}">${item.type}</option>`;
+            });
+
+            activityConfig.followUpSubtypes.forEach(s => {
+                subtypeSelect.innerHTML += `<option value="${s}">${s}</option>`;
+            });
+        }
+
+        function onActivityTypeChange() {
+            const select = document.getElementById('activityType');
+            const option = select.options[select.selectedIndex];
+            const points = option.dataset.points;
+            document.getElementById('pointsDisplay').textContent = points ? `This activity earns ${points} points` : '';
+
+            const followUpSection = document.getElementById('followUpSection');
+            if (select.value === 'Follow-up') {
+                followUpSection.classList.remove('hidden');
+                document.getElementById('followUpSubtype').required = true;
+            } else {
+                followUpSection.classList.add('hidden');
+                document.getElementById('followUpSubtype').required = false;
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const [dailyRes, weeklyRes] = await Promise.all([
+                    fetch(`/api/activity/stats/daily?date=${today}`),
+                    fetch('/api/activity/stats/weekly')
+                ]);
+                const daily = await dailyRes.json();
+                const weekly = await weeklyRes.json();
+
+                if (daily.success) {
+                    document.getElementById('todayPoints').textContent = daily.data.summary?.total_points || 0;
+                    document.getElementById('todayActivities').textContent = daily.data.summary?.total_activities || 0;
+                }
+                if (weekly.success) {
+                    document.getElementById('weekPoints').textContent = weekly.data.summary?.total_points || 0;
+                    document.getElementById('weekActivities').textContent = weekly.data.summary?.total_activities || 0;
+                }
+            } catch (e) { console.error('Load stats error:', e); }
+        }
+
+        async function loadActivities() {
+            const list = document.getElementById('activityList');
+            list.innerHTML = '<div class="p-8 text-center text-slate-400 text-sm">Loading...</div>';
+
+            try {
+                const params = new URLSearchParams();
+                const type = document.getElementById('filterActivityType').value;
+                const date = document.getElementById('filterDate').value;
+                if (type) params.append('activityType', type);
+                if (date) params.append('startDate', date);
+                if (date) params.append('endDate', date);
+
+                const res = await fetch(`/api/activity/my-reports?${params.toString()}`);
+                const data = await res.json();
+
+                if (data.success && data.data.activities.length > 0) {
+                    list.innerHTML = data.data.activities.map(a => `
+                        <div class="p-4 hover:bg-slate-50 flex items-start gap-4">
+                            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                <span class="text-sm font-bold text-slate-600">${a.report_point || 0}</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-bold text-slate-900">${a.activity_type || 'Unknown'}</span>
+                                    ${a.follow_up_subtype ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">${a.follow_up_subtype}</span>` : ''}
+                                </div>
+                                <p class="text-xs text-slate-500 mt-0.5 truncate">${a.remark || 'No description'}</p>
+                                <p class="text-[10px] text-slate-400 mt-1">${formatDate(a.report_date)}</p>
+                            </div>
+                            <button onclick="deleteActivity(${a.id})" class="text-slate-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div class="p-8 text-center text-slate-400 text-sm">No activities found</div>';
+                }
+            } catch (e) {
+                list.innerHTML = '<div class="p-8 text-center text-red-500 text-sm">Error loading activities</div>';
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        function openSubmitModal() {
+            document.getElementById('submitModal').classList.remove('hidden');
+            document.getElementById('submitModal').classList.add('flex');
+            document.getElementById('activityForm').reset();
+            document.getElementById('activityDate').valueAsDate = new Date();
+            document.getElementById('followUpSection').classList.add('hidden');
+            document.getElementById('pointsDisplay').textContent = '';
+        }
+
+        function closeSubmitModal() {
+            document.getElementById('submitModal').classList.add('hidden');
+            document.getElementById('submitModal').classList.remove('flex');
+        }
+
+        document.getElementById('activityForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = {
+                activityDate: document.getElementById('activityDate').value,
+                activityType: document.getElementById('activityType').value,
+                followUpSubtype: document.getElementById('followUpSubtype').value || undefined,
+                remark: document.getElementById('remark').value
+            };
+
+            try {
+                const res = await fetch('/api/activity/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(data.message);
+                    closeSubmitModal();
+                    loadStats();
+                    loadActivities();
+                } else {
+                    alert(data.error || 'Failed to submit');
+                }
+            } catch (e) {
+                alert('Error submitting activity');
+            }
+        });
+
+        async function deleteActivity(id) {
+            if (!confirm('Delete this activity?')) return;
+            try {
+                const res = await fetch(`/api/activity/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    loadStats();
+                    loadActivities();
+                } else {
+                    alert(data.error || 'Failed to delete');
+                }
+            } catch (e) {
+                alert('Error deleting activity');
+            }
+        }
+
+        async function logout() {
+            if (!confirm('End your session?')) return;
+            await fetch('/api/admin/logout', { method: 'POST' });
+            window.location.href = '/domestic';
+        }
+    </script>
+</body>
+</html>

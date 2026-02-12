@@ -19,6 +19,7 @@ const Referral = require('./src/modules/Referral');
 const Email = require('./src/modules/Email');
 const Voucher = require('./src/modules/Voucher');
 const sedaRoutes = require('./routes/sedaRoutes');
+const ActivityReport = require('./src/modules/ActivityReport');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,6 +53,7 @@ app.use(Referral.router);
 app.use(Email.router);
 app.use(Voucher.router);
 app.use(sedaRoutes);
+app.use(ActivityReport.router);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));

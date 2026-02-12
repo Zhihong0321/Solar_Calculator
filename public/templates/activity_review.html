@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>Activity Review | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --brand-blue: #3b82f6;
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-900: #0f172a;
+        }
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%); color: var(--slate-900); margin: 0; padding: 0; width: 100%; overflow-x: hidden; min-height: 100vh; }
+        .sidebar { background: white; border-right: 1px solid var(--slate-200); }
+        .nav-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.75rem; color: var(--slate-600); font-weight: 600; font-size: 0.875rem; transition: all 0.15s ease; }
+        .nav-link:hover { background: var(--slate-50); color: var(--slate-900); }
+        .nav-link.active { background: var(--slate-900); color: white; }
+        @media (max-width: 768px) { .sidebar { display: none; } }
+        .table-container { overflow-x: auto; width: 100%; }
+        table { width: 100%; min-width: 800px; }
+    </style>
+</head>
+<body class="flex">
+    <!-- Sidebar -->
+    <aside class="sidebar hidden md:flex flex-col w-64 fixed h-full z-20 p-6">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white">
+                <i class="fa-solid fa-bolt text-lg"></i>
+            </div>
+            <span class="text-lg font-bold tracking-tight text-slate-900">ETERNALGY OS</span>
+        </div>
+        <nav class="space-y-1 flex-1">
+            <a href="/admin" class="nav-link"><i class="fa-solid fa-house w-5"></i><span>Admin Dashboard</span></a>
+            <a href="/activity-review" class="nav-link active"><i class="fa-solid fa-chart-line w-5"></i><span>Activity Review</span></a>
+            <a href="/my-customers" class="nav-link"><i class="fa-solid fa-users w-5"></i><span>All Customers</span></a>
+            <a href="/my-invoice" class="nav-link"><i class="fa-solid fa-file-invoice-dollar w-5"></i><span>All Invoices</span></a>
+        </nav>
+        <div class="mt-auto border-t border-slate-100 pt-6">
+            <button onclick="logout()" class="nav-link w-full text-left text-red-600 hover:bg-red-50">
+                <i class="fa-solid fa-right-from-bracket w-5"></i><span>Logout</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 w-full md:ml-64 flex flex-col min-h-screen">
+        <!-- Header -->
+        <header class="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900">Activity Review</h1>
+                    <p class="text-xs text-slate-500 mt-0.5">Team KPI & Performance Tracking</p>
+                </div>
+                <button onclick="exportCSV()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-download"></i> Export CSV
+                </button>
+            </div>
+        </header>
+
+        <div class="w-full max-w-7xl mx-auto p-6 md:p-8 space-y-6">
+            <!-- Filters -->
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Start Date</label>
+                        <input type="date" id="startDate" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">End Date</label>
+                        <input type="date" id="endDate" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Agent</label>
+                        <select id="filterAgent" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                            <option value="">All Agents</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Activity Type</label>
+                        <select id="filterActivityType" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                            <option value="">All Types</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="loadData()" class="w-full bg-brand-blue text-white px-4 py-2 rounded-lg text-sm font-bold">Apply Filter</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Team Stats Leaderboard -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-200">
+                    <h2 class="text-sm font-bold text-slate-900">Team Leaderboard</h2>
+                </div>
+                <div id="leaderboard" class="p-4">
+                    <div class="text-center text-slate-400 text-sm py-4">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Activity Table -->
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+                    <h2 class="text-sm font-bold text-slate-900">Activity Details</h2>
+                    <span id="totalCount" class="text-xs text-slate-500">0 records</span>
+                </div>
+                <div class="table-container">
+                    <table class="text-sm">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                                <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Agent</th>
+                                <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Activity Type</th>
+                                <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Subtype</th>
+                                <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Description</th>
+                                <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Customer</th>
+                                <th class="text-center px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Points</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activityTable" class="divide-y divide-slate-100">
+                            <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let allActivities = [];
+        let teamStats = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            setDefaultDates();
+            await Promise.all([loadAgents(), loadConfig(), loadData()]);
+        });
+
+        function setDefaultDates() {
+            const today = new Date();
+            const weekAgo = new Date(today);
+            weekAgo.setDate(today.getDate() - 7);
+            document.getElementById('startDate').value = weekAgo.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        }
+
+        async function loadAgents() {
+            try {
+                const res = await fetch('/api/activity/agents');
+                const data = await res.json();
+                if (data.success) {
+                    const select = document.getElementById('filterAgent');
+                    data.data.forEach(a => {
+                        select.innerHTML += `<option value="${a.bubble_id}">${a.name}</option>`;
+                    });
+                }
+            } catch (e) { console.error('Load agents error:', e); }
+        }
+
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/activity/config');
+                const data = await res.json();
+                if (data.success) {
+                    const select = document.getElementById('filterActivityType');
+                    data.data.activityTypes.forEach(item => {
+                        select.innerHTML += `<option value="${item.type}">${item.type}</option>`;
+                    });
+                }
+            } catch (e) { console.error('Load config error:', e); }
+        }
+
+        async function loadData() {
+            const params = new URLSearchParams();
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const agentId = document.getElementById('filterAgent').value;
+            const activityType = document.getElementById('filterActivityType').value;
+
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+            if (agentId) params.append('agentId', agentId);
+            if (activityType) params.append('activityType', activityType);
+
+            try {
+                const [activitiesRes, statsRes] = await Promise.all([
+                    fetch(`/api/activity/all-reports?${params.toString()}`),
+                    fetch(`/api/activity/team-stats?${params.toString()}`)
+                ]);
+
+                const activitiesData = await activitiesRes.json();
+                const statsData = await statsRes.json();
+
+                if (activitiesData.success) {
+                    allActivities = activitiesData.data.activities;
+                    document.getElementById('totalCount').textContent = `${activitiesData.data.total} records`;
+                    renderActivityTable();
+                }
+
+                if (statsData.success) {
+                    teamStats = statsData.data;
+                    renderLeaderboard();
+                }
+            } catch (e) {
+                console.error('Load data error:', e);
+            }
+        }
+
+        function renderLeaderboard() {
+            const container = document.getElementById('leaderboard');
+            if (teamStats.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-400 text-sm py-4">No data available</div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="grid gap-2">
+                    ${teamStats.slice(0, 10).map((agent, i) => `
+                        <div class="flex items-center gap-4 p-3 ${i < 3 ? 'bg-amber-50 border border-amber-200 rounded-lg' : 'bg-slate-50 rounded-lg'}">
+                            <div class="w-8 h-8 rounded-full ${i === 0 ? 'bg-yellow-400' : i === 1 ? 'bg-slate-300' : i === 2 ? 'bg-amber-600' : 'bg-slate-200'} flex items-center justify-center text-white font-bold text-sm">
+                                ${i + 1}
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm font-bold text-slate-900">${agent.agent_name || 'Unknown'}</p>
+                                <p class="text-[10px] text-slate-500">${agent.total_activities || 0} activities</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg font-black ${i === 0 ? 'text-yellow-600' : 'text-slate-900'}">${agent.total_points || 0}</p>
+                                <p class="text-[10px] text-slate-400">points</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderActivityTable() {
+            const tbody = document.getElementById('activityTable');
+            if (allActivities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">No activities found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = allActivities.map(a => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-3 text-slate-900">${formatDate(a.report_date)}</td>
+                    <td class="px-4 py-3 text-slate-900 font-medium">${a.agent_name || '-'}</td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                            ${a.activity_type || '-'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">${a.follow_up_subtype || '-'}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs max-w-xs truncate">${a.remark || '-'}</td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">${a.customer_name || '-'}</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand-blue text-white text-sm font-bold">
+                            ${a.report_point || 0}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        function exportCSV() {
+            if (allActivities.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            const headers = ['Date', 'Agent', 'Activity Type', 'Subtype', 'Description', 'Customer', 'Points'];
+            const rows = allActivities.map(a => [
+                formatDate(a.report_date),
+                a.agent_name || '',
+                a.activity_type || '',
+                a.follow_up_subtype || '',
+                (a.remark || '').replace(/"/g, '""'),
+                a.customer_name || '',
+                a.report_point || 0
+            ]);
+
+            const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `activity_report_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        async function logout() {
+            if (!confirm('End your session?')) return;
+            await fetch('/api/admin/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
