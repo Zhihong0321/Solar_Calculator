@@ -347,7 +347,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '3.8', timestamp: new Date(), message: 'Non-Domestic Calculator DB Fix - Switched to DATABASE_URL_TARIFF' });
+  res.json({ version: '3.9', timestamp: new Date(), message: 'TNB Schema Debug' });
 });
 
 app.listen(PORT, () => {

@@ -34,6 +34,19 @@ router.get('/api/schema', async (req, res) => {
   }
 });
 
+router.get('/api/debug-tnb-schema', async (req, res) => {
+  let client;
+  try {
+    client = await tariffPool.connect();
+    const result = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
+    res.json({ tables: result.rows.map(r => r.table_name) });
+  } catch (err) {
+    res.status(500).json({ error: 'TNB Schema Error', message: err.message, stack: err.stack });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 // API endpoint to get tariff data
 router.get('/api/tnb-tariff', async (req, res) => {
   try {
