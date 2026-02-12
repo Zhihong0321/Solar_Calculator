@@ -62,13 +62,13 @@ async function getActivitiesByAgent(client, agentBubbleId, options = {}) {
 
   if (startDate) {
     paramCount++;
-    query += ` AND report_date >= $${paramCount}`;
+    query += ` AND DATE(report_date) >= $${paramCount}`;
     params.push(startDate);
   }
 
   if (endDate) {
     paramCount++;
-    query += ` AND report_date <= $${paramCount}`;
+    query += ` AND DATE(report_date) <= $${paramCount}`;
     params.push(endDate);
   }
 
@@ -93,13 +93,13 @@ async function getActivitiesByAgent(client, agentBubbleId, options = {}) {
 
   if (startDate) {
     countParamCount++;
-    countQuery += ` AND report_date >= $${countParamCount}`;
+    countQuery += ` AND DATE(report_date) >= $${countParamCount}`;
     countParams.push(startDate);
   }
 
   if (endDate) {
     countParamCount++;
-    countQuery += ` AND report_date <= $${countParamCount}`;
+    countQuery += ` AND DATE(report_date) <= $${countParamCount}`;
     countParams.push(endDate);
   }
 
