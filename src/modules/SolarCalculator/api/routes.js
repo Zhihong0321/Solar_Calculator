@@ -324,7 +324,21 @@ router.get('/api/all-data', async (req, res) => {
   let tariffClient, mainClient;
   try {
     console.log('[all-data] Connecting to tariffPool...');
-    tariffClient = await tariffPool.connect();
+    try {
+      tariffClient = await tariffPool.connect();
+    } catch (connErr) {
+      if (connErr.message.includes('ENOTFOUND base')) {
+        console.warn('[all-data] Detected ENOTFOUND base. Using direct fallback pool.');
+        const { Pool } = require('pg');
+        const fallbackPool = new Pool({
+          connectionString: "postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway",
+          ssl: { rejectUnauthorized: false }
+        });
+        tariffClient = await fallbackPool.connect();
+      } else {
+        throw connErr;
+      }
+    }
     console.log('[all-data] Connecting to main pool...');
     mainClient = await pool.connect();
     
