@@ -313,7 +313,7 @@ async function calculateSolarSavings(panelQty, params) {
 
     // Find closest package for this panel quantity
     let pkg = db.packages
-        .filter(p => (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
+        .filter(p => (p.type === 'Tariff B&D Low Voltage'))
         .sort((a, b) => Math.abs(a.panel_qty - panelQty) - Math.abs(b.panel_qty - panelQty) || a.price - b.price)[0];
 
     // Calculate system cost - interpolate if no exact package match
@@ -377,7 +377,7 @@ async function executeFullAnalysis() {
 
     // Find closest package for initial calculation
     let pkg = db.packages
-        .filter(p => (p.type === 'Tariff B&D Low Voltage' || p.type === 'Residential'))
+        .filter(p => (p.type === 'Tariff B&D Low Voltage'))
         .sort((a, b) => Math.abs(a.panel_qty - recommendedPanels) - Math.abs(b.panel_qty - recommendedPanels) || a.price - b.price)[0];
 
     // Use package panel quantity or recommended
