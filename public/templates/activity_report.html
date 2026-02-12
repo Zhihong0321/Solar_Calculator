@@ -167,6 +167,7 @@
 
     <script>
         let activityConfig = { activityTypes: [], followUpSubtypes: [] };
+        let editMode = { active: false, id: null };
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
@@ -255,7 +256,7 @@
 
                 if (data.success && data.data.activities.length > 0) {
                     list.innerHTML = data.data.activities.map(a => `
-                        <div class="p-4 hover:bg-slate-50 flex items-start gap-4">
+                        <div class="p-4 hover:bg-slate-50 flex items-start gap-4" data-id="${a.id}" data-type="${a.activity_type || ''}" data-subtype="${a.follow_up_subtype || ''}" data-remark="${(a.remark || '').replace(/"/g, '&quot;')}" data-date="${a.report_date ? a.report_date.split('T')[0] : ''}">
                             <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                                 <span class="text-sm font-bold text-slate-600">${a.report_point || 0}</span>
                             </div>
@@ -267,6 +268,7 @@
                                 <p class="text-xs text-slate-500 mt-0.5 truncate">${a.remark || 'No description'}</p>
                                 <p class="text-[10px] text-slate-400 mt-1">${formatDate(a.report_date)}</p>
                             </div>
+                            <button onclick="editActivityFromRow(this.parentElement)" class="text-slate-400 hover:text-blue-500 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
                             <button onclick="deleteActivity(${a.id})" class="text-slate-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
                         </div>
                     `).join('');
@@ -285,17 +287,44 @@
         }
 
         function openSubmitModal() {
+            editMode = { active: false, id: null };
             document.getElementById('submitModal').classList.remove('hidden');
             document.getElementById('submitModal').classList.add('flex');
             document.getElementById('activityForm').reset();
             document.getElementById('activityDate').valueAsDate = new Date();
             document.getElementById('followUpSection').classList.add('hidden');
             document.getElementById('pointsDisplay').textContent = '';
+            document.querySelector('#submitModal h3').textContent = 'Submit Activity';
+            document.querySelector('#activityForm button[type=submit]').textContent = 'Submit';
+        }
+
+        function editActivityFromRow(row) {
+            editActivity(
+                row.dataset.id,
+                row.dataset.type,
+                row.dataset.subtype,
+                row.dataset.remark,
+                row.dataset.date
+            );
+        }
+
+        function editActivity(id, activityType, followUpSubtype, remark, reportDate) {
+            editMode = { active: true, id: id };
+            document.getElementById('submitModal').classList.remove('hidden');
+            document.getElementById('submitModal').classList.add('flex');
+            document.getElementById('activityDate').value = reportDate;
+            document.getElementById('activityType').value = activityType;
+            document.getElementById('remark').value = remark;
+            document.getElementById('followUpSubtype').value = followUpSubtype;
+            document.querySelector('#submitModal h3').textContent = 'Edit Activity';
+            document.querySelector('#activityForm button[type=submit]').textContent = 'Update';
+            onActivityTypeChange();
         }
 
         function closeSubmitModal() {
             document.getElementById('submitModal').classList.add('hidden');
             document.getElementById('submitModal').classList.remove('flex');
+            editMode = { active: false, id: null };
         }
 
         document.getElementById('activityForm').addEventListener('submit', async (e) => {
@@ -308,14 +337,25 @@
             };
 
             try {
-                const res = await fetch('/api/activity/submit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
+                let res;
+                if (editMode.active && editMode.id) {
+                    // Update existing activity
+                    res = await fetch(`/api/activity/${editMode.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                } else {
+                    // Create new activity
+                    res = await fetch('/api/activity/submit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                }
                 const data = await res.json();
                 if (data.success) {
-                    alert(data.message);
+                    alert(data.message || (editMode.active ? 'Activity updated!' : 'Activity submitted!'));
                     closeSubmitModal();
                     loadStats();
                     loadActivities();
