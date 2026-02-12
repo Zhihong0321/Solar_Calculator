@@ -243,11 +243,13 @@ const tnbPool = require('../../../core/database/tnbPool');
 
 // API endpoint for Commercial Bill Breakdown from external DB (By Amount)
 router.get('/api/commercial/calculate-bill', async (req, res) => {
+  let client;
   try {
     const billAmount = parseFloat(req.query.amount);
     if (!billAmount) return res.status(400).json({ error: 'Amount is required' });
 
-    const client = await tnbPool.connect();
+    client = await tariffPool.connect();
+
     const query = `
       SELECT * FROM bill_simulation_lookup 
       WHERE tariff_group = 'LV_COMMERCIAL' AND total_bill <= $1 
@@ -258,25 +260,27 @@ router.get('/api/commercial/calculate-bill', async (req, res) => {
     client.release();
 
     if (result.rows.length === 0) {
-      // Fallback query
-      const fallbackResult = await tnbPool.query(`SELECT * FROM bill_simulation_lookup WHERE tariff_group = 'LV_COMMERCIAL' ORDER BY total_bill ASC LIMIT 1`);
+      const fallbackResult = await tariffPool.query(`SELECT * FROM bill_simulation_lookup WHERE tariff_group = 'LV_COMMERCIAL' ORDER BY total_bill ASC LIMIT 1`);
       return res.json({ tariff: fallbackResult.rows[0], matched: false });
     }
 
     res.json({ tariff: result.rows[0], matched: true });
   } catch (err) {
     console.error('TNB DB Error:', err);
+    if (client) client.release();
     res.status(500).json({ error: 'External DB error', details: err.message });
   }
 });
 
 // API endpoint for Commercial Bill Lookup from external DB (By Usage)
 router.get('/api/commercial/lookup-by-usage', async (req, res) => {
+  let client;
   try {
     const usageKwh = parseFloat(req.query.usage);
     if (usageKwh === undefined) return res.status(400).json({ error: 'Usage is required' });
 
-    const client = await tnbPool.connect();
+    client = await tariffPool.connect();
+
     const query = `
       SELECT * FROM bill_simulation_lookup 
       WHERE tariff_group = 'LV_COMMERCIAL' AND usage_kwh <= $1 
@@ -287,10 +291,7 @@ router.get('/api/commercial/lookup-by-usage', async (req, res) => {
     client.release();
 
     if (result.rows.length === 0) {
-      // Fallback: get the lowest usage record
-      const fallbackClient = await tnbPool.connect();
-      const fallbackResult = await fallbackClient.query('SELECT * FROM bill_simulation_lookup WHERE tariff_group = \'LV_COMMERCIAL\' ORDER BY usage_kwh ASC LIMIT 1');
-      fallbackClient.release();
+      const fallbackResult = await tariffPool.query('SELECT * FROM bill_simulation_lookup WHERE tariff_group = \'LV_COMMERCIAL\' ORDER BY usage_kwh ASC LIMIT 1');
       if (fallbackResult.rows.length === 0) {
         return res.status(404).json({ error: 'No tariff data found in database' });
       }
@@ -300,6 +301,7 @@ router.get('/api/commercial/lookup-by-usage', async (req, res) => {
     res.json({ tariff: result.rows[0], matched: true });
   } catch (err) {
     console.error('TNB DB Error:', err);
+    if (client) client.release();
     res.status(500).json({ error: 'External DB error', details: err.message });
   }
 });
@@ -333,21 +335,7 @@ router.get('/api/packages', async (req, res) => {
 router.get('/api/all-data', async (req, res) => {
   let tariffClient, mainClient;
   try {
-    try {
-      tariffClient = await tariffPool.connect();
-    } catch (connErr) {
-      if (connErr.message.includes('ENOTFOUND base')) {
-        console.warn('[all-data] Detected ENOTFOUND base. Using direct fallback pool.');
-        const { Pool } = require('pg');
-        const fallbackPool = new Pool({
-          connectionString: "postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway",
-          ssl: { rejectUnauthorized: false }
-        });
-        tariffClient = await fallbackPool.connect();
-      } else {
-        throw connErr;
-      }
-    }
+    tariffClient = await tariffPool.connect();
     mainClient = await pool.connect();
     
     const tariffs = await tariffClient.query(`

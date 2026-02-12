@@ -347,7 +347,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '3.9', timestamp: new Date(), message: 'TNB Schema Debug' });
+  res.json({ version: '4.0', timestamp: new Date(), message: 'Direct DATABASE_URL_TARIFF Implementation' });
 });
 
 app.listen(PORT, () => {
