@@ -347,7 +347,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '4.0', timestamp: new Date(), message: 'Direct DATABASE_URL_TARIFF Implementation' });
+  res.json({ version: '4.1', timestamp: new Date(), message: 'Connection String Logging' });
 });
 
 app.listen(PORT, () => {
