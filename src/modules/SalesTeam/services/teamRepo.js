@@ -226,12 +226,12 @@ async function hasHRAccess(userId, client = pool) {
 
 /**
  * Get team statistics
+ * Only counts users who have BOTH the team tag AND sales tag
  */
 async function getTeamStats(teamTag, client = pool) {
   const result = await client.query(`
     SELECT 
-      COUNT(*) as member_count,
-      COUNT(CASE WHEN 'sales' = ANY(u.access_level) THEN 1 END) as sales_count
+      COUNT(CASE WHEN 'sales' = ANY(u.access_level) THEN 1 END) as member_count
     FROM "user" u
     WHERE $1 = ANY(u.access_level)
   `, [teamTag]);
