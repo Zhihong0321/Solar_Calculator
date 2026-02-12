@@ -347,7 +347,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '3.5', timestamp: new Date(), message: 'System Initializing Fix - Direct DB Fallback' });
+  res.json({ version: '3.8', timestamp: new Date(), message: 'Non-Domestic Calculator DB Fix - Switched to DATABASE_URL_TARIFF' });
 });
 
 app.listen(PORT, () => {

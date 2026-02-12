@@ -5,7 +5,7 @@ let connectionString = process.env.DATABASE_URL_TARIFF || process.env.DATABASE_U
 // Safety check for common misconfigurations
 // ENOTFOUND base means the hostname is literally 'base'
 if (connectionString && (connectionString === 'base' || connectionString.includes('@base') || connectionString.includes('//base'))) {
-  console.warn('[Tariff Pool] DATABASE_URL_TARIFF has invalid "base" hostname. Using direct fallback URL.');
+  console.warn('[Tariff Pool] connectionString has invalid "base" hostname. Using direct fallback URL.');
   connectionString = "postgresql://postgres:obOflKFfCshdZlcpoCDzMVReqxEclBPR@yamanote.proxy.rlwy.net:39808/railway";
 }
 
