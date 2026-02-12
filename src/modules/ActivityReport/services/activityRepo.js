@@ -157,8 +157,8 @@ async function createActivity(client, data) {
     `INSERT INTO agent_daily_report (
       bubble_id, linked_user, created_by, activity_type, follow_up_subtype,
       remark, linked_customer, report_date, report_point, tag, 
-      created_at, updated_at, created_date, report_date
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), NOW(), $8)
+      created_at, updated_at, created_date
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), NOW())
     RETURNING *`,
     [
       bubbleId,
