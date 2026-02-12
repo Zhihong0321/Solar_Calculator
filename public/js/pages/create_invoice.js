@@ -16,6 +16,12 @@ const EPP_RATES = {
     "OCBC": { 6: 4.00, 12: 5.00, 18: 6.00, 24: 7.00, 36: 8.00, 48: 9.00 }
 };
 
+// ============================================
+// CUSTOMER MANAGER INTEGRATION
+// ============================================
+// CustomerManager is loaded from /js/components/customerManager.js
+// Initialize it in DOMContentLoaded for inline mode
+
 const MICRO_INVERTER_MODELS = [
     { id: 'mi_s2', name: 'SAJ M2-1.0K S2 Micro Inverter', price: 500, originalPrice: 1000 },
     { id: 'mi_s4', name: 'SAJ M4-1.8K S4 Micro Inverter', price: 1000, originalPrice: 1500 }
@@ -1004,6 +1010,17 @@ function pageLog(msg, color = 'gray-400') {
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('DOM Content Loaded - Initializing Creation Page');
 
+    // Initialize CustomerManager for inline mode
+    CustomerManager.initInline({
+        fieldIds: {
+            name: 'customerName',
+            phone: 'customerPhone',
+            address: 'customerAddress',
+            profilePicture: 'profilePicture',
+            profilePreview: 'profilePreview'
+        }
+    });
+
     const detectionStatus = document.getElementById('detectionStatus');
     const detectedPackageIdEl = document.getElementById('detectedPackageId');
 
@@ -1437,88 +1454,16 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     }
 });
 
-async function checkWhatsApp() {
-    let phone = document.getElementById('customerPhone').value.replace(/\D/g, '');
-    if (phone.startsWith('0')) {
-        phone = '60' + phone.substring(1);
-    }
-    if (!phone || phone.length < 10) {
-        Swal.fire({ icon: 'warning', title: 'Invalid Phone', text: 'Please enter a valid phone number with country code (e.g. 60123456789)' });
-        return;
-    }
-
-    const btn = event.currentTarget;
-    const originalColor = btn.style.color;
-    btn.classList.add('animate-pulse');
-    btn.style.color = '#16a34a';
-
-    try {
-        const res = await fetch('/api/customers/check-whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone })
-        });
-        const data = await res.json();
-
-        if (data.success && data.isWhatsAppUser) {
-            Swal.fire({
-                title: 'WhatsApp User Detected!',
-                html: `
-                            <div class="flex flex-col items-center gap-4 py-2">
-                                ${data.profilePicture ? `<img src="${data.profilePicture}" class="w-24 h-24 rounded-full border-4 border-green-500 shadow-lg">` : ''}
-                                <div class="text-center">
-                                    <div class="font-bold text-lg text-slate-900">Verified WhatsApp Number</div>
-                                    <div class="text-green-600 font-semibold flex items-center justify-center gap-1">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                        Verified
-                                    </div>
-                                </div>
-                                <div class="flex flex-col gap-2 w-full px-4">
-                                    ${data.profilePicture ? `
-                                    <button onclick="fillWhatsAppInfo('${data.profilePicture}', '${phone}')" class="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-all">
-                                        Use Profile Picture
-                                    </button>` : '<div class="text-sm text-slate-500 italic">No profile picture available</div>'}
-                                </div>
-                            </div>
-                        `,
-                showConfirmButton: false,
-                showCloseButton: true
-            });
-        } else {
-            Swal.fire({ icon: 'info', title: 'Not Found', text: 'This number is not registered on WhatsApp.' });
-        }
-    } catch (err) {
-        console.error(err);
-        Swal.fire({ icon: 'error', title: 'API Error', text: 'Failed to connect to WhatsApp API server.' });
-    } finally {
-        btn.classList.remove('animate-pulse');
-        btn.style.color = originalColor;
-    }
+// ============================================
+// WhatsApp Integration - Uses CustomerManager
+// ============================================
+function checkWhatsApp() {
+    CustomerManager.checkWhatsApp('customerPhone', {
+        profilePictureInputId: 'profilePicture',
+        profilePreviewId: 'profilePreview'
+    });
 }
 
-async function fillWhatsAppInfo(photoUrl, phone) {
-    if (photoUrl) {
-        // Trigger backend download
-        Swal.fire({
-            title: 'Syncing Profile Picture...',
-            didOpen: () => { Swal.showLoading(); }
-        });
-
-        try {
-            const res = await fetch('/api/customers/whatsapp-photo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ photoUrl, phone })
-            });
-            const data = await res.json();
-
-            if (data.success && data.localUrl) {
-                document.getElementById('profilePicture').value = data.localUrl;
-                document.getElementById('profilePreview').innerHTML = `<img src="${data.localUrl}" class="h-full w-full object-cover">`;
-            }
-        } catch (err) {
-            console.error('Failed to sync WhatsApp photo:', err);
-        }
-    }
-    Swal.close();
+function fillWhatsAppInfo(photoUrl, phone) {
+    CustomerManager.fillWhatsAppInfo(photoUrl, phone, 'profilePicture', 'profilePreview');
 }

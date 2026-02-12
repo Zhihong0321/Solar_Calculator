@@ -1,4 +1,11 @@
 // EPP Rate Configuration
+/**
+ * @ai_context
+ * SOURCE OF TRUTH WARNING:
+ * This EPP_RATES object is currently the MASTER definition for bank rates.
+ * It is NOT synced with the backend. Any changes to rates must be updated here manually.
+ * Future Refactor: Move to database/system_parameters.
+ */
 const EPP_RATES = {
     "Maybank": { 6: 2.50, 12: 3.50, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
     "Public Bank": { 6: 2.50, 12: 3.50, 18: 4.00, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
@@ -8,6 +15,12 @@ const EPP_RATES = {
     "UOB": { 6: 2.50, 12: 3.50, 24: 5.50, 48: 8.50, 68: 11.50 },
     "OCBC": { 6: 4.00, 12: 5.00, 18: 6.00, 24: 7.00, 36: 8.00, 48: 9.00 }
 };
+
+// ============================================
+// CUSTOMER MANAGER INTEGRATION
+// ============================================
+// CustomerManager is loaded from /js/components/customerManager.js
+// Initialize it in DOMContentLoaded for inline mode
 
 const BANKS = Object.keys(EPP_RATES);
 let paymentMethodCounter = 0;
@@ -882,6 +895,17 @@ function updateInvoicePreview() {
 
 // Load invoice data on page load
 document.addEventListener('DOMContentLoaded', async function () {
+    // Initialize CustomerManager for inline mode
+    CustomerManager.initInline({
+        fieldIds: {
+            name: 'customerName',
+            phone: 'customerPhone',
+            address: 'customerAddress',
+            profilePicture: 'profilePicture',
+            profilePreview: 'profilePreview'
+        }
+    });
+
     // Fetch User Profile
     fetchUserProfile();
 
@@ -1229,106 +1253,20 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     }
 });
 
-async function checkWhatsApp(e) {
-    let phone = document.getElementById('customerPhone').value.replace(/\D/g, '');
-    if (phone.startsWith('0')) {
-        phone = '60' + phone.substring(1);
-    }
-    if (!phone || phone.length < 10) {
-        Swal.fire({ icon: 'warning', title: 'Invalid Phone', text: 'Please enter a valid phone number with country code (e.g. 60123456789)' });
-        return;
-    }
-
-    // More robust button selection
+// ============================================
+// WhatsApp Integration - Uses CustomerManager
+// ============================================
+function checkWhatsApp(e) {
     const btn = document.getElementById('waCheckBtn');
-    const originalColor = btn ? btn.style.color : '';
-    if (btn) {
-        btn.classList.add('animate-pulse');
-        btn.style.color = '#16a34a';
-    }
-
-    try {
-        console.log('[WhatsApp] Connecting to API server for phone:', phone);
-        const res = await fetch('/api/customers/check-whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone })
-        });
-
-        if (!res.ok) {
-            throw new Error(`HTTP Error: ${res.status}`);
-        }
-
-        const data = await res.json();
-        console.log('[WhatsApp] Response received:', data);
-
-        if (data.success && data.isWhatsAppUser) {
-            Swal.fire({
-                title: 'WhatsApp User Detected!',
-                html: `
-                            <div class="flex flex-col items-center gap-4 py-2">
-                                ${data.profilePicture ? `<img src="${data.profilePicture}" class="w-24 h-24 rounded-full border-4 border-green-500 shadow-lg">` : ''}
-                                <div class="text-center">
-                                    <div class="font-bold text-lg text-slate-900">Verified WhatsApp Number</div>
-                                    <div class="text-green-600 font-semibold flex items-center justify-center gap-1">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                                        Verified
-                                    </div>
-                                </div>
-                                <div class="flex flex-col gap-2 w-full px-4">
-                                    ${data.profilePicture ? `
-                                    <button onclick="fillWhatsAppInfo('${data.profilePicture}', '${phone}')" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-green-700 transition-all">
-                                        Use Profile Picture
-                                    </button>` : '<div class="text-sm text-slate-500 italic">No profile picture available</div>'}
-                                </div>
-                            </div>
-                        `,
-                showConfirmButton: false,
-                showCloseButton: true
-            });
-        } else {
-            Swal.fire({ icon: 'info', title: 'Not Found', text: 'This number is not registered on WhatsApp.' });
-        }
-    } catch (err) {
-        console.error('[WhatsApp] Connection Error:', err);
-        Swal.fire({
-            icon: 'error',
-            title: 'API Error',
-            text: 'Failed to connect to WhatsApp API server. Details: ' + err.message + '. Please check browser console for more info.'
-        });
-    } finally {
-        if (btn) {
-            btn.classList.remove('animate-pulse');
-            btn.style.color = originalColor;
-        }
-    }
+    CustomerManager.checkWhatsApp('customerPhone', {
+        profilePictureInputId: 'profilePicture',
+        profilePreviewId: 'profilePreview',
+        button: btn
+    });
 }
 
-async function fillWhatsAppInfo(photoUrl, phone) {
-    if (photoUrl) {
-        // Trigger backend download
-        Swal.fire({
-            title: 'Syncing Profile Picture...',
-            didOpen: () => { Swal.showLoading(); }
-        });
-
-        try {
-            const res = await fetch('/api/customers/whatsapp-photo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ photoUrl, phone })
-            });
-            const data = await res.json();
-
-            if (data.success && data.localUrl) {
-                document.getElementById('profilePicture').value = data.localUrl;
-                document.getElementById('profilePreview').innerHTML = `<img src="${data.localUrl}" class="h-full w-full object-cover">`;
-            }
-        } catch (err) {
-            console.error('Failed to sync WhatsApp photo:', err);
-        }
-    }
-    Swal.close();
+function fillWhatsAppInfo(photoUrl, phone) {
+    CustomerManager.fillWhatsAppInfo(photoUrl, phone, 'profilePicture', 'profilePreview');
 }
 
 async function promptManualName(phone, photoUrl) {
