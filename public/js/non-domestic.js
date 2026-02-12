@@ -32,9 +32,17 @@ window.onload = function () {
 };
 
 async function initializeData() {
+    console.log('[initializeData] Starting fetch...');
     try {
         const response = await fetch('/api/all-data');
+        console.log('[initializeData] Response received:', response.status);
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error('[initializeData] API Error Text:', errText);
+            throw new Error(`API Error: ${response.status}`);
+        }
         const data = await response.json();
+        console.log('[initializeData] Data parsed:', data.tariffs?.length, 'tariffs', data.packages?.length, 'packages');
         if (response.ok) {
             db.tariffs = data.tariffs;
             db.packages = data.packages.map(p => ({
@@ -43,9 +51,14 @@ async function initializeData() {
                 price: parseFloat(p.price),
                 solar_output_rating: parseInt(p.solar_output_rating)
             }));
+            console.log('Client-side DB initialized (Commercial):', db.tariffs.length, 'tariffs,', db.packages.length, 'packages');
+            const s = document.getElementById('dbStatus');
+            if (s) s.innerHTML = `<span>[ STATUS: DATA_LOADED ]</span><div class="h-px grow bg-divider"></div>`;
         }
     } catch (err) {
         console.error('Failed to load data:', err);
+        const s = document.getElementById('dbStatus');
+        if (s) s.innerHTML = `<span>[ STATUS: DATA_ERROR ]</span><div class="h-px grow bg-divider"></div>`;
     }
 }
 

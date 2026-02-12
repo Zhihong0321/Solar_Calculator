@@ -9,12 +9,12 @@ const findClosestTariff = async (client, targetAmount, afaRate) => {
   const query = `
     SELECT *,
       (
-        (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
+        (COALESCE(total_bill, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
         + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)
       ) as adjusted_total
     FROM domestic_am_tariff
     WHERE (
-      (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
+      (COALESCE(total_bill, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
       + (COALESCE(usage_kwh, 0)::numeric * $2::numeric)
     ) <= $1::numeric
     ORDER BY adjusted_total DESC
@@ -30,7 +30,7 @@ const findClosestTariff = async (client, targetAmount, afaRate) => {
   const fallbackQuery = `
     SELECT *,
       (
-        (COALESCE(total_bill, bill_total_normal, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
+        (COALESCE(total_bill, 0)::numeric - COALESCE(fuel_adjustment, 0)::numeric)
         + (COALESCE(usage_kwh, 0)::numeric * $1::numeric)
       ) as adjusted_total
     FROM domestic_am_tariff
@@ -94,7 +94,7 @@ const buildBillBreakdown = (tariffRow, afaRate) => {
   const fuelAdjustment = parseCurrencyValue(tariffRow.fuel_adjustment);
   const afa = usageKwh * afaRate;
   const baseTotal = parseCurrencyValue(
-    tariffRow.total_bill ?? tariffRow.bill_total_normal,
+    tariffRow.total_bill,
     usage + network + capacity + sst + eei
   ) - fuelAdjustment;
   const total = baseTotal + afa;
