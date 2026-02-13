@@ -1382,12 +1382,22 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     // Require lead_source when customer name is provided
     const customerName = document.getElementById('customerName')?.value?.trim();
     const leadSource = document.getElementById('customerLeadSource')?.value;
+    const remark = document.getElementById('customerRemark')?.value;
     
     if (customerName && !leadSource) {
         Swal.fire({
             icon: 'error',
             title: 'Lead Source Required',
             text: 'Please select a lead source for the customer.'
+        });
+        return;
+    }
+
+    if (customerName && !remark?.trim()) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Remark Required',
+            text: 'Please add a remark for the customer.'
         });
         return;
     }

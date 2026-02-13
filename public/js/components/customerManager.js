@@ -213,6 +213,12 @@ const CustomerManager = (function() {
             return;
         }
 
+        // Require remark for new customers
+        if (!id && !data.remark?.trim()) {
+            Swal.fire({ icon: 'error', title: 'Remark Required', text: 'Please add a remark for the customer.' });
+            return;
+        }
+
         const url = id ? CUSTOMER_API.update(id) : CUSTOMER_API.create;
         const method = id ? 'PUT' : 'POST';
 

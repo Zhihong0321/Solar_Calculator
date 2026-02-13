@@ -203,6 +203,22 @@ async function createInvoice(pool, invoiceRequestPayload) {
         }
     }
 
+    // 2.6 Validate lead_source and remark when customer name is provided
+    if (invoiceRequestPayload.customerName && invoiceRequestPayload.customerName.trim() !== "") {
+        if (!invoiceRequestPayload.leadSource) {
+            return {
+                success: false,
+                error: 'Lead source is required when customer name is provided'
+            };
+        }
+        if (!invoiceRequestPayload.remark?.trim()) {
+            return {
+                success: false,
+                error: 'Remark is required when customer name is provided'
+            };
+        }
+    }
+
     // 3. Repository Delegation
     // We construct a pure object for the repo, ensuring it only gets what it needs.
     const repoPayload = {
@@ -350,6 +366,22 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
         }
         // For versioning, if days is 0 or explicit choice is made to have no reminder, followUpDate remains null.
         // If not provided, we might want to preserve or recalculate, but the prompt implies setting it during flow.
+    }
+
+    // 2.6 Validate lead_source and remark when customer name is provided
+    if (invoiceRequestPayload.customerName && invoiceRequestPayload.customerName.trim() !== "") {
+        if (!invoiceRequestPayload.leadSource) {
+            return {
+                success: false,
+                error: 'Lead source is required when customer name is provided'
+            };
+        }
+        if (!invoiceRequestPayload.remark?.trim()) {
+            return {
+                success: false,
+                error: 'Remark is required when customer name is provided'
+            };
+        }
     }
 
     const repoPayload = {
