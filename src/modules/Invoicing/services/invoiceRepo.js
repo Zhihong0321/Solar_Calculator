@@ -255,11 +255,41 @@ async function getVoucherByCode(client, voucherCode) {
  * @returns {Promise<object|null>} { id: number, bubbleId: string } or null
  */
 async function findOrCreateCustomer(client, data) {
-  const { name, phone, address, createdBy, profilePicture, leadSource, remark } = data;
+  const { name, phone, address, createdBy, profilePicture, leadSource, remark, existingCustomerBubbleId } = data;
   if (!name) return null;
 
   try {
-    // 1. Try to find by name
+    // 0. If we have an existing customer ID, update that customer directly (including name change)
+    if (existingCustomerBubbleId) {
+      const existingRes = await client.query(
+        'SELECT id, customer_id, name, phone, address, profile_picture, lead_source, remark FROM customer WHERE customer_id = $1 LIMIT 1',
+        [existingCustomerBubbleId]
+      );
+      
+      if (existingRes.rows.length > 0) {
+        const customer = existingRes.rows[0];
+        const id = customer.id;
+        const bubbleId = customer.customer_id;
+
+        // Update customer (including name change)
+        await client.query(
+          `UPDATE customer 
+           SET name = COALESCE($1, name),
+               phone = COALESCE($2, phone), 
+               address = COALESCE($3, address),
+               profile_picture = COALESCE($6, profile_picture),
+               lead_source = COALESCE($7, lead_source),
+               remark = COALESCE($8, remark),
+               updated_at = NOW(),
+               updated_by = $5
+           WHERE id = $4`,
+          [name, phone, address, id, String(createdBy), profilePicture, leadSource, remark]
+        );
+        return { id, bubbleId };
+      }
+    }
+
+    // 1. Try to find by name (only if no existing customer ID or not found)
     const findRes = await client.query(
       'SELECT id, customer_id, phone, address, profile_picture, lead_source, remark FROM customer WHERE name = $1 LIMIT 1',
       [name]
@@ -1261,7 +1291,10 @@ async function updateInvoiceTransaction(client, data) {
         phone: data.customerPhone,
         address: data.customerAddress,
         profilePicture: data.profilePicture || null,
-        createdBy: data.userId
+        leadSource: data.leadSource,
+        remark: data.remark,
+        createdBy: data.userId,
+        existingCustomerBubbleId: currentData.linked_customer // Pass existing customer to update instead of create new
       });
       if (custResult) {
         customerBubbleId = custResult.bubbleId;
