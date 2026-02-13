@@ -37,15 +37,14 @@ async function getAllPersonnel(client = pool) {
 }
 
 /**
- * Get all unique team tags currently in use
+ * Get all unique team-* tags currently in use
  */
 async function getAllTeams(client = pool) {
   const result = await client.query(`
-    SELECT DISTINCT 
-      unnest(access_level) as team_tag
-    FROM "user"
-    WHERE access_level::text LIKE '%team-%'
-    ORDER BY team_tag
+    SELECT DISTINCT tag as team_tag
+    FROM "user", unnest(access_level) as tag
+    WHERE tag LIKE 'team-%'
+    ORDER BY tag
   `);
   
   return result.rows.map(r => r.team_tag);
