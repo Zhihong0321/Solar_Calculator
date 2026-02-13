@@ -13,16 +13,21 @@ const router = express.Router();
 router.get('/sales-team-management', requireAuth, async (req, res) => {
   let client;
   try {
+    console.log('[SalesTeam] req.user:', req.user);
     client = await pool.connect();
-    const userId = req.user.userId || req.user.bubbleId;
+    const userId = req.user?.userId || req.user?.bubbleId || req.user?.id;
+    if (!userId) {
+      console.error('[SalesTeam] No userId found in req.user');
+      return res.status(401).send('<h1>Unauthorized</h1><p>Invalid session.</p>');
+    }
     const hasAccess = await teamRepo.hasHRAccess(userId, client);
     if (!hasAccess) {
       return res.status(403).send('<h1>Access Denied - HR only</h1>');
     }
     res.sendFile(path.join(__dirname, '../../../../public/templates/sales_team_management.html'));
   } catch (err) {
-    console.error('Sales Team Management Error:', err);
-    res.status(500).send('<h1>Server Error</h1><p>Please try again later.</p>');
+    console.error('[SalesTeam] Error:', err.message, err.stack);
+    res.status(500).send(`<h1>Server Error</h1><p>${err.message}</p>`);
   } finally {
     if (client) client.release();
   }
