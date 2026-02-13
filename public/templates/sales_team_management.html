@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,18 +8,22 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+        }
     </style>
 </head>
+
 <body class="min-h-screen">
     <div class="max-w-6xl mx-auto p-6">
         <div class="flex items-center justify-between mb-8">
             <h1 class="text-2xl font-bold text-slate-900">Team Management</h1>
-            <button onclick="showAddModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold">
+            <button onclick="showCreateModal()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold">
                 <i class="fa-solid fa-plus mr-2"></i>Create Team
             </button>
         </div>
-        
+
         <div id="content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <p class="text-slate-500">Loading...</p>
         </div>
@@ -34,7 +39,8 @@
             </select>
             <div class="flex gap-2">
                 <button onclick="hideAddModal()" class="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
-                <button onclick="confirmAssign()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg">Assign</button>
+                <button onclick="confirmAssign()"
+                    class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg">Assign</button>
             </div>
         </div>
     </div>
@@ -43,10 +49,12 @@
     <div id="createModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
         <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
             <h3 class="text-lg font-bold mb-4">Create New Team</h3>
-            <input type="text" id="newTeamName" placeholder="Team name (e.g., Johor)" class="w-full border rounded-lg px-4 py-2 mb-4">
+            <input type="text" id="newTeamName" placeholder="Team name (e.g., Johor)"
+                class="w-full border rounded-lg px-4 py-2 mb-4">
             <div class="flex gap-2">
                 <button onclick="hideCreateModal()" class="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
-                <button onclick="confirmCreate()" class="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg">Create</button>
+                <button onclick="confirmCreate()"
+                    class="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg">Create</button>
             </div>
         </div>
     </div>
@@ -72,7 +80,7 @@
         function render(data) {
             const container = document.getElementById('content');
             let html = '';
-            
+
             // Unassigned
             html += `
                 <div class="bg-white rounded-xl border p-4">
@@ -83,7 +91,7 @@
                     <div class="space-y-2">${data.unassigned.map(u => userCard(u)).join('') || '<p class="text-slate-400 text-sm">None</p>'}</div>
                 </div>
             `;
-            
+
             // Teams
             for (const [teamTag, members] of Object.entries(data.teams)) {
                 const name = teamTag.replace('team-', '').replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -97,7 +105,7 @@
                     </div>
                 `;
             }
-            
+
             container.innerHTML = html;
             updateTeamSelect(data.teams);
         }
@@ -138,7 +146,7 @@
         async function confirmAssign() {
             const userId = document.getElementById('modalUserId').value;
             const teamTag = document.getElementById('modalTeamSelect').value;
-            
+
             try {
                 if (teamTag) {
                     await fetch('/api/teams/assign', {
@@ -158,15 +166,6 @@
             } catch (e) {
                 alert('Failed');
             }
-        }
-
-        function showAddModal_Create() {
-            document.getElementById('newTeamName').value = '';
-            document.getElementById('createModal').classList.remove('hidden');
-            document.getElementById('createModal').classList.add('flex');
-        }
-        function showAddModal() {
-            // Already defined above, this prevents duplicate
         }
 
         function showCreateModal() {
@@ -192,4 +191,5 @@
         document.getElementById('createModal').addEventListener('click', e => { if (e.target === e.currentTarget) hideCreateModal(); });
     </script>
 </body>
+
 </html>

@@ -59,20 +59,28 @@ router.get('/api/activity/my-reports', requireAuth, async (req, res) => {
 
     // Get agent's bubble_id from linked_agent_profile
     client = await pool.connect();
+    // Get agent's bubble_id AND user's bubble_id to support legacy data
+    client = await pool.connect();
     const agentResult = await client.query(
-      `SELECT linked_agent_profile FROM "user" 
+      `SELECT bubble_id, linked_agent_profile FROM "user" 
        WHERE id::text = $1 OR bubble_id = $1 
        LIMIT 1`,
       [String(userId)]
     );
 
-    if (agentResult.rows.length === 0 || !agentResult.rows[0].linked_agent_profile) {
-      return res.status(403).json({ success: false, error: 'No agent profile linked' });
+    if (agentResult.rows.length === 0) {
+      return res.status(403).json({ success: false, error: 'User not found' });
     }
 
-    const agentBubbleId = agentResult.rows[0].linked_agent_profile;
-    
-    const result = await activityRepo.getActivitiesByAgent(client, agentBubbleId, {
+    const { bubble_id, linked_agent_profile } = agentResult.rows[0];
+    // Create array of valid identifiers
+    const identifiers = [bubble_id, linked_agent_profile].filter(Boolean);
+
+    if (identifiers.length === 0) {
+      return res.status(403).json({ success: false, error: 'No valid agent profile or user ID found' });
+    }
+
+    const result = await activityRepo.getActivitiesByAgent(client, identifiers, {
       limit, offset, startDate, endDate, activityType
     });
 
@@ -99,19 +107,26 @@ router.get('/api/activity/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
 
     client = await pool.connect();
+    client = await pool.connect();
     const agentResult = await client.query(
-      `SELECT linked_agent_profile FROM "user" 
+      `SELECT bubble_id, linked_agent_profile FROM "user" 
        WHERE id::text = $1 OR bubble_id = $1 
        LIMIT 1`,
       [String(userId)]
     );
 
-    if (agentResult.rows.length === 0 || !agentResult.rows[0].linked_agent_profile) {
-      return res.status(403).json({ success: false, error: 'No agent profile linked' });
+    if (agentResult.rows.length === 0) {
+      return res.status(403).json({ success: false, error: 'User not found' });
     }
 
-    const agentBubbleId = agentResult.rows[0].linked_agent_profile;
-    const activity = await activityRepo.getActivityById(client, id, agentBubbleId);
+    const { bubble_id, linked_agent_profile } = agentResult.rows[0];
+    const identifiers = [bubble_id, linked_agent_profile].filter(Boolean);
+
+    if (identifiers.length === 0) {
+      return res.status(403).json({ success: false, error: 'No valid agent profile or user ID found' });
+    }
+
+    const activity = await activityRepo.getActivityById(client, id, identifiers);
 
     if (!activity) {
       return res.status(404).json({ success: false, error: 'Activity not found' });
@@ -142,14 +157,14 @@ router.post('/api/activity/submit', requireAuth, async (req, res) => {
 
     // Validate follow-up subtype
     if (activityType === 'Follow-up' && !followUpSubtype) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Follow-up subtype is required for Follow-up activities' 
+      return res.status(400).json({
+        success: false,
+        error: 'Follow-up subtype is required for Follow-up activities'
       });
     }
 
     client = await pool.connect();
-    
+
     // Get agent's bubble_id
     const agentResult = await client.query(
       `SELECT linked_agent_profile FROM "user" 
@@ -199,20 +214,25 @@ router.put('/api/activity/:id', requireAuth, async (req, res) => {
     const { activityType, followUpSubtype, remark, linkedCustomer, reportDate, tags } = req.body;
 
     client = await pool.connect();
-    
-    // Get agent's bubble_id
+
+    // Get identifiers
     const agentResult = await client.query(
-      `SELECT linked_agent_profile FROM "user" 
+      `SELECT bubble_id, linked_agent_profile FROM "user" 
        WHERE id::text = $1 OR bubble_id = $1 
        LIMIT 1`,
       [String(userId)]
     );
 
-    if (agentResult.rows.length === 0 || !agentResult.rows[0].linked_agent_profile) {
-      return res.status(403).json({ success: false, error: 'No agent profile linked' });
+    if (agentResult.rows.length === 0) {
+      return res.status(403).json({ success: false, error: 'User not found' });
     }
 
-    const agentBubbleId = agentResult.rows[0].linked_agent_profile;
+    const { bubble_id, linked_agent_profile } = agentResult.rows[0];
+    const identifiers = [bubble_id, linked_agent_profile].filter(Boolean);
+
+    if (identifiers.length === 0) {
+      return res.status(403).json({ success: false, error: 'No valid agent profile or user ID found' });
+    }
 
     const activity = await activityRepo.updateActivity(client, id, {
       activityType,
@@ -221,7 +241,7 @@ router.put('/api/activity/:id', requireAuth, async (req, res) => {
       linkedCustomer,
       reportDate: reportDate ? new Date(reportDate) : undefined,
       tags
-    }, agentBubbleId);
+    }, identifiers);
 
     if (!activity) {
       return res.status(404).json({ success: false, error: 'Activity not found or permission denied' });
@@ -251,21 +271,27 @@ router.delete('/api/activity/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
 
     client = await pool.connect();
-    
-    // Get agent's bubble_id
+
+    // Get identifiers
     const agentResult = await client.query(
-      `SELECT linked_agent_profile FROM "user" 
+      `SELECT bubble_id, linked_agent_profile FROM "user" 
        WHERE id::text = $1 OR bubble_id = $1 
        LIMIT 1`,
       [String(userId)]
     );
 
-    if (agentResult.rows.length === 0 || !agentResult.rows[0].linked_agent_profile) {
-      return res.status(403).json({ success: false, error: 'No agent profile linked' });
+    if (agentResult.rows.length === 0) {
+      return res.status(403).json({ success: false, error: 'User not found' });
     }
 
-    const agentBubbleId = agentResult.rows[0].linked_agent_profile;
-    const deleted = await activityRepo.deleteActivity(client, id, agentBubbleId);
+    const { bubble_id, linked_agent_profile } = agentResult.rows[0];
+    const identifiers = [bubble_id, linked_agent_profile].filter(Boolean);
+
+    if (identifiers.length === 0) {
+      return res.status(403).json({ success: false, error: 'No valid agent profile or user ID found' });
+    }
+
+    const deleted = await activityRepo.deleteActivity(client, id, identifiers);
 
     if (!deleted) {
       return res.status(404).json({ success: false, error: 'Activity not found or permission denied' });
@@ -292,20 +318,26 @@ router.get('/api/activity/stats/daily', requireAuth, async (req, res) => {
     const targetDate = date || new Date().toISOString().split('T')[0];
 
     client = await pool.connect();
-    
+
     const agentResult = await client.query(
-      `SELECT linked_agent_profile FROM "user" 
+      `SELECT bubble_id, linked_agent_profile FROM "user" 
        WHERE id::text = $1 OR bubble_id = $1 
        LIMIT 1`,
       [String(userId)]
     );
 
-    if (agentResult.rows.length === 0 || !agentResult.rows[0].linked_agent_profile) {
-      return res.status(403).json({ success: false, error: 'No agent profile linked' });
+    if (agentResult.rows.length === 0) {
+      return res.status(403).json({ success: false, error: 'User not found' });
     }
 
-    const agentBubbleId = agentResult.rows[0].linked_agent_profile;
-    const stats = await activityRepo.getDailyStats(client, agentBubbleId, targetDate);
+    const { bubble_id, linked_agent_profile } = agentResult.rows[0];
+    const identifiers = [bubble_id, linked_agent_profile].filter(Boolean);
+
+    if (identifiers.length === 0) {
+      return res.status(403).json({ success: false, error: 'No valid agent profile or user ID found' });
+    }
+
+    const stats = await activityRepo.getDailyStats(client, identifiers, targetDate);
 
     res.json({ success: true, data: stats });
   } catch (err) {
@@ -338,20 +370,26 @@ router.get('/api/activity/stats/weekly', requireAuth, async (req, res) => {
     const endDate = weekEnd || defaultWeekEnd.toISOString().split('T')[0];
 
     client = await pool.connect();
-    
+
     const agentResult = await client.query(
-      `SELECT linked_agent_profile FROM "user" 
+      `SELECT bubble_id, linked_agent_profile FROM "user" 
        WHERE id::text = $1 OR bubble_id = $1 
        LIMIT 1`,
       [String(userId)]
     );
 
-    if (agentResult.rows.length === 0 || !agentResult.rows[0].linked_agent_profile) {
-      return res.status(403).json({ success: false, error: 'No agent profile linked' });
+    if (agentResult.rows.length === 0) {
+      return res.status(403).json({ success: false, error: 'User not found' });
     }
 
-    const agentBubbleId = agentResult.rows[0].linked_agent_profile;
-    const stats = await activityRepo.getWeeklyStats(client, agentBubbleId, startDate, endDate);
+    const { bubble_id, linked_agent_profile } = agentResult.rows[0];
+    const identifiers = [bubble_id, linked_agent_profile].filter(Boolean);
+
+    if (identifiers.length === 0) {
+      return res.status(403).json({ success: false, error: 'No valid agent profile or user ID found' });
+    }
+
+    const stats = await activityRepo.getWeeklyStats(client, identifiers, startDate, endDate);
 
     res.json({ success: true, data: { ...stats, weekStart: startDate, weekEnd: endDate } });
   } catch (err) {

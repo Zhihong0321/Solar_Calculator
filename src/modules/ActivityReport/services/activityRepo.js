@@ -53,11 +53,17 @@ async function getActivitiesByAgent(client, agentBubbleId, options = {}) {
   const offset = parseInt(options.offset) || 0;
   const { startDate, endDate, activityType } = options;
 
+  /*
+   * Handle multiple identifiers (User bubble_id + Agent bubble_id)
+   * to support legacy reports linked to user ID.
+   */
+  const identifiers = Array.isArray(agentBubbleId) ? agentBubbleId : [agentBubbleId];
+
   let query = `
     SELECT * FROM agent_daily_report 
-    WHERE (linked_user = $1 OR created_by = $1)
+    WHERE (linked_user = ANY($1) OR created_by = ANY($1))
   `;
-  const params = [agentBubbleId];
+  const params = [identifiers];
   let paramCount = 1;
 
   if (startDate) {
@@ -86,9 +92,9 @@ async function getActivitiesByAgent(client, agentBubbleId, options = {}) {
   // Get total count
   let countQuery = `
     SELECT COUNT(*) as total FROM agent_daily_report 
-    WHERE (linked_user = $1 OR created_by = $1)
+    WHERE (linked_user = ANY($1) OR created_by = ANY($1))
   `;
-  const countParams = [agentBubbleId];
+  const countParams = [identifiers];
   let countParamCount = 1;
 
   if (startDate) {
@@ -126,10 +132,12 @@ async function getActivitiesByAgent(client, agentBubbleId, options = {}) {
  * @param {string} agentBubbleId - For ownership verification
  */
 async function getActivityById(client, id, agentBubbleId) {
+  const identifiers = Array.isArray(agentBubbleId) ? agentBubbleId : [agentBubbleId];
+
   const result = await client.query(
     `SELECT * FROM agent_daily_report 
-     WHERE id = $1 AND (linked_user = $2 OR created_by = $2)`,
-    [id, agentBubbleId]
+     WHERE id = $1 AND (linked_user = ANY($2) OR created_by = ANY($2))`,
+    [id, identifiers]
   );
   return result.rows.length > 0 ? result.rows[0] : null;
 }
@@ -190,6 +198,8 @@ async function updateActivity(client, id, data, agentBubbleId) {
   // Recalculate points if activity type changed
   const points = activityType ? getPointsForActivity(activityType) : undefined;
 
+  const identifiers = Array.isArray(agentBubbleId) ? agentBubbleId : [agentBubbleId];
+
   const result = await client.query(
     `UPDATE agent_daily_report SET
       activity_type = COALESCE($1, activity_type),
@@ -200,7 +210,7 @@ async function updateActivity(client, id, data, agentBubbleId) {
       tag = COALESCE($6, tag),
       report_point = COALESCE($7, report_point),
       updated_at = NOW()
-    WHERE id = $8 AND (linked_user = $9 OR created_by = $9)
+    WHERE id = $8 AND (linked_user = ANY($9) OR created_by = ANY($9))
     RETURNING *`,
     [
       activityType || null,
@@ -211,7 +221,7 @@ async function updateActivity(client, id, data, agentBubbleId) {
       tags || null,
       points,
       id,
-      agentBubbleId
+      identifiers
     ]
   );
 
@@ -225,11 +235,13 @@ async function updateActivity(client, id, data, agentBubbleId) {
  * @param {string} agentBubbleId 
  */
 async function deleteActivity(client, id, agentBubbleId) {
+  const identifiers = Array.isArray(agentBubbleId) ? agentBubbleId : [agentBubbleId];
+
   const result = await client.query(
     `DELETE FROM agent_daily_report 
-     WHERE id = $1 AND (linked_user = $2 OR created_by = $2)
+     WHERE id = $1 AND (linked_user = ANY($2) OR created_by = ANY($2))
      RETURNING id`,
-    [id, agentBubbleId]
+    [id, identifiers]
   );
   return result.rows.length > 0;
 }
@@ -241,6 +253,8 @@ async function deleteActivity(client, id, agentBubbleId) {
  * @param {string} date - YYYY-MM-DD format
  */
 async function getDailyStats(client, agentBubbleId, date) {
+  const identifiers = Array.isArray(agentBubbleId) ? agentBubbleId : [agentBubbleId];
+
   const result = await client.query(
     `SELECT 
       COUNT(*) as total_activities,
@@ -248,11 +262,11 @@ async function getDailyStats(client, agentBubbleId, date) {
       activity_type,
       COUNT(*) as count
     FROM agent_daily_report 
-    WHERE (linked_user = $1 OR created_by = $1)
+    WHERE (linked_user = ANY($1) OR created_by = ANY($1))
       AND DATE(report_date) = $2
     GROUP BY activity_type
     ORDER BY activity_type`,
-    [agentBubbleId, date]
+    [identifiers, date]
   );
 
   // Get overall summary
@@ -261,9 +275,9 @@ async function getDailyStats(client, agentBubbleId, date) {
       COUNT(*) as total_activities,
       COALESCE(SUM(report_point), 0) as total_points
     FROM agent_daily_report 
-    WHERE (linked_user = $1 OR created_by = $1)
+    WHERE (linked_user = ANY($1) OR created_by = ANY($1))
       AND DATE(report_date) = $2`,
-    [agentBubbleId, date]
+    [identifiers, date]
   );
 
   return {
@@ -280,18 +294,20 @@ async function getDailyStats(client, agentBubbleId, date) {
  * @param {string} weekEnd - End date of week (YYYY-MM-DD)
  */
 async function getWeeklyStats(client, agentBubbleId, weekStart, weekEnd) {
+  const identifiers = Array.isArray(agentBubbleId) ? agentBubbleId : [agentBubbleId];
+
   const result = await client.query(
     `SELECT 
       DATE(report_date) as date,
       COUNT(*) as total_activities,
       COALESCE(SUM(report_point), 0) as total_points
     FROM agent_daily_report 
-    WHERE (linked_user = $1 OR created_by = $1)
+    WHERE (linked_user = ANY($1) OR created_by = ANY($1))
       AND DATE(report_date) >= $2 
       AND DATE(report_date) <= $3
     GROUP BY DATE(report_date)
     ORDER BY date`,
-    [agentBubbleId, weekStart, weekEnd]
+    [identifiers, weekStart, weekEnd]
   );
 
   // Get weekly summary
@@ -300,10 +316,10 @@ async function getWeeklyStats(client, agentBubbleId, weekStart, weekEnd) {
       COUNT(*) as total_activities,
       COALESCE(SUM(report_point), 0) as total_points
     FROM agent_daily_report 
-    WHERE (linked_user = $1 OR created_by = $1)
+    WHERE (linked_user = ANY($1) OR created_by = ANY($1))
       AND DATE(report_date) >= $2 
       AND DATE(report_date) <= $3`,
-    [agentBubbleId, weekStart, weekEnd]
+    [identifiers, weekStart, weekEnd]
   );
 
   return {
@@ -329,7 +345,7 @@ async function getTeamStats(client, options = {}) {
     FROM agent a
     LEFT JOIN agent_daily_report dr ON (a.bubble_id = dr.linked_user OR a.bubble_id = dr.created_by)
   `;
-  
+
   const params = [];
   let whereConditions = [];
 
@@ -376,7 +392,7 @@ async function getAllActivitiesForReview(client, options = {}) {
     LEFT JOIN customer c ON dr.linked_customer = c.customer_id
     WHERE 1=1
   `;
-  
+
   const params = [];
   let paramCount = 0;
 
