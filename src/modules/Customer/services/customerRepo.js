@@ -30,7 +30,7 @@ async function getCustomersByUserId(client, userId, options = {}) {
   params.push(limit, offset);
 
   const result = await client.query(query, params);
-  
+
   // Count total
   let countQuery = `SELECT COUNT(*) as total FROM customer WHERE created_by = $1`;
   const countParams = [String(userId)];
@@ -38,7 +38,7 @@ async function getCustomersByUserId(client, userId, options = {}) {
     countQuery += ` AND (name ILIKE $2 OR phone ILIKE $2 OR email ILIKE $2)`;
     countParams.push(search);
   }
-  
+
   const countResult = await client.query(countQuery, countParams);
 
   return {
@@ -69,9 +69,9 @@ async function getCustomerById(client, id) {
  */
 async function createCustomer(client, data) {
   const { name, phone, email, address, city, state, postcode, userId, profilePicture, leadSource, remark } = data;
-  
+
   const customerBubbleId = `cust_${crypto.randomBytes(4).toString('hex')}`;
-  
+
   const result = await client.query(
     `INSERT INTO customer 
      (customer_id, name, phone, email, address, city, state, postcode, created_by, created_at, updated_at, profile_picture, lead_source, remark)
@@ -79,7 +79,7 @@ async function createCustomer(client, data) {
      RETURNING *`,
     [customerBubbleId, name, phone, email, address, city, state, postcode, String(userId), profilePicture, leadSource, remark]
   );
-  
+
   return result.rows[0];
 }
 
@@ -129,7 +129,7 @@ async function deleteCustomer(client, id, userId) {
   } catch (err) {
     // If FK constraint fails
     if (err.code === '23503') {
-       throw new Error('Cannot delete customer because they are linked to existing invoices.');
+      throw new Error('Cannot delete customer because they are linked to existing invoices.');
     }
     throw err;
   }
@@ -147,7 +147,7 @@ async function getCustomerHistory(client, id, userId) {
     'SELECT id FROM customer WHERE id = $1 AND created_by = $2',
     [id, String(userId)]
   );
-  
+
   if (ownershipCheck.rows.length === 0) {
     return [];
   }
@@ -159,7 +159,39 @@ async function getCustomerHistory(client, id, userId) {
      ORDER BY changed_at DESC`,
     [id]
   );
-  
+
+  return result.rows;
+}
+
+/**
+ * Get lead source statistics
+ */
+async function getLeadSourceStatistics(client, options = {}) {
+  const { startDate, endDate } = options;
+  const params = [];
+  let whereClause = '1=1';
+
+  if (startDate) {
+    params.push(startDate);
+    whereClause += ` AND DATE(created_at) >= $${params.length}`;
+  }
+
+  if (endDate) {
+    params.push(endDate);
+    whereClause += ` AND DATE(created_at) <= $${params.length}`;
+  }
+
+  const query = `
+    SELECT 
+      lead_source,
+      COUNT(*) as count
+    FROM customer
+    WHERE ${whereClause}
+    GROUP BY lead_source
+    ORDER BY count DESC
+  `;
+
+  const result = await client.query(query, params);
   return result.rows;
 }
 
@@ -169,5 +201,6 @@ module.exports = {
   createCustomer,
   updateCustomer,
   deleteCustomer,
-  getCustomerHistory
+  getCustomerHistory,
+  getLeadSourceStatistics
 };

@@ -7,10 +7,19 @@ const path = require('path');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const activityRepo = require('../services/activityRepo');
+const customerRepo = require('../../Customer/services/customerRepo');
 
 const router = express.Router();
 
 // ==================== PAGE ROUTES ====================
+
+/**
+ * GET /sales-kpi
+ * Sales Manager KPI Overview
+ */
+router.get('/sales-kpi', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, '../../../../public/templates/sales_kpi.html'));
+});
 
 /**
  * GET /activity-report
@@ -458,6 +467,40 @@ router.get('/api/activity/agents', requireAuth, async (req, res) => {
     res.json({ success: true, data: result.rows });
   } catch (err) {
     console.error('Error fetching agents:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
+ * GET /api/kpi/overview
+ * Get Sales KPI overview data
+ */
+router.get('/api/kpi/overview', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const { startDate, endDate } = req.query;
+
+    client = await pool.connect();
+
+    const [agentRanking, activityBreakdown, leadSourceStats] = await Promise.all([
+      activityRepo.getAgentPerformanceRanking(client, { startDate, endDate }),
+      activityRepo.getActivityTypeBreakdown(client, { startDate, endDate }),
+      customerRepo.getLeadSourceStatistics(client, { startDate, endDate })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        agentRanking,
+        activityBreakdown,
+        leadSourceStats
+      }
+    });
+
+  } catch (err) {
+    console.error('Error fetching KPI overview:', err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     if (client) client.release();

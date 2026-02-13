@@ -338,6 +338,14 @@
                         <p class="text-[10px] text-slate-400 font-medium mt-1">Discount Management</p>
                     </a>
 
+                    <a href="/sales-kpi" id="salesKpiCard" class="tool-card hidden">
+                        <div class="tool-icon">
+                            <i class="fa-solid fa-chart-pie text-2xl text-purple-600"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-slate-900">Sales KPI</h3>
+                        <p class="text-[10px] text-slate-400 font-medium mt-1">Manager Overview</p>
+                    </a>
+
                     <a href="/sales-team-management" id="teamManagementCard" class="tool-card hidden">
                         <div class="tool-icon">
                             <i class="fa-solid fa-users-gear text-2xl"></i>
@@ -423,6 +431,9 @@
                 if (data.access_level && Array.isArray(data.access_level) && data.access_level.includes('hr')) {
                     const teamCard = document.getElementById('teamManagementCard');
                     if (teamCard) teamCard.classList.remove('hidden');
+
+                    const kpiCard = document.getElementById('salesKpiCard');
+                    if (kpiCard) kpiCard.classList.remove('hidden');
                 }
 
                 const avatarUrl = data.profile_picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || 'Agent')}&background=0D8ABC&color=fff&bold=true`;

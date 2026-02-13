@@ -468,6 +468,80 @@ async function getAllActivitiesForReview(client, options = {}) {
   };
 }
 
+/**
+ * Get agent performance ranking
+ */
+async function getAgentPerformanceRanking(client, options = {}) {
+  const { startDate, endDate } = options;
+  const params = [];
+  let dateConditions = '';
+
+  if (startDate) {
+    params.push(startDate);
+    dateConditions += ` AND DATE(dr.report_date) >= $${params.length}`;
+  }
+
+  if (endDate) {
+    params.push(endDate);
+    dateConditions += ` AND DATE(dr.report_date) <= $${params.length}`;
+  }
+
+  const query = `
+    SELECT 
+      a.bubble_id,
+      a.name as agent_name,
+      a.contact,
+      u.profile_picture,
+      COUNT(dr.id) as total_activities,
+      COALESCE(SUM(dr.report_point), 0) as total_points,
+      COUNT(CASE WHEN dr.activity_type = 'Close Case' THEN 1 END) as close_cases
+    FROM agent a
+    LEFT JOIN "user" u ON (a.linked_user_login = u.bubble_id OR u.linked_agent_profile = a.bubble_id)
+    LEFT JOIN agent_daily_report dr ON (
+      (a.bubble_id = dr.linked_user OR a.bubble_id = dr.created_by)
+      ${dateConditions}
+    )
+    GROUP BY a.bubble_id, a.name, a.contact, u.profile_picture
+    ORDER BY total_points DESC
+  `;
+
+  const result = await client.query(query, params);
+  return result.rows;
+}
+
+/**
+ * Get activity type breakdown
+ */
+async function getActivityTypeBreakdown(client, options = {}) {
+  const { startDate, endDate } = options;
+  const params = [];
+  let whereClause = '1=1';
+
+  if (startDate) {
+    params.push(startDate);
+    whereClause += ` AND DATE(report_date) >= $${params.length}`;
+  }
+
+  if (endDate) {
+    params.push(endDate);
+    whereClause += ` AND DATE(report_date) <= $${params.length}`;
+  }
+
+  const query = `
+    SELECT 
+      activity_type,
+      COUNT(*) as count,
+      COALESCE(SUM(report_point), 0) as total_points
+    FROM agent_daily_report
+    WHERE ${whereClause}
+    GROUP BY activity_type
+    ORDER BY count DESC
+  `;
+
+  const result = await client.query(query, params);
+  return result.rows;
+}
+
 module.exports = {
   ACTIVITY_POINTS,
   FOLLOW_UP_SUBTYPES,
@@ -480,5 +554,7 @@ module.exports = {
   getDailyStats,
   getWeeklyStats,
   getTeamStats,
-  getAllActivitiesForReview
+  getAllActivitiesForReview,
+  getAgentPerformanceRanking,
+  getActivityTypeBreakdown
 };
