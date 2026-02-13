@@ -207,6 +207,12 @@ const CustomerManager = (function() {
             return;
         }
 
+        // Require lead_source for new customers
+        if (!id && !data.leadSource) {
+            Swal.fire({ icon: 'error', title: 'Lead Source Required', text: 'Please select a lead source for the customer.' });
+            return;
+        }
+
         const url = id ? CUSTOMER_API.update(id) : CUSTOMER_API.create;
         const method = id ? 'PUT' : 'POST';
 

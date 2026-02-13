@@ -173,6 +173,10 @@ router.post('/api/customers', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Name is required' });
     }
 
+    if (!leadSource) {
+      return res.status(400).json({ success: false, error: 'Lead source is required' });
+    }
+
     client = await pool.connect();
     const customer = await customerRepo.createCustomer(client, {
       name, phone, email, address, city, state, postcode, userId, profilePicture, leadSource, remark
