@@ -35,9 +35,13 @@ router.get('/sales-team-management', requireAuth, async (req, res) => {
 
 // API: Get all teams with members
 router.get('/api/teams', requireAuth, async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    client = await pool.connect();
+    const userId = req.user?.userId || req.user?.bubbleId || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     if (!await teamRepo.hasHRAccess(userId, client)) {
       return res.status(403).json({ error: 'HR access required' });
     }
@@ -45,17 +49,22 @@ router.get('/api/teams', requireAuth, async (req, res) => {
     const { teams, unassigned } = await teamRepo.getTeamsWithMembers(client);
     res.json({ success: true, data: { teams, unassigned } });
   } catch (err) {
+    console.error('[SalesTeam API] Error:', err.message);
     res.status(500).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
 // API: Assign user to team
 router.post('/api/teams/assign', requireAuth, async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    client = await pool.connect();
+    const userId = req.user?.userId || req.user?.bubbleId || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     if (!await teamRepo.hasHRAccess(userId, client)) {
       return res.status(403).json({ error: 'HR access required' });
     }
@@ -64,17 +73,22 @@ router.post('/api/teams/assign', requireAuth, async (req, res) => {
     await teamRepo.assignUserToTeam(targetUserId, teamTag, client);
     res.json({ success: true });
   } catch (err) {
+    console.error('[SalesTeam API] Error:', err.message);
     res.status(400).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
 // API: Remove user from team
 router.post('/api/teams/remove', requireAuth, async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    client = await pool.connect();
+    const userId = req.user?.userId || req.user?.bubbleId || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     if (!await teamRepo.hasHRAccess(userId, client)) {
       return res.status(403).json({ error: 'HR access required' });
     }
@@ -83,9 +97,10 @@ router.post('/api/teams/remove', requireAuth, async (req, res) => {
     await teamRepo.removeUserFromTeam(targetUserId, client);
     res.json({ success: true });
   } catch (err) {
+    console.error('[SalesTeam API] Error:', err.message);
     res.status(400).json({ error: err.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
