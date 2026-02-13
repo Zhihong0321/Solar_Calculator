@@ -72,20 +72,20 @@ const requireHRAccess = async (req, res, next) => {
 
 /**
  * GET /api/sales-team/all-personnel
- * Get all sales personnel with their team assignments
+ * Get all users with their team assignments
  */
 router.get('/api/sales-team/all-personnel', requireAuth, requireHRAccess, async (req, res) => {
   let client = null;
   try {
     client = await pool.connect();
-    const personnel = await teamRepo.getAllSalesPersonnel(client);
+    const personnel = await teamRepo.getAllPersonnel(client);
     
     res.json({ 
       success: true, 
       data: personnel 
     });
   } catch (err) {
-    console.error('Error fetching sales personnel:', err);
+    console.error('Error fetching personnel:', err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     if (client) client.release();
@@ -128,13 +128,13 @@ router.get('/api/sales-team/teams', requireAuth, requireHRAccess, async (req, re
 
 /**
  * GET /api/sales-team/unassigned
- * Get sales personnel without team assignment
+ * Get users without team assignment
  */
 router.get('/api/sales-team/unassigned', requireAuth, requireHRAccess, async (req, res) => {
   let client = null;
   try {
     client = await pool.connect();
-    const unassigned = await teamRepo.getUnassignedSales(client);
+    const unassigned = await teamRepo.getUnassignedPersonnel(client);
     
     res.json({ 
       success: true, 

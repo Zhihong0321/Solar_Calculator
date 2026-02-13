@@ -5,10 +5,10 @@
 const pool = require('../../../core/database/pool');
 
 /**
- * Get all users with 'sales' tag in their access_level
- * Includes their team assignment if any (team-* tags)
+ * Get all users with any team-* tag
+ * Simple: just get users and their team assignment
  */
-async function getAllSalesPersonnel(client = pool) {
+async function getAllPersonnel(client = pool) {
   const result = await client.query(`
     SELECT 
       u.id,
@@ -27,7 +27,9 @@ async function getAllSalesPersonnel(client = pool) {
       ) as team_tag
     FROM "user" u
     LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
-    WHERE 'sales' = ANY(u.access_level)
+    WHERE EXISTS (
+      SELECT 1 FROM unnest(u.access_level) tag WHERE tag LIKE 'team-%'
+    )
     ORDER BY a.name
   `);
   
@@ -74,9 +76,9 @@ async function getTeamMembers(teamTag, client = pool) {
 }
 
 /**
- * Get all sales users without a team assignment
+ * Get all users without a team assignment
  */
-async function getUnassignedSales(client = pool) {
+async function getUnassignedPersonnel(client = pool) {
   const result = await client.query(`
     SELECT 
       u.id,
@@ -90,10 +92,9 @@ async function getUnassignedSales(client = pool) {
       a.agent_type
     FROM "user" u
     LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
-    WHERE 'sales' = ANY(u.access_level)
-      AND NOT EXISTS (
-        SELECT 1 FROM unnest(u.access_level) tag WHERE tag LIKE 'team-%'
-      )
+    WHERE NOT EXISTS (
+      SELECT 1 FROM unnest(u.access_level) tag WHERE tag LIKE 'team-%'
+    )
     ORDER BY a.name
   `);
   
@@ -226,12 +227,11 @@ async function hasHRAccess(userId, client = pool) {
 
 /**
  * Get team statistics
- * Only counts users who have BOTH the team tag AND sales tag
  */
 async function getTeamStats(teamTag, client = pool) {
   const result = await client.query(`
     SELECT 
-      COUNT(CASE WHEN 'sales' = ANY(u.access_level) THEN 1 END) as member_count
+      COUNT(*) as member_count
     FROM "user" u
     WHERE $1 = ANY(u.access_level)
   `, [teamTag]);
@@ -240,10 +240,10 @@ async function getTeamStats(teamTag, client = pool) {
 }
 
 module.exports = {
-  getAllSalesPersonnel,
+  getAllPersonnel,
   getAllTeams,
   getTeamMembers,
-  getUnassignedSales,
+  getUnassignedPersonnel,
   createTeam,
   assignToTeam,
   removeFromTeam,
