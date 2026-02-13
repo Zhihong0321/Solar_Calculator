@@ -46,10 +46,10 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   items.forEach((item, index) => {
     const qty = parseFloat(item.qty) || 0;
     const totalPrice = parseFloat(item.total_price) || 0;
-    const isDiscount = item.item_type === 'discount';
-    const isVoucher = item.item_type === 'voucher';
 
-    const totalClass = (isDiscount || isVoucher) ? 'text-red-600' : 'text-gray-900';
+    // Respect user input: negative values are displayed as negative (red), positive as positive (black/slate)
+    const isNegative = totalPrice < 0;
+    const priceClass = isNegative ? 'text-red-600' : 'text-gray-900';
 
     itemsHtml += `
       <div class="invoice-item py-4 px-2 border-b border-gray-100 last:border-b-0">
@@ -58,15 +58,15 @@ function generateInvoiceHtml(invoice, template, options = {}) {
             <p class="font-semibold text-gray-900 text-base sm:text-[15px] leading-relaxed mb-1">
               ${item.description}
             </p>
-            ${!isDiscount && !isVoucher ? `
+            ${!isNegative ? `
             <p class="text-xs text-gray-500 font-medium">
               Qty: ${qty.toFixed(2)}
             </p>
             ` : ''}
           </div>
           <div class="text-right sm:text-right mt-1 sm:mt-0">
-            <p class="font-bold ${totalClass} text-base sm:text-[15px] whitespace-nowrap">
-              ${(isDiscount || isVoucher) ? '-' : ''}RM ${Math.abs(totalPrice).toFixed(2)}
+            <p class="font-bold ${priceClass} text-base sm:text-[15px] whitespace-nowrap">
+              ${isNegative ? '-' : ''}RM ${Math.abs(totalPrice).toFixed(2)}
             </p>
           </div>
         </div>
@@ -482,16 +482,19 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       </div>
       <div class="divide-y divide-slate-100 border-b border-slate-100">
         ${items.map(item => {
-    const isDiscount = item.item_type === 'discount' || item.item_type === 'voucher';
-    const priceClass = isDiscount ? 'text-red-600' : 'text-slate-900';
+    const val = parseFloat(item.total_price) || 0;
+    // Check if value is negative to apply styling, regardless of item_type
+    const isNegative = val < 0;
+    const priceClass = isNegative ? 'text-red-600' : 'text-slate-900';
+
     return `
           <div class="px-3 py-3 flex gap-3 items-start">
             <div class="flex-1">
               <p class="text-sm font-medium text-slate-900 leading-snug">${item.description ? item.description.replace(/\n/g, '<br>') : ''}</p>
-              ${!isDiscount && item.qty ? `<p class="text-[10px] text-slate-400 mt-0.5">Qty: ${parseFloat(item.qty)}</p>` : ''}
+              ${!isNegative && item.qty ? `<p class="text-[10px] text-slate-400 mt-0.5">Qty: ${parseFloat(item.qty)}</p>` : ''}
             </div>
             <div class="text-right w-24">
-              <p class="text-sm font-semibold ${priceClass}">${isDiscount ? '-' : ''}RM ${Math.abs(parseFloat(item.total_price)).toFixed(2)}</p>
+              <p class="text-sm font-semibold ${priceClass}">${isNegative ? '-' : ''}RM ${Math.abs(val).toFixed(2)}</p>
             </div>
           </div>
           `;
@@ -705,16 +708,18 @@ function generateProposalHtml(invoice, options = {}) {
   // Generate Items HTML
   let itemsHtml = '';
   (invoice.items || []).forEach(item => {
-    const isDiscount = item.item_type === 'discount' || item.item_type === 'voucher';
-    const priceClass = isDiscount ? 'text-red-600' : 'text-slate-900';
+    const val = parseFloat(item.total_price) || 0;
+    const isNegative = val < 0;
+    const priceClass = isNegative ? 'text-red-600' : 'text-slate-900';
+
     itemsHtml += `
       <div class="px-3 py-3 flex gap-3 items-start">
         <div class="flex-1">
           <p class="text-sm font-medium text-slate-900 leading-snug">${item.description ? item.description.replace(/\n/g, '<br>') : ''}</p>
-          ${!isDiscount && item.qty ? `<p class="text-[10px] text-slate-400 mt-0.5">Qty: ${parseFloat(item.qty)}</p>` : ''}
+          ${!isNegative && item.qty ? `<p class="text-[10px] text-slate-400 mt-0.5">Qty: ${parseFloat(item.qty)}</p>` : ''}
         </div>
         <div class="text-right w-24">
-          <p class="text-sm font-semibold ${priceClass}">${isDiscount ? '-' : ''}RM ${Math.abs(parseFloat(item.total_price)).toFixed(2)}</p>
+          <p class="text-sm font-semibold ${priceClass}">${isNegative ? '-' : ''}RM ${Math.abs(val).toFixed(2)}</p>
         </div>
       </div>
     `;
