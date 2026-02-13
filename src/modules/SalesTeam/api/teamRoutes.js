@@ -11,16 +11,20 @@ const router = express.Router();
 
 // Page route
 router.get('/sales-team-management', requireAuth, async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     const userId = req.user.userId || req.user.bubbleId;
     const hasAccess = await teamRepo.hasHRAccess(userId, client);
     if (!hasAccess) {
       return res.status(403).send('<h1>Access Denied - HR only</h1>');
     }
     res.sendFile(path.join(__dirname, '../../../../public/templates/sales_team_management.html'));
+  } catch (err) {
+    console.error('Sales Team Management Error:', err);
+    res.status(500).send('<h1>Server Error</h1><p>Please try again later.</p>');
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
