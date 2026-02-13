@@ -167,7 +167,7 @@ router.post('/api/customers', requireAuth, async (req, res) => {
   let client = null;
   try {
     const userId = req.user.userId;
-    const { name, phone, email, address, city, state, postcode, profilePicture } = req.body;
+    const { name, phone, email, address, city, state, postcode, profilePicture, leadSource, remark } = req.body;
 
     if (!name) {
       return res.status(400).json({ success: false, error: 'Name is required' });
@@ -175,7 +175,7 @@ router.post('/api/customers', requireAuth, async (req, res) => {
 
     client = await pool.connect();
     const customer = await customerRepo.createCustomer(client, {
-      name, phone, email, address, city, state, postcode, userId, profilePicture
+      name, phone, email, address, city, state, postcode, userId, profilePicture, leadSource, remark
     });
 
     res.json({
@@ -199,11 +199,11 @@ router.put('/api/customers/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
-    const { name, phone, email, address, city, state, postcode, profilePicture } = req.body;
+    const { name, phone, email, address, city, state, postcode, profilePicture, leadSource, remark } = req.body;
 
     client = await pool.connect();
     const customer = await customerRepo.updateCustomer(client, id, {
-      name, phone, email, address, city, state, postcode, userId, profilePicture
+      name, phone, email, address, city, state, postcode, userId, profilePicture, leadSource, remark
     });
 
     if (!customer) {

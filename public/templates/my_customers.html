@@ -313,6 +313,29 @@
                             <input type="text" id="customerState"
                                 class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900">
                         </div>
+                        <!-- Lead Source -->
+                        <div>
+                            <label
+                                class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Lead Source</label>
+                            <select id="customerLeadSource"
+                                class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900">
+                                <option value="">-- Select Lead Source --</option>
+                                <option value="referral">Referral</option>
+                                <option value="bni">BNI</option>
+                                <option value="roadshow">Roadshow</option>
+                                <option value="digital_ads">Digital Ads</option>
+                                <option value="own_network">Own Network</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <!-- Remark -->
+                        <div>
+                            <label
+                                class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Remark</label>
+                            <textarea id="customerRemark" rows="3"
+                                class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900 resize-none"
+                                placeholder="Additional notes about this customer..."></textarea>
+                        </div>
                     </div>
                     <div class="mt-8 flex justify-end gap-3">
                         <button type="button" onclick="closeModal()"

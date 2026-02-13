@@ -41,7 +41,9 @@ const CustomerManager = (function() {
         state: 'customerState',
         postcode: 'customerPostcode',
         profilePicture: 'profilePicture',
-        profilePreview: 'profilePreview'
+        profilePreview: 'profilePreview',
+        leadSource: 'customerLeadSource',
+        remark: 'customerRemark'
     };
 
     // WhatsApp API endpoints
@@ -156,7 +158,9 @@ const CustomerManager = (function() {
             'customerAddress': customer.address || '',
             'customerCity': customer.city || '',
             'customerState': customer.state || '',
-            'customerPostcode': customer.postcode || ''
+            'customerPostcode': customer.postcode || '',
+            'customerLeadSource': customer.lead_source || '',
+            'customerRemark': customer.remark || ''
         };
 
         Object.entries(fieldMap).forEach(([fieldId, value]) => {
@@ -193,7 +197,9 @@ const CustomerManager = (function() {
             city: document.getElementById('customerCity')?.value || '',
             state: document.getElementById('customerState')?.value || '',
             postcode: document.getElementById('customerPostcode')?.value || '',
-            profilePicture: document.getElementById('profilePicture')?.value || null
+            profilePicture: document.getElementById('profilePicture')?.value || null,
+            leadSource: document.getElementById('customerLeadSource')?.value || null,
+            remark: document.getElementById('customerRemark')?.value || null
         };
 
         if (!data.name.trim()) {
