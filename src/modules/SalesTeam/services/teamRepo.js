@@ -1,14 +1,14 @@
 /**
- * Team Repository
- * Database operations for sales team management
+ * Team Repository - SIMPLE VERSION
  */
 const pool = require('../../../core/database/pool');
 
 /**
- * Get all users with any team-* tag
- * Simple: just get users and their team assignment
+ * Get all teams with their members
+ * ONE query, done.
  */
-async function getAllPersonnel(client = pool) {
+async function getTeamsWithMembers(client = pool) {
+  // Get all users with any team-* tag
   const result = await client.query(`
     SELECT 
       u.id,
@@ -16,44 +16,31 @@ async function getAllPersonnel(client = pool) {
       u.email,
       u.access_level,
       u.profile_picture,
-      u.linked_agent_profile,
-      a.name,
-      a.contact,
-      a.agent_type,
-      (
-        SELECT unnest(u.access_level) 
-        WHERE unnest(u.access_level) LIKE 'team-%'
-        LIMIT 1
-      ) as team_tag
+      a.name
     FROM "user" u
-    LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
-    WHERE EXISTS (
-      SELECT 1 FROM unnest(u.access_level) tag WHERE tag LIKE 'team-%'
+    LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
+    WHERE u.access_level && ARRAY(
+      SELECT unnest(u2.access_level) FROM "user" u2 WHERE u2.id = u.id AND unnest(u2.access_level) LIKE 'team-%'
     )
-    ORDER BY a.name
   `);
   
-  return result.rows;
+  // Group by team in JS
+  const teams = {};
+  result.rows.forEach(user => {
+    const teamTag = (user.access_level || []).find(t => t.startsWith('team-'));
+    if (teamTag) {
+      if (!teams[teamTag]) teams[teamTag] = [];
+      teams[teamTag].push(user);
+    }
+  });
+  
+  return teams;
 }
 
 /**
- * Get all unique team-* tags currently in use
+ * Get all users without team
  */
-async function getAllTeams(client = pool) {
-  const result = await client.query(`
-    SELECT DISTINCT tag as team_tag
-    FROM "user", unnest(access_level) as tag
-    WHERE tag LIKE 'team-%'
-    ORDER BY tag
-  `);
-  
-  return result.rows.map(r => r.team_tag);
-}
-
-/**
- * Get team members for a specific team
- */
-async function getTeamMembers(teamTag, client = pool) {
+async function getUsersWithoutTeam(client = pool) {
   const result = await client.query(`
     SELECT 
       u.id,
@@ -61,192 +48,76 @@ async function getTeamMembers(teamTag, client = pool) {
       u.email,
       u.access_level,
       u.profile_picture,
-      u.linked_agent_profile,
-      a.name,
-      a.contact,
-      a.agent_type
+      a.name
     FROM "user" u
-    LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
-    WHERE $1 = ANY(u.access_level)
-    ORDER BY a.name
-  `, [teamTag]);
-  
-  return result.rows;
-}
-
-/**
- * Get all users without a team assignment
- */
-async function getUnassignedPersonnel(client = pool) {
-  const result = await client.query(`
-    SELECT 
-      u.id,
-      u.bubble_id,
-      u.email,
-      u.access_level,
-      u.profile_picture,
-      u.linked_agent_profile,
-      a.name,
-      a.contact,
-      a.agent_type
-    FROM "user" u
-    LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
+    LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
     WHERE NOT EXISTS (
-      SELECT 1 FROM unnest(u.access_level) tag WHERE tag LIKE 'team-%'
+      SELECT 1 FROM unnest(u.access_level) t WHERE t LIKE 'team-%'
     )
-    ORDER BY a.name
   `);
-  
   return result.rows;
 }
 
 /**
- * Create a new team by adding the team tag to access_level
- * Returns true if successful
+ * Assign user to team
  */
-async function createTeam(teamTag, client = pool) {
-  // Validate team tag format
-  if (!teamTag || !teamTag.match(/^team-[a-z0-9-]+$/i)) {
-    throw new Error('Invalid team tag format. Must be "team-xxxx"');
-  }
-  
-  // Check if team already exists
-  const existing = await client.query(`
-    SELECT 1 FROM "user"
-    WHERE $1 = ANY(access_level)
-    LIMIT 1
-  `, [teamTag]);
-  
-  if (existing.rows.length > 0) {
-    throw new Error(`Team "${teamTag}" already exists`);
-  }
-  
-  // Teams are virtual - they exist when users have the tag
-  // Return success to indicate the team name is valid and available
-  return { 
-    success: true, 
-    teamTag,
-    message: `Team "${teamTag}" is ready for use` 
-  };
-}
-
-/**
- * Assign a user to a team
- * Removes any existing team tag and adds the new one
- */
-async function assignToTeam(userId, teamTag, client = pool) {
-  // Validate team tag format
-  if (!teamTag || !teamTag.match(/^team-[a-z0-9-]+$/i)) {
-    throw new Error('Invalid team tag format. Must be "team-xxxx"');
-  }
-  
+async function assignUserToTeam(userId, teamTag, client = pool) {
   // Get current access_level
-  const currentResult = await client.query(`
-    SELECT access_level FROM "user" 
-    WHERE id::text = $1 OR bubble_id = $1
-  `, [String(userId)]);
+  const { rows } = await client.query(
+    'SELECT access_level FROM "user" WHERE id = $1 OR bubble_id = $1',
+    [String(userId)]
+  );
+  if (!rows.length) throw new Error('User not found');
   
-  if (currentResult.rows.length === 0) {
-    throw new Error('User not found');
-  }
+  const current = rows[0].access_level || [];
+  const filtered = current.filter(t => !t.startsWith('team-'));
+  filtered.push(teamTag);
   
-  const currentAccess = currentResult.rows[0].access_level || [];
+  await client.query(
+    'UPDATE "user" SET access_level = $1, updated_at = NOW() WHERE id = $2 OR bubble_id = $2',
+    [filtered, String(userId)]
+  );
   
-  // Remove any existing team-* tags
-  const newAccess = currentAccess.filter(tag => !tag.startsWith('team-'));
-  
-  // Add new team tag
-  newAccess.push(teamTag);
-  
-  // Update the user
-  const updateResult = await client.query(`
-    UPDATE "user"
-    SET access_level = $1, updated_at = NOW()
-    WHERE id::text = $2 OR bubble_id = $2
-    RETURNING id, bubble_id, email, access_level
-  `, [newAccess, String(userId)]);
-  
-  return updateResult.rows[0];
+  return { success: true };
 }
 
 /**
- * Remove a user from their current team
+ * Remove user from team
  */
-async function removeFromTeam(userId, client = pool) {
-  // Get current access_level
-  const currentResult = await client.query(`
-    SELECT access_level FROM "user" 
-    WHERE id::text = $1 OR bubble_id = $1
-  `, [String(userId)]);
+async function removeUserFromTeam(userId, client = pool) {
+  const { rows } = await client.query(
+    'SELECT access_level FROM "user" WHERE id = $1 OR bubble_id = $1',
+    [String(userId)]
+  );
+  if (!rows.length) throw new Error('User not found');
   
-  if (currentResult.rows.length === 0) {
-    throw new Error('User not found');
-  }
+  const current = rows[0].access_level || [];
+  const filtered = current.filter(t => !t.startsWith('team-'));
   
-  const currentAccess = currentResult.rows[0].access_level || [];
+  await client.query(
+    'UPDATE "user" SET access_level = $1, updated_at = NOW() WHERE id = $2 OR bubble_id = $2',
+    [filtered, String(userId)]
+  );
   
-  // Remove any team-* tags
-  const newAccess = currentAccess.filter(tag => !tag.startsWith('team-'));
-  
-  // Update the user
-  const updateResult = await client.query(`
-    UPDATE "user"
-    SET access_level = $1, updated_at = NOW()
-    WHERE id::text = $2 OR bubble_id = $2
-    RETURNING id, bubble_id, email, access_level
-  `, [newAccess, String(userId)]);
-  
-  return updateResult.rows[0];
+  return { success: true };
 }
 
 /**
- * Move a user from one team to another
- */
-async function moveUserToTeam(userId, newTeamTag, client = pool) {
-  return assignToTeam(userId, newTeamTag, client);
-}
-
-/**
- * Check if user has HR access
+ * Check HR access
  */
 async function hasHRAccess(userId, client = pool) {
-  const result = await client.query(`
-    SELECT access_level FROM "user"
-    WHERE id::text = $1 OR bubble_id = $1
-    LIMIT 1
-  `, [String(userId)]);
-  
-  if (result.rows.length === 0) {
-    return false;
-  }
-  
-  const accessLevel = result.rows[0].access_level || [];
-  return accessLevel.includes('hr');
-}
-
-/**
- * Get team statistics
- */
-async function getTeamStats(teamTag, client = pool) {
-  const result = await client.query(`
-    SELECT 
-      COUNT(*) as member_count
-    FROM "user" u
-    WHERE $1 = ANY(u.access_level)
-  `, [teamTag]);
-  
-  return result.rows[0];
+  const { rows } = await client.query(
+    'SELECT access_level FROM "user" WHERE id = $1 OR bubble_id = $1',
+    [String(userId)]
+  );
+  if (!rows.length) return false;
+  return (rows[0].access_level || []).includes('hr');
 }
 
 module.exports = {
-  getAllPersonnel,
-  getAllTeams,
-  getTeamMembers,
-  getUnassignedPersonnel,
-  createTeam,
-  assignToTeam,
-  removeFromTeam,
-  moveUserToTeam,
-  hasHRAccess,
-  getTeamStats
+  getTeamsWithMembers,
+  getUsersWithoutTeam,
+  assignUserToTeam,
+  removeUserFromTeam,
+  hasHRAccess
 };
