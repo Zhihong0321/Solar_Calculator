@@ -1379,6 +1379,19 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         return;
     }
 
+    // Require lead_source when customer name is provided
+    const customerName = document.getElementById('customerName')?.value?.trim();
+    const leadSource = document.getElementById('customerLeadSource')?.value;
+    
+    if (customerName && !leadSource) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Lead Source Required',
+            text: 'Please select a lead source for the customer.'
+        });
+        return;
+    }
+
     // Show loading state
     const submitBtn = this.querySelector('button[type="submit"]');
     const originalText = submitBtn.textContent;
@@ -1405,6 +1418,8 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         customer_phone: data.customer_phone || null,
         customer_address: data.customer_address || null,
         profilePicture: document.getElementById('profilePicture').value || null,
+        lead_source: document.getElementById('customerLeadSource')?.value || null,
+        remark: document.getElementById('customerRemark')?.value || null,
         discount_given: data.discount_given || null,
         voucher_codes: selectedVouchers.map(v => v.voucher_code),
         apply_sst: document.getElementById('applySST')?.checked || false,

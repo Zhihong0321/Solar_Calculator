@@ -255,13 +255,13 @@ async function getVoucherByCode(client, voucherCode) {
  * @returns {Promise<object|null>} { id: number, bubbleId: string } or null
  */
 async function findOrCreateCustomer(client, data) {
-  const { name, phone, address, createdBy, profilePicture } = data;
+  const { name, phone, address, createdBy, profilePicture, leadSource, remark } = data;
   if (!name) return null;
 
   try {
     // 1. Try to find by name
     const findRes = await client.query(
-      'SELECT id, customer_id, phone, address, profile_picture FROM customer WHERE name = $1 LIMIT 1',
+      'SELECT id, customer_id, phone, address, profile_picture, lead_source, remark FROM customer WHERE name = $1 LIMIT 1',
       [name]
     );
 
@@ -274,17 +274,21 @@ async function findOrCreateCustomer(client, data) {
       if (
         (phone && phone !== customer.phone) ||
         (address && address !== customer.address) ||
-        (profilePicture && profilePicture !== customer.profile_picture)
+        (profilePicture && profilePicture !== customer.profile_picture) ||
+        (leadSource && leadSource !== customer.lead_source) ||
+        (remark && remark !== customer.remark)
       ) {
         await client.query(
           `UPDATE customer 
            SET phone = COALESCE($1, phone), 
                address = COALESCE($2, address),
                profile_picture = COALESCE($5, profile_picture),
+               lead_source = COALESCE($6, lead_source),
+               remark = COALESCE($7, remark),
                updated_at = NOW(),
                updated_by = $4
            WHERE id = $3`,
-          [phone, address, id, String(createdBy), profilePicture]
+          [phone, address, id, String(createdBy), profilePicture, leadSource, remark]
         );
       }
       return { id, bubbleId };
@@ -293,10 +297,10 @@ async function findOrCreateCustomer(client, data) {
     // 2. Create new if not found
     const customerBubbleId = `cust_${crypto.randomBytes(4).toString('hex')}`;
     const insertRes = await client.query(
-      `INSERT INTO customer (customer_id, name, phone, address, created_by, created_at, updated_at, profile_picture)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6)
+      `INSERT INTO customer (customer_id, name, phone, address, created_by, created_at, updated_at, profile_picture, lead_source, remark)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7, $8)
        RETURNING id`,
-      [customerBubbleId, name, phone, address, createdBy, profilePicture]
+      [customerBubbleId, name, phone, address, createdBy, profilePicture, leadSource, remark]
     );
     return { id: insertRes.rows[0].id, bubbleId: customerBubbleId };
   } catch (err) {
@@ -310,7 +314,7 @@ async function findOrCreateCustomer(client, data) {
  * @private
  */
 async function _fetchDependencies(client, data) {
-  const { userId, packageId, customerName, customerPhone, customerAddress, templateId, profilePicture } = data;
+  const { userId, packageId, customerName, customerPhone, customerAddress, templateId, profilePicture, leadSource, remark } = data;
 
   // 0. Resolve Agent Profile
   let linkedAgent = null;
@@ -338,7 +342,9 @@ async function _fetchDependencies(client, data) {
     phone: customerPhone,
     address: customerAddress,
     createdBy: userId,
-    profilePicture: profilePicture
+    profilePicture: profilePicture,
+    leadSource: leadSource,
+    remark: remark
   });
 
   const internalCustomerId = customerResult ? customerResult.id : null;
@@ -491,6 +497,8 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         c.phone as customer_phone,
         c.address as customer_address,
         c.profile_picture as profile_picture,
+        c.lead_source as lead_source,
+        c.remark as remark,
         pkg.package_name as package_name
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id

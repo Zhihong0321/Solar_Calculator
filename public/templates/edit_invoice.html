@@ -151,6 +151,29 @@
                     ></textarea>
                 </div>
 
+                <!-- Lead Source & Remark Section -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Lead Source</label>
+                        <select name="lead_source" id="customerLeadSource"
+                            class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none">
+                            <option value="">-- Select Lead Source --</option>
+                            <option value="referral">Referral</option>
+                            <option value="bni">BNI</option>
+                            <option value="roadshow">Roadshow</option>
+                            <option value="digital_ads">Digital Ads</option>
+                            <option value="own_network">Own Network</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Remark</label>
+                        <textarea name="remark" id="customerRemark" rows="1"
+                            class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none resize-none"
+                            placeholder="Notes about this customer..."></textarea>
+                    </div>
+                </div>
+
                 <div>
                     <label class="block text-sm font-semibold mb-2 text-gray-900">Discount Given</label>
                     <input 

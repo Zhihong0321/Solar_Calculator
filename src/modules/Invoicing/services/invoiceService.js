@@ -162,6 +162,9 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.customer_address && !invoiceRequestPayload.customerAddress) {
         invoiceRequestPayload.customerAddress = invoiceRequestPayload.customer_address;
     }
+    if (invoiceRequestPayload.lead_source && !invoiceRequestPayload.leadSource) {
+        invoiceRequestPayload.leadSource = invoiceRequestPayload.lead_source;
+    }
 
     // 1. Validation Layer Layer
     const validation = validateInvoiceData(invoiceRequestPayload);
@@ -216,6 +219,8 @@ async function createInvoice(pool, invoiceRequestPayload) {
       customerPhone: invoiceRequestPayload.customerPhone,
       customerAddress: invoiceRequestPayload.customerAddress,
       profilePicture: invoiceRequestPayload.profilePicture,
+      leadSource: invoiceRequestPayload.leadSource,
+      remark: invoiceRequestPayload.remark,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
@@ -314,6 +319,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.customer_address && !invoiceRequestPayload.customerAddress) {
         invoiceRequestPayload.customerAddress = invoiceRequestPayload.customer_address;
     }
+    if (invoiceRequestPayload.lead_source && !invoiceRequestPayload.leadSource) {
+        invoiceRequestPayload.leadSource = invoiceRequestPayload.lead_source;
+    }
 
     // 1. Validation Layer (Same as createInvoice but packageId is optional as we fetch from original)
     // We relax packageId check here as it comes from original invoice
@@ -359,6 +367,8 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       customerPhone: invoiceRequestPayload.customerPhone,
       customerAddress: invoiceRequestPayload.customerAddress,
       profilePicture: invoiceRequestPayload.profilePicture,
+      leadSource: invoiceRequestPayload.leadSource,
+      remark: invoiceRequestPayload.remark,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,

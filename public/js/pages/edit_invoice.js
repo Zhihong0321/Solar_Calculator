@@ -964,6 +964,10 @@ document.addEventListener('DOMContentLoaded', async function () {
                 document.getElementById('profilePreview').innerHTML = `<img src="${inv.profile_picture}" class="h-full w-full object-cover">`;
             }
 
+            // 2.6 Load Lead Source & Remark from customer
+            if (inv.lead_source) document.getElementById('customerLeadSource').value = inv.lead_source;
+            if (inv.remark) document.getElementById('customerRemark').value = inv.remark;
+
             // 3. Discount
             let discountVal = '';
             if (inv.discount_fixed > 0) discountVal += inv.discount_fixed;
@@ -1208,6 +1212,8 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         customer_phone: data.customer_phone || null,
         customer_address: data.customer_address || null,
         profilePicture: document.getElementById('profilePicture').value || null,
+        lead_source: document.getElementById('customerLeadSource')?.value || null,
+        remark: document.getElementById('customerRemark')?.value || null,
         discount_given: data.discount_given || null,
         voucher_codes: selectedVouchers.map(v => v.voucher_code),
         apply_sst: document.getElementById('applySST')?.checked || false,
