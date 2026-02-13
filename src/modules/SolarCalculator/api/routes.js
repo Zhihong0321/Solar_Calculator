@@ -16,8 +16,9 @@ router.get('/api/config', (req, res) => {
 
 // API endpoint to explore database schema and tables
 router.get('/api/schema', async (req, res) => {
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     const tablesQuery = `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;`;
     const tablesResult = await client.query(tablesQuery);
 
@@ -27,10 +28,11 @@ router.get('/api/schema', async (req, res) => {
       const columnsResult = await client.query(columnsQuery, [table.table_name]);
       schema[table.table_name] = columnsResult.rows;
     }
-    client.release();
     res.json({ tables: tablesResult.rows.map(t => t.table_name), schema });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch schema', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -49,39 +51,44 @@ router.get('/api/debug-tnb-schema', async (req, res) => {
 
 // API endpoint to get tariff data
 router.get('/api/tnb-tariff', async (req, res) => {
+  let client;
   try {
-    const client = await tariffPool.connect();
+    client = await tariffPool.connect();
     const result = await client.query('SELECT * FROM domestic_am_tariff LIMIT 10');
-    client.release();
     res.json({ data: result.rows, count: result.rowCount });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch TNB tariff data', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // API endpoint to explore package table schema and data
 router.get('/api/package-info', async (req, res) => {
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     const schemaQuery = `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'package' ORDER BY ordinal_position;`;
     const schemaResult = await client.query(schemaQuery);
     const dataQuery = 'SELECT * FROM package LIMIT 10';
     const dataResult = await client.query(dataQuery);
-    client.release();
     res.json({ schema: schemaResult.rows, sampleData: dataResult.rows, totalRecords: dataResult.rowCount });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch package information', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // READ-ONLY lookup: verify package price by panel_qty and optional panel bubble_id
 router.get('/readonly/package/lookup', async (req, res) => {
+  let client;
   try {
     const qtyRaw = req.query.panelQty;
     const bubbleIdRaw = req.query.panelBubbleId || null;
     if (!qtyRaw) return res.status(400).json({ error: 'panelQty is required' });
     const qty = parseInt(qtyRaw, 10);
-    const client = await pool.connect();
+    client = await pool.connect();
     let result;
     if (bubbleIdRaw) {
       const queryByBubble = `
@@ -104,17 +111,19 @@ router.get('/readonly/package/lookup', async (req, res) => {
       const watt = wattRaw ? parseInt(wattRaw, 10) : null;
       result = await client.query(queryByWatt, [qty, watt]);
     }
-    client.release();
     return res.json({ searchParams: { panelQty: qty, panelBubbleId: bubbleIdRaw }, count: result.rowCount, packages: result.rows });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to lookup packages', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // API endpoint to explore product table and package.Panel relationship
 router.get('/api/product-info', async (req, res) => {
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     const productSchemaQuery = `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'product' ORDER BY ordinal_position;`;
     const productSchemaResult = await client.query(productSchemaQuery);
     const productDataQuery = 'SELECT * FROM product LIMIT 10';
@@ -125,30 +134,34 @@ router.get('/api/product-info', async (req, res) => {
       LEFT JOIN product pr ON p.panel = pr.id
       WHERE p.active = true LIMIT 10;`;
     const relationshipResult = await client.query(relationshipQuery);
-    client.release();
     res.json({ productSchema: productSchemaResult.rows, productSampleData: productDataResult.rows, packageProductRelationship: relationshipResult.rows });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch product information', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // READ-ONLY product schema
 router.get('/readonly/schema/product', async (req, res) => {
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     const schemaQuery = `SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'product' ORDER BY ordinal_position;`;
     const schemaResult = await client.query(schemaQuery);
-    client.release();
     res.json({ table: 'product', columns: schemaResult.rows });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch product schema', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // Get dropdown-friendly product options
 router.get('/readonly/product/options', async (req, res) => {
+  let client;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     const schemaQuery = `SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'product';`;
     const schemaResult = await client.query(schemaQuery);
     const cols = schemaResult.rows;
@@ -158,7 +171,6 @@ router.get('/readonly/product/options', async (req, res) => {
     const hasBubble = cols.some(c => c.column_name === 'bubble_id');
 
     if (!hasWatt) {
-      client.release();
       return res.status(400).json({ error: 'solar_output_rating column not found', schemaColumns: cols });
     }
 
@@ -169,7 +181,6 @@ router.get('/readonly/product/options', async (req, res) => {
 
     const query = `SELECT ${selectFields.join(', ')} FROM product WHERE solar_output_rating > 0 ${hasActive ? 'AND active = true' : ''} ORDER BY solar_output_rating DESC LIMIT 100;`;
     const result = await client.query(query);
-    client.release();
 
     const options = result.rows.map(row => ({
       bubble_id: hasBubble ? row.bubble_id : null,
@@ -180,33 +191,39 @@ router.get('/readonly/product/options', async (req, res) => {
     res.json({ options });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch product options', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // Return limited product rows for verification/testing
 router.get('/readonly/product/sample', async (req, res) => {
+  let client;
   try {
     let limit = parseInt(req.query.limit, 10) || 10;
-    const client = await pool.connect();
+    client = await pool.connect();
     const result = await client.query('SELECT * FROM product LIMIT $1', [limit]);
-    client.release();
     res.json({ data: result.rows, count: result.rowCount });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch product sample', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
 // Debug endpoint to test panel filtering
 router.get('/api/debug-panel-filter', async (req, res) => {
+  let client;
   try {
     const { panelQty = 1 } = req.query;
-    const client = await pool.connect();
+    client = await pool.connect();
     const packageQuery = `SELECT * FROM package WHERE panel_qty = $1 AND active = true LIMIT 5`;
     const packageResult = await client.query(packageQuery, [parseInt(panelQty)]);
-    client.release();
     res.json({ packages: packageResult.rows });
   } catch (err) {
     res.status(500).json({ error: 'Debug query failed', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -308,11 +325,12 @@ router.get('/api/commercial/lookup-by-usage', async (req, res) => {
 
 // API endpoint to get packages by type
 router.get('/api/packages', async (req, res) => {
+  let client;
   try {
     const { type } = req.query;
     if (!type) return res.status(400).json({ error: 'Type is required' });
 
-    const client = await pool.connect();
+    client = await pool.connect();
     let dbType = type === 'Residential' ? 'Residential' : 'Tariff B&D Low Voltage';
 
     const query = `
@@ -325,10 +343,11 @@ router.get('/api/packages', async (req, res) => {
     `;
 
     const result = await client.query(query, [dbType]);
-    client.release();
     res.json({ success: true, packages: result.rows });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch packages', details: err.message });
+  } finally {
+    if (client) client.release();
   }
 });
 

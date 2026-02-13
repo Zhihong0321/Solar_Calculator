@@ -62,13 +62,15 @@ router.get('/api/user/me', requireAuth, async (req, res) => {
  * List users for debugging
  */
 router.get('/api/debug/users', requireDebugPasskey, async (req, res) => {
+    let client;
     try {
-        const client = await pool.connect();
+        client = await pool.connect();
         const result = await client.query('SELECT id, email, name, role, bubble_id, linked_agent_profile FROM "user" LIMIT 50');
-        client.release();
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    } finally {
+        if (client) client.release();
     }
 });
 
@@ -78,10 +80,10 @@ router.get('/api/debug/users', requireDebugPasskey, async (req, res) => {
  */
 router.post('/api/debug/login-as', requireDebugPasskey, async (req, res) => {
     const { userId } = req.body;
+    let client;
     try {
-        const client = await pool.connect();
+        client = await pool.connect();
         const result = await client.query('SELECT * FROM "user" WHERE id::text = $1 OR bubble_id = $1', [userId]);
-        client.release();
 
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
@@ -103,6 +105,8 @@ router.post('/api/debug/login-as', requireDebugPasskey, async (req, res) => {
         res.json({ success: true, token, user });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    } finally {
+        if (client) client.release();
     }
 });
 
