@@ -33,9 +33,7 @@ router.get('/api/teams', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'HR access required' });
     }
     
-    const teams = await teamRepo.getTeamsWithMembers(client);
-    const unassigned = await teamRepo.getUsersWithoutTeam(client);
-    
+    const { teams, unassigned } = await teamRepo.getTeamsWithMembers(client);
     res.json({ success: true, data: { teams, unassigned } });
   } catch (err) {
     res.status(500).json({ error: err.message });

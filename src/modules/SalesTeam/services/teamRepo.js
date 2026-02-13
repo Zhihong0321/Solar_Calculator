@@ -5,10 +5,9 @@ const pool = require('../../../core/database/pool');
 
 /**
  * Get all teams with their members
- * ONE query, done.
  */
 async function getTeamsWithMembers(client = pool) {
-  // Get all users with any team-* tag
+  // Simple: get all users
   const result = await client.query(`
     SELECT 
       u.id,
@@ -19,43 +18,30 @@ async function getTeamsWithMembers(client = pool) {
       a.name
     FROM "user" u
     LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
-    WHERE u.access_level && ARRAY(
-      SELECT unnest(u2.access_level) FROM "user" u2 WHERE u2.id = u.id AND unnest(u2.access_level) LIKE 'team-%'
-    )
   `);
   
-  // Group by team in JS
+  // Group in JS - no complex SQL
   const teams = {};
+  const unassigned = [];
+  
   result.rows.forEach(user => {
-    const teamTag = (user.access_level || []).find(t => t.startsWith('team-'));
+    const teamTag = (user.access_level || []).find(t => t && t.startsWith('team-'));
     if (teamTag) {
       if (!teams[teamTag]) teams[teamTag] = [];
       teams[teamTag].push(user);
+    } else {
+      unassigned.push(user);
     }
   });
   
-  return teams;
+  return { teams, unassigned };
 }
 
 /**
- * Get all users without team
+ * Get all users without team - not needed, included in getTeamsWithMembers
  */
 async function getUsersWithoutTeam(client = pool) {
-  const result = await client.query(`
-    SELECT 
-      u.id,
-      u.bubble_id,
-      u.email,
-      u.access_level,
-      u.profile_picture,
-      a.name
-    FROM "user" u
-    LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
-    WHERE NOT EXISTS (
-      SELECT 1 FROM unnest(u.access_level) t WHERE t LIKE 'team-%'
-    )
-  `);
-  return result.rows;
+  return [];
 }
 
 /**
