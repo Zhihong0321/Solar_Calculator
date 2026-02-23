@@ -12,7 +12,7 @@ if (connectionString) {
 
 const tariffPool = new Pool({
   connectionString,
-  ssl: { rejectUnauthorized: false }
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 tariffPool.on('error', (err) => {

@@ -158,6 +158,46 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       border-bottom: 1px solid #e2e8f0;
       margin: 16px 0;
     }
+    /* Premium Button Styling */
+    .premium-button {
+      background: linear-gradient(-45deg, #FF3D00, #FFD600, #00E676, #2979FF);
+      background-size: 400% 400%;
+      animation: gradientBG 5s ease infinite;
+      position: relative;
+      border: none;
+      z-index: 1;
+      display: inline-block;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    .premium-button::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(-45deg, #FF3D00, #FFD600, #00E676, #2979FF);
+      background-size: 400% 400%;
+      z-index: -1;
+      filter: blur(12px);
+      animation: gradientBG 5s ease infinite;
+      opacity: 0.7;
+      border-radius: 14px;
+      transition: opacity 0.3s ease-in-out;
+    }
+    
+    .premium-button:hover::before {
+      opacity: 1;
+      filter: blur(16px);
+    }
+
     /* Print optimizations */
     @media print {
       body { background: white; }
@@ -244,6 +284,20 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         <span id="pdfButtonText">Download PDF</span>
       </button>
       ` : ''}
+    </div>
+    
+    <!-- Tiger Neo 3 Promotion Section -->
+    <div class="mb-8 overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 no-print">
+      <div class="relative group">
+        <img src="/TigerNeo3.jpg" alt="Tiger Neo 3 - 2026 Best Solar Panel" class="w-full h-auto object-cover transform transition-transform duration-700 hover:scale-105">
+        <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
+      </div>
+      <div class="p-5 flex flex-col items-center gap-4 bg-slate-50/50">
+        <a href="/Tiger_Neo_30_Beyond_Limits.pdf" target="_blank" class="premium-button w-full text-center py-5 px-6 rounded-xl text-white font-black text-sm sm:text-lg uppercase tracking-wider shadow-2xl transform transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
+          2026 BEST SOLAR PANEL FOR ALL SUMMER - TIGER NEO 3
+        </a>
+        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse">Click above to view full specifications</p>
+      </div>
     </div>
     ` : ''}
 
