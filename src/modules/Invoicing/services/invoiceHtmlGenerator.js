@@ -160,14 +160,14 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     }
     /* Premium Button Styling */
     .premium-button {
-      background: linear-gradient(-45deg, #FF3D00, #FFD600, #00E676, #2979FF);
+      background: linear-gradient(-45deg, #020617, #0f172a, #1e1b4b, #020617);
       background-size: 400% 400%;
-      animation: gradientBG 5s ease infinite;
+      animation: gradientBG 15s ease infinite;
       position: relative;
-      border: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 1;
       display: inline-block;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
     }
     
     @keyframes gradientBG {
@@ -179,23 +179,23 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     .premium-button::before {
       content: '';
       position: absolute;
-      top: -2px;
-      left: -2px;
-      right: -2px;
-      bottom: -2px;
-      background: linear-gradient(-45deg, #FF3D00, #FFD600, #00E676, #2979FF);
+      top: -1px;
+      left: -1px;
+      right: -1px;
+      bottom: -1px;
+      background: linear-gradient(-45deg, #020617, #0f172a, #1e1b4b, #020617);
       background-size: 400% 400%;
       z-index: -1;
-      filter: blur(12px);
-      animation: gradientBG 5s ease infinite;
-      opacity: 0.7;
-      border-radius: 14px;
-      transition: opacity 0.3s ease-in-out;
+      filter: blur(10px);
+      animation: gradientBG 15s ease infinite;
+      opacity: 0.4;
+      border-radius: 12px;
+      transition: opacity 0.5s ease;
     }
     
     .premium-button:hover::before {
-      opacity: 1;
-      filter: blur(16px);
+      opacity: 0.8;
+      filter: blur(14px);
     }
 
     /* Print optimizations */
