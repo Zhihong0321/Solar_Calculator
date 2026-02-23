@@ -20,6 +20,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     console.log('[HTML Generator] share_token value:', invoice.share_token.substring(0, 30) + '...');
   }
   const items = invoice.items || [];
+  const hasTigerNeo3 = items.some(item => (item.description || '').toLowerCase().includes('tiger neo 3'));
   const templateData = template || {};
 
   // Calculate totals from items
@@ -285,8 +286,10 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       </button>
       ` : ''}
     </div>
+    ` : ''}
     
     <!-- Tiger Neo 3 Promotion Section -->
+    ${hasTigerNeo3 ? `
     <div class="mb-8 overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 no-print">
       <div class="relative group">
         <img src="/TigerNeo3.jpg" alt="Tiger Neo 3 - 2026 Best Solar Panel" class="w-full h-auto object-cover transform transition-transform duration-700 hover:scale-105">
