@@ -57,7 +57,7 @@ async function requireKcAccess(req, res, next) {
 
 /**
  * GET /sales-kpi
- * Sales Manager KPI Overview
+ * Activity Report Review
  */
 router.get('/sales-kpi', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, '../../../../public/templates/sales_kpi.html'));
@@ -582,7 +582,7 @@ router.get('/api/activity/agents', requireAuth, requireKcAccess, async (req, res
 
 /**
  * GET /api/kpi/overview
- * Get Sales KPI overview data
+ * Get activity report review overview data
  */
 router.get('/api/kpi/overview', requireAuth, async (req, res) => {
   let client = null;
@@ -607,7 +607,7 @@ router.get('/api/kpi/overview', requireAuth, async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error fetching KPI overview:', err);
+    console.error('Error fetching activity review overview:', err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     if (client) client.release();
