@@ -59,7 +59,7 @@ async function requireKcAccess(req, res, next) {
  * GET /sales-kpi
  * Activity Report Review
  */
-router.get('/sales-kpi', requireAuth, (req, res) => {
+router.get('/sales-kpi', requireAuth, requireKcAccess, (req, res) => {
   res.sendFile(path.join(__dirname, '../../../../public/templates/sales_kpi.html'));
 });
 
@@ -76,7 +76,7 @@ router.get('/activity-report', requireAuth, (req, res) => {
  * Manager review dashboard page
  */
 router.get('/activity-review', requireAuth, requireKcAccess, (req, res) => {
-  res.sendFile(path.join(__dirname, '../../../../public/templates/activity_review.html'));
+  return res.redirect('/sales-kpi');
 });
 
 // ==================== API ROUTES ====================
