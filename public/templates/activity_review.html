@@ -28,7 +28,7 @@
         .nav-link.active { background: var(--slate-900); color: white; }
         @media (max-width: 768px) { .sidebar { display: none; } }
         .table-container { overflow-x: auto; width: 100%; }
-        table { width: 100%; min-width: 800px; }
+        table { width: 100%; min-width: 980px; }
     </style>
 </head>
 <body class="flex">
@@ -125,10 +125,11 @@
                                 <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Description</th>
                                 <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Customer</th>
                                 <th class="text-center px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Points</th>
+                                <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Review Comment</th>
                             </tr>
                         </thead>
                         <tbody id="activityTable" class="divide-y divide-slate-100">
-                            <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
+                            <tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -246,7 +247,7 @@
         function renderActivityTable() {
             const tbody = document.getElementById('activityTable');
             if (allActivities.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">No activities found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">No activities found</td></tr>';
                 return;
             }
 
@@ -267,8 +268,51 @@
                             ${a.report_point || 0}
                         </span>
                     </td>
+                    <td class="px-4 py-3">
+                        <div class="space-y-2 min-w-[200px]">
+                            <textarea id="reviewComment-${a.id}" rows="2"
+                                class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700"
+                                placeholder="Add manager comment...">${escapeHtml(a.review_comment || '')}</textarea>
+                            <button onclick="saveReviewComment(${a.id})"
+                                class="bg-slate-900 text-white px-3 py-1.5 rounded-md text-[10px] font-bold">
+                                Save
+                            </button>
+                        </div>
+                    </td>
                 </tr>
             `).join('');
+        }
+
+        async function saveReviewComment(activityId) {
+            const textarea = document.getElementById(`reviewComment-${activityId}`);
+            if (!textarea) return;
+
+            try {
+                const res = await fetch(`/api/activity/${activityId}/review-comment`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reviewComment: textarea.value })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    alert(data.error || 'Failed to save comment');
+                    return;
+                }
+
+                const target = allActivities.find(a => a.id === activityId);
+                if (target) target.review_comment = data.data.review_comment || '';
+            } catch (e) {
+                alert('Error saving review comment');
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         function formatDate(dateStr) {
@@ -283,7 +327,7 @@
                 return;
             }
 
-            const headers = ['Date', 'Agent', 'Activity Type', 'Subtype', 'Description', 'Customer', 'Points'];
+            const headers = ['Date', 'Agent', 'Activity Type', 'Subtype', 'Description', 'Customer', 'Points', 'Review Comment'];
             const rows = allActivities.map(a => [
                 formatDate(a.report_date),
                 a.agent_name || '',
@@ -291,7 +335,8 @@
                 a.follow_up_subtype || '',
                 (a.remark || '').replace(/"/g, '""'),
                 a.customer_name || '',
-                a.report_point || 0
+                a.report_point || 0,
+                (a.review_comment || '').replace(/"/g, '""')
             ]);
 
             const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');

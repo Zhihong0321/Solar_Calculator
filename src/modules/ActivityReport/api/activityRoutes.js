@@ -11,6 +11,48 @@ const customerRepo = require('../../Customer/services/customerRepo');
 
 const router = express.Router();
 
+/**
+ * Restrict route to users with "kc" access level.
+ */
+async function requireKcAccess(req, res, next) {
+  let client = null;
+  const isApiRoute = req.originalUrl.startsWith('/api/');
+  try {
+    const userId = req.user.userId || req.user.id || req.user.bubbleId || req.user.bubble_id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Invalid session data' });
+    }
+
+    client = await pool.connect();
+    const result = await client.query(
+      `SELECT access_level
+       FROM "user"
+       WHERE id::text = $1 OR bubble_id = $1
+       LIMIT 1`,
+      [String(userId)]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(403).json({ success: false, error: 'User not found' });
+    }
+
+    const accessLevel = result.rows[0].access_level || [];
+    if (!Array.isArray(accessLevel) || !accessLevel.includes('kc')) {
+      if (isApiRoute) {
+        return res.status(403).json({ success: false, error: 'KC access required' });
+      }
+      return res.redirect('/agent/home');
+    }
+
+    next();
+  } catch (err) {
+    console.error('KC access check error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+}
+
 // ==================== PAGE ROUTES ====================
 
 /**
@@ -33,7 +75,7 @@ router.get('/activity-report', requireAuth, (req, res) => {
  * GET /activity-review
  * Manager review dashboard page
  */
-router.get('/activity-review', requireAuth, (req, res) => {
+router.get('/activity-review', requireAuth, requireKcAccess, (req, res) => {
   res.sendFile(path.join(__dirname, '../../../../public/templates/activity_review.html'));
 });
 
@@ -66,8 +108,6 @@ router.get('/api/activity/my-reports', requireAuth, async (req, res) => {
     const userId = req.user.userId || req.user.bubbleId;
     const { limit, offset, startDate, endDate, activityType } = req.query;
 
-    // Get agent's bubble_id from linked_agent_profile
-    client = await pool.connect();
     // Get agent's bubble_id AND user's bubble_id to support legacy data
     client = await pool.connect();
     const agentResult = await client.query(
@@ -116,7 +156,6 @@ router.get('/api/activity/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
 
     client = await pool.connect();
-    client = await pool.connect();
     const agentResult = await client.query(
       `SELECT bubble_id, linked_agent_profile FROM "user" 
        WHERE id::text = $1 OR bubble_id = $1 
@@ -158,7 +197,7 @@ router.post('/api/activity/submit', requireAuth, async (req, res) => {
   let client = null;
   try {
     const userId = req.user.userId || req.user.bubbleId;
-    const { activityType, followUpSubtype, remark, linkedCustomer, reportDate, tags } = req.body;
+    const { activityType, followUpSubtype, remark, linkedCustomer, reportDate, activityDate, tags } = req.body;
 
     if (!activityType) {
       return res.status(400).json({ success: false, error: 'Activity type is required' });
@@ -194,7 +233,7 @@ router.post('/api/activity/submit', requireAuth, async (req, res) => {
       followUpSubtype,
       remark,
       linkedCustomer,
-      reportDate: reportDate ? new Date(reportDate) : new Date(),
+      reportDate: reportDate ? new Date(reportDate) : (activityDate ? new Date(activityDate) : new Date()),
       tags
     });
 
@@ -413,13 +452,15 @@ router.get('/api/activity/stats/weekly', requireAuth, async (req, res) => {
  * GET /api/activity/team-stats
  * Get team statistics (Manager view)
  */
-router.get('/api/activity/team-stats', requireAuth, async (req, res) => {
+router.get('/api/activity/team-stats', requireAuth, requireKcAccess, async (req, res) => {
   let client = null;
   try {
-    const { startDate, endDate, teamTag } = req.query;
+    const { startDate, endDate, teamTag, agentId, activityType } = req.query;
 
     client = await pool.connect();
-    const stats = await activityRepo.getTeamStats(client, { startDate, endDate, teamTag });
+    const stats = await activityRepo.getTeamStats(client, {
+      startDate, endDate, teamTag, agentId, activityType
+    });
 
     res.json({ success: true, data: stats });
   } catch (err) {
@@ -434,7 +475,7 @@ router.get('/api/activity/team-stats', requireAuth, async (req, res) => {
  * GET /api/activity/all-reports
  * Get all activities for manager review
  */
-router.get('/api/activity/all-reports', requireAuth, async (req, res) => {
+router.get('/api/activity/all-reports', requireAuth, requireKcAccess, async (req, res) => {
   let client = null;
   try {
     const { limit, offset, startDate, endDate, agentId, activityType } = req.query;
@@ -454,15 +495,81 @@ router.get('/api/activity/all-reports', requireAuth, async (req, res) => {
 });
 
 /**
+ * PUT /api/activity/:id/review-comment
+ * Save manager review comment
+ */
+router.put('/api/activity/:id/review-comment', requireAuth, requireKcAccess, async (req, res) => {
+  let client = null;
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { reviewComment } = req.body;
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid activity ID' });
+    }
+
+    client = await pool.connect();
+    const updated = await activityRepo.updateReviewComment(client, id, reviewComment);
+
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Activity not found' });
+    }
+
+    res.json({
+      success: true,
+      data: updated,
+      message: 'Review comment saved'
+    });
+  } catch (err) {
+    console.error('Error saving review comment:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * GET /api/activity/agents
  * Get list of all agents for manager filter
  */
-router.get('/api/activity/agents', requireAuth, async (req, res) => {
+router.get('/api/activity/agents', requireAuth, requireKcAccess, async (req, res) => {
   let client = null;
   try {
     client = await pool.connect();
     const result = await client.query(
-      `SELECT bubble_id, name FROM agent WHERE name IS NOT NULL ORDER BY name`
+      `
+      SELECT bubble_id, name
+      FROM (
+        SELECT DISTINCT
+          u.bubble_id,
+          COALESCE(NULLIF(BTRIM(u.name), ''), NULLIF(BTRIM(a.name), ''), u.bubble_id) AS name
+        FROM "user" u
+        LEFT JOIN agent a ON a.bubble_id = u.linked_agent_profile
+        WHERE EXISTS (
+          SELECT 1
+          FROM agent_daily_report dr
+          WHERE dr.linked_user = u.bubble_id OR dr.created_by = u.bubble_id
+        )
+
+        UNION
+
+        SELECT DISTINCT
+          a.bubble_id,
+          COALESCE(NULLIF(BTRIM(a.name), ''), a.bubble_id) AS name
+        FROM agent a
+        WHERE EXISTS (
+          SELECT 1
+          FROM agent_daily_report dr
+          WHERE dr.linked_user = a.bubble_id OR dr.created_by = a.bubble_id
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "user" u
+          WHERE u.bubble_id = a.bubble_id
+        )
+      ) agent_list
+      ORDER BY name
+      `
     );
     res.json({ success: true, data: result.rows });
   } catch (err) {

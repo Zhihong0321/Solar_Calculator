@@ -26,6 +26,8 @@ const FOLLOW_UP_SUBTYPES = [
   'Other'
 ];
 
+let reviewCommentColumnReady = false;
+
 /**
  * Generate unique bubble_id
  */
@@ -40,6 +42,72 @@ function generateBubbleId() {
  */
 function getPointsForActivity(activityType) {
   return ACTIVITY_POINTS[activityType] || 10;
+}
+
+/**
+ * LATERAL join fragments to resolve report ownership across mixed IDs.
+ * Newer/legacy rows may store user bubble_id or agent bubble_id.
+ */
+const USER_RESOLUTION_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT
+      u.bubble_id AS user_bubble_id,
+      u.name AS user_name,
+      u.contact AS user_contact,
+      u.profile_picture,
+      u.linked_agent_profile
+    FROM "user" u
+    WHERE u.bubble_id IN (dr.linked_user, dr.created_by)
+    ORDER BY CASE
+      WHEN u.bubble_id = dr.linked_user THEN 0
+      ELSE 1
+    END
+    LIMIT 1
+  ) uo ON TRUE
+`;
+
+const AGENT_RESOLUTION_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT
+      a.bubble_id AS agent_bubble_id,
+      a.name AS agent_name,
+      a.contact AS agent_contact
+    FROM agent a
+    WHERE a.bubble_id IN (dr.linked_user, dr.created_by, uo.linked_agent_profile)
+    ORDER BY CASE
+      WHEN uo.linked_agent_profile IS NOT NULL AND a.bubble_id = uo.linked_agent_profile THEN 0
+      WHEN a.bubble_id = dr.linked_user THEN 1
+      WHEN a.bubble_id = dr.created_by THEN 2
+      ELSE 3
+    END
+    LIMIT 1
+  ) ao ON TRUE
+`;
+
+function buildActorFilterClause(paramRef) {
+  return `
+    (
+      dr.linked_user = ${paramRef}
+      OR dr.created_by = ${paramRef}
+      OR EXISTS (
+        SELECT 1
+        FROM "user" u_filter
+        WHERE u_filter.bubble_id IN (dr.linked_user, dr.created_by)
+          AND u_filter.linked_agent_profile = ${paramRef}
+      )
+    )
+  `;
+}
+
+async function ensureReviewCommentColumn(client) {
+  if (reviewCommentColumnReady) return;
+
+  await client.query(`
+    ALTER TABLE agent_daily_report
+    ADD COLUMN IF NOT EXISTS review_comment text
+  `);
+
+  reviewCommentColumnReady = true;
 }
 
 /**
@@ -331,41 +399,63 @@ async function getWeeklyStats(client, agentBubbleId, weekStart, weekEnd) {
 /**
  * Get team stats for manager view
  * @param {object} client 
- * @param {object} options - { startDate, endDate, teamTag }
+ * @param {object} options - { startDate, endDate, teamTag, agentId, activityType }
  */
 async function getTeamStats(client, options = {}) {
-  const { startDate, endDate, teamTag } = options;
+  const { startDate, endDate, teamTag, agentId, activityType } = options;
 
   let query = `
     SELECT 
-      a.bubble_id,
-      a.name as agent_name,
+      COALESCE(uo.user_bubble_id, ao.agent_bubble_id, dr.linked_user, dr.created_by) AS bubble_id,
+      COALESCE(
+        NULLIF(BTRIM(uo.user_name), ''),
+        NULLIF(BTRIM(ao.agent_name), ''),
+        COALESCE(uo.user_bubble_id, ao.agent_bubble_id, dr.linked_user, dr.created_by)
+      ) AS agent_name,
       COUNT(dr.id) as total_activities,
       COALESCE(SUM(dr.report_point), 0) as total_points
-    FROM agent a
-    LEFT JOIN agent_daily_report dr ON (a.bubble_id = dr.linked_user OR a.bubble_id = dr.created_by)
+    FROM agent_daily_report dr
+    ${USER_RESOLUTION_JOIN}
+    ${AGENT_RESOLUTION_JOIN}
+    WHERE 1=1
   `;
 
   const params = [];
-  let whereConditions = [];
+  let paramCount = 0;
 
-  if (startDate && endDate) {
-    params.push(startDate, endDate);
-    whereConditions.push(`DATE(dr.report_date) >= $${params.length - 1} AND DATE(dr.report_date) <= $${params.length}`);
+  if (startDate) {
+    paramCount++;
+    query += ` AND DATE(dr.report_date) >= $${paramCount}`;
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    paramCount++;
+    query += ` AND DATE(dr.report_date) <= $${paramCount}`;
+    params.push(endDate);
   }
 
   if (teamTag) {
+    paramCount++;
+    query += ` AND dr.tag::text LIKE $${paramCount}`;
     params.push(`%${teamTag}%`);
-    whereConditions.push(`dr.tag::text LIKE $${params.length}`);
   }
 
-  if (whereConditions.length > 0) {
-    query += ` WHERE ${whereConditions.join(' AND ')}`;
+  if (activityType) {
+    paramCount++;
+    query += ` AND dr.activity_type = $${paramCount}`;
+    params.push(activityType);
+  }
+
+  if (agentId) {
+    paramCount++;
+    query += ` AND ${buildActorFilterClause(`$${paramCount}`)}`;
+    params.push(agentId);
   }
 
   query += `
-    GROUP BY a.bubble_id, a.name
-    ORDER BY total_points DESC
+    GROUP BY 1, 2
+    ORDER BY total_points DESC, total_activities DESC, agent_name ASC
   `;
 
   const result = await client.query(query, params);
@@ -385,10 +475,17 @@ async function getAllActivitiesForReview(client, options = {}) {
   let query = `
     SELECT 
       dr.*,
-      a.name as agent_name,
+      COALESCE(
+        NULLIF(BTRIM(uo.user_name), ''),
+        NULLIF(BTRIM(ao.agent_name), ''),
+        COALESCE(uo.user_bubble_id, ao.agent_bubble_id, dr.linked_user, dr.created_by)
+      ) AS agent_name,
+      COALESCE(uo.user_bubble_id, ao.agent_bubble_id, dr.linked_user, dr.created_by) AS agent_bubble_id,
+      COALESCE(ao.agent_bubble_id, uo.linked_agent_profile) AS linked_agent_profile,
       c.name as customer_name
     FROM agent_daily_report dr
-    LEFT JOIN agent a ON (dr.linked_user = a.bubble_id OR dr.created_by = a.bubble_id)
+    ${USER_RESOLUTION_JOIN}
+    ${AGENT_RESOLUTION_JOIN}
     LEFT JOIN customer c ON dr.linked_customer = c.customer_id
     WHERE 1=1
   `;
@@ -410,7 +507,7 @@ async function getAllActivitiesForReview(client, options = {}) {
 
   if (agentId) {
     paramCount++;
-    query += ` AND (dr.linked_user = $${paramCount} OR dr.created_by = $${paramCount})`;
+    query += ` AND ${buildActorFilterClause(`$${paramCount}`)}`;
     params.push(agentId);
   }
 
@@ -448,7 +545,7 @@ async function getAllActivitiesForReview(client, options = {}) {
 
   if (agentId) {
     countParamCount++;
-    countQuery += ` AND (dr.linked_user = $${countParamCount} OR dr.created_by = $${countParamCount})`;
+    countQuery += ` AND ${buildActorFilterClause(`$${countParamCount}`)}`;
     countParams.push(agentId);
   }
 
@@ -474,35 +571,37 @@ async function getAllActivitiesForReview(client, options = {}) {
 async function getAgentPerformanceRanking(client, options = {}) {
   const { startDate, endDate } = options;
   const params = [];
-  let dateConditions = '';
+  let whereClause = '1=1';
 
   if (startDate) {
     params.push(startDate);
-    dateConditions += ` AND DATE(dr.report_date) >= $${params.length}`;
+    whereClause += ` AND DATE(dr.report_date) >= $${params.length}`;
   }
 
   if (endDate) {
     params.push(endDate);
-    dateConditions += ` AND DATE(dr.report_date) <= $${params.length}`;
+    whereClause += ` AND DATE(dr.report_date) <= $${params.length}`;
   }
 
   const query = `
     SELECT 
-      a.bubble_id,
-      a.name as agent_name,
-      a.contact,
-      u.profile_picture,
+      COALESCE(ao.agent_bubble_id, uo.linked_agent_profile, uo.user_bubble_id, dr.linked_user, dr.created_by) AS bubble_id,
+      COALESCE(
+        NULLIF(BTRIM(uo.user_name), ''),
+        NULLIF(BTRIM(ao.agent_name), ''),
+        COALESCE(uo.user_bubble_id, ao.agent_bubble_id, dr.linked_user, dr.created_by)
+      ) AS agent_name,
+      COALESCE(NULLIF(BTRIM(ao.agent_contact), ''), NULLIF(BTRIM(uo.user_contact), '')) AS contact,
+      uo.profile_picture,
       COUNT(dr.id) as total_activities,
       COALESCE(SUM(dr.report_point), 0) as total_points,
-      COUNT(CASE WHEN dr.activity_type = 'Close Case' THEN 1 END) as close_cases
-    FROM agent a
-    LEFT JOIN "user" u ON (a.linked_user_login = u.bubble_id OR u.linked_agent_profile = a.bubble_id)
-    LEFT JOIN agent_daily_report dr ON (
-      (a.bubble_id = dr.linked_user OR a.bubble_id = dr.created_by)
-      ${dateConditions}
-    )
-    GROUP BY a.bubble_id, a.name, a.contact, u.profile_picture
-    ORDER BY total_points DESC
+      COUNT(CASE WHEN dr.activity_type IN ('Close Case', 'New Case') THEN 1 END) as close_cases
+    FROM agent_daily_report dr
+    ${USER_RESOLUTION_JOIN}
+    ${AGENT_RESOLUTION_JOIN}
+    WHERE ${whereClause}
+    GROUP BY 1, 2, 3, 4
+    ORDER BY total_points DESC, total_activities DESC, agent_name ASC
   `;
 
   const result = await client.query(query, params);
@@ -542,6 +641,29 @@ async function getActivityTypeBreakdown(client, options = {}) {
   return result.rows;
 }
 
+/**
+ * Update manager review comment for activity row
+ * @param {object} client
+ * @param {number} id
+ * @param {string|null} reviewComment
+ */
+async function updateReviewComment(client, id, reviewComment) {
+  await ensureReviewCommentColumn(client);
+
+  const normalizedComment = typeof reviewComment === 'string' ? reviewComment.trim() : '';
+
+  const result = await client.query(
+    `UPDATE agent_daily_report
+     SET review_comment = $1,
+         updated_at = NOW()
+     WHERE id = $2
+     RETURNING id, review_comment, updated_at`,
+    [normalizedComment || null, id]
+  );
+
+  return result.rows.length > 0 ? result.rows[0] : null;
+}
+
 module.exports = {
   ACTIVITY_POINTS,
   FOLLOW_UP_SUBTYPES,
@@ -556,5 +678,6 @@ module.exports = {
   getTeamStats,
   getAllActivitiesForReview,
   getAgentPerformanceRanking,
-  getActivityTypeBreakdown
+  getActivityTypeBreakdown,
+  updateReviewComment
 };
