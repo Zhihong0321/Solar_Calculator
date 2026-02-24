@@ -664,6 +664,60 @@ async function updateReviewComment(client, id, reviewComment) {
   return result.rows.length > 0 ? result.rows[0] : null;
 }
 
+/**
+ * Get activities for one selected agent within date range for detail drill-down
+ * @param {object} client
+ * @param {object} options - { agentId, startDate, endDate, limit }
+ */
+async function getAgentActivitiesForDetail(client, options = {}) {
+  const { agentId, startDate, endDate } = options;
+  const limit = parseInt(options.limit, 10) || 1000;
+
+  if (!agentId) return [];
+
+  await ensureReviewCommentColumn(client);
+
+  let query = `
+    SELECT
+      dr.id,
+      dr.report_date,
+      dr.activity_type,
+      dr.follow_up_subtype,
+      dr.remark,
+      dr.report_point,
+      dr.review_comment,
+      c.name AS customer_name
+    FROM agent_daily_report dr
+    LEFT JOIN customer c ON dr.linked_customer = c.customer_id
+    WHERE 1=1
+  `;
+
+  const params = [];
+  let paramCount = 0;
+
+  if (startDate) {
+    paramCount++;
+    query += ` AND DATE(dr.report_date) >= $${paramCount}`;
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    paramCount++;
+    query += ` AND DATE(dr.report_date) <= $${paramCount}`;
+    params.push(endDate);
+  }
+
+  paramCount++;
+  query += ` AND ${buildActorFilterClause(`$${paramCount}`)}`;
+  params.push(agentId);
+
+  query += ` ORDER BY dr.report_date DESC, dr.created_at DESC LIMIT $${paramCount + 1}`;
+  params.push(limit);
+
+  const result = await client.query(query, params);
+  return result.rows;
+}
+
 module.exports = {
   ACTIVITY_POINTS,
   FOLLOW_UP_SUBTYPES,
@@ -679,5 +733,6 @@ module.exports = {
   getAllActivitiesForReview,
   getAgentPerformanceRanking,
   getActivityTypeBreakdown,
-  updateReviewComment
+  updateReviewComment,
+  getAgentActivitiesForDetail
 };

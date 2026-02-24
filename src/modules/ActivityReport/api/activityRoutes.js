@@ -614,4 +614,30 @@ router.get('/api/kpi/overview', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/kpi/agent-activities
+ * Get one agent's activity rows for date-range drill-down
+ */
+router.get('/api/kpi/agent-activities', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const { agentId, startDate, endDate, limit } = req.query;
+    if (!agentId) {
+      return res.status(400).json({ success: false, error: 'agentId is required' });
+    }
+
+    client = await pool.connect();
+    const activities = await activityRepo.getAgentActivitiesForDetail(client, {
+      agentId, startDate, endDate, limit
+    });
+
+    res.json({ success: true, data: activities });
+  } catch (err) {
+    console.error('Error fetching agent activities drill-down:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 module.exports = router;
