@@ -15,6 +15,7 @@ const pool = new Pool({
 
 const router = express.Router();
 const KEEP_FILE_VALUE = '__KEEP__';
+let cachedRegStatusColumn = null;
 
 const FILE_FIELD_RULES = {
     mykad_front: { label: 'MyKad Front', allowed: ['image/*'], maxBytes: 8 * 1024 * 1024 },
@@ -172,6 +173,25 @@ function validateExtractionPayload(fileData, options = {}) {
     return { ok: true, mimeType: parsed.mimeType, buffer: parsed.buffer };
 }
 
+async function getRegStatusColumn(client) {
+    if (cachedRegStatusColumn) return cachedRegStatusColumn;
+    const colRes = await client.query(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_name = 'seda_registration'
+           AND column_name IN ('mapper_status', 'reg_status')`
+    );
+    const cols = new Set(colRes.rows.map(r => r.column_name));
+    if (cols.has('mapper_status')) {
+        cachedRegStatusColumn = 'mapper_status';
+    } else if (cols.has('reg_status')) {
+        cachedRegStatusColumn = 'reg_status';
+    } else {
+        cachedRegStatusColumn = 'reg_status';
+    }
+    return cachedRegStatusColumn;
+}
+
 // ============================================================
 // PUBLIC ROUTES (No Auth Required) - Share Token Access
 // ============================================================
@@ -235,6 +255,10 @@ router.get('/api/v1/seda-public/:shareToken', async (req, res) => {
 
         if (!seda) {
             return res.status(404).json({ success: false, error: 'Registration not found or expired' });
+        }
+
+        if (!seda.reg_status && seda.mapper_status) {
+            seda.reg_status = seda.mapper_status;
         }
 
         // Fetch invoice details for signature status and share link
@@ -456,10 +480,11 @@ router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
         // 2. Query SEDA registrations
         // Use LEFT JOIN for invoice to show SEDA even if linked_invoice is missing or empty
         // Use COALESCE/MAX to handle cases where one SEDA might be linked to multiple invoices (though rare)
+        const regStatusCol = await getRegStatusColumn(client);
         const query = `
             SELECT 
                 s.bubble_id,
-                s.reg_status,
+                s.${regStatusCol} AS reg_status,
                 s.seda_status,
                 s.updated_at,
                 COALESCE(c.name, i.customer_name_snapshot, s.e_contact_name, 'Unnamed Customer') as customer_name,
@@ -480,10 +505,10 @@ router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
                 )
               )
               AND (
-                s.reg_status IS NULL
+                s.${regStatusCol} IS NULL
                 OR (
-                    s.reg_status NOT ILIKE 'Submitted%'
-                    AND s.reg_status NOT ILIKE 'Approved%'
+                    s.${regStatusCol} NOT ILIKE 'Submitted%'
+                    AND s.${regStatusCol} NOT ILIKE 'Approved%'
                 )
               )
             ORDER BY has_payment DESC, i.paid_amount DESC, s.updated_at DESC
@@ -511,6 +536,7 @@ router.patch('/api/v1/seda/:id/status', requireAuth, async (req, res) => {
     try {
         const updates = [];
         const params = [id];
+        const regStatusCol = await getRegStatusColumn(client);
 
         if (reg_status) {
             if (!sedaRepo.SedaStatus.REG.includes(reg_status.toLowerCase())) {
@@ -520,7 +546,7 @@ router.patch('/api/v1/seda/:id/status', requireAuth, async (req, res) => {
                 });
             }
             params.push(reg_status);
-            updates.push(`reg_status = $${params.length}`);
+            updates.push(`${regStatusCol} = $${params.length}`);
         }
 
         if (seda_status) {
@@ -767,6 +793,9 @@ router.get('/api/v1/seda/:id', async (req, res) => {
         }
         
         const seda = result.rows[0];
+        if (!seda.reg_status && seda.mapper_status) {
+            seda.reg_status = seda.mapper_status;
+        }
         let customer = {};
 
         if (seda.linked_customer) {

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+let cachedRegStatusColumn = null;
 
 /**
  * Standardized statuses for SEDA registration
@@ -49,10 +50,21 @@ async function createSedaRegistration(client, data) {
   const shareExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
   try {
+    if (!cachedRegStatusColumn) {
+      const colRes = await client.query(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_name = 'seda_registration'
+           AND column_name IN ('mapper_status', 'reg_status')`
+      );
+      const cols = new Set(colRes.rows.map(r => r.column_name));
+      cachedRegStatusColumn = cols.has('mapper_status') ? 'mapper_status' : 'reg_status';
+    }
+
     const result = await client.query(
       `INSERT INTO seda_registration
        (bubble_id, linked_invoice, linked_customer, created_by, created_at, updated_at,
-        reg_status, seda_status, created_date, modified_date, share_token, share_enabled, share_expires_at)
+        ${cachedRegStatusColumn}, seda_status, created_date, modified_date, share_token, share_enabled, share_expires_at)
        VALUES ($1, $2, $3, $4, NOW(), NOW(), 'Draft', 'Pending', NOW(), NOW(), $5, true, $6)
        RETURNING *`,
       [bubbleId, [invoiceId], customerId, createdBy, shareToken, shareExpiresAt]
