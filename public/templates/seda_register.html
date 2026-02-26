@@ -611,6 +611,10 @@
                         <label class="input-label">Contact No</label>
                         <input type="text" id="emergencyPhone" class="input-field">
                     </div>
+                    <div class="input-group">
+                        <label class="input-label">Email Address</label>
+                        <input type="email" id="emergencyEmail" class="input-field" placeholder="e.g. emergency@email.com">
+                    </div>
                 </div>
             </div>
 
@@ -1141,7 +1145,7 @@ Thank you!`;
 
                     document.getElementById('applicantName').value = data.customer_profile?.name || data.customer_name || '';
                     document.getElementById('applicantPhone').value = data.customer_profile?.phone || data.phone || data.e_contact_no || '';
-                    document.getElementById('applicantEmail').value = data.e_email || data.email || data.customer_profile?.email || '';
+                    document.getElementById('applicantEmail').value = data.email || data.customer_profile?.email || '';
                     document.getElementById('applicantIC').value = data.ic_no || '';
                     document.getElementById('applicantAddress').value = [data.customer_profile?.address || data.address, data.customer_profile?.city || data.city, data.customer_profile?.state || data.state, data.customer_profile?.postcode || data.postcode].filter(Boolean).join(', ');
                     document.getElementById('installAddress').value = data.installation_address || '';
@@ -1153,6 +1157,7 @@ Thank you!`;
                     document.getElementById('emergencyName').value = data.e_contact_name || '';
                     document.getElementById('emergencyRel').value = data.e_contact_relationship || '';
                     document.getElementById('emergencyPhone').value = data.e_contact_no || '';
+                    document.getElementById('emergencyEmail').value = data.e_email || '';
 
                     const showExisting = (url, previewId) => {
                         if (!url) return;
@@ -1267,6 +1272,7 @@ Thank you!`;
                 e_contact_name: document.getElementById('emergencyName').value,
                 e_contact_relationship: document.getElementById('emergencyRel').value,
                 e_contact_no: document.getElementById('emergencyPhone').value,
+                e_email: document.getElementById('emergencyEmail').value,
                 ic_no: document.getElementById('applicantIC').value,
                 email: document.getElementById('applicantEmail').value,
                 ...fileData
