@@ -14,6 +14,163 @@ const pool = new Pool({
 });
 
 const router = express.Router();
+const KEEP_FILE_VALUE = '__KEEP__';
+
+const FILE_FIELD_RULES = {
+    mykad_front: { label: 'MyKad Front', allowed: ['image/*'], maxBytes: 8 * 1024 * 1024 },
+    mykad_back: { label: 'MyKad Back', allowed: ['image/*'], maxBytes: 8 * 1024 * 1024 },
+    mykad_pdf: { label: 'MyKad PDF', allowed: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
+    tnb_bill_1: { label: 'TNB Bill Month 1', allowed: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
+    tnb_bill_2: { label: 'TNB Bill Month 2', allowed: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
+    tnb_bill_3: { label: 'TNB Bill Month 3', allowed: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
+    property_proof: { label: 'Property Ownership Proof', allowed: ['application/pdf', 'image/*'], maxBytes: 15 * 1024 * 1024 },
+    tnb_meter: { label: 'TNB Meter Image', allowed: ['image/*'], maxBytes: 8 * 1024 * 1024 }
+};
+
+function formatBytes(bytes) {
+    if (!Number.isFinite(bytes)) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function isMimeAllowed(mimeType, allowed = []) {
+    return allowed.some(rule => {
+        if (rule.endsWith('/*')) return mimeType.startsWith(rule.replace('/*', '/'));
+        return mimeType === rule;
+    });
+}
+
+function parseDataUrlFile(fileData) {
+    const matches = typeof fileData === 'string'
+        ? fileData.match(/^data:([A-Za-z0-9.+/-]+);base64,([\s\S]+)$/)
+        : null;
+    if (!matches || matches.length !== 3) {
+        return { error: 'Invalid base64 data URL format.' };
+    }
+
+    const mimeType = matches[1];
+    let buffer;
+    try {
+        buffer = Buffer.from(matches[2], 'base64');
+    } catch (err) {
+        return { error: 'Failed to decode base64 file payload.' };
+    }
+    if (!buffer || buffer.length === 0) {
+        return { error: 'File payload is empty after decoding.' };
+    }
+
+    return { mimeType, buffer };
+}
+
+function validateSingleFileField(field, rawValue) {
+    const rules = FILE_FIELD_RULES[field] || { label: field, allowed: ['application/pdf', 'image/*'], maxBytes: 10 * 1024 * 1024 };
+    const label = rules.label;
+
+    if (rawValue === undefined) return { state: 'keep' };
+    if (rawValue === null || rawValue === '') return { state: 'clear' };
+    if (typeof rawValue === 'string' && rawValue.startsWith('http')) return { state: 'set', preExistingUrl: rawValue };
+
+    const parsed = parseDataUrlFile(rawValue);
+    if (parsed.error) {
+        return {
+            state: 'error',
+            error: {
+                field,
+                label,
+                code: 'INVALID_FILE_FORMAT',
+                message: `${label}: ${parsed.error}`,
+                expected: `Allowed: ${rules.allowed.join(', ')}, Max: ${formatBytes(rules.maxBytes)}`
+            }
+        };
+    }
+
+    if (!isMimeAllowed(parsed.mimeType, rules.allowed)) {
+        return {
+            state: 'error',
+            error: {
+                field,
+                label,
+                code: 'UNSUPPORTED_MIME_TYPE',
+                message: `${label}: Unsupported file type ${parsed.mimeType}.`,
+                mimeType: parsed.mimeType,
+                expected: rules.allowed
+            }
+        };
+    }
+
+    if (parsed.buffer.length > rules.maxBytes) {
+        return {
+            state: 'error',
+            error: {
+                field,
+                label,
+                code: 'FILE_TOO_LARGE',
+                message: `${label}: File size ${formatBytes(parsed.buffer.length)} exceeds limit ${formatBytes(rules.maxBytes)}.`,
+                sizeBytes: parsed.buffer.length,
+                maxBytes: rules.maxBytes
+            }
+        };
+    }
+
+    return { state: 'set', mimeType: parsed.mimeType, buffer: parsed.buffer };
+}
+
+function persistValidatedFile(req, uploadDir, id, prefix, validationResult) {
+    if (validationResult.state === 'keep') return KEEP_FILE_VALUE;
+    if (validationResult.state === 'clear') return null;
+    if (validationResult.preExistingUrl) return validationResult.preExistingUrl;
+
+    const ext = validationResult.mimeType === 'application/pdf' ? '.pdf' : '.jpg';
+    const filename = `${prefix}_${id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
+    fs.writeFileSync(path.join(uploadDir, filename), validationResult.buffer);
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    return `${protocol}://${host}/seda-files/${filename}`;
+}
+
+function validateExtractionPayload(fileData, options = {}) {
+    const { label = 'Document', allowed = ['application/pdf', 'image/*'], maxBytes = 20 * 1024 * 1024 } = options;
+    const parsed = parseDataUrlFile(fileData);
+    if (parsed.error) {
+        return {
+            ok: false,
+            status: 400,
+            payload: {
+                success: false,
+                error: `${label}: ${parsed.error}`,
+                code: 'INVALID_FILE_FORMAT',
+                details: [{ label, expected: `Allowed: ${allowed.join(', ')}, Max: ${formatBytes(maxBytes)}` }]
+            }
+        };
+    }
+    if (!isMimeAllowed(parsed.mimeType, allowed)) {
+        return {
+            ok: false,
+            status: 400,
+            payload: {
+                success: false,
+                error: `${label}: Unsupported file type ${parsed.mimeType}.`,
+                code: 'UNSUPPORTED_MIME_TYPE',
+                details: [{ label, mimeType: parsed.mimeType, allowed }]
+            }
+        };
+    }
+    if (parsed.buffer.length > maxBytes) {
+        return {
+            ok: false,
+            status: 400,
+            payload: {
+                success: false,
+                error: `${label}: File size ${formatBytes(parsed.buffer.length)} exceeds limit ${formatBytes(maxBytes)}.`,
+                code: 'FILE_TOO_LARGE',
+                details: [{ label, sizeBytes: parsed.buffer.length, maxBytes }]
+            }
+        };
+    }
+    return { ok: true, mimeType: parsed.mimeType, buffer: parsed.buffer };
+}
 
 // ============================================================
 // PUBLIC ROUTES (No Auth Required) - Share Token Access
@@ -149,40 +306,56 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
 
-        // Helper to save file
-        const saveFile = (base64String, prefix) => {
-            if (!base64String) return null;
-            if (base64String.startsWith('http')) return base64String;
+        const fileFieldPayloads = {
+            mykad_front,
+            mykad_back,
+            mykad_pdf,
+            tnb_bill_1,
+            tnb_bill_2,
+            tnb_bill_3,
+            property_proof,
+            tnb_meter
+        };
 
-            const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-            if (matches && matches.length === 3) {
-                const mimeType = matches[1];
-                const buffer = Buffer.from(matches[2], 'base64');
-                const ext = mimeType === 'application/pdf' ? '.pdf' : '.jpg';
-                const filename = `${prefix}_${id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
-                fs.writeFileSync(path.join(uploadDir, filename), buffer);
+        const fileFieldPrefixes = {
+            mykad_front: 'mykad_front',
+            mykad_back: 'mykad_back',
+            mykad_pdf: 'mykad_pdf',
+            tnb_bill_1: 'tnb_bill_1',
+            tnb_bill_2: 'tnb_bill_2',
+            tnb_bill_3: 'tnb_bill_3',
+            property_proof: 'property_proof',
+            tnb_meter: 'tnb_meter'
+        };
 
-                const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-                const host = req.get('host');
-                return `${protocol}://${host}/seda-files/${filename}`;
+        const fileErrors = [];
+        const fileUrls = {};
+        for (const [field, inputValue] of Object.entries(fileFieldPayloads)) {
+            const check = validateSingleFileField(field, inputValue);
+            if (check.state === 'error') {
+                fileErrors.push(check.error);
+                continue;
             }
-            return null;
-        };
+            fileUrls[field] = persistValidatedFile(req, uploadDir, id, fileFieldPrefixes[field], check);
+        }
 
-        const processFile = (input, prefix) => {
-            if (input === undefined) return undefined;
-            if (input === null || input === '') return null;
-            return saveFile(input, prefix);
-        };
+        if (fileErrors.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'File validation failed.',
+                code: 'FILE_VALIDATION_FAILED',
+                details: fileErrors
+            });
+        }
 
-        const url_mykad_front = processFile(mykad_front, 'mykad_front');
-        const url_mykad_back = processFile(mykad_back, 'mykad_back');
-        const url_mykad_pdf = processFile(mykad_pdf, 'mykad_pdf');
-        const url_tnb_1 = processFile(tnb_bill_1, 'tnb_bill_1');
-        const url_tnb_2 = processFile(tnb_bill_2, 'tnb_bill_2');
-        const url_tnb_3 = processFile(tnb_bill_3, 'tnb_bill_3');
-        const url_property_proof = processFile(property_proof, 'property_proof');
-        const url_tnb_meter = processFile(tnb_meter, 'tnb_meter');
+        const url_mykad_front = fileUrls.mykad_front;
+        const url_mykad_back = fileUrls.mykad_back;
+        const url_mykad_pdf = fileUrls.mykad_pdf;
+        const url_tnb_1 = fileUrls.tnb_bill_1;
+        const url_tnb_2 = fileUrls.tnb_bill_2;
+        const url_tnb_3 = fileUrls.tnb_bill_3;
+        const url_property_proof = fileUrls.property_proof;
+        const url_tnb_meter = fileUrls.tnb_meter;
 
         // Update DB
         await client.query(
@@ -197,14 +370,14 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
                  e_contact_relationship = COALESCE($8, e_contact_relationship),
                  e_contact_no = COALESCE($9, e_contact_no),
                  ic_no = COALESCE($10, ic_no),
-                 ic_copy_front = COALESCE($11, ic_copy_front),
-                 ic_copy_back = COALESCE($12, ic_copy_back),
-                 mykad_pdf = COALESCE($13, mykad_pdf),
-                 tnb_bill_1 = COALESCE($14, tnb_bill_1),
-                 tnb_bill_2 = COALESCE($15, tnb_bill_2),
-                 tnb_bill_3 = COALESCE($16, tnb_bill_3),
-                 property_ownership_prove = COALESCE($17, property_ownership_prove),
-                 tnb_meter = COALESCE($18, tnb_meter),
+                 ic_copy_front = CASE WHEN $11 = '${KEEP_FILE_VALUE}' THEN ic_copy_front ELSE $11 END,
+                 ic_copy_back = CASE WHEN $12 = '${KEEP_FILE_VALUE}' THEN ic_copy_back ELSE $12 END,
+                 mykad_pdf = CASE WHEN $13 = '${KEEP_FILE_VALUE}' THEN mykad_pdf ELSE $13 END,
+                 tnb_bill_1 = CASE WHEN $14 = '${KEEP_FILE_VALUE}' THEN tnb_bill_1 ELSE $14 END,
+                 tnb_bill_2 = CASE WHEN $15 = '${KEEP_FILE_VALUE}' THEN tnb_bill_2 ELSE $15 END,
+                 tnb_bill_3 = CASE WHEN $16 = '${KEEP_FILE_VALUE}' THEN tnb_bill_3 ELSE $16 END,
+                 property_ownership_prove = CASE WHEN $17 = '${KEEP_FILE_VALUE}' THEN property_ownership_prove ELSE $17 END,
+                 tnb_meter = CASE WHEN $18 = '${KEEP_FILE_VALUE}' THEN tnb_meter ELSE $18 END,
                  modified_date = NOW(),
                  updated_at = NOW()
              WHERE bubble_id = $19`,
@@ -406,13 +579,14 @@ router.post('/api/v1/seda/extract-tnb', async (req, res) => {
     const client = await pool.connect();
     try {
         const { fileData, filename, sedaId } = req.body;
-        if (!fileData) return res.status(400).json({ error: 'No file data provided' });
-
-        const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid file format' });
-        
-        const mimeType = matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
+        if (!fileData) return res.status(400).json({ success: false, error: 'No file data provided', code: 'MISSING_FILE_DATA' });
+        const fileCheck = validateExtractionPayload(fileData, {
+            label: 'TNB Bill',
+            allowed: ['application/pdf', 'image/*'],
+            maxBytes: 20 * 1024 * 1024
+        });
+        if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
+        const { mimeType, buffer } = fileCheck;
         
         const result = await extractionService.verifyTnbBill(buffer, mimeType);
         
@@ -447,13 +621,14 @@ router.post('/api/v1/seda/extract-mykad', async (req, res) => {
     const client = await pool.connect();
     try {
         const { fileData, filename, sedaId } = req.body;
-        if (!fileData) return res.status(400).json({ error: 'No file data provided' });
-
-        const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid file format' });
-
-        const mimeType = matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
+        if (!fileData) return res.status(400).json({ success: false, error: 'No file data provided', code: 'MISSING_FILE_DATA' });
+        const fileCheck = validateExtractionPayload(fileData, {
+            label: 'MyKad Document',
+            allowed: ['application/pdf', 'image/*'],
+            maxBytes: 20 * 1024 * 1024
+        });
+        if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
+        const { mimeType, buffer } = fileCheck;
         
         const result = await extractionService.verifyMykad(buffer, mimeType);
         
@@ -501,13 +676,14 @@ router.post('/api/v1/seda/verify-meter', async (req, res) => {
     const client = await pool.connect();
     try {
         const { fileData, filename, sedaId } = req.body;
-        if (!fileData) return res.status(400).json({ error: 'No file data provided' });
-
-        const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid file format' });
-
-        const mimeType = matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
+        if (!fileData) return res.status(400).json({ success: false, error: 'No file data provided', code: 'MISSING_FILE_DATA' });
+        const fileCheck = validateExtractionPayload(fileData, {
+            label: 'TNB Meter Photo',
+            allowed: ['image/*'],
+            maxBytes: 12 * 1024 * 1024
+        });
+        if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
+        const { mimeType, buffer } = fileCheck;
         
         const result = await extractionService.verifyTnbMeter(buffer, mimeType);
         
@@ -540,13 +716,14 @@ router.post('/api/v1/seda/verify-ownership', async (req, res) => {
     const client = await pool.connect();
     try {
         const { fileData, filename, sedaId, context } = req.body;
-        if (!fileData) return res.status(400).json({ error: 'No file data provided' });
-
-        const matches = fileData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid file format' });
-
-        const mimeType = matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
+        if (!fileData) return res.status(400).json({ success: false, error: 'No file data provided', code: 'MISSING_FILE_DATA' });
+        const fileCheck = validateExtractionPayload(fileData, {
+            label: 'Ownership Document',
+            allowed: ['application/pdf', 'image/*'],
+            maxBytes: 20 * 1024 * 1024
+        });
+        if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
+        const { mimeType, buffer } = fileCheck;
         
         const result = await extractionService.verifyOwnership(buffer, mimeType, context || { name: 'Unknown', address: 'Unknown' });
         
@@ -653,47 +830,56 @@ router.post('/api/v1/seda/:id', async (req, res) => {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
 
-        // Helper to save file
-        const saveFile = (base64String, prefix) => {
-            if (!base64String) return null;
-            // Check if it's already a URL (existing file not changed)
-            if (base64String.startsWith('http')) return base64String;
+        const fileFieldPayloads = {
+            mykad_front,
+            mykad_back,
+            mykad_pdf,
+            tnb_bill_1,
+            tnb_bill_2,
+            tnb_bill_3,
+            property_proof,
+            tnb_meter
+        };
 
-            const matches = base64String.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-            if (matches && matches.length === 3) {
-                const mimeType = matches[1];
-                const buffer = Buffer.from(matches[2], 'base64');
-                const ext = mimeType === 'application/pdf' ? '.pdf' : '.jpg'; // Simple ext deduction
-                const filename = `${prefix}_${id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
-                fs.writeFileSync(path.join(uploadDir, filename), buffer);
-                
-                // Return URL
-                const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-                const host = req.get('host');
-                return `${protocol}://${host}/seda-files/${filename}`;
+        const fileFieldPrefixes = {
+            mykad_front: 'mykad_front',
+            mykad_back: 'mykad_back',
+            mykad_pdf: 'mykad_pdf',
+            tnb_bill_1: 'tnb_bill_1',
+            tnb_bill_2: 'tnb_bill_2',
+            tnb_bill_3: 'tnb_bill_3',
+            property_proof: 'property_proof',
+            tnb_meter: 'tnb_meter'
+        };
+
+        const fileErrors = [];
+        const fileUrls = {};
+        for (const [field, inputValue] of Object.entries(fileFieldPayloads)) {
+            const check = validateSingleFileField(field, inputValue);
+            if (check.state === 'error') {
+                fileErrors.push(check.error);
+                continue;
             }
-            return null;
-        };
+            fileUrls[field] = persistValidatedFile(req, uploadDir, id, fileFieldPrefixes[field], check);
+        }
 
-        // Process Files
-        let url_mykad_front, url_mykad_back, url_mykad_pdf;
-        let url_tnb_1, url_tnb_2, url_tnb_3;
-        let url_property_proof, url_tnb_meter;
+        if (fileErrors.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'File validation failed.',
+                code: 'FILE_VALIDATION_FAILED',
+                details: fileErrors
+            });
+        }
 
-        const processFile = (input, prefix) => {
-            if (input === undefined) return undefined; // Keep existing
-            if (input === null || input === '') return null; // Clear file
-            return saveFile(input, prefix); // Save new or return existing URL
-        };
-
-        url_mykad_front = processFile(mykad_front, 'mykad_front');
-        url_mykad_back = processFile(mykad_back, 'mykad_back');
-        url_mykad_pdf = processFile(mykad_pdf, 'mykad_pdf');
-        url_tnb_1 = processFile(tnb_bill_1, 'tnb_bill_1');
-        url_tnb_2 = processFile(tnb_bill_2, 'tnb_bill_2');
-        url_tnb_3 = processFile(tnb_bill_3, 'tnb_bill_3');
-        url_property_proof = processFile(property_proof, 'property_proof');
-        url_tnb_meter = processFile(tnb_meter, 'tnb_meter');
+        const url_mykad_front = fileUrls.mykad_front;
+        const url_mykad_back = fileUrls.mykad_back;
+        const url_mykad_pdf = fileUrls.mykad_pdf;
+        const url_tnb_1 = fileUrls.tnb_bill_1;
+        const url_tnb_2 = fileUrls.tnb_bill_2;
+        const url_tnb_3 = fileUrls.tnb_bill_3;
+        const url_property_proof = fileUrls.property_proof;
+        const url_tnb_meter = fileUrls.tnb_meter;
 
         // Update DB
         await client.query(
@@ -708,14 +894,14 @@ router.post('/api/v1/seda/:id', async (req, res) => {
                  e_contact_relationship = COALESCE($8, e_contact_relationship),
                  e_contact_no = COALESCE($9, e_contact_no),
                  ic_no = COALESCE($10, ic_no),
-                 ic_copy_front = COALESCE($11, ic_copy_front),
-                 ic_copy_back = COALESCE($12, ic_copy_back),
-                 mykad_pdf = COALESCE($13, mykad_pdf),
-                 tnb_bill_1 = COALESCE($14, tnb_bill_1),
-                 tnb_bill_2 = COALESCE($15, tnb_bill_2),
-                 tnb_bill_3 = COALESCE($16, tnb_bill_3),
-                 property_ownership_prove = COALESCE($17, property_ownership_prove),
-                 tnb_meter = COALESCE($18, tnb_meter),
+                 ic_copy_front = CASE WHEN $11 = '${KEEP_FILE_VALUE}' THEN ic_copy_front ELSE $11 END,
+                 ic_copy_back = CASE WHEN $12 = '${KEEP_FILE_VALUE}' THEN ic_copy_back ELSE $12 END,
+                 mykad_pdf = CASE WHEN $13 = '${KEEP_FILE_VALUE}' THEN mykad_pdf ELSE $13 END,
+                 tnb_bill_1 = CASE WHEN $14 = '${KEEP_FILE_VALUE}' THEN tnb_bill_1 ELSE $14 END,
+                 tnb_bill_2 = CASE WHEN $15 = '${KEEP_FILE_VALUE}' THEN tnb_bill_2 ELSE $15 END,
+                 tnb_bill_3 = CASE WHEN $16 = '${KEEP_FILE_VALUE}' THEN tnb_bill_3 ELSE $16 END,
+                 property_ownership_prove = CASE WHEN $17 = '${KEEP_FILE_VALUE}' THEN property_ownership_prove ELSE $17 END,
+                 tnb_meter = CASE WHEN $18 = '${KEEP_FILE_VALUE}' THEN tnb_meter ELSE $18 END,
                  modified_date = NOW(),
                  updated_at = NOW()
              WHERE bubble_id = $19`,

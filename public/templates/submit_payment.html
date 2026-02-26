@@ -172,6 +172,7 @@
         </div>
     </div>
 
+    <script src="/js/utils/image_optimizer.js"></script>
     <script>
         // EPP Rates (Copied from app.js) - Used only for tenure dropdown population
         const EPP_RATES = {
@@ -349,27 +350,29 @@
                 return;
             }
 
-            // Handle Images (Compress if needed)
+            // Handle Images (Optimize for web: max 2560px, WebP, <=2MB target)
             if (file.type.startsWith('image/')) {
-                // If small enough, use directly
-                if (file.size <= 2 * 1024 * 1024) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        setFilePayload(e.target.result, file.name, file.type);
-                        showPreview(e.target.result, file.name);
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    // Compress
-                    try {
-                        const compressedDataUrl = await compressImage(file);
-                        setFilePayload(compressedDataUrl, file.name, 'image/jpeg'); // Always converts to jpeg
-                        showPreview(compressedDataUrl, file.name + ' (Compressed)');
-                    } catch (err) {
-                        console.error('Compression failed:', err);
-                        alert('Failed to process image. Please try a smaller file.');
+                try {
+                    const optimized = await ImageOptimizer.optimizeImageFile(file, {
+                        maxDimension: 2560,
+                        outputType: 'image/webp',
+                        quality: 0.82,
+                        minQuality: 0.55,
+                        targetBytes: 2 * 1024 * 1024
+                    });
+
+                    if (optimized.sizeBytes > 2 * 1024 * 1024) {
+                        alert(`Optimized image is still too large (${ImageOptimizer.formatBytes(optimized.sizeBytes)}). Please use a smaller image.`);
                         event.target.value = '';
+                        return;
                     }
+
+                    setFilePayload(optimized.dataUrl, optimized.fileName, optimized.mimeType);
+                    showPreview(optimized.dataUrl, `${optimized.fileName} (${ImageOptimizer.formatBytes(optimized.sizeBytes)})`);
+                } catch (err) {
+                    console.error('Image optimization failed:', err);
+                    alert('Failed to process image. Please try another file.');
+                    event.target.value = '';
                 }
             } else {
                 alert('Unsupported file type. Please upload an Image or PDF.');
@@ -401,60 +404,6 @@
                     </div>`;
                 preview.classList.remove('hidden');
             }
-        }
-
-        function compressImage(file) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    img.src = e.target.result;
-                };
-                
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    // Max dimensions
-                    const MAX_WIDTH = 1600;
-                    const MAX_HEIGHT = 1600;
-                    let width = img.width;
-                    let height = img.height;
-                    
-                    if (width > height) {
-                        if (width > MAX_WIDTH) {
-                            height *= MAX_WIDTH / width;
-                            width = MAX_WIDTH;
-                        }
-                    } else {
-                        if (height > MAX_HEIGHT) {
-                            width *= MAX_HEIGHT / height;
-                            height = MAX_HEIGHT;
-                        }
-                    }
-                    
-                    canvas.width = width;
-                    canvas.height = height;
-                    ctx.drawImage(img, 0, 0, width, height);
-                    
-                    // Export as JPEG with reduced quality
-                    let quality = 0.7;
-                    let dataUrl = canvas.toDataURL('image/jpeg', quality);
-                    
-                    // Simple check if it's still too big (approx base64 length)
-                    while (dataUrl.length > 2.5 * 1024 * 1024 && quality > 0.1) {
-                        quality -= 0.1;
-                        dataUrl = canvas.toDataURL('image/jpeg', quality);
-                    }
-                    
-                    resolve(dataUrl);
-                };
-                
-                img.onerror = reject;
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
         }
 
         document.getElementById('paymentForm').addEventListener('submit', async (e) => {

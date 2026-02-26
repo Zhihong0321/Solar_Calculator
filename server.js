@@ -44,6 +44,24 @@ app.use((req, res, next) => {
 
 app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
+app.use((err, req, res, next) => {
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      error: 'Request payload too large. Reduce file size or upload fewer files in one save.',
+      code: 'PAYLOAD_TOO_LARGE',
+      details: [{ limit: '50mb' }]
+    });
+  }
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid JSON request body.',
+      code: 'INVALID_JSON'
+    });
+  }
+  return next(err);
+});
 
 // --- Module Mounting ---
 app.use(Invoicing.router);

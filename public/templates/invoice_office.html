@@ -600,7 +600,7 @@
                                 <p class="text-[9px] text-emerald-600 font-medium">${formatDate(p.payment_date)} • ${p.payment_method || 'CASH'}</p>
                             </div>
                         </div>
-                        ${p.attachment ? `<button onclick="viewImage('${p.attachment[0]}')" class="text-[9px] font-bold text-emerald-700 hover:underline">[VIEW PROOF]</button>` : ''}
+                        ${(Array.isArray(p.attachment) && p.attachment[0]) ? `<button onclick="viewPaymentProof('${p.attachment[0]}')" class="text-[9px] font-bold text-emerald-700 hover:underline">[VIEW PROOF]</button>` : ''}
                     </div>
                 `).join('');
             } else {
@@ -618,13 +618,37 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
+                            ${(Array.isArray(p.attachment) && p.attachment[0]) ? `<button onclick="viewPaymentProof('${p.attachment[0]}')" class="text-[9px] font-bold text-emerald-700 hover:underline uppercase">Proof</button>` : ''}
                             <button onclick="window.location.href='/submit-payment?id=${bubbleId}&edit_payment_id=${p.bubble_id}'" class="text-[9px] font-bold text-blue-600 hover:underline uppercase">Edit</button>
+                            <button onclick="deleteSubmittedPayment('${p.bubble_id}')" class="text-[9px] font-bold text-red-600 hover:underline uppercase">Delete</button>
                             <span class="text-[8px] font-bold text-slate-400 uppercase border border-slate-200 px-1 rounded">${p.status || 'PENDING'}</span>
                         </div>
                     </div>
                 `).join('');
             } else {
                 pendingList.innerHTML = '<p class="text-xs text-slate-400 italic">No pending submissions.</p>';
+            }
+        }
+
+        async function deleteSubmittedPayment(paymentId) {
+            if (!paymentId) return;
+            if (!confirm('Delete this submitted payment?')) return;
+
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/v1/submitted-payments/${paymentId}`, {
+                    method: 'DELETE'
+                });
+                const json = await res.json();
+                if (json.success) {
+                    await loadData();
+                } else {
+                    alert('Failed to delete payment: ' + (json.error || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Delete failed: ' + err.message);
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
             }
         }
 
@@ -942,6 +966,17 @@
                     await loadData();
                 }
             } catch (err) { alert('Delete failed'); }
+        }
+
+        function viewPaymentProof(url) {
+            if (!url) return;
+            const cleanUrl = String(url).toLowerCase().split('?')[0];
+            const isPdf = cleanUrl.endsWith('.pdf');
+            if (isPdf) {
+                window.open(url, '_blank', 'noopener');
+                return;
+            }
+            viewImage(url);
         }
 
         function viewImage(url) {

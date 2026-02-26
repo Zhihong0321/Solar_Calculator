@@ -656,6 +656,7 @@
         </form>
     </div>
 
+    <script src="/js/utils/image_optimizer.js"></script>
     <script>
         // Determine access mode: public (shareToken) or authenticated (bubble_id)
         const pathParts = window.location.pathname.split('/');
@@ -671,6 +672,138 @@
         let customerPhone = null;
         let customerName = null;
         let isWhatsAppVerified = false;
+        const FILE_VALIDATION_RULES = {
+            fileMyKadFront: { label: 'MyKad Front', accept: ['image/*'], maxBytes: 8 * 1024 * 1024 },
+            fileMyKadBack: { label: 'MyKad Back', accept: ['image/*'], maxBytes: 8 * 1024 * 1024 },
+            fileMyKadPdf: { label: 'MyKad PDF', accept: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
+            fileTnb1: { label: 'TNB Bill Month 1', accept: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
+            fileTnb2: { label: 'TNB Bill Month 2', accept: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
+            fileTnb3: { label: 'TNB Bill Month 3', accept: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
+            filePropertyProof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'], maxBytes: 15 * 1024 * 1024 },
+            fileTnbMeter: { label: 'TNB Meter Photo', accept: ['image/*'], maxBytes: 8 * 1024 * 1024 }
+        };
+        const FILE_FIELD_TO_INPUT_ID = {
+            mykad_front: 'fileMyKadFront',
+            mykad_back: 'fileMyKadBack',
+            mykad_pdf: 'fileMyKadPdf',
+            tnb_bill_1: 'fileTnb1',
+            tnb_bill_2: 'fileTnb2',
+            tnb_bill_3: 'fileTnb3',
+            property_proof: 'filePropertyProof',
+            tnb_meter: 'fileTnbMeter'
+        };
+
+        function formatBytes(bytes) {
+            if (!Number.isFinite(bytes)) return '0 B';
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+        }
+
+        function isAllowedMime(mime, allowed) {
+            return allowed.some(rule => {
+                if (rule.endsWith('/*')) return mime.startsWith(rule.replace('/*', '/'));
+                return mime === rule;
+            });
+        }
+
+        function validateSelectedFile(inputId, file) {
+            const rule = FILE_VALIDATION_RULES[inputId];
+            if (!rule) return { ok: true };
+            if (!isAllowedMime(file.type || '', rule.accept)) {
+                return {
+                    ok: false,
+                    message: `${rule.label}: unsupported file type "${file.type || 'unknown'}". Allowed: ${rule.accept.join(', ')}.`
+                };
+            }
+            if (file.size > rule.maxBytes) {
+                return {
+                    ok: false,
+                    message: `${rule.label}: file too large (${formatBytes(file.size)}). Maximum allowed is ${formatBytes(rule.maxBytes)}.`
+                };
+            }
+            return { ok: true };
+        }
+
+        function setFieldErrorByInputId(inputId, message) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const group = input.closest('.input-group');
+            if (!group) return;
+
+            let el = group.querySelector('.upload-error-msg');
+            if (!el) {
+                el = document.createElement('div');
+                el.className = 'upload-error-msg mt-2 text-[11px] font-semibold text-red-600';
+                group.appendChild(el);
+            }
+            el.textContent = message;
+        }
+
+        function clearFieldErrorByInputId(inputId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const group = input.closest('.input-group');
+            const el = group ? group.querySelector('.upload-error-msg') : null;
+            if (el) el.remove();
+        }
+
+        function clearAllUploadErrors() {
+            document.querySelectorAll('.upload-error-msg').forEach(el => el.remove());
+        }
+
+        function applyApiFieldErrors(details = [], fallbackInputId = null) {
+            if (!Array.isArray(details) || details.length === 0) {
+                if (fallbackInputId) setFieldErrorByInputId(fallbackInputId, 'Upload failed. Please try again.');
+                return;
+            }
+
+            let mappedAny = false;
+            details.forEach((d) => {
+                const inputId = d?.field ? FILE_FIELD_TO_INPUT_ID[d.field] : fallbackInputId;
+                if (!inputId) return;
+                const msg = d?.message || d?.code || 'Upload failed.';
+                setFieldErrorByInputId(inputId, msg);
+                mappedAny = true;
+            });
+
+            if (!mappedAny && fallbackInputId) {
+                setFieldErrorByInputId(fallbackInputId, 'Upload failed. Please try again.');
+            }
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function parseApiResponse(res) {
+            let payload = null;
+            try {
+                payload = await res.json();
+            } catch (_) {
+                payload = null;
+            }
+            if (res.ok && payload?.success !== false) return payload || { success: true };
+
+            let detailText = '';
+            if (Array.isArray(payload?.details) && payload.details.length > 0) {
+                detailText = payload.details
+                    .map((d) => `- ${d.label || d.field || 'File'}: ${d.message || d.code || 'Validation error'}`)
+                    .join('\n');
+            }
+            const baseError = payload?.error || `HTTP ${res.status} ${res.statusText}`;
+            const msg = detailText ? `${baseError}\n\n${detailText}` : baseError;
+            const apiError = new Error(msg);
+            apiError.details = Array.isArray(payload?.details) ? payload.details : [];
+            apiError.code = payload?.code || null;
+            apiError.status = res.status;
+            throw apiError;
+        }
 
         // --- WhatsApp Reminder Logic ---
         async function checkWhatsAppVerification(phone) {
@@ -791,8 +924,14 @@ Thank you!`;
         async function handleFile(input, previewId) {
             const file = input.files[0];
             if (!file) return;
+            clearFieldErrorByInputId(input.id);
             showPreview(file, previewId);
-            storeFile(input.id, file);
+            try {
+                await storeFile(input.id, file);
+            } catch (err) {
+                input.value = '';
+                Swal.fire({ icon: 'error', title: 'Upload Rejected', text: err.message || 'Failed to process file.' });
+            }
         }
 
         function showPreview(file, previewId) {
@@ -805,24 +944,49 @@ Thank you!`;
             }
         }
 
-        function storeFile(inputId, file) {
+        async function storeFile(inputId, file) {
             pendingFiles++;
-            const reader = new FileReader();
-            reader.onload = (e) => {
+            try {
                 const keyMap = {
                     'fileMyKadFront': 'mykad_front', 'fileMyKadBack': 'mykad_back', 'fileMyKadPdf': 'mykad_pdf',
                     'fileTnb1': 'tnb_bill_1', 'fileTnb2': 'tnb_bill_2', 'fileTnb3': 'tnb_bill_3',
                     'filePropertyProof': 'property_proof', 'fileTnbMeter': 'tnb_meter'
                 };
                 const key = keyMap[inputId];
-                if (key) fileData[key] = e.target.result;
+                if (!key) throw new Error('Unknown file field.');
+
+                let dataUrl;
+                let checkType = file.type || '';
+                let checkSize = file.size || 0;
+
+                if (file.type.startsWith('image/')) {
+                    if (!window.ImageOptimizer) throw new Error('Image optimizer is unavailable.');
+                    const rules = FILE_VALIDATION_RULES[inputId];
+                    const optimized = await ImageOptimizer.optimizeImageFile(file, {
+                        maxDimension: 2560,
+                        outputType: 'image/webp',
+                        quality: 0.82,
+                        minQuality: 0.55,
+                        targetBytes: rules?.maxBytes || null
+                    });
+                    dataUrl = optimized.dataUrl;
+                    checkType = optimized.mimeType;
+                    checkSize = optimized.sizeBytes;
+                } else {
+                    dataUrl = await readFileAsDataUrl(file);
+                }
+
+                const validation = validateSelectedFile(inputId, { type: checkType, size: checkSize });
+                if (!validation.ok) throw new Error(validation.message);
+
+                fileData[key] = dataUrl;
+                return dataUrl;
+            } catch (err) {
+                setFieldErrorByInputId(inputId, err.message || 'File processing failed.');
+                throw err;
+            } finally {
                 pendingFiles--;
-            };
-            reader.onerror = () => {
-                pendingFiles--;
-                console.error('File read error');
-            };
-            reader.readAsDataURL(file);
+            }
         }
 
         function parseExtractionData(json) {
@@ -886,51 +1050,67 @@ Thank you!`;
         async function handleExtraction(input, type) {
             const file = input.files[0];
             if (!file) return;
+            clearFieldErrorByInputId(input.id);
             const previewId = input.id === 'fileTnb1' ? 'previewTnb1' : input.id === 'fileMyKadFront' ? 'previewMyKadFront' : 'previewMyKadPdf';
             showPreview(file, previewId);
-            storeFile(input.id, file);
+            let processedData = null;
+            try {
+                processedData = await storeFile(input.id, file);
+            } catch (err) {
+                input.value = '';
+                Swal.fire({ icon: 'error', title: 'Upload Rejected', text: err.message || 'Failed to process file.' });
+                return;
+            }
 
             startLoading(type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...');
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const res = await fetch(type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fileData: e.target.result, filename: file.name, sedaId })
-                    });
-                    const json = await res.json();
-                    stopLoading();
-                    if (json.success || json.data) renderInlineResults(input, type, json);
-                } catch (err) { stopLoading(); alert('Extraction failed'); }
-            };
-            reader.readAsDataURL(file);
+            try {
+                const res = await fetch(type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileData: processedData, filename: file.name, sedaId })
+                });
+                const json = await parseApiResponse(res);
+                stopLoading();
+                if (json.success || json.data) renderInlineResults(input, type, json);
+            } catch (err) {
+                stopLoading();
+                applyApiFieldErrors(err.details, input.id);
+                Swal.fire({ icon: 'error', title: 'Extraction Failed', text: err.message });
+            }
         }
 
         async function handleVerification(input, type) {
             const file = input.files[0];
             if (!file) return;
+            clearFieldErrorByInputId(input.id);
             const previewId = type === 'meter' ? 'previewTnbMeter' : 'previewPropertyProof';
             showPreview(file, previewId);
-            storeFile(input.id, file);
+            let processedData = null;
+            try {
+                processedData = await storeFile(input.id, file);
+            } catch (err) {
+                input.value = '';
+                Swal.fire({ icon: 'error', title: 'Upload Rejected', text: err.message || 'Failed to process file.' });
+                return;
+            }
 
             startLoading(type === 'meter' ? 'Verifying Meter...' : 'Verifying Ownership...');
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const payload = { fileData: e.target.result, filename: file.name, sedaId };
-                    if (type === 'ownership') payload.context = { name: document.getElementById('applicantName').value, address: document.getElementById('installAddress').value };
-                    const res = await fetch(type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const json = await res.json();
-                    stopLoading();
-                    if (json.success) alert(`${type.toUpperCase()} Verification Done`);
-                } catch (err) { stopLoading(); }
-            };
-            reader.readAsDataURL(file);
+            try {
+                const payload = { fileData: processedData, filename: file.name, sedaId };
+                if (type === 'ownership') payload.context = { name: document.getElementById('applicantName').value, address: document.getElementById('installAddress').value };
+                const res = await fetch(type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const json = await parseApiResponse(res);
+                stopLoading();
+                if (json.success) alert(`${type.toUpperCase()} Verification Done`);
+            } catch (err) {
+                stopLoading();
+                applyApiFieldErrors(err.details, input.id);
+                Swal.fire({ icon: 'error', title: 'Verification Failed', text: err.message });
+            }
         }
 
         function copyAddress() {
@@ -1064,6 +1244,7 @@ Thank you!`;
 
         async function saveSedaForm(e) {
             if (e) e.preventDefault();
+            clearAllUploadErrors();
 
             // Wait for any pending file reads
             if (pendingFiles > 0) {
@@ -1092,22 +1273,25 @@ Thank you!`;
             };
             try {
                 const res = await fetch(getApiEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                const json = await res.json();
-                if (json.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Progress Saved',
-                        text: 'Your registration details have been updated successfully.',
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true
-                    });
-                    // Refresh data to show any server-side updates/filenames
-                    await loadData();
-                } else throw new Error(json.error);
-            } catch (err) { alert('Error: ' + err.message); } finally { stopLoading(); }
+                const json = await parseApiResponse(res);
+                if (!json.success) throw new Error(json.error || 'Save failed');
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Progress Saved',
+                    text: 'Your registration details have been updated successfully.',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true
+                });
+                // Refresh data to show any server-side updates/filenames
+                await loadData();
+            } catch (err) {
+                applyApiFieldErrors(err.details);
+                Swal.fire({ icon: 'error', title: 'Save Failed', text: err.message });
+            } finally { stopLoading(); }
         }
 
         function updateFormProgress() {

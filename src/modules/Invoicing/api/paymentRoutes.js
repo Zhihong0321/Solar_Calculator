@@ -68,7 +68,21 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
 
                 const matches = proof.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
                 if (matches && matches.length === 3) {
-                    const fileExt = proof.name ? path.extname(proof.name) : '.jpg';
+                    const mimeType = (proof.type || matches[1] || '').toLowerCase();
+                    const allowedMime = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+                    if (!allowedMime.includes(mimeType)) {
+                        throw new Error(`Unsupported proof file type: ${mimeType || 'unknown'}. Allowed types: PDF or image.`);
+                    }
+                    const extByMime = {
+                        'application/pdf': '.pdf',
+                        'image/jpeg': '.jpg',
+                        'image/jpg': '.jpg',
+                        'image/png': '.png',
+                        'image/webp': '.webp',
+                        'image/heic': '.heic',
+                        'image/heif': '.heif'
+                    };
+                    const fileExt = extByMime[mimeType] || (proof.name ? path.extname(proof.name) : '') || '.bin';
                     const buffer = Buffer.from(matches[2], 'base64');
                     const filename = `payment_${bubbleId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${fileExt}`;
                     const filePath = path.join(uploadDir, filename);
@@ -214,6 +228,63 @@ router.get('/api/v1/submitted-payments/:paymentId/detail', requireAuth, async (r
         res.json({ success: true, data: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * DELETE /api/v1/submitted-payments/:paymentId
+ * Delete a submitted payment (pending only)
+ */
+router.delete('/api/v1/submitted-payments/:paymentId', requireAuth, async (req, res) => {
+    const { paymentId } = req.params;
+    const userId = req.user.userId;
+    let client = null;
+
+    try {
+        client = await pool.connect();
+        await client.query('BEGIN');
+
+        const paymentRes = await client.query(
+            `SELECT sp.bubble_id, sp.status, sp.linked_invoice, i.created_by, i.linked_agent
+             FROM submitted_payment sp
+             LEFT JOIN invoice i ON i.bubble_id = sp.linked_invoice
+             WHERE sp.bubble_id = $1
+             LIMIT 1`,
+            [paymentId]
+        );
+
+        if (paymentRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Payment not found' });
+        }
+
+        const payment = paymentRes.rows[0];
+        const isOwner = await invoiceRepo.verifyOwnership(
+            client,
+            userId,
+            payment.created_by,
+            payment.linked_agent
+        );
+        if (!isOwner) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
+
+        if (payment.status === 'verified') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ success: false, error: 'Verified payments cannot be deleted.' });
+        }
+
+        await client.query('DELETE FROM submitted_payment WHERE bubble_id = $1', [paymentId]);
+
+        await client.query('COMMIT');
+        return res.json({ success: true });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK');
+        console.error('Delete submitted payment error:', err);
+        return res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
     }
