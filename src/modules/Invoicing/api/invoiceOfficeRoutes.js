@@ -36,24 +36,6 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
 
         // 2. Fetch Payments (Combine submitted_payment AND legacy/synced payment)
         const paymentIds = Array.isArray(invoice.linked_payment) ? invoice.linked_payment : [];
-        await client.query(
-            `DELETE FROM submitted_payment sp
-             WHERE sp.linked_invoice = $1
-               AND sp.status = 'verified'
-               AND EXISTS (
-                 SELECT 1
-                 FROM payment p
-                 WHERE p.bubble_id = sp.bubble_id
-                    OR (
-                        p.linked_invoice = sp.linked_invoice
-                        AND COALESCE(p.amount, 0) = COALESCE(sp.amount, 0)
-                        AND p.payment_date::date = sp.payment_date::date
-                        AND COALESCE(p.payment_method, '') = COALESCE(sp.payment_method, '')
-                    )
-               )`,
-            [bubbleId]
-        );
-
         const [submittedRes, legacyRes] = await Promise.all([
             client.query(
                 'SELECT * FROM submitted_payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
