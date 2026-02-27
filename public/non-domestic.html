@@ -256,6 +256,15 @@
                         <div class="h-[1px] grow bg-divider opacity-50"></div>
                     </h3>
                     
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" onclick="setWorkingProfile('office')" class="text-[10px] font-bold uppercase tracking-widest border border-divider px-4 py-2 hover:bg-black hover:text-white transition-all opacity-80 hover:opacity-100">
+                            [ Profile: Office Hours (Mon-Fri) ]
+                        </button>
+                        <button type="button" onclick="setWorkingProfile('allday')" class="text-[10px] font-bold uppercase tracking-widest border border-divider px-4 py-2 hover:bg-black hover:text-white transition-all opacity-80 hover:opacity-100">
+                            [ Profile: All Day (8AM-8PM) ]
+                        </button>
+                    </div>
+
                     <div class="grid gap-6" id="working-hours-container">
                                                     <script>
                                                         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
