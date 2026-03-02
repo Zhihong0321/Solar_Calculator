@@ -9,8 +9,8 @@ const extractionService = require('../src/modules/Invoicing/services/extractionS
 
 // Get database pool
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
 });
 
 const router = express.Router();
@@ -468,7 +468,7 @@ router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
             JOIN agent a ON u.linked_agent_profile = a.bubble_id
             WHERE u.id::text = $1 OR u.bubble_id = $1
         `, [String(userId)]);
-        
+
         if (userRes.rows.length > 0) {
             agentProfileId = userRes.rows[0].bubble_id;
         }
@@ -540,9 +540,9 @@ router.patch('/api/v1/seda/:id/status', requireAuth, async (req, res) => {
 
         if (reg_status) {
             if (!sedaRepo.SedaStatus.REG.includes(reg_status.toLowerCase())) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: `Invalid reg_status. Allowed: ${sedaRepo.SedaStatus.REG.join(', ')}` 
+                return res.status(400).json({
+                    success: false,
+                    error: `Invalid reg_status. Allowed: ${sedaRepo.SedaStatus.REG.join(', ')}`
                 });
             }
             params.push(reg_status);
@@ -551,9 +551,9 @@ router.patch('/api/v1/seda/:id/status', requireAuth, async (req, res) => {
 
         if (seda_status) {
             if (!sedaRepo.SedaStatus.ADMIN.includes(seda_status.toLowerCase())) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: `Invalid seda_status. Allowed: ${sedaRepo.SedaStatus.ADMIN.join(', ')}` 
+                return res.status(400).json({
+                    success: false,
+                    error: `Invalid seda_status. Allowed: ${sedaRepo.SedaStatus.ADMIN.join(', ')}`
                 });
             }
             params.push(seda_status);
@@ -592,7 +592,7 @@ router.get('/seda-register', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
-    
+
     const templatePath = path.join(__dirname, '..', 'public', 'templates', 'seda_register.html');
     res.sendFile(templatePath);
 });
@@ -615,13 +615,13 @@ router.post('/api/v1/seda/extract-tnb', async (req, res) => {
         });
         if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
         const { mimeType, buffer } = fileCheck;
-        
+
         const result = await extractionService.verifyTnbBill(buffer, mimeType);
-        
+
         if (sedaId) {
             const statusText = result.tnb_account ? 'EXTRACTED' : 'FAILED EXTRACTION';
             const logEntry = `\n[${new Date().toISOString().split('T')[0]}] TNB BILL upload = ${statusText} (Account: ${result.tnb_account || 'N/A'}, State: ${result.state || 'N/A'})`;
-            
+
             await client.query(
                 `UPDATE seda_registration 
                  SET special_remark = COALESCE(special_remark, '') || $1,
@@ -657,23 +657,22 @@ router.post('/api/v1/seda/extract-mykad', async (req, res) => {
         });
         if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
         const { mimeType, buffer } = fileCheck;
-        
+
         const result = await extractionService.verifyMykad(buffer, mimeType);
-        
+
         if (sedaId) {
             const statusText = result.quality_ok ? 'PASSED CHECK' : 'QUALITY WARNING';
             const logEntry = `\n[${new Date().toISOString().split('T')[0]}] MYKAD Upload = ${statusText} (Name: ${result.customer_name})`;
-            
+
             // If quality passes, auto-populate name and IC number into form
             if (result.quality_ok) {
                 await client.query(
                     `UPDATE seda_registration 
                      SET special_remark = COALESCE(special_remark, '') || $1,
                          check_mykad = $2,
-                         customer_name = COALESCE($3, customer_name),
-                         ic_no = COALESCE($4, ic_no)
-                     WHERE bubble_id = $5`,
-                    [logEntry, result.quality_ok, result.customer_name, result.mykad_id, sedaId]
+                         ic_no = COALESCE($3, ic_no)
+                     WHERE bubble_id = $4`,
+                    [logEntry, result.quality_ok, result.mykad_id, sedaId]
                 );
             } else {
                 // Quality failed - only log, don't populate
@@ -712,13 +711,13 @@ router.post('/api/v1/seda/verify-meter', async (req, res) => {
         });
         if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
         const { mimeType, buffer } = fileCheck;
-        
+
         const result = await extractionService.verifyTnbMeter(buffer, mimeType);
-        
+
         if (sedaId) {
             const statusText = result.is_clear ? 'PASSED CHECK' : 'BLURRY/UNCLEAR';
             const logEntry = `\n[${new Date().toISOString().split('T')[0]}] TNB METER photo = ${statusText} (${result.remark})`;
-            
+
             await client.query(
                 `UPDATE seda_registration 
                  SET special_remark = COALESCE(special_remark, '') || $1
@@ -752,17 +751,17 @@ router.post('/api/v1/seda/verify-ownership', async (req, res) => {
         });
         if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
         const { mimeType, buffer } = fileCheck;
-        
+
         const result = await extractionService.verifyOwnership(buffer, mimeType, context || { name: 'Unknown', address: 'Unknown' });
-        
+
         if (sedaId) {
             const statusText = (result.name_match && result.address_match) ? 'PASSED CHECK' : 'MATCH FAILED';
             const logEntry = `\n[${new Date().toISOString().split('T')[0]}] OWNERSHIP Doc = ${statusText} (Owner: ${result.owner_name})`;
-            
+
             await client.query(
                 `UPDATE seda_registration 
                  SET special_remark = COALESCE(special_remark, '') || $1,
-                     check_ownership = $2
+    check_ownership = $2
                  WHERE bubble_id = $3`,
                 [logEntry, (result.name_match && result.address_match), sedaId]
             );
@@ -791,7 +790,7 @@ router.get('/api/v1/seda/:id', async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Registration not found' });
         }
-        
+
         const seda = result.rows[0];
         if (!seda.reg_status && seda.mapper_status) {
             seda.reg_status = seda.mapper_status;
@@ -800,7 +799,7 @@ router.get('/api/v1/seda/:id', async (req, res) => {
 
         if (seda.linked_customer) {
             const custRes = await client.query(
-                'SELECT name, phone, email, address, city, state, postcode FROM customer WHERE customer_id = $1', 
+                'SELECT name, phone, email, address, city, state, postcode FROM customer WHERE customer_id = $1',
                 [seda.linked_customer]
             );
             if (custRes.rows.length > 0) {
@@ -820,13 +819,13 @@ router.get('/api/v1/seda/:id', async (req, res) => {
             }
         }
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             data: {
                 ...seda,
                 customer_profile: customer, // Attach customer data
                 invoice_details: invoice
-            } 
+            }
         });
     } catch (err) {
         console.error('Error fetching SEDA registration:', err);
@@ -842,7 +841,7 @@ router.get('/api/v1/seda/:id', async (req, res) => {
  */
 router.post('/api/v1/seda/:id', async (req, res) => {
     const { id } = req.params;
-    const { 
+    const {
         installation_address, city, state, postcode, tnb_account_no, phase_type,
         e_contact_name, e_contact_relationship, e_contact_no,
         ic_no, email, e_email,
@@ -916,27 +915,27 @@ router.post('/api/v1/seda/:id', async (req, res) => {
         await client.query(
             `UPDATE seda_registration 
              SET installation_address = COALESCE($1, installation_address),
-                 city = COALESCE($2, city),
-                 state = COALESCE($3, state),
-                 postcode = COALESCE($4, postcode),
-                 tnb_account_no = COALESCE($5, tnb_account_no),
-                 phase_type = COALESCE($6, phase_type),
-                 e_contact_name = COALESCE($7, e_contact_name),
-                 e_contact_relationship = COALESCE($8, e_contact_relationship),
-                 e_contact_no = COALESCE($9, e_contact_no),
-                 ic_no = COALESCE($10, ic_no),
-                 email = COALESCE($11, email),
-                 e_email = COALESCE($12, e_email),
-                 ic_copy_front = CASE WHEN $13 = '${KEEP_FILE_VALUE}' THEN ic_copy_front ELSE $13 END,
-                 ic_copy_back = CASE WHEN $14 = '${KEEP_FILE_VALUE}' THEN ic_copy_back ELSE $14 END,
-                 mykad_pdf = CASE WHEN $15 = '${KEEP_FILE_VALUE}' THEN mykad_pdf ELSE $15 END,
-                 tnb_bill_1 = CASE WHEN $16 = '${KEEP_FILE_VALUE}' THEN tnb_bill_1 ELSE $16 END,
-                 tnb_bill_2 = CASE WHEN $17 = '${KEEP_FILE_VALUE}' THEN tnb_bill_2 ELSE $17 END,
-                 tnb_bill_3 = CASE WHEN $18 = '${KEEP_FILE_VALUE}' THEN tnb_bill_3 ELSE $18 END,
-                 property_ownership_prove = CASE WHEN $19 = '${KEEP_FILE_VALUE}' THEN property_ownership_prove ELSE $19 END,
-                 tnb_meter = CASE WHEN $20 = '${KEEP_FILE_VALUE}' THEN tnb_meter ELSE $20 END,
-                 modified_date = NOW(),
-                 updated_at = NOW()
+    city = COALESCE($2, city),
+    state = COALESCE($3, state),
+    postcode = COALESCE($4, postcode),
+    tnb_account_no = COALESCE($5, tnb_account_no),
+    phase_type = COALESCE($6, phase_type),
+    e_contact_name = COALESCE($7, e_contact_name),
+    e_contact_relationship = COALESCE($8, e_contact_relationship),
+    e_contact_no = COALESCE($9, e_contact_no),
+    ic_no = COALESCE($10, ic_no),
+    email = COALESCE($11, email),
+    e_email = COALESCE($12, e_email),
+    ic_copy_front = CASE WHEN $13 = '${KEEP_FILE_VALUE}' THEN ic_copy_front ELSE $13 END,
+        ic_copy_back = CASE WHEN $14 = '${KEEP_FILE_VALUE}' THEN ic_copy_back ELSE $14 END,
+            mykad_pdf = CASE WHEN $15 = '${KEEP_FILE_VALUE}' THEN mykad_pdf ELSE $15 END,
+                tnb_bill_1 = CASE WHEN $16 = '${KEEP_FILE_VALUE}' THEN tnb_bill_1 ELSE $16 END,
+                    tnb_bill_2 = CASE WHEN $17 = '${KEEP_FILE_VALUE}' THEN tnb_bill_2 ELSE $17 END,
+                        tnb_bill_3 = CASE WHEN $18 = '${KEEP_FILE_VALUE}' THEN tnb_bill_3 ELSE $18 END,
+                            property_ownership_prove = CASE WHEN $19 = '${KEEP_FILE_VALUE}' THEN property_ownership_prove ELSE $19 END,
+                                tnb_meter = CASE WHEN $20 = '${KEEP_FILE_VALUE}' THEN tnb_meter ELSE $20 END,
+                                    modified_date = NOW(),
+                                    updated_at = NOW()
              WHERE bubble_id = $21`,
             [
                 installation_address, city, state, postcode, tnb_account_no, phase_type,
@@ -959,8 +958,8 @@ router.post('/api/v1/seda/:id', async (req, res) => {
                 await client.query(
                     `UPDATE customer 
                      SET ic_number = COALESCE($1, ic_number),
-                         email = COALESCE($2, email),
-                         updated_at = NOW()
+    email = COALESCE($2, email),
+    updated_at = NOW()
                      WHERE customer_id = $3`,
                     [ic_no || null, email || null, customerId]
                 );
@@ -985,7 +984,7 @@ router.get('/check-seda', requireAuth, (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
-    
+
     const templatePath = path.join(__dirname, '..', 'public', 'templates', 'check_seda.html');
     res.sendFile(templatePath);
 });
@@ -999,8 +998,8 @@ const SEDA_MANAGER_URL = 'https://seda-manager-production.up.railway.app';
 router.get('/api/v1/seda-proxy/*', requireAuth, async (req, res) => {
     const subPath = req.params[0];
     const query = new URLSearchParams(req.query).toString();
-    const targetUrl = `${SEDA_MANAGER_URL}/api/v1/${subPath}${query ? '?' + query : ''}`;
-    
+    const targetUrl = `${SEDA_MANAGER_URL} /api/v1 / ${subPath}${query ? '?' + query : ''} `;
+
     try {
         const response = await fetch(targetUrl);
         const data = await response.json();
