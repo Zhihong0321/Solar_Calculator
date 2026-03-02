@@ -347,7 +347,18 @@ async function getTeamStats(client, options = {}) {
   `;
 
   const params = [];
-  let whereConditions = [];
+  const whereConditions = [
+    `EXISTS (
+      SELECT 1
+      FROM "user" u
+      WHERE (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.bubble_id)
+        AND EXISTS (
+          SELECT 1
+          FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
+          WHERE access_tag LIKE 'team-%'
+        )
+    )`
+  ];
 
   if (startDate && endDate) {
     params.push(startDate, endDate);
@@ -390,7 +401,21 @@ async function getAllActivitiesForReview(client, options = {}) {
     FROM agent_daily_report dr
     LEFT JOIN agent a ON (dr.linked_user = a.bubble_id OR dr.created_by = a.bubble_id)
     LEFT JOIN customer c ON dr.linked_customer = c.customer_id
-    WHERE 1=1
+    WHERE EXISTS (
+      SELECT 1
+      FROM "user" u
+      WHERE (
+        u.bubble_id = dr.linked_user OR
+        u.bubble_id = dr.created_by OR
+        u.linked_agent_profile = dr.linked_user OR
+        u.linked_agent_profile = dr.created_by
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
+        WHERE access_tag LIKE 'team-%'
+      )
+    )
   `;
 
   const params = [];
@@ -429,7 +454,21 @@ async function getAllActivitiesForReview(client, options = {}) {
   let countQuery = `
     SELECT COUNT(*) as total 
     FROM agent_daily_report dr
-    WHERE 1=1
+    WHERE EXISTS (
+      SELECT 1
+      FROM "user" u
+      WHERE (
+        u.bubble_id = dr.linked_user OR
+        u.bubble_id = dr.created_by OR
+        u.linked_agent_profile = dr.linked_user OR
+        u.linked_agent_profile = dr.created_by
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
+        WHERE access_tag LIKE 'team-%'
+      )
+    )
   `;
   const countParams = [];
   let countParamCount = 0;

@@ -462,7 +462,19 @@ router.get('/api/activity/agents', requireAuth, async (req, res) => {
   try {
     client = await pool.connect();
     const result = await client.query(
-      `SELECT bubble_id, name FROM agent WHERE name IS NOT NULL ORDER BY name`
+      `SELECT DISTINCT
+         a.bubble_id,
+         a.name
+       FROM "user" u
+       JOIN agent a
+         ON (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.bubble_id)
+       WHERE a.name IS NOT NULL
+         AND EXISTS (
+           SELECT 1
+           FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
+           WHERE access_tag LIKE 'team-%'
+         )
+       ORDER BY a.name`
     );
     res.json({ success: true, data: result.rows });
   } catch (err) {
