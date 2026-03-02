@@ -20,7 +20,7 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
         const userId = req.user.userId;
 
         client = await pool.connect();
-        
+
         // 1. Fetch Invoice with Live Joins
         const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
 
@@ -54,13 +54,27 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
             attachment: p.attachment || [] // Ensure array
         }));
 
-        const allPayments = [...submittedRes.rows, ...legacyPayments];
+        // Deduplicate payments since Bubble syncs verified payments from `submitted_payment` into `payment` with the exact same `bubble_id`
+        const paymentsMap = new Map();
+
+        // 1. Add all submitted payments first
+        for (const sp of submittedRes.rows) {
+            paymentsMap.set(sp.bubble_id, sp);
+        }
+
+        // 2. Add legacy payments, overwriting submitted ones (giving preference to the synced version)
+        for (const lp of legacyPayments) {
+            paymentsMap.set(lp.bubble_id, lp);
+        }
+
+        const allPayments = Array.from(paymentsMap.values())
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         // Calculate total paid amount (verified only)
         const paidAmount = allPayments
             .filter(p => p.status === 'verified')
             .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-        
+
         // Attach to invoice object for frontend
         invoice.paid_amount = paidAmount;
 
@@ -105,7 +119,7 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
                 [bubbleId]
             );
             seda = fallbackSedaRes.rows[0];
-            
+
             if (seda) {
                 invoice.linked_seda_registration = seda.bubble_id;
             }
@@ -151,7 +165,7 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
  */
 router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const { images } = req.body; 
+    const { images } = req.body;
     const userId = req.user.userId;
 
     if (!images || !Array.isArray(images)) {
@@ -161,10 +175,10 @@ router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (
     let client = null;
     try {
         client = await pool.connect();
-        
+
         const invCheck = await client.query('SELECT created_by, linked_roof_image FROM invoice WHERE bubble_id = $1', [bubbleId]);
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
-        
+
         const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
         if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
@@ -214,7 +228,7 @@ router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (
  */
 router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const { drawings } = req.body; 
+    const { drawings } = req.body;
     const userId = req.user.userId;
 
     if (!drawings || !Array.isArray(drawings)) {
@@ -224,10 +238,10 @@ router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, 
     let client = null;
     try {
         client = await pool.connect();
-        
+
         const invCheck = await client.query('SELECT created_by FROM invoice WHERE bubble_id = $1', [bubbleId]);
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
-        
+
         const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
         if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
@@ -285,10 +299,10 @@ router.delete('/api/v1/invoice-office/:bubbleId/pv-system-drawing', requireAuth,
     let client = null;
     try {
         client = await pool.connect();
-        
+
         const invCheck = await client.query('SELECT created_by FROM invoice WHERE bubble_id = $1', [bubbleId]);
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
-        
+
         const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
         if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
@@ -318,10 +332,10 @@ router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async 
     let client = null;
     try {
         client = await pool.connect();
-        
+
         const invCheck = await client.query('SELECT created_by FROM invoice WHERE bubble_id = $1', [bubbleId]);
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
-        
+
         const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by);
         if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
@@ -343,16 +357,16 @@ router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async 
  */
 router.put('/api/v1/invoice-office/:bubbleId/follow-up', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const { followUpDays } = req.body; 
+    const { followUpDays } = req.body;
     const userId = req.user.userId;
 
     let client = null;
     try {
         client = await pool.connect();
-        
+
         const invCheck = await client.query('SELECT created_by, linked_agent FROM invoice WHERE bubble_id = $1', [bubbleId]);
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
-        
+
         const isOwner = await invoiceRepo.verifyOwnership(client, userId, invCheck.rows[0].created_by, invCheck.rows[0].linked_agent);
         if (!isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
