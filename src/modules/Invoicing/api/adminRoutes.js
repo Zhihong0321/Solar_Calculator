@@ -183,7 +183,7 @@ async function runFixBubbleTokensPatch(client, res) {
         `);
 
         await client.query('COMMIT');
-        
+
         res.json({
             success: true,
             data: {
@@ -200,67 +200,29 @@ async function runFixBubbleTokensPatch(client, res) {
 /**
  * Health Check: AI Router Status
  * 
- * Tests both Google AI and UniAPI providers through the AI Router.
- * Also returns current quota statistics.
+ * Tests UniAPI providers through the AI Router.
+ * Also returns current quota statistics (stubbed).
  */
 router.post('/api/admin/health/ai-keys', requireAuth, requireAdminAccess, async (req, res) => {
     const results = [];
-    
-    // Test message for health check
     const testMessage = { role: 'user', content: 'Say "Health check OK" and nothing else.' };
-    
-    // ===== Test Google AI (via Router with forceGoogle) =====
-    for (let i = 0; i < API_KEYS.length; i++) {
-        const key = API_KEYS[i];
-        const keyMask = `Google Key ${i + 1} (...${key.slice(-4)})`;
-        const start = Date.now();
-        let status = 'unknown';
-        let statusCode = 0;
-        let latency = 0;
-        let error = null;
 
-        try {
-            // Test through AI Router with forceGoogle option
-            const response = await aiRouter.chatCompletion({
-                messages: [testMessage]
-            }, { forceGoogle: true });
-            
-            latency = Date.now() - start;
-            status = 'healthy';
-            statusCode = 200;
-        } catch (err) {
-            latency = Date.now() - start;
-            status = 'error';
-            error = err.message;
-            statusCode = err.message.includes('QUOTA') ? 429 : 500;
-        }
-
-        results.push({
-            key: keyMask,
-            provider: 'google',
-            status,
-            statusCode,
-            latency: `${latency}ms`,
-            error
-        });
-    }
-    
-    // ===== Test UniAPI (via Router with forceUniapi) =====
+    // ===== Test UniAPI =====
     const uniapiStart = Date.now();
     let uniapiStatus = 'unknown';
     let uniapiError = null;
-    
+
     try {
         await aiRouter.chatCompletion({
             messages: [testMessage]
-        }, { forceUniapi: true });
-        
+        });
+
         uniapiStatus = 'healthy';
     } catch (err) {
         uniapiStatus = 'error';
         uniapiError = err.message;
     }
-    
+
     results.push({
         key: 'UniAPI Key',
         provider: 'uniapi',
@@ -269,7 +231,7 @@ router.post('/api/admin/health/ai-keys', requireAuth, requireAdminAccess, async 
         latency: `${Date.now() - uniapiStart}ms`,
         error: uniapiError
     });
-    
+
     // ===== Get Quota Statistics =====
     const quotaStats = aiRouter.getStats();
 

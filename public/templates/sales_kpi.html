@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Activity Report Review | ETERNALGY OS</title>
+    <title>Sales KPI Overview | ETERNALGY OS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -33,7 +33,6 @@
             background-color: var(--bg);
             color: var(--text-main);
             padding: 2rem;
-            overflow-x: hidden;
         }
 
         .container {
@@ -121,12 +120,6 @@
             border-collapse: collapse;
         }
 
-        .table-wrap {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
         th,
         td {
             text-align: left;
@@ -187,27 +180,7 @@
             color: #475569;
         }
 
-        .agent-name-btn {
-            border: none;
-            background: transparent;
-            padding: 0;
-            margin: 0;
-            font-weight: 600;
-            color: var(--text-main);
-            cursor: pointer;
-            text-align: left;
-        }
-
-        .agent-name-btn:hover {
-            color: var(--accent);
-            text-decoration: underline;
-        }
-
         @media (max-width: 768px) {
-            body {
-                padding: 1rem;
-            }
-
             .grid {
                 grid-template-columns: 1fr !important;
             }
@@ -226,10 +199,6 @@
             .btn {
                 flex: 1;
             }
-
-            th, td {
-                padding: 0.6rem 0.5rem;
-            }
         }
     </style>
 </head>
@@ -239,13 +208,12 @@
         <header>
             <div style="display: flex; align-items: center; gap: 1rem;">
                 <a href="/agent/home" style="color: var(--text-muted);"><i class="fa-solid fa-arrow-left"></i></a>
-                <h1>Activity Report Review</h1>
+                <h1>Sales KPI Overview</h1>
             </div>
             <div class="filters">
-                <button class="btn active" onclick="setPeriod('today')">Today</button>
-                <button class="btn" onclick="setPeriod('yesterday')">Yesterday</button>
-                <button class="btn" onclick="setPeriod('lastWeek')">Last Week</button>
-                <button class="btn" onclick="setPeriod('thisMonth')">This Month</button>
+                <button class="btn active" onclick="setPeriod('thisMonth')">This Month</button>
+                <button class="btn" onclick="setPeriod('lastMonth')">Last Month</button>
+                <button class="btn" onclick="setPeriod('allTime')">All Time</button>
             </div>
         </header>
 
@@ -269,7 +237,7 @@
         <div class="grid" style="grid-template-columns: 2fr 1fr;">
             <div class="card">
                 <div class="card-title">Agent Performance Ranking</div>
-                <div class="table-wrap">
+                <div style="overflow-x: auto;">
                     <table id="rankingTable">
                         <thead>
                             <tr>
@@ -308,16 +276,6 @@
                 <div id="topPerformersList" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
                     <p style="text-align:center; color: var(--text-muted);">Loading...</p>
                 </div>
-            </div>
-        </div>
-
-        <div class="card" id="agentDetailSection">
-            <div class="card-title">
-                <span>Selected Agent Daily Detail</span>
-                <span id="selectedAgentLabel">Select a person in ranking</span>
-            </div>
-            <div id="agentDailyDetail">
-                <p style="text-align:center; color: var(--text-muted);">Click a person in ranking to view daily detail.</p>
             </div>
         </div>
     </div>

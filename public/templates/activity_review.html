@@ -28,48 +28,7 @@
         .nav-link.active { background: var(--slate-900); color: white; }
         @media (max-width: 768px) { .sidebar { display: none; } }
         .table-container { overflow-x: auto; width: 100%; }
-        table { width: 100%; min-width: 980px; }
-        .quick-range-btn {
-            border: 1px solid var(--slate-200);
-            background: white;
-            color: var(--slate-700);
-            border-radius: 0.5rem;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.4rem 0.75rem;
-            transition: all 0.15s ease;
-        }
-        .quick-range-btn.active {
-            background: var(--slate-900);
-            color: white;
-            border-color: var(--slate-900);
-        }
-        .quick-range-btn:hover {
-            border-color: var(--slate-700);
-        }
-        .detail-day-card {
-            border: 1px solid var(--slate-200);
-            border-radius: 0.75rem;
-            padding: 0.75rem;
-            background: white;
-        }
-        .detail-item {
-            border-top: 1px solid var(--slate-100);
-            padding-top: 0.5rem;
-            margin-top: 0.5rem;
-        }
-        .mobile-card {
-            border-bottom: 1px solid var(--slate-100);
-            padding: 0.875rem 1rem;
-        }
-        @media (max-width: 767px) {
-            .table-container {
-                display: none;
-            }
-            table {
-                min-width: 100%;
-            }
-        }
+        table { width: 100%; min-width: 800px; }
     </style>
 </head>
 <body class="flex">
@@ -112,20 +71,14 @@
         <div class="w-full max-w-7xl mx-auto p-6 md:p-8 space-y-6">
             <!-- Filters -->
             <div class="bg-white rounded-xl border border-slate-200 p-4">
-                <div class="flex flex-wrap gap-2 mb-3">
-                    <button type="button" class="quick-range-btn" data-range="today" onclick="applyQuickRange('today')">Today</button>
-                    <button type="button" class="quick-range-btn" data-range="yesterday" onclick="applyQuickRange('yesterday')">Yesterday</button>
-                    <button type="button" class="quick-range-btn" data-range="lastWeek" onclick="applyQuickRange('lastWeek')">Last Week</button>
-                    <button type="button" class="quick-range-btn" data-range="lastMonth" onclick="applyQuickRange('lastMonth')">Last Month</button>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <div>
                         <label class="text-[10px] font-bold text-slate-400 uppercase">Start Date</label>
-                        <input type="date" id="startDate" onchange="clearQuickRangeSelection()" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                        <input type="date" id="startDate" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-slate-400 uppercase">End Date</label>
-                        <input type="date" id="endDate" onchange="clearQuickRangeSelection()" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                        <input type="date" id="endDate" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-slate-400 uppercase">Agent</label>
@@ -161,9 +114,6 @@
                     <h2 class="text-sm font-bold text-slate-900">Activity Details</h2>
                     <span id="totalCount" class="text-xs text-slate-500">0 records</span>
                 </div>
-                <div id="mobileActivityList" class="md:hidden">
-                    <div class="mobile-card text-slate-400 text-sm text-center">Loading...</div>
-                </div>
                 <div class="table-container">
                     <table class="text-sm">
                         <thead class="bg-slate-50">
@@ -175,23 +125,12 @@
                                 <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Description</th>
                                 <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Customer</th>
                                 <th class="text-center px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Points</th>
-                                <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Review Comment</th>
                             </tr>
                         </thead>
                         <tbody id="activityTable" class="divide-y divide-slate-100">
-                            <tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
+                            <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
                         </tbody>
                     </table>
-                </div>
-            </div>
-
-            <div id="agentDetailSection" class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div class="p-4 border-b border-slate-200 flex items-center justify-between">
-                    <h2 class="text-sm font-bold text-slate-900">Agent Detail (By Day)</h2>
-                    <span id="agentDetailLabel" class="text-xs text-slate-500">Select an agent from leaderboard</span>
-                </div>
-                <div id="agentDailyDetail" class="p-4">
-                    <div class="text-center text-slate-400 text-sm py-4">Select an agent from leaderboard to view day-by-day detail.</div>
                 </div>
             </div>
         </div>
@@ -200,59 +139,18 @@
     <script>
         let allActivities = [];
         let teamStats = [];
-        let activeQuickRange = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             setDefaultDates();
-            setQuickRangeActive('lastWeek');
             await Promise.all([loadAgents(), loadConfig(), loadData()]);
         });
-
-        function toDateInput(date) {
-            return date.toISOString().split('T')[0];
-        }
 
         function setDefaultDates() {
             const today = new Date();
             const weekAgo = new Date(today);
-            weekAgo.setDate(today.getDate() - 6);
-            document.getElementById('startDate').value = toDateInput(weekAgo);
-            document.getElementById('endDate').value = toDateInput(today);
-        }
-
-        function setQuickRangeActive(range) {
-            activeQuickRange = range;
-            document.querySelectorAll('.quick-range-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.range === range);
-            });
-        }
-
-        function clearQuickRangeSelection() {
-            setQuickRangeActive(null);
-        }
-
-        function applyQuickRange(range, shouldLoad = true) {
-            const now = new Date();
-            let startDate = new Date(now);
-            let endDate = new Date(now);
-
-            if (range === 'yesterday') {
-                startDate.setDate(now.getDate() - 1);
-                endDate = new Date(startDate);
-            } else if (range === 'lastWeek') {
-                startDate.setDate(now.getDate() - 6);
-            } else if (range === 'lastMonth') {
-                startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-            }
-
-            document.getElementById('startDate').value = toDateInput(startDate);
-            document.getElementById('endDate').value = toDateInput(endDate);
-            setQuickRangeActive(range);
-
-            if (shouldLoad) {
-                loadData();
-            }
+            weekAgo.setDate(today.getDate() - 7);
+            document.getElementById('startDate').value = weekAgo.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
         }
 
         async function loadAgents() {
@@ -281,8 +179,7 @@
             } catch (e) { console.error('Load config error:', e); }
         }
 
-        async function loadData(options = {}) {
-            const { scrollToDetails = false } = options;
+        async function loadData() {
             const params = new URLSearchParams();
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
@@ -307,16 +204,12 @@
                     allActivities = activitiesData.data.activities;
                     document.getElementById('totalCount').textContent = `${activitiesData.data.total} records`;
                     renderActivityTable();
-                    renderMobileActivityList();
                 }
 
                 if (statsData.success) {
                     teamStats = statsData.data;
                     renderLeaderboard();
                 }
-
-                const selectedAgentId = document.getElementById('filterAgent').value;
-                renderAgentDailyDetail(selectedAgentId, scrollToDetails);
             } catch (e) {
                 console.error('Load data error:', e);
             }
@@ -337,11 +230,7 @@
                                 ${i + 1}
                             </div>
                             <div class="flex-1">
-                                <button type="button"
-                                    onclick="focusAgentFromLeaderboard('${agent.bubble_id || ''}')"
-                                    class="text-sm font-bold text-slate-900 hover:text-blue-600 text-left ${agent.bubble_id ? '' : 'pointer-events-none'}">
-                                    ${escapeHtml(agent.agent_name || 'Unknown')}
-                                </button>
+                                <p class="text-sm font-bold text-slate-900">${agent.agent_name || 'Unknown'}</p>
                                 <p class="text-[10px] text-slate-500">${agent.total_activities || 0} activities</p>
                             </div>
                             <div class="text-right">
@@ -354,192 +243,32 @@
             `;
         }
 
-        function focusAgentFromLeaderboard(agentId) {
-            if (!agentId) return;
-            const filter = document.getElementById('filterAgent');
-            filter.value = agentId;
-            loadData({ scrollToDetails: true });
-        }
-
         function renderActivityTable() {
             const tbody = document.getElementById('activityTable');
             if (allActivities.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">No activities found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">No activities found</td></tr>';
                 return;
             }
 
             tbody.innerHTML = allActivities.map(a => `
                 <tr class="hover:bg-slate-50">
                     <td class="px-4 py-3 text-slate-900">${formatDate(a.report_date)}</td>
-                    <td class="px-4 py-3 text-slate-900 font-medium">${escapeHtml(a.agent_name || '-')}</td>
+                    <td class="px-4 py-3 text-slate-900 font-medium">${a.agent_name || '-'}</td>
                     <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                            ${escapeHtml(a.activity_type || '-')}
+                            ${a.activity_type || '-'}
                         </span>
                     </td>
-                    <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(a.follow_up_subtype || '-')}</td>
-                    <td class="px-4 py-3 text-slate-600 text-xs max-w-xs truncate">${escapeHtml(a.remark || '-')}</td>
-                    <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(a.customer_name || '-')}</td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">${a.follow_up_subtype || '-'}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs max-w-xs truncate">${a.remark || '-'}</td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">${a.customer_name || '-'}</td>
                     <td class="px-4 py-3 text-center">
                         <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-brand-blue text-white text-sm font-bold">
                             ${a.report_point || 0}
                         </span>
                     </td>
-                    <td class="px-4 py-3">
-                        <div class="space-y-2 min-w-[200px]">
-                            <textarea id="reviewComment-${a.id}" rows="2"
-                                class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700"
-                                placeholder="Add manager comment...">${escapeHtml(a.review_comment || '')}</textarea>
-                            <button onclick="saveReviewComment(${a.id}, 'desktop')"
-                                class="bg-slate-900 text-white px-3 py-1.5 rounded-md text-[10px] font-bold">
-                                Save
-                            </button>
-                        </div>
-                    </td>
                 </tr>
             `).join('');
-        }
-
-        function renderMobileActivityList() {
-            const container = document.getElementById('mobileActivityList');
-            if (allActivities.length === 0) {
-                container.innerHTML = '<div class="mobile-card text-slate-400 text-sm text-center">No activities found</div>';
-                return;
-            }
-
-            container.innerHTML = allActivities.map(a => `
-                <div class="mobile-card">
-                    <div class="flex items-start justify-between gap-2">
-                        <div>
-                            <p class="text-xs text-slate-500">${formatDate(a.report_date)}</p>
-                            <p class="text-sm font-bold text-slate-900">${escapeHtml(a.agent_name || '-')}</p>
-                        </div>
-                        <span class="inline-flex items-center justify-center px-2 py-1 rounded-md bg-blue-600 text-white text-xs font-bold">
-                            ${a.report_point || 0} pts
-                        </span>
-                    </div>
-                    <p class="text-xs mt-2 text-slate-700"><span class="font-semibold">Type:</span> ${escapeHtml(a.activity_type || '-')}</p>
-                    <p class="text-xs mt-1 text-slate-700"><span class="font-semibold">Detail:</span> ${escapeHtml(a.remark || '-')}</p>
-                    <p class="text-xs mt-1 text-slate-500"><span class="font-semibold">Customer:</span> ${escapeHtml(a.customer_name || '-')}</p>
-                    <div class="mt-2">
-                        <textarea id="reviewCommentMobile-${a.id}" rows="2"
-                            class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700"
-                            placeholder="Add manager comment...">${escapeHtml(a.review_comment || '')}</textarea>
-                        <button onclick="saveReviewComment(${a.id}, 'mobile')"
-                            class="mt-1 bg-slate-900 text-white px-3 py-1.5 rounded-md text-[10px] font-bold">
-                            Save Comment
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function renderAgentDailyDetail(agentId, shouldScroll = false) {
-            const label = document.getElementById('agentDetailLabel');
-            const container = document.getElementById('agentDailyDetail');
-
-            if (!agentId) {
-                label.textContent = 'Select an agent from leaderboard';
-                container.innerHTML = '<div class="text-center text-slate-400 text-sm py-4">Select an agent from leaderboard to view day-by-day detail.</div>';
-                return;
-            }
-
-            const filtered = allActivities.filter(a =>
-                a.agent_bubble_id === agentId ||
-                a.linked_user === agentId ||
-                a.created_by === agentId ||
-                a.linked_agent_profile === agentId
-            );
-
-            const selectedName = getAgentNameById(agentId);
-            label.textContent = selectedName;
-
-            if (filtered.length === 0) {
-                container.innerHTML = `<div class="text-center text-slate-400 text-sm py-4">No activities found for ${escapeHtml(selectedName)} in selected date range.</div>`;
-                return;
-            }
-
-            const dayMap = {};
-            filtered.forEach(activity => {
-                const key = toDateInput(new Date(activity.report_date));
-                if (!dayMap[key]) dayMap[key] = [];
-                dayMap[key].push(activity);
-            });
-
-            const days = Object.keys(dayMap).sort((a, b) => b.localeCompare(a));
-            container.innerHTML = days.map(day => {
-                const dayActivities = dayMap[day].sort((a, b) => new Date(b.report_date) - new Date(a.report_date));
-                const dayPoints = dayActivities.reduce((sum, row) => sum + Number(row.report_point || 0), 0);
-
-                return `
-                    <div class="detail-day-card mb-3">
-                        <div class="flex items-center justify-between">
-                            <p class="text-sm font-bold text-slate-900">${formatDate(day)}</p>
-                            <p class="text-xs text-slate-500">${dayActivities.length} activities • ${dayPoints} points</p>
-                        </div>
-                        ${dayActivities.map(row => `
-                            <div class="detail-item">
-                                <div class="flex items-start justify-between gap-2">
-                                    <p class="text-xs font-semibold text-slate-800">${escapeHtml(row.activity_type || '-')}</p>
-                                    <p class="text-[11px] font-bold text-blue-600">${row.report_point || 0} pts</p>
-                                </div>
-                                <p class="text-xs text-slate-600 mt-1">${escapeHtml(row.remark || '-')}</p>
-                                ${row.review_comment ? `<p class="text-[11px] text-emerald-700 mt-1"><strong>Review:</strong> ${escapeHtml(row.review_comment)}</p>` : ''}
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            }).join('');
-
-            if (shouldScroll) {
-                document.getElementById('agentDetailSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }
-
-        function getAgentNameById(agentId) {
-            const option = Array.from(document.getElementById('filterAgent').options).find(o => o.value === agentId);
-            return option?.textContent || 'Selected Agent';
-        }
-
-        async function saveReviewComment(activityId, source = 'desktop') {
-            const textareaId = source === 'mobile' ? `reviewCommentMobile-${activityId}` : `reviewComment-${activityId}`;
-            const textarea = document.getElementById(textareaId);
-            if (!textarea) return;
-
-            try {
-                const res = await fetch(`/api/activity/${activityId}/review-comment`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reviewComment: textarea.value })
-                });
-                const data = await res.json();
-                if (!data.success) {
-                    alert(data.error || 'Failed to save comment');
-                    return;
-                }
-
-                syncReviewCommentInputs(activityId, data.data.review_comment || '');
-                const target = allActivities.find(a => a.id === activityId);
-                if (target) target.review_comment = data.data.review_comment || '';
-            } catch (e) {
-                alert('Error saving review comment');
-            }
-        }
-
-        function syncReviewCommentInputs(activityId, value) {
-            const desktop = document.getElementById(`reviewComment-${activityId}`);
-            const mobile = document.getElementById(`reviewCommentMobile-${activityId}`);
-            if (desktop) desktop.value = value;
-            if (mobile) mobile.value = value;
-        }
-
-        function escapeHtml(value) {
-            return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
         }
 
         function formatDate(dateStr) {
@@ -554,7 +283,7 @@
                 return;
             }
 
-            const headers = ['Date', 'Agent', 'Activity Type', 'Subtype', 'Description', 'Customer', 'Points', 'Review Comment'];
+            const headers = ['Date', 'Agent', 'Activity Type', 'Subtype', 'Description', 'Customer', 'Points'];
             const rows = allActivities.map(a => [
                 formatDate(a.report_date),
                 a.agent_name || '',
@@ -562,8 +291,7 @@
                 a.follow_up_subtype || '',
                 (a.remark || '').replace(/"/g, '""'),
                 a.customer_name || '',
-                a.report_point || 0,
-                (a.review_comment || '').replace(/"/g, '""')
+                a.report_point || 0
             ]);
 
             const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
