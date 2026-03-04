@@ -324,6 +324,40 @@ function getCNY2026PromoDiscount(panelQty) {
     return 0;
 }
 
+// Utility for Holiday Boost 2026 Promo
+function getHolidayBoostDiscount(panelQty) {
+    const now = new Date();
+    const expiry = new Date('2026-04-01T00:00:00'); // Valid until end of Mar 31
+    if (now >= expiry) return 0;
+
+    const qty = parseInt(panelQty) || 0;
+    if (qty >= 12 && qty <= 17) return 600;
+    if (qty >= 18 && qty <= 24) return 1200;
+    if (qty >= 25 && qty <= 36) return 1500;
+    return 0;
+}
+
+// Function to update Promo Banners based on date
+function updatePromoBanners() {
+    const now = new Date();
+    const cnyExpiry = new Date('2026-03-01T00:00:00');
+    const holidayExpiry = new Date('2026-04-01T00:00:00');
+
+    const holidayBanner = document.getElementById('holidayPromoBanner');
+    const cnyBanner = document.getElementById('cnyPromoBanner');
+
+    if (now < cnyExpiry) {
+        if (cnyBanner) cnyBanner.classList.remove('hidden');
+        if (holidayBanner) holidayBanner.classList.add('hidden');
+    } else if (now < holidayExpiry) {
+        if (holidayBanner) holidayBanner.classList.remove('hidden');
+        if (cnyBanner) cnyBanner.classList.add('hidden');
+    } else {
+        if (holidayBanner) holidayBanner.classList.add('hidden');
+        if (cnyBanner) cnyBanner.classList.add('hidden');
+    }
+}
+
 // Get available tenures for a bank
 function getAvailableTenures(bank) {
     if (!bank || !EPP_RATES[bank]) return [];
@@ -561,6 +595,10 @@ function calculateAllEPPFees() {
     const cnyPromoDiscount = getCNY2026PromoDiscount(window.currentPanelQty);
     subtotalAfterDiscount -= cnyPromoDiscount;
 
+    // Apply Holiday Boost 2026 Promo
+    const holidayBoostDiscount = getHolidayBoostDiscount(window.currentPanelQty);
+    subtotalAfterDiscount -= holidayBoostDiscount;
+
     if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 
     const rows = document.querySelectorAll('.payment-method-row');
@@ -770,7 +808,21 @@ function updateInvoicePreview() {
     }
 
     // Calculate subtotal (starting with package price)
-    let subtotal = packagePrice - cnyPromoDiscount;
+    const holidayBoostDiscount = getHolidayBoostDiscount(window.currentPanelQty);
+    if (holidayBoostDiscount > 0) {
+        const holidayItem = document.createElement('div');
+        holidayItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        holidayItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-emerald-600">Holiday Boost Reward</div>
+                        <div class="text-[10px] text-emerald-400 font-bold uppercase tracking-tight">Auto-Applied Reward (Panel Qty: ${window.currentPanelQty})</div>
+                    </div>
+                    <div class="font-semibold text-emerald-600">-RM ${holidayBoostDiscount.toFixed(2)}</div>
+                `;
+        itemsList.appendChild(holidayItem);
+    }
+
+    let subtotal = packagePrice - cnyPromoDiscount - holidayBoostDiscount;
 
     // Add Extra Items
     manualItems.forEach(item => {
@@ -1030,6 +1082,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // 2. Fetch User Profile (non-blocking for UI)
     fetchUserProfile();
+
+    // 2a. Update Promo Banners based on date
+    updatePromoBanners();
 
     // 3. Parse URL parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -1383,7 +1438,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     const customerName = document.getElementById('customerName')?.value?.trim();
     const leadSource = document.getElementById('customerLeadSource')?.value;
     const remark = document.getElementById('customerRemark')?.value;
-    
+
     if (customerName && !leadSource) {
         Swal.fire({
             icon: 'error',

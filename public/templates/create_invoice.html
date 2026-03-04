@@ -48,9 +48,18 @@
 
         <h1 class="text-2xl font-bold mb-6 text-gray-900">Create Quotation</h1>
 
-        <!-- CNY 2026 Promo Banner (CSS Fallback) -->
-        <div
-            class="mb-6 rounded-lg overflow-hidden border-2 border-orange-200 bg-gradient-to-r from-red-600 to-red-800 p-6 flex flex-col items-center justify-center text-center shadow-lg relative">
+        <!-- Holiday Boost 2026 Promo Banner -->
+        <div id="holidayPromoBanner" class="hidden mb-6 rounded-lg overflow-hidden border-2 border-emerald-200 bg-emerald-900 shadow-lg relative group">
+            <img src="/images/holiday_boost_2026.png" alt="Holiday Boost 2026" class="w-full h-auto object-cover">
+            <div class="absolute inset-0 bg-gradient-to-t from-emerald-950/80 via-transparent to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                <p class="text-white font-bold text-xs uppercase tracking-widest">Double Holiday Boost</p>
+                <p class="text-emerald-300 text-[10px]">Valid until March 31, 2026</p>
+            </div>
+        </div>
+
+        <!-- CNY 2026 Promo Banner (Legacy Fallback) -->
+        <div id="cnyPromoBanner"
+            class="hidden mb-6 rounded-lg overflow-hidden border-2 border-orange-200 bg-gradient-to-r from-red-600 to-red-800 p-6 flex flex-col items-center justify-center text-center shadow-lg relative">
             <div class="absolute top-2 right-4 text-4xl opacity-20 select-none">🐎</div>
             <div class="absolute bottom-2 left-4 text-4xl opacity-20 select-none">🏮</div>
             <div class="text-orange-300 font-bold uppercase tracking-[0.2em] text-xs mb-1">Chinese New Year 2026</div>

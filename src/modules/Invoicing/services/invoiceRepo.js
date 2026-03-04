@@ -26,6 +26,22 @@ function getCNY2026PromoDiscount(panelQty) {
 }
 
 /**
+ * Holiday Boost Discount 2026 Utility
+ * Valid until 2026-03-31 23:59:00
+ */
+function getHolidayBoostDiscount(panelQty) {
+  const now = new Date();
+  const expiry = new Date('2026-04-01T00:00:00'); // Valid until end of Mar 31
+  if (now >= expiry) return 0;
+
+  const qty = parseInt(panelQty) || 0;
+  if (qty >= 12 && qty <= 17) return 600;
+  if (qty >= 18 && qty <= 24) return 1200;
+  if (qty >= 25 && qty <= 36) return 1500;
+  return 0;
+}
+
+/**
  * Generate a unique share token
  * @returns {string} Share token
  */
@@ -265,7 +281,7 @@ async function findOrCreateCustomer(client, data) {
         'SELECT id, customer_id, name, phone, address, profile_picture, lead_source, remark FROM customer WHERE customer_id = $1 LIMIT 1',
         [existingCustomerBubbleId]
       );
-      
+
       if (existingRes.rows.length > 0) {
         const customer = existingRes.rows[0];
         const id = customer.id;
@@ -478,9 +494,12 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
   // CNY 2026 Promo Discount
   const cnyPromoDiscount = getCNY2026PromoDiscount(panelQty);
 
+  // Holiday Boost 2026 Discount
+  const holidayBoostDiscount = getHolidayBoostDiscount(panelQty);
+
   // Subtotal after ALL adjustments (discounts, vouchers, epp fees, extra items)
   // taxable subtotal = package + markup + extra items - discounts - vouchers - promo
-  const taxableSubtotal = Math.max(0, priceWithMarkup + extraItemsTotal - discountFixed - percentDiscountVal - totalVoucherAmount - cnyPromoDiscount);
+  const taxableSubtotal = Math.max(0, priceWithMarkup + extraItemsTotal - discountFixed - percentDiscountVal - totalVoucherAmount - cnyPromoDiscount - holidayBoostDiscount);
 
   // Calculate SST (6% rate)
   const sstRate = applySst ? 6.0 : 0;
@@ -497,7 +516,8 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
     sstRate,
     sstAmount,
     finalTotalAmount,
-    cnyPromoDiscount
+    cnyPromoDiscount,
+    holidayBoostDiscount
   };
 }
 
@@ -767,6 +787,28 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
       ]
     );
     createdItemIds.push(promoItemBubbleId);
+  }
+
+  // 1.3 Holiday Boost 2026 Item (Auto-Applied)
+  if (financials.holidayBoostDiscount > 0) {
+    const holidayItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+    await client.query(
+      `INSERT INTO invoice_item
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
+      [
+        holidayItemBubbleId,
+        invoiceId,
+        `Holiday Boost Reward (Panel Qty: ${pkg.panel_qty})`,
+        1,
+        -financials.holidayBoostDiscount,
+        -financials.holidayBoostDiscount,
+        'discount',
+        6, // After CNY promo
+        false
+      ]
+    );
+    createdItemIds.push(holidayItemBubbleId);
   }
 
   // 1.5 Extra Items
