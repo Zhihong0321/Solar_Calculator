@@ -26,9 +26,13 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   // Calculate totals from items
   const sstAmount = parseFloat(invoice.sst_amount) || 0;
   const totalAmount = parseFloat(invoice.total_amount) || 0;
-  const subtotal = totalAmount - sstAmount; // Note: This subtotal includes discounts/vouchers if they were already deducted from totalAmount
   const discountAmount = parseFloat(invoice.discount_amount) || 0;
   const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
+  const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
+  const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
+
+  // Calculate pre-discount subtotal for the summary
+  const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
 
   // Get company info from template
   const companyName = templateData.company_name || 'Atap Solar';
@@ -622,6 +626,16 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           <div class="flex justify-between text-red-600">
             <span>Voucher</span>
             <span>-RM ${Math.abs(voucherAmount).toFixed(2)}</span>
+          </div>` : ''}
+          ${cnyPromoAmount > 0 ? `
+          <div class="flex justify-between text-orange-600">
+            <span>CNY 2026 Reward</span>
+            <span>-RM ${Math.abs(cnyPromoAmount).toFixed(2)}</span>
+          </div>` : ''}
+          ${holidayBoostAmount > 0 ? `
+          <div class="flex justify-between text-emerald-600">
+            <span>Holiday Boost Reward</span>
+            <span>-RM ${Math.abs(holidayBoostAmount).toFixed(2)}</span>
           </div>` : ''}
           ${sstAmount > 0 ? `
           <div class="flex justify-between text-slate-600">

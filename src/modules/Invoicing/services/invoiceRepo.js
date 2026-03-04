@@ -10,11 +10,11 @@ const crypto = require('crypto');
 
 /**
  * CNY 2026 Promotion Utility
- * Valid until 2026-02-28
+ * Valid until 2026-03-31
  */
 function getCNY2026PromoDiscount(panelQty) {
   const now = new Date();
-  const expiry = new Date('2026-03-01T00:00:00'); // Valid until end of Feb 28
+  const expiry = new Date('2026-04-01T00:00:00'); // Valid until end of Mar 31
   if (now >= expiry) return 0;
 
   const qty = parseInt(panelQty) || 0;
@@ -591,9 +591,18 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     invoice.subtotal = (parseFloat(invoice.total_amount) || 0) - invoice.sst_amount;
 
     // Derive Discount and Voucher amounts from items
-    invoice.discount_amount = invoice.items
-      .filter(item => item.item_type === 'discount')
+    invoice.cny_promo_amount = invoice.items
+      .filter(item => item.description?.includes('CNY 2026 Promo'))
       .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+
+    invoice.holiday_boost_amount = invoice.items
+      .filter(item => item.description?.includes('Holiday Boost Reward'))
+      .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+
+    invoice.discount_amount = invoice.items
+      .filter(item => item.item_type === 'discount' && !item.description?.includes('CNY 2026 Promo') && !item.description?.includes('Holiday Boost Reward'))
+      .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+
     invoice.voucher_amount = invoice.items
       .filter(item => item.item_type === 'voucher')
       .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);

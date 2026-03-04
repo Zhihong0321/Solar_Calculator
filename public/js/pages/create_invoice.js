@@ -313,7 +313,7 @@ function parseDiscount(discountStr) {
 // Utility for CNY 2026 Promo
 function getCNY2026PromoDiscount(panelQty) {
     const now = new Date();
-    const expiry = new Date('2026-03-01T00:00:00');
+    const expiry = new Date('2026-04-01T00:00:00');
     if (now >= expiry) return 0;
 
     const qty = parseInt(panelQty) || 0;
@@ -340,21 +340,23 @@ function getHolidayBoostDiscount(panelQty) {
 // Function to update Promo Banners based on date
 function updatePromoBanners() {
     const now = new Date();
-    const cnyExpiry = new Date('2026-03-01T00:00:00');
+    const cnyExpiry = new Date('2026-04-01T00:00:00');
     const holidayExpiry = new Date('2026-04-01T00:00:00');
 
     const holidayBanner = document.getElementById('holidayPromoBanner');
     const cnyBanner = document.getElementById('cnyPromoBanner');
 
+    // Show banners if they haven't expired
     if (now < cnyExpiry) {
         if (cnyBanner) cnyBanner.classList.remove('hidden');
-        if (holidayBanner) holidayBanner.classList.add('hidden');
-    } else if (now < holidayExpiry) {
-        if (holidayBanner) holidayBanner.classList.remove('hidden');
+    } else {
         if (cnyBanner) cnyBanner.classList.add('hidden');
+    }
+
+    if (now < holidayExpiry) {
+        if (holidayBanner) holidayBanner.classList.remove('hidden');
     } else {
         if (holidayBanner) holidayBanner.classList.add('hidden');
-        if (cnyBanner) cnyBanner.classList.add('hidden');
     }
 }
 
