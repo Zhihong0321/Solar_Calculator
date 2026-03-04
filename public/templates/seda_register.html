@@ -615,6 +615,10 @@
                         <label class="input-label">Email Address</label>
                         <input type="email" id="emergencyEmail" class="input-field" placeholder="e.g. emergency@email.com">
                     </div>
+                    <div class="input-group">
+                        <label class="input-label">MyKad / IC Number</label>
+                        <input type="text" id="emergencyMyKad" class="input-field" placeholder="e.g. 900101-14-1234">
+                    </div>
                 </div>
             </div>
 
@@ -1158,6 +1162,7 @@ Thank you!`;
                     document.getElementById('emergencyRel').value = data.e_contact_relationship || '';
                     document.getElementById('emergencyPhone').value = data.e_contact_no || '';
                     document.getElementById('emergencyEmail').value = data.e_email || '';
+                    document.getElementById('emergencyMyKad').value = data.e_contact_mykad || '';
 
                     const showExisting = (url, previewId) => {
                         if (!url) return;
@@ -1273,6 +1278,7 @@ Thank you!`;
                 e_contact_relationship: document.getElementById('emergencyRel').value,
                 e_contact_no: document.getElementById('emergencyPhone').value,
                 e_email: document.getElementById('emergencyEmail').value,
+                e_contact_mykad: document.getElementById('emergencyMyKad').value,
                 ic_no: document.getElementById('applicantIC').value,
                 email: document.getElementById('applicantEmail').value,
                 ...fileData
