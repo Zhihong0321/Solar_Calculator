@@ -613,7 +613,8 @@
                     </div>
                     <div class="input-group">
                         <label class="input-label">Email Address</label>
-                        <input type="email" id="emergencyEmail" class="input-field" placeholder="e.g. emergency@email.com">
+                        <input type="email" id="emergencyEmail" class="input-field"
+                            placeholder="e.g. emergency@email.com">
                     </div>
                     <div class="input-group">
                         <label class="input-label">MyKad / IC Number</label>
@@ -932,13 +933,30 @@ Thank you!`;
         async function handleFile(input, previewId) {
             const file = input.files[0];
             if (!file) return;
+
+            // If it's an image, show loading since optimization might take a second
+            if (file.type.startsWith('image/')) startLoading('Processing Image...');
+
             clearFieldErrorByInputId(input.id);
             showPreview(file, previewId);
             try {
                 await storeFile(input.id, file);
+
+                // Success indicator for the user
+                Swal.fire({
+                    icon: 'success',
+                    title: 'File Attached',
+                    text: `${file.name} is ready to be saved.`,
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
             } catch (err) {
                 input.value = '';
                 Swal.fire({ icon: 'error', title: 'Upload Rejected', text: err.message || 'Failed to process file.' });
+            } finally {
+                if (file.type.startsWith('image/')) stopLoading();
             }
         }
 
@@ -1032,12 +1050,33 @@ Thank you!`;
                 if (extracted.mykad_id) itemsHtml += createItemHtml('IC No', extracted.mykad_id, 'applicantIC');
             }
 
-            if (!itemsHtml) return;
+            if (!itemsHtml) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Scan Complete',
+                    text: 'We scanned the document but couldn\'t automatically extract all fields. Please fill in any missing information manually.',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 5000
+                });
+                return;
+            }
 
             const box = document.createElement('div');
             box.className = 'extracted-data-box';
             box.innerHTML = `<div class="flex items-center justify-between mb-2"><h4 class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Detected Data</h4><button type="button" onclick="this.closest('.extracted-data-box').remove()" class="text-[10px] text-emerald-600 hover:underline">Dismiss</button></div><div class="space-y-1">${itemsHtml}</div>`;
             container.appendChild(box);
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Scan Successful',
+                text: 'Information detected! Review and click "Insert" below.',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 4000
+            });
         }
 
         function createItemHtml(label, value, targetId) {
@@ -1058,19 +1097,23 @@ Thank you!`;
         async function handleExtraction(input, type) {
             const file = input.files[0];
             if (!file) return;
+
+            startLoading(type === 'tnb' ? 'Preparing TNB Bill...' : 'Preparing MyKad...');
             clearFieldErrorByInputId(input.id);
             const previewId = input.id === 'fileTnb1' ? 'previewTnb1' : input.id === 'fileMyKadFront' ? 'previewMyKadFront' : 'previewMyKadPdf';
             showPreview(file, previewId);
+
             let processedData = null;
             try {
                 processedData = await storeFile(input.id, file);
             } catch (err) {
+                stopLoading();
                 input.value = '';
                 Swal.fire({ icon: 'error', title: 'Upload Rejected', text: err.message || 'Failed to process file.' });
                 return;
             }
 
-            startLoading(type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...');
+            document.getElementById('loadingText').innerText = type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...';
             try {
                 const res = await fetch(type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad', {
                     method: 'POST',
@@ -1090,19 +1133,23 @@ Thank you!`;
         async function handleVerification(input, type) {
             const file = input.files[0];
             if (!file) return;
+
+            startLoading(type === 'meter' ? 'Preparing Meter Photo...' : 'Preparing Ownership Doc...');
             clearFieldErrorByInputId(input.id);
             const previewId = type === 'meter' ? 'previewTnbMeter' : 'previewPropertyProof';
             showPreview(file, previewId);
+
             let processedData = null;
             try {
                 processedData = await storeFile(input.id, file);
             } catch (err) {
+                stopLoading();
                 input.value = '';
                 Swal.fire({ icon: 'error', title: 'Upload Rejected', text: err.message || 'Failed to process file.' });
                 return;
             }
 
-            startLoading(type === 'meter' ? 'Verifying Meter...' : 'Verifying Ownership...');
+            document.getElementById('loadingText').innerText = type === 'meter' ? 'Verifying Meter...' : 'Verifying Ownership...';
             try {
                 const payload = { fileData: processedData, filename: file.name, sedaId };
                 if (type === 'ownership') payload.context = { name: document.getElementById('applicantName').value, address: document.getElementById('installAddress').value };
@@ -1113,7 +1160,17 @@ Thank you!`;
                 });
                 const json = await parseApiResponse(res);
                 stopLoading();
-                if (json.success) alert(`${type.toUpperCase()} Verification Done`);
+                if (json.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Verification Complete',
+                        text: `${type === 'meter' ? 'Meter photo' : 'Ownership document'} has been verified.`,
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                }
             } catch (err) {
                 stopLoading();
                 applyApiFieldErrors(err.details, input.id);

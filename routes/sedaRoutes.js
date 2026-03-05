@@ -305,7 +305,7 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
     const { shareToken } = req.params;
     const {
         installation_address, city, state, postcode, tnb_account_no, phase_type,
-        e_contact_name, e_contact_relationship, e_contact_no,
+        e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad,
         ic_no, email, e_email,
         mykad_front, mykad_back, mykad_pdf,
         tnb_bill_1, tnb_bill_2, tnb_bill_3,
@@ -393,10 +393,10 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
                  e_contact_name = COALESCE($7, e_contact_name),
                  e_contact_relationship = COALESCE($8, e_contact_relationship),
                  e_contact_no = COALESCE($9, e_contact_no),
-                 ic_no = COALESCE($10, ic_no),
-                 email = COALESCE($11, email),
-                 e_email = COALESCE($12, e_email),
-                 e_contact_mykad = COALESCE($13, e_contact_mykad),
+                 e_contact_mykad = COALESCE($10, e_contact_mykad),
+                 ic_no = COALESCE($11, ic_no),
+                 email = COALESCE($12, email),
+                 e_email = COALESCE($13, e_email),
                  ic_copy_front = CASE WHEN $14 = '${KEEP_FILE_VALUE}' THEN ic_copy_front ELSE $14 END,
                  ic_copy_back = CASE WHEN $15 = '${KEEP_FILE_VALUE}' THEN ic_copy_back ELSE $15 END,
                  mykad_pdf = CASE WHEN $16 = '${KEEP_FILE_VALUE}' THEN mykad_pdf ELSE $16 END,
@@ -844,7 +844,7 @@ router.post('/api/v1/seda/:id', async (req, res) => {
     const { id } = req.params;
     const {
         installation_address, city, state, postcode, tnb_account_no, phase_type,
-        e_contact_name, e_contact_relationship, e_contact_no,
+        e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad,
         ic_no, email, e_email,
         // Files (Base64)
         mykad_front, mykad_back, mykad_pdf,
