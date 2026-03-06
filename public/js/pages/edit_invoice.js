@@ -28,6 +28,7 @@ let availableVouchers = [];
 let selectedVouchers = [];
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
+const MANUAL_DISCOUNT_MAX_PERCENT = 7; // SYSTEM-WIDE: Max manual discount = 7% of package price (VOUCHERS EXCLUDED)
 
 // Calculate total negative amount from all extra items (manual)
 function getExtraItemsNegativeTotal() {
@@ -763,6 +764,7 @@ function updateInvoicePreview() {
     const totalDiscountValue = (discount.fixed || 0) + (packagePrice * (discount.percent || 0) / 100);
     const discountInputField = document.getElementById('discountGiven');
     if (window.maxDiscountAllowed > 0 && totalDiscountValue > window.maxDiscountAllowed) {
+        window._maxDiscountExceeded = true;
         if (discountInputField) {
             discountInputField.classList.add('border-red-500', 'bg-red-50');
             discountInputField.classList.remove('border-gray-300', 'bg-white');
@@ -778,6 +780,7 @@ function updateInvoicePreview() {
 
         if (discountInputField) discountInputField.parentNode.appendChild(warningMsg);
     } else {
+        window._maxDiscountExceeded = false;
         if (discountInputField) {
             discountInputField.classList.remove('border-red-500', 'bg-red-50');
             discountInputField.classList.add('border-gray-300', 'bg-white');
@@ -808,6 +811,13 @@ function updateInvoicePreview() {
             subtotal -= voucherAmount;
         }
     });
+
+    const trueSubtotal = subtotal;
+    if (trueSubtotal <= 0) {
+        window._subtotalIsZeroOrNegative = true;
+    } else {
+        window._subtotalIsZeroOrNegative = false;
+    }
 
     // Ensure subtotal doesn't go negative
     if (subtotal < 0) subtotal = 0;
@@ -1134,8 +1144,9 @@ function showPackage(pkg) {
     document.getElementById('packageName').value = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packageIdHidden').value = pkg.bubble_id;
 
-    // Handle Max Discount
-    window.maxDiscountAllowed = parseFloat(pkg.max_discount) || 0;
+    // Handle Max Discount — SYSTEM-WIDE: 7% of package price (vouchers excluded)
+    const pkgPriceForLimit = parseFloat(pkg.price) || 0;
+    window.maxDiscountAllowed = pkgPriceForLimit * (MANUAL_DISCOUNT_MAX_PERCENT / 100);
     const maxDiscountRow = document.getElementById('maxDiscountRow');
     const maxDiscountDisplay = document.getElementById('maxDiscountDisplay');
 
@@ -1143,16 +1154,12 @@ function showPackage(pkg) {
     const inputMaxDiscountRow = document.getElementById('inputMaxDiscountRow');
     const inputMaxDiscountDisplay = document.getElementById('inputMaxDiscountDisplay');
 
-    if (window.maxDiscountAllowed > 0) {
-        if (maxDiscountRow) maxDiscountRow.classList.remove('hidden');
-        if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)}`;
+    // Always show — limit is unconditional
+    if (maxDiscountRow) maxDiscountRow.classList.remove('hidden');
+    if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)} (${MANUAL_DISCOUNT_MAX_PERCENT}% of package price)`;
 
-        if (inputMaxDiscountRow) inputMaxDiscountRow.classList.remove('hidden');
-        if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)}`;
-    } else {
-        if (maxDiscountRow) maxDiscountRow.classList.add('hidden');
-        if (inputMaxDiscountRow) inputMaxDiscountRow.classList.add('hidden');
-    }
+    if (inputMaxDiscountRow) inputMaxDiscountRow.classList.remove('hidden');
+    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${window.maxDiscountAllowed.toFixed(2)} (${MANUAL_DISCOUNT_MAX_PERCENT}% of package price — vouchers excluded)`;
 
     if (pkg.invoice_desc) {
         const descContainer = document.getElementById('packageDescContainer');
@@ -1187,11 +1194,29 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         return;
     }
 
+    if (window._maxDiscountExceeded) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Max Discount Exceeded',
+            text: `The discount entered exceeds the maximum allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)}.`
+        });
+        return;
+    }
+
+    if (window._subtotalIsZeroOrNegative) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Invalid Total Amount',
+            text: 'The total amount cannot be zero or negative after applying discounts and vouchers. Please adjust the discounts.'
+        });
+        return;
+    }
+
     // Require lead_source when customer name is provided
     const customerName = document.getElementById('customerName')?.value?.trim();
     const leadSource = document.getElementById('customerLeadSource')?.value;
     const remark = document.getElementById('customerRemark')?.value;
-    
+
     if (customerName && !leadSource) {
         Swal.fire({
             icon: 'error',
