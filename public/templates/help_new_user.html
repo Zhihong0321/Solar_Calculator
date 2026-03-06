@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover"
+    />
+    <title>Help: New User Registration | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      :root {
+        --primary: #0f172a;
+        --brand-blue: #3b82f6;
+        --slate-50: #f8fafc;
+        --slate-200: #e2e8f0;
+        --slate-900: #0f172a;
+      }
+
+      * {
+        font-family: "Inter", sans-serif;
+        -webkit-font-smoothing: antialiased;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
+        color: var(--slate-900);
+        min-height: 100vh;
+      }
+
+      .copy-btn {
+        transition: all 0.2s ease;
+      }
+
+      .copy-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+
+      .copy-btn:active {
+        transform: translateY(0);
+      }
+    </style>
+  </head>
+
+  <body class="p-6 md:p-12">
+    <div class="max-w-3xl mx-auto space-y-8">
+      <!-- Header -->
+      <div
+        class="flex flex-col md:flex-row md:items-center justify-between gap-4"
+      >
+        <div>
+          <a
+            href="/agent/home"
+            class="text-slate-500 hover:text-slate-900 font-medium text-sm flex items-center gap-2 mb-4 transition-colors"
+          >
+            <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+          </a>
+          <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">
+            New User Registration
+          </h1>
+          <p class="text-slate-500 font-medium mt-1">
+            Guide on how to onboard a new user into the system.
+          </p>
+        </div>
+        <div
+          class="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-white hidden md:flex shrink-0"
+        >
+          <i class="fa-solid fa-user-plus text-xl"></i>
+        </div>
+      </div>
+
+      <!-- Content Card -->
+      <div
+        class="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-8"
+      >
+        <!-- Step 1 -->
+        <div class="flex gap-4">
+          <div
+            class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-900 shrink-0"
+          >
+            1
+          </div>
+          <div class="space-y-4 w-full">
+            <h3 class="text-lg font-bold text-slate-900">
+              Share Registration Link
+            </h3>
+            <p class="text-slate-600 font-medium">
+              Please share this link to the new user and have them complete the
+              registration form:
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+              <div
+                class="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center overflow-x-auto"
+              >
+                <span
+                  class="text-brand-blue font-semibold whitespace-nowrap"
+                  id="regLink"
+                  >https://calculator.atap.solar</span
+                >
+              </div>
+              <button
+                onclick="copyLink()"
+                class="copy-btn shrink-0 bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2"
+              >
+                <i class="fa-regular fa-copy"></i>
+                <span id="copyText">Copy Link</span>
+              </button>
+            </div>
+
+            <ul class="list-disc list-inside text-slate-500 mt-2 space-y-1">
+              <li>Ensure the user completes the registration form in full.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="h-px bg-slate-100 w-full"></div>
+
+        <!-- Step 2 -->
+        <div class="flex gap-4">
+          <div
+            class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-900 shrink-0"
+          >
+            2
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">
+              Get Registration Approval
+            </h3>
+            <p class="text-slate-600 font-medium mt-1">
+              Inform ALLY to get the registration approval process started.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function copyLink() {
+        const linkText = document.getElementById("regLink").innerText;
+        navigator.clipboard
+          .writeText(linkText)
+          .then(() => {
+            const copyBtnText = document.getElementById("copyText");
+            const btn = document.querySelector(".copy-btn");
+
+            // Visual feedback
+            btn.classList.remove("bg-slate-900", "hover:bg-slate-800");
+            btn.classList.add("bg-emerald-600", "hover:bg-emerald-700");
+            copyBtnText.innerText = "Copied!";
+            document.querySelector(".copy-btn i").className =
+              "fa-solid fa-check";
+
+            setTimeout(() => {
+              btn.classList.add("bg-slate-900", "hover:bg-slate-800");
+              btn.classList.remove("bg-emerald-600", "hover:bg-emerald-700");
+              copyBtnText.innerText = "Copy Link";
+              document.querySelector(".copy-btn i").className =
+                "fa-regular fa-copy";
+            }, 2000);
+          })
+          .catch((err) => {
+            console.error("Failed to copy link: ", err);
+          });
+      }
+    </script>
+  </body>
+</html>

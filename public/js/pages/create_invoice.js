@@ -1342,6 +1342,16 @@ function showPackage(pkg) {
     const packageInfo = document.getElementById('quotationFormContainer');
     packageInfo.classList.remove('hidden');
 
+    // Show/Hide Residential Header
+    const resHeader = document.getElementById('residentialHeader');
+    if (resHeader) {
+        if ((pkg.type || '').toUpperCase() === 'RESIDENTIAL') {
+            resHeader.classList.remove('hidden');
+        } else {
+            resHeader.classList.add('hidden');
+        }
+    }
+
     document.getElementById('packageNameDisplay').textContent = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packagePriceDisplay').textContent = `RM ${(parseFloat(pkg.price) || 0).toFixed(2)}`;
 

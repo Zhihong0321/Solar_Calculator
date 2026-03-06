@@ -225,6 +225,11 @@ app.get('/voucher-management', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'voucher_management.html'));
 });
 
+// Help Directory
+app.get('/help/new-user', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'help_new_user.html'));
+});
+
 /**
  * API: Get full agent profile
  */

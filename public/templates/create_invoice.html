@@ -49,9 +49,11 @@
         <h1 class="text-2xl font-bold mb-6 text-gray-900">Create Quotation</h1>
 
         <!-- Holiday Boost 2026 Promo Banner -->
-        <div id="holidayPromoBanner" class="hidden mb-6 rounded-lg overflow-hidden border-2 border-emerald-200 bg-emerald-900 shadow-lg relative group">
+        <div id="holidayPromoBanner"
+            class="hidden mb-6 rounded-lg overflow-hidden border-2 border-emerald-200 bg-emerald-900 shadow-lg relative group">
             <img src="/images/holiday_boost_2026.png" alt="Holiday Boost 2026" class="w-full h-auto object-cover">
-            <div class="absolute inset-0 bg-gradient-to-t from-emerald-950/80 via-transparent to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div
+                class="absolute inset-0 bg-gradient-to-t from-emerald-950/80 via-transparent to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                 <p class="text-white font-bold text-xs uppercase tracking-widest">Double Holiday Boost</p>
                 <p class="text-emerald-300 text-[10px]">Valid until March 31, 2026</p>
             </div>
@@ -122,7 +124,11 @@
 
         <div id="quotationFormContainer" class="hidden space-y-6">
             <!-- Package Information -->
-            <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300">
+            <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300 overflow-hidden relative">
+                <div id="residentialHeader"
+                    class="hidden -mx-4 -mt-4 mb-4 bg-emerald-950 p-3 text-center transition-all duration-300">
+                    <span class="text-white font-black tracking-[0.28em] uppercase text-sm">RESIDENTIAL</span>
+                </div>
                 <h2 class="font-bold text-lg mb-3 text-gray-900">Package Information</h2>
                 <div class="space-y-2 text-gray-800">
                     <p><strong class="text-gray-900">Name:</strong> <span class="text-gray-800"
@@ -166,10 +172,13 @@
             <div class="bg-amber-50 p-4 rounded-lg border-2 border-amber-300">
                 <h2 class="font-bold text-lg mb-3 text-amber-900">Micro Inverter</h2>
                 <div class="space-y-3">
-                    <div class="bg-white p-3 rounded border border-amber-200 shadow-sm flex items-center justify-between gap-4">
+                    <div
+                        class="bg-white p-3 rounded border border-amber-200 shadow-sm flex items-center justify-between gap-4">
                         <div class="flex-1">
                             <div class="font-medium text-gray-900 text-sm">SAJ M2-1.0K S2 Micro Inverter</div>
-                            <div class="text-xs text-gray-500"><span class="line-through text-red-400">RM 1,000</span> <span class="font-bold text-amber-700">RM 500</span></div>
+                            <div class="text-xs text-gray-500"><span class="line-through text-red-400">RM 1,000</span>
+                                <span class="font-bold text-amber-700">RM 500</span>
+                            </div>
                         </div>
                         <div class="w-24">
                             <label class="block text-[10px] font-bold text-gray-400 uppercase">Qty</label>
@@ -177,10 +186,13 @@
                                 class="w-full text-sm border border-amber-300 rounded px-2 py-1.5 focus:outline-none focus:border-amber-500 text-center">
                         </div>
                     </div>
-                    <div class="bg-white p-3 rounded border border-amber-200 shadow-sm flex items-center justify-between gap-4">
+                    <div
+                        class="bg-white p-3 rounded border border-amber-200 shadow-sm flex items-center justify-between gap-4">
                         <div class="flex-1">
                             <div class="font-medium text-gray-900 text-sm">SAJ M4-1.8K S4 Micro Inverter</div>
-                            <div class="text-xs text-gray-500"><span class="line-through text-red-400">RM 1,500</span> <span class="font-bold text-amber-700">RM 1,000</span></div>
+                            <div class="text-xs text-gray-500"><span class="line-through text-red-400">RM 1,500</span>
+                                <span class="font-bold text-amber-700">RM 1,000</span>
+                            </div>
                         </div>
                         <div class="w-24">
                             <label class="block text-[10px] font-bold text-gray-400 uppercase">Qty</label>
@@ -266,7 +278,8 @@
                 <!-- Lead Source & Remark Section -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-semibold mb-2 text-gray-900">Lead Source <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Lead Source <span
+                                class="text-red-500">*</span></label>
                         <select name="lead_source" id="customerLeadSource" required
                             class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none">
                             <option value="">-- Select Lead Source --</option>
@@ -279,7 +292,8 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold mb-2 text-gray-900">Remark <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-semibold mb-2 text-gray-900">Remark <span
+                                class="text-red-500">*</span></label>
                         <textarea name="remark" id="customerRemark" rows="1" required
                             class="w-full border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-blue-500 focus:outline-none resize-none"
                             placeholder="Notes about this customer..."></textarea>
@@ -311,7 +325,9 @@
                     <div id="manualItemsContainer" class="space-y-3">
                         <!-- Manual items will be added here -->
                     </div>
-                    <p id="extraItemsDiscountWarning" class="hidden text-xs text-red-600 font-bold mt-2 bg-red-50 border border-red-300 rounded px-3 py-2"></p>
+                    <p id="extraItemsDiscountWarning"
+                        class="hidden text-xs text-red-600 font-bold mt-2 bg-red-50 border border-red-300 rounded px-3 py-2">
+                    </p>
                 </div>
 
                 <!-- Voucher Section -->

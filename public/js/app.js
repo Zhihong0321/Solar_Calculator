@@ -5,11 +5,17 @@ let originalSolarData = null; // Baseline for price comparison (the very first r
 let currentHistoricalAfaRate = 0;
 let invoiceBaseUrl = 'https://quote.atap.solar/create-invoice';
 
-// Data Cache (Client-Side DB)
+// Surgical mode: stores the single matched tariff row from Bill Analysis
+let currentTariffData = null;
+
+// Data Cache — only used by the Reverse Simulation page
 let db = {
     tariffs: [],
     packages: []
 };
+
+// Debounce timer for spontaneous updates (slider/knob changes)
+let _spontaneousDebounceTimer = null;
 
 // Charts
 const chartInstances = {
@@ -21,9 +27,14 @@ const chartInstances = {
 // --- Initialization ---
 window.onload = function () {
     testConnection();
-    Promise.all([initializeData(), fetchConfig()]).then(() => {
+    fetchConfig().then(() => {
+        // Only load the full dataset on the Reverse Simulation page (needs local binary search)
         if (document.getElementById('reverseCalcForm')) {
-            initReversePage();
+            initializeData().then(() => initReversePage());
+        } else {
+            // Main calculator: mark as ready immediately — no data pre-load needed
+            const s = document.getElementById('dbStatus');
+            if (s) s.innerHTML = `<span>[ STATUS: READY ]</span><div class="h-px grow bg-divider"></div>`;
         }
     });
 };
@@ -41,11 +52,11 @@ async function fetchConfig() {
     }
 }
 
+// Full data load — ONLY used by the Reverse Simulation page
 async function initializeData() {
-    console.log('[initializeData] Starting fetch...');
+    console.log('[initializeData] Starting fetch (Reverse Simulation mode)...');
     try {
         const response = await fetch('/api/all-data');
-        console.log('[initializeData] Response received:', response.status);
         if (!response.ok) {
             const errText = await response.text();
             console.error('[initializeData] API Error Text:', errText);
@@ -53,37 +64,66 @@ async function initializeData() {
         }
         const data = await response.json();
         console.log('[initializeData] Data parsed:', data.tariffs?.length, 'tariffs', data.packages?.length, 'packages');
-        if (response.ok) {
-            db.tariffs = data.tariffs.map(t => ({
-                ...t,
-                usage_kwh: parseFloat(t.usage_kwh),
-                bill_total_normal: parseFloat(t.bill_total_normal),
-                usage_normal: parseFloat(t.usage_normal),
-                network: parseFloat(t.network),
-                capacity: parseFloat(t.capacity),
-                retail: parseFloat(t.retail),
-                eei: parseFloat(t.eei),
-                sst_normal: parseFloat(t.sst_normal),
-                kwtbb_normal: parseFloat(t.kwtbb_normal)
-            }));
-
-            db.packages = data.packages.map(p => ({
-                ...p,
-                panel_qty: parseInt(p.panel_qty),
-                price: parseFloat(p.price),
-                solar_output_rating: parseInt(p.solar_output_rating)
-            }));
-
-            console.log('Client-side DB initialized:', db.tariffs.length, 'tariffs,', db.packages.length, 'packages');
-            const s = document.getElementById('dbStatus');
-            if (s) s.innerHTML = `<span>[ STATUS: DATA_LOADED ]</span><div class="h-px grow bg-divider"></div>`;
-        }
+        db.tariffs = data.tariffs.map(t => ({
+            ...t,
+            usage_kwh: parseFloat(t.usage_kwh),
+            bill_total_normal: parseFloat(t.bill_total_normal),
+            usage_normal: parseFloat(t.usage_normal),
+            network: parseFloat(t.network),
+            capacity: parseFloat(t.capacity),
+            retail: parseFloat(t.retail),
+            eei: parseFloat(t.eei),
+            sst_normal: parseFloat(t.sst_normal),
+            kwtbb_normal: parseFloat(t.kwtbb_normal)
+        }));
+        db.packages = data.packages.map(p => ({
+            ...p,
+            panel_qty: parseInt(p.panel_qty),
+            price: parseFloat(p.price),
+            solar_output_rating: parseInt(p.solar_output_rating)
+        }));
+        console.log('Client-side DB initialized:', db.tariffs.length, 'tariffs,', db.packages.length, 'packages');
+        const s = document.getElementById('dbStatus');
+        if (s) s.innerHTML = `<span>[ STATUS: DATA_LOADED ]</span><div class="h-px grow bg-divider"></div>`;
     } catch (err) {
         showNotification('Failed to load calculation data. ' + err.message, 'error');
         console.error('[initializeData] Error:', err);
         const s = document.getElementById('dbStatus');
         if (s) s.innerHTML = `<span>[ STATUS: DATA_ERROR ]</span><div class="h-px grow bg-divider"></div>`;
     }
+}
+
+// ─────────────────────────────────────────────
+// Surgical API helpers
+// ─────────────────────────────────────────────
+
+/**
+ * Surgical Bill Analysis: fetches exactly ONE matching tariff row from the server.
+ * Stores it in currentTariffData. Returns the tariff row or null.
+ */
+async function fetchBillTariff(billAmount, historicalAfaRate) {
+    const url = `/api/calculate-bill?amount=${encodeURIComponent(billAmount)}&afaRate=${encodeURIComponent(historicalAfaRate)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${response.status}`);
+    }
+    const data = await response.json();
+    return data.tariff || null;
+}
+
+/**
+ * Surgical Solar Calculation: sends all params to the server-side engine.
+ * Returns the full result object compatible with displaySolarCalculation().
+ */
+async function fetchSolarCalculation(params) {
+    const url = `/api/solar-calculation?${new URLSearchParams(params)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${response.status}`);
+    }
+    return response.json();
 }
 
 function initReversePage() {
@@ -101,7 +141,7 @@ function updateScenarioUI(id, status, value, desc, sunPeak = null, morningUsage 
     if (statusEl) {
         statusEl.innerText = status;
         statusEl.className = `px-2.5 md:px-3 py-1 text-[10px] md:text-xs font-semibold uppercase tracking-wide ${status === 'REALISTIC' ? 'bg-emerald-100 text-emerald-800' :
-                (status === 'IMPOSSIBLE' || status === 'RIDICULOUS' ? 'bg-rose-100 text-rose-800' : 'bg-orange-100 text-orange-800')
+            (status === 'IMPOSSIBLE' || status === 'RIDICULOUS' ? 'bg-rose-100 text-rose-800' : 'bg-orange-100 text-orange-800')
             }`;
     }
 
@@ -650,24 +690,59 @@ window.applyDetectedSunPeak = function () {
 
 // --- Interaction Handlers ---
 
-document.getElementById('billForm').addEventListener('submit', function (e) {
+document.getElementById('billForm').addEventListener('submit', async function (e) {
     e.preventDefault();
-    if (!db.tariffs.length) return showNotification('System initializing...', 'info');
     const billAmount = parseFloat(document.getElementById('billAmount').value);
     const afaRate = parseFloat(document.getElementById('historicalAfaRate').value) || 0;
     if (!billAmount || billAmount <= 0) return showNotification('Invalid bill amount', 'error');
 
-    const calculator = new SolarCalculator(db.tariffs, db.packages);
-    const tariff = calculator.findClosestTariff(billAmount, afaRate);
-    if (tariff) {
-        displayBillBreakdown({ tariff, afaRate });
+    // Show loading state in results area
+    const resultsDiv = document.getElementById('calculatorResults');
+    if (resultsDiv) resultsDiv.innerHTML = `<div class="py-16 text-center text-xs font-bold uppercase tracking-widest animate-pulse tier-3">Querying_TNB_Database...</div>`;
+
+    try {
+        const tariff = await fetchBillTariff(billAmount, afaRate);
+        if (!tariff) throw new Error('No matching tariff found');
+
+        // Store for downstream surgical calls
+        currentTariffData = tariff;
         currentHistoricalAfaRate = afaRate;
+
+        // Map server field names to the shape displayBillBreakdown() expects
+        const mappedTariff = {
+            usage_kwh: parseFloat(tariff.usage_kwh),
+            usage_normal: parseFloat(tariff.energy_charge ?? tariff.usage_normal ?? 0),
+            network: parseFloat(tariff.network_charge ?? tariff.network ?? 0),
+            capacity: parseFloat(tariff.capacity_charge ?? tariff.capacity ?? 0),
+            retail: parseFloat(tariff.retail_charge ?? tariff.retail ?? 0),
+            eei: parseFloat(tariff.energy_efficiency_incentive ?? tariff.eei ?? 0),
+            sst_normal: parseFloat(tariff.sst_tax ?? tariff.sst_normal ?? 0),
+            kwtbb_normal: parseFloat(tariff.kwtbb_fund ?? tariff.kwtbb_normal ?? 0),
+            bill_total_normal: parseFloat(tariff.total_bill ?? tariff.bill_total_normal ?? 0),
+            fuel_adjustment: parseFloat(tariff.fuel_adjustment ?? 0)
+        };
+
+        displayBillBreakdown({ tariff: mappedTariff, afaRate });
         if (document.getElementById('afaRate')) document.getElementById('afaRate').value = afaRate.toFixed(4);
+
+        // Reset solar results so stale data is cleared
+        latestSolarParams = null;
+        latestSolarData = null;
+        const existing = document.getElementById('solarResultsCard');
+        if (existing) existing.remove();
+        const floatingBar = document.getElementById('floatingPanelBar');
+        if (floatingBar) floatingBar.innerHTML = '';
+
+    } catch (err) {
+        console.error('[Bill Analysis] Error:', err);
+        showNotification('Bill Analysis failed: ' + err.message, 'error');
+        if (resultsDiv) resultsDiv.innerHTML = `<div class="py-10 text-center text-xs font-bold uppercase text-rose-600 border border-rose-300 p-4">[ Error: ${err.message} ]</div>`;
     }
 });
 
-window.calculateSolarSavings = function () {
-    if (!db.tariffs.length) return;
+window.calculateSolarSavings = async function () {
+    if (!currentTariffData) return showNotification('Please complete Bill Analysis first.', 'error');
+
     const params = {
         amount: parseFloat(document.getElementById('billAmount').value),
         sunPeakHour: parseFloat(document.getElementById('sunPeakHour').value),
@@ -679,37 +754,50 @@ window.calculateSolarSavings = function () {
         percentDiscount: parseFloat(document.getElementById('percentDiscount').value) || 0,
         fixedDiscount: parseFloat(document.getElementById('fixedDiscount').value) || 0,
         batterySize: 0,
-        overridePanels: null,
+        overridePanels: '',
         systemPhase: parseInt(document.getElementById('systemPhase').value) || 3
     };
     latestSolarParams = params;
-    runAndDisplay();
-    // Scroll to results
-    const solarDiv = document.getElementById('solarResultsCard');
-    if (solarDiv) solarDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-    originalSolarData = JSON.parse(JSON.stringify(latestSolarData)); // Capture baseline for Investment Delta
+    // Show inline loading inside the results card area
+    let solarDiv = document.getElementById('solarResultsCard');
+    if (!solarDiv) {
+        solarDiv = document.createElement('div');
+        solarDiv.id = 'solarResultsCard';
+        document.getElementById('calculatorResults').appendChild(solarDiv);
+    }
+    solarDiv.innerHTML = `<div class="py-16 text-center text-xs font-bold uppercase tracking-widest animate-pulse tier-3">Computing_ROI_Matrix...</div>`;
+
+    try {
+        const result = await fetchSolarCalculation(params);
+        latestSolarData = result;
+        displaySolarCalculation(result);
+
+        // Scroll to results
+        solarDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        originalSolarData = JSON.parse(JSON.stringify(result)); // Capture baseline for Investment Delta
+    } catch (err) {
+        console.error('[Solar Calculation] Error:', err);
+        showNotification('Calculation failed: ' + err.message, 'error');
+        solarDiv.innerHTML = `<div class="py-10 text-center text-xs font-bold uppercase text-rose-600 border border-rose-300 p-4">[ Calculation Error: ${err.message} ]</div>`;
+    }
 };
 
 window.triggerSpontaneousUpdate = function (source) {
     if (!latestSolarParams) {
-        console.warn('[triggerSpontaneousUpdate] latestSolarParams is null/undefined');
+        console.warn('[triggerSpontaneousUpdate] No active calculation — ignoring.');
         return;
     }
 
     console.log(`[triggerSpontaneousUpdate] Triggered by: ${source}`);
 
-    // Get current values
     const panelRatingInput = document.getElementById('panelRating');
     const newPanelRating = panelRatingInput ? parseInt(panelRatingInput.value) : 620;
-    const newSunPeakHour = parseFloat(document.getElementById('sunPeakHour').value) || 3.4;
-    const newMorningUsage = parseFloat(document.getElementById('morningUsage').value) || 30;
-
-    // Check if panel rating changed
     const panelRatingChanged = latestSolarParams.panelType !== newPanelRating;
 
-    latestSolarParams.sunPeakHour = newSunPeakHour;
-    latestSolarParams.morningUsage = newMorningUsage;
+    // Update in-memory params
+    latestSolarParams.sunPeakHour = parseFloat(document.getElementById('sunPeakHour').value) || 3.4;
+    latestSolarParams.morningUsage = parseFloat(document.getElementById('morningUsage').value) || 30;
     latestSolarParams.panelType = newPanelRating;
     latestSolarParams.afaRate = parseFloat(document.getElementById('afaRate').value) || 0;
     latestSolarParams.smpPrice = parseFloat(document.getElementById('smpPrice').value) || 0.2703;
@@ -717,39 +805,42 @@ window.triggerSpontaneousUpdate = function (source) {
     latestSolarParams.fixedDiscount = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
     latestSolarParams.systemPhase = parseInt(document.getElementById('systemPhase')?.value) || 3;
 
-    console.log('[triggerSpontaneousUpdate] Updated params:', {
-        percentDiscount: latestSolarParams.percentDiscount,
-        fixedDiscount: latestSolarParams.fixedDiscount
-    });
-
-    // If panel rating changed, reset overridePanels to trigger full recalculation
+    // If panel rating changed, reset panel override so server recalculates from scratch
     if (panelRatingChanged) {
-        console.log(`[Panel Rating Change] ${latestSolarParams.panelType}W → ${newPanelRating}W: Recalculating panel count from scratch`);
-        latestSolarParams.overridePanels = null;
+        console.log(`[Panel Rating Change] ${latestSolarParams.panelType}W → ${newPanelRating}W`);
+        latestSolarParams.overridePanels = '';
     }
 
-    runAndDisplay();
+    // Debounce: wait 200ms after last change before firing the server request
+    clearTimeout(_spontaneousDebounceTimer);
+    _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 200);
 };
 
-function runAndDisplay() {
+async function runAndDisplay() {
+    if (!latestSolarParams) return;
     try {
-        const calculator = new SolarCalculator(db.tariffs, db.packages);
-        const result = calculator.calculate(latestSolarParams);
+        const result = await fetchSolarCalculation(latestSolarParams);
         latestSolarData = result;
         displaySolarCalculation(result);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+        console.error('[runAndDisplay] Error:', err);
+        showNotification('Recalculation failed: ' + err.message, 'error');
+    }
 }
 
 async function requestPanelUpdate(newCount) {
     if (!latestSolarParams) return;
     latestSolarParams.overridePanels = newCount;
-    runAndDisplay();
+    // Debounce panel +/- button rapid clicks
+    clearTimeout(_spontaneousDebounceTimer);
+    _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 150);
 }
 
 window.adjustBatterySize = function (delta) {
     if (!latestSolarParams) return;
     latestSolarParams.batterySize = Math.max(0, (latestSolarParams.batterySize || 0) + delta);
-    runAndDisplay();
+    clearTimeout(_spontaneousDebounceTimer);
+    _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 150);
 };
 
 window.adjustPanelCount = function (delta) {
