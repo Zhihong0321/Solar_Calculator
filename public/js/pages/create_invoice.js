@@ -158,7 +158,7 @@ function toggleFollowUpSection() {
 // Fetch available vouchers
 async function fetchVouchers() {
     try {
-        const response = await fetch('/api/vouchers');
+        const response = await fetch('/api/vouchers?status=all');
         const result = await response.json();
 
         if (result.success) {
@@ -178,7 +178,10 @@ function populateVoucherSelect() {
     // Keep first option
     select.innerHTML = '<option value="">-- Select a Voucher --</option>';
 
-    availableVouchers.forEach(v => {
+    // Only allow selecting 'active' vouchers in the dropdown
+    const activeVouchers = availableVouchers.filter(v => v.active === true);
+
+    activeVouchers.forEach(v => {
         const option = document.createElement('option');
         option.value = v.voucher_code;
         let text = v.title || v.voucher_code;
@@ -529,6 +532,12 @@ function updatePaymentMethodInfo(index) {
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
     if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
     subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
+
+    const cnyPromoDiscount = getCNY2026PromoDiscount(window.currentPanelQty);
+    subtotalAfterDiscount -= cnyPromoDiscount;
+
+    const holidayBoostDiscount = getHolidayBoostDiscount(window.currentPanelQty);
+    subtotalAfterDiscount -= holidayBoostDiscount;
 
     if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 

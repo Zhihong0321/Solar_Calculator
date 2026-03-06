@@ -29,14 +29,15 @@ router.get('/api/vouchers_v2', requireAuth, async (req, res) => {
 
 /**
  * GET /api/vouchers
+ */
 router.get('/api/vouchers', requireAuth, async (req, res) => {
     try {
-        const { status } = req.query; // 'active', 'inactive', 'deleted', 'all'
+        const status = req.query.status || 'active'; // 'active', 'inactive', 'deleted', 'all'
         console.log(`[API] Fetching vouchers with status: ${status}`);
         const vouchers = await voucherRepo.getAllVouchers(pool, status);
-        res.json(vouchers || []);
+        res.json({ success: true, vouchers: vouchers || [] });
     } catch (err) {
-        res.status(500).json({ error: 'Failed to fetch vouchers' });
+        res.status(500).json({ success: false, error: 'Failed to fetch vouchers' });
     }
 });
 

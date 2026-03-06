@@ -129,7 +129,8 @@ async function createVoucher(pool, data) {
         available_until,
         public = true,
         created_by,
-        deductable_from_commission
+        deductable_from_commission,
+        invoice_description
     } = data;
 
     const bubble_id = `voucher_${crypto.randomBytes(8).toString('hex')}`;
@@ -144,9 +145,9 @@ async function createVoucher(pool, data) {
       bubble_id, title, voucher_code, voucher_type, 
       discount_amount, discount_percent, active, 
       voucher_availability, terms_conditions, available_until, 
-      public, created_by, deductable_from_commission, created_at, updated_at, created_date
+      public, created_by, deductable_from_commission, invoice_description, created_at, updated_at, created_date
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW(), NOW()
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW(), NOW()
     ) RETURNING *
   `;
 
@@ -154,7 +155,7 @@ async function createVoucher(pool, data) {
         bubble_id, title, voucher_code, voucher_type,
         safeAmount, safePercent, active,
         voucher_availability || null, terms_conditions || null, available_until || null,
-        public, created_by || null, safeDeductable
+        public, created_by || null, safeDeductable, invoice_description || null
     ];
 
     try {
@@ -185,7 +186,8 @@ async function updateVoucher(pool, id, data) {
         terms_conditions,
         available_until,
         public,
-        deductable_from_commission
+        deductable_from_commission,
+        invoice_description
     } = data;
 
     const isNumeric = !isNaN(id);
@@ -211,21 +213,22 @@ async function updateVoucher(pool, id, data) {
     // However, since we are rewriting the whole function block, we can just update indices.
     // Param Indices:
     // 1: title, 2: code, 3: type, 4: amount, 5: percent, 6: active, 
-    // 7: availability, 8: terms, 9: until, 10: public, 11: deductable, 12: id
+    // 7: availability, 8: terms, 9: until, 10: public, 11: deductable, 12: id, 13: invoice_description
 
     const query = `
     UPDATE voucher SET
-      title = COALESCE($1, title),
-      voucher_code = COALESCE($2, voucher_code),
-      voucher_type = COALESCE($3, voucher_type),
+      title = $1,
+      voucher_code = $2,
+      voucher_type = $3,
       discount_amount = $4,
       discount_percent = $5,
-      active = COALESCE($6, active),
-      voucher_availability = COALESCE($7, voucher_availability),
-      terms_conditions = COALESCE($8, terms_conditions),
-      available_until = COALESCE($9, available_until),
-      public = COALESCE($10, public),
-      deductable_from_commission = COALESCE($11, deductable_from_commission),
+      active = $6,
+      voucher_availability = $7,
+      terms_conditions = $8,
+      available_until = $9,
+      public = $10,
+      deductable_from_commission = $11,
+      invoice_description = $13,
       updated_at = NOW(),
       modified_date = NOW()
     WHERE ${identifierColumn} = $12
@@ -236,7 +239,7 @@ async function updateVoucher(pool, id, data) {
         title, voucher_code, voucher_type,
         safeAmount, safePercent, active,
         voucher_availability, terms_conditions, available_until,
-        public, safeDeductable, id
+        public, safeDeductable, id, invoice_description
     ];
 
     try {
