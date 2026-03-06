@@ -7,7 +7,7 @@ class EmailService {
     return rows;
   }
 
-  async claimEmailAccount(agentBubbleId, emailPrefix, domain = 'eternalgy.me') {
+  async claimEmailAccount(agentBubbleId, emailPrefix, domain = 'eternalgy.me', isSuperAdmin = false) {
     const allowedDomains = ['brightfield.com.my', 'eternalgy.com', 'eternalgy.me'];
     if (!allowedDomains.includes(domain)) {
       throw new Error('Invalid domain selected.');
@@ -25,10 +25,12 @@ class EmailService {
       await client.query('BEGIN');
 
       // 2. Check limit (3 per agent)
-      const countQuery = 'SELECT COUNT(*) FROM agent_email_accounts WHERE agent_bubble_id = $1';
-      const countRes = await client.query(countQuery, [agentBubbleId]);
-      if (parseInt(countRes.rows[0].count) >= 3) {
-        throw new Error('You have reached the maximum limit of 3 email accounts.');
+      if (!isSuperAdmin) {
+        const countQuery = 'SELECT COUNT(*) FROM agent_email_accounts WHERE agent_bubble_id = $1';
+        const countRes = await client.query(countQuery, [agentBubbleId]);
+        if (parseInt(countRes.rows[0].count) >= 3) {
+          throw new Error('You have reached the maximum limit of 3 email accounts.');
+        }
       }
 
       // 3. Check if taken
@@ -60,7 +62,7 @@ class EmailService {
     const response = await fetch(`https://ee-mail-production.up.railway.app/received-emails?domain=${fullEmail.split('@')[1]}&limit=${limit}&to=${fullEmail}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch received emails');
-    
+
     const emails = data.data || [];
     if (emails.length > 0) {
       // Sync is_read status from local DB
@@ -83,7 +85,7 @@ class EmailService {
     const response = await fetch(`https://ee-mail-production.up.railway.app/emails?domain=${fullEmail.split('@')[1]}&limit=${limit}&from=${fullEmail}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch sent emails');
-    
+
     return data.data || [];
   }
 
@@ -92,23 +94,23 @@ class EmailService {
     const response = await fetch(`https://ee-mail-production.up.railway.app/${endpoint}/${id}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch email details');
-    
+
     const email = data.data;
     if (email) {
-        // Map date field for frontend consistency
-        email.date = type === 'received' ? email.received_at : email.sent_at;
+      // Map date field for frontend consistency
+      email.date = type === 'received' ? email.received_at : email.sent_at;
 
-        if (type === 'received') {
-          // Sync is_read status from local DB
-          const { rows } = await pool.query('SELECT is_read FROM received_emails WHERE id = $1', [id]);
-          email.is_read = rows.length > 0 ? rows[0].is_read : false;
+      if (type === 'received') {
+        // Sync is_read status from local DB
+        const { rows } = await pool.query('SELECT is_read FROM received_emails WHERE id = $1', [id]);
+        email.is_read = rows.length > 0 ? rows[0].is_read : false;
 
-          // Automatically mark as read if it's currently unread
-          if (!email.is_read) {
-            await this.markAsRead(id);
-            email.is_read = true;
-          }
+        // Automatically mark as read if it's currently unread
+        if (!email.is_read) {
+          await this.markAsRead(id);
+          email.is_read = true;
         }
+      }
     }
     return email;
   }
@@ -128,18 +130,18 @@ class EmailService {
   async sendEmail({ from, to, subject, text, html, attachments }) {
     // Ensure domain is passed for the new API
     const domain = from.split('@')[1];
-    
+
     const response = await fetch('https://ee-mail-production.up.railway.app/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        from, 
-        to, 
-        subject, 
-        text, 
-        html, 
+      body: JSON.stringify({
+        from,
+        to,
+        subject,
+        text,
+        html,
         attachments,
-        domain 
+        domain
       })
     });
 

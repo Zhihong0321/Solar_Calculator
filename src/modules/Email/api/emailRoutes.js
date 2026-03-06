@@ -10,19 +10,20 @@ const resolveAgent = async (req, res, next) => {
   try {
     const userId = req.user.userId || req.user.id;
     const bubbleId = req.user.bubbleId || req.user.bubble_id;
-    
+
     if (!userId && !bubbleId) {
       return res.status(401).json({ error: 'Invalid session data' });
     }
 
-    const query = 'SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR (bubble_id = $2 AND bubble_id IS NOT NULL AND bubble_id != \'\') LIMIT 1';
+    const query = 'SELECT linked_agent_profile, access_level FROM "user" WHERE id::text = $1 OR (bubble_id = $2 AND bubble_id IS NOT NULL AND bubble_id != \'\') LIMIT 1';
     const { rows } = await pool.query(query, [String(userId || ''), String(bubbleId || '')]);
-    
+
     if (rows.length === 0 || !rows[0].linked_agent_profile) {
       return res.status(403).json({ error: 'No agent profile linked to this user.' });
     }
-    
+
     req.agentBubbleId = rows[0].linked_agent_profile;
+    req.userAccessLevel = rows[0].access_level || [];
     next();
   } catch (err) {
     console.error('Error resolving agent:', err);
@@ -50,7 +51,8 @@ router.get('/api/email/accounts', requireAuth, resolveAgent, async (req, res) =>
 router.post('/api/email/accounts', requireAuth, resolveAgent, async (req, res) => {
   const { prefix, domain } = req.body;
   try {
-    const account = await emailService.claimEmailAccount(req.agentBubbleId, prefix, domain);
+    const isSuperAdmin = (req.userAccessLevel || []).includes('superadmin');
+    const account = await emailService.claimEmailAccount(req.agentBubbleId, prefix, domain, isSuperAdmin);
     res.json({ success: true, account });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -112,17 +114,17 @@ router.get('/api/email/details/:id', requireAuth, resolveAgent, async (req, res)
     }
 
     const emailDetails = await emailService.getEmailDetails(id, type);
-    
+
     if (!emailDetails) {
-        return res.status(404).json({ error: 'Email not found.' });
+      return res.status(404).json({ error: 'Email not found.' });
     }
-    
+
     // Double check that the email matches the to/from address
     if (type === 'received' && emailDetails.to_email !== email) {
-        return res.status(403).json({ error: 'Email address mismatch.' });
+      return res.status(403).json({ error: 'Email address mismatch.' });
     }
     if (type === 'sent' && emailDetails.from_email !== email) {
-        return res.status(403).json({ error: 'Email address mismatch.' });
+      return res.status(403).json({ error: 'Email address mismatch.' });
     }
 
     res.json({ success: true, email: emailDetails });
