@@ -377,10 +377,14 @@
         </div>
     </div>
 
+    <script src="/js/utils/image_optimizer.js"></script>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const bubbleId = urlParams.get('id');
         let currentData = null;
+        const ROOF_IMAGE_TARGET_BYTES = 1.5 * 1024 * 1024;
+        const ROOF_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+        const PV_DRAWING_MAX_BYTES = 10 * 1024 * 1024;
 
         async function init() {
             if (!bubbleId) {
@@ -866,38 +870,146 @@
             }
         }
 
+        function isImageFile(file) {
+            return (file.type || '').startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name || '');
+        }
+
+        function isPdfFile(file) {
+            return (file.type || '').toLowerCase() === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+        }
+
+        function formatBytes(bytes) {
+            if (window.ImageOptimizer?.formatBytes) return window.ImageOptimizer.formatBytes(bytes);
+            if (!Number.isFinite(bytes)) return '0 B';
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+        }
+
+        async function dataUrlToFile(dataUrl, fileName, mimeType) {
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            return new File([blob], fileName, { type: mimeType || blob.type || 'application/octet-stream' });
+        }
+
+        function summarizeIssues(title, issues) {
+            if (!issues.length) return;
+            alert(`${title}\n\n${issues.join('\n')}`);
+        }
+
+        async function parseApiResponse(res) {
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const json = await res.json();
+                if (!res.ok || !json.success) {
+                    throw new Error(json.error || json.message || `Request failed (${res.status})`);
+                }
+                return json;
+            }
+
+            const text = (await res.text()).trim();
+            throw new Error(text || `Request failed (${res.status})`);
+        }
+
+        async function uploadFiles(endpoint, fieldName, files) {
+            const formData = new FormData();
+            files.forEach(file => formData.append(fieldName, file, file.name));
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                body: formData
+            });
+            return parseApiResponse(res);
+        }
+
+        async function prepareRoofUploadFiles(files) {
+            const readyFiles = [];
+            const issues = [];
+
+            for (const file of files) {
+                if (!isImageFile(file)) {
+                    issues.push(`${file.name}: images only.`);
+                    continue;
+                }
+
+                if (file.size > ROOF_IMAGE_MAX_BYTES) {
+                    issues.push(`${file.name}: exceeds ${formatBytes(ROOF_IMAGE_MAX_BYTES)}.`);
+                    continue;
+                }
+
+                if (file.size <= ROOF_IMAGE_TARGET_BYTES || !window.ImageOptimizer?.optimizeImageFile) {
+                    readyFiles.push(file);
+                    continue;
+                }
+
+                try {
+                    const optimized = await window.ImageOptimizer.optimizeImageFile(file, {
+                        maxDimension: 2560,
+                        outputType: 'image/webp',
+                        quality: 0.82,
+                        minQuality: 0.55,
+                        targetBytes: ROOF_IMAGE_TARGET_BYTES
+                    });
+
+                    if (optimized.sizeBytes > ROOF_IMAGE_MAX_BYTES) {
+                        issues.push(`${file.name}: optimized file is still too large (${formatBytes(optimized.sizeBytes)}).`);
+                        continue;
+                    }
+
+                    readyFiles.push(await dataUrlToFile(optimized.dataUrl, optimized.fileName, optimized.mimeType));
+                } catch (err) {
+                    console.error('[InvoiceOffice] Roof image optimization failed:', err);
+                    readyFiles.push(file);
+                }
+            }
+
+            return { readyFiles, issues };
+        }
+
+        function preparePvDrawingFiles(files) {
+            const readyFiles = [];
+            const issues = [];
+
+            for (const file of files) {
+                const supported = isImageFile(file) || isPdfFile(file);
+                if (!supported) {
+                    issues.push(`${file.name}: only images or PDF are allowed.`);
+                    continue;
+                }
+
+                if (file.size > PV_DRAWING_MAX_BYTES) {
+                    issues.push(`${file.name}: exceeds ${formatBytes(PV_DRAWING_MAX_BYTES)}.`);
+                    continue;
+                }
+
+                readyFiles.push(file);
+            }
+
+            return { readyFiles, issues };
+        }
+
         async function uploadRoofImages(input) {
             const files = Array.from(input.files);
             if (files.length === 0) return;
 
-            const imagesToUpload = [];
-            for (const file of files) {
-                if (file.size > 1.5 * 1024 * 1024) {
-                    alert(`Skipping ${file.name}: File exceeds 1.5MB limit.`);
-                    continue;
-                }
-                const base64 = await toBase64(file);
-                imagesToUpload.push({ name: file.name, data: base64 });
-            }
-
-            if (imagesToUpload.length === 0) return;
-
             document.getElementById('loadingOverlay').classList.remove('hidden');
             try {
-                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/roof-images`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ images: imagesToUpload })
-                });
-                const json = await res.json();
-                if (json.success) {
-                    await loadData();
-                } else {
-                    alert('Upload failed: ' + json.error);
+                const { readyFiles, issues } = await prepareRoofUploadFiles(files);
+                if (readyFiles.length === 0) {
+                    summarizeIssues('Roof image upload skipped.', issues.length ? issues : ['No valid roof images selected.']);
+                    return;
+                }
+
+                const result = await uploadFiles(`/api/v1/invoice-office/${bubbleId}/roof-images`, 'roofImages', readyFiles);
+                await loadData();
+
+                if (issues.length > 0) {
+                    summarizeIssues(`${result.message || 'Roof images uploaded.'}\n\nSome files were skipped:`, issues);
                 }
             } catch (err) {
-                alert('Upload failed.');
+                console.error('[InvoiceOffice] Roof image upload failed:', err);
+                alert(`Upload failed: ${err.message}`);
             } finally {
+                input.value = '';
                 document.getElementById('loadingOverlay').classList.add('hidden');
             }
         }
@@ -921,34 +1033,25 @@
             const files = Array.from(input.files);
             if (files.length === 0) return;
 
-            const drawingsToUpload = [];
-            for (const file of files) {
-                if (file.size > 5 * 1024 * 1024) {
-                    alert(`Skipping ${file.name}: File exceeds 5MB limit.`);
-                    continue;
-                }
-                const base64 = await toBase64(file);
-                drawingsToUpload.push({ name: file.name, data: base64 });
-            }
-
-            if (drawingsToUpload.length === 0) return;
-
             document.getElementById('loadingOverlay').classList.remove('hidden');
             try {
-                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/pv-system-drawings`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ drawings: drawingsToUpload })
-                });
-                const json = await res.json();
-                if (json.success) {
-                    await loadData();
-                } else {
-                    alert('Upload failed: ' + json.error);
+                const { readyFiles, issues } = preparePvDrawingFiles(files);
+                if (readyFiles.length === 0) {
+                    summarizeIssues('PV drawing upload skipped.', issues.length ? issues : ['No valid drawing files selected.']);
+                    return;
+                }
+
+                const result = await uploadFiles(`/api/v1/invoice-office/${bubbleId}/pv-system-drawings`, 'pvDrawings', readyFiles);
+                await loadData();
+
+                if (issues.length > 0) {
+                    summarizeIssues(`${result.message || 'PV drawings uploaded.'}\n\nSome files were skipped:`, issues);
                 }
             } catch (err) {
-                alert('Upload failed.');
+                console.error('[InvoiceOffice] PV drawing upload failed:', err);
+                alert(`Upload failed: ${err.message}`);
             } finally {
+                input.value = '';
                 document.getElementById('loadingOverlay').classList.add('hidden');
             }
         }
@@ -1030,15 +1133,6 @@
         // --- Helpers ---
         function formatCurrency(v) { return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(v || 0); }
         function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
-        function toBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', init);
     </script>
     <script src="/js/navigation.js"></script>
