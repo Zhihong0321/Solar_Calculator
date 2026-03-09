@@ -13,6 +13,8 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 let currentSimulationParams = null;
 let currentPanelQuantity = null;
 let currentPackageData = null;
+const COMMERCIAL_PACKAGE_TYPE = 'Tariff B&D Low Voltage';
+const DEFAULT_COMMERCIAL_PANEL_RATING = 620;
 
 // Hourly Solar Generation Map (Percentage of daily yield)
 const HOURLY_SOLAR_MAP = {
@@ -30,6 +32,17 @@ window.onload = function () {
     initializeData();
     initWorkingHoursUI();
 };
+
+function parsePanelRating(value) {
+    const panelRating = parseInt(value, 10);
+    return Number.isFinite(panelRating) ? panelRating : DEFAULT_COMMERCIAL_PANEL_RATING;
+}
+
+function findClosestCommercialPackage(panelQty, panelRating) {
+    return db.packages
+        .filter(p => p.type === COMMERCIAL_PACKAGE_TYPE && p.solar_output_rating === panelRating)
+        .sort((a, b) => Math.abs(a.panel_qty - panelQty) - Math.abs(b.panel_qty - panelQty) || a.price - b.price)[0] || null;
+}
 
 async function initializeData() {
     console.log('[initializeData] Starting fetch...');
@@ -227,7 +240,8 @@ async function calculateSolarSavings(panelQty, params) {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'non-domestic.js:187', message: 'calculateSolarSavings entry', data: { panelQty: panelQty, matchedBillDataExists: !!matchedBillData, matchedBillData: matchedBillData, hasTotalBill: !!matchedBillData?.total_bill, matchedBillDataKeys: matchedBillData ? Object.keys(matchedBillData) : null }, timestamp: Date.now(), runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
-    const { sunPeak, panelRating, baseLoadPct, smpPrice, totalMonthlyKwh } = params;
+    const { sunPeak, baseLoadPct, smpPrice, totalMonthlyKwh } = params;
+    const panelRating = parsePanelRating(params.panelRating);
 
     let weeklyWorkingHours = 0;
     DAYS.forEach(day => {
@@ -334,10 +348,9 @@ async function calculateSolarSavings(panelQty, params) {
     const exportEarnings = monthlyExportKwh * smpPrice;
     const totalMonthlySavings = billSaving + exportEarnings;
 
-    // Find closest package for this panel quantity
-    let pkg = db.packages
-        .filter(p => (p.type === 'Tariff B&D Low Voltage'))
-        .sort((a, b) => Math.abs(a.panel_qty - panelQty) - Math.abs(b.panel_qty - panelQty) || a.price - b.price)[0];
+    // Match commercial packages by both panel quantity and selected panel rating.
+    let pkg = findClosestCommercialPackage(panelQty, panelRating);
+    currentPackageData = pkg;
 
     // Calculate system cost - interpolate if no exact package match
     let systemCost;
@@ -382,7 +395,7 @@ async function executeFullAnalysis() {
     }
 
     const sunPeak = parseFloat(document.getElementById('sunPeakHour').value);
-    const panelRating = parseInt(document.getElementById('panelRating').value);
+    const panelRating = parsePanelRating(document.getElementById('panelRating').value);
     const baseLoadPct = parseFloat(document.getElementById('baseLoadPercent').value) / 100;
     const smpPrice = parseFloat(document.getElementById('smpPrice').value);
 
@@ -398,10 +411,8 @@ async function executeFullAnalysis() {
     const recommendedKw = (targetMonthlyGen / 30 / sunPeakStandard);
     let recommendedPanels = Math.max(1, Math.ceil((recommendedKw * 1000) / panelRating));
 
-    // Find closest package for initial calculation
-    let pkg = db.packages
-        .filter(p => (p.type === 'Tariff B&D Low Voltage'))
-        .sort((a, b) => Math.abs(a.panel_qty - recommendedPanels) - Math.abs(b.panel_qty - recommendedPanels) || a.price - b.price)[0];
+    // Use only commercial packages that match the selected panel rating.
+    let pkg = findClosestCommercialPackage(recommendedPanels, panelRating);
 
     // Use package panel quantity or recommended
     const initialPanels = pkg ? pkg.panel_qty : recommendedPanels;
