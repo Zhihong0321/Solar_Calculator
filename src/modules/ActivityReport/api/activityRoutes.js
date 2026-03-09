@@ -106,6 +106,51 @@ router.get('/api/activity/my-reports', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/activity/agent-reports
+ * Get a selected agent's activity reports for manager drilldown
+ */
+router.get('/api/activity/agent-reports', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const { agentId, limit, offset, startDate, endDate, activityType } = req.query;
+
+    if (!agentId) {
+      return res.status(400).json({ success: false, error: 'agentId is required' });
+    }
+
+    client = await pool.connect();
+
+    const agentResult = await client.query(
+      `SELECT DISTINCT bubble_id, linked_agent_profile
+       FROM "user"
+       WHERE bubble_id = $1
+          OR linked_agent_profile = $1`,
+      [String(agentId)]
+    );
+
+    const identifiers = new Set([String(agentId)]);
+    agentResult.rows.forEach(({ bubble_id, linked_agent_profile }) => {
+      if (bubble_id) identifiers.add(bubble_id);
+      if (linked_agent_profile) identifiers.add(linked_agent_profile);
+    });
+
+    const result = await activityRepo.getActivitiesByAgent(client, Array.from(identifiers), {
+      limit, offset, startDate, endDate, activityType
+    });
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (err) {
+    console.error('Error fetching selected agent reports:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * GET /api/activity/:id
  * Get single activity by ID
  */

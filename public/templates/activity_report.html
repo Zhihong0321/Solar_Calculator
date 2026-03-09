@@ -336,8 +336,8 @@
                     });
 
                     const [dailyRes, weeklyRes] = await Promise.all([
-                        fetch(`/api/activity/all-reports?${dailyParams.toString()}`),
-                        fetch(`/api/activity/all-reports?${weeklyParams.toString()}`)
+                        fetch(`/api/activity/agent-reports?${dailyParams.toString()}`),
+                        fetch(`/api/activity/agent-reports?${weeklyParams.toString()}`)
                     ]);
 
                     const daily = await dailyRes.json();
@@ -388,7 +388,7 @@
                 const params = new URLSearchParams();
                 const type = document.getElementById('filterActivityType').value;
                 const date = document.getElementById('filterDate').value;
-                const endpoint = isAgentViewerMode ? '/api/activity/all-reports' : '/api/activity/my-reports';
+                const endpoint = isAgentViewerMode ? '/api/activity/agent-reports' : '/api/activity/my-reports';
                 if (type) params.append('activityType', type);
                 if (date) params.append('startDate', date);
                 if (date) params.append('endDate', date);
