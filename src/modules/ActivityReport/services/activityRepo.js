@@ -372,10 +372,17 @@ async function getWeeklyFocus(client, agentIdentifiers, startDate, endDate, curr
          i.invoice_number,
          COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), 'Unknown Customer') as customer_name,
          COALESCE(i.invoice_date, i.created_at) as quotation_date,
+         COALESCE(pkg.panel_qty, i.panel_qty) as panel_qty,
+         CASE
+           WHEN COALESCE(pkg.type, i.package_type) = 'Residential' THEN 'Residential'
+           WHEN COALESCE(pkg.type, i.package_type) IS NOT NULL THEN 'Commercial'
+           ELSE 'Unknown'
+         END as package_type_label,
          i.total_amount,
          i.status
        FROM invoice i
        LEFT JOIN customer c ON c.customer_id = i.linked_customer
+       LEFT JOIN package pkg ON pkg.bubble_id = i.linked_package
        WHERE i.is_latest = true
          AND (i.status IS NULL OR i.status != 'deleted')
          AND (i.linked_agent = ANY($1) OR i.created_by = ANY($1))

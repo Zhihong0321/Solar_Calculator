@@ -462,6 +462,10 @@
                         </div>
                         <p class="text-[11px] font-semibold text-slate-500">${formatDate(quotation.quotation_date)}</p>
                     </div>
+                    <div class="flex flex-wrap gap-2 text-[10px]">
+                        <span class="px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-bold uppercase tracking-wider">${escapeHtml(quotation.package_type_label || 'Unknown')}</span>
+                        <span class="px-2 py-1 rounded-full bg-blue-50 text-blue-700 font-bold uppercase tracking-wider">${escapeHtml(quotation.panel_qty || 0)} Panels</span>
+                    </div>
                     <div class="flex items-center justify-between gap-3 text-xs">
                         <span class="text-slate-500 uppercase tracking-wider">${escapeHtml(quotation.status || 'draft')}</span>
                         <span class="font-bold text-slate-900">RM ${formatMoney(quotation.total_amount)}</span>
