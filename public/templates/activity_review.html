@@ -225,7 +225,11 @@
             container.innerHTML = `
                 <div class="grid gap-2">
                     ${teamStats.slice(0, 10).map((agent, i) => `
-                        <div class="flex items-center gap-4 p-3 ${i < 3 ? 'bg-amber-50 border border-amber-200 rounded-lg' : 'bg-slate-50 rounded-lg'}">
+                        <button
+                            type="button"
+                            onclick="openAgentReport('${agent.bubble_id}', '${escapeHtml(agent.agent_name || 'Unknown')}')"
+                            class="w-full text-left flex items-center gap-4 p-3 ${i < 3 ? 'bg-amber-50 border border-amber-200 rounded-lg' : 'bg-slate-50 rounded-lg'} hover:ring-2 hover:ring-brand-blue/20 transition"
+                        >
                             <div class="w-8 h-8 rounded-full ${i === 0 ? 'bg-yellow-400' : i === 1 ? 'bg-slate-300' : i === 2 ? 'bg-amber-600' : 'bg-slate-200'} flex items-center justify-center text-white font-bold text-sm">
                                 ${i + 1}
                             </div>
@@ -237,7 +241,7 @@
                                 <p class="text-lg font-black ${i === 0 ? 'text-yellow-600' : 'text-slate-900'}">${agent.total_points || 0}</p>
                                 <p class="text-[10px] text-slate-400">points</p>
                             </div>
-                        </div>
+                        </button>
                     `).join('')}
                 </div>
             `;
@@ -253,7 +257,11 @@
             tbody.innerHTML = allActivities.map(a => `
                 <tr class="hover:bg-slate-50">
                     <td class="px-4 py-3 text-slate-900">${formatDate(a.report_date)}</td>
-                    <td class="px-4 py-3 text-slate-900 font-medium">${a.agent_name || '-'}</td>
+                    <td class="px-4 py-3 text-slate-900 font-medium">
+                        ${a.agent_name
+                            ? `<button type="button" onclick="openAgentReport('${a.linked_user || a.created_by}', '${escapeHtml(a.agent_name)}')" class="text-brand-blue hover:underline font-medium">${a.agent_name}</button>`
+                            : '-'}
+                    </td>
                     <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
                             ${a.activity_type || '-'}
@@ -300,6 +308,24 @@
             link.href = URL.createObjectURL(blob);
             link.download = `activity_report_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
+        }
+
+        function openAgentReport(agentId, agentName) {
+            if (!agentId) return;
+            const params = new URLSearchParams({
+                agentId,
+                agentName
+            });
+            window.location.href = `/activity-report?${params.toString()}`;
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         async function logout() {

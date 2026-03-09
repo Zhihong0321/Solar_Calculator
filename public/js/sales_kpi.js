@@ -39,6 +39,24 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
+function openAgentReport(agentId, agentName) {
+    if (!agentId) return;
+    const params = new URLSearchParams({
+        agentId,
+        agentName: agentName || 'Selected Agent'
+    });
+    window.location.href = `/activity-report?${params.toString()}`;
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 async function loadData(startDate, endDate) {
     try {
         let url = '/api/kpi/overview';
@@ -77,20 +95,22 @@ function renderDashboard(data) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem;">No data available for this period.</td></tr>';
     } else {
         tbody.innerHTML = agentRanking.map((agent, index) => `
-            <tr>
-                <td><div class="rank-badge rank-${index + 1}">${index + 1}</div></td>
-                <td>
+            <tr class="clickable-row" onclick="openAgentReport('${agent.bubble_id}', '${escapeHtml(agent.agent_name)}')">
+                <td class="rank-col" data-label="Rank">
+                    <div class="rank-badge rank-${index + 1}">${index + 1}</div>
+                </td>
+                <td class="agent-col" data-label="Agent">
                     <div class="agent-cell">
                         <img src="${agent.profile_picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(agent.agent_name || 'U') + '&background=e2e8f0&color=64748b'}" class="avatar">
-                        <div>
-                            <div style="font-weight: 600;">${agent.agent_name}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">${agent.contact || ''}</div>
+                        <div class="agent-meta">
+                            <div class="agent-name">${agent.agent_name}</div>
+                            <div class="agent-contact">${agent.contact || ''}</div>
                         </div>
                     </div>
                 </td>
-                <td style="font-weight: 700; color: var(--accent);">${agent.total_points}</td>
-                <td>${agent.total_activities}</td>
-                <td>${agent.close_cases}</td>
+                <td data-label="Points" style="font-weight: 700; color: var(--accent);">${agent.total_points}</td>
+                <td data-label="Activities">${agent.total_activities}</td>
+                <td data-label="Closed">${agent.close_cases}</td>
             </tr>
         `).join('');
     }
@@ -128,14 +148,14 @@ function renderDashboard(data) {
     const topPerformersContainer = document.getElementById('topPerformersList');
     if (agentRanking.length > 0) {
         topPerformersContainer.innerHTML = agentRanking.slice(0, 3).map((agent, index) => `
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: #f1f5f9; border-radius: 0.5rem;">
+            <button type="button" onclick="openAgentReport('${agent.bubble_id}', '${escapeHtml(agent.agent_name)}')" style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: #f1f5f9; border-radius: 0.5rem; border: none; width: 100%; text-align: left; cursor: pointer;">
                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                     <div class="rank-badge rank-${index + 1}">${index + 1}</div>
                     <img src="${agent.profile_picture || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(agent.agent_name || 'U') + '&background=e2e8f0&color=64748b'}" class="avatar">
                     <span style="font-weight: 600;">${agent.agent_name}</span>
                 </div>
                 <span style="font-weight: 700;">${agent.total_points} pts</span>
-            </div>
+            </button>
         `).join('');
     } else {
         topPerformersContainer.innerHTML = '<p style="text-align:center; color: var(--text-muted);">No top performers yet.</p>';

@@ -130,17 +130,17 @@
             <!-- Header -->
             <section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Activity Report</h1>
-                    <p class="text-slate-500 font-medium mt-1">Track your daily activities and KPI points</p>
+                    <h1 id="pageTitle" class="text-2xl font-extrabold text-slate-900 tracking-tight">Activity Report</h1>
+                    <p id="pageSubtitle" class="text-slate-500 font-medium mt-1">Track your daily activities and KPI points</p>
                 </div>
-                <button onclick="openSubmitModal()"
+                <button id="submitActivityButton" onclick="openSubmitModal()"
                     class="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2 text-sm">
                     <i class="fa-solid fa-plus text-xs"></i> Submit Activity
                 </button>
             </section>
 
             <!-- Stats Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div id="statsSection" class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="bg-white rounded-xl p-5 border border-slate-200">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Today's Points</p>
                     <h3 id="todayPoints" class="text-3xl font-black text-slate-900 mt-1">0</h3>
@@ -245,13 +245,27 @@
     <script>
         let activityConfig = { activityTypes: [], followUpSubtypes: [] };
         let editMode = { active: false, id: null };
+        const pageParams = new URLSearchParams(window.location.search);
+        const selectedAgentId = pageParams.get('agentId') || '';
+        const selectedAgentName = pageParams.get('agentName') || '';
+        const isAgentViewerMode = Boolean(selectedAgentId);
 
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('activityDate').valueAsDate = new Date();
             // document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
+            configurePageMode();
             await Promise.all([loadConfig(), loadStats(), loadActivities()]);
         });
+
+        function configurePageMode() {
+            if (!isAgentViewerMode) return;
+
+            const agentLabel = selectedAgentName || 'Selected Agent';
+            document.getElementById('pageTitle').textContent = `${agentLabel} Activity Report`;
+            document.getElementById('pageSubtitle').textContent = 'Viewing agent activity from team review';
+            document.getElementById('submitActivityButton').classList.add('hidden');
+        }
 
         async function loadConfig() {
             try {
@@ -297,6 +311,52 @@
 
         async function loadStats() {
             try {
+                if (isAgentViewerMode) {
+                    const today = new Date();
+                    const todayStr = today.toISOString().split('T')[0];
+                    const dayOfWeek = today.getDay();
+                    const weekStart = new Date(today);
+                    weekStart.setDate(today.getDate() - dayOfWeek);
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekStart.getDate() + 6);
+                    const weekStartStr = weekStart.toISOString().split('T')[0];
+                    const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+                    const dailyParams = new URLSearchParams({
+                        agentId: selectedAgentId,
+                        startDate: todayStr,
+                        endDate: todayStr,
+                        limit: '500'
+                    });
+                    const weeklyParams = new URLSearchParams({
+                        agentId: selectedAgentId,
+                        startDate: weekStartStr,
+                        endDate: weekEndStr,
+                        limit: '500'
+                    });
+
+                    const [dailyRes, weeklyRes] = await Promise.all([
+                        fetch(`/api/activity/all-reports?${dailyParams.toString()}`),
+                        fetch(`/api/activity/all-reports?${weeklyParams.toString()}`)
+                    ]);
+
+                    const daily = await dailyRes.json();
+                    const weekly = await weeklyRes.json();
+
+                    if (daily.success) {
+                        const todayActivities = daily.data.activities || [];
+                        document.getElementById('todayPoints').textContent = sumPoints(todayActivities);
+                        document.getElementById('todayActivities').textContent = todayActivities.length;
+                    }
+
+                    if (weekly.success) {
+                        const weekActivities = weekly.data.activities || [];
+                        document.getElementById('weekPoints').textContent = sumPoints(weekActivities);
+                        document.getElementById('weekActivities').textContent = weekActivities.length;
+                    }
+                    return;
+                }
+
                 const today = new Date().toISOString().split('T')[0];
                 const [dailyRes, weeklyRes] = await Promise.all([
                     fetch(`/api/activity/stats/daily?date=${today}`),
@@ -316,6 +376,10 @@
             } catch (e) { console.error('Load stats error:', e); }
         }
 
+        function sumPoints(activities) {
+            return activities.reduce((sum, activity) => sum + Number(activity.report_point || 0), 0);
+        }
+
         async function loadActivities() {
             const list = document.getElementById('activityList');
             list.innerHTML = '<div class="p-8 text-center text-slate-400 text-sm">Loading...</div>';
@@ -324,11 +388,16 @@
                 const params = new URLSearchParams();
                 const type = document.getElementById('filterActivityType').value;
                 const date = document.getElementById('filterDate').value;
+                const endpoint = isAgentViewerMode ? '/api/activity/all-reports' : '/api/activity/my-reports';
                 if (type) params.append('activityType', type);
                 if (date) params.append('startDate', date);
                 if (date) params.append('endDate', date);
+                if (isAgentViewerMode) {
+                    params.append('agentId', selectedAgentId);
+                    params.append('limit', '500');
+                }
 
-                const res = await fetch(`/api/activity/my-reports?${params.toString()}`);
+                const res = await fetch(`${endpoint}?${params.toString()}`);
                 const data = await res.json();
 
                 if (data.success && data.data.activities.length > 0) {
@@ -345,8 +414,10 @@
                                 <p class="text-xs text-slate-500 mt-0.5 truncate">${a.remark || 'No description'}</p>
                                 <p class="text-[10px] text-slate-400 mt-1">${formatDate(a.report_date)}</p>
                             </div>
-                            <button onclick="editActivityFromRow(this.parentElement)" class="text-slate-400 hover:text-blue-500 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
-                            <button onclick="deleteActivity(${a.id})" class="text-slate-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
+                            ${isAgentViewerMode ? '' : `
+                                <button onclick="editActivityFromRow(this.parentElement)" class="text-slate-400 hover:text-blue-500 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
+                                <button onclick="deleteActivity(${a.id})" class="text-slate-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
+                            `}
                         </div>
                     `).join('');
                 } else {
