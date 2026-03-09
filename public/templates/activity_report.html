@@ -221,6 +221,29 @@
                 </div>
             </section>
 
+            <!-- Daily Report Feed -->
+            <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div class="p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900">Daily Report</h2>
+                        <p class="text-xs text-slate-500 mt-1">Latest activity first, 14 items at a time.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="filterActivityType" onchange="loadActivities(true)"
+                            class="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+                            <option value="">All Types</option>
+                        </select>
+                        <input type="date" id="filterDate" onchange="loadActivities(true)"
+                            class="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
+                    </div>
+                </div>
+                <div id="activityList" class="divide-y divide-slate-100">
+                    <div class="p-8 text-center text-slate-400 text-sm">Loading...</div>
+                </div>
+                <div id="activityFeedStatus" class="p-4 text-center text-xs text-slate-400 hidden">Loading more...</div>
+                <div id="activityFeedSentinel" class="h-1"></div>
+            </section>
+
             <!-- Stats Cards -->
             <div id="statsSection" class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="bg-white rounded-xl p-5 border border-slate-200">
@@ -241,23 +264,6 @@
                 </div>
             </div>
 
-            <!-- Activity History -->
-            <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div class="p-5 border-b border-slate-200 flex items-center justify-between">
-                    <h2 class="text-sm font-bold text-slate-900">Activity History</h2>
-                    <div class="flex gap-2">
-                        <select id="filterActivityType" onchange="loadActivities()"
-                            class="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
-                            <option value="">All Types</option>
-                        </select>
-                        <input type="date" id="filterDate" onchange="loadActivities()"
-                            class="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white">
-                    </div>
-                </div>
-                <div id="activityList" class="divide-y divide-slate-100">
-                    <div class="p-8 text-center text-slate-400 text-sm">Loading...</div>
-                </div>
-            </section>
         </div>
 
         <!-- Mobile Nav -->
@@ -327,6 +333,11 @@
     <script>
         let activityConfig = { activityTypes: [], followUpSubtypes: [] };
         let editMode = { active: false, id: null };
+        const ACTIVITY_PAGE_SIZE = 14;
+        let activityOffset = 0;
+        let activityHasMore = true;
+        let activityLoading = false;
+        let activityObserver = null;
         const pageParams = new URLSearchParams(window.location.search);
         const selectedAgentId = pageParams.get('agentId') || '';
         const selectedAgentName = pageParams.get('agentName') || '';
@@ -337,6 +348,7 @@
             document.getElementById('activityDate').valueAsDate = new Date();
             // document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
             configurePageMode();
+            setupActivityInfiniteScroll();
             await Promise.all([loadConfig(), loadWeeklyFocus(), loadStats(), loadActivities()]);
         });
 
@@ -600,51 +612,152 @@
             return activities.reduce((sum, activity) => sum + Number(activity.report_point || 0), 0);
         }
 
-        async function loadActivities() {
+        function setupActivityInfiniteScroll() {
+            const sentinel = document.getElementById('activityFeedSentinel');
+            if (!sentinel || activityObserver) return;
+
+            activityObserver = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && activityHasMore && !activityLoading) {
+                        loadActivities(false);
+                    }
+                });
+            }, {
+                rootMargin: '200px 0px'
+            });
+
+            activityObserver.observe(sentinel);
+        }
+
+        function getActivityDateKey(reportDate) {
+            if (!reportDate) return 'unknown';
+            if (typeof reportDate === 'string' && reportDate.includes('T')) {
+                return reportDate.split('T')[0];
+            }
+            return String(reportDate).slice(0, 10);
+        }
+
+        function getLastRenderedActivityDateKey() {
             const list = document.getElementById('activityList');
-            list.innerHTML = '<div class="p-8 text-center text-slate-400 text-sm">Loading...</div>';
+            const items = list.querySelectorAll('[data-report-date-key]');
+            if (!items.length) return null;
+            return items[items.length - 1].dataset.reportDateKey || null;
+        }
+
+        function buildActivityMarkup(activities, previousDateKey = null) {
+            let lastDateKey = previousDateKey;
+
+            return activities.map(a => {
+                const dateKey = getActivityDateKey(a.report_date);
+                const dateHeader = dateKey !== lastDateKey
+                    ? `
+                        <div class="px-4 py-3 bg-slate-50/80 border-y border-slate-100">
+                            <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">${formatDate(a.report_date)}</p>
+                        </div>
+                    `
+                    : '';
+
+                lastDateKey = dateKey;
+
+                return `
+                    ${dateHeader}
+                    <div class="p-4 hover:bg-slate-50 flex items-start gap-4" data-id="${a.id}" data-type="${a.activity_type || ''}" data-subtype="${a.follow_up_subtype || ''}" data-remark="${(a.remark || '').replace(/"/g, '&quot;')}" data-date="${a.report_date ? a.report_date.split('T')[0] : ''}" data-report-date-key="${dateKey}">
+                        <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                            <span class="text-sm font-bold text-slate-600">${a.report_point || 0}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-bold text-slate-900">${a.activity_type || 'Unknown'}</span>
+                                ${a.follow_up_subtype ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">${a.follow_up_subtype}</span>` : ''}
+                            </div>
+                            <p class="text-xs text-slate-500 mt-0.5 truncate">${a.remark || 'No description'}</p>
+                        </div>
+                        ${isAgentViewerMode ? '' : `
+                            <button onclick="editActivityFromRow(this.parentElement)" class="text-slate-400 hover:text-blue-500 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <button onclick="deleteActivity(${a.id})" class="text-slate-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
+                        `}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderActivities(activities, append = false) {
+            const list = document.getElementById('activityList');
+            const markup = buildActivityMarkup(
+                activities,
+                append ? getLastRenderedActivityDateKey() : null
+            );
+
+            if (append) {
+                list.insertAdjacentHTML('beforeend', markup);
+                return;
+            }
+
+            list.innerHTML = markup;
+        }
+
+        function updateActivityFeedStatus(message = '', hidden = true) {
+            const status = document.getElementById('activityFeedStatus');
+            status.textContent = message;
+            status.classList.toggle('hidden', hidden);
+        }
+
+        async function loadActivities(reset = true) {
+            const list = document.getElementById('activityList');
+            if (activityLoading) return;
+
+            if (reset) {
+                activityOffset = 0;
+                activityHasMore = true;
+                list.innerHTML = '<div class="p-8 text-center text-slate-400 text-sm">Loading...</div>';
+            } else if (!activityHasMore) {
+                return;
+            }
+
+            activityLoading = true;
+            updateActivityFeedStatus('Loading more...', !activityHasMore && reset);
 
             try {
                 const params = new URLSearchParams();
                 const type = document.getElementById('filterActivityType').value;
                 const date = document.getElementById('filterDate').value;
                 const endpoint = isAgentViewerMode ? '/api/activity/agent-reports' : '/api/activity/my-reports';
+
                 if (type) params.append('activityType', type);
                 if (date) params.append('startDate', date);
                 if (date) params.append('endDate', date);
+                params.append('limit', String(ACTIVITY_PAGE_SIZE));
+                params.append('offset', String(activityOffset));
                 if (isAgentViewerMode) {
                     params.append('agentId', selectedAgentId);
-                    params.append('limit', '500');
                 }
 
                 const res = await fetch(`${endpoint}?${params.toString()}`);
                 const data = await res.json();
 
-                if (data.success && data.data.activities.length > 0) {
-                    list.innerHTML = data.data.activities.map(a => `
-                        <div class="p-4 hover:bg-slate-50 flex items-start gap-4" data-id="${a.id}" data-type="${a.activity_type || ''}" data-subtype="${a.follow_up_subtype || ''}" data-remark="${(a.remark || '').replace(/"/g, '&quot;')}" data-date="${a.report_date ? a.report_date.split('T')[0] : ''}">
-                            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                                <span class="text-sm font-bold text-slate-600">${a.report_point || 0}</span>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-sm font-bold text-slate-900">${a.activity_type || 'Unknown'}</span>
-                                    ${a.follow_up_subtype ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">${a.follow_up_subtype}</span>` : ''}
-                                </div>
-                                <p class="text-xs text-slate-500 mt-0.5 truncate">${a.remark || 'No description'}</p>
-                                <p class="text-[10px] text-slate-400 mt-1">${formatDate(a.report_date)}</p>
-                            </div>
-                            ${isAgentViewerMode ? '' : `
-                                <button onclick="editActivityFromRow(this.parentElement)" class="text-slate-400 hover:text-blue-500 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
-                                <button onclick="deleteActivity(${a.id})" class="text-slate-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
-                            `}
-                        </div>
-                    `).join('');
-                } else {
+                const activities = data.success ? (data.data.activities || []) : [];
+                const total = data.success ? Number(data.data.total || 0) : 0;
+
+                if (activities.length > 0) {
+                    renderActivities(activities, !reset);
+                    activityOffset += activities.length;
+                    activityHasMore = activityOffset < total;
+                    updateActivityFeedStatus(activityHasMore ? 'Scroll down to load more' : 'All reports loaded', false);
+                } else if (reset) {
                     list.innerHTML = '<div class="p-8 text-center text-slate-400 text-sm">No activities found</div>';
+                    activityHasMore = false;
+                    updateActivityFeedStatus('', true);
+                } else {
+                    activityHasMore = false;
+                    updateActivityFeedStatus('All reports loaded', false);
                 }
             } catch (e) {
-                list.innerHTML = '<div class="p-8 text-center text-red-500 text-sm">Error loading activities</div>';
+                if (reset) {
+                    list.innerHTML = '<div class="p-8 text-center text-red-500 text-sm">Error loading activities</div>';
+                }
+                updateActivityFeedStatus('Failed to load more reports', false);
+            } finally {
+                activityLoading = false;
             }
         }
 
@@ -729,7 +842,7 @@
                     alert(data.message || (editMode.active ? 'Activity updated!' : 'Activity submitted!'));
                     closeSubmitModal();
                     loadStats();
-                    loadActivities();
+                    loadActivities(true);
                 } else {
                     alert(data.error || 'Failed to submit');
                 }
@@ -745,7 +858,7 @@
                 const data = await res.json();
                 if (data.success) {
                     loadStats();
-                    loadActivities();
+                    loadActivities(true);
                 } else {
                     alert(data.error || 'Failed to delete');
                 }

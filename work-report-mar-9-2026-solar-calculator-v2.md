@@ -10,5 +10,8 @@ REPO NAME : Solar Calculator v2
 - Strengthened autonomous reporting rules and created a reusable AGENTS template for other repos.
 - Added package type and panel quantity to the weekly quotation list for manager review.
 - Prepared a portable publishable version of the work-report-updater skill and verified it with the skills CLI.
+- Published the portable work-report-updater skill to GitHub and verified installability.
+- Moved the daily report feed under weekly focus and added infinite scroll with 14 items per load.
+- Grouped the activity report feed by report date while keeping infinite scroll and latest-first ordering.
 
 =====================
