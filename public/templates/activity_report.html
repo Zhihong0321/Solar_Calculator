@@ -139,6 +139,88 @@
                 </button>
             </section>
 
+            <!-- Last Week Focus -->
+            <section class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div class="p-5 md:p-6 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-sm font-black uppercase tracking-[0.2em] text-slate-900">Last Week Focus</h2>
+                        <p class="text-sm text-slate-500 mt-1">Weekly point, new lead, quotation, and newly closed deal summary.</p>
+                    </div>
+                    <div id="lastWeekRangeLabel" class="text-xs font-bold uppercase tracking-widest text-slate-400">Loading...</div>
+                </div>
+                <div class="p-5 md:p-6 space-y-6">
+                    <div class="rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-slate-900 text-white p-5 md:p-6 shadow-lg">
+                        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-[0.28em] text-white/70">Current Month Sales Revenue</p>
+                                <div class="mt-3 flex items-end gap-3">
+                                    <h3 id="currentMonthSalesRevenue" class="text-3xl md:text-5xl font-black leading-none">RM 0.00</h3>
+                                </div>
+                                <p id="currentMonthSalesMeta" class="mt-3 text-xs md:text-sm text-white/75">0 sales closed this month</p>
+                            </div>
+                            <div id="currentMonthSalesRange" class="text-xs font-bold uppercase tracking-[0.2em] text-white/70">Loading...</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="rounded-2xl bg-slate-950 text-white p-5">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400">Weekly Point</p>
+                            <div class="mt-3 flex items-end gap-3">
+                                <h3 id="weeklyFocusPoints" class="text-4xl font-black leading-none">0</h3>
+                                <p class="text-xs text-slate-400 pb-1">points</p>
+                            </div>
+                            <p id="weeklyFocusActivities" class="mt-3 text-xs text-slate-400">0 recorded activities</p>
+                        </div>
+                        <div class="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                            <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400">Weekly Summary</p>
+                            <div class="mt-4 grid grid-cols-3 gap-4">
+                                <div>
+                                    <p class="text-2xl font-black text-slate-900" id="weeklyNewLeadCount">0</p>
+                                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">New Leads</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-black text-slate-900" id="weeklyQuotationCount">0</p>
+                                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Quotations</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-black text-slate-900" id="weeklyClosedDealCount">0</p>
+                                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Closed Deals</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+                        <section class="rounded-2xl border border-slate-200 overflow-hidden">
+                            <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
+                                <h3 class="text-xs font-black uppercase tracking-[0.18em] text-slate-900">Weekly New Lead</h3>
+                            </div>
+                            <div id="weeklyNewLeadList" class="divide-y divide-slate-100">
+                                <div class="p-4 text-sm text-slate-400">Loading...</div>
+                            </div>
+                        </section>
+
+                        <section class="rounded-2xl border border-slate-200 overflow-hidden">
+                            <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
+                                <h3 class="text-xs font-black uppercase tracking-[0.18em] text-slate-900">Weekly Quotation</h3>
+                            </div>
+                            <div id="weeklyQuotationList" class="divide-y divide-slate-100">
+                                <div class="p-4 text-sm text-slate-400">Loading...</div>
+                            </div>
+                        </section>
+
+                        <section class="rounded-2xl border border-slate-200 overflow-hidden">
+                            <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
+                                <h3 class="text-xs font-black uppercase tracking-[0.18em] text-slate-900">Weekly New Closed Deal</h3>
+                            </div>
+                            <div id="weeklyClosedDealList" class="divide-y divide-slate-100">
+                                <div class="p-4 text-sm text-slate-400">Loading...</div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </section>
+
             <!-- Stats Cards -->
             <div id="statsSection" class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="bg-white rounded-xl p-5 border border-slate-200">
@@ -255,7 +337,7 @@
             document.getElementById('activityDate').valueAsDate = new Date();
             // document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
             configurePageMode();
-            await Promise.all([loadConfig(), loadStats(), loadActivities()]);
+            await Promise.all([loadConfig(), loadWeeklyFocus(), loadStats(), loadActivities()]);
         });
 
         function configurePageMode() {
@@ -276,6 +358,140 @@
                     populateDropdowns();
                 }
             } catch (e) { console.error('Load config error:', e); }
+        }
+
+        async function loadWeeklyFocus() {
+            try {
+                const params = new URLSearchParams();
+                if (isAgentViewerMode) params.append('agentId', selectedAgentId);
+
+                const res = await fetch(`/api/activity/focus/weekly?${params.toString()}`);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load weekly focus');
+                }
+
+                const focus = data.data;
+                document.getElementById('lastWeekRangeLabel').textContent = `${formatDate(focus.weekStart)} - ${formatDate(focus.weekEnd)}`;
+                document.getElementById('weeklyFocusPoints').textContent = focus.summary?.totalPoints || 0;
+                document.getElementById('weeklyFocusActivities').textContent = `${focus.summary?.totalActivities || 0} recorded activities`;
+                document.getElementById('currentMonthSalesRevenue').textContent = `RM ${formatMoney(focus.currentMonthSales?.totalRevenue || 0)}`;
+                document.getElementById('currentMonthSalesMeta').textContent = `${focus.currentMonthSales?.totalSales || 0} sales closed this month`;
+                document.getElementById('currentMonthSalesRange').textContent = `${formatDate(focus.currentMonthSales?.monthStart)} - ${formatDate(focus.currentMonthSales?.monthEnd)}`;
+                document.getElementById('weeklyNewLeadCount').textContent = focus.weeklyNewLeads?.length || 0;
+                document.getElementById('weeklyQuotationCount').textContent = focus.weeklyQuotations?.length || 0;
+                document.getElementById('weeklyClosedDealCount').textContent = focus.weeklyClosedDeals?.length || 0;
+
+                renderWeeklyNewLeads(focus.weeklyNewLeads || []);
+                renderWeeklyQuotations(focus.weeklyQuotations || []);
+                renderWeeklyClosedDeals(focus.weeklyClosedDeals || []);
+            } catch (e) {
+                console.error('Load weekly focus error:', e);
+                document.getElementById('lastWeekRangeLabel').textContent = 'Unable to load';
+                document.getElementById('currentMonthSalesRange').textContent = 'Unable to load';
+                document.getElementById('currentMonthSalesMeta').textContent = 'Failed to load current month sales';
+                setListError('weeklyNewLeadList');
+                setListError('weeklyQuotationList');
+                setListError('weeklyClosedDealList');
+            }
+        }
+
+        function setListError(containerId) {
+            document.getElementById(containerId).innerHTML = '<div class="p-4 text-sm text-red-500">Failed to load data</div>';
+        }
+
+        function renderEmptyState(message) {
+            return `<div class="p-4 text-sm text-slate-400">${message}</div>`;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatMoney(value) {
+            return Number(value || 0).toLocaleString('en-MY', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function renderWeeklyNewLeads(leads) {
+            const container = document.getElementById('weeklyNewLeadList');
+            if (!leads.length) {
+                container.innerHTML = renderEmptyState('No new lead recorded last week.');
+                return;
+            }
+
+            container.innerHTML = leads.map(lead => `
+                <article class="p-4 space-y-2">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-bold text-slate-900">${escapeHtml(lead.name || 'Unnamed Lead')}</p>
+                            <p class="text-[11px] text-slate-500">${formatDate(lead.created_at)}</p>
+                        </div>
+                        ${lead.lead_source ? `<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-slate-100 text-slate-600">${escapeHtml(lead.lead_source)}</span>` : ''}
+                    </div>
+                    <div class="text-xs text-slate-500 space-y-1">
+                        ${lead.phone ? `<p>${escapeHtml(lead.phone)}</p>` : ''}
+                        ${lead.email ? `<p>${escapeHtml(lead.email)}</p>` : ''}
+                        ${lead.remark ? `<p class="text-slate-400">${escapeHtml(lead.remark)}</p>` : ''}
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        function renderWeeklyQuotations(quotations) {
+            const container = document.getElementById('weeklyQuotationList');
+            if (!quotations.length) {
+                container.innerHTML = renderEmptyState('No real quotation created last week.');
+                return;
+            }
+
+            container.innerHTML = quotations.map(quotation => `
+                <article class="p-4 space-y-2">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-bold text-slate-900">${escapeHtml(quotation.customer_name || 'Unknown Customer')}</p>
+                            <p class="text-[11px] text-slate-500">${escapeHtml(quotation.invoice_number || 'Quotation')}</p>
+                        </div>
+                        <p class="text-[11px] font-semibold text-slate-500">${formatDate(quotation.quotation_date)}</p>
+                    </div>
+                    <div class="flex items-center justify-between gap-3 text-xs">
+                        <span class="text-slate-500 uppercase tracking-wider">${escapeHtml(quotation.status || 'draft')}</span>
+                        <span class="font-bold text-slate-900">RM ${formatMoney(quotation.total_amount)}</span>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        function renderWeeklyClosedDeals(deals) {
+            const container = document.getElementById('weeklyClosedDealList');
+            if (!deals.length) {
+                container.innerHTML = renderEmptyState('No new closed deal by first payment last week.');
+                return;
+            }
+
+            container.innerHTML = deals.map(deal => `
+                <article class="p-4 space-y-2">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-bold text-slate-900">${escapeHtml(deal.customer_name || 'Unknown Customer')}</p>
+                            <p class="text-[11px] text-slate-500">${escapeHtml(deal.invoice_number || 'Invoice')}</p>
+                        </div>
+                        <p class="text-[11px] font-semibold text-emerald-600">${formatDate(deal.first_payment_date)}</p>
+                    </div>
+                    <div class="flex items-center justify-between gap-3 text-xs">
+                        <span class="text-slate-500 uppercase tracking-wider">First Payment</span>
+                        <span class="font-bold text-slate-900">RM ${formatMoney(deal.first_payment_amount)}</span>
+                    </div>
+                </article>
+            `).join('');
         }
 
         function populateDropdowns() {
@@ -430,7 +646,10 @@
 
         function formatDate(dateStr) {
             if (!dateStr) return '';
-            const d = new Date(dateStr);
+            const normalized = typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+                ? `${dateStr}T00:00:00`
+                : dateStr;
+            const d = new Date(normalized);
             return d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
         }
 

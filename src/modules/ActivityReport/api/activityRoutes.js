@@ -11,6 +11,85 @@ const customerRepo = require('../../Customer/services/customerRepo');
 
 const router = express.Router();
 
+function formatDateOnly(date) {
+  return date.toISOString().split('T')[0];
+}
+
+function getLastWeekRange(baseDate = new Date()) {
+  const today = new Date(baseDate);
+  const currentDay = today.getDay();
+  const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+
+  const currentWeekStart = new Date(today);
+  currentWeekStart.setHours(0, 0, 0, 0);
+  currentWeekStart.setDate(today.getDate() + mondayOffset);
+
+  const lastWeekStart = new Date(currentWeekStart);
+  lastWeekStart.setDate(currentWeekStart.getDate() - 7);
+
+  const lastWeekEnd = new Date(lastWeekStart);
+  lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+
+  return {
+    startDate: formatDateOnly(lastWeekStart),
+    endDate: formatDateOnly(lastWeekEnd)
+  };
+}
+
+function getCurrentMonthRange(baseDate = new Date()) {
+  const today = new Date(baseDate);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+  return {
+    startDate: formatDateOnly(monthStart),
+    endDate: formatDateOnly(monthEnd)
+  };
+}
+
+async function resolveAgentIdentifiers(client, actorId) {
+  const identifiers = new Set([String(actorId)]);
+
+  const userResult = await client.query(
+    `SELECT DISTINCT
+       u.id::text as user_id,
+       u.bubble_id,
+       u.linked_agent_profile,
+       a.bubble_id as agent_bubble_id,
+       a.linked_user_login
+     FROM "user" u
+     LEFT JOIN agent a
+       ON (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.linked_user_login)
+     WHERE u.id::text = $1
+        OR u.bubble_id = $1
+        OR u.linked_agent_profile = $1
+        OR a.bubble_id = $1
+        OR a.linked_user_login = $1`,
+    [String(actorId)]
+  );
+
+  userResult.rows.forEach(row => {
+    [row.user_id, row.bubble_id, row.linked_agent_profile, row.agent_bubble_id, row.linked_user_login]
+      .filter(Boolean)
+      .forEach(value => identifiers.add(String(value)));
+  });
+
+  const agentResult = await client.query(
+    `SELECT bubble_id, linked_user_login
+     FROM agent
+     WHERE bubble_id = $1 OR linked_user_login = $1`,
+    [String(actorId)]
+  );
+
+  agentResult.rows.forEach(row => {
+    [row.bubble_id, row.linked_user_login]
+      .filter(Boolean)
+      .forEach(value => identifiers.add(String(value)));
+  });
+
+  return Array.from(identifiers);
+}
+
 // ==================== PAGE ROUTES ====================
 
 /**
@@ -448,6 +527,55 @@ router.get('/api/activity/stats/weekly', requireAuth, async (req, res) => {
     res.json({ success: true, data: { ...stats, weekStart: startDate, weekEnd: endDate } });
   } catch (err) {
     console.error('Error fetching weekly stats:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
+ * GET /api/activity/focus/weekly
+ * Get last-week focus summary for current agent or manager-selected agent.
+ */
+router.get('/api/activity/focus/weekly', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const fallbackActorId = req.user.userId || req.user.bubbleId;
+    const requestedAgentId = req.query.agentId;
+    const actorId = requestedAgentId || fallbackActorId;
+    const { weekStart, weekEnd } = req.query;
+
+    client = await pool.connect();
+
+    const identifiers = await resolveAgentIdentifiers(client, actorId);
+    if (identifiers.length === 0) {
+      return res.status(403).json({ success: false, error: 'No valid user or agent identifiers found' });
+    }
+
+    const defaultRange = getLastWeekRange();
+    const startDate = weekStart || defaultRange.startDate;
+    const endDate = weekEnd || defaultRange.endDate;
+    const currentMonthRange = getCurrentMonthRange();
+    const focus = await activityRepo.getWeeklyFocus(
+      client,
+      identifiers,
+      startDate,
+      endDate,
+      currentMonthRange.startDate,
+      currentMonthRange.endDate
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ...focus,
+        weekStart: startDate,
+        weekEnd: endDate,
+        identifiers
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching weekly focus:', err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     if (client) client.release();

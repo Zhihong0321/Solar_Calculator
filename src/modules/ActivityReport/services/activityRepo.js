@@ -329,6 +329,135 @@ async function getWeeklyStats(client, agentBubbleId, weekStart, weekEnd) {
 }
 
 /**
+ * Get last-week focus data for an agent.
+ * Includes activity points, new leads, real quotations, and newly closed deals.
+ * @param {object} client
+ * @param {string|string[]} agentIdentifiers
+ * @param {string} startDate - YYYY-MM-DD
+ * @param {string} endDate - YYYY-MM-DD
+ */
+async function getWeeklyFocus(client, agentIdentifiers, startDate, endDate, currentMonthStart, currentMonthEnd) {
+  const identifiers = Array.isArray(agentIdentifiers) ? agentIdentifiers : [agentIdentifiers];
+
+  const [pointsResult, leadsResult, quotationsResult, closedDealsResult, currentMonthRevenueResult] = await Promise.all([
+    client.query(
+      `SELECT
+         COUNT(*) as total_activities,
+         COALESCE(SUM(report_point), 0) as total_points
+       FROM agent_daily_report
+       WHERE (linked_user = ANY($1) OR created_by = ANY($1))
+         AND DATE(report_date) >= $2
+         AND DATE(report_date) <= $3`,
+      [identifiers, startDate, endDate]
+    ),
+    client.query(
+      `SELECT
+         customer_id,
+         name,
+         phone,
+         email,
+         lead_source,
+         remark,
+         created_at
+       FROM customer
+       WHERE created_by = ANY($1)
+         AND created_at >= $2::date
+         AND created_at < ($3::date + INTERVAL '1 day')
+       ORDER BY created_at DESC`,
+      [identifiers, startDate, endDate]
+    ),
+    client.query(
+      `SELECT
+         i.bubble_id,
+         i.invoice_number,
+         COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), 'Unknown Customer') as customer_name,
+         COALESCE(i.invoice_date, i.created_at) as quotation_date,
+         i.total_amount,
+         i.status
+       FROM invoice i
+       LEFT JOIN customer c ON c.customer_id = i.linked_customer
+       WHERE i.is_latest = true
+         AND (i.status IS NULL OR i.status != 'deleted')
+         AND (i.linked_agent = ANY($1) OR i.created_by = ANY($1))
+         AND i.linked_customer IS NOT NULL
+         AND LOWER(COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), '')) != 'sample quotation'
+         AND COALESCE(i.invoice_date, i.created_at) >= $2::date
+         AND COALESCE(i.invoice_date, i.created_at) < ($3::date + INTERVAL '1 day')
+       ORDER BY COALESCE(i.invoice_date, i.created_at) DESC, i.created_at DESC`,
+      [identifiers, startDate, endDate]
+    ),
+    client.query(
+      `SELECT
+         i.bubble_id,
+         i.invoice_number,
+         COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), 'Unknown Customer') as customer_name,
+         COALESCE(i."1st_payment_date", fp.payment_date) as first_payment_date,
+         fp.amount as first_payment_amount,
+         i.total_amount,
+         i.status
+       FROM invoice i
+       LEFT JOIN customer c ON c.customer_id = i.linked_customer
+       LEFT JOIN LATERAL (
+         SELECT p.payment_date, p.amount
+         FROM payment p
+         WHERE p.linked_invoice = i.bubble_id
+            OR p.bubble_id = ANY(COALESCE(i.linked_payment, ARRAY[]::text[]))
+         ORDER BY p.payment_date ASC NULLS LAST, p.created_at ASC NULLS LAST
+         LIMIT 1
+       ) fp ON TRUE
+       WHERE i.is_latest = true
+         AND (i.status IS NULL OR i.status != 'deleted')
+         AND (i.linked_agent = ANY($1) OR i.created_by = ANY($1))
+         AND i.linked_customer IS NOT NULL
+         AND LOWER(COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), '')) != 'sample quotation'
+         AND COALESCE(i."1st_payment_date", fp.payment_date) >= $2::date
+         AND COALESCE(i."1st_payment_date", fp.payment_date) < ($3::date + INTERVAL '1 day')
+       ORDER BY COALESCE(i."1st_payment_date", fp.payment_date) DESC, i.created_at DESC`,
+      [identifiers, startDate, endDate]
+    ),
+    client.query(
+      `SELECT
+         COUNT(*) as total_sales,
+         COALESCE(SUM(i.total_amount), 0) as total_revenue
+       FROM invoice i
+       LEFT JOIN customer c ON c.customer_id = i.linked_customer
+       LEFT JOIN LATERAL (
+         SELECT p.payment_date
+         FROM payment p
+         WHERE p.linked_invoice = i.bubble_id
+            OR p.bubble_id = ANY(COALESCE(i.linked_payment, ARRAY[]::text[]))
+         ORDER BY p.payment_date ASC NULLS LAST, p.created_at ASC NULLS LAST
+         LIMIT 1
+       ) fp ON TRUE
+       WHERE i.is_latest = true
+         AND (i.status IS NULL OR i.status != 'deleted')
+         AND (i.linked_agent = ANY($1) OR i.created_by = ANY($1))
+         AND i.linked_customer IS NOT NULL
+         AND LOWER(COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), '')) != 'sample quotation'
+         AND COALESCE(i."1st_payment_date", fp.payment_date) >= $2::date
+         AND COALESCE(i."1st_payment_date", fp.payment_date) < ($3::date + INTERVAL '1 day')`,
+      [identifiers, currentMonthStart, currentMonthEnd]
+    )
+  ]);
+
+  return {
+    summary: {
+      totalActivities: parseInt(pointsResult.rows[0]?.total_activities || 0, 10),
+      totalPoints: parseInt(pointsResult.rows[0]?.total_points || 0, 10)
+    },
+    currentMonthSales: {
+      totalRevenue: parseFloat(currentMonthRevenueResult.rows[0]?.total_revenue || 0),
+      totalSales: parseInt(currentMonthRevenueResult.rows[0]?.total_sales || 0, 10),
+      monthStart: currentMonthStart,
+      monthEnd: currentMonthEnd
+    },
+    weeklyNewLeads: leadsResult.rows,
+    weeklyQuotations: quotationsResult.rows,
+    weeklyClosedDeals: closedDealsResult.rows
+  };
+}
+
+/**
  * Get team stats for manager view
  * @param {object} client 
  * @param {object} options - { startDate, endDate, teamTag }
@@ -592,6 +721,7 @@ module.exports = {
   deleteActivity,
   getDailyStats,
   getWeeklyStats,
+  getWeeklyFocus,
   getTeamStats,
   getAllActivitiesForReview,
   getAgentPerformanceRanking,
