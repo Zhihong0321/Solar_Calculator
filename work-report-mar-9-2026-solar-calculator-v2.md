@@ -13,5 +13,6 @@ REPO NAME : Solar Calculator v2
 - Published the portable work-report-updater skill to GitHub and verified installability.
 - Moved the daily report feed under weekly focus and added infinite scroll with 14 items per load.
 - Grouped the activity report feed by report date while keeping infinite scroll and latest-first ordering.
+- Upgraded the agent workspace with a shared mobile navigation shell and Playwright coverage.
 
 =====================
