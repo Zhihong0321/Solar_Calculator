@@ -792,7 +792,7 @@ window.triggerSpontaneousUpdate = function (source) {
     console.log(`[triggerSpontaneousUpdate] Triggered by: ${source}`);
 
     const panelRatingInput = document.getElementById('panelRating');
-    const newPanelRating = panelRatingInput ? parseInt(panelRatingInput.value) : 620;
+    const newPanelRating = panelRatingInput ? parseInt(panelRatingInput.value) : 650;
     const panelRatingChanged = latestSolarParams.panelType !== newPanelRating;
 
     // Update in-memory params
@@ -938,7 +938,7 @@ function displayBillBreakdown(data) {
                 <div class="grid gap-6 md:grid-cols-2 md:gap-x-8 md:gap-y-6">
                     ${renderInput('sunPeakHour', 'Sun_Peak_Hours', 'number', '3.4', '0.1', '3.0', '4.5')}
                     ${renderInput('morningUsage', 'Day_Usage_Share (%)', 'number', '30', '1', '1', '100')}
-                    ${renderInput('panelRating', 'Panel_Rating (W)', 'number', '620', '1', '450', '850')}
+                    ${renderInput('panelRating', 'Panel_Rating (W)', 'number', '650', '1', '450', '850')}
                     ${renderInput('afaRate', 'AFA_Projection (RM)', 'number', '0.0000', '0.0001')}
                     ${renderInput('smpPrice', 'Export_Rate (RM)', 'number', '0.2703', '0.0001', '0.19', '0.2703')}
                     <div class="md:col-span-2 mt-2">
@@ -1219,7 +1219,7 @@ function showNotification(m, t = 'info') {
 }
 
 function showPanelRecommendationPopup(data) {
-    const systemSizeKwp = (data.recommendedPanels * (data.config.panelType || 620)) / 1000;
+    const systemSizeKwp = (data.recommendedPanels * (data.config.panelType || 650)) / 1000;
     const systemPhase = data.config.systemPhase || 3;
     const sedaLimit = systemPhase == 1 ? 5 : 15;
     const requiresSedaFee = systemSizeKwp > sedaLimit;

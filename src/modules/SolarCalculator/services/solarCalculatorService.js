@@ -146,7 +146,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   const billAmount = parseFloat(amount);
   const peakHour = parseFloat(sunPeakHour);
   const morningPercent = parseFloat(morningUsage);
-  const panelWattage = parseInt(panelType) || 620;
+  const panelWattage = parseInt(panelType) || 650;
   const selectedPanelBubbleId = typeof panelBubbleId === 'string' && panelBubbleId.trim().length > 0
     ? panelBubbleId.trim()
     : null;
