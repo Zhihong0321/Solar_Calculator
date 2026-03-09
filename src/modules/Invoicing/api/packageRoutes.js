@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
+const voucherRepo = require('../../Voucher/services/voucherRepo');
 
 const router = express.Router();
 
@@ -40,25 +41,18 @@ router.get('/api/package/:id', async (req, res) => {
 
 /**
  * GET /api/vouchers
- * Get list of public active vouchers
+ * Compatibility endpoint for invoice pages.
+ * NOTE: This path is also defined in Voucher module. Since Invoicing is mounted first,
+ * this handler must mirror voucher behavior to avoid response shape mismatches.
  */
 router.get('/api/vouchers', requireAuth, async (req, res) => {
-    let client = null;
     try {
-        client = await pool.connect();
-        const query = `
-            SELECT bubble_id, voucher_code, discount_amount, discount_percent, title, invoice_description, terms_conditions
-            FROM voucher
-            WHERE active = true 
-              AND public = true
-              AND ("delete" = false OR "delete" IS NULL)
-            ORDER BY created_at DESC
-        `;
-        const result = await client.query(query);
-        
+        const status = req.query.status || 'active'; // 'active', 'inactive', 'deleted', 'all'
+        const vouchers = await voucherRepo.getAllVouchers(pool, status);
+
         res.json({
             success: true,
-            vouchers: result.rows
+            vouchers: vouchers || []
         });
     } catch (err) {
         console.error('Error fetching vouchers:', err);
@@ -66,8 +60,6 @@ router.get('/api/vouchers', requireAuth, async (req, res) => {
             success: false,
             error: 'Failed to fetch vouchers'
         });
-    } finally {
-        if (client) client.release();
     }
 });
 
