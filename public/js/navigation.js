@@ -313,6 +313,17 @@
             icon: 'external'
         },
         {
+            pageKey: 'external-public-awareness',
+            path: 'https://simulator.atap.solar',
+            title: 'ATAP Public Awareness',
+            routeType: 'external',
+            rootTab: TOOLS_ROOT_KEY,
+            toolGroup: 'External',
+            toolLabel: 'ATAP Public Awareness',
+            toolDescription: 'External public awareness site',
+            icon: 'external'
+        },
+        {
             pageKey: 'external-ai-progress',
             path: 'https://ai2026-production.up.railway.app/',
             title: 'AI Progress',

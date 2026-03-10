@@ -1,0 +1,4 @@
+interface:
+  display_name: "Work Report Updater"
+  short_description: "Append completed tasks to daily repo reports"
+  default_prompt: "Use $work-report-updater to record the completed task in the current repo's daily work report."
