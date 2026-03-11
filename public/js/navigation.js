@@ -177,6 +177,20 @@
             icon: 'help'
         },
         {
+            pageKey: 'health-center',
+            path: '/health-center',
+            title: 'Health',
+            rootTab: TOOLS_ROOT_KEY,
+            routeType: 'tool',
+            stack: 'health',
+            showBack: true,
+            parentPage: 'agent-home',
+            toolGroup: 'Workspace',
+            toolLabel: 'Health',
+            toolDescription: 'Calculator and database checks',
+            icon: 'health'
+        },
+        {
             pageKey: 'voucher-management',
             path: '/voucher-management',
             title: 'Voucher Management',
@@ -362,6 +376,7 @@
         referral: '<path d="M16 6a3 3 0 1 0-3-3"></path><path d="M8 18a3 3 0 1 0 3 3"></path><path d="m13 5-6 14"></path>',
         profile: '<circle cx="12" cy="8" r="4"></circle><path d="M5 21a7 7 0 0 1 14 0"></path>',
         help: '<circle cx="12" cy="12" r="9"></circle><path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path>',
+        health: '<path d="M12 21c4.8-2.2 8-6.3 8-11V5l-8-2-8 2v5c0 4.7 3.2 8.8 8 11Z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path>',
         ticket: '<path d="M3 9V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 0 0 6v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 0 0-6z"></path><path d="M13 5v14"></path>',
         team: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
         review: '<path d="m9 11 3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>',

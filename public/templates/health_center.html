@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Health Center | ETERNALGY OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    :root {
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-400: #94a3b8;
+      --slate-500: #64748b;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+      --emerald-500: #10b981;
+      --amber-500: #f59e0b;
+      --rose-500: #f43f5e;
+      --sky-500: #0ea5e9;
+    }
+
+    * {
+      font-family: "Inter", sans-serif;
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(14, 165, 233, 0.08), transparent 28%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+      color: var(--slate-900);
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .status-pass {
+      background: rgba(16, 185, 129, 0.12);
+      color: #047857;
+    }
+
+    .status-fail {
+      background: rgba(244, 63, 94, 0.12);
+      color: #be123c;
+    }
+
+    .status-running {
+      background: rgba(245, 158, 11, 0.14);
+      color: #b45309;
+    }
+
+    .status-unknown {
+      background: rgba(148, 163, 184, 0.16);
+      color: var(--slate-700);
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <main class="min-h-screen">
+    <section class="max-w-6xl mx-auto px-6 md:px-10 py-8 md:py-10 space-y-8">
+      <header class="rounded-3xl border border-slate-200 bg-white/90 shadow-sm overflow-hidden">
+        <div class="px-6 md:px-8 py-8 md:py-10 bg-gradient-to-r from-slate-900 via-slate-800 to-sky-900 text-white">
+          <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div class="space-y-3">
+              <p class="text-[11px] uppercase tracking-[0.35em] text-white/60 font-bold">Internal Monitoring</p>
+              <h1 class="text-3xl md:text-4xl font-black tracking-tight">Health Center</h1>
+              <p class="max-w-2xl text-sm md:text-base text-white/75">
+                Hourly internal checks for calculator logic integrity and bill database read health.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-3 items-center">
+              <span id="overallStatus" class="status-chip status-unknown">Unknown</span>
+              <button id="runNowButton" class="inline-flex items-center gap-2 rounded-2xl bg-white text-slate-900 px-4 py-2.5 text-sm font-bold shadow-sm hover:bg-slate-100 transition-colors">
+                <i class="fa-solid fa-rotate"></i>
+                Run Checks Now
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="grid gap-4 md:grid-cols-3 px-6 md:px-8 py-5 bg-white">
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Last Run</p>
+            <p id="lastRun" class="mt-2 text-sm font-semibold text-slate-800">Awaiting first run</p>
+          </div>
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Next Scheduled Run</p>
+            <p id="nextRun" class="mt-2 text-sm font-semibold text-slate-800">Awaiting scheduler</p>
+          </div>
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Run State</p>
+            <p id="runState" class="mt-2 text-sm font-semibold text-slate-800">Idle</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="grid gap-6 lg:grid-cols-[1.5fr,0.9fr]">
+        <div class="space-y-6">
+          <article class="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="px-6 md:px-8 py-5 border-b border-slate-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Calculator Logic</p>
+                <h2 class="mt-2 text-xl font-black text-slate-900">Regression Guardrail</h2>
+              </div>
+              <span id="calculatorStatus" class="status-chip status-unknown">Unknown</span>
+            </div>
+            <div class="px-6 md:px-8 py-6 space-y-6">
+              <p id="calculatorSummary" class="text-sm text-slate-600">No results yet.</p>
+              <div id="calculatorScenarios" class="space-y-4"></div>
+            </div>
+          </article>
+
+          <article class="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="px-6 md:px-8 py-5 border-b border-slate-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Bill Database</p>
+                <h2 class="mt-2 text-xl font-black text-slate-900">Hourly Read Test</h2>
+              </div>
+              <span id="databaseStatus" class="status-chip status-unknown">Unknown</span>
+            </div>
+            <div class="px-6 md:px-8 py-6 space-y-4">
+              <p id="databaseSummary" class="text-sm text-slate-600">No results yet.</p>
+              <div id="databaseQueries" class="grid gap-4 md:grid-cols-3"></div>
+            </div>
+          </article>
+        </div>
+
+        <aside class="space-y-6">
+          <article class="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-100">
+              <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Recent Runs</p>
+              <h2 class="mt-2 text-xl font-black text-slate-900">Hourly Report Log</h2>
+            </div>
+            <div id="historyList" class="px-6 py-5 space-y-3">
+              <p class="text-sm text-slate-500">No history yet.</p>
+            </div>
+          </article>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    function formatDateTime(value) {
+      if (!value) {
+        return 'N/A';
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+      return new Intl.DateTimeFormat('en-MY', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      }).format(date);
+    }
+
+    function statusClass(status) {
+      if (status === 'pass') return 'status-chip status-pass';
+      if (status === 'fail') return 'status-chip status-fail';
+      if (status === 'running') return 'status-chip status-running';
+      return 'status-chip status-unknown';
+    }
+
+    function statusLabel(status) {
+      if (status === 'pass') return 'Healthy';
+      if (status === 'fail') return 'Fail';
+      if (status === 'running') return 'Running';
+      return 'Unknown';
+    }
+
+    function money(value) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return 'N/A';
+      }
+      return `RM ${Number(value).toFixed(2)}`;
+    }
+
+    function renderScenario(scenario) {
+      const assertions = Array.isArray(scenario.assertions) ? scenario.assertions : [];
+      const assertionRows = assertions.map((assertion) => `
+        <tr class="border-t border-slate-100">
+          <td class="py-2 pr-3 text-slate-700 font-medium">${assertion.label}</td>
+          <td class="py-2 pr-3 text-slate-500">${typeof assertion.expected === 'number' ? assertion.expected.toFixed(2) : assertion.expected}</td>
+          <td class="py-2 pr-3 text-slate-500">${typeof assertion.actual === 'number' ? assertion.actual.toFixed(2) : assertion.actual}</td>
+          <td class="py-2 text-right"><span class="${statusClass(assertion.status)}">${statusLabel(assertion.status)}</span></td>
+        </tr>
+      `).join('');
+
+      return `
+        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 overflow-hidden">
+          <div class="px-4 md:px-5 py-4 border-b border-slate-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 class="text-sm md:text-base font-black text-slate-900">${scenario.label}</h3>
+              <p class="mt-1 text-xs text-slate-500">Input bill: ${money(scenario.params.amount)}</p>
+            </div>
+            <span class="${statusClass(scenario.status)}">${statusLabel(scenario.status)}</span>
+          </div>
+          <div class="px-4 md:px-5 py-4 overflow-x-auto">
+            <table class="w-full min-w-[560px] text-xs md:text-sm">
+              <thead>
+                <tr class="text-left text-slate-400 uppercase tracking-[0.2em] text-[10px]">
+                  <th class="pb-2 pr-3">Check</th>
+                  <th class="pb-2 pr-3">Expected</th>
+                  <th class="pb-2 pr-3">Actual</th>
+                  <th class="pb-2 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody>${assertionRows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDatabaseQuery(query) {
+      return `
+        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-sm font-black text-slate-900">${query.label}</h3>
+            <span class="${statusClass(query.status)}">${statusLabel(query.status)}</span>
+          </div>
+          ${query.value ? `<p class="text-xs text-slate-500 break-all">${query.value}</p>` : ''}
+          ${query.rowCount !== undefined ? `<p class="text-xs text-slate-600">Rows: <span class="font-bold text-slate-900">${query.rowCount}</span></p>` : ''}
+          ${(query.minBill !== undefined && query.maxBill !== undefined) ? `<p class="text-xs text-slate-600">Range: <span class="font-bold text-slate-900">${money(query.minBill)} to ${money(query.maxBill)}</span></p>` : ''}
+        </div>
+      `;
+    }
+
+    function renderHistoryItem(entry) {
+      return `
+        <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm font-black text-slate-900">${formatDateTime(entry.completedAt || entry.startedAt)}</p>
+            <span class="${statusClass(entry.status)}">${statusLabel(entry.status)}</span>
+          </div>
+          <p class="text-[11px] uppercase tracking-[0.2em] text-slate-400 font-bold">Trigger: ${entry.trigger}</p>
+          <div class="text-xs text-slate-600 space-y-1">
+            <p><span class="font-bold text-slate-900">Calculator Logic:</span> ${entry.checks.calculatorLogic.summary}</p>
+            <p><span class="font-bold text-slate-900">Bill Database:</span> ${entry.checks.billDatabase.summary}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderState(payload) {
+      const calculator = payload.checks.calculatorLogic;
+      const database = payload.checks.billDatabase;
+      const overallStatus = [calculator.status, database.status].every((status) => status === 'pass')
+        ? 'pass'
+        : payload.isRunning
+          ? 'running'
+          : [calculator.status, database.status].some((status) => status === 'fail')
+            ? 'fail'
+            : 'unknown';
+
+      const overallStatusEl = document.getElementById('overallStatus');
+      overallStatusEl.className = statusClass(overallStatus);
+      overallStatusEl.textContent = statusLabel(overallStatus);
+
+      document.getElementById('lastRun').textContent = formatDateTime(payload.lastRunCompletedAt || payload.lastRunStartedAt);
+      document.getElementById('nextRun').textContent = formatDateTime(payload.nextRunAt);
+      document.getElementById('runState').textContent = payload.isRunning ? 'Running checks now' : 'Idle';
+
+      const calculatorStatusEl = document.getElementById('calculatorStatus');
+      calculatorStatusEl.className = statusClass(calculator.status);
+      calculatorStatusEl.textContent = statusLabel(calculator.status);
+      document.getElementById('calculatorSummary').textContent = calculator.summary || 'No results yet.';
+      document.getElementById('calculatorScenarios').innerHTML = (calculator.details.scenarios || []).map(renderScenario).join('') || '<p class="text-sm text-slate-500">No scenario runs recorded yet.</p>';
+
+      const databaseStatusEl = document.getElementById('databaseStatus');
+      databaseStatusEl.className = statusClass(database.status);
+      databaseStatusEl.textContent = statusLabel(database.status);
+      document.getElementById('databaseSummary').textContent = database.summary || 'No results yet.';
+      document.getElementById('databaseQueries').innerHTML = (database.details.queries || []).map(renderDatabaseQuery).join('') || '<p class="text-sm text-slate-500">No database checks recorded yet.</p>';
+
+      document.getElementById('historyList').innerHTML = (payload.history || []).slice(0, 12).map(renderHistoryItem).join('') || '<p class="text-sm text-slate-500">No history yet.</p>';
+    }
+
+    async function loadHealthState() {
+      const response = await fetch('/api/internal-health');
+      if (!response.ok) {
+        throw new Error('Failed to load health report');
+      }
+      const payload = await response.json();
+      renderState(payload);
+    }
+
+    async function runChecksNow() {
+      const button = document.getElementById('runNowButton');
+      button.disabled = true;
+      button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Running';
+
+      try {
+        const response = await fetch('/api/internal-health/run', { method: 'POST' });
+        if (!response.ok) {
+          throw new Error('Failed to run health checks');
+        }
+        const payload = await response.json();
+        renderState(payload);
+      } catch (error) {
+        alert(error.message);
+      } finally {
+        button.disabled = false;
+        button.innerHTML = '<i class="fa-solid fa-rotate"></i> Run Checks Now';
+      }
+    }
+
+    document.getElementById('runNowButton').addEventListener('click', runChecksNow);
+
+    loadHealthState().catch((error) => {
+      console.error(error);
+    });
+
+    setInterval(() => {
+      loadHealthState().catch((error) => {
+        console.error(error);
+      });
+    }, 60000);
+  </script>
+  <script src="/js/navigation.js"></script>
+</body>
+</html>

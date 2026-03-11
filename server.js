@@ -21,6 +21,7 @@ const Voucher = require('./src/modules/Voucher');
 const SalesTeam = require('./src/modules/SalesTeam');
 const sedaRoutes = require('./routes/sedaRoutes');
 const ActivityReport = require('./src/modules/ActivityReport');
+const Health = require('./src/modules/Health');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -74,6 +75,7 @@ app.use(Voucher.router);
 app.use(SalesTeam.router);
 app.use(sedaRoutes);
 app.use(ActivityReport.router);
+app.use(Health.router);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
@@ -380,3 +382,5 @@ app.get('/api/version', (req, res) => {
 app.listen(PORT, () => {
   console.log(`[Modular Monolith] Server running on port ${PORT}`);
 });
+
+Health.startHealthCheckScheduler();
