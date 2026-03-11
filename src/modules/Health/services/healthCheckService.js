@@ -5,6 +5,8 @@ const { calculateSolarSavings } = require('../../SolarCalculator/services/solarC
 const HOURLY_INTERVAL_MS = 60 * 60 * 1000;
 const HISTORY_LIMIT = 48;
 const MONEY_TOLERANCE = 0.01;
+const WHATSAPP_API_BASE_URL = process.env.WHATSAPP_API_URL || 'https://whatsapp-api-server-production-c15f.up.railway.app';
+const WHATSAPP_ALERT_RECIPIENT = process.env.HEALTH_ALERT_PHONE || '601121000099';
 
 // Golden regression snapshots captured from the production-backed calculator on 2026-03-11.
 const CALCULATOR_SCENARIOS = [
@@ -119,6 +121,15 @@ const state = {
       }
     }
   },
+  alerting: {
+    recipient: WHATSAPP_ALERT_RECIPIENT,
+    lastAttemptAt: null,
+    lastSentAt: null,
+    lastStatus: 'idle',
+    lastError: null,
+    lastSentSignature: null,
+    lastMessagePreview: null
+  },
   history: []
 };
 
@@ -156,6 +167,100 @@ function formatError(error) {
     return 'Unknown error';
   }
   return error.message || String(error);
+}
+
+function failedCalculatorDetails(check) {
+  const scenarios = check?.details?.scenarios || [];
+  const failed = scenarios.filter((scenario) => scenario.status === 'fail');
+  if (failed.length === 0) {
+    return [];
+  }
+
+  return failed.map((scenario) => {
+    const failedAssertions = (scenario.assertions || [])
+      .filter((assertion) => assertion.status === 'fail')
+      .map((assertion) => assertion.label)
+      .slice(0, 3);
+
+    return `${scenario.label}${failedAssertions.length ? ` (${failedAssertions.join(', ')})` : ''}`;
+  });
+}
+
+function failedDatabaseDetails(check) {
+  const queries = check?.details?.queries || [];
+  const failed = queries.filter((query) => query.status === 'fail');
+
+  if (failed.length > 0) {
+    return failed.map((query) => query.label);
+  }
+
+  if (check?.details?.error) {
+    return [check.details.error];
+  }
+
+  return [];
+}
+
+function buildFailureSignature(checkResults) {
+  return checkResults
+    .filter((check) => check.status === 'fail')
+    .map((check) => JSON.stringify({
+      key: check.key,
+      summary: check.summary,
+      calculator: failedCalculatorDetails(check),
+      database: failedDatabaseDetails(check)
+    }))
+    .join('|');
+}
+
+function buildFailureAlertMessage(checkResults) {
+  const lines = [
+    'ATAP Solar Health Alert',
+    `Time: ${new Date().toLocaleString('en-MY', { hour12: false })}`,
+    'The following health checks failed:'
+  ];
+
+  for (const check of checkResults.filter((item) => item.status === 'fail')) {
+    lines.push(`- ${check.title}: ${check.summary}`);
+
+    if (check.key === 'calculatorLogic') {
+      for (const detail of failedCalculatorDetails(check)) {
+        lines.push(`  * ${detail}`);
+      }
+    }
+
+    if (check.key === 'billDatabase') {
+      for (const detail of failedDatabaseDetails(check)) {
+        lines.push(`  * ${detail}`);
+      }
+    }
+  }
+
+  lines.push('Open the Health Center for full details.');
+  lines.push('https://calculator.atap.solar/health-center');
+
+  return lines.join('\n');
+}
+
+async function sendWhatsAppAlert(message) {
+  const response = await fetch(`${WHATSAPP_API_BASE_URL}/api/send`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      to: WHATSAPP_ALERT_RECIPIENT,
+      message
+    })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.error || `WhatsApp alert failed with status ${response.status}`);
+  }
+
+  return payload;
 }
 
 function createAssertion(label, actual, expected, tolerance = MONEY_TOLERANCE) {
@@ -346,11 +451,47 @@ async function runHealthChecks({ trigger = 'scheduler' } = {}) {
       ? 'pass'
       : 'fail';
 
+    const checkResults = [calculatorLogic, billDatabase];
+    const failedChecks = checkResults.filter((check) => check.status === 'fail');
+    const failureSignature = failedChecks.length > 0 ? buildFailureSignature(checkResults) : null;
+
+    state.alerting.lastAttemptAt = isoNow();
+    state.alerting.lastError = null;
+
+    if (failedChecks.length > 0) {
+      if (failureSignature !== state.alerting.lastSentSignature) {
+        const alertMessage = buildFailureAlertMessage(checkResults);
+
+        try {
+          await sendWhatsAppAlert(alertMessage);
+          state.alerting.lastSentAt = isoNow();
+          state.alerting.lastStatus = 'sent';
+          state.alerting.lastSentSignature = failureSignature;
+          state.alerting.lastMessagePreview = alertMessage;
+        } catch (error) {
+          state.alerting.lastStatus = 'failed';
+          state.alerting.lastError = formatError(error);
+          state.alerting.lastMessagePreview = alertMessage;
+        }
+      } else {
+        state.alerting.lastStatus = 'suppressed';
+      }
+    } else {
+      state.alerting.lastStatus = 'healthy';
+      state.alerting.lastSentSignature = null;
+      state.alerting.lastMessagePreview = null;
+    }
+
     state.history.unshift({
       trigger,
       status: overallStatus,
       startedAt: state.lastRunStartedAt,
       completedAt: state.lastRunCompletedAt,
+      alerting: {
+        status: state.alerting.lastStatus,
+        sentAt: state.alerting.lastSentAt,
+        error: state.alerting.lastError
+      },
       checks: {
         calculatorLogic: {
           status: calculatorLogic.status,

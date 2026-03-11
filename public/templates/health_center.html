@@ -33,6 +33,7 @@
     body {
       margin: 0;
       min-height: 100vh;
+      overflow-x: hidden;
       background:
         radial-gradient(circle at top left, rgba(14, 165, 233, 0.08), transparent 28%),
         linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
@@ -49,6 +50,9 @@
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+      text-align: center;
+      white-space: normal;
+      max-width: 100%;
     }
 
     .status-pass {
@@ -85,27 +89,32 @@
                 Hourly internal checks for calculator logic integrity and bill database read health.
               </p>
             </div>
-            <div class="flex flex-wrap gap-3 items-center">
+            <div class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center w-full md:w-auto">
               <span id="overallStatus" class="status-chip status-unknown">Unknown</span>
-              <button id="runNowButton" class="inline-flex items-center gap-2 rounded-2xl bg-white text-slate-900 px-4 py-2.5 text-sm font-bold shadow-sm hover:bg-slate-100 transition-colors">
+              <button id="runNowButton" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-slate-900 px-4 py-2.5 text-sm font-bold shadow-sm hover:bg-slate-100 transition-colors w-full sm:w-auto">
                 <i class="fa-solid fa-rotate"></i>
                 Run Checks Now
               </button>
             </div>
           </div>
         </div>
-        <div class="grid gap-4 md:grid-cols-3 px-6 md:px-8 py-5 bg-white">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4 px-6 md:px-8 py-5 bg-white">
           <div>
             <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Last Run</p>
-            <p id="lastRun" class="mt-2 text-sm font-semibold text-slate-800">Awaiting first run</p>
+            <p id="lastRun" class="mt-2 text-sm font-semibold text-slate-800 break-words">Awaiting first run</p>
           </div>
           <div>
             <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Next Scheduled Run</p>
-            <p id="nextRun" class="mt-2 text-sm font-semibold text-slate-800">Awaiting scheduler</p>
+            <p id="nextRun" class="mt-2 text-sm font-semibold text-slate-800 break-words">Awaiting scheduler</p>
           </div>
           <div>
             <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Run State</p>
-            <p id="runState" class="mt-2 text-sm font-semibold text-slate-800">Idle</p>
+            <p id="runState" class="mt-2 text-sm font-semibold text-slate-800 break-words">Idle</p>
+          </div>
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Alert Delivery</p>
+            <p id="alertState" class="mt-2 text-sm font-semibold text-slate-800 break-words">Idle</p>
+            <p id="alertMeta" class="mt-1 text-xs text-slate-500 break-words">WhatsApp alerts to 601121000099</p>
           </div>
         </div>
       </header>
@@ -202,6 +211,24 @@
           <td class="py-2 text-right"><span class="${statusClass(assertion.status)}">${statusLabel(assertion.status)}</span></td>
         </tr>
       `).join('');
+      const mobileAssertions = assertions.map((assertion) => `
+        <div class="rounded-xl border border-slate-200 bg-white/80 p-3 space-y-2">
+          <div class="flex flex-col gap-2">
+            <p class="text-xs font-bold text-slate-900">${assertion.label}</p>
+            <span class="${statusClass(assertion.status)} self-start">${statusLabel(assertion.status)}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <p class="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-bold">Expected</p>
+              <p class="mt-1 text-slate-600 break-words">${typeof assertion.expected === 'number' ? assertion.expected.toFixed(2) : assertion.expected}</p>
+            </div>
+            <div>
+              <p class="text-[10px] uppercase tracking-[0.18em] text-slate-400 font-bold">Actual</p>
+              <p class="mt-1 text-slate-600 break-words">${typeof assertion.actual === 'number' ? assertion.actual.toFixed(2) : assertion.actual}</p>
+            </div>
+          </div>
+        </div>
+      `).join('');
 
       return `
         <div class="rounded-2xl border border-slate-200 bg-slate-50/70 overflow-hidden">
@@ -212,7 +239,10 @@
             </div>
             <span class="${statusClass(scenario.status)}">${statusLabel(scenario.status)}</span>
           </div>
-          <div class="px-4 md:px-5 py-4 overflow-x-auto">
+          <div class="px-4 md:px-5 py-4 md:hidden space-y-3">
+            ${mobileAssertions}
+          </div>
+          <div class="hidden md:block px-4 md:px-5 py-4 overflow-x-auto">
             <table class="w-full min-w-[560px] text-xs md:text-sm">
               <thead>
                 <tr class="text-left text-slate-400 uppercase tracking-[0.2em] text-[10px]">
@@ -232,8 +262,8 @@
     function renderDatabaseQuery(query) {
       return `
         <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
-          <div class="flex items-center justify-between gap-3">
-            <h3 class="text-sm font-black text-slate-900">${query.label}</h3>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h3 class="text-sm font-black text-slate-900 break-words">${query.label}</h3>
             <span class="${statusClass(query.status)}">${statusLabel(query.status)}</span>
           </div>
           ${query.value ? `<p class="text-xs text-slate-500 break-all">${query.value}</p>` : ''}
@@ -246,12 +276,12 @@
     function renderHistoryItem(entry) {
       return `
         <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-3">
-          <div class="flex items-center justify-between gap-3">
-            <p class="text-sm font-black text-slate-900">${formatDateTime(entry.completedAt || entry.startedAt)}</p>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p class="text-sm font-black text-slate-900 break-words">${formatDateTime(entry.completedAt || entry.startedAt)}</p>
             <span class="${statusClass(entry.status)}">${statusLabel(entry.status)}</span>
           </div>
           <p class="text-[11px] uppercase tracking-[0.2em] text-slate-400 font-bold">Trigger: ${entry.trigger}</p>
-          <div class="text-xs text-slate-600 space-y-1">
+          <div class="text-xs text-slate-600 space-y-1 break-words">
             <p><span class="font-bold text-slate-900">Calculator Logic:</span> ${entry.checks.calculatorLogic.summary}</p>
             <p><span class="font-bold text-slate-900">Bill Database:</span> ${entry.checks.billDatabase.summary}</p>
           </div>
@@ -277,6 +307,12 @@
       document.getElementById('lastRun').textContent = formatDateTime(payload.lastRunCompletedAt || payload.lastRunStartedAt);
       document.getElementById('nextRun').textContent = formatDateTime(payload.nextRunAt);
       document.getElementById('runState').textContent = payload.isRunning ? 'Running checks now' : 'Idle';
+      document.getElementById('alertState').textContent = payload.alerting.lastStatus || 'Idle';
+      document.getElementById('alertMeta').textContent = payload.alerting.lastError
+        ? `Last error: ${payload.alerting.lastError}`
+        : payload.alerting.lastSentAt
+          ? `Last sent: ${formatDateTime(payload.alerting.lastSentAt)} to ${payload.alerting.recipient}`
+          : `WhatsApp alerts to ${payload.alerting.recipient}`;
 
       const calculatorStatusEl = document.getElementById('calculatorStatus');
       calculatorStatusEl.className = statusClass(calculator.status);
