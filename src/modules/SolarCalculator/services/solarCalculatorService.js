@@ -286,9 +286,6 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const backupGenerationSaving = backupGenerationKwh * exportRate;
     const exportSavingBaseline = exportKwhBaseline * exportRateBaseline;
 
-    const totalMonthlySavings = morningSaving + exportSaving;
-    const totalMonthlySavingsBaseline = morningSaving + exportSavingBaseline;
-
     const beforeBreakdown = buildBillBreakdown(tariff, afaRate);
     const afterBreakdown = buildBillBreakdown(afterTariff, afaRate);
     const baselineBreakdown = buildBillBreakdown(baselineTariff, afaRate);
@@ -309,6 +306,9 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
       : null;
 
     const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
+
+    const totalMonthlySavings = billReduction + exportSaving;
+    const totalMonthlySavingsBaseline = billReductionBaseline + exportSavingBaseline;
 
     const usageReduction = monthlyUsageKwh - (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh);
     const afaSaving = usageReduction * afaRate;

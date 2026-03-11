@@ -1012,7 +1012,7 @@ function displaySolarCalculation(data) {
                     </div>
                     <div class="h-px bg-white/20"></div>
                     <div class="space-y-4">
-                        <div class="flex justify-between items-baseline text-sm md:text-base"><span>New_Monthly_Bill:</span><span class="font-bold">RM ${formatCurrency(b.billAfter)}</span></div>
+                        <div class="flex justify-between items-baseline text-sm md:text-base"><span>New_Monthly_Bill:</span><span class="font-bold">RM ${formatCurrency(ds.billAfter)}</span></div>
                         <div class="text-sm md:text-base">
                             <div class="flex justify-between items-baseline"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(ds.billReduction)}</span></div>
                             <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">total import ${parseFloat(ds.netUsageKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh</div>
@@ -1034,12 +1034,12 @@ function displaySolarCalculation(data) {
                         </div>
                         
                         <div class="pt-4 mt-4 border-t border-white/10 space-y-3">
-                            <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Monthly_Savings:</span><span class="font-bold">RM ${formatCurrency(b.totalSavings)}</span></div>
+                            <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Monthly_Savings:</span><span class="font-bold">RM ${formatCurrency(data.monthlySavings)}</span></div>
                             <div class="flex justify-between items-baseline text-lg md:text-xl text-white pt-2 border-t border-white/20">
                                 <span class="text-[10px] md:text-xs font-bold uppercase tracking-wide opacity-80">Estimated_Payable_After_Solar:</span>
-                                <span class="font-bold">RM ${formatCurrency(Math.max(0, b.billAfter - ds.exportSaving))}</span>
+                                <span class="font-bold">RM ${formatCurrency(Math.max(0, ds.billAfter - ds.exportSaving))}</span>
                             </div>
-                            <div class="text-[9px] md:text-[10px] opacity-60 text-right italic">(TNB Bill RM ${formatCurrency(b.billAfter)} - Export Income RM ${formatCurrency(ds.exportSaving)})</div>
+                            <div class="text-[9px] md:text-[10px] opacity-60 text-right italic">(TNB Bill RM ${formatCurrency(ds.billAfter)} - Export Income RM ${formatCurrency(ds.exportSaving)})</div>
                         </div>
 
                         <div class="flex justify-between items-baseline text-sm md:text-base text-orange-400"><span>Confidence_Level:</span><span class="font-bold">${data.confidenceLevel}%</span></div>
