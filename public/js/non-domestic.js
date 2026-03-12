@@ -14,7 +14,7 @@ let currentSimulationParams = null;
 let currentPanelQuantity = null;
 let currentPackageData = null;
 const COMMERCIAL_PACKAGE_TYPE = 'Tariff B&D Low Voltage';
-const DEFAULT_COMMERCIAL_PANEL_RATING = 620;
+const DEFAULT_COMMERCIAL_PANEL_RATING = 590;
 
 // Hourly Solar Generation Map (Percentage of daily yield)
 const HOURLY_SOLAR_MAP = {
