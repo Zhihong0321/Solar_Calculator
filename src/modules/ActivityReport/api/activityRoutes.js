@@ -130,7 +130,8 @@ router.get('/api/activity/config', requireAuth, (req, res) => {
         type,
         points
       })),
-      followUpSubtypes: activityRepo.FOLLOW_UP_SUBTYPES
+      followUpSubtypes: activityRepo.FOLLOW_UP_SUBTYPES,
+      timeOfDaySlots: activityRepo.TIME_OF_DAY_SLOTS
     }
   });
 });
@@ -282,10 +283,27 @@ router.post('/api/activity/submit', requireAuth, async (req, res) => {
   let client = null;
   try {
     const userId = req.user.userId || req.user.bubbleId;
-    const { activityType, followUpSubtype, remark, linkedCustomer, reportDate, tags } = req.body;
+    const {
+      activityType,
+      followUpSubtype,
+      remark,
+      linkedCustomer,
+      reportDate,
+      activityDate,
+      timeOfDay,
+      tags
+    } = req.body;
 
     if (!activityType) {
       return res.status(400).json({ success: false, error: 'Activity type is required' });
+    }
+
+    if (!timeOfDay) {
+      return res.status(400).json({ success: false, error: 'Time of day is required' });
+    }
+
+    if (!activityRepo.isValidTimeOfDaySlot(timeOfDay)) {
+      return res.status(400).json({ success: false, error: 'Invalid time of day selection' });
     }
 
     // Validate follow-up subtype
@@ -318,7 +336,8 @@ router.post('/api/activity/submit', requireAuth, async (req, res) => {
       followUpSubtype,
       remark,
       linkedCustomer,
-      reportDate: reportDate ? new Date(reportDate) : new Date(),
+      reportDate: (reportDate || activityDate) ? new Date(reportDate || activityDate) : new Date(),
+      timeOfDay,
       tags
     });
 
@@ -344,7 +363,20 @@ router.put('/api/activity/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId || req.user.bubbleId;
     const { id } = req.params;
-    const { activityType, followUpSubtype, remark, linkedCustomer, reportDate, tags } = req.body;
+    const {
+      activityType,
+      followUpSubtype,
+      remark,
+      linkedCustomer,
+      reportDate,
+      activityDate,
+      timeOfDay,
+      tags
+    } = req.body;
+
+    if (timeOfDay !== undefined && timeOfDay !== null && timeOfDay !== '' && !activityRepo.isValidTimeOfDaySlot(timeOfDay)) {
+      return res.status(400).json({ success: false, error: 'Invalid time of day selection' });
+    }
 
     client = await pool.connect();
 
@@ -372,7 +404,8 @@ router.put('/api/activity/:id', requireAuth, async (req, res) => {
       followUpSubtype,
       remark,
       linkedCustomer,
-      reportDate: reportDate ? new Date(reportDate) : undefined,
+      reportDate: (reportDate || activityDate) ? new Date(reportDate || activityDate) : undefined,
+      timeOfDay: timeOfDay !== undefined && timeOfDay !== '' ? timeOfDay : undefined,
       tags
     }, identifiers);
 

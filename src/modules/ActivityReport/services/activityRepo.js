@@ -26,6 +26,24 @@ const FOLLOW_UP_SUBTYPES = [
   'Other'
 ];
 
+function formatTimeSlotLabel(hour) {
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:00 ${suffix}`;
+}
+
+const TIME_OF_DAY_SLOTS = Array.from({ length: 17 }, (_, index) => {
+  const hour = index + 7;
+  return {
+    value: `${String(hour).padStart(2, '0')}:00`,
+    label: formatTimeSlotLabel(hour)
+  };
+});
+
+function isValidTimeOfDaySlot(value) {
+  return TIME_OF_DAY_SLOTS.some(slot => slot.value === value);
+}
+
 /**
  * Generate unique bubble_id
  */
@@ -99,7 +117,7 @@ async function getActivitiesByAgent(client, agentBubbleId, options = {}) {
     params.push(activityType);
   }
 
-  query += ` ORDER BY report_date DESC, created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+  query += ` ORDER BY report_date DESC, time_of_day DESC NULLS LAST, created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
   params.push(limit, offset);
 
   const result = await client.query(query, params);
@@ -170,6 +188,7 @@ async function createActivity(client, data) {
     remark,
     linkedCustomer,
     reportDate,
+    timeOfDay,
     tags
   } = data;
 
@@ -179,9 +198,9 @@ async function createActivity(client, data) {
   const result = await client.query(
     `INSERT INTO agent_daily_report (
       bubble_id, linked_user, created_by, activity_type, follow_up_subtype,
-      remark, linked_customer, report_date, report_point, tag, 
+      remark, linked_customer, report_date, time_of_day, report_point, tag,
       created_at, updated_at, created_date
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW(), NOW())
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW(), NOW())
     RETURNING *`,
     [
       bubbleId,
@@ -192,6 +211,7 @@ async function createActivity(client, data) {
       remark || null,
       linkedCustomer || null,
       reportDate || new Date(),
+      timeOfDay || null,
       points,
       tags || null
     ]
@@ -208,7 +228,7 @@ async function createActivity(client, data) {
  * @param {string} agentBubbleId - For ownership verification
  */
 async function updateActivity(client, id, data, agentBubbleId) {
-  const { activityType, followUpSubtype, remark, linkedCustomer, reportDate, tags } = data;
+  const { activityType, followUpSubtype, remark, linkedCustomer, reportDate, timeOfDay, tags } = data;
 
   // Recalculate points if activity type changed
   const points = activityType ? getPointsForActivity(activityType) : undefined;
@@ -223,9 +243,10 @@ async function updateActivity(client, id, data, agentBubbleId) {
       linked_customer = COALESCE($4, linked_customer),
       report_date = COALESCE($5, report_date),
       tag = COALESCE($6, tag),
-      report_point = COALESCE($7, report_point),
+      time_of_day = COALESCE($7, time_of_day),
+      report_point = COALESCE($8, report_point),
       updated_at = NOW()
-    WHERE id = $8 AND (linked_user = ANY($9) OR created_by = ANY($9))
+    WHERE id = $9 AND (linked_user = ANY($10) OR created_by = ANY($10))
     RETURNING *`,
     [
       activityType || null,
@@ -234,6 +255,7 @@ async function updateActivity(client, id, data, agentBubbleId) {
       linkedCustomer !== undefined ? linkedCustomer : null,
       reportDate || null,
       tags || null,
+      timeOfDay !== undefined ? timeOfDay : null,
       points,
       id,
       identifiers
@@ -588,7 +610,7 @@ async function getAllActivitiesForReview(client, options = {}) {
     params.push(activityType);
   }
 
-  query += ` ORDER BY dr.report_date DESC, dr.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+  query += ` ORDER BY dr.report_date DESC, dr.time_of_day DESC NULLS LAST, dr.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
   params.push(limit, offset);
 
   const result = await client.query(query, params);
@@ -735,6 +757,8 @@ async function getActivityTypeBreakdown(client, options = {}) {
 module.exports = {
   ACTIVITY_POINTS,
   FOLLOW_UP_SUBTYPES,
+  TIME_OF_DAY_SLOTS,
+  isValidTimeOfDaySlot,
   getPointsForActivity,
   getActivitiesByAgent,
   getActivityById,

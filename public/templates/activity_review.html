@@ -28,7 +28,7 @@
         .nav-link.active { background: var(--slate-900); color: white; }
         @media (max-width: 768px) { .sidebar { display: none; } }
         .table-container { overflow-x: auto; width: 100%; }
-        table { width: 100%; min-width: 800px; }
+        table { width: 100%; min-width: 920px; }
     </style>
 </head>
 <body class="flex">
@@ -119,6 +119,7 @@
                         <thead class="bg-slate-50">
                             <tr>
                                 <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                                <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Time of Day</th>
                                 <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Agent</th>
                                 <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Activity Type</th>
                                 <th class="text-left px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Subtype</th>
@@ -128,7 +129,7 @@
                             </tr>
                         </thead>
                         <tbody id="activityTable" class="divide-y divide-slate-100">
-                            <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
+                            <tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -250,13 +251,14 @@
         function renderActivityTable() {
             const tbody = document.getElementById('activityTable');
             if (allActivities.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">No activities found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">No activities found</td></tr>';
                 return;
             }
 
             tbody.innerHTML = allActivities.map(a => `
                 <tr class="hover:bg-slate-50">
                     <td class="px-4 py-3 text-slate-900">${formatDate(a.report_date)}</td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">${formatTimeOfDay(a.time_of_day)}</td>
                     <td class="px-4 py-3 text-slate-900 font-medium">
                         ${a.agent_name
                             ? `<button type="button" onclick="openAgentReport('${a.linked_user || a.created_by}', '${escapeHtml(a.agent_name)}')" class="text-brand-blue hover:underline font-medium">${a.agent_name}</button>`
@@ -285,15 +287,28 @@
             return d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
         }
 
+        function formatTimeOfDay(slotValue) {
+            if (!slotValue) return '-';
+            const [hourText] = String(slotValue).split(':');
+            const hour = Number(hourText);
+
+            if (Number.isNaN(hour)) return slotValue;
+
+            const suffix = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour % 12 || 12;
+            return `${displayHour}:00 ${suffix}`;
+        }
+
         function exportCSV() {
             if (allActivities.length === 0) {
                 alert('No data to export');
                 return;
             }
 
-            const headers = ['Date', 'Agent', 'Activity Type', 'Subtype', 'Description', 'Customer', 'Points'];
+            const headers = ['Date', 'Time of Day', 'Agent', 'Activity Type', 'Subtype', 'Description', 'Customer', 'Points'];
             const rows = allActivities.map(a => [
                 formatDate(a.report_date),
+                formatTimeOfDay(a.time_of_day),
                 a.agent_name || '',
                 a.activity_type || '',
                 a.follow_up_subtype || '',

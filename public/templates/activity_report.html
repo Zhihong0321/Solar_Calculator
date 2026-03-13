@@ -314,6 +314,13 @@
                     </select>
                 </div>
                 <div>
+                    <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Time of the Day</label>
+                    <select id="timeOfDay" required
+                        class="mt-1 w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm">
+                        <option value="">Select time slot...</option>
+                    </select>
+                </div>
+                <div>
                     <label class="text-xs font-bold text-slate-600 uppercase tracking-wider">Description / Customer
                         Name</label>
                     <textarea id="remark" rows="3"
@@ -331,7 +338,7 @@
     </div>
 
     <script>
-        let activityConfig = { activityTypes: [], followUpSubtypes: [] };
+        let activityConfig = { activityTypes: [], followUpSubtypes: [], timeOfDaySlots: [] };
         let editMode = { active: false, id: null };
         const ACTIVITY_PAGE_SIZE = 14;
         let activityOffset = 0;
@@ -514,6 +521,7 @@
             const typeSelect = document.getElementById('activityType');
             const filterSelect = document.getElementById('filterActivityType');
             const subtypeSelect = document.getElementById('followUpSubtype');
+            const timeSelect = document.getElementById('timeOfDay');
 
             activityConfig.activityTypes.forEach(item => {
                 typeSelect.innerHTML += `<option value="${item.type}" data-points="${item.points}">${item.type} (${item.points} pts)</option>`;
@@ -523,6 +531,14 @@
             activityConfig.followUpSubtypes.forEach(s => {
                 subtypeSelect.innerHTML += `<option value="${s}">${s}</option>`;
             });
+
+            activityConfig.timeOfDaySlots.forEach(slot => {
+                timeSelect.innerHTML += `<option value="${slot.value}">${slot.label}</option>`;
+            });
+
+            if (!timeSelect.value) {
+                timeSelect.value = getDefaultTimeOfDaySlot();
+            }
         }
 
         function onActivityTypeChange() {
@@ -644,6 +660,23 @@
             return items[items.length - 1].dataset.reportDateKey || null;
         }
 
+        function getDefaultTimeOfDaySlot(date = new Date()) {
+            const hour = Math.min(23, Math.max(7, date.getHours()));
+            return `${String(hour).padStart(2, '0')}:00`;
+        }
+
+        function formatTimeOfDay(slotValue) {
+            if (!slotValue) return 'Time not set';
+            const [hourText] = String(slotValue).split(':');
+            const hour = Number(hourText);
+
+            if (Number.isNaN(hour)) return slotValue;
+
+            const suffix = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour % 12 || 12;
+            return `${displayHour}:00 ${suffix}`;
+        }
+
         function buildActivityMarkup(activities, previousDateKey = null) {
             let lastDateKey = previousDateKey;
 
@@ -661,14 +694,15 @@
 
                 return `
                     ${dateHeader}
-                    <div class="p-4 hover:bg-slate-50 flex items-start gap-4" data-id="${a.id}" data-type="${a.activity_type || ''}" data-subtype="${a.follow_up_subtype || ''}" data-remark="${(a.remark || '').replace(/"/g, '&quot;')}" data-date="${a.report_date ? a.report_date.split('T')[0] : ''}" data-report-date-key="${dateKey}">
+                    <div class="p-4 hover:bg-slate-50 flex items-start gap-4" data-id="${a.id}" data-type="${a.activity_type || ''}" data-subtype="${a.follow_up_subtype || ''}" data-time-slot="${a.time_of_day || ''}" data-remark="${(a.remark || '').replace(/"/g, '&quot;')}" data-date="${a.report_date ? a.report_date.split('T')[0] : ''}" data-report-date-key="${dateKey}">
                         <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                             <span class="text-sm font-bold text-slate-600">${a.report_point || 0}</span>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
                                 <span class="text-sm font-bold text-slate-900">${a.activity_type || 'Unknown'}</span>
                                 ${a.follow_up_subtype ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">${a.follow_up_subtype}</span>` : ''}
+                                ${a.time_of_day ? `<span class="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-semibold">${formatTimeOfDay(a.time_of_day)}</span>` : ''}
                             </div>
                             <p class="text-xs text-slate-500 mt-0.5 truncate">${a.remark || 'No description'}</p>
                         </div>
@@ -776,6 +810,7 @@
             document.getElementById('submitModal').classList.add('flex');
             document.getElementById('activityForm').reset();
             document.getElementById('activityDate').valueAsDate = new Date();
+            document.getElementById('timeOfDay').value = getDefaultTimeOfDaySlot();
             document.getElementById('followUpSection').classList.add('hidden');
             document.getElementById('pointsDisplay').textContent = '';
             document.querySelector('#submitModal h3').textContent = 'Submit Activity';
@@ -787,17 +822,19 @@
                 row.dataset.id,
                 row.dataset.type,
                 row.dataset.subtype,
+                row.dataset.timeSlot,
                 row.dataset.remark,
                 row.dataset.date
             );
         }
 
-        function editActivity(id, activityType, followUpSubtype, remark, reportDate) {
+        function editActivity(id, activityType, followUpSubtype, timeOfDay, remark, reportDate) {
             editMode = { active: true, id: id };
             document.getElementById('submitModal').classList.remove('hidden');
             document.getElementById('submitModal').classList.add('flex');
             document.getElementById('activityDate').value = reportDate;
             document.getElementById('activityType').value = activityType;
+            document.getElementById('timeOfDay').value = timeOfDay || '';
             document.getElementById('remark').value = remark;
             document.getElementById('followUpSubtype').value = followUpSubtype;
             document.querySelector('#submitModal h3').textContent = 'Edit Activity';
@@ -817,6 +854,7 @@
                 activityDate: document.getElementById('activityDate').value,
                 activityType: document.getElementById('activityType').value,
                 followUpSubtype: document.getElementById('followUpSubtype').value || undefined,
+                timeOfDay: document.getElementById('timeOfDay').value,
                 remark: document.getElementById('remark').value
             };
 
