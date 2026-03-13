@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referral Leads | ETERNALGY OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); color: #0f172a; }
+        .glass {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-6">
+        <div class="glass rounded-3xl shadow-sm p-6 md:p-8">
+            <div class="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                <div class="space-y-2">
+                    <a href="/agent/home" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900 transition">
+                        <span>&larr;</span>
+                        <span>Back to dashboard</span>
+                    </a>
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">Management</p>
+                        <h1 class="text-3xl md:text-4xl font-black tracking-tight text-slate-900">Referral Leads Queue</h1>
+                        <p class="text-sm md:text-base text-slate-500 mt-2">
+                            Review every incoming referral, check who referred it, and assign the lead to the right agent.
+                        </p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3 md:min-w-[340px]">
+                    <div class="rounded-2xl bg-slate-950 text-white p-4">
+                        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-bold">Total</p>
+                        <p class="text-2xl font-black mt-2" id="totalCount">0</p>
+                    </div>
+                    <div class="rounded-2xl bg-amber-50 border border-amber-200 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.2em] text-amber-700 font-bold">Unassigned</p>
+                        <p class="text-2xl font-black mt-2 text-amber-900" id="unassignedCount">0</p>
+                    </div>
+                    <div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.2em] text-emerald-700 font-bold">Assigned</p>
+                        <p class="text-2xl font-black mt-2 text-emerald-900" id="assignedCount">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass rounded-3xl shadow-sm p-5 md:p-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Search</label>
+                    <input id="searchInput" type="text" placeholder="Search lead, mobile, or referrer"
+                        class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-slate-900">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Assignment</label>
+                    <select id="assignmentFilter"
+                        class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-slate-900">
+                        <option value="all">All</option>
+                        <option value="unassigned">Unassigned</option>
+                        <option value="assigned">Assigned</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">Status</label>
+                    <select id="statusFilter"
+                        class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-slate-900">
+                        <option value="all">All</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="loadingState" class="glass rounded-3xl shadow-sm p-12 text-center">
+            <div class="mx-auto h-12 w-12 rounded-full border-4 border-slate-200 border-t-slate-900 animate-spin"></div>
+            <p class="mt-4 text-sm font-semibold text-slate-500">Loading referral leads...</p>
+        </div>
+
+        <div id="emptyState" class="hidden glass rounded-3xl shadow-sm p-12 text-center">
+            <p class="text-lg font-bold text-slate-700">No referral leads found</p>
+            <p class="text-sm text-slate-500 mt-2">Try a different filter or wait for new referrals to arrive.</p>
+        </div>
+
+        <div id="tableCard" class="hidden glass rounded-3xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Lead</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Referrer</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Location</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Preferred</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Assigned</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Status</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Created</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leadsTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            leads: [],
+            agents: [],
+            filteredLeads: []
+        };
+
+        const statusPalette = {
+            pending: 'bg-amber-100 text-amber-800',
+            assigned: 'bg-sky-100 text-sky-800',
+            contacted: 'bg-indigo-100 text-indigo-800',
+            qualified: 'bg-violet-100 text-violet-800',
+            successful: 'bg-emerald-100 text-emerald-800',
+            rejected: 'bg-rose-100 text-rose-800',
+            declined: 'bg-rose-100 text-rose-800'
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            bindFilters();
+            await loadPageData();
+        });
+
+        function bindFilters() {
+            ['searchInput', 'assignmentFilter', 'statusFilter'].forEach((id) => {
+                const element = document.getElementById(id);
+                const eventName = id === 'searchInput' ? 'input' : 'change';
+                element.addEventListener(eventName, applyFilters);
+            });
+        }
+
+        async function loadPageData() {
+            try {
+                const [leadsRes, agentsRes] = await Promise.all([
+                    fetch('/api/v1/referrals/management/leads', { credentials: 'same-origin' }),
+                    fetch('/api/v1/referrals/management/agents', { credentials: 'same-origin' })
+                ]);
+
+                const leadsJson = await leadsRes.json();
+                const agentsJson = await agentsRes.json();
+
+                if (!leadsRes.ok || !leadsJson.success) {
+                    throw new Error(leadsJson.error || 'Failed to load referral leads');
+                }
+
+                if (!agentsRes.ok || !agentsJson.success) {
+                    throw new Error(agentsJson.error || 'Failed to load assignable agents');
+                }
+
+                state.leads = leadsJson.data || [];
+                state.agents = agentsJson.data || [];
+
+                hydrateStatusOptions();
+                applyFilters();
+            } catch (error) {
+                console.error('Error loading referral management page:', error);
+                document.getElementById('loadingState').classList.add('hidden');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Unable to load queue',
+                    text: error.message,
+                    confirmButtonColor: '#0f172a'
+                });
+            }
+        }
+
+        function hydrateStatusOptions() {
+            const select = document.getElementById('statusFilter');
+            const statuses = Array.from(new Set(
+                state.leads
+                    .map((lead) => lead.workflow_status || lead.status)
+                    .filter(Boolean)
+            )).sort();
+
+            select.innerHTML = '<option value="all">All</option>' +
+                statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join('');
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+            const assignment = document.getElementById('assignmentFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            state.filteredLeads = state.leads.filter((lead) => {
+                const assigned = Boolean(lead.assigned_agent_key);
+                const leadStatus = lead.workflow_status || lead.status || '';
+                const haystack = [
+                    lead.name,
+                    lead.mobile_number,
+                    lead.referrer_customer_name
+                ].filter(Boolean).join(' ').toLowerCase();
+
+                if (assignment === 'assigned' && !assigned) return false;
+                if (assignment === 'unassigned' && assigned) return false;
+                if (status !== 'all' && leadStatus !== status) return false;
+                if (searchTerm && !haystack.includes(searchTerm)) return false;
+                return true;
+            });
+
+            updateSummary();
+            renderTable();
+        }
+
+        function updateSummary() {
+            document.getElementById('totalCount').textContent = state.leads.length;
+            document.getElementById('unassignedCount').textContent = state.leads.filter((lead) => !lead.assigned_agent_key).length;
+            document.getElementById('assignedCount').textContent = state.leads.filter((lead) => Boolean(lead.assigned_agent_key)).length;
+        }
+
+        function renderTable() {
+            document.getElementById('loadingState').classList.add('hidden');
+
+            const emptyState = document.getElementById('emptyState');
+            const tableCard = document.getElementById('tableCard');
+            const tbody = document.getElementById('leadsTableBody');
+
+            if (!state.filteredLeads.length) {
+                emptyState.classList.remove('hidden');
+                tableCard.classList.add('hidden');
+                tbody.innerHTML = '';
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            tableCard.classList.remove('hidden');
+
+            tbody.innerHTML = state.filteredLeads.map((lead) => {
+                const status = lead.workflow_status || lead.status || 'Pending';
+                const normalizedStatus = String(status).trim().toLowerCase();
+                const statusClass = statusPalette[normalizedStatus] || 'bg-slate-100 text-slate-700';
+                const location = formatLocation(lead);
+                const createdAt = lead.created_at
+                    ? new Date(lead.created_at).toLocaleString('en-MY')
+                    : '-';
+
+                return `
+                    <tr class="align-top">
+                        <td class="px-5 py-4">
+                            <div class="space-y-1">
+                                <p class="text-sm font-bold text-slate-900">${escapeHtml(lead.name || '-')}</p>
+                                <p class="text-xs text-slate-500">${escapeHtml(lead.mobile_number || '-')}</p>
+                                ${lead.relationship ? `<p class="text-xs text-slate-400">Relationship: ${escapeHtml(lead.relationship)}</p>` : ''}
+                            </div>
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="space-y-1">
+                                <p class="text-sm font-semibold text-slate-800">${escapeHtml(lead.referrer_customer_name || '-')}</p>
+                                <p class="text-xs text-slate-500">${escapeHtml(lead.referrer_customer_id || '')}</p>
+                            </div>
+                        </td>
+                        <td class="px-5 py-4">
+                            <p class="text-sm text-slate-700">${escapeHtml(location.primary)}</p>
+                            <p class="text-xs text-slate-400 mt-1">${escapeHtml(location.secondary)}</p>
+                        </td>
+                        <td class="px-5 py-4">
+                            <p class="text-sm font-semibold text-slate-800">${escapeHtml(lead.preferred_agent_name || lead.preferred_agent_key || '-')}</p>
+                        </td>
+                        <td class="px-5 py-4">
+                            <p class="text-sm font-semibold text-slate-800">${escapeHtml(lead.assigned_agent_name || lead.assigned_agent_key || 'Unassigned')}</p>
+                        </td>
+                        <td class="px-5 py-4">
+                            <span class="status-pill ${statusClass}">${escapeHtml(status)}</span>
+                        </td>
+                        <td class="px-5 py-4 text-sm text-slate-500">
+                            ${escapeHtml(createdAt)}
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="space-y-2 min-w-[220px]">
+                                <select
+                                    data-assignment-select="${escapeAttribute(lead.bubble_id)}"
+                                    class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-900">
+                                    ${renderAgentOptions(lead.assigned_agent_key)}
+                                </select>
+                                <button
+                                    onclick="saveAssignment('${escapeJs(lead.bubble_id)}')"
+                                    class="w-full rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800">
+                                    Save Assignment
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderAgentOptions(selectedValue) {
+            const options = ['<option value="">Unassigned</option>'];
+            state.agents.forEach((agent) => {
+                const selected = String(selectedValue || '') === String(agent.assignment_key) ? 'selected' : '';
+                const label = `${agent.name || 'Unnamed Agent'}${agent.email ? ` (${agent.email})` : ''}`;
+                options.push(
+                    `<option value="${escapeAttribute(agent.assignment_key)}" ${selected}>${escapeHtml(label)}</option>`
+                );
+            });
+            return options.join('');
+        }
+
+        function formatLocation(lead) {
+            const parts = [lead.lead_city, lead.lead_state].filter(Boolean);
+            return {
+                primary: parts.length ? parts.join(', ') : 'Location not provided',
+                secondary: lead.lead_address || 'No address captured'
+            };
+        }
+
+        async function saveAssignment(bubbleId) {
+            const select = document.querySelector(`[data-assignment-select="${CSS.escape(bubbleId)}"]`);
+            if (!select) return;
+
+            const assignmentKey = select.value || null;
+
+            try {
+                const response = await fetch(`/api/v1/referrals/${encodeURIComponent(bubbleId)}/assign`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ assignmentKey })
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Failed to update assignment');
+                }
+
+                const agent = state.agents.find((item) => String(item.assignment_key) === String(assignmentKey));
+                state.leads = state.leads.map((lead) => {
+                    if (lead.bubble_id !== bubbleId) return lead;
+                    return {
+                        ...lead,
+                        assigned_agent_key: assignmentKey,
+                        assigned_agent_name: agent ? agent.name : null,
+                        linked_agent: assignmentKey
+                    };
+                });
+
+                applyFilters();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Assignment updated',
+                    text: assignmentKey ? 'Lead has been assigned successfully.' : 'Lead has been marked as unassigned.',
+                    timer: 1300,
+                    showConfirmButton: false
+                });
+            } catch (error) {
+                console.error('Error updating assignment:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Update failed',
+                    text: error.message,
+                    confirmButtonColor: '#0f172a'
+                });
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function escapeAttribute(value) {
+            return escapeHtml(value).replace(/`/g, '&#96;');
+        }
+
+        function escapeJs(value) {
+            return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+    </script>
+    <script src="/js/navigation.js"></script>
+</body>
+</html>

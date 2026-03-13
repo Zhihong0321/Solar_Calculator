@@ -6,6 +6,37 @@ const referralRepo = require('../services/referralRepo');
 
 const router = express.Router();
 
+function normalizeAccessLevels(accessLevels = []) {
+  return Array.isArray(accessLevels)
+    ? accessLevels.map((role) => String(role).trim().toLowerCase())
+    : [];
+}
+
+function hasManagerAccess(accessLevels = []) {
+  const roles = normalizeAccessLevels(accessLevels);
+  return roles.includes('hr') || roles.includes('kc');
+}
+
+async function resolveAuthenticatedUser(client, req) {
+  const userId = req.user?.userId || req.user?.id;
+  const bubbleId = req.user?.bubbleId || req.user?.bubble_id;
+
+  if (!userId && !bubbleId) {
+    return null;
+  }
+
+  const result = await client.query(
+    `SELECT id::text AS user_id, bubble_id, access_level, linked_agent_profile
+     FROM "user"
+     WHERE id::text = $1
+        OR (bubble_id = $2 AND bubble_id IS NOT NULL AND bubble_id != '')
+     LIMIT 1`,
+    [String(userId || ''), String(bubbleId || '')]
+  );
+
+  return result.rows[0] || null;
+}
+
 /**
  * PAGE ROUTE
  * GET /referral-dashboard/:shareToken
@@ -13,6 +44,29 @@ const router = express.Router();
  */
 router.get('/referral-dashboard/:shareToken', async (req, res) => {
   res.sendFile(path.join(__dirname, '../../../../public/templates/referral_dashboard.html'));
+});
+
+/**
+ * GET /referral-leads-management
+ * Manager referral queue page
+ */
+router.get('/referral-leads-management', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    client = await pool.connect();
+    const user = await resolveAuthenticatedUser(client, req);
+
+    if (!user || !hasManagerAccess(user.access_level)) {
+      return res.status(403).send('<h1>Access Denied</h1><p>HR or KC access is required.</p>');
+    }
+
+    res.sendFile(path.join(__dirname, '../../../../public/templates/referral_leads_management.html'));
+  } catch (err) {
+    console.error('[Referral Page] Error opening referral manager page:', err);
+    res.status(500).send('<h1>Server Error</h1><p>Unable to open referral management page.</p>');
+  } finally {
+    if (client) client.release();
+  }
 });
 
 /**
@@ -26,14 +80,75 @@ router.get('/referral-dashboard/:shareToken', async (req, res) => {
 router.get('/api/v1/referrals/my-referrals', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId;
     client = await pool.connect();
-    
-    const referrals = await referralRepo.getReferralsByAgentId(client, userId);
+    const user = await resolveAuthenticatedUser(client, req);
+
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const referrals = await referralRepo.getReferralsByAgentId(
+      client,
+      user.user_id || user.bubble_id || req.user.userId
+    );
     
     res.json({ success: true, data: referrals });
   } catch (err) {
     console.error('[Referral API] Error fetching agent referrals:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
+ * GET /api/v1/referrals/management/leads
+ * Get all incoming referral leads for HR/KC users
+ */
+router.get('/api/v1/referrals/management/leads', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    client = await pool.connect();
+    const user = await resolveAuthenticatedUser(client, req);
+
+    if (!user || !hasManagerAccess(user.access_level)) {
+      return res.status(403).json({ success: false, error: 'HR or KC access required' });
+    }
+
+    const { status, assignment, search } = req.query;
+    const leads = await referralRepo.getReferralManagementQueue(client, {
+      status,
+      assignment,
+      search
+    });
+
+    res.json({ success: true, data: leads });
+  } catch (err) {
+    console.error('[Referral API] Error fetching management queue:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
+ * GET /api/v1/referrals/management/agents
+ * Get assignable agents for manager queue
+ */
+router.get('/api/v1/referrals/management/agents', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    client = await pool.connect();
+    const user = await resolveAuthenticatedUser(client, req);
+
+    if (!user || !hasManagerAccess(user.access_level)) {
+      return res.status(403).json({ success: false, error: 'HR or KC access required' });
+    }
+
+    const agents = await referralRepo.getAssignableAgents(client);
+    res.json({ success: true, data: agents });
+  } catch (err) {
+    console.error('[Referral API] Error fetching assignable agents:', err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     if (client) client.release();
@@ -128,6 +243,42 @@ router.post('/api/v1/referrals', async (req, res) => {
 });
 
 /**
+ * PUT /api/v1/referrals/:bubbleId/assign
+ * Assign or unassign a referral lead (manager only)
+ */
+router.put('/api/v1/referrals/:bubbleId/assign', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const { bubbleId } = req.params;
+    const { assignmentKey } = req.body;
+
+    client = await pool.connect();
+    const user = await resolveAuthenticatedUser(client, req);
+
+    if (!user || !hasManagerAccess(user.access_level)) {
+      return res.status(403).json({ success: false, error: 'HR or KC access required' });
+    }
+
+    const updated = await referralRepo.updateReferralAssignment(
+      client,
+      bubbleId,
+      assignmentKey ? String(assignmentKey) : null
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Referral not found' });
+    }
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error('[Referral API] Error assigning referral:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * PUT /api/v1/referrals/:bubbleId/status
  * Update referral status (agent only)
  */
@@ -136,17 +287,27 @@ router.put('/api/v1/referrals/:bubbleId/status', requireAuth, async (req, res) =
   try {
     const { bubbleId } = req.params;
     const { status, linkedInvoice, dealValue } = req.body;
-    const userId = req.user.userId;
     
     client = await pool.connect();
+    const user = await resolveAuthenticatedUser(client, req);
+
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     
     // Verify ownership
     const referral = await referralRepo.getReferralByBubbleId(client, bubbleId);
     if (!referral) {
       return res.status(404).json({ success: false, error: 'Referral not found' });
     }
-    
-    if (referral.linked_agent !== userId) {
+
+    const identifiers = await referralRepo.resolveAgentIdentifiers(
+      client,
+      user.user_id || user.bubble_id || req.user.userId
+    );
+    const currentAssignment = referral.assigned_agent || referral.linked_agent;
+
+    if (!identifiers.includes(String(currentAssignment))) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
     

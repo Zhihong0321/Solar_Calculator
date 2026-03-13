@@ -148,6 +148,21 @@
             mobileHideSelectors: ['body > div.bg-slate-900']
         },
         {
+            pageKey: 'referral-leads-management',
+            path: '/referral-leads-management',
+            title: 'Referral Leads',
+            rootTab: TOOLS_ROOT_KEY,
+            routeType: 'tool',
+            stack: 'referral-management',
+            showBack: true,
+            parentPage: 'agent-home',
+            toolGroup: 'Management',
+            toolLabel: 'Referral Leads',
+            toolDescription: 'Assign incoming referrals',
+            icon: 'review',
+            visibleIf: ({ roles }) => roles.includes('hr') || roles.includes('kc')
+        },
+        {
             pageKey: 'agent-profile',
             path: '/agent/profile',
             title: 'Profile',
