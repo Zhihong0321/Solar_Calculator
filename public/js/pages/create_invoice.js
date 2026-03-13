@@ -26,6 +26,7 @@ const MICRO_INVERTER_MODELS = [
     { id: 'mi_s2', name: 'SAJ M2-1.0K S2 Micro Inverter', price: 500, originalPrice: 1000 },
     { id: 'mi_s4', name: 'SAJ M4-1.8K S4 Micro Inverter', price: 1000, originalPrice: 1500 }
 ];
+const BALLAST_UNIT_PRICE = 120;
 
 // Read micro inverter qty inputs and return items with qty > 0
 function getMicroInverterItems() {
@@ -38,10 +39,97 @@ function getMicroInverterItems() {
                 description: `${model.name} (RM${model.originalPrice.toLocaleString()} → RM${model.price.toLocaleString()})`,
                 qty: qty,
                 unit_price: model.price,
-                total_price: qty * model.price
+                total_price: qty * model.price,
+                item_kind: 'micro_inverter'
             });
         }
     });
+    return items;
+}
+
+function getCurrentPanelQty() {
+    return Math.max(0, parseInt(window.currentPanelQty, 10) || 0);
+}
+
+function updateBallastLimitText() {
+    const limitText = document.getElementById('ballastLimitText');
+    const ballastInput = document.getElementById('ballastQty');
+    const maxBallast = getCurrentPanelQty();
+
+    if (ballastInput) {
+        ballastInput.max = String(maxBallast);
+    }
+
+    if (limitText) {
+        limitText.textContent = `Default: 0 ballast. Max: ${maxBallast} ballast.`;
+    }
+}
+
+function setBallastQty(value) {
+    const ballastInput = document.getElementById('ballastQty');
+    if (!ballastInput) return 0;
+
+    const normalizedQty = Math.max(0, Math.min(parseInt(value, 10) || 0, getCurrentPanelQty()));
+    ballastInput.value = String(normalizedQty);
+    updateBallastLimitText();
+    return normalizedQty;
+}
+
+function getBallastQty() {
+    const ballastInput = document.getElementById('ballastQty');
+    if (!ballastInput) return 0;
+
+    return setBallastQty(ballastInput.value);
+}
+
+function getBallastItem() {
+    const qty = getBallastQty();
+    if (qty <= 0) return null;
+
+    return {
+        description: `Upgrade ${qty} panel with Ballast System.`,
+        qty: qty,
+        unit_price: BALLAST_UNIT_PRICE,
+        total_price: qty * BALLAST_UNIT_PRICE,
+        item_kind: 'ballast'
+    };
+}
+
+function isBallastItem(item) {
+    if (!item) return false;
+
+    const description = String(item.description || '').trim();
+    const qty = parseInt(item.qty, 10) || 0;
+    const unitPrice = parseFloat(item.unit_price) || 0;
+    const totalPrice = parseFloat(item.total_price) || parseFloat(item.amount) || 0;
+
+    return /Upgrade\s+\d+\s+panel\s+with\s+Ballast\s+System\.?/i.test(description)
+        && qty > 0
+        && (Math.abs(unitPrice - BALLAST_UNIT_PRICE) < 0.01 || Math.abs(totalPrice - (qty * BALLAST_UNIT_PRICE)) < 0.01);
+}
+
+function getAdditionalInvoiceItems() {
+    const items = manualItems
+        .filter(item => (parseFloat(item.qty) || 0) > 0)
+        .map(item => {
+            const qty = parseFloat(item.qty) || 0;
+            const unitPrice = parseFloat(item.unit_price) || 0;
+            return {
+                description: item.description,
+                qty: qty,
+                unit_price: unitPrice,
+                total_price: qty * unitPrice,
+                item_kind: 'manual'
+            };
+        });
+
+    const ballastItem = getBallastItem();
+    if (ballastItem) {
+        items.push(ballastItem);
+    }
+
+    getMicroInverterItems().forEach(item => items.push(item));
+
     return items;
 }
 
@@ -51,12 +139,8 @@ const MANUAL_DISCOUNT_MAX_PERCENT = 7; // SYSTEM-WIDE: Max manual discount = 7% 
 // Calculate total negative amount from all extra items (manual + micro inverters)
 function getExtraItemsNegativeTotal() {
     let negativeTotal = 0;
-    manualItems.forEach(item => {
-        const lineTotal = (item.qty || 0) * (item.unit_price || 0);
-        if (lineTotal < 0) negativeTotal += lineTotal;
-    });
-    getMicroInverterItems().forEach(mi => {
-        if (mi.total_price < 0) negativeTotal += mi.total_price;
+    getAdditionalInvoiceItems().forEach(item => {
+        if (item.total_price < 0) negativeTotal += item.total_price;
     });
     return negativeTotal; // Will be <= 0
 }
@@ -519,15 +603,8 @@ function updatePaymentMethodInfo(index) {
     });
 
     // Calculate extra items total
-    let extraItemsTotal = 0;
-    manualItems.forEach(item => {
-        if (item.qty > 0) {
-            extraItemsTotal += item.qty * item.unit_price;
-        }
-    });
-    getMicroInverterItems().forEach(mi => {
-        extraItemsTotal += mi.total_price;
-    });
+    const extraItemsTotal = getAdditionalInvoiceItems()
+        .reduce((sum, item) => sum + item.total_price, 0);
 
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
@@ -588,15 +665,8 @@ function calculateAllEPPFees() {
     });
 
     // Calculate extra items total
-    let extraItemsTotal = 0;
-    manualItems.forEach(item => {
-        if (item.qty > 0) {
-            extraItemsTotal += item.qty * item.unit_price;
-        }
-    });
-    getMicroInverterItems().forEach(mi => {
-        extraItemsTotal += mi.total_price;
-    });
+    const extraItemsTotal = getAdditionalInvoiceItems()
+        .reduce((sum, item) => sum + item.total_price, 0);
 
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
@@ -837,37 +907,23 @@ function updateInvoicePreview() {
     let subtotal = packagePrice - cnyPromoDiscount - holidayBoostDiscount;
 
     // Add Extra Items
-    manualItems.forEach(item => {
-        if (item.qty > 0) {
-            const itemTotal = item.qty * item.unit_price;
-            const el = document.createElement('div');
-            el.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-            el.innerHTML = `
-                        <div class="flex-1">
-                            <div class="font-medium text-gray-900">${item.description || 'Unnamed Item'}</div>
-                            <div class="text-sm text-gray-600">${item.qty} × RM ${item.unit_price.toFixed(2)}</div>
-                        </div>
-                        <div class="font-semibold text-gray-900">RM ${itemTotal.toFixed(2)}</div>
-                    `;
-            itemsList.appendChild(el);
-            subtotal += itemTotal;
-        }
-    });
-
-    // Add Micro Inverter Items
-    const microInverterItems = getMicroInverterItems();
-    microInverterItems.forEach(mi => {
+    getAdditionalInvoiceItems().forEach(item => {
+        const itemToneClass = item.item_kind === 'ballast'
+            ? 'text-cyan-800'
+            : item.item_kind === 'micro_inverter'
+                ? 'text-amber-800'
+                : 'text-gray-900';
         const el = document.createElement('div');
         el.className = 'flex justify-between items-center py-2 border-b border-gray-200';
         el.innerHTML = `
                     <div class="flex-1">
-                        <div class="font-medium text-amber-800">${mi.description}</div>
-                        <div class="text-sm text-gray-600">${mi.qty} × RM ${mi.unit_price.toFixed(2)}</div>
+                        <div class="font-medium ${itemToneClass}">${item.description || 'Unnamed Item'}</div>
+                        <div class="text-sm text-gray-600">${item.qty} × RM ${item.unit_price.toFixed(2)}</div>
                     </div>
-                    <div class="font-semibold text-amber-800">RM ${mi.total_price.toFixed(2)}</div>
+                    <div class="font-semibold ${itemToneClass}">RM ${item.total_price.toFixed(2)}</div>
                 `;
         itemsList.appendChild(el);
-        subtotal += mi.total_price;
+        subtotal += item.total_price;
     });
 
     // Validate extra items discount cap (5% of package price)
@@ -1170,16 +1226,22 @@ document.addEventListener('DOMContentLoaded', async function () {
                 window.currentAgentMarkup = inv.agent_markup || 0;
 
                 if (inv.items) {
+                    let ballastQty = 0;
                     inv.items.forEach(item => {
                         const type = (item.item_type || '').toLowerCase();
                         if (type === 'extra' || (!type && !item.is_a_package)) {
-                            addManualItem({
-                                description: item.description,
-                                qty: parseFloat(item.qty) || 1,
-                                unit_price: parseFloat(item.unit_price) || 0
-                            });
+                            if (isBallastItem(item)) {
+                                ballastQty += parseInt(item.qty, 10) || Math.round((parseFloat(item.total_price) || 0) / BALLAST_UNIT_PRICE) || 0;
+                            } else {
+                                addManualItem({
+                                    description: item.description,
+                                    qty: parseFloat(item.qty) || 1,
+                                    unit_price: parseFloat(item.unit_price) || 0
+                                });
+                            }
                         }
                     });
+                    setBallastQty(ballastQty);
                 }
 
                 await fetchVouchers();
@@ -1281,9 +1343,22 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     });
 
+    const ballastQtyInput = document.getElementById('ballastQty');
+    if (ballastQtyInput) {
+        ballastQtyInput.addEventListener('input', () => {
+            getBallastQty();
+            updateInvoicePreview();
+        });
+        ballastQtyInput.addEventListener('change', () => {
+            getBallastQty();
+            updateInvoicePreview();
+        });
+    }
+
     const addBtn = document.getElementById('addPaymentMethodBtn');
     if (addBtn) addBtn.addEventListener('click', addPaymentMethodRow);
 
+    updateBallastLimitText();
     updateInvoicePreview();
 });
 
@@ -1380,6 +1455,7 @@ function showPackage(pkg) {
 
     // Store panel quantity for CNY promo
     window.currentPanelQty = pkg.panel_qty || 0;
+    setBallastQty(document.getElementById('ballastQty')?.value || 0);
 
     // Handle Max Discount — SYSTEM-WIDE: 7% of package price (vouchers excluded)
     const pkgPriceForLimit = parseFloat(pkg.price) || 0;
@@ -1513,13 +1589,12 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     const eppData = calculateAllEPPFees();
 
     // Prepare extra items (Manual Items + Micro Inverters)
-    const extraItems = manualItems.map(item => ({
+    const extraItems = getAdditionalInvoiceItems().map(item => ({
         description: item.description,
         qty: item.qty,
         unit_price: item.unit_price,
         total_price: item.qty * item.unit_price
     }));
-    getMicroInverterItems().forEach(mi => extraItems.push(mi));
 
     // Prepare request data
     const requestData = {

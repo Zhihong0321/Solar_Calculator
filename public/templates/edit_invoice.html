@@ -101,6 +101,22 @@
                 <input type="hidden" id="packagePrice" value="0">
                 <input type="hidden" id="packageName" value="">
                 <input type="hidden" id="profilePicture">
+
+                <!-- Ballast Section -->
+                <div class="bg-cyan-50 p-4 rounded-lg border-2 border-cyan-300">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 class="font-bold text-lg text-cyan-900">Ballast System</h2>
+                            <p class="text-sm text-cyan-800">Add RM 120 per ballast to stabilize panel placement.</p>
+                            <p class="text-xs text-cyan-700 mt-1" id="ballastLimitText">Default: 0 ballast. Max: 0 ballast.</p>
+                        </div>
+                        <div class="w-28">
+                            <label class="block text-[10px] font-bold text-cyan-700 uppercase">Ballast Qty</label>
+                            <input type="number" name="ballast_qty" id="ballastQty" min="0" max="0" value="0"
+                                class="w-full text-sm border border-cyan-300 rounded px-2 py-1.5 focus:outline-none focus:border-cyan-500 text-center">
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="flex items-center gap-4 mb-6 bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
                     <div id="profilePreview" class="h-16 w-16 rounded-lg bg-white border border-gray-300 flex items-center justify-center overflow-hidden">

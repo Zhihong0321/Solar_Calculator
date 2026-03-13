@@ -26,16 +26,100 @@ const BANKS = Object.keys(EPP_RATES);
 let paymentMethodCounter = 0;
 let availableVouchers = [];
 let selectedVouchers = [];
+const BALLAST_UNIT_PRICE = 120;
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
 const MANUAL_DISCOUNT_MAX_PERCENT = 7; // SYSTEM-WIDE: Max manual discount = 7% of package price (VOUCHERS EXCLUDED)
 
+function getCurrentPanelQty() {
+    return Math.max(0, parseInt(window.currentPanelQty, 10) || 0);
+}
+
+function updateBallastLimitText() {
+    const limitText = document.getElementById('ballastLimitText');
+    const ballastInput = document.getElementById('ballastQty');
+    const maxBallast = getCurrentPanelQty();
+
+    if (ballastInput) {
+        ballastInput.max = String(maxBallast);
+    }
+
+    if (limitText) {
+        limitText.textContent = `Default: 0 ballast. Max: ${maxBallast} ballast.`;
+    }
+}
+
+function setBallastQty(value) {
+    const ballastInput = document.getElementById('ballastQty');
+    if (!ballastInput) return 0;
+
+    const normalizedQty = Math.max(0, Math.min(parseInt(value, 10) || 0, getCurrentPanelQty()));
+    ballastInput.value = String(normalizedQty);
+    updateBallastLimitText();
+    return normalizedQty;
+}
+
+function getBallastQty() {
+    const ballastInput = document.getElementById('ballastQty');
+    if (!ballastInput) return 0;
+
+    return setBallastQty(ballastInput.value);
+}
+
+function getBallastItem() {
+    const qty = getBallastQty();
+    if (qty <= 0) return null;
+
+    return {
+        description: `Upgrade ${qty} panel with Ballast System.`,
+        qty: qty,
+        unit_price: BALLAST_UNIT_PRICE,
+        total_price: qty * BALLAST_UNIT_PRICE,
+        item_kind: 'ballast'
+    };
+}
+
+function isBallastItem(item) {
+    if (!item) return false;
+
+    const description = String(item.description || '').trim();
+    const qty = parseInt(item.qty, 10) || 0;
+    const unitPrice = parseFloat(item.unit_price) || 0;
+    const totalPrice = parseFloat(item.total_price) || parseFloat(item.amount) || 0;
+
+    return /Upgrade\s+\d+\s+panel\s+with\s+Ballast\s+System\.?/i.test(description)
+        && qty > 0
+        && (Math.abs(unitPrice - BALLAST_UNIT_PRICE) < 0.01 || Math.abs(totalPrice - (qty * BALLAST_UNIT_PRICE)) < 0.01);
+}
+
+function getAdditionalInvoiceItems() {
+    const items = manualItems
+        .filter(item => (parseFloat(item.qty) || 0) > 0)
+        .map(item => {
+            const qty = parseFloat(item.qty) || 0;
+            const unitPrice = parseFloat(item.unit_price) || 0;
+            return {
+                description: item.description,
+                qty: qty,
+                unit_price: unitPrice,
+                total_price: qty * unitPrice,
+                item_kind: 'manual'
+            };
+        });
+
+    const ballastItem = getBallastItem();
+    if (ballastItem) {
+        items.push(ballastItem);
+    }
+
+    return items;
+}
+
 // Calculate total negative amount from all extra items (manual)
 function getExtraItemsNegativeTotal() {
     let negativeTotal = 0;
-    manualItems.forEach(item => {
-        const lineTotal = (item.qty || 0) * (item.unit_price || 0);
-        if (lineTotal < 0) negativeTotal += lineTotal;
+    getAdditionalInvoiceItems().forEach(item => {
+        if (item.total_price < 0) negativeTotal += item.total_price;
     });
     return negativeTotal; // Will be <= 0
 }
@@ -431,12 +515,8 @@ function updatePaymentMethodInfo(index) {
     });
 
     // Calculate extra items total
-    let extraItemsTotal = 0;
-    manualItems.forEach(item => {
-        if (item.qty > 0) {
-            extraItemsTotal += item.qty * item.unit_price;
-        }
-    });
+    const extraItemsTotal = getAdditionalInvoiceItems()
+        .reduce((sum, item) => sum + item.total_price, 0);
 
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
@@ -491,12 +571,8 @@ function calculateAllEPPFees() {
     });
 
     // Calculate extra items total
-    let extraItemsTotal = 0;
-    manualItems.forEach(item => {
-        if (item.qty > 0) {
-            extraItemsTotal += item.qty * item.unit_price;
-        }
-    });
+    const extraItemsTotal = getAdditionalInvoiceItems()
+        .reduce((sum, item) => sum + item.total_price, 0);
 
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
@@ -699,21 +775,19 @@ function updateInvoicePreview() {
     let subtotal = packagePrice;
 
     // Add Extra Items
-    manualItems.forEach(item => {
-        if (item.qty > 0) {
-            const itemTotal = item.qty * item.unit_price;
-            const el = document.createElement('div');
-            el.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-            el.innerHTML = `
-                        <div class="flex-1">
-                            <div class="font-medium text-gray-900">${item.description || 'Unnamed Item'}</div>
-                            <div class="text-sm text-gray-600">${item.qty} × RM ${item.unit_price.toFixed(2)}</div>
-                        </div>
-                        <div class="font-semibold text-gray-900">RM ${itemTotal.toFixed(2)}</div>
-                    `;
-            itemsList.appendChild(el);
-            subtotal += itemTotal;
-        }
+    getAdditionalInvoiceItems().forEach(item => {
+        const itemToneClass = item.item_kind === 'ballast' ? 'text-cyan-800' : 'text-gray-900';
+        const el = document.createElement('div');
+        el.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        el.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium ${itemToneClass}">${item.description || 'Unnamed Item'}</div>
+                        <div class="text-sm text-gray-600">${item.qty} × RM ${item.unit_price.toFixed(2)}</div>
+                    </div>
+                    <div class="font-semibold ${itemToneClass}">RM ${item.total_price.toFixed(2)}</div>
+                `;
+        itemsList.appendChild(el);
+        subtotal += item.total_price;
     });
 
     // Validate extra items discount cap (5% of package price)
@@ -1012,13 +1086,19 @@ document.addEventListener('DOMContentLoaded', async function () {
                 });
 
                 // Load extra items as manual items (editable)
+                let ballastQty = 0;
                 extraItems.forEach(item => {
-                    addManualItem({
-                        description: item.description,
-                        qty: parseFloat(item.qty) || 1,
-                        unit_price: parseFloat(item.unit_price) || 0
-                    });
+                    if (isBallastItem(item)) {
+                        ballastQty += parseInt(item.qty, 10) || Math.round((parseFloat(item.total_price) || 0) / BALLAST_UNIT_PRICE) || 0;
+                    } else {
+                        addManualItem({
+                            description: item.description,
+                            qty: parseFloat(item.qty) || 1,
+                            unit_price: parseFloat(item.unit_price) || 0
+                        });
+                    }
                 });
+                setBallastQty(ballastQty);
 
                 // Note: Package, discount, voucher, and EPP fee items are handled
                 // by their respective form fields and will be recreated on submit
@@ -1090,11 +1170,25 @@ document.addEventListener('DOMContentLoaded', async function () {
         discountInput.addEventListener('change', updateInvoicePreview);
     }
 
+    const ballastQtyInput = document.getElementById('ballastQty');
+    if (ballastQtyInput) {
+        ballastQtyInput.addEventListener('input', () => {
+            getBallastQty();
+            updateInvoicePreview();
+        });
+        ballastQtyInput.addEventListener('change', () => {
+            getBallastQty();
+            updateInvoicePreview();
+        });
+    }
+
     // Add payment method button
     const addBtn = document.getElementById('addPaymentMethodBtn');
     if (addBtn) {
         addBtn.addEventListener('click', addPaymentMethodRow);
     }
+
+    updateBallastLimitText();
 });
 
 async function fetchUserProfile() {
@@ -1143,6 +1237,8 @@ function showPackage(pkg) {
     document.getElementById('packagePrice').value = pkg.price || 0;
     document.getElementById('packageName').value = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packageIdHidden').value = pkg.bubble_id;
+    window.currentPanelQty = pkg.panel_qty || 0;
+    setBallastQty(document.getElementById('ballastQty')?.value || 0);
 
     // Handle Max Discount — SYSTEM-WIDE: 7% of package price (vouchers excluded)
     const pkgPriceForLimit = parseFloat(pkg.price) || 0;
@@ -1245,7 +1341,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     const eppData = calculateAllEPPFees();
 
     // Prepare extra items (Manual Items)
-    const extraItems = manualItems.map(item => ({
+    const extraItems = getAdditionalInvoiceItems().map(item => ({
         description: item.description,
         qty: item.qty,
         unit_price: item.unit_price,
