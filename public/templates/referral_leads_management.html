@@ -101,7 +101,7 @@
                     <thead class="bg-slate-50">
                         <tr>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Lead</th>
-                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Referrer</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Referred By</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Location</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Preferred</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Assigned</th>
@@ -261,8 +261,8 @@
                         </td>
                         <td class="px-5 py-4">
                             <div class="space-y-1">
+                                <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Referred By</p>
                                 <p class="text-sm font-semibold text-slate-800">${escapeHtml(lead.referrer_customer_name || '-')}</p>
-                                <p class="text-xs text-slate-500">${escapeHtml(lead.referrer_customer_id || '')}</p>
                             </div>
                         </td>
                         <td class="px-5 py-4">
