@@ -645,7 +645,12 @@ router.get('/api/activity/agents', requireAuth, async (req, res) => {
          AND EXISTS (
            SELECT 1
            FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
-           WHERE access_tag LIKE 'team-%'
+           WHERE LOWER(access_tag) = 'sales'
+         )
+         AND EXISTS (
+           SELECT 1
+           FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
+           WHERE LOWER(access_tag) LIKE 'team-%'
          )
        ORDER BY a.name`
     );

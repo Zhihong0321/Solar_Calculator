@@ -42,6 +42,21 @@ function getPointsForActivity(activityType) {
   return ACTIVITY_POINTS[activityType] || 10;
 }
 
+function buildSalesTeamAccessClause(userAlias = 'u') {
+  return `
+    EXISTS (
+      SELECT 1
+      FROM unnest(COALESCE(${userAlias}.access_level, ARRAY[]::text[])) AS access_tag
+      WHERE LOWER(access_tag) = 'sales'
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM unnest(COALESCE(${userAlias}.access_level, ARRAY[]::text[])) AS access_tag
+      WHERE LOWER(access_tag) LIKE 'team-%'
+    )
+  `;
+}
+
 /**
  * Get activities by agent (linked_user)
  * @param {object} client - Database client or pool
@@ -488,11 +503,7 @@ async function getTeamStats(client, options = {}) {
       SELECT 1
       FROM "user" u
       WHERE (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.bubble_id)
-        AND EXISTS (
-          SELECT 1
-          FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
-          WHERE access_tag LIKE 'team-%'
-        )
+        AND ${buildSalesTeamAccessClause('u')}
     )`
   ];
 
@@ -546,11 +557,7 @@ async function getAllActivitiesForReview(client, options = {}) {
         u.linked_agent_profile = dr.linked_user OR
         u.linked_agent_profile = dr.created_by
       )
-      AND EXISTS (
-        SELECT 1
-        FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
-        WHERE access_tag LIKE 'team-%'
-      )
+      AND ${buildSalesTeamAccessClause('u')}
     )
   `;
 
@@ -599,11 +606,7 @@ async function getAllActivitiesForReview(client, options = {}) {
         u.linked_agent_profile = dr.linked_user OR
         u.linked_agent_profile = dr.created_by
       )
-      AND EXISTS (
-        SELECT 1
-        FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
-        WHERE access_tag LIKE 'team-%'
-      )
+      AND ${buildSalesTeamAccessClause('u')}
     )
   `;
   const countParams = [];
@@ -676,6 +679,7 @@ async function getAgentPerformanceRanking(client, options = {}) {
       (a.bubble_id = dr.linked_user OR a.bubble_id = dr.created_by)
       ${dateConditions}
     )
+    WHERE ${buildSalesTeamAccessClause('u')}
     GROUP BY a.bubble_id, a.name, a.contact, u.profile_picture
     ORDER BY total_points DESC
   `;
@@ -707,8 +711,19 @@ async function getActivityTypeBreakdown(client, options = {}) {
       activity_type,
       COUNT(*) as count,
       COALESCE(SUM(report_point), 0) as total_points
-    FROM agent_daily_report
+    FROM agent_daily_report dr
     WHERE ${whereClause}
+      AND EXISTS (
+        SELECT 1
+        FROM "user" u
+        WHERE (
+          u.bubble_id = dr.linked_user OR
+          u.bubble_id = dr.created_by OR
+          u.linked_agent_profile = dr.linked_user OR
+          u.linked_agent_profile = dr.created_by
+        )
+        AND ${buildSalesTeamAccessClause('u')}
+      )
     GROUP BY activity_type
     ORDER BY count DESC
   `;
