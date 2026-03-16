@@ -1112,8 +1112,9 @@ async function recordInvoiceView(client, invoiceId) {
 }
 
 /**
- * Get invoices for an agent - REWRITTEN LOGIC
- * - Filters by linked_agent (current user's agent profile)
+ * Get invoices for a user/agent - REWRITTEN LOGIC
+ * - Filters by the same ownership aliases used elsewhere:
+ *   user ID, user bubble ID, and linked agent profile
  * - Excludes deleted status
  * - Sorts by latest invoice_date
  * - Sums totals ONLY from verified 'payment' table
@@ -1128,30 +1129,40 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   const offset = parseInt(options.offset) || 0;
   const { startDate, endDate, paymentStatus } = options;
 
-  // 1. Resolve Agent Profile from the 'agent' table linked to current user
+  // 1. Resolve all ownership aliases for the current user.
+  let ownerIds = [];
   let agentProfileId = null;
   try {
     const userRes = await client.query(`
-        SELECT a.bubble_id 
+        SELECT u.id::text AS user_id,
+               u.bubble_id,
+               u.linked_agent_profile
         FROM "user" u
-        JOIN agent a ON u.linked_agent_profile = a.bubble_id
         WHERE u.id::text = $1 OR u.bubble_id = $1
-    `, [userId]);
+        LIMIT 1
+    `, [String(userId)]);
 
     if (userRes.rows.length > 0) {
-      agentProfileId = userRes.rows[0].bubble_id;
+      const user = userRes.rows[0];
+      agentProfileId = user.linked_agent_profile || null;
+
+      ownerIds = [user.user_id];
+      if (user.bubble_id) ownerIds.push(user.bubble_id);
+      if (agentProfileId) ownerIds.push(agentProfileId);
+
+      ownerIds = [...new Set(ownerIds.filter(Boolean).map(String))];
     }
   } catch (e) {
     console.warn('[DB] Agent/User lookup failed for', userId);
   }
 
-  if (!agentProfileId) {
+  if (ownerIds.length === 0) {
     return { invoices: [], total: 0, limit, offset };
   }
 
   let filterClause = '';
-  const params = [agentProfileId, paymentStatus];
-  let paramIdx = 3;
+  const params = [ownerIds, agentProfileId, paymentStatus];
+  let paramIdx = 4;
 
   if (startDate) {
     filterClause += ` AND i.invoice_date >= $${paramIdx++}::date`;
@@ -1200,9 +1211,12 @@ async function getInvoicesByUserId(client, userId, options = {}) {
         FROM invoice i
         LEFT JOIN customer c ON i.linked_customer = c.customer_id
         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
-        WHERE i.linked_agent = $1 
+        WHERE (
+            i.created_by = ANY($1::text[])
+            OR ($2::text IS NOT NULL AND i.linked_agent = $2)
+        )
         AND i.is_latest = true 
-        AND (i.status != 'deleted' OR i.status IS NULL OR $2 = 'deleted')
+        AND (i.status != 'deleted' OR i.status IS NULL OR $3 = 'deleted')
     )
   `;
 
