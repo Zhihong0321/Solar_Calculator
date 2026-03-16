@@ -104,15 +104,22 @@ app.get('/agent-registration', (req, res) => {
 app.post('/api/agent/register', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { name, contact, email, address, introducer, agent_type, ic_front, ic_back, profile_picture } = req.body;
+    const { name, contact, email, address, introducer, agent_code, agent_type, ic_front, ic_back, profile_picture } = req.body;
+    const normalizedName = name?.trim();
+    const normalizedContact = contact?.trim();
+    const normalizedEmail = email?.trim();
+    const normalizedAddress = address?.trim();
+    const normalizedIntroducer = introducer?.trim();
+    const normalizedAgentCode = agent_code?.trim() || null;
+    const normalizedAgentType = agent_type?.trim() || null;
 
     // Basic Validation
-    if (!name || !contact || !email || !profile_picture) {
-      return res.status(400).json({ error: 'Name, Mobile, Email, and Profile Picture are required.' });
+    if (!normalizedName || !normalizedContact || !normalizedEmail || !normalizedIntroducer || !profile_picture) {
+      return res.status(400).json({ error: 'Name, Mobile, Email, Introducer, and Profile Picture are required.' });
     }
 
     // Check if email already exists in user table
-    const checkUser = await client.query('SELECT id FROM "user" WHERE email = $1', [email]);
+    const checkUser = await client.query('SELECT id FROM "user" WHERE email = $1', [normalizedEmail]);
     if (checkUser.rows.length > 0) {
       return res.status(400).json({ error: 'This email is already registered.' });
     }
@@ -151,24 +158,24 @@ app.post('/api/agent/register', async (req, res) => {
     // 1. Create User first
     const userQuery = `
       INSERT INTO "user" (
-        bubble_id, email, access_level, linked_agent_profile, user_signed_up, profile_picture, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+        bubble_id, email, access_level, linked_agent_profile, user_signed_up, profile_picture, introducer, agent_code, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
       RETURNING *
     `;
     await client.query(userQuery, [
-      user_bubble_id, email, ['pending'], agent_bubble_id, false, profilePicUrl
+      user_bubble_id, normalizedEmail, ['pending'], agent_bubble_id, false, profilePicUrl, normalizedIntroducer, normalizedAgentCode
     ]);
 
     // 2. Create Agent linked back to user
     const agentQuery = `
       INSERT INTO agent (
-        bubble_id, name, contact, email, address, introducer, agent_type, 
+        bubble_id, name, contact, email, address, introducer, agent_code, agent_type, 
         ic_front, ic_back, linked_user_login, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING *
     `;
     const agentResult = await client.query(agentQuery, [
-      agent_bubble_id, name, contact, email, address, introducer, agent_type,
+      agent_bubble_id, normalizedName, normalizedContact, normalizedEmail, normalizedAddress, normalizedIntroducer, normalizedAgentCode, normalizedAgentType,
       icFrontUrl, icBackUrl, user_bubble_id
     ]);
 

@@ -273,10 +273,14 @@
                     <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Additional Details</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Introducer (Optional)</label>
-                            <input type="text" id="introducer" name="introducer" class="input-field" placeholder="Name or Agent ID">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Introducer</label>
+                            <input type="text" id="introducer" name="introducer" required class="input-field" placeholder="Name or Agent ID">
                         </div>
                         <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Agent Code</label>
+                            <input type="text" id="agent_code" name="agent_code" class="input-field" placeholder="Enter agent code">
+                        </div>
+                        <div class="space-y-1.5 md:col-span-2">
                             <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Position (Optional)</label>
                             <select id="agent_type" name="agent_type" class="input-field">
                                 <option value="">Select Position</option>
@@ -415,16 +419,27 @@
                 });
             }
 
+            const introducer = document.getElementById('introducer').value.trim();
+            if (!introducer) {
+                return Swal.fire({
+                    icon: 'warning',
+                    title: 'Introducer Required',
+                    text: 'Please fill in the introducer field before submitting.',
+                    confirmButtonColor: '#0f172a'
+                });
+            }
+
             try {
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
 
                 const formData = {
-                    name: document.getElementById('name').value,
-                    contact: document.getElementById('contact').value,
-                    email: document.getElementById('email').value,
-                    address: document.getElementById('address').value,
-                    introducer: document.getElementById('introducer').value,
+                    name: document.getElementById('name').value.trim(),
+                    contact: document.getElementById('contact').value.trim(),
+                    email: document.getElementById('email').value.trim(),
+                    address: document.getElementById('address').value.trim(),
+                    introducer,
+                    agent_code: document.getElementById('agent_code').value.trim(),
                     agent_type: document.getElementById('agent_type').value,
                     profile_picture: fileData.profile_picture,
                     ic_front: fileData.ic_front,
