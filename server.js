@@ -94,7 +94,7 @@ app.get('/', (req, res) => {
 });
 
 // Agent Registration Route
-app.get('/agent-registration', (req, res) => {
+app.get(['/agent-registration', '/agent/registration'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_registration.html'));
 });
 
