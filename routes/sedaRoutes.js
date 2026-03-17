@@ -2,16 +2,10 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { Pool } = require('pg');
+const pool = require('../src/core/database/pool');
 const { requireAuth } = require('../middleware/auth');
 const sedaRepo = require('../src/modules/Invoicing/services/sedaRepo');
 const extractionService = require('../src/modules/Invoicing/services/extractionService');
-
-// Get database pool
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
 
 const router = express.Router();
 const KEEP_FILE_VALUE = '__KEEP__';

@@ -665,7 +665,7 @@
         </form>
     </div>
 
-    <script src="/js/utils/image_optimizer.js"></script>
+    <script defer src="/js/utils/image_optimizer.js"></script>
     <script>
         // Determine access mode: public (shareToken) or authenticated (bubble_id)
         const pathParts = window.location.pathname.split('/');
@@ -681,6 +681,7 @@
         let customerPhone = null;
         let customerName = null;
         let isWhatsAppVerified = false;
+        const LOAD_TIMEOUT_MS = 20000;
         const FILE_VALIDATION_RULES = {
             fileMyKadFront: { label: 'MyKad Front', accept: ['image/*'], maxBytes: 8 * 1024 * 1024 },
             fileMyKadBack: { label: 'MyKad Back', accept: ['image/*'], maxBytes: 8 * 1024 * 1024 },
@@ -790,12 +791,46 @@
             });
         }
 
-        async function parseApiResponse(res) {
-            let payload = null;
+        async function fetchWithTimeout(url, options = {}) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || LOAD_TIMEOUT_MS);
+
             try {
-                payload = await res.json();
-            } catch (_) {
-                payload = null;
+                return await fetch(url, {
+                    ...options,
+                    signal: controller.signal,
+                    headers: {
+                        Accept: 'application/json',
+                        ...(options.headers || {})
+                    }
+                });
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    throw new Error('The server took too long to respond. Please try again.');
+                }
+                throw err;
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        async function parseApiResponse(res) {
+            const contentType = res.headers.get('content-type') || '';
+            let payload = null;
+            if (contentType.includes('application/json')) {
+                try {
+                    payload = await res.json();
+                } catch (_) {
+                    payload = null;
+                }
+            } else {
+                const text = (await res.text()).trim();
+                if (!res.ok) {
+                    const apiError = new Error(text || `HTTP ${res.status} ${res.statusText}`);
+                    apiError.status = res.status;
+                    throw apiError;
+                }
+                throw new Error(text || 'Unexpected non-JSON response from server.');
             }
             if (res.ok && payload?.success !== false) return payload || { success: true };
 
@@ -1115,7 +1150,7 @@ Thank you!`;
 
             document.getElementById('loadingText').innerText = type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...';
             try {
-                const res = await fetch(type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad', {
+                const res = await fetchWithTimeout(type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fileData: processedData, filename: file.name, sedaId })
@@ -1153,7 +1188,7 @@ Thank you!`;
             try {
                 const payload = { fileData: processedData, filename: file.name, sedaId };
                 if (type === 'ownership') payload.context = { name: document.getElementById('applicantName').value, address: document.getElementById('installAddress').value };
-                const res = await fetch(type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership', {
+                const res = await fetchWithTimeout(type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -1187,8 +1222,8 @@ Thank you!`;
             if (!sedaId && !shareToken) return alert('No ID provided');
             startLoading('Loading Data...');
             try {
-                const res = await fetch(getApiEndpoint());
-                const json = await res.json();
+                const res = await fetchWithTimeout(getApiEndpoint());
+                const json = await parseApiResponse(res);
                 if (json.success) {
                     const data = json.data;
                     if (document.getElementById('statusBadge')) document.getElementById('statusBadge').textContent = data.reg_status || 'DRAFT';
@@ -1341,7 +1376,7 @@ Thank you!`;
                 ...fileData
             };
             try {
-                const res = await fetch(getApiEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await fetchWithTimeout(getApiEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const json = await parseApiResponse(res);
                 if (!json.success) throw new Error(json.error || 'Save failed');
 
@@ -1408,7 +1443,11 @@ Thank you!`;
         document.getElementById('sedaForm').addEventListener('submit', saveSedaForm);
         document.querySelectorAll('input, select, textarea').forEach(el => { el.addEventListener('change', updateFormProgress); el.addEventListener('input', updateFormProgress); });
 
-        document.addEventListener('DOMContentLoaded', loadData);
+        loadData().catch(err => {
+            console.error('[SEDA] Init failed:', err);
+            stopLoading();
+            Swal.fire({ icon: 'error', title: 'Load Failed', text: err.message || 'Failed to load data.' });
+        });
     </script>
     <script src="/js/navigation.js"></script>
 </body>
