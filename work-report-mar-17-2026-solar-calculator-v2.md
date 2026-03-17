@@ -8,5 +8,6 @@ REPO NAME : Solar Calculator v2
 - Stabilized shared DB access and stopped infinite loading on invoice-office and seda pages.
 - Rolled back risky DB pool tuning and isolated SEDA traffic to restore production stability.
 - Simplified invoice-office to render core invoice data first and moved payments and SEDA off the critical load path.
+- Added invoice-office overlay failsafe and browser console debug logging for production troubleshooting.
 
 =====================

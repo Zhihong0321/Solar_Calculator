@@ -56,6 +56,11 @@
             <p class="mt-4 text-sm font-semibold text-slate-900">Loading Digital Office...</p>
         </div>
     </div>
+    <div id="loadWarning" class="hidden max-w-5xl mx-auto mt-4 px-4 sm:px-6 lg:px-8">
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
+            Some extra office data failed to load. You can still view the invoice details below.
+        </div>
+    </div>
 
     <!-- Header -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
@@ -383,10 +388,47 @@
         const bubbleId = urlParams.get('id');
         let currentData = null;
         let officeExtrasRequestId = 0;
+        let overlayFailsafeTimer = null;
         const ROOF_IMAGE_TARGET_BYTES = 1.5 * 1024 * 1024;
         const ROOF_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
         const PV_DRAWING_MAX_BYTES = 10 * 1024 * 1024;
         const LOAD_TIMEOUT_MS = 20000;
+
+        function showLoadingOverlay() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (!overlay) return;
+            overlay.classList.remove('hidden');
+            clearTimeout(overlayFailsafeTimer);
+            overlayFailsafeTimer = setTimeout(() => {
+                console.error('[InvoiceOffice] Overlay failsafe triggered. loadData did not finish in time.', {
+                    bubbleId,
+                    hasCurrentData: !!currentData,
+                    extrasRequestId: officeExtrasRequestId
+                });
+                hideLoadingOverlay();
+                showLoadWarning('The page took too long to finish loading, so the blocker was removed automatically.');
+            }, 8000);
+        }
+
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.classList.add('hidden');
+            clearTimeout(overlayFailsafeTimer);
+            overlayFailsafeTimer = null;
+        }
+
+        function showLoadWarning(message) {
+            const warning = document.getElementById('loadWarning');
+            if (!warning) return;
+            const box = warning.querySelector('div');
+            if (box && message) box.textContent = message;
+            warning.classList.remove('hidden');
+        }
+
+        function clearLoadWarning() {
+            const warning = document.getElementById('loadWarning');
+            if (warning) warning.classList.add('hidden');
+        }
 
         async function init() {
             if (!bubbleId) {
@@ -446,7 +488,8 @@
         }
 
         async function loadData() {
-            document.getElementById('loadingOverlay').classList.remove('hidden');
+            showLoadingOverlay();
+            clearLoadWarning();
             try {
                 const json = await fetchJsonWithTimeout(`/api/v1/invoice-office/${bubbleId}`);
 
@@ -476,9 +519,15 @@
                 }
             } catch (err) {
                 console.error('[loadData] Error:', err);
+                console.error('[InvoiceOffice] Core load failed', {
+                    bubbleId,
+                    message: err?.message,
+                    stack: err?.stack || null
+                });
+                showLoadWarning(err.message || 'Failed to load the office data completely.');
                 alert('Failed to load data: ' + err.message);
             } finally {
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                hideLoadingOverlay();
             }
         }
 
@@ -504,6 +553,12 @@
                 renderEngDrawings(currentData.seda);
             } catch (err) {
                 console.warn('[InvoiceOffice] Extras failed to load:', err.message);
+                console.error('[InvoiceOffice] Extras load failed', {
+                    bubbleId,
+                    message: err?.message,
+                    stack: err?.stack || null
+                });
+                showLoadWarning('Invoice loaded, but payments or SEDA details did not finish loading.');
             }
         }
 
@@ -717,7 +772,7 @@
             if (!paymentId) return;
             if (!confirm('Delete this submitted payment?')) return;
 
-            document.getElementById('loadingOverlay').classList.remove('hidden');
+            showLoadingOverlay();
             try {
                 const res = await fetch(`/api/v1/submitted-payments/${paymentId}`, {
                     method: 'DELETE'
@@ -731,7 +786,7 @@
             } catch (err) {
                 alert('Delete failed: ' + err.message);
             } finally {
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                hideLoadingOverlay();
             }
         }
 
@@ -1070,7 +1125,7 @@
             const files = Array.from(input.files);
             if (files.length === 0) return;
 
-            document.getElementById('loadingOverlay').classList.remove('hidden');
+            showLoadingOverlay();
             try {
                 const { readyFiles, issues } = await prepareRoofUploadFiles(files);
                 if (readyFiles.length === 0) {
@@ -1089,7 +1144,7 @@
                 alert(`Upload failed: ${err.message}`);
             } finally {
                 input.value = '';
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                hideLoadingOverlay();
             }
         }
 
@@ -1112,7 +1167,7 @@
             const files = Array.from(input.files);
             if (files.length === 0) return;
 
-            document.getElementById('loadingOverlay').classList.remove('hidden');
+            showLoadingOverlay();
             try {
                 const { readyFiles, issues } = preparePvDrawingFiles(files);
                 if (readyFiles.length === 0) {
@@ -1131,7 +1186,7 @@
                 alert(`Upload failed: ${err.message}`);
             } finally {
                 input.value = '';
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                hideLoadingOverlay();
             }
         }
 
@@ -1214,7 +1269,13 @@
         function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
         init().catch(err => {
             console.error('[InvoiceOffice] Init failed:', err);
-            document.getElementById('loadingOverlay').classList.add('hidden');
+            console.error('[InvoiceOffice] Init failure details', {
+                bubbleId,
+                message: err?.message,
+                stack: err?.stack || null
+            });
+            hideLoadingOverlay();
+            showLoadWarning(err.message || 'Failed to initialize invoice office.');
             alert(`Failed to initialize page: ${err.message}`);
         });
     </script>
