@@ -37,6 +37,7 @@
         .progress-dot.incomplete { background-color: var(--slate-200); border: 2px solid var(--slate-300); }
         
         .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+        .loading-overlay.hidden { display: none !important; }
         
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
@@ -398,6 +399,7 @@
             const overlay = document.getElementById('loadingOverlay');
             if (!overlay) return;
             overlay.classList.remove('hidden');
+            overlay.style.display = 'flex';
             clearTimeout(overlayFailsafeTimer);
             overlayFailsafeTimer = setTimeout(() => {
                 console.error('[InvoiceOffice] Overlay failsafe triggered. loadData did not finish in time.', {
@@ -412,7 +414,10 @@
 
         function hideLoadingOverlay() {
             const overlay = document.getElementById('loadingOverlay');
-            if (overlay) overlay.classList.add('hidden');
+            if (overlay) {
+                overlay.classList.add('hidden');
+                overlay.style.display = 'none';
+            }
             clearTimeout(overlayFailsafeTimer);
             overlayFailsafeTimer = null;
         }
