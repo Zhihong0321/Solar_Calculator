@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "echo 'No build step'",
+    "build": "npm run build:css",
+    "build:css": "tailwindcss -c tailwind.config.js -i ./src/styles/tailwind.css -o ./public/css/tailwind.css --minify",
     "test:navigation": "playwright test tests/navigation.mobile.spec.js"
   },
   "dependencies": {
@@ -20,7 +21,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "tailwindcss": "^3.4.17"
   },
   "keywords": [
     "solar",
