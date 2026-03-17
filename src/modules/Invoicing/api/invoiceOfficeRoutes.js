@@ -6,7 +6,6 @@ const multer = require('multer');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const invoiceRepo = require('../services/invoiceRepo');
-const sedaService = require('../services/sedaService');
 
 const router = express.Router();
 const MAX_BATCH_FILES = 12;
@@ -162,9 +161,134 @@ async function getInvoiceAccess(client, bubbleId, userId) {
     return { found: true, isOwner, invoice };
 }
 
+async function fetchOfficeInvoice(client, bubbleId) {
+    const baseInvoiceQuery = `
+        SELECT 
+            i.*,
+            COALESCE(c.name, 'Valued Customer') as customer_name,
+            c.email as customer_email,
+            c.phone as customer_phone,
+            c.address as customer_address,
+            c.profile_picture as profile_picture,
+            c.lead_source as lead_source,
+            c.remark as remark,
+            pkg.package_name as package_name
+         FROM invoice i
+         LEFT JOIN customer c ON i.linked_customer = c.customer_id
+         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
+    `;
+
+    let invoiceRes = await client.query(
+        `${baseInvoiceQuery} WHERE i.bubble_id = $1 LIMIT 1`,
+        [bubbleId]
+    );
+
+    if (invoiceRes.rows.length === 0) {
+        invoiceRes = await client.query(
+            `${baseInvoiceQuery} WHERE i.id::text = $1 LIMIT 1`,
+            [bubbleId]
+        );
+    }
+
+    return invoiceRes.rows[0] || null;
+}
+
+async function fetchOfficeItems(client, invoiceBubbleId, itemIds) {
+    const itemsRes = await client.query(
+        `SELECT 
+            ii.bubble_id,
+            ii.linked_invoice as invoice_id,
+            ii.description,
+            ii.qty,
+            ii.unit_price,
+            ii.amount as total_price,
+            ii.inv_item_type as item_type,
+            ii.sort as sort_order,
+            ii.created_at,
+            ii.is_a_package,
+            ii.linked_package as product_id,
+            COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
+         FROM invoice_item ii
+         LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
+         WHERE ii.linked_invoice = $1 
+            OR ii.bubble_id = ANY($2::text[])
+         ORDER BY ii.sort ASC, ii.created_at ASC`,
+        [invoiceBubbleId, itemIds]
+    );
+
+    return itemsRes.rows;
+}
+
+async function fetchOfficePaidAmount(client, invoiceBubbleId, paymentIds) {
+    const paidRes = await client.query(
+        `SELECT COALESCE(SUM(amount), 0) as paid_amount
+         FROM payment
+         WHERE linked_invoice = $1 OR bubble_id = ANY($2::text[])`,
+        [invoiceBubbleId, paymentIds]
+    );
+    return parseFloat(paidRes.rows[0]?.paid_amount) || 0;
+}
+
+async function fetchOfficeExtras(client, invoice) {
+    const invoiceBubbleId = invoice.bubble_id;
+    const paymentIds = Array.isArray(invoice.linked_payment) ? invoice.linked_payment : [];
+    const [submittedRes, legacyRes] = await Promise.all([
+        client.query(
+            'SELECT * FROM submitted_payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
+            [invoiceBubbleId]
+        ),
+        client.query(
+            'SELECT * FROM payment WHERE linked_invoice = $1 OR bubble_id = ANY($2::text[]) ORDER BY created_at DESC',
+            [invoiceBubbleId, paymentIds]
+        )
+    ]);
+
+    const legacyPayments = legacyRes.rows.map((p) => ({
+        ...p,
+        status: 'verified',
+        attachment: p.attachment || []
+    }));
+
+    const paymentsMap = new Map();
+    for (const sp of submittedRes.rows) {
+        paymentsMap.set(sp.bubble_id, sp);
+    }
+    for (const lp of legacyPayments) {
+        paymentsMap.set(lp.bubble_id, lp);
+    }
+
+    const payments = Array.from(paymentsMap.values())
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    let seda = null;
+    if (invoice.linked_seda_registration) {
+        const sedaRes = await client.query(
+            'SELECT * FROM seda_registration WHERE bubble_id = $1',
+            [invoice.linked_seda_registration]
+        );
+        seda = sedaRes.rows[0] || null;
+    }
+
+    if (!seda) {
+        const fallbackSedaRes = await client.query(
+            'SELECT * FROM seda_registration WHERE $1 = ANY(linked_invoice) LIMIT 1',
+            [invoiceBubbleId]
+        );
+        seda = fallbackSedaRes.rows[0] || null;
+    }
+
+    return {
+        payments,
+        seda,
+        invoice: {
+            linked_seda_registration: seda?.bubble_id || invoice.linked_seda_registration || null
+        }
+    };
+}
+
 /**
  * GET /api/v1/invoice-office/:bubbleId
- * Get comprehensive data for invoice office view
+ * Get fast core data required to render invoice office
  */
 router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => {
     let client = null;
@@ -174,37 +298,7 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
 
         client = await pool.connect();
 
-        // Keep the office payload lightweight. The page fetches items/payments/SEDA separately below,
-        // so we only load the invoice record plus the customer/package fields needed for rendering.
-        const baseInvoiceQuery = `
-            SELECT 
-                i.*,
-                COALESCE(c.name, 'Valued Customer') as customer_name,
-                c.email as customer_email,
-                c.phone as customer_phone,
-                c.address as customer_address,
-                c.profile_picture as profile_picture,
-                c.lead_source as lead_source,
-                c.remark as remark,
-                pkg.package_name as package_name
-             FROM invoice i
-             LEFT JOIN customer c ON i.linked_customer = c.customer_id
-             LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
-        `;
-
-        let invoiceRes = await client.query(
-            `${baseInvoiceQuery} WHERE i.bubble_id = $1 LIMIT 1`,
-            [bubbleId]
-        );
-
-        if (invoiceRes.rows.length === 0) {
-            invoiceRes = await client.query(
-                `${baseInvoiceQuery} WHERE i.id::text = $1 LIMIT 1`,
-                [bubbleId]
-            );
-        }
-
-        const invoice = invoiceRes.rows[0];
+        const invoice = await fetchOfficeInvoice(client, bubbleId);
 
         if (!invoice) {
             return res.status(404).json({ success: false, error: 'Invoice not found' });
@@ -216,126 +310,62 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
-        // 2. Fetch Payments (Combine submitted_payment AND legacy/synced payment)
+        const invoiceBubbleId = invoice.bubble_id;
+        const itemIds = Array.isArray(invoice.linked_invoice_item) ? invoice.linked_invoice_item : [];
         const paymentIds = Array.isArray(invoice.linked_payment) ? invoice.linked_payment : [];
-        const [submittedRes, legacyRes] = await Promise.all([
-            client.query(
-                'SELECT * FROM submitted_payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
-                [bubbleId]
-            ),
-            client.query(
-                'SELECT * FROM payment WHERE linked_invoice = $1 OR bubble_id = ANY($2::text[]) ORDER BY created_at DESC',
-                [bubbleId, paymentIds]
-            )
+        const [items, paidAmount] = await Promise.all([
+            fetchOfficeItems(client, invoiceBubbleId, itemIds),
+            fetchOfficePaidAmount(client, invoiceBubbleId, paymentIds)
         ]);
 
-        // Map legacy payments to match structure and set status='verified'
-        const legacyPayments = legacyRes.rows.map(p => ({
-            ...p,
-            status: 'verified', // Synced payments are considered verified
-            attachment: p.attachment || [] // Ensure array
-        }));
-
-        // Deduplicate payments since Bubble syncs verified payments from `submitted_payment` into `payment` with the exact same `bubble_id`
-        const paymentsMap = new Map();
-
-        // 1. Add all submitted payments first
-        for (const sp of submittedRes.rows) {
-            paymentsMap.set(sp.bubble_id, sp);
-        }
-
-        // 2. Add legacy payments, overwriting submitted ones (giving preference to the synced version)
-        for (const lp of legacyPayments) {
-            paymentsMap.set(lp.bubble_id, lp);
-        }
-
-        const allPayments = Array.from(paymentsMap.values())
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-        // Calculate total paid amount (verified only)
-        const paidAmount = allPayments
-            .filter(p => p.status === 'verified')
-            .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-
-        // Attach to invoice object for frontend
         invoice.paid_amount = paidAmount;
-
-        // 3. Fetch Items (Enhanced Retrieval)
-        const itemIds = Array.isArray(invoice.linked_invoice_item) ? invoice.linked_invoice_item : [];
-        const itemsRes = await client.query(
-            `SELECT 
-                ii.bubble_id,
-                ii.linked_invoice as invoice_id,
-                ii.description,
-                ii.qty,
-                ii.unit_price,
-                ii.amount as total_price,
-                ii.inv_item_type as item_type,
-                ii.sort as sort_order,
-                ii.created_at,
-                ii.is_a_package,
-                ii.linked_package as product_id,
-                COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
-             FROM invoice_item ii
-             LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
-             WHERE ii.linked_invoice = $1 
-                OR ii.bubble_id = ANY($2::text[])
-             ORDER BY ii.sort ASC, ii.created_at ASC`,
-            [bubbleId, itemIds]
-        );
-
-        // 4. Fetch SEDA Registration
-        let seda = null;
-        if (invoice.linked_seda_registration) {
-            const sedaRes = await client.query(
-                'SELECT * FROM seda_registration WHERE bubble_id = $1',
-                [invoice.linked_seda_registration]
-            );
-            seda = sedaRes.rows[0];
-        }
-
-        // FALLBACK: If not found via direct link, check if any SEDA record points to this invoice
-        if (!seda) {
-            const fallbackSedaRes = await client.query(
-                'SELECT * FROM seda_registration WHERE $1 = ANY(linked_invoice) LIMIT 1',
-                [bubbleId]
-            );
-            seda = fallbackSedaRes.rows[0];
-
-            if (seda) {
-                invoice.linked_seda_registration = seda.bubble_id;
-            }
-        }
-
-        // AUTO-FIX: If still no SEDA record but we have a customer, create it now
-        if (!seda && invoice.linked_customer) {
-            try {
-                console.log(`[InvoiceOffice] Auto-creating SEDA for invoice ${bubbleId} customer ${invoice.linked_customer}`);
-                seda = await sedaService.ensureSedaRegistration(
-                    client,
-                    bubbleId,
-                    invoice.linked_customer,
-                    String(userId)
-                );
-                if (seda) {
-                    invoice.linked_seda_registration = seda.bubble_id;
-                }
-            } catch (autoCreateErr) {
-                console.error('[InvoiceOffice] Failed to auto-create SEDA:', autoCreateErr);
-            }
-        }
 
         res.json({
             success: true,
             data: {
                 invoice,
-                payments: allPayments,
-                items: itemsRes.rows,
-                seda
+                items
             }
         });
     } catch (err) {
         console.error('Error fetching invoice office data:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * GET /api/v1/invoice-office/:bubbleId/extras
+ * Get non-critical invoice office sections after the main page is already visible
+ */
+router.get('/api/v1/invoice-office/:bubbleId/extras', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        const { bubbleId } = req.params;
+        const userId = req.user.userId;
+
+        client = await pool.connect();
+
+        const invoice = await fetchOfficeInvoice(client, bubbleId);
+
+        if (!invoice) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by, invoice.linked_agent);
+        if (!isOwner) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const extras = await fetchOfficeExtras(client, invoice);
+
+        res.json({
+            success: true,
+            data: extras
+        });
+    } catch (err) {
+        console.error('Error fetching invoice office extras:', err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();

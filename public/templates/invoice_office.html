@@ -382,6 +382,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const bubbleId = urlParams.get('id');
         let currentData = null;
+        let officeExtrasRequestId = 0;
         const ROOF_IMAGE_TARGET_BYTES = 1.5 * 1024 * 1024;
         const ROOF_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
         const PV_DRAWING_MAX_BYTES = 10 * 1024 * 1024;
@@ -450,21 +451,26 @@
                 const json = await fetchJsonWithTimeout(`/api/v1/invoice-office/${bubbleId}`);
 
                 if (json.success) {
-                    currentData = json.data;
+                    currentData = {
+                        ...json.data,
+                        payments: [],
+                        seda: null
+                    };
                     console.log('[loadData] API Response:', json);
                     console.log('[loadData] Items:', json.data.items);
                     console.log('[loadData] Items type:', Array.isArray(json.data.items) ? 'Array' : typeof json.data.items);
 
-                    renderHeader(json.data.invoice);
-                    renderStats(json.data.invoice);
-                    renderPayments(json.data.payments);
-                    renderItems(json.data.items || []); // Ensure items is always an array
-                    renderSeda(json.data.seda);
-                    renderRoofImages(json.data.invoice.linked_roof_image, json.data.seda?.roof_images);
-                    renderPvSystemDrawings(json.data.invoice.pv_system_drawing);
-                    renderEngDrawings(json.data.seda);
-                    renderSignature(json.data.invoice);
-                    renderFollowUp(json.data.invoice.follow_up_date);
+                    renderHeader(currentData.invoice);
+                    renderStats(currentData.invoice);
+                    renderPayments([]);
+                    renderItems(currentData.items || []);
+                    renderSeda(null);
+                    renderRoofImages(currentData.invoice.linked_roof_image, []);
+                    renderPvSystemDrawings(currentData.invoice.pv_system_drawing);
+                    renderEngDrawings(null);
+                    renderSignature(currentData.invoice);
+                    renderFollowUp(currentData.invoice.follow_up_date);
+                    loadOfficeExtras();
                 } else {
                     alert('Error: ' + json.error);
                 }
@@ -473,6 +479,31 @@
                 alert('Failed to load data: ' + err.message);
             } finally {
                 document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        async function loadOfficeExtras() {
+            const requestId = ++officeExtrasRequestId;
+
+            try {
+                const json = await fetchJsonWithTimeout(`/api/v1/invoice-office/${bubbleId}/extras`, { timeoutMs: 15000 });
+                if (!json.success || !currentData || requestId !== officeExtrasRequestId) return;
+
+                currentData = {
+                    ...currentData,
+                    ...json.data,
+                    invoice: {
+                        ...currentData.invoice,
+                        ...(json.data.invoice || {})
+                    }
+                };
+
+                renderPayments(currentData.payments || []);
+                renderSeda(currentData.seda);
+                renderRoofImages(currentData.invoice.linked_roof_image, currentData.seda?.roof_images);
+                renderEngDrawings(currentData.seda);
+            } catch (err) {
+                console.warn('[InvoiceOffice] Extras failed to load:', err.message);
             }
         }
 
