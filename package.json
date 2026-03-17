@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "build": "npm run build:css",
     "build:css": "tailwindcss -c tailwind.config.js -i ./src/styles/tailwind.css -o ./public/css/tailwind.css --minify",
+    "db:migrate": "node database/run_migrations.js",
     "test:navigation": "playwright test tests/navigation.mobile.spec.js"
   },
   "dependencies": {
