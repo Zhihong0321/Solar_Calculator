@@ -60,7 +60,21 @@
         <div id="quotationFormContainer" class="hidden space-y-6">
             <!-- Package Information -->
             <div class="bg-blue-50 p-4 rounded-lg border-2 border-blue-300">
-                <h2 class="font-bold text-lg mb-3 text-gray-900">Package Information</h2>
+                <div class="flex flex-col gap-3 mb-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <h2 class="font-bold text-lg text-gray-900">Package Information</h2>
+                        <p id="packageChangeStatus" class="text-xs font-medium text-slate-600 mt-1">
+                            Only invoices without any payment can change package.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        id="changePackageBtn"
+                        class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                    >
+                        Change Package
+                    </button>
+                </div>
                 <div class="space-y-2 text-gray-800">
                     <p><strong class="text-gray-900">Name:</strong> <span class="text-gray-800" id="packageNameDisplay">-</span></p>
                     <p><strong class="text-gray-900">Price:</strong> <span class="text-gray-800 font-semibold" id="packagePriceDisplay">RM 0.00</span></p>

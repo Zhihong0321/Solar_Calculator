@@ -196,6 +196,49 @@ async function getPackageById(client, packageId) {
 }
 
 /**
+ * Get invoice payment state used by edit restrictions.
+ * Counts both verified payments and submitted payments as "has payment".
+ * @private
+ */
+async function _getInvoicePaymentState(client, invoiceBubbleId, linkedPaymentIds = []) {
+  const paymentIds = Array.isArray(linkedPaymentIds) ? linkedPaymentIds : [];
+
+  const result = await client.query(
+    `SELECT
+        EXISTS(
+          SELECT 1
+          FROM payment p
+          WHERE p.linked_invoice = $1
+             OR p.bubble_id = ANY($2::text[])
+        ) AS has_verified_payment,
+        EXISTS(
+          SELECT 1
+          FROM submitted_payment sp
+          WHERE sp.linked_invoice = $1
+        ) AS has_submitted_payment,
+        (
+          SELECT COUNT(*)
+          FROM payment p
+          WHERE p.linked_invoice = $1
+             OR p.bubble_id = ANY($2::text[])
+        )::int AS verified_payment_count,
+        (
+          SELECT COUNT(*)
+          FROM submitted_payment sp
+          WHERE sp.linked_invoice = $1
+        )::int AS submitted_payment_count`,
+    [invoiceBubbleId, paymentIds]
+  );
+
+  return result.rows[0] || {
+    has_verified_payment: false,
+    has_submitted_payment: false,
+    verified_payment_count: 0,
+    submitted_payment_count: 0
+  };
+}
+
+/**
  * Get default invoice template
  * @param {object} client - Database client
  * @returns {Promise<object>} Default template data
@@ -688,6 +731,36 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         invoice.template = await getDefaultTemplate(client);
       }
     })();
+
+    // Query 6.5: Payment state for package-change restriction
+    const linkedPaymentIds = Array.isArray(invoice.linked_payment) ? invoice.linked_payment : [];
+    parallelQueries.push(
+      _getInvoicePaymentState(client, bubbleId, linkedPaymentIds)
+        .then(paymentState => {
+          const hasLegacyPaidAmount = (parseFloat(invoice.paid_amount) || 0) > 0;
+          const hasAnyPayment = Boolean(
+            paymentState.has_verified_payment
+            || paymentState.has_submitted_payment
+            || hasLegacyPaidAmount
+          );
+
+          invoice.has_verified_payment = Boolean(paymentState.has_verified_payment);
+          invoice.has_submitted_payment = Boolean(paymentState.has_submitted_payment);
+          invoice.verified_payment_count = paymentState.verified_payment_count || 0;
+          invoice.submitted_payment_count = paymentState.submitted_payment_count || 0;
+          invoice.has_any_payment = hasAnyPayment;
+          invoice.can_change_package = !hasAnyPayment;
+        })
+        .catch(err => {
+          console.warn('Failed to fetch payment state:', err);
+          invoice.has_verified_payment = false;
+          invoice.has_submitted_payment = false;
+          invoice.verified_payment_count = 0;
+          invoice.submitted_payment_count = 0;
+          invoice.has_any_payment = (parseFloat(invoice.paid_amount) || 0) > 0;
+          invoice.can_change_package = !invoice.has_any_payment;
+        })
+    );
 
     // Query 7: Fetch Warranty Info from Package
     if (invoice.linked_package) {
@@ -1340,14 +1413,32 @@ async function updateInvoiceTransaction(client, data) {
 
     // 1. Fetch current record
     const currentRes = await client.query(
-      'SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent, version, paid_amount FROM invoice WHERE bubble_id = $1',
+      'SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent, version, paid_amount, linked_payment FROM invoice WHERE bubble_id = $1',
       [bubbleId]
     );
     const currentData = currentRes.rows[0];
     if (!currentData) throw new Error('Invoice not found');
 
+    const requestedPackageId = data.packageId || currentData.linked_package || null;
+    const currentPackageId = currentData.linked_package || null;
+    const isPackageChange = requestedPackageId !== currentPackageId;
+
+    if (isPackageChange) {
+      const paymentState = await _getInvoicePaymentState(client, bubbleId, currentData.linked_payment);
+      const hasLegacyPaidAmount = (parseFloat(currentData.paid_amount) || 0) > 0;
+      const hasAnyPayment = Boolean(
+        paymentState.has_verified_payment
+        || paymentState.has_submitted_payment
+        || hasLegacyPaidAmount
+      );
+
+      if (hasAnyPayment) {
+        throw new Error('Package cannot be changed because this invoice already has payment records. Only invoices without any payment can change package.');
+      }
+    }
+
     // 2. Resolve Dependencies
-    const pkg = await getPackageById(client, data.packageId || currentData.linked_package);
+    const pkg = await getPackageById(client, requestedPackageId);
     if (!pkg) throw new Error(`Package not found`);
 
     let linkedAgent = currentData.linked_agent;
@@ -1406,7 +1497,7 @@ async function updateInvoiceTransaction(client, data) {
     `;
     const updateValues = [
       data.templateId || 'default',
-      data.packageId || currentData.linked_package,
+      requestedPackageId,
       customerBubbleId,
       finalTotalAmount,
       data.status || currentData.status,

@@ -40,6 +40,68 @@ router.get('/api/package/:id', async (req, res) => {
 });
 
 /**
+ * GET /api/packages/search
+ * Search active packages by panel rating and quantity for invoice replacement.
+ */
+router.get('/api/packages/search', requireAuth, async (req, res) => {
+  let client = null;
+
+  try {
+    const panelQty = parseInt(req.query.panelQty, 10);
+    const panelRating = parseInt(req.query.panelRating, 10);
+    const packageType = String(req.query.type || '').trim();
+
+    if (!Number.isInteger(panelQty) || panelQty <= 0) {
+      return res.status(400).json({ success: false, error: 'panelQty must be a positive number' });
+    }
+
+    if (!Number.isInteger(panelRating) || panelRating <= 0) {
+      return res.status(400).json({ success: false, error: 'panelRating must be a positive number' });
+    }
+
+    client = await pool.connect();
+
+    const params = [panelQty, panelRating];
+    let typeClause = '';
+    if (packageType) {
+      params.push(packageType);
+      typeClause = ` AND p.type = $${params.length}`;
+    }
+
+    const result = await client.query(
+      `SELECT
+          p.bubble_id,
+          p.package_name,
+          p.price,
+          p.panel_qty,
+          p.type,
+          p.invoice_desc,
+          pr.solar_output_rating
+       FROM package p
+       LEFT JOIN product pr
+         ON CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
+         OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+       WHERE p.active = true
+         AND p.panel_qty = $1
+         AND pr.solar_output_rating = $2
+         ${typeClause}
+       ORDER BY p.price ASC, p.package_name ASC`,
+      params
+    );
+
+    res.json({
+      success: true,
+      packages: result.rows
+    });
+  } catch (err) {
+    console.error('Error searching packages:', err);
+    res.status(500).json({ success: false, error: 'Failed to search packages' });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * GET /api/vouchers
  * Compatibility endpoint for invoice pages.
  * NOTE: This path is also defined in Voucher module. Since Invoicing is mounted first,

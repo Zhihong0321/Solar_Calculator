@@ -10,5 +10,7 @@ REPO NAME : Solar Calculator v2
 - Simplified invoice-office to render core invoice data first and moved payments and SEDA off the critical load path.
 - Added invoice-office overlay failsafe and browser console debug logging for production troubleshooting.
 - Fixed invoice-office overlay CSS conflict that kept the loading blocker visible even after successful page load.
+- Verified proposal cover kWp mismatch against package and invoice data
+- Added edit-invoice package replacement popup with payment lock.
 
 =====================

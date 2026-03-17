@@ -131,6 +131,19 @@ let manualItems = [];
 window.isEditMode = true;
 window.editInvoiceId = null;
 window.currentAgentMarkup = 0;
+window.currentPanelRating = 0;
+window.currentPackageType = '';
+window.invoiceHasAnyPayment = false;
+window.canChangePackage = false;
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 // Add a new manual item row
 function addManualItem(data = { description: '', qty: 1, unit_price: 0 }) {
@@ -385,6 +398,241 @@ function calculateEPPFee(amount, bank, tenure) {
 // Format amount with commas
 function formatAmount(amount) {
     return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function updatePackageChangeControls() {
+    const changeBtn = document.getElementById('changePackageBtn');
+    const status = document.getElementById('packageChangeStatus');
+
+    if (!changeBtn || !status) return;
+
+    changeBtn.disabled = !window.canChangePackage;
+
+    if (window.canChangePackage) {
+        status.textContent = 'This invoice has no payment yet. You can search and replace the package before saving.';
+        status.className = 'text-xs font-medium text-emerald-700 mt-1';
+        return;
+    }
+
+    status.textContent = 'Package change is locked because this invoice already has payment records. Only invoices without any payment can change package.';
+    status.className = 'text-xs font-medium text-red-600 mt-1';
+}
+
+function renderPackageSearchResults(resultsContainer, packages) {
+    if (!resultsContainer) return;
+
+    if (!Array.isArray(packages) || packages.length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                No active package found for that panel rating and quantity.
+            </div>
+        `;
+        return;
+    }
+
+    resultsContainer.innerHTML = packages.map(pkg => `
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div class="min-w-0">
+                    <div class="text-base font-semibold text-slate-900">${escapeHtml(pkg.package_name || 'Package')}</div>
+                    <div class="mt-1 flex flex-wrap gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                        <span>${escapeHtml(pkg.panel_qty)} Panels</span>
+                        <span>${escapeHtml(pkg.solar_output_rating || '-')}W</span>
+                        <span>${escapeHtml(pkg.type || 'Package')}</span>
+                    </div>
+                    ${pkg.invoice_desc ? `<p class="mt-3 text-sm text-slate-600">${escapeHtml(pkg.invoice_desc)}</p>` : ''}
+                </div>
+                <div class="flex shrink-0 flex-col items-start gap-2 md:items-end">
+                    <div class="text-lg font-bold text-slate-900">RM ${formatAmount(parseFloat(pkg.price) || 0)}</div>
+                    <button
+                        type="button"
+                        class="select-package-result rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                        data-package-id="${escapeHtml(pkg.bubble_id)}"
+                        data-package-name="${escapeHtml(pkg.package_name || 'Package')}"
+                        data-panel-rating="${escapeHtml(pkg.solar_output_rating || '')}"
+                    >
+                        Use This Package
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function searchPackagesForReplacement({ panelQty, panelRating, resultsContainer, searchButton }) {
+    if (!resultsContainer || !searchButton) return;
+
+    searchButton.disabled = true;
+    const originalText = searchButton.textContent;
+    searchButton.textContent = 'Searching...';
+
+    resultsContainer.innerHTML = `
+        <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            Searching available packages...
+        </div>
+    `;
+
+    try {
+        const params = new URLSearchParams({
+            panelQty: String(panelQty),
+            panelRating: String(panelRating)
+        });
+
+        if (window.currentPackageType) {
+            params.set('type', window.currentPackageType);
+        }
+
+        const response = await fetch(`/api/packages/search?${params.toString()}`);
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to search packages');
+        }
+
+        renderPackageSearchResults(resultsContainer, result.packages || []);
+    } catch (error) {
+        resultsContainer.innerHTML = `
+            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-6 text-center text-sm text-red-600">
+                ${escapeHtml(error.message || 'Failed to search packages')}
+            </div>
+        `;
+    } finally {
+        searchButton.disabled = false;
+        searchButton.textContent = originalText;
+    }
+}
+
+function openChangePackageModal() {
+    if (!window.canChangePackage) {
+        Swal.fire({
+            icon: 'info',
+            title: 'Package Change Locked',
+            text: 'This invoice already has payment records, so the package cannot be changed.'
+        });
+        return;
+    }
+
+    Swal.fire({
+        title: 'Change Package',
+        width: '56rem',
+        showConfirmButton: false,
+        showCloseButton: true,
+        html: `
+            <div class="space-y-4 text-left">
+                <p class="text-sm text-slate-600">
+                    Search by panel rating and panel quantity, then choose the replacement package for this invoice.
+                </p>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div>
+                        <label for="packageSearchPanelRating" class="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">Panel Rating (W)</label>
+                        <input id="packageSearchPanelRating" type="number" min="1" step="1" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none" value="${escapeHtml(window.currentPanelRating || '')}" placeholder="e.g. 650">
+                    </div>
+                    <div>
+                        <label for="packageSearchPanelQty" class="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-600">Panel Qty</label>
+                        <input id="packageSearchPanelQty" type="number" min="1" step="1" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none" value="${escapeHtml(window.currentPanelQty || '')}" placeholder="e.g. 12">
+                    </div>
+                </div>
+                <div class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3">
+                    <div class="text-xs text-slate-500">Current package: <span class="font-semibold text-slate-700">${escapeHtml(document.getElementById('packageName')?.value || 'Not selected')}</span></div>
+                    <button id="packageSearchBtn" type="button" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800">Search</button>
+                </div>
+                <div id="packageSearchResults" class="space-y-3">
+                    <div class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                        Enter a panel rating and quantity, then click Search.
+                    </div>
+                </div>
+            </div>
+        `,
+        didOpen: () => {
+            const popup = Swal.getPopup();
+            if (!popup) return;
+
+            const ratingInput = popup.querySelector('#packageSearchPanelRating');
+            const qtyInput = popup.querySelector('#packageSearchPanelQty');
+            const searchButton = popup.querySelector('#packageSearchBtn');
+            const resultsContainer = popup.querySelector('#packageSearchResults');
+
+            const runSearch = async () => {
+                const panelRating = parseInt(ratingInput?.value, 10);
+                const panelQty = parseInt(qtyInput?.value, 10);
+
+                if (!Number.isInteger(panelRating) || panelRating <= 0 || !Number.isInteger(panelQty) || panelQty <= 0) {
+                    resultsContainer.innerHTML = `
+                        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-4 text-center text-sm text-red-600">
+                            Please enter a valid panel rating and panel quantity.
+                        </div>
+                    `;
+                    return;
+                }
+
+                await searchPackagesForReplacement({
+                    panelQty,
+                    panelRating,
+                    resultsContainer,
+                    searchButton
+                });
+            };
+
+            searchButton?.addEventListener('click', runSearch);
+            ratingInput?.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    runSearch();
+                }
+            });
+            qtyInput?.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    runSearch();
+                }
+            });
+
+            resultsContainer?.addEventListener('click', async (event) => {
+                const selectButton = event.target.closest('.select-package-result');
+                if (!selectButton) return;
+
+                const selectedPackageId = selectButton.dataset.packageId;
+                const selectedPackageName = selectButton.dataset.packageName || 'Selected package';
+                const selectedPanelRating = parseInt(selectButton.dataset.panelRating, 10) || 0;
+                const currentPackageId = document.getElementById('packageIdHidden')?.value;
+
+                if (!selectedPackageId) return;
+
+                if (selectedPackageId === currentPackageId) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Already Selected',
+                        text: 'This package is already linked to the invoice.'
+                    });
+                    return;
+                }
+
+                try {
+                    selectButton.disabled = true;
+                    selectButton.textContent = 'Applying...';
+                    const selectedPackage = await fetchPackageDetails(selectedPackageId);
+                    if (!selectedPackage) {
+                        throw new Error('Failed to load the selected package.');
+                    }
+                    if (selectedPanelRating > 0) {
+                        window.currentPanelRating = selectedPanelRating;
+                    }
+                    Swal.close();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Package Replaced',
+                        text: `${selectedPackageName} is now selected. Save the invoice to keep this package.`
+                    });
+                } catch (error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Unable to Replace Package',
+                        text: error.message || 'Failed to load the selected package.'
+                    });
+                }
+            });
+        }
+    });
 }
 
 // Create payment method row HTML
@@ -1022,6 +1270,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (json.success && json.data) {
             const inv = json.data;
 
+            window.invoiceHasAnyPayment = Boolean(inv.has_any_payment);
+            window.canChangePackage = Boolean(inv.can_change_package);
+            window.currentPanelRating = parseInt(inv.panel_rating, 10) || 0;
+            updatePackageChangeControls();
+
             // Hide loading warning
             document.getElementById('warningMessage').classList.add('hidden');
 
@@ -1188,7 +1441,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         addBtn.addEventListener('click', addPaymentMethodRow);
     }
 
+    const changePackageBtn = document.getElementById('changePackageBtn');
+    if (changePackageBtn) {
+        changePackageBtn.addEventListener('click', openChangePackageModal);
+    }
+
     updateBallastLimitText();
+    updatePackageChangeControls();
 });
 
 async function fetchUserProfile() {
@@ -1218,18 +1477,22 @@ async function fetchPackageDetails(packageId) {
 
         if (result.success && result.package) {
             showPackage(result.package);
+            return result.package;
         } else {
             showError(`Package Not Found: The Package ID '${packageId}' does not exist in database.`);
+            return null;
         }
     } catch (err) {
         console.error('Error fetching package:', err);
         showError(`Database Error: Failed to check package. Error: ${err.message}`);
+        return null;
     }
 }
 
 function showPackage(pkg) {
     const packageInfo = document.getElementById('quotationFormContainer');
     packageInfo.classList.remove('hidden');
+    document.getElementById('errorMessage')?.classList.add('hidden');
 
     document.getElementById('packageNameDisplay').textContent = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packagePriceDisplay').textContent = `RM ${(parseFloat(pkg.price) || 0).toFixed(2)}`;
@@ -1238,6 +1501,7 @@ function showPackage(pkg) {
     document.getElementById('packageName').value = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packageIdHidden').value = pkg.bubble_id;
     window.currentPanelQty = pkg.panel_qty || 0;
+    window.currentPackageType = pkg.type || '';
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
 
     // Handle Max Discount — SYSTEM-WIDE: 7% of package price (vouchers excluded)
@@ -1261,6 +1525,10 @@ function showPackage(pkg) {
         const descContainer = document.getElementById('packageDescContainer');
         descContainer.classList.remove('hidden');
         document.getElementById('packageDescDisplay').textContent = pkg.invoice_desc;
+    } else {
+        const descContainer = document.getElementById('packageDescContainer');
+        descContainer.classList.add('hidden');
+        document.getElementById('packageDescDisplay').textContent = '';
     }
 
     updateInvoicePreview();

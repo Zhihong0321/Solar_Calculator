@@ -387,7 +387,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     const repoPayload = {
       userId: invoiceRequestPayload.userId,
       originalBubbleId: originalBubbleId, // CRITICAL: This triggers version logic
-      // packageId: We don't pass packageId, repo fetches from original
+      packageId: invoiceRequestPayload.packageId || null,
       discountFixed: discountFixed,
       discountPercent: discountPercent,
       applySst: invoiceRequestPayload.applySst || false,
