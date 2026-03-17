@@ -174,8 +174,37 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
 
         client = await pool.connect();
 
-        // 1. Fetch Invoice with Live Joins
-        const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
+        // Keep the office payload lightweight. The page fetches items/payments/SEDA separately below,
+        // so we only load the invoice record plus the customer/package fields needed for rendering.
+        const baseInvoiceQuery = `
+            SELECT 
+                i.*,
+                COALESCE(c.name, 'Valued Customer') as customer_name,
+                c.email as customer_email,
+                c.phone as customer_phone,
+                c.address as customer_address,
+                c.profile_picture as profile_picture,
+                c.lead_source as lead_source,
+                c.remark as remark,
+                pkg.package_name as package_name
+             FROM invoice i
+             LEFT JOIN customer c ON i.linked_customer = c.customer_id
+             LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
+        `;
+
+        let invoiceRes = await client.query(
+            `${baseInvoiceQuery} WHERE i.bubble_id = $1 LIMIT 1`,
+            [bubbleId]
+        );
+
+        if (invoiceRes.rows.length === 0) {
+            invoiceRes = await client.query(
+                `${baseInvoiceQuery} WHERE i.id::text = $1 LIMIT 1`,
+                [bubbleId]
+            );
+        }
+
+        const invoice = invoiceRes.rows[0];
 
         if (!invoice) {
             return res.status(404).json({ success: false, error: 'Invoice not found' });

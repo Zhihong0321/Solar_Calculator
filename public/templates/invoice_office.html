@@ -377,7 +377,7 @@
         </div>
     </div>
 
-    <script src="/js/utils/image_optimizer.js"></script>
+    <script defer src="/js/utils/image_optimizer.js"></script>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const bubbleId = urlParams.get('id');
@@ -385,21 +385,69 @@
         const ROOF_IMAGE_TARGET_BYTES = 1.5 * 1024 * 1024;
         const ROOF_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
         const PV_DRAWING_MAX_BYTES = 10 * 1024 * 1024;
+        const LOAD_TIMEOUT_MS = 20000;
 
         async function init() {
             if (!bubbleId) {
                 alert('Invoice ID is missing!');
-                NavManager.goBack();
+                if (window.NavManager?.goBack) {
+                    NavManager.goBack();
+                } else if (window.history.length > 1) {
+                    window.history.back();
+                } else {
+                    window.location.href = '/my-invoice';
+                }
                 return;
             }
             await loadData();
         }
 
+        async function fetchJsonWithTimeout(url, options = {}) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || LOAD_TIMEOUT_MS);
+
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    signal: controller.signal,
+                    headers: {
+                        Accept: 'application/json',
+                        ...(options.headers || {})
+                    }
+                });
+
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    const text = (await response.text()).trim();
+                    throw new Error(text || `Unexpected response (${response.status})`);
+                }
+
+                const json = await response.json();
+
+                if (response.status === 401 && json.redirect) {
+                    window.location.href = json.redirect;
+                    throw new Error('Your session has expired. Redirecting to login...');
+                }
+
+                if (!response.ok) {
+                    throw new Error(json.error || json.message || `Request failed (${response.status})`);
+                }
+
+                return json;
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    throw new Error('The request took too long to respond. Please refresh and try again.');
+                }
+                throw err;
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
         async function loadData() {
             document.getElementById('loadingOverlay').classList.remove('hidden');
             try {
-                const res = await fetch(`/api/v1/invoice-office/${bubbleId}`);
-                const json = await res.json();
+                const json = await fetchJsonWithTimeout(`/api/v1/invoice-office/${bubbleId}`);
 
                 if (json.success) {
                     currentData = json.data;
@@ -1133,7 +1181,11 @@
         // --- Helpers ---
         function formatCurrency(v) { return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(v || 0); }
         function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
-        document.addEventListener('DOMContentLoaded', init);
+        init().catch(err => {
+            console.error('[InvoiceOffice] Init failed:', err);
+            document.getElementById('loadingOverlay').classList.add('hidden');
+            alert(`Failed to initialize page: ${err.message}`);
+        });
     </script>
     <script src="/js/navigation.js"></script>
 </body>
