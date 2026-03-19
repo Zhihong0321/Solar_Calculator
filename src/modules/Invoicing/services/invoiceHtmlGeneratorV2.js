@@ -23,11 +23,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
   const bankName = templateData.bank_name || '';
   const bankAccountNo = templateData.bank_account_no || '';
   const bankAccountName = templateData.bank_account_name || '';
-  // Force the white based logo for this view but allow template overrides if they aren't the default black one
-  let logoUrl = templateData.logo_url || '/assets/eternaly-logo.svg';
-  if (logoUrl === '/logo-08.png' || logoUrl === '/logo.png') {
-      logoUrl = '/assets/eternaly-logo.svg';
-  }
+  const logoUrl = templateData.logo_url || '/logo-08.png';
   const terms = templateData.terms_and_conditions || '';
 
   // Generate items HTML
@@ -134,6 +130,7 @@ body {
 .logo-box img {
     max-height: 60px;
     object-fit: contain;
+    filter: brightness(0) invert(1);
 }
 
 .company-info h2 {
