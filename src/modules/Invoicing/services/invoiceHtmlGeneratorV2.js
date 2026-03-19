@@ -23,7 +23,11 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
   const bankName = templateData.bank_name || '';
   const bankAccountNo = templateData.bank_account_no || '';
   const bankAccountName = templateData.bank_account_name || '';
-  const logoUrl = templateData.logo_url || '/logo-08.png';
+  // Force the white based logo for this view but allow template overrides if they aren't the default black one
+  let logoUrl = templateData.logo_url || '/assets/eternaly-logo.svg';
+  if (logoUrl === '/logo-08.png' || logoUrl === '/logo.png') {
+      logoUrl = '/assets/eternaly-logo.svg';
+  }
   const terms = templateData.terms_and_conditions || '';
 
   // Generate items HTML
@@ -115,7 +119,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: var(--primary-color);
+    background-color: #000000; /* Force black background for the logo section */
     color: #fff;
     padding: 35px 30px;
     width: 220px;
