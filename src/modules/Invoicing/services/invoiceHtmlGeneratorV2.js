@@ -528,6 +528,15 @@ body {
         text-align: center;
     }
 
+    .logo-box {
+        overflow: visible;
+    }
+
+    .logo-box img {
+        max-height: 120px;
+        margin: -20px 0;
+    }
+
     .invoice-title {
         padding: 25px 0 0 0;
         align-items: center;
