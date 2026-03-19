@@ -5,5 +5,6 @@ REPO NAME : Solar Calculator v2
 - Added clear SEDA TNB Bill slot 1 upload and extraction status indicators so upload remains confirmed even when extraction fails.
 - Created /view2 route using new interactive invoice template with signature and PDF support
 - Fixed UI layout issue where Terms and Conditions did not occupy full width in V2 invoice template
+- Updated V2 invoice template to use black background in logo section and inject white-based ETERNALGY logo
 
 =====================
