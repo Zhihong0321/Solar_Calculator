@@ -12,7 +12,10 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
     const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
 
-    // Calculate pre-discount subtotal for the summary
+    // Decide title based on status: QUOTATION for drafts/pending, INVOICE for confirmed/paid
+    const isConfirmed = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
+    const titleLabel = isConfirmed ? 'INVOICE' : 'QUOTATION';
+
     const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
 
     // Get company info from template
@@ -52,7 +55,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Responsive Invoice Template</title>
+    <title>${titleLabel} ${invoice.invoice_number}</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -192,6 +195,9 @@ body {
 
 .btn-referral { color: #10b981; border: 1px solid #10b981; }
 .btn-referral:hover { background: #10b981; color: #fff; }
+
+.btn-proposal { color: #2563eb; border: 1px solid #2563eb; }
+.btn-proposal:hover { background: #2563eb; color: #fff; }
 
 .btn-seda { color: #f97316; border: 1px solid #f97316; }
 .btn-seda:hover { background: #f97316; color: #fff; }
@@ -704,6 +710,28 @@ body {
     </div>
     
     <script>
+      // Client-side date formatting to user's local timezone
+      function formatLocalTime() {
+        const elements = document.querySelectorAll('.local-time');
+        elements.forEach(el => {
+          const iso = el.getAttribute('data-iso');
+          const showTime = el.getAttribute('data-show-time') === 'true';
+          if (iso) {
+            try {
+              const date = new Date(iso);
+              const options = { year: 'numeric', month: 'short', day: 'numeric' };
+              if (showTime) { options.hour = '2-digit'; options.minute = '2-digit'; }
+              el.textContent = date.toLocaleString(undefined, options);
+            } catch (e) {
+              console.error('Date formatting error:', e);
+            }
+          }
+        });
+      }
+
+      // Run on load
+      document.addEventListener('DOMContentLoaded', formatLocalTime);
+
       let signaturePad;
       const modal = document.getElementById('signatureModal');
       const box = document.getElementById('signatureBox');
@@ -760,7 +788,7 @@ body {
           const pathParts = window.location.pathname.split('/');
           const identifier = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
           
-          const response = await fetch('/view2/' + identifier + '/signature', {
+          const response = await fetch('/view/' + identifier + '/signature', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ signature: dataUrl })
@@ -794,7 +822,7 @@ body {
           button.disabled = true;
           button.classList.add('opacity-75', 'cursor-not-allowed');
           buttonText.textContent = 'Preparing...';
-          const response = await fetch('/view2/' + shareToken + '/pdf');
+          const response = await fetch('/view/' + shareToken + '/pdf');
           const data = await response.json();
           if (data.success && data.downloadUrl) {
             let downloadUrl = data.downloadUrl;
@@ -810,6 +838,27 @@ body {
             button.classList.remove('opacity-75', 'cursor-not-allowed');
             buttonText.textContent = 'Download PDF';
         }
+      }
+
+      function viewProposal(shareToken) {
+        window.open('/proposal/' + shareToken, '_blank');
+      }
+
+      function resetSignature() {
+        Swal.fire({
+          title: 'Re-sign Document?',
+          text: "This will allow you to clear and replace the current signature.",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#0f172a',
+          cancelButtonColor: '#f1f5f9',
+          confirmButtonText: 'Yes, Re-sign',
+          cancelButtonText: 'Cancel'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            openSignatureModal();
+          }
+        });
       }
     </script>
     ` : ''}
@@ -828,12 +877,12 @@ body {
                 </div>
             </div>
             <div class="invoice-title">
-                <h1>INVOICE</h1>
+                <h1>${titleLabel}</h1>
                 ${!options.forPdf ? `
                 <div class="invoice-actions no-print">
                   ${invoice.share_token ? `
                   <button onclick="window.open('/referral-dashboard/${invoice.share_token}', '_blank')" class="action-btn btn-referral">
-                    <span>Customer Refer Program</span>
+                    <span>Refer Program</span>
                   </button>
                   ` : ''}
                   ${invoice.linked_seda_registration ? `
@@ -864,13 +913,13 @@ body {
                     <span class="meta-value">: ${invoice.invoice_number}</span>
                 </div>
                 <div class="meta-row">
-                    <span class="meta-label">Invoice Date</span>
-                    <span class="meta-value">: ${invoice.invoice_date || '-'}</span>
+                    <span class="meta-label">${titleLabel} Date</span>
+                    <span class="meta-value">: <span class="local-time" data-iso="${(() => { try { return new Date(invoice.invoice_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="true">${invoice.invoice_date || '-'}</span></span>
                 </div>
                 ${invoice.due_date ? `
                 <div class="meta-row">
                     <span class="meta-label">Due Date</span>
-                    <span class="meta-value">: ${invoice.due_date}</span>
+                    <span class="meta-value">: <span class="local-time" data-iso="${(() => { try { return new Date(invoice.due_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="true">${invoice.due_date}</span></span>
                 </div>` : ''}
             </div>
         </section>
@@ -987,22 +1036,39 @@ body {
             <div class="terms">
                 <h3>Terms & Conditions</h3>
                 <p style="white-space: pre-line;">${templateData.terms_and_conditions || ''}</p>
+                <div class="mt-6 text-[10px] text-slate-400 font-medium">
+                  ${titleLabel} Created by: <span class="text-slate-600">${invoice.created_by_user_name || 'System'}</span>
+                </div>
             </div>
             <div class="signature">
                 ${invoice.customer_signature ? `
-                <div class="signature-image">
+                <div class="signature-image relative group">
                     <img src="${invoice.customer_signature.startsWith('//') ? 'https:' + invoice.customer_signature : invoice.customer_signature}" alt="Signature">
+                    ${!options.forPdf ? `
+                    <button onclick="resetSignature()" class="absolute top-0 right-0 opacity-0 group-hover:opacity-100 bg-white/90 shadow-sm border border-slate-200 text-slate-600 hover:text-red-500 p-1 rounded transition-all no-print" title="Re-sign" style="font-size: 10px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+                      ✕
+                    </button>
+                    ` : ''}
                 </div>
                 ` : ''}
                 ${(!options.forPdf && (!invoice.customer_signature || invoice.customer_signature.trim() === '')) ? `
                 <div class="no-print" style="margin-bottom: 10px;">
-                    <button onclick="openSignatureModal()" class="px-4 py-2 bg-emerald-600 text-white rounded font-bold shadow hover:bg-emerald-700 w-full">Sign this Quotation</button>
+                    <button onclick="openSignatureModal()" class="px-4 py-2 bg-emerald-600 text-white rounded font-bold shadow hover:bg-emerald-700 w-full transition-transform active:scale-95">Sign this ${titleLabel}</button>
                 </div>
                 ` : ''}
                 <h4>${invoice.customer_name || 'Customer'}</h4>
-                ${invoice.signature_date ? `<p style="font-size: 10px; margin-top: 4px;">Signed on ${invoice.signature_date}</p>` : ''}
+                ${invoice.signature_date ? `<p style="font-size: 8px; color: #999; margin-top: 5px;">Signed on ${invoice.signature_date}</p>` : ''}
+                ${(!options.forPdf && invoice.customer_signature) ? `
+                <div class="mt-2 no-print">
+                  <button onclick="resetSignature()" class="text-[9px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">Re-sign</button>
+                </div>
+                ` : ''}
             </div>
         </section>
+
+        <footer class="mt-12 mb-4 text-center no-print">
+          <p class="text-[9px] text-slate-300 uppercase tracking-[0.3em] font-medium">Thank you for your business</p>
+        </footer>
 
         <!-- Footer Footer -->
         <footer class="invoice-footer">

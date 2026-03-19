@@ -20,7 +20,7 @@ router.get('/view/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template);
+        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template);
         res.send(html);
       } else {
         res.status(404).send('Invoice not found');
@@ -75,7 +75,7 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Invoice not found' });
       }
 
-      const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { isPdf: true });
+      const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, { forPdf: true });
       // This returns { success: true, downloadUrl: ... }, NOT a buffer
       const pdfResult = await externalPdfService.generatePdf(html);
 
