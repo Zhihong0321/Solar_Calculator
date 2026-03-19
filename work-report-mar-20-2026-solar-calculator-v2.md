@@ -5,5 +5,6 @@ REPO NAME : Solar Calculator v2
 - Magnified customer signature display in V2 invoice and applied negative margins to crop empty drawing space
 - Integrated floating action buttons smoothly into V2 invoice header with elegant semantic ghost button CSS
 - Magnified V2 invoice logo size strictly in mobile layout and pruned negative Y-axis paddings
+- Fixed layout alignment issue in V2 invoice header using flex stretch and padding adjustments
 
 =====================
