@@ -113,18 +113,23 @@ body {
 
 .company-logo {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
+    justify-content: flex-start;
+    gap: 20px;
     background-color: #000000; /* Force black background for the logo section */
     color: #fff;
-    padding: 35px 30px;
-    width: 220px;
-    text-align: center;
+    padding: 30px 40px;
+    width: 440px;
     border-bottom-right-radius: 4px;
 }
 
+.company-info {
+    text-align: left;
+}
+
 .logo-box {
-    margin-bottom: 12px;
+    flex-shrink: 0;
 }
 
 .logo-box img {
@@ -467,9 +472,17 @@ body {
     }
 
     .company-logo {
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
         width: 100%;
         border-bottom-right-radius: 0;
         padding: 25px;
+        gap: 15px;
+    }
+
+    .company-info {
+        text-align: center;
     }
 
     .invoice-title {
