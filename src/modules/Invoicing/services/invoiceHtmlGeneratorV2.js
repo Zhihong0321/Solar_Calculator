@@ -343,14 +343,14 @@ body {
 /* Terms & Signature */
 .terms-signature {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
+    flex-direction: column;
     padding: 0 50px;
     margin-bottom: 60px;
 }
 
 .terms {
-    max-width: 380px;
+    max-width: 100%;
+    margin-bottom: 40px;
 }
 
 .terms h3 {
@@ -367,6 +367,7 @@ body {
 }
 
 .signature {
+    align-self: flex-end;
     text-align: center;
     width: 200px;
 }
