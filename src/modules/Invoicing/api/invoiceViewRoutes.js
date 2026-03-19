@@ -9,6 +9,53 @@ const externalPdfService = require('../services/externalPdfService');
 const router = express.Router();
 
 /**
+ * GET /legacy-view/:tokenOrId
+ * Legacy public or private view of an invoice (V1)
+ */
+router.get('/legacy-view/:tokenOrId', async (req, res) => {
+  try {
+    const { tokenOrId } = req.params;
+    const client = await pool.connect();
+    try {
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+      if (invoice) {
+        const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template);
+        res.send(html);
+      } else {
+        res.status(404).send('Invoice not found');
+      }
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error viewing legacy invoice:', err);
+    res.status(500).send('Error loading invoice');
+  }
+});
+
+/**
+ * GET /legacy-view/:tokenOrId/pdf
+ * Legacy PDF generator (V1)
+ */
+router.get('/legacy-view/:tokenOrId/pdf', async (req, res) => {
+  try {
+    const { tokenOrId } = req.params;
+    const client = await pool.connect();
+    try {
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+      if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
+      const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { isPdf: true });
+      const pdfResult = await externalPdfService.generatePdf(html);
+      res.json(pdfResult);
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
  * GET /view/:tokenOrId
  * Public or private view of an invoice
  */
