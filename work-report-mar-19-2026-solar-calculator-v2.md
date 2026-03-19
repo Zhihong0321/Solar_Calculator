@@ -7,5 +7,6 @@ REPO NAME : Solar Calculator v2
 - Fixed UI layout issue where Terms and Conditions did not occupy full width in V2 invoice template
 - Updated V2 invoice template to use black background in logo section and inject white-based ETERNALGY logo
 - Added interactive Tiger Neo 3 banner to V2 invoice with dynamic return URL routing
+- Fixed malformed logo bug in V2 invoice and applied CSS filters for clean white logo rendering
 
 =====================
