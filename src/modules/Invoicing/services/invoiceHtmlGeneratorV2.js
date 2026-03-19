@@ -379,11 +379,19 @@ body {
 }
 
 .signature-image {
-    height: 70px;
-    margin-bottom: 10px;
+    height: 120px;
+    overflow: hidden;
+    margin-bottom: 15px;
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+.signature-image img {
+    margin: -20px;
+    width: 280px;
+    max-width: none;
+    object-fit: contain;
 }
 
 .signature h4 {
@@ -934,7 +942,7 @@ body {
             <div class="signature">
                 ${invoice.customer_signature ? `
                 <div class="signature-image">
-                    <img src="${invoice.customer_signature.startsWith('//') ? 'https:' + invoice.customer_signature : invoice.customer_signature}" alt="Signature" width="120">
+                    <img src="${invoice.customer_signature.startsWith('//') ? 'https:' + invoice.customer_signature : invoice.customer_signature}" alt="Signature">
                 </div>
                 ` : ''}
                 ${(!options.forPdf && (!invoice.customer_signature || invoice.customer_signature.trim() === '')) ? `
