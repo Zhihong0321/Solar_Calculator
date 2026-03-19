@@ -1,41 +1,41 @@
 // invoiceHtmlGeneratorV2.js
 
 function generateInvoiceHtmlV2(invoice, template, options = {}) {
-  const items = invoice.items || [];
-  const templateData = template || {};
+    const items = invoice.items || [];
+    const templateData = template || {};
 
-  // Calculate totals from items
-  const sstAmount = parseFloat(invoice.sst_amount) || 0;
-  const totalAmount = parseFloat(invoice.total_amount) || 0;
-  const discountAmount = parseFloat(invoice.discount_amount) || 0;
-  const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
-  const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
-  const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
+    // Calculate totals from items
+    const sstAmount = parseFloat(invoice.sst_amount) || 0;
+    const totalAmount = parseFloat(invoice.total_amount) || 0;
+    const discountAmount = parseFloat(invoice.discount_amount) || 0;
+    const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
+    const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
+    const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
 
-  // Calculate pre-discount subtotal for the summary
-  const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
+    // Calculate pre-discount subtotal for the summary
+    const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
 
-  // Get company info from template
-  const companyName = templateData.company_name || 'Atap Solar';
-  const companyAddress = templateData.company_address || '';
-  const companyPhone = templateData.company_phone || '';
-  const companyEmail = templateData.company_email || '';
-  const bankName = templateData.bank_name || '';
-  const bankAccountNo = templateData.bank_account_no || '';
-  const bankAccountName = templateData.bank_account_name || '';
-  const logoUrl = templateData.logo_url || '/logo-08.png';
-  const terms = templateData.terms_and_conditions || '';
+    // Get company info from template
+    const companyName = templateData.company_name || 'Atap Solar';
+    const companyAddress = templateData.company_address || '';
+    const companyPhone = templateData.company_phone || '';
+    const companyEmail = templateData.company_email || '';
+    const bankName = templateData.bank_name || '';
+    const bankAccountNo = templateData.bank_account_no || '';
+    const bankAccountName = templateData.bank_account_name || '';
+    const logoUrl = templateData.logo_url || '/logo-08.png';
+    const terms = templateData.terms_and_conditions || '';
 
-  // Generate items HTML
-  let itemsHtml = '';
-  items.forEach((item, index) => {
-      const qty = parseFloat(item.qty) || 0;
-      const totalPrice = parseFloat(item.total_price) || 0;
-      const unitPrice = qty > 0 ? totalPrice / qty : 0;
-      const isNegative = totalPrice < 0;
-      const priceColor = isNegative ? 'color: red;' : '';
+    // Generate items HTML
+    let itemsHtml = '';
+    items.forEach((item, index) => {
+        const qty = parseFloat(item.qty) || 0;
+        const totalPrice = parseFloat(item.total_price) || 0;
+        const unitPrice = qty > 0 ? totalPrice / qty : 0;
+        const isNegative = totalPrice < 0;
+        const priceColor = isNegative ? 'color: red;' : '';
 
-      itemsHtml += `
+        itemsHtml += `
       <tr class="${index % 2 !== 0 ? 'alternate-row' : ''}">
           <td class="col-no" data-label="#">${String(index + 1).padStart(2, '0')}</td>
           <td class="col-desc" data-label="DESCRIPTION">${item.description ? item.description.replace(/\\n/g, '<br>') : ''}</td>
@@ -44,9 +44,9 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
           <td class="col-amount" data-label="AMOUNT" style="${priceColor}">${isNegative ? '-' : ''}RM ${Math.abs(totalPrice).toFixed(2)}</td>
       </tr>
       `;
-  });
+    });
 
-  const html = `
+    const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -107,7 +107,7 @@ body {
 .invoice-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: stretch; /* Stretch to align the bottom of the black box with information on the right */
     margin-bottom: 40px;
 }
 
@@ -152,10 +152,11 @@ body {
 }
 
 .invoice-title {
-    padding: 50px 50px 0 0;
+    padding: 40px 50px 30px 0; /* Consistent bottom padding to align with the black box */
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+    justify-content: flex-start;
 }
 
 .invoice-title h1 {
@@ -1031,9 +1032,9 @@ body {
 </body>
 </html>
   `;
-  return html;
+    return html;
 }
 
 module.exports = {
-  generateInvoiceHtmlV2
+    generateInvoiceHtmlV2
 };
