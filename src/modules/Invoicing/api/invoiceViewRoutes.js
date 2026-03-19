@@ -3,6 +3,7 @@ const path = require('path');
 const pool = require('../../../core/database/pool');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
+const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const externalPdfService = require('../services/externalPdfService');
 
 const router = express.Router();
@@ -34,6 +35,32 @@ router.get('/view/:tokenOrId', async (req, res) => {
 });
 
 /**
+ * GET /view2/:tokenOrId
+ * Public or private view of an invoice using V2 template
+ */
+router.get('/view2/:tokenOrId', async (req, res) => {
+  try {
+    const { tokenOrId } = req.params;
+    const client = await pool.connect();
+    try {
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+
+      if (invoice) {
+        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template);
+        res.send(html);
+      } else {
+        res.status(404).send('Invoice not found');
+      }
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error viewing invoice schema v2:', err);
+    res.status(500).send('Error loading invoice');
+  }
+});
+
+/**
  * GET /view/:tokenOrId/pdf
  * Generate PDF for an invoice
  */
@@ -60,6 +87,37 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
     }
   } catch (err) {
     console.error('Error generating PDF:', err);
+    res.status(500).json({ success: false, error: 'Error generating PDF: ' + err.message });
+  }
+});
+
+/**
+ * GET /view2/:tokenOrId/pdf
+ * Generate PDF for an invoice using V2 template
+ */
+router.get('/view2/:tokenOrId/pdf', async (req, res) => {
+  try {
+    const { tokenOrId } = req.params;
+    const client = await pool.connect();
+    try {
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+
+      if (!invoice) {
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, { isPdf: true });
+      // This returns { success: true, downloadUrl: ... }, NOT a buffer
+      const pdfResult = await externalPdfService.generatePdf(html);
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(pdfResult);
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error generating PDF for V2:', err);
     res.status(500).json({ success: false, error: 'Error generating PDF: ' + err.message });
   }
 });
@@ -105,6 +163,49 @@ router.post('/view/:tokenOrId/signature', async (req, res) => {
     }
   } catch (err) {
     console.error('[SIGNATURE] Critical error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /view2/:tokenOrId/signature
+ * Save customer signature for an invoice (v2 route)
+ */
+router.post('/view2/:tokenOrId/signature', async (req, res) => {
+  try {
+    const { tokenOrId } = req.params;
+    const { signature } = req.body;
+
+    if (!signature) {
+      return res.status(400).json({ success: false, error: 'Signature data is required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);
+      if (!bubbleId) {
+        console.error('[SIGNATURE-V2] Could not resolve bubbleId for token:', tokenOrId);
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      await client.query(
+        `UPDATE invoice 
+         SET customer_signature = $1, 
+             signature_date = NOW(),
+             updated_at = NOW()
+         WHERE bubble_id = $2`,
+        [signature, bubbleId]
+      );
+
+      res.json({ success: true, message: 'Signature saved successfully' });
+    } catch (dbErr) {
+      console.error('[SIGNATURE-V2] Database error:', dbErr);
+      throw dbErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[SIGNATURE-V2] Critical error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

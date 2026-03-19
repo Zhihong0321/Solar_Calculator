@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Invoice Template</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Boxicons for icons -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Header -->
+        <header class="invoice-header">
+            <div class="company-logo">
+                <div class="logo-box">
+                    <!-- Replace with SVG or Img logo if available -->
+                    <i class='bx bxl-unity'></i>
+                </div>
+                <div class="company-info">
+                    <h2>Kazuma Corporate</h2>
+                    <p>We solve your problems</p>
+                </div>
+            </div>
+            <div class="invoice-title">
+                <h1>INVOICE</h1>
+            </div>
+        </header>
+
+        <!-- Billing details 1 -->
+        <section class="billing-details">
+            <div class="invoice-to">
+                <span class="label">INVOICE TO</span>
+                <h3>Megumin Ryu</h3>
+                <p>Supervisor, Blacksteel Company</p>
+            </div>
+            <div class="invoice-meta">
+                <div class="meta-row">
+                    <span class="meta-label">Invoice No</span>
+                    <span class="meta-value">: L779012</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Invoice Date</span>
+                    <span class="meta-value">: December 26th, 2026</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Divider -->
+        <hr class="divider">
+
+        <!-- Billing details 2 -->
+        <section class="billing-details secondary-details">
+            <div class="contact-person">
+                <span class="label">Contact Person</span>
+                <div class="meta-row">
+                    <span class="meta-label">Phone</span>
+                    <span class="meta-value">: (+62) 898 1234 5678</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">E-mail</span>
+                    <span class="meta-value">: megumin_ryu@mail.com</span>
+                </div>
+            </div>
+            <div class="payment-method">
+                <span class="label">Payment Method</span>
+                <div class="meta-row">
+                    <span class="meta-label">Account ID</span>
+                    <span class="meta-value">: 8765 4321 2345 6789</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Account Name</span>
+                    <span class="meta-value">: Kazuma Jean</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Items Table -->
+        <section class="items-table-wrapper">
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th class="col-no">#</th>
+                        <th class="col-desc">DESCRIPTION</th>
+                        <th class="col-price">PRICE</th>
+                        <th class="col-qty">QUANTITY</th>
+                        <th class="col-amount">AMOUNT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="col-no" data-label="#">01</td>
+                        <td class="col-desc" data-label="DESCRIPTION">Logo Design</td>
+                        <td class="col-price" data-label="PRICE">$ 90</td>
+                        <td class="col-qty" data-label="QUANTITY">1</td>
+                        <td class="col-amount" data-label="AMOUNT">$ 90</td>
+                    </tr>
+                    <tr class="alternate-row">
+                        <td class="col-no" data-label="#">02</td>
+                        <td class="col-desc" data-label="DESCRIPTION">Business Invoice Design</td>
+                        <td class="col-price" data-label="PRICE">$ 30</td>
+                        <td class="col-qty" data-label="QUANTITY">2</td>
+                        <td class="col-amount" data-label="AMOUNT">$ 60</td>
+                    </tr>
+                    <tr>
+                        <td class="col-no" data-label="#">03</td>
+                        <td class="col-desc" data-label="DESCRIPTION">Theme Development</td>
+                        <td class="col-price" data-label="PRICE">$ 99</td>
+                        <td class="col-qty" data-label="QUANTITY">1</td>
+                        <td class="col-amount" data-label="AMOUNT">$ 99</td>
+                    </tr>
+                    <tr class="alternate-row">
+                        <td class="col-no" data-label="#">04</td>
+                        <td class="col-desc" data-label="DESCRIPTION">Business Card Design</td>
+                        <td class="col-price" data-label="PRICE">$ 30</td>
+                        <td class="col-qty" data-label="QUANTITY">4</td>
+                        <td class="col-amount" data-label="AMOUNT">$ 120</td>
+                    </tr>
+                    <tr>
+                        <td class="col-no" data-label="#">05</td>
+                        <td class="col-desc" data-label="DESCRIPTION">Infographic Presentation</td>
+                        <td class="col-price" data-label="PRICE">$ 60</td>
+                        <td class="col-qty" data-label="QUANTITY">3</td>
+                        <td class="col-amount" data-label="AMOUNT">$ 180</td>
+                    </tr>
+                    <tr class="alternate-row">
+                        <td class="col-no" data-label="#">06</td>
+                        <td class="col-desc" data-label="DESCRIPTION">Consultation Design</td>
+                        <td class="col-price" data-label="PRICE">$ 10</td>
+                        <td class="col-qty" data-label="QUANTITY">7</td>
+                        <td class="col-amount" data-label="AMOUNT">$ 70</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Summary -->
+        <section class="summary-section">
+            <div class="summary-left">
+                <span class="total-due-label">Total Due</span>
+                <h2 class="total-due-amount">$ 100 USD</h2>
+                <div class="total-due-line"></div>
+                <p class="late-charge">Late charge for 10 days</p>
+            </div>
+            <div class="summary-right">
+                <div class="summary-row">
+                    <span class="summary-label">Sub Total</span>
+                    <span class="summary-value">$ 619</span>
+                </div>
+                <hr class="summary-divider">
+                <div class="summary-row">
+                    <span class="summary-label">Tax (5%)</span>
+                    <span class="summary-value">$ 31</span>
+                </div>
+                <div class="summary-row total-row">
+                    <span class="summary-label">TOTAL</span>
+                    <span class="summary-value">$ 649</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Terms & Signature -->
+        <section class="terms-signature">
+            <div class="terms">
+                <h3>Terms & Conditions</h3>
+                <p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat.</p>
+            </div>
+            <div class="signature">
+                <div class="signature-image">
+                    <!-- Dummy signature image from wiki -->
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Signature_of_John_Hancock.svg" alt="Signature" width="120">
+                </div>
+                <h4>Kazuma Jean</h4>
+                <p>HR Director</p>
+            </div>
+        </section>
+
+        <!-- Footer Footer -->
+        <footer class="invoice-footer">
+            <div class="footer-col">
+                <div class="icon-circle"><i class='bx bxs-phone'></i></div>
+                <div class="footer-text">
+                    <p>(+62) 812 1234 1234</p>
+                    <p>(+62) 812 5678 5678</p>
+                </div>
+            </div>
+            <div class="footer-col">
+                <div class="icon-circle"><i class='bx bxs-map'></i></div>
+                <div class="footer-text">
+                    <p>123 Lungmen, Kazu</p>
+                    <p>Jakarta, Indonesia</p>
+                </div>
+            </div>
+            <div class="footer-col">
+                <div class="icon-circle"><i class='bx bxs-envelope'></i></div>
+                <div class="footer-text">
+                    <p>mail@admin.com</p>
+                    <p>admin@mail.com</p>
+                </div>
+            </div>
+        </footer>
+        <div class="footer-bottom-bar"></div>
+    </div>
+</body>
+</html>
