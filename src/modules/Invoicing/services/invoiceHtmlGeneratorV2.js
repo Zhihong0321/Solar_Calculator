@@ -153,6 +153,9 @@ body {
 
 .invoice-title {
     padding: 50px 50px 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
 }
 
 .invoice-title h1 {
@@ -162,6 +165,38 @@ body {
     font-weight: 700;
     text-transform: uppercase;
 }
+
+.invoice-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    cursor: pointer;
+    background: transparent;
+}
+
+.btn-referral { color: #10b981; border: 1px solid #10b981; }
+.btn-referral:hover { background: #10b981; color: #fff; }
+
+.btn-seda { color: #f97316; border: 1px solid #f97316; }
+.btn-seda:hover { background: #f97316; color: #fff; }
+
+.btn-pdf { color: #334155; border: 1px solid #334155; }
+.btn-pdf:hover { background: #334155; color: #fff; }
 
 /* Billing Details */
 .billing-details {
@@ -495,11 +530,18 @@ body {
 
     .invoice-title {
         padding: 25px 0 0 0;
+        align-items: center;
     }
 
     .invoice-title h1 {
         font-size: 32px;
         letter-spacing: 4px;
+    }
+
+    .invoice-actions {
+        justify-content: center;
+        margin-top: 15px;
+        gap: 10px;
     }
 
     .billing-details {
@@ -624,28 +666,6 @@ body {
 </head>
 <body>
     ${!options.forPdf ? `
-    <!-- Top Action Buttons -->
-    <div class="mb-4 flex flex-wrap justify-center gap-2 no-print" style="max-width: 820px; width: 100%; align-self: center;">
-      ${invoice.share_token ? `
-      <button onclick="window.open('/referral-dashboard/${invoice.share_token}', '_blank')"
-         class="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors w-full sm:w-auto">
-        <span>Customer Refer Customer Program</span>
-      </button>
-      ` : ''}
-      ${invoice.linked_seda_registration ? `
-      <button onclick="window.open('/seda-register?id=${invoice.linked_seda_registration}', '_blank')"
-         class="inline-flex items-center justify-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors w-full sm:w-auto">
-        <span>SEDA Form</span>
-      </button>
-      ` : ''}
-      ${(invoice.share_token || invoice.bubble_id) ? `
-      <button onclick="downloadInvoicePdf('${invoice.share_token || invoice.bubble_id}')"
-         class="inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors w-full sm:w-auto">
-        <span id="pdfButtonText">Download PDF</span>
-      </button>
-      ` : ''}
-    </div>
-
     <!-- Signature Modal -->
     <div id="signatureModal" class="fixed inset-0 z-[100] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="signatureBox">
@@ -799,6 +819,25 @@ body {
             </div>
             <div class="invoice-title">
                 <h1>INVOICE</h1>
+                ${!options.forPdf ? `
+                <div class="invoice-actions no-print">
+                  ${invoice.share_token ? `
+                  <button onclick="window.open('/referral-dashboard/${invoice.share_token}', '_blank')" class="action-btn btn-referral">
+                    <span>Customer Refer Program</span>
+                  </button>
+                  ` : ''}
+                  ${invoice.linked_seda_registration ? `
+                  <button onclick="window.open('/seda-register?id=${invoice.linked_seda_registration}', '_blank')" class="action-btn btn-seda">
+                    <span>SEDA Form</span>
+                  </button>
+                  ` : ''}
+                  ${(invoice.share_token || invoice.bubble_id) ? `
+                  <button onclick="downloadInvoicePdf('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-pdf">
+                    <span id="pdfButtonText">Download PDF</span>
+                  </button>
+                  ` : ''}
+                </div>
+                ` : ''}
             </div>
         </header>
 
