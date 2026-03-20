@@ -883,7 +883,7 @@ body {
                 ${!options.forPdf ? `
                 <div class="invoice-actions no-print">
                   ${invoice.share_token ? `
-                  <button onclick="window.open('/referral-dashboard/${invoice.share_token}', '_blank')" class="action-btn btn-referral">
+                  <button onclick="window.open('https://referral.atap.solar', '_blank')" class="action-btn btn-referral">
                     <span>Refer Program</span>
                   </button>
                   ` : ''}
