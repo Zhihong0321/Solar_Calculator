@@ -4,6 +4,8 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const items = invoice.items || [];
     const templateData = template || {};
 
+    const hasTigerNeo3 = items.some(item => (item.description || '').toLowerCase().includes('tiger neo 3'));
+
     // Calculate totals from items
     const sstAmount = parseFloat(invoice.sst_amount) || 0;
     const totalAmount = parseFloat(invoice.total_amount) || 0;
@@ -890,6 +892,11 @@ body {
                     <span>SEDA Form</span>
                   </button>
                   ` : ''}
+                  ${!hasTigerNeo3 && (invoice.share_token || invoice.bubble_id) && invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
+                  <button onclick="viewProposal('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-proposal">
+                    <span>View Proposal</span>
+                  </button>
+                  ` : ''}
                   ${(invoice.share_token || invoice.bubble_id) ? `
                   <button onclick="downloadInvoicePdf('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-pdf">
                     <span id="pdfButtonText">Download PDF</span>
@@ -1022,6 +1029,7 @@ body {
         </section>
 
         <!-- Tiger Neo 3 Promotional Banner -->
+        ${hasTigerNeo3 ? `
         <section class="promotional-banner no-print" style="padding: 0 50px; margin-bottom: 40px; cursor: pointer;" onclick="window.location.href = 'https://tiger-neo-3-production.up.railway.app/index.html?return=' + encodeURIComponent(window.location.href);">
             <div style="border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
                 <img src="/slide-001.webp" alt="Rise With Tiger Neo 3" style="width: 100%; display: block; object-fit: cover;">
@@ -1030,6 +1038,7 @@ body {
                 </div>
             </div>
         </section>
+        ` : ''}
 
         <!-- Terms & Signature -->
         <section class="terms-signature">
