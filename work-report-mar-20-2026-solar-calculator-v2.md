@@ -8,5 +8,6 @@ REPO NAME : Solar Calculator v2
 - Fixed layout alignment issue in V2 invoice header using flex stretch and padding adjustments
 - Officially replaced V1 invoice template with V2 including full feature parity and dynamic titles
 - Relocated V1 template to /legacy-view and promoted V2 as the default for all /view endpoints
+- Added View Proposal fallback logic to V2 invoice for invoices without Tiger Neo 3
 
 =====================
