@@ -298,7 +298,7 @@ async function getVoucherByCode(client, voucherCode) {
   try {
     const result = await client.query(
       `SELECT * FROM voucher
-       WHERE voucher_code = $1 AND ("delete" IS NULL OR "delete" = FALSE)
+       WHERE voucher_code = $1 AND active = TRUE AND ("delete" IS NULL OR "delete" = FALSE)
        LIMIT 1`,
       [voucherCode]
     );

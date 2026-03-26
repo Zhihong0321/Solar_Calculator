@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl:*)"
+      "Bash(*)",
+      "PowerShell(*)",
+      "git(*)",
+      "npm(*)",
+      "node(*)",
+      "python(*)",
+      "tailwindcss(*)",
+      "npx(*)",
+      "where(*)",
+      "cat(*)",
+      "ls(*)",
+      "mkdir(*)",
+      "python.exe(*)",
+      "node.exe(*)",
+      "npm.cmd(*)",
+      "npx.cmd(*)"
     ]
   }
 }
