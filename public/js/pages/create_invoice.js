@@ -240,10 +240,10 @@ function toggleFollowUpSection() {
     }
 }
 
-// Fetch available vouchers
+// Fetch available vouchers - only active, non-deleted vouchers for agent use
 async function fetchVouchers() {
     try {
-        const response = await fetch('/api/vouchers?status=all');
+        const response = await fetch('/api/vouchers?status=active');
         const result = await response.json();
 
         if (result.success) {
@@ -263,10 +263,8 @@ function populateVoucherSelect() {
     // Keep first option
     select.innerHTML = '<option value="">-- Select a Voucher --</option>';
 
-    // Only allow selecting 'active' vouchers in the dropdown
-    const activeVouchers = availableVouchers.filter(v => v.active === true);
-
-    activeVouchers.forEach(v => {
+    // availableVouchers already contains only active, non-deleted vouchers (filtered server-side)
+    availableVouchers.forEach(v => {
         const option = document.createElement('option');
         option.value = v.voucher_code;
         let text = v.title || v.voucher_code;

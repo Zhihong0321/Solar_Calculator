@@ -222,10 +222,10 @@ function renderManualItems() {
             `).join('');
 }
 
-// Fetch available vouchers
+// Fetch available vouchers - only active, non-deleted vouchers for agent use
 async function fetchVouchers() {
     try {
-        const response = await fetch('/api/vouchers');
+        const response = await fetch('/api/vouchers?status=active');
         const result = await response.json();
 
         if (result.success) {
