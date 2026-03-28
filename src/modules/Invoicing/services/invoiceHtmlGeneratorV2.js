@@ -5,6 +5,9 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const templateData = template || {};
 
     const hasTigerNeo3 = items.some(item => (item.description || '').toLowerCase().includes('tiger neo 3'));
+    const layoutMode = String(options.layout || options.viewMode || '').toLowerCase();
+    const isA4Preview = layoutMode === 'a4' || layoutMode === 'a4-preview' || layoutMode === 'print';
+    const showInteractiveControls = !options.forPdf && !isA4Preview;
 
     // Calculate totals from items
     const sstAmount = parseFloat(invoice.sst_amount) || 0;
@@ -57,7 +60,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>${titleLabel} ${invoice.invoice_number}</title>
+    <title>${titleLabel} ${invoice.invoice_number}${isA4Preview ? ' - A4 Preview' : ''}</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -99,6 +102,11 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+body.a4-preview {
+    background: #e7ebef;
+    padding: 16px;
+}
+
 .invoice-container {
     background-color: #ffffff;
     max-width: 820px;
@@ -106,6 +114,44 @@ body {
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
     position: relative;
     padding-bottom: 30px;
+}
+
+body.a4-preview .invoice-container {
+    max-width: 210mm;
+    width: min(210mm, 100%);
+    min-height: 297mm;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+    padding-bottom: 0;
+    overflow: visible;
+}
+
+body.a4-preview .invoice-actions,
+body.a4-preview .promotional-banner,
+body.a4-preview .no-print {
+    display: none !important;
+}
+
+body.a4-preview .footer-bottom-bar {
+    display: none !important;
+}
+
+body.a4-preview .invoice-footer {
+    margin-bottom: 0;
+}
+
+body.a4-preview .items-table thead {
+    display: table-header-group;
+}
+
+body.a4-preview .items-table tr,
+body.a4-preview .billing-details,
+body.a4-preview .summary-section,
+body.a4-preview .terms-signature,
+body.a4-preview .invoice-footer,
+body.a4-preview .signature-image,
+body.a4-preview .promotional-banner {
+    break-inside: avoid;
+    page-break-inside: avoid;
 }
 
 /* Header Start */
@@ -206,6 +252,9 @@ body {
 
 .btn-pdf { color: #334155; border: 1px solid #334155; }
 .btn-pdf:hover { background: #334155; color: #fff; }
+
+.btn-preview { color: #0f172a; border: 1px solid #0f172a; }
+.btn-preview:hover { background: #0f172a; color: #fff; }
 
 /* Billing Details */
 .billing-details {
@@ -493,6 +542,11 @@ body {
 
 /* Print optimizations */
 @media print {
+    @page {
+        size: A4;
+        margin: 12mm;
+    }
+
     body { background: white; padding: 0; }
     .invoice-container {
         padding: 0;
@@ -501,6 +555,9 @@ body {
         max-width: 100%;
     }
     .no-print { display: none !important; }
+    .promotional-banner { display: none !important; }
+    .items-table thead { display: table-header-group; }
+    .items-table tr { break-inside: avoid; page-break-inside: avoid; }
 }
 
 /* Mobile Responsiveness */
@@ -682,8 +739,32 @@ body {
 }
     </style>
 </head>
-<body>
-    ${!options.forPdf ? `
+<body${isA4Preview ? ' class="a4-preview"' : ''}>
+    <script>
+      // Client-side date formatting to user's local timezone
+      function formatLocalTime() {
+        const elements = document.querySelectorAll('.local-time');
+        elements.forEach(el => {
+          const iso = el.getAttribute('data-iso');
+          const showTime = el.getAttribute('data-show-time') === 'true';
+          if (iso) {
+            try {
+              const date = new Date(iso);
+              const options = { year: 'numeric', month: 'short', day: 'numeric' };
+              if (showTime) { options.hour = '2-digit'; options.minute = '2-digit'; }
+              el.textContent = date.toLocaleString(undefined, options);
+            } catch (e) {
+              console.error('Date formatting error:', e);
+            }
+          }
+        });
+      }
+
+      // Run on load
+      document.addEventListener('DOMContentLoaded', formatLocalTime);
+    </script>
+
+    ${showInteractiveControls ? `
     <!-- Signature Modal -->
     <div id="signatureModal" class="fixed inset-0 z-[100] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="signatureBox">
@@ -712,28 +793,6 @@ body {
     </div>
     
     <script>
-      // Client-side date formatting to user's local timezone
-      function formatLocalTime() {
-        const elements = document.querySelectorAll('.local-time');
-        elements.forEach(el => {
-          const iso = el.getAttribute('data-iso');
-          const showTime = el.getAttribute('data-show-time') === 'true';
-          if (iso) {
-            try {
-              const date = new Date(iso);
-              const options = { year: 'numeric', month: 'short', day: 'numeric' };
-              if (showTime) { options.hour = '2-digit'; options.minute = '2-digit'; }
-              el.textContent = date.toLocaleString(undefined, options);
-            } catch (e) {
-              console.error('Date formatting error:', e);
-            }
-          }
-        });
-      }
-
-      // Run on load
-      document.addEventListener('DOMContentLoaded', formatLocalTime);
-
       let signaturePad;
       const modal = document.getElementById('signatureModal');
       const box = document.getElementById('signatureBox');
@@ -846,6 +905,10 @@ body {
         window.open('/proposal/' + shareToken, '_blank');
       }
 
+      function openA4Preview(shareToken) {
+        window.open('/view/' + shareToken + '?layout=a4', '_blank', 'noopener');
+      }
+
       function resetSignature() {
         Swal.fire({
           title: 'Re-sign Document?',
@@ -880,7 +943,7 @@ body {
             </div>
             <div class="invoice-title">
                 <h1>${titleLabel}</h1>
-                ${!options.forPdf ? `
+                ${showInteractiveControls ? `
                 <div class="invoice-actions no-print">
                   ${invoice.share_token ? `
                   <button onclick="window.open('https://referral.atap.solar', '_blank')" class="action-btn btn-referral">
@@ -895,6 +958,11 @@ body {
                   ${!hasTigerNeo3 && (invoice.share_token || invoice.bubble_id) && invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
                   <button onclick="viewProposal('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-proposal">
                     <span>View Proposal</span>
+                  </button>
+                  ` : ''}
+                  ${(invoice.share_token || invoice.bubble_id) ? `
+                  <button onclick="openA4Preview('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-preview">
+                    <span>A4 Preview</span>
                   </button>
                   ` : ''}
                   ${(invoice.share_token || invoice.bubble_id) ? `
@@ -1029,7 +1097,7 @@ body {
         </section>
 
         <!-- Tiger Neo 3 Promotional Banner -->
-        ${hasTigerNeo3 ? `
+        ${hasTigerNeo3 && !isA4Preview ? `
         <section class="promotional-banner no-print" style="padding: 0 50px; margin-bottom: 40px; cursor: pointer;" onclick="window.location.href = 'https://tiger-neo-3-production.up.railway.app/index.html?return=' + encodeURIComponent(window.location.href);">
             <div style="border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
                 <img src="/slide-001.webp" alt="Rise With Tiger Neo 3" style="width: 100%; display: block; object-fit: cover;">
@@ -1053,21 +1121,21 @@ body {
                 ${invoice.customer_signature ? `
                 <div class="signature-image relative group">
                     <img src="${invoice.customer_signature.startsWith('//') ? 'https:' + invoice.customer_signature : invoice.customer_signature}" alt="Signature">
-                    ${!options.forPdf ? `
+                    ${showInteractiveControls ? `
                     <button onclick="resetSignature()" class="absolute top-0 right-0 opacity-0 group-hover:opacity-100 bg-white/90 shadow-sm border border-slate-200 text-slate-600 hover:text-red-500 p-1 rounded transition-all no-print" title="Re-sign" style="font-size: 10px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
                       ✕
                     </button>
                     ` : ''}
                 </div>
                 ` : ''}
-                ${(!options.forPdf && (!invoice.customer_signature || invoice.customer_signature.trim() === '')) ? `
+                ${showInteractiveControls && (!invoice.customer_signature || invoice.customer_signature.trim() === '') ? `
                 <div class="no-print" style="margin-bottom: 10px;">
                     <button onclick="openSignatureModal()" class="px-4 py-2 bg-emerald-600 text-white rounded font-bold shadow hover:bg-emerald-700 w-full transition-transform active:scale-95">Sign this ${titleLabel}</button>
                 </div>
                 ` : ''}
                 <h4>${invoice.customer_name || 'Customer'}</h4>
                 ${invoice.signature_date ? `<p style="font-size: 8px; color: #999; margin-top: 5px;">Signed on ${invoice.signature_date}</p>` : ''}
-                ${(!options.forPdf && invoice.customer_signature) ? `
+                ${showInteractiveControls && invoice.customer_signature ? `
                 <div class="mt-2 no-print">
                   <button onclick="resetSignature()" class="text-[9px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors">Re-sign</button>
                 </div>

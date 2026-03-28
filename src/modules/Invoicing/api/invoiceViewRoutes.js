@@ -62,12 +62,13 @@ router.get('/legacy-view/:tokenOrId/pdf', async (req, res) => {
 router.get('/view/:tokenOrId', async (req, res) => {
   try {
     const { tokenOrId } = req.params;
+    const layout = String(req.query.layout || '').toLowerCase();
     const client = await pool.connect();
     try {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template);
+        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, { layout });
         res.send(html);
       } else {
         res.status(404).send('Invoice not found');
@@ -88,12 +89,13 @@ router.get('/view/:tokenOrId', async (req, res) => {
 router.get('/view2/:tokenOrId', async (req, res) => {
   try {
     const { tokenOrId } = req.params;
+    const layout = String(req.query.layout || '').toLowerCase();
     const client = await pool.connect();
     try {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template);
+        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, { layout });
         res.send(html);
       } else {
         res.status(404).send('Invoice not found');
