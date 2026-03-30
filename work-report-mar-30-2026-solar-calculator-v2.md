@@ -6,5 +6,8 @@ REPO NAME : Solar Calculator v2
 - Linked Tiger Neo 3 invoice proposals to the local slide presentation
 - Added customer and system size overlay to the Tiger Neo 3 slide deck
 - Fixed BugReport startup crash by restoring route imports and auth checks
+- Pushed BugReport startup fix branch update to GitHub
+- Replaced Tiger Neo 3 proposal viewer with the new mobile HTML version and archived the old presentation folder.
+- Built and pushed the Tiger Neo 3 proposal viewer replacement update.
 
 =====================
