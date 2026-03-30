@@ -131,6 +131,10 @@ body.a4-preview .no-print {
     display: none !important;
 }
 
+body.a4-preview .floating-a4-preview {
+    display: none !important;
+}
+
 body.a4-preview .footer-bottom-bar {
     display: none !important;
 }
@@ -255,6 +259,35 @@ body.a4-preview .promotional-banner {
 
 .btn-preview { color: #0f172a; border: 1px solid #0f172a; }
 .btn-preview:hover { background: #0f172a; color: #fff; }
+
+.floating-a4-preview {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 90;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+}
+
+.floating-a4-preview button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #0f172a, #334155);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.floating-a4-preview button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
+}
 
 /* Billing Details */
 .billing-details {
@@ -765,6 +798,14 @@ body.a4-preview .promotional-banner {
     </script>
 
     ${showInteractiveControls ? `
+    ${(invoice.share_token || invoice.bubble_id) ? `
+    <div class="floating-a4-preview no-print">
+      <button onclick="openA4Preview('${invoice.share_token || invoice.bubble_id}')">
+        <span>A4 Preview</span>
+      </button>
+    </div>
+    ` : ''}
+
     <!-- Signature Modal -->
     <div id="signatureModal" class="fixed inset-0 z-[100] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="signatureBox">

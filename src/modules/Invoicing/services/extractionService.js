@@ -34,20 +34,20 @@ const { aiRouter } = require('../../AIRouter/aiRouter');
 function extractJson(text) {
     // If response is already an object (shouldn't happen but safety check)
     if (typeof text === 'object') return text;
-    
+
     // Clean up the text - remove markdown code blocks and extra whitespace
     let cleanJson = text
         .replace(/^```json\s*/i, '')   // Remove opening ```json
         .replace(/^```\s*/i, '')       // Remove opening ```
         .replace(/\s*```$/i, '')       // Remove closing ```
         .trim();
-    
+
     // Try to find JSON object if there's surrounding text
     const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
         cleanJson = jsonMatch[0];
     }
-    
+
     try {
         return JSON.parse(cleanJson);
     } catch (err) {
@@ -105,27 +105,28 @@ CRITICAL RULES:
 async function callAI(prompt, fileBuffer, mimeType, taskName) {
     try {
         let content;
-        
+
         // Build message content (text-only or multimodal)
         if (fileBuffer && mimeType) {
             content = buildMultimodalContent(prompt, fileBuffer, mimeType);
         } else {
             content = prompt;
         }
-        
+
         // Call AI through router with system prompt
         // The router now enforces JSON format at API level
         const response = await aiRouter.chatCompletion({
             messages: [
                 { role: 'system', content: STRICT_JSON_SYSTEM_PROMPT },
                 { role: 'user', content }
-            ]
+            ],
+            response_format: { type: 'json_object' }
         });
-        
+
         // Extract and parse JSON from response
         const text = response.choices[0].message.content;
         return extractJson(text);
-        
+
     } catch (err) {
         console.error(`[ExtractionService] ${taskName} Error:`, err.message);
         throw err;
@@ -281,7 +282,7 @@ module.exports = {
     verifyTnbBill,
     verifyTnbMeter,
     verifyOwnership,
-    
+
     // Deprecated - kept for backward compatibility
     API_KEYS,
     MODEL

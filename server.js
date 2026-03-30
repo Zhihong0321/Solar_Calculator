@@ -22,6 +22,7 @@ const SalesTeam = require('./src/modules/SalesTeam');
 const sedaRoutes = require('./routes/sedaRoutes');
 const ActivityReport = require('./src/modules/ActivityReport');
 const Health = require('./src/modules/Health');
+const BugReport = require('./src/modules/BugReport');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -76,6 +77,7 @@ app.use(SalesTeam.router);
 app.use(sedaRoutes);
 app.use(ActivityReport.router);
 app.use(Health.router);
+app.use('/api/v1/bug', BugReport.bugRoutes);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
@@ -367,6 +369,14 @@ app.get('/chat-dashboard', (req, res) => {
 
 app.get('/chat-settings', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'chat_settings.html'));
+});
+
+app.get('/bug-dashboard', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'bug_dashboard.html'));
+});
+
+app.get('/bug-chat', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'bug_chat.html'));
 });
 
 // API endpoint to test database connection (Core Health)

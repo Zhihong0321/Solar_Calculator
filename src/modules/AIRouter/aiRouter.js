@@ -26,7 +26,7 @@ class UniapiAdapter {
             messages: openaiRequest.messages,
             temperature: openaiRequest.temperature,
             max_tokens: openaiRequest.max_tokens,
-            response_format: { type: 'json_object' }
+            response_format: openaiRequest.response_format || undefined
         };
 
         Object.keys(payload).forEach(key => {
