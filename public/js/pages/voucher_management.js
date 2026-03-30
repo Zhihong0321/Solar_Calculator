@@ -81,7 +81,7 @@ async function fetchVouchers() {
             return;
         }
         if (response.status === 401) {
-            window.location.href = '/domestic';
+            window.location.href = '/';
             return;
         }
 

@@ -149,6 +149,8 @@ const BANKS = Object.keys(EPP_RATES);
 let paymentMethodCounter = 0;
 let availableVouchers = [];
 let selectedVouchers = [];
+let assignedReferralLeads = [];
+let referralInvoiceFilterId = null;
 
 // Dynamic Additional Items State
 let manualItems = [];
@@ -237,6 +239,91 @@ function toggleFollowUpSection() {
         section.classList.remove('hidden');
     } else {
         section.classList.add('hidden');
+    }
+}
+
+function getVisibleReferralLeads() {
+    return assignedReferralLeads.filter((referral) => {
+        if (!referral?.linked_invoice) return true;
+        return referral.linked_invoice === referralInvoiceFilterId;
+    });
+}
+
+function formatReferralOptionLabel(referral) {
+    const parts = [
+        referral.name || 'Unnamed lead',
+        referral.mobile_number || 'No phone',
+        referral.status || 'Pending'
+    ];
+    return parts.join(' | ');
+}
+
+function renderAssignedReferralOptions(selectedReferralId = '') {
+    const select = document.getElementById('assignedReferralSelect');
+    if (!select) return;
+
+    const options = ['<option value="">Manual customer entry</option>'];
+    getVisibleReferralLeads().forEach((referral) => {
+        const selected = String(selectedReferralId || '') === String(referral.bubble_id) ? 'selected' : '';
+        options.push(
+            `<option value="${referral.bubble_id}" ${selected}>${formatReferralOptionLabel(referral)}</option>`
+        );
+    });
+
+    select.innerHTML = options.join('');
+    select.value = selectedReferralId || '';
+    document.getElementById('linkedReferral').value = selectedReferralId || '';
+}
+
+function applyAssignedReferralSelection(referralId, { autofill = true } = {}) {
+    const normalizedId = referralId || '';
+    const hiddenInput = document.getElementById('linkedReferral');
+    if (hiddenInput) hiddenInput.value = normalizedId;
+
+    const select = document.getElementById('assignedReferralSelect');
+    if (select && select.value !== normalizedId) {
+        select.value = normalizedId;
+    }
+
+    const referral = getVisibleReferralLeads().find((item) => item.bubble_id === normalizedId);
+    if (!referral || !autofill) {
+        return;
+    }
+
+    const customerName = document.getElementById('customerName');
+    const customerPhone = document.getElementById('customerPhone');
+    const customerAddress = document.getElementById('customerAddress');
+    const leadSource = document.getElementById('customerLeadSource');
+    const remark = document.getElementById('customerRemark');
+
+    if (customerName) customerName.value = referral.name || '';
+    if (customerPhone) customerPhone.value = referral.mobile_number || '';
+    if (customerAddress) customerAddress.value = referral.address || referral.lead_address || '';
+    if (leadSource) leadSource.value = 'referral';
+    if (remark && !remark.value.trim()) {
+        remark.value = `Assigned referral lead selected: ${referral.name || referral.bubble_id}`;
+    }
+
+    toggleFollowUpSection();
+}
+
+async function fetchAssignedReferralLeads(selectedReferralId = '', { autofillSelection = false } = {}) {
+    try {
+        const response = await fetch('/api/v1/referrals/my-referrals', { credentials: 'same-origin' });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to load assigned referral leads');
+        }
+
+        assignedReferralLeads = Array.isArray(result.data) ? result.data : [];
+        renderAssignedReferralOptions(selectedReferralId);
+
+        if (selectedReferralId) {
+            applyAssignedReferralSelection(selectedReferralId, { autofill: autofillSelection });
+        }
+    } catch (error) {
+        console.error('Error loading assigned referral leads:', error);
     }
 }
 
@@ -1167,6 +1254,12 @@ document.addEventListener('DOMContentLoaded', async function () {
     const panelQty = urlParams.get('panel_qty');
     const panelRating = urlParams.get('panel_rating');
     const editInvoiceId = urlParams.get('edit_invoice_id') || urlParams.get('id');
+    const selectedReferralFromUrl = urlParams.get('linked_referral') || '';
+    referralInvoiceFilterId = editInvoiceId || null;
+
+    await fetchAssignedReferralLeads(selectedReferralFromUrl, {
+        autofillSelection: Boolean(selectedReferralFromUrl)
+    });
 
     if (packageId) {
         if (detectedPackageIdEl) detectedPackageIdEl.textContent = packageId;
@@ -1214,6 +1307,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 if (inv.customer_name_snapshot) document.getElementById('customerName').value = inv.customer_name_snapshot;
                 if (inv.customer_phone_snapshot) document.getElementById('customerPhone').value = inv.customer_phone_snapshot;
                 if (inv.customer_address_snapshot) document.getElementById('customerAddress').value = inv.customer_address_snapshot;
+                if (inv.linked_referral) applyAssignedReferralSelection(inv.linked_referral, { autofill: false });
 
                 let discountVal = '';
                 if (inv.discount_fixed > 0) discountVal += inv.discount_fixed;
@@ -1312,10 +1406,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (urlParams.get('customer_address')) document.getElementById('customerAddress').value = urlParams.get('customer_address');
     if (urlParams.get('discount_given')) document.getElementById('discountGiven').value = urlParams.get('discount_given');
     if (urlParams.get('apply_sst') === 'true') document.getElementById('applySST').checked = true;
+    if (selectedReferralFromUrl) applyAssignedReferralSelection(selectedReferralFromUrl, { autofill: true });
 
     // Setup listeners
     const addManualItemBtn = document.getElementById('addManualItemBtn');
     if (addManualItemBtn) addManualItemBtn.addEventListener('click', () => addManualItem());
+
+    const assignedReferralSelect = document.getElementById('assignedReferralSelect');
+    if (assignedReferralSelect) {
+        assignedReferralSelect.addEventListener('change', (event) => {
+            applyAssignedReferralSelection(event.target.value, { autofill: true });
+        });
+    }
 
     const voucherSelect = document.getElementById('voucherSelectDropdown');
     if (voucherSelect) voucherSelect.addEventListener('change', () => updateVoucherInfo());
@@ -1598,6 +1700,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     const requestData = {
         linked_package: data.linked_package,
         template_id: data.template_id || null,
+        linked_referral: data.linked_referral || null,
         customer_name: data.customer_name || null,
         customer_phone: data.customer_phone || null,
         customer_address: data.customer_address || null,

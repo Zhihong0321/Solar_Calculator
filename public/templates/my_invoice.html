@@ -432,6 +432,15 @@
             return cleaned;
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function getStatusBadgeClass(status) {
             const s = (status || 'draft').toLowerCase();
             const classes = {
@@ -642,6 +651,16 @@
                 const totalPaidVal = parseFloat(inv.total_received) || 0;
                 const totalAmtVal = parseFloat(inv.total_amount) || 0;
                 const waNumber = formatWhatsAppNumber(inv.customer_phone);
+                const referralReferrerName = (inv.referral_referrer_name || 'Unknown Referrer').trim();
+                const referralBadgeHtml = inv.linked_referral ? `
+                    <span
+                        class="badge bg-amber-100 text-amber-800 border border-amber-200 font-bold"
+                        style="font-size: 0.6rem; min-height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem; white-space: normal; line-height: 1.1;"
+                        title="Referred by ${escapeHtml(referralReferrerName)}"
+                    >
+                        REFERRED BY ${escapeHtml(referralReferrerName)}
+                    </span>
+                ` : '';
 
                 // Countdown logic
                 let countdownHtml = '';
@@ -670,9 +689,10 @@
                             <!-- Nested Info Rows -->
                             <div class="flex-1 min-w-0">
                                 <!-- Info Row 1: Inv No & Status -->
-                                <div class="flex items-center gap-2 mb-0.5">
+                                <div class="flex flex-wrap items-center gap-2 mb-0.5">
                                     <span class="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-tight">#${inv.invoice_number || 'DRAFT'}</span>
                                     <span class="badge ${statusClass}" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">${(inv.status || 'Draft').replace('_', ' ')}</span>
+                                    ${referralBadgeHtml}
                                     ${countdownHtml ? countdownHtml.replace('px-1.5 py-0.5 rounded text-[8px]', 'px-2 rounded text-[9px] h-[1.25rem] inline-flex items-center') : ''}
                                     ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">FULLY PAID</span>' : ''}
                                     ${isFollowUp ? '<span class="badge bg-amber-100 text-amber-700 border border-amber-200 font-bold animate-pulse" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">FOLLOW UP</span>' : ''}
@@ -901,11 +921,11 @@
             if (!confirm('This will reset your session. Proceed?')) return;
             try {
                 await fetch('/api/admin/logout', { method: 'POST' });
-                window.location.href = '/my-invoice';
+                window.location.href = '/';
             } catch (e) {
                 // Fallback to client-side
                 document.cookie = 'auth_token=; Max-Age=0; path=/;';
-                window.location.reload();
+                window.location.href = '/';
             }
         }
 

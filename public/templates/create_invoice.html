@@ -226,6 +226,7 @@
                 <input type="hidden" id="packagePrice" value="0">
                 <input type="hidden" id="packageName" value="">
                 <input type="hidden" id="profilePicture">
+                <input type="hidden" name="linked_referral" id="linkedReferral">
 
                 <div class="flex items-center gap-4 mb-6 bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
                     <div id="profilePreview"
@@ -238,6 +239,15 @@
                         <p class="text-sm font-bold text-gray-700 uppercase">Customer Profile Picture</p>
                         <p class="text-xs text-gray-500 mt-0.5">Will be saved to our server from WhatsApp.</p>
                     </div>
+                </div>
+
+                <div class="bg-emerald-50 p-4 rounded-lg border-2 border-emerald-200">
+                    <label class="block text-sm font-semibold mb-2 text-emerald-900">Assigned Referral Lead</label>
+                    <select id="assignedReferralSelect"
+                        class="w-full border-2 border-emerald-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-emerald-500 focus:outline-none">
+                        <option value="">Manual customer entry</option>
+                    </select>
+                    <p class="text-xs text-emerald-700 mt-2">Selecting a referral autofills the customer fields, and you can still edit them before saving.</p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

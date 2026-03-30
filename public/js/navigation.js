@@ -937,7 +937,7 @@
             } finally {
                 this.clear();
                 document.cookie = 'auth_token=; Max-Age=0; path=/;';
-                window.location.href = '/domestic';
+                window.location.href = '/';
             }
         },
 

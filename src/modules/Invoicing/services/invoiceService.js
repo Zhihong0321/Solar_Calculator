@@ -165,6 +165,9 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.lead_source && !invoiceRequestPayload.leadSource) {
         invoiceRequestPayload.leadSource = invoiceRequestPayload.lead_source;
     }
+    if (invoiceRequestPayload.linked_referral && !invoiceRequestPayload.linkedReferral) {
+        invoiceRequestPayload.linkedReferral = invoiceRequestPayload.linked_referral;
+    }
 
     // 1. Validation Layer Layer
     const validation = validateInvoiceData(invoiceRequestPayload);
@@ -234,6 +237,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
       customerName: invoiceRequestPayload.customerName,
       customerPhone: invoiceRequestPayload.customerPhone,
       customerAddress: invoiceRequestPayload.customerAddress,
+      linkedReferral: invoiceRequestPayload.linkedReferral,
       profilePicture: invoiceRequestPayload.profilePicture,
       leadSource: invoiceRequestPayload.leadSource,
       remark: invoiceRequestPayload.remark,
@@ -338,6 +342,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.lead_source && !invoiceRequestPayload.leadSource) {
         invoiceRequestPayload.leadSource = invoiceRequestPayload.lead_source;
     }
+    if (invoiceRequestPayload.linked_referral && !invoiceRequestPayload.linkedReferral) {
+        invoiceRequestPayload.linkedReferral = invoiceRequestPayload.linked_referral;
+    }
 
     // 1. Validation Layer (Same as createInvoice but packageId is optional as we fetch from original)
     // We relax packageId check here as it comes from original invoice
@@ -398,6 +405,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       customerName: invoiceRequestPayload.customerName, // Updates name if provided
       customerPhone: invoiceRequestPayload.customerPhone,
       customerAddress: invoiceRequestPayload.customerAddress,
+      linkedReferral: invoiceRequestPayload.linkedReferral,
       profilePicture: invoiceRequestPayload.profilePicture,
       leadSource: invoiceRequestPayload.leadSource,
       remark: invoiceRequestPayload.remark,

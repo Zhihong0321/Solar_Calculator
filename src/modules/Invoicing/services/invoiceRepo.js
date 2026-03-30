@@ -401,6 +401,55 @@ async function findOrCreateCustomer(client, data) {
   }
 }
 
+async function _resolveLinkedReferral(client, userId, referralBubbleId, currentInvoiceBubbleId = null) {
+  if (!referralBubbleId) {
+    return null;
+  }
+
+  const referralRepo = require('../../Referral/services/referralRepo');
+  const referral = await referralRepo.getReferralByBubbleId(client, referralBubbleId);
+
+  if (!referral) {
+    throw new Error('Selected referral was not found.');
+  }
+
+  const identifiers = await referralRepo.resolveAgentIdentifiers(client, userId);
+  const currentAssignment = referral.assigned_agent || referral.linked_agent;
+
+  if (!currentAssignment || !identifiers.includes(String(currentAssignment))) {
+    throw new Error('Selected referral is not assigned to you.');
+  }
+
+  if (referral.linked_invoice && referral.linked_invoice !== currentInvoiceBubbleId) {
+    throw new Error('Selected referral is already linked to another quotation.');
+  }
+
+  return referral;
+}
+
+async function _syncReferralInvoiceLink(client, invoiceBubbleId, referralBubbleId) {
+  await client.query(
+    `UPDATE referral
+     SET linked_invoice = NULL,
+         updated_at = NOW()
+     WHERE linked_invoice = $1
+       AND ($2::text IS NULL OR bubble_id <> $2)`,
+    [invoiceBubbleId, referralBubbleId || null]
+  );
+
+  if (!referralBubbleId) {
+    return;
+  }
+
+  await client.query(
+    `UPDATE referral
+     SET linked_invoice = $1,
+         updated_at = NOW()
+     WHERE bubble_id = $2`,
+    [invoiceBubbleId, referralBubbleId]
+  );
+}
+
 /**
  * Helper: Fetch all necessary dependencies for invoice creation
  * @private
@@ -601,9 +650,13 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         c.profile_picture as profile_picture,
         c.lead_source as lead_source,
         c.remark as remark,
+        r.name as referral_name,
+        r.mobile_number as referral_phone,
+        r.status as referral_status,
         pkg.package_name as package_name
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
+       LEFT JOIN referral r ON i.linked_referral = r.bubble_id
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
        WHERE (i.bubble_id = $1 OR i.id::text = $1)`,
       [bubbleId]
@@ -808,14 +861,14 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
 
   const query = `
       INSERT INTO invoice 
-      (bubble_id, template_id, linked_customer, linked_agent, linked_package, invoice_number, 
+      (bubble_id, template_id, linked_customer, linked_agent, linked_package, linked_referral, invoice_number, 
        status, total_amount, paid_amount, balance_due, invoice_date, created_by, share_token, follow_up_date, voucher_code)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `;
   const values = [
     bubbleId, data.templateId || 'default', customerBubbleId, linkedAgent,
-    data.packageId, invoiceNumber, data.status || 'draft',
+    data.packageId, data.linkedReferral || null, invoiceNumber, data.status || 'draft',
     finalTotalAmount, 0, finalTotalAmount, data.invoiceDate || new Date(),
     finalCreatedBy, shareToken, data.followUpDate || null,
     validVoucherCodes.join(', ') || null
@@ -1084,6 +1137,16 @@ async function createInvoiceOnTheFly(client, data) {
     // Start transaction
     await client.query('BEGIN');
 
+    const linkedReferral = await _resolveLinkedReferral(client, data.userId, data.linkedReferral || null);
+    if (linkedReferral) {
+      data.linkedReferral = linkedReferral.bubble_id;
+      data.customerName = data.customerName || linkedReferral.name || null;
+      data.customerPhone = data.customerPhone || linkedReferral.mobile_number || null;
+      data.customerAddress = data.customerAddress || linkedReferral.address || null;
+      data.leadSource = data.leadSource || 'referral';
+      data.remark = data.remark || `Assigned referral lead selected: ${linkedReferral.name || linkedReferral.bubble_id}`;
+    }
+
     // 1. Fetch Dependencies (Package, Customer, Template)
     const deps = await _fetchDependencies(client, data);
 
@@ -1107,6 +1170,8 @@ async function createInvoiceOnTheFly(client, data) {
 
     // 5. Create Line Items
     await _createLineItems(client, invoice.bubble_id, data, financials, deps, voucherInfo);
+
+    await _syncReferralInvoiceLink(client, invoice.bubble_id, data.linkedReferral || null);
 
     // Commit transaction
     await client.query('COMMIT');
@@ -1266,10 +1331,16 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.share_enabled,
             i.version,
             i.follow_up_date,
+            i.linked_referral,
             COALESCE(
                 i.linked_seda_registration, 
                 (SELECT s.bubble_id FROM seda_registration s WHERE i.bubble_id = ANY(s.linked_invoice) LIMIT 1)
             ) as linked_seda_registration,
+            COALESCE(
+                NULLIF(referrer.name, ''),
+                NULLIF(ref.linked_customer_profile, ''),
+                'Unknown Referrer'
+            ) as referral_referrer_name,
             
             -- Verified Paid Amount
             COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id OR p.bubble_id = ANY(COALESCE(i.linked_payment, ARRAY[]::text[]))), 0) as total_received,
@@ -1284,6 +1355,8 @@ async function getInvoicesByUserId(client, userId, options = {}) {
         FROM invoice i
         LEFT JOIN customer c ON i.linked_customer = c.customer_id
         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
+        LEFT JOIN referral ref ON i.linked_referral = ref.bubble_id
+        LEFT JOIN customer referrer ON ref.linked_customer_profile = referrer.customer_id
         WHERE (
             i.created_by = ANY($1::text[])
             OR ($2::text IS NOT NULL AND i.linked_agent = $2)
@@ -1413,11 +1486,29 @@ async function updateInvoiceTransaction(client, data) {
 
     // 1. Fetch current record
     const currentRes = await client.query(
-      'SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent, version, paid_amount, linked_payment FROM invoice WHERE bubble_id = $1',
+      'SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent, linked_referral, version, paid_amount, linked_payment FROM invoice WHERE bubble_id = $1',
       [bubbleId]
     );
     const currentData = currentRes.rows[0];
     if (!currentData) throw new Error('Invoice not found');
+
+    const linkedReferral = await _resolveLinkedReferral(
+      client,
+      data.userId,
+      data.linkedReferral || null,
+      bubbleId
+    );
+
+    if (linkedReferral) {
+      data.linkedReferral = linkedReferral.bubble_id;
+      data.customerName = data.customerName || linkedReferral.name || null;
+      data.customerPhone = data.customerPhone || linkedReferral.mobile_number || null;
+      data.customerAddress = data.customerAddress || linkedReferral.address || null;
+      data.leadSource = data.leadSource || 'referral';
+      data.remark = data.remark || `Assigned referral lead selected: ${linkedReferral.name || linkedReferral.bubble_id}`;
+    } else {
+      data.linkedReferral = null;
+    }
 
     const requestedPackageId = data.packageId || currentData.linked_package || null;
     const currentPackageId = currentData.linked_package || null;
@@ -1487,18 +1578,20 @@ async function updateInvoiceTransaction(client, data) {
             template_id = $1,
             linked_package = $2,
             linked_customer = $3,
-            total_amount = $4,
-            balance_due = $4 - COALESCE(paid_amount, 0),
-            status = $5,
-            follow_up_date = $6,
-            voucher_code = $7,
+            linked_referral = $4,
+            total_amount = $5,
+            balance_due = $5 - COALESCE(paid_amount, 0),
+            status = $6,
+            follow_up_date = $7,
+            voucher_code = $8,
             updated_at = NOW()
-        WHERE bubble_id = $8
+        WHERE bubble_id = $9
     `;
     const updateValues = [
       data.templateId || 'default',
       requestedPackageId,
       customerBubbleId,
+      data.linkedReferral,
       finalTotalAmount,
       data.status || currentData.status,
       data.followUpDate || null,
@@ -1511,6 +1604,8 @@ async function updateInvoiceTransaction(client, data) {
     // We stick to delete/insert here but ensure they keep the same linked_invoice (UID)
     await client.query('DELETE FROM invoice_item WHERE linked_invoice = $1', [bubbleId]);
     await _createLineItems(client, bubbleId, data, financials, { pkg, linkedAgent }, voucherInfo);
+
+    await _syncReferralInvoiceLink(client, bubbleId, data.linkedReferral);
 
     await client.query('COMMIT');
 
@@ -1558,12 +1653,12 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
 
   const invoiceResult = await client.query(
     `INSERT INTO invoice
-     (bubble_id, template_id, linked_customer, linked_agent, linked_package, invoice_number,
+     (bubble_id, template_id, linked_customer, linked_agent, linked_package, linked_referral, invoice_number,
       invoice_date, agent_markup,
       discount_fixed, discount_percent, voucher_code,
       total_amount, status, share_token, share_enabled,
       share_expires_at, created_by, version, root_id, parent_id, is_latest, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW(), NOW())
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW(), NOW())
      RETURNING *`,
     [
       bubbleId,
@@ -1571,6 +1666,7 @@ async function _createInvoiceVersionRecord(client, org, data, financials, vouche
       customerBubbleId,
       linkedAgent,
       org.linked_package,
+      data.linkedReferral || org.linked_referral || null,
       newInvoiceNumber,
       new Date().toISOString().split('T')[0],
       markupAmount,

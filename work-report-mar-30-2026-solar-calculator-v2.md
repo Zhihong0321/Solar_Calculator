@@ -9,5 +9,9 @@ REPO NAME : Solar Calculator v2
 - Pushed BugReport startup fix branch update to GitHub
 - Replaced Tiger Neo 3 proposal viewer with the new mobile HTML version and archived the old presentation folder.
 - Built and pushed the Tiger Neo 3 proposal viewer replacement update.
+- Reviewed referral assignment workflow and agent handoff flow
+- Added referral referrer badges to invoice cards in agent home.
+- Added referral lead selection and invoice linkage in create and edit quotation flows
+- Changed logout redirects to return users to the landing login page instead of the domestic calculator.
 
 =====================

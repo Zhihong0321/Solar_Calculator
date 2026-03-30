@@ -26,6 +26,8 @@ const BANKS = Object.keys(EPP_RATES);
 let paymentMethodCounter = 0;
 let availableVouchers = [];
 let selectedVouchers = [];
+let assignedReferralLeads = [];
+let referralInvoiceFilterId = null;
 const BALLAST_UNIT_PRICE = 120;
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
@@ -143,6 +145,85 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function getVisibleReferralLeads() {
+    return assignedReferralLeads.filter((referral) => {
+        if (!referral?.linked_invoice) return true;
+        return referral.linked_invoice === referralInvoiceFilterId;
+    });
+}
+
+function formatReferralOptionLabel(referral) {
+    const parts = [
+        referral.name || 'Unnamed lead',
+        referral.mobile_number || 'No phone',
+        referral.status || 'Pending'
+    ];
+    return parts.join(' | ');
+}
+
+function renderAssignedReferralOptions(selectedReferralId = '') {
+    const select = document.getElementById('assignedReferralSelect');
+    if (!select) return;
+
+    const options = ['<option value="">Manual customer entry</option>'];
+    getVisibleReferralLeads().forEach((referral) => {
+        const selected = String(selectedReferralId || '') === String(referral.bubble_id) ? 'selected' : '';
+        options.push(
+            `<option value="${referral.bubble_id}" ${selected}>${formatReferralOptionLabel(referral)}</option>`
+        );
+    });
+
+    select.innerHTML = options.join('');
+    select.value = selectedReferralId || '';
+    document.getElementById('linkedReferral').value = selectedReferralId || '';
+}
+
+function applyAssignedReferralSelection(referralId, { autofill = true } = {}) {
+    const normalizedId = referralId || '';
+    const hiddenInput = document.getElementById('linkedReferral');
+    if (hiddenInput) hiddenInput.value = normalizedId;
+
+    const select = document.getElementById('assignedReferralSelect');
+    if (select && select.value !== normalizedId) {
+        select.value = normalizedId;
+    }
+
+    const referral = getVisibleReferralLeads().find((item) => item.bubble_id === normalizedId);
+    if (!referral || !autofill) {
+        return;
+    }
+
+    const customerName = document.getElementById('customerName');
+    const customerPhone = document.getElementById('customerPhone');
+    const customerAddress = document.getElementById('customerAddress');
+    const leadSource = document.getElementById('customerLeadSource');
+    const remark = document.getElementById('customerRemark');
+
+    if (customerName) customerName.value = referral.name || '';
+    if (customerPhone) customerPhone.value = referral.mobile_number || '';
+    if (customerAddress) customerAddress.value = referral.address || referral.lead_address || '';
+    if (leadSource) leadSource.value = 'referral';
+    if (remark && !remark.value.trim()) {
+        remark.value = `Assigned referral lead selected: ${referral.name || referral.bubble_id}`;
+    }
+}
+
+async function fetchAssignedReferralLeads(selectedReferralId = '') {
+    try {
+        const response = await fetch('/api/v1/referrals/my-referrals', { credentials: 'same-origin' });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to load assigned referral leads');
+        }
+
+        assignedReferralLeads = Array.isArray(result.data) ? result.data : [];
+        renderAssignedReferralOptions(selectedReferralId);
+    } catch (error) {
+        console.error('Error loading assigned referral leads:', error);
+    }
 }
 
 // Add a new manual item row
@@ -1250,6 +1331,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         return;
     }
 
+    referralInvoiceFilterId = editInvoiceId;
+    await fetchAssignedReferralLeads();
+
     // Update Cancel Button
     const cancelBtn = document.getElementById('cancelButton');
     if (cancelBtn) {
@@ -1294,6 +1378,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (inv.customer_name) document.getElementById('customerName').value = inv.customer_name;
             if (inv.customer_phone) document.getElementById('customerPhone').value = inv.customer_phone;
             if (inv.customer_address) document.getElementById('customerAddress').value = inv.customer_address;
+            if (inv.linked_referral) {
+                renderAssignedReferralOptions(inv.linked_referral);
+                applyAssignedReferralSelection(inv.linked_referral, { autofill: false });
+            }
 
             // 2.5 Load Profile Picture
             if (inv.profile_picture) {
@@ -1395,6 +1483,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     const addManualItemBtn = document.getElementById('addManualItemBtn');
     if (addManualItemBtn) {
         addManualItemBtn.addEventListener('click', () => addManualItem());
+    }
+
+    const assignedReferralSelect = document.getElementById('assignedReferralSelect');
+    if (assignedReferralSelect) {
+        assignedReferralSelect.addEventListener('change', (event) => {
+            applyAssignedReferralSelection(event.target.value, { autofill: true });
+        });
     }
 
     // Voucher listeners
@@ -1620,6 +1715,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     const requestData = {
         linked_package: data.linked_package,
         template_id: data.template_id || null,
+        linked_referral: data.linked_referral || null,
         customer_name: data.customer_name || null,
         customer_phone: data.customer_phone || null,
         customer_address: data.customer_address || null,
