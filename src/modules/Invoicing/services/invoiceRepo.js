@@ -7,6 +7,7 @@
  * Performance Note: Uses atomic updates for invoice number generation to prevent race conditions.
  */
 const crypto = require('crypto');
+let invoiceColumnCache = null;
 
 // SYSTEM-WIDE DISCOUNT POLICY
 const MANUAL_DISCOUNT_MAX_PERCENT = 7; // Max manual discount = 7% of package price (VOUCHERS EXCLUDED)
@@ -50,6 +51,21 @@ function getHolidayBoostDiscount(panelQty) {
  */
 function generateShareToken() {
   return crypto.randomBytes(32).toString('hex');
+}
+
+async function getInvoiceColumns(client) {
+  if (invoiceColumnCache) {
+    return invoiceColumnCache;
+  }
+
+  const result = await client.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = 'invoice'`
+  );
+
+  invoiceColumnCache = new Set(result.rows.map((row) => row.column_name));
+  return invoiceColumnCache;
 }
 
 /**
@@ -421,7 +437,26 @@ async function _resolveLinkedReferral(client, userId, referralBubbleId, currentI
   }
 
   if (referral.linked_invoice && referral.linked_invoice !== currentInvoiceBubbleId) {
-    throw new Error('Selected referral is already linked to another quotation.');
+    const invoiceCheck = await client.query(
+      `SELECT bubble_id FROM invoice WHERE bubble_id = $1 LIMIT 1`,
+      [referral.linked_invoice]
+    );
+
+    if (invoiceCheck.rows.length > 0) {
+      throw new Error('Selected referral is already linked to another quotation.');
+    }
+  }
+
+  if (referral.linked_customer_profile) {
+    const referrerResult = await client.query(
+      `SELECT name
+       FROM customer
+       WHERE customer_id = $1
+       LIMIT 1`,
+      [referral.linked_customer_profile]
+    );
+
+    referral.referrer_customer_name = referrerResult.rows[0]?.name || null;
   }
 
   return referral;
@@ -639,10 +674,30 @@ function reconstructFromSnapshot(actionDetails) {
  */
 async function getInvoiceByBubbleId(client, bubbleId) {
   try {
+    const invoiceColumns = await getInvoiceColumns(client);
+    const linkedReferralSelect = invoiceColumns.has('linked_referral')
+      ? 'i.linked_referral AS linked_referral,'
+      : 'NULL::text AS linked_referral,';
+    const referrerNameSelect = invoiceColumns.has('referrer_name')
+      ? "NULLIF(TRIM(i.referrer_name), '') AS referrer_name,"
+      : 'NULL::text AS referrer_name,';
+    const referralJoin = invoiceColumns.has('linked_referral')
+      ? 'LEFT JOIN referral r ON i.linked_referral = r.bubble_id'
+      : '';
+    const referralFieldSelect = invoiceColumns.has('linked_referral')
+      ? `r.name as referral_name,
+        r.mobile_number as referral_phone,
+        r.status as referral_status,`
+      : `NULL::text as referral_name,
+        NULL::text as referral_phone,
+        NULL::text as referral_status,`;
+
     // Query 1: Get invoice with live joins
     const invoiceResult = await client.query(
       `SELECT 
         i.*,
+        ${linkedReferralSelect}
+        ${referrerNameSelect}
         COALESCE(c.name, 'Valued Customer') as customer_name,
         c.email as customer_email,
         c.phone as customer_phone,
@@ -650,13 +705,11 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         c.profile_picture as profile_picture,
         c.lead_source as lead_source,
         c.remark as remark,
-        r.name as referral_name,
-        r.mobile_number as referral_phone,
-        r.status as referral_status,
+        ${referralFieldSelect}
         pkg.package_name as package_name
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
-       LEFT JOIN referral r ON i.linked_referral = r.bubble_id
+       ${referralJoin}
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
        WHERE (i.bubble_id = $1 OR i.id::text = $1)`,
       [bubbleId]
@@ -844,6 +897,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
  * @private
  */
 async function _createInvoiceRecord(client, data, financials, deps, voucherInfo) {
+  const invoiceColumns = await getInvoiceColumns(client);
   const {
     taxableSubtotal, markupAmount, sstRate, sstAmount,
     percentDiscountVal, finalTotalAmount
@@ -859,20 +913,63 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   const finalCreatedBy = String(userId);
 
+  const insertColumns = [
+    'bubble_id',
+    'template_id',
+    'linked_customer',
+    'linked_agent',
+    'linked_package'
+  ];
+  const values = [
+    bubbleId,
+    data.templateId || 'default',
+    customerBubbleId,
+    linkedAgent,
+    data.packageId
+  ];
+
+  if (invoiceColumns.has('linked_referral')) {
+    insertColumns.push('linked_referral');
+    values.push(data.linkedReferral || null);
+  }
+
+  if (invoiceColumns.has('referrer_name')) {
+    insertColumns.push('referrer_name');
+    values.push(data.referrerName || null);
+  }
+
+  insertColumns.push(
+    'invoice_number',
+    'status',
+    'total_amount',
+    'paid_amount',
+    'balance_due',
+    'invoice_date',
+    'created_by',
+    'share_token',
+    'follow_up_date',
+    'voucher_code'
+  );
+  values.push(
+    invoiceNumber,
+    data.status || 'draft',
+    finalTotalAmount,
+    0,
+    finalTotalAmount,
+    data.invoiceDate || new Date(),
+    finalCreatedBy,
+    shareToken,
+    data.followUpDate || null,
+    validVoucherCodes.join(', ') || null
+  );
+
+  const placeholders = values.map((_, index) => `$${index + 1}`).join(', ');
   const query = `
       INSERT INTO invoice 
-      (bubble_id, template_id, linked_customer, linked_agent, linked_package, linked_referral, invoice_number, 
-       status, total_amount, paid_amount, balance_due, invoice_date, created_by, share_token, follow_up_date, voucher_code)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      (${insertColumns.join(', ')})
+      VALUES (${placeholders})
       RETURNING *
     `;
-  const values = [
-    bubbleId, data.templateId || 'default', customerBubbleId, linkedAgent,
-    data.packageId, data.linkedReferral || null, invoiceNumber, data.status || 'draft',
-    finalTotalAmount, 0, finalTotalAmount, data.invoiceDate || new Date(),
-    finalCreatedBy, shareToken, data.followUpDate || null,
-    validVoucherCodes.join(', ') || null
-  ];
 
   const invoiceResult = await client.query(query, values);
   return invoiceResult.rows[0];
@@ -1140,6 +1237,7 @@ async function createInvoiceOnTheFly(client, data) {
     const linkedReferral = await _resolveLinkedReferral(client, data.userId, data.linkedReferral || null);
     if (linkedReferral) {
       data.linkedReferral = linkedReferral.bubble_id;
+      data.referrerName = data.referrerName || linkedReferral.referrer_customer_name || null;
       data.customerName = data.customerName || linkedReferral.name || null;
       data.customerPhone = data.customerPhone || linkedReferral.mobile_number || null;
       data.customerAddress = data.customerAddress || linkedReferral.address || null;
@@ -1263,6 +1361,7 @@ async function recordInvoiceView(client, invoiceId) {
  * @returns {Promise<object>} { invoices: Array, total: number }
  */
 async function getInvoicesByUserId(client, userId, options = {}) {
+  const invoiceColumns = await getInvoiceColumns(client);
   const limit = parseInt(options.limit) || 100;
   const offset = parseInt(options.offset) || 0;
   const { startDate, endDate, paymentStatus } = options;
@@ -1303,14 +1402,32 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   let paramIdx = 4;
 
   if (startDate) {
-    filterClause += ` AND i.invoice_date >= $${paramIdx++}::date`;
+    filterClause += ` AND invoice_date >= $${paramIdx++}::date`;
     params.push(startDate);
   }
 
   if (endDate) {
-    filterClause += ` AND i.invoice_date <= $${paramIdx++}::date`;
+    filterClause += ` AND invoice_date <= $${paramIdx++}::date`;
     params.push(endDate);
   }
+
+  const linkedReferralSelect = invoiceColumns.has('linked_referral')
+    ? 'i.linked_referral,'
+    : 'NULL::text AS linked_referral,';
+  const invoiceReferrerExpr = invoiceColumns.has('referrer_name')
+    ? "NULLIF(TRIM(i.referrer_name), '')"
+    : 'NULL';
+  const referralJoin = invoiceColumns.has('linked_referral')
+    ? `LEFT JOIN referral ref ON i.linked_referral = ref.bubble_id
+        LEFT JOIN customer referrer ON ref.linked_customer_profile = referrer.customer_id`
+    : '';
+  const referralReferrerExpr = invoiceColumns.has('linked_referral')
+    ? `COALESCE(
+                ${invoiceReferrerExpr},
+                NULLIF(TRIM(referrer.name), ''),
+                NULLIF(TRIM(ref.linked_customer_profile), '')
+            )`
+    : invoiceReferrerExpr;
 
   const baseCTE = `
     WITH invoice_data AS (
@@ -1331,16 +1448,12 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.share_enabled,
             i.version,
             i.follow_up_date,
-            i.linked_referral,
+            ${linkedReferralSelect}
             COALESCE(
                 i.linked_seda_registration, 
                 (SELECT s.bubble_id FROM seda_registration s WHERE i.bubble_id = ANY(s.linked_invoice) LIMIT 1)
             ) as linked_seda_registration,
-            COALESCE(
-                NULLIF(referrer.name, ''),
-                NULLIF(ref.linked_customer_profile, ''),
-                'Unknown Referrer'
-            ) as referral_referrer_name,
+            ${referralReferrerExpr} as referral_referrer_name,
             
             -- Verified Paid Amount
             COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id OR p.bubble_id = ANY(COALESCE(i.linked_payment, ARRAY[]::text[]))), 0) as total_received,
@@ -1355,8 +1468,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
         FROM invoice i
         LEFT JOIN customer c ON i.linked_customer = c.customer_id
         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
-        LEFT JOIN referral ref ON i.linked_referral = ref.bubble_id
-        LEFT JOIN customer referrer ON ref.linked_customer_profile = referrer.customer_id
+        ${referralJoin}
         WHERE (
             i.created_by = ANY($1::text[])
             OR ($2::text IS NOT NULL AND i.linked_agent = $2)
@@ -1480,13 +1592,19 @@ async function updateInvoiceTransaction(client, data) {
   if (!data.originalBubbleId) throw new Error('Invoice ID is required for update.');
 
   const bubbleId = data.originalBubbleId;
+  const invoiceColumns = await getInvoiceColumns(client);
 
   try {
     await client.query('BEGIN');
 
     // 1. Fetch current record
     const currentRes = await client.query(
-      'SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent, linked_referral, version, paid_amount, linked_payment FROM invoice WHERE bubble_id = $1',
+      `SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent,
+              ${invoiceColumns.has('linked_referral') ? 'linked_referral' : 'NULL::text AS linked_referral'},
+              ${invoiceColumns.has('referrer_name') ? 'referrer_name' : 'NULL::text AS referrer_name'},
+              version, paid_amount, linked_payment
+       FROM invoice
+       WHERE bubble_id = $1`,
       [bubbleId]
     );
     const currentData = currentRes.rows[0];
@@ -1501,6 +1619,7 @@ async function updateInvoiceTransaction(client, data) {
 
     if (linkedReferral) {
       data.linkedReferral = linkedReferral.bubble_id;
+      data.referrerName = data.referrerName || linkedReferral.referrer_customer_name || null;
       data.customerName = data.customerName || linkedReferral.name || null;
       data.customerPhone = data.customerPhone || linkedReferral.mobile_number || null;
       data.customerAddress = data.customerAddress || linkedReferral.address || null;
@@ -1508,6 +1627,7 @@ async function updateInvoiceTransaction(client, data) {
       data.remark = data.remark || `Assigned referral lead selected: ${linkedReferral.name || linkedReferral.bubble_id}`;
     } else {
       data.linkedReferral = null;
+      data.referrerName = data.referrerName ?? currentData.referrer_name ?? null;
     }
 
     const requestedPackageId = data.packageId || currentData.linked_package || null;
@@ -1573,31 +1693,53 @@ async function updateInvoiceTransaction(client, data) {
     const { finalTotalAmount } = financials;
 
     // 5. Standard SQL UPDATE
-    const updateQuery = `
-        UPDATE invoice SET 
-            template_id = $1,
-            linked_package = $2,
-            linked_customer = $3,
-            linked_referral = $4,
-            total_amount = $5,
-            balance_due = $5 - COALESCE(paid_amount, 0),
-            status = $6,
-            follow_up_date = $7,
-            voucher_code = $8,
-            updated_at = NOW()
-        WHERE bubble_id = $9
-    `;
+    const updateAssignments = [
+      'template_id = $1',
+      'linked_package = $2',
+      'linked_customer = $3'
+    ];
     const updateValues = [
       data.templateId || 'default',
       requestedPackageId,
-      customerBubbleId,
-      data.linkedReferral,
-      finalTotalAmount,
+      customerBubbleId
+    ];
+    let updateParamIdx = updateValues.length + 1;
+
+    if (invoiceColumns.has('linked_referral')) {
+      updateAssignments.push(`linked_referral = $${updateParamIdx++}`);
+      updateValues.push(data.linkedReferral);
+    }
+
+    if (invoiceColumns.has('referrer_name')) {
+      updateAssignments.push(`referrer_name = $${updateParamIdx++}`);
+      updateValues.push(data.referrerName || null);
+    }
+
+    updateAssignments.push(
+      `total_amount = $${updateParamIdx}`,
+      `balance_due = $${updateParamIdx} - COALESCE(paid_amount, 0)`
+    );
+    updateValues.push(finalTotalAmount);
+    updateParamIdx += 1;
+
+    updateAssignments.push(
+      `status = $${updateParamIdx++}`,
+      `follow_up_date = $${updateParamIdx++}`,
+      `voucher_code = $${updateParamIdx++}`,
+      'updated_at = NOW()'
+    );
+    updateValues.push(
       data.status || currentData.status,
       data.followUpDate || null,
-      voucherInfo.validVoucherCodes.join(', ') || null,
-      bubbleId
-    ];
+      voucherInfo.validVoucherCodes.join(', ') || null
+    );
+    updateValues.push(bubbleId);
+
+    const updateQuery = `
+        UPDATE invoice SET 
+            ${updateAssignments.join(', ')}
+        WHERE bubble_id = $${updateValues.length}
+    `;
     await client.query(updateQuery, updateValues);
 
     // 6. Item Update (Smart: Delete old and insert new for consistency)

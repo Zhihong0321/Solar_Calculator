@@ -651,8 +651,8 @@
                 const totalPaidVal = parseFloat(inv.total_received) || 0;
                 const totalAmtVal = parseFloat(inv.total_amount) || 0;
                 const waNumber = formatWhatsAppNumber(inv.customer_phone);
-                const referralReferrerName = (inv.referral_referrer_name || 'Unknown Referrer').trim();
-                const referralBadgeHtml = inv.linked_referral ? `
+                const referralReferrerName = (inv.referrer_name || inv.referral_referrer_name || '').trim();
+                const referralBadgeHtml = referralReferrerName ? `
                     <span
                         class="badge bg-amber-100 text-amber-800 border border-amber-200 font-bold"
                         style="font-size: 0.6rem; min-height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem; white-space: normal; line-height: 1.1;"
