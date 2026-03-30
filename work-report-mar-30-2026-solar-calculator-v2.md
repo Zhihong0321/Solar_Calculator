@@ -16,5 +16,6 @@ REPO NAME : Solar Calculator v2
 - Fixed login redirect loops by validating auth cookies and routing logged-out users to a stable login page.
 - Verified the production invoice referral schema and identified the correct live referrer fields for invoice labels.
 - Made invoice referral badges use the live production referrer field and restored invoice list compatibility with the current schema.
+- Reworked the My Referrals page into a mobile card layout and added quick invoice shortcuts for linked leads.
 
 =====================
