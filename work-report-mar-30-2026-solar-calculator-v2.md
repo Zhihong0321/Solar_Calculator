@@ -5,5 +5,6 @@ REPO NAME : Solar Calculator v2
 - Implemented Paged.js to automatically group and visually paginate A4 invoice layouts across screens and force page breaks for terms and signature
 - Linked Tiger Neo 3 invoice proposals to the local slide presentation
 - Added customer and system size overlay to the Tiger Neo 3 slide deck
+- Fixed BugReport startup crash by restoring route imports and auth checks
 
 =====================

@@ -1,23 +1,39 @@
-const adminRoles = bugService.ADMIN_ROLES;
+const express = require('express');
+const router = express.Router();
+
+const bugController = require('./bugController');
+const bugService = require('./bugService');
+const pool = require('../../core/database/pool');
+const { requireAuth } = require('../../core/middleware/auth');
+
+const adminRoles = bugService.ADMIN_ROLES.map((role) => role.toLowerCase());
+
 const requireAdmin = async (req, res, next) => {
-    try {
-        const userRes = await pool.query('SELECT access_level FROM "user" WHERE id = $1', [req.user.userId]);
-        const userLevels = userRes.rows[0]?.access_level || [];
-        const hasAccess = userLevels.some(r => adminRoles.includes(r.toLowerCase().trim()));
-        if (!hasAccess) return res.status(403).json({ error: 'Access Denied: IT Admins only' });
-        next();
-    } catch (err) {
-        res.status(500).json({ error: 'Authorization error' });
+  try {
+    const userRes = await pool.query(
+      'SELECT access_level FROM "user" WHERE id = $1',
+      [req.user.userId]
+    );
+    const userLevels = (userRes.rows[0]?.access_level || []).map((role) =>
+      String(role).toLowerCase().trim()
+    );
+    const hasAccess = userLevels.some((role) => adminRoles.includes(role));
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access Denied: IT Admins only' });
     }
+
+    return next();
+  } catch (err) {
+    return res.status(500).json({ error: 'Authorization error' });
+  }
 };
 
-// Regular user routes
-router.get('/my-thread', bugController.getMyChatHistory);
-router.post('/my-thread/message', bugController.postMessage);
+router.get('/my-thread', requireAuth, bugController.getMyChatHistory);
+router.post('/my-thread/message', requireAuth, bugController.postMessage);
 
-// Admin routes (IT Head)
-router.get('/threads', requireAdmin, bugController.getAllThreads);
-router.get('/thread/:threadId', requireAdmin, bugController.getAdminChatHistory);
-router.post('/thread/:threadId/message', requireAdmin, bugController.postMessage);
+router.get('/threads', requireAuth, requireAdmin, bugController.getAllThreads);
+router.get('/thread/:threadId', requireAuth, requireAdmin, bugController.getAdminChatHistory);
+router.post('/thread/:threadId/message', requireAuth, requireAdmin, bugController.postMessage);
 
 module.exports = router;
