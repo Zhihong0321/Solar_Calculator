@@ -82,6 +82,7 @@ app.use('/api/v1/bug', BugReport.bugRoutes);
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
 app.use('/proposal', express.static('portable-proposal'));
+app.use('/t3_html_presentation', express.static('t3_html_presentation'));
 
 const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'storage');
 app.use('/uploads', express.static(storagePath));

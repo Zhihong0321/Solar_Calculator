@@ -5,6 +5,23 @@
 const fs = require('fs');
 const path = require('path');
 
+function buildTigerNeoPresentationUrl(invoice) {
+  const params = new URLSearchParams();
+  if (invoice.customer_name) params.set('customer_name', invoice.customer_name);
+  if (invoice.customer_address) params.set('customer_address', invoice.customer_address);
+
+  const panelQty = parseFloat(invoice.panel_qty) || 0;
+  const panelRating = parseFloat(invoice.panel_rating) || 0;
+  const systemSizeKwp = parseFloat(invoice.system_size_kwp) || (panelQty && panelRating ? (panelQty * panelRating) / 1000 : 0);
+
+  if (panelQty > 0) params.set('panel_qty', String(panelQty));
+  if (panelRating > 0) params.set('panel_rating', String(panelRating));
+  if (systemSizeKwp > 0) params.set('system_size_kwp', systemSizeKwp.toFixed(2));
+
+  const query = params.toString();
+  return query ? `/t3_html_presentation/?${query}` : '/t3_html_presentation/';
+}
+
 /**
  * Generate invoice HTML
  * @param {object} invoice - Invoice object with items
@@ -82,6 +99,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   // Generate HTML - Premium Mobile-Optimized Design
   // Use the specific requested logo
   const displayLogoUrl = '/logo-08.png';
+  const tigerNeoPresentationUrl = buildTigerNeoPresentationUrl(invoice);
 
   const html = `
 <!DOCTYPE html>
@@ -300,7 +318,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
       </div>
       <div class="p-5 flex flex-col items-center gap-4 bg-slate-50/50">
-        <a href="/Tiger_Neo_30_Beyond_Limits.pdf" target="_blank" class="premium-button w-full text-center py-5 px-6 rounded-xl text-white font-black text-sm sm:text-lg uppercase tracking-wider shadow-2xl transform transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
+        <a href="${tigerNeoPresentationUrl}" target="_blank" class="premium-button w-full text-center py-5 px-6 rounded-xl text-white font-black text-sm sm:text-lg uppercase tracking-wider shadow-2xl transform transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
           2026 BEST SOLAR PANEL FOR ALL SUMMER - TIGER NEO 3
         </a>
         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse">Click above to view full specifications</p>

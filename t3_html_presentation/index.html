@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Proposal 2026</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
+            scroll-snap-type: y mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+        }
+        .slider-container::-webkit-scrollbar {
+            display: none; /* Chrome, Safari and Opera */
+        }
+        .slide {
+            flex: 0 0 100vh;
+            width: 100%;
+            scroll-snap-align: start;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Ensure full slide fits elegantly */
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        .page-indicator {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            pointer-events: none;
+            z-index: 10;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            letter-spacing: 1px;
+        }
+        .slide-overlay {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 9%;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+            padding: 0 20px;
+            z-index: 3;
+        }
+        .slide-overlay-card {
+            width: min(90vw, 520px);
+            padding: 18px 20px;
+            border-radius: 20px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.68));
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: #fff;
+            text-align: left;
+        }
+        .slide-overlay-kicker {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.62);
+            margin-bottom: 10px;
+        }
+        .slide-overlay-name {
+            font-size: 30px;
+            line-height: 1.05;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin: 0 0 8px 0;
+        }
+        .slide-overlay-address {
+            font-size: 14px;
+            line-height: 1.55;
+            color: rgba(255, 255, 255, 0.84);
+            white-space: pre-line;
+            margin: 0 0 14px 0;
+        }
+        .slide-overlay-system {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .slide-overlay-system-label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .slide-overlay-system-value {
+            font-size: 18px;
+            line-height: 1.2;
+            font-weight: 700;
+            color: #fff;
+        }
+        @media (max-width: 640px) {
+            .slide-overlay {
+                bottom: 7%;
+            }
+            .slide-overlay-card {
+                width: min(92vw, 420px);
+                padding: 16px 16px;
+                border-radius: 18px;
+            }
+            .slide-overlay-name {
+                font-size: 22px;
+            }
+            .slide-overlay-address {
+                font-size: 13px;
+            }
+            .slide-overlay-system-value {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-indicator" id="indicator">1 / 24</div>
+    <div class="slider-container" id="slider">
+        <!-- JS will populate slides -->
+    </div>
+
+    <script>
+        const slider = document.getElementById('slider');
+        const indicator = document.getElementById('indicator');
+        const numSlides = 24;
+        const presentationParams = new URLSearchParams(window.location.search);
+        const customerName = presentationParams.get('customer_name') || '';
+        const customerAddress = presentationParams.get('customer_address') || '';
+        const panelQty = parseFloat(presentationParams.get('panel_qty') || '');
+        const panelRating = parseFloat((presentationParams.get('panel_rating') || '').replace(/[^\d.]/g, ''));
+        const systemSizeKwpFromUrl = parseFloat(presentationParams.get('system_size_kwp') || '');
+        const derivedSystemSizeKwp = Number.isFinite(panelQty) && Number.isFinite(panelRating) && panelQty > 0 && panelRating > 0
+            ? (panelQty * panelRating) / 1000
+            : systemSizeKwpFromUrl;
+
+        const systemSizeLabel = Number.isFinite(derivedSystemSizeKwp) && derivedSystemSizeKwp > 0
+            ? Number.isFinite(panelQty) && Number.isFinite(panelRating) && panelQty > 0 && panelRating > 0
+                ? `${panelQty.toLocaleString(undefined, { maximumFractionDigits: 0 })} x ${panelRating.toLocaleString(undefined, { maximumFractionDigits: 0 })}W = ${derivedSystemSizeKwp.toFixed(2)} kWp`
+                : `${derivedSystemSizeKwp.toFixed(2)} kWp`
+            : '';
+        
+        // Exact slides array gathered from extraction
+        const slides = [
+            "slide1.jpeg", "slide2.png", "slide3.png", "slide4.png", "slide5.png",
+            "slide6.png", "slide7.png", "slide8.png", "slide9.png", "slide10.png",
+            "slide11.png", "slide12.png", "slide13.png", "slide14.png", "slide15.png",
+            "slide16.png", "slide17.png", "slide18.png", "slide19.png", "slide20.png",
+            "slide21.png", "slide22.png", "slide23.png", "slide24.png"
+        ];
+
+        slides.forEach((filename, index) => {
+            const div = document.createElement('div');
+            div.className = 'slide';
+            div.id = 'slide-' + (index + 1);
+            
+            const img = document.createElement('img');
+            img.src = 'assets/' + filename;
+            img.alt = 'Slide ' + (index + 1);
+            img.loading = index < 2 ? 'eager' : 'lazy'; // Eager load first two slides for performance
+            
+            div.appendChild(img);
+
+            if (index === 0 && (customerName || customerAddress || systemSizeLabel)) {
+                const overlay = document.createElement('div');
+                overlay.className = 'slide-overlay';
+
+                const card = document.createElement('div');
+                card.className = 'slide-overlay-card';
+
+                const kicker = document.createElement('div');
+                kicker.className = 'slide-overlay-kicker';
+                kicker.textContent = 'Quotation Summary';
+                card.appendChild(kicker);
+
+                const name = document.createElement('h2');
+                name.className = 'slide-overlay-name';
+                name.textContent = customerName || 'Valued Customer';
+                card.appendChild(name);
+
+                if (customerAddress) {
+                    const address = document.createElement('p');
+                    address.className = 'slide-overlay-address';
+                    address.textContent = customerAddress;
+                    card.appendChild(address);
+                }
+
+                if (systemSizeLabel) {
+                    const systemWrap = document.createElement('div');
+                    systemWrap.className = 'slide-overlay-system';
+
+                    const systemLabel = document.createElement('div');
+                    systemLabel.className = 'slide-overlay-system-label';
+                    systemLabel.textContent = 'System Size';
+                    systemWrap.appendChild(systemLabel);
+
+                    const systemValue = document.createElement('div');
+                    systemValue.className = 'slide-overlay-system-value';
+                    systemValue.textContent = systemSizeLabel;
+                    systemWrap.appendChild(systemValue);
+
+                    card.appendChild(systemWrap);
+                }
+
+                overlay.appendChild(card);
+                div.appendChild(overlay);
+            }
+
+            slider.appendChild(div);
+        });
+
+        // Update indicator on scroll safely
+        let isScrolling;
+        slider.addEventListener('scroll', () => {
+            window.clearTimeout(isScrolling);
+            
+            // Set a timeout to run after scrolling ends to safely update text
+            isScrolling = setTimeout(function() {
+                const slideHeight = window.innerHeight;
+                const scrollPosition = slider.scrollTop;
+                // Add half height to cleanly switch at the middle point
+                const currentSlide = Math.floor((scrollPosition + (slideHeight / 2)) / slideHeight) + 1;
+                
+                // Keep bounded
+                const validSlide = Math.max(1, Math.min(numSlides, currentSlide));
+                indicator.textContent = validSlide + ' / ' + numSlides;
+            }, 66);
+        });
+    </script>
+</body>
+</html>
