@@ -921,11 +921,11 @@
             if (!confirm('This will reset your session. Proceed?')) return;
             try {
                 await fetch('/api/admin/logout', { method: 'POST' });
-                window.location.href = '/';
+                window.location.href = '/login';
             } catch (e) {
                 // Fallback to client-side
                 document.cookie = 'auth_token=; Max-Age=0; path=/;';
-                window.location.href = '/';
+                window.location.href = '/login';
             }
         }
 

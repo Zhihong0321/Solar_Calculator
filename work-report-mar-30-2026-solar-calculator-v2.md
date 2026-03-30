@@ -13,5 +13,6 @@ REPO NAME : Solar Calculator v2
 - Added referral referrer badges to invoice cards in agent home.
 - Added referral lead selection and invoice linkage in create and edit quotation flows
 - Changed logout redirects to return users to the landing login page instead of the domestic calculator.
+- Fixed login redirect loops by validating auth cookies and routing logged-out users to a stable login page.
 
 =====================

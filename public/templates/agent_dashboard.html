@@ -580,7 +580,7 @@
       try {
         const response = await fetch("/api/agent/me");
         if (response.status === 401) {
-          window.location.href = "/";
+          window.location.href = "/login";
           return;
         }
         if (!response.ok) throw new Error("Failed to fetch profile");
@@ -650,11 +650,11 @@
       if (!confirm("This will end your session. Proceed?")) return;
       try {
         await fetch("/api/admin/logout", { method: "POST" });
-        window.location.href = "/";
+        window.location.href = "/login";
       } catch (e) {
         // Fallback to client-side
         document.cookie = "auth_token=; Max-Age=0; path=/;";
-        window.location.href = "/";
+        window.location.href = "/login";
       }
     }
 
