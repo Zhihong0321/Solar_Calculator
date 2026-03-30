@@ -59,8 +59,12 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    ${isA4Preview 
+        ? '<meta name="viewport" content="width=820">' 
+        : '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">'
+    }
     <title>${titleLabel} ${invoice.invoice_number}${isA4Preview ? ' - A4 Preview' : ''}</title>
+    ${isA4Preview ? '<script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>' : ''}
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -105,6 +109,18 @@ body {
 body.a4-preview {
     background: #e7ebef;
     padding: 16px;
+    height: auto;
+}
+
+body.a4-preview .pagedjs_page {
+    background-color: #ffffff;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+    margin: 0 auto 24px auto;
+}
+
+@page {
+    size: A4;
+    margin: 15mm 20mm 20mm 20mm;
 }
 
 .invoice-container {
@@ -117,10 +133,9 @@ body.a4-preview {
 }
 
 body.a4-preview .invoice-container {
-    max-width: 210mm;
-    width: min(210mm, 100%);
-    min-height: 297mm;
-    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+    width: 100%;
+    max-width: 100%;
+    box-shadow: none;
     padding-bottom: 0;
     overflow: visible;
 }
@@ -156,6 +171,11 @@ body.a4-preview .signature-image,
 body.a4-preview .promotional-banner {
     break-inside: avoid;
     page-break-inside: avoid;
+}
+
+body.a4-preview .terms-signature {
+    break-before: page;
+    page-break-before: always;
 }
 
 /* Header Start */
