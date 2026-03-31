@@ -320,18 +320,18 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     
     <!-- Tiger Neo 3 Promotion Section -->
     ${hasTigerNeo3 ? `
-    <div class="mb-8 overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 no-print">
-      <div class="relative group">
-        <img src="/TigerNeo3.jpg" alt="Tiger Neo 3 - 2026 Best Solar Panel" class="w-full h-auto object-cover transform transition-transform duration-700 hover:scale-105">
+    <a href="${tigerNeoPresentationUrl}" target="_blank" rel="noopener noreferrer" class="mb-8 block overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 no-print group">
+      <div class="relative">
+        <img src="/TigerNeo3.jpg" alt="Tiger Neo 3 - 2026 Best Solar Panel" class="w-full h-auto object-cover transform transition-transform duration-700 group-hover:scale-105">
         <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
       </div>
       <div class="p-5 flex flex-col items-center gap-4 bg-slate-50/50">
-        <a href="${tigerNeoPresentationUrl}" target="_blank" class="premium-button w-full text-center py-5 px-6 rounded-xl text-white font-black text-sm sm:text-lg uppercase tracking-wider shadow-2xl transform transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
+        <span class="premium-button w-full text-center py-5 px-6 rounded-xl text-white font-black text-sm sm:text-lg uppercase tracking-wider shadow-2xl transform transition-all group-hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
           2026 BEST SOLAR PANEL FOR ALL SUMMER - TIGER NEO 3
-        </a>
+        </span>
         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse">Click above to view full specifications</p>
       </div>
-    </div>
+    </a>
     ` : ''}
 
     ${!options.forPdf ? `

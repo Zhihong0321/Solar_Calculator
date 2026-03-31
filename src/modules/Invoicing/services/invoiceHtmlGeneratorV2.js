@@ -1225,14 +1225,14 @@ body.a4-preview .terms-signature {
 
         <!-- Tiger Neo 3 Promotional Banner -->
         ${hasTigerNeo3 && !isA4Preview ? `
-        <section class="promotional-banner no-print" style="padding: 0 50px; margin-bottom: 40px; cursor: pointer;" onclick='window.open(${JSON.stringify(buildTigerNeoPresentationUrl(invoice))}, "_blank");'>
+        <a class="promotional-banner no-print" href="${buildTigerNeoPresentationUrl(invoice)}" target="_blank" rel="noopener noreferrer" style="display: block; padding: 0 50px; margin-bottom: 40px; cursor: pointer;">
             <div style="border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
                 <img src="/slide-001.webp" alt="Rise With Tiger Neo 3" style="width: 100%; display: block; object-fit: cover;">
                 <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 20px 15px 10px; color: white; text-align: right; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">
                     Click to view Interactive Proposal <i class='bx bx-right-arrow-alt' style="vertical-align: middle; font-size: 14px;"></i>
                 </div>
             </div>
-        </section>
+        </a>
         ` : ''}
 
         <!-- Terms & Signature -->

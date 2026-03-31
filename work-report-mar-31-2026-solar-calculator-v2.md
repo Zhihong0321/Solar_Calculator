@@ -8,5 +8,6 @@ REPO NAME : Solar Calculator v2
 - Corrected new bill in solar savings box to net payable after export earnings
 - Added installation variance note below solar savings estimate
 - Removed slide 23 from Tiger Neo 3 HTML presentation
+- Made full Tiger Neo 3 invoice banner clickable
 
 =====================
