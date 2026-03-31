@@ -570,18 +570,24 @@ function generateInvoiceHtml(invoice, template, options = {}) {
             Monthly Estimate
           </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="rounded-xl border border-slate-200 bg-white p-3">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Your Average TNB Bill<br>Before Solar</p>
-            <p class="text-xl font-bold text-slate-900">RM ${beforeSolarBill.toFixed(2)}</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
+          <div class="rounded-xl border border-slate-200 bg-white p-3 min-h-[132px] flex flex-col">
+            <div class="min-h-[42px] mb-3 flex items-start">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 leading-[1.45]">Your Average TNB Bill<br>Before Solar</p>
+            </div>
+            <p class="text-xl font-bold text-slate-900 leading-none mt-auto">RM ${beforeSolarBill.toFixed(2)}</p>
           </div>
-          <div class="rounded-xl border border-slate-200 bg-white p-3">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Bill After Solar</p>
-            <p class="text-xl font-bold text-slate-900">RM ${afterSolarBill.toFixed(2)}</p>
+          <div class="rounded-xl border border-slate-200 bg-white p-3 min-h-[132px] flex flex-col">
+            <div class="min-h-[42px] mb-3 flex items-start">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 leading-[1.45]">Bill After Solar</p>
+            </div>
+            <p class="text-xl font-bold text-slate-900 leading-none mt-auto">RM ${afterSolarBill.toFixed(2)}</p>
           </div>
-          <div class="rounded-xl border border-emerald-200 bg-emerald-600 p-3">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-100 mb-1">Your Estimated Monthly Total Saving</p>
-            <p class="text-xl font-bold text-white">RM ${estimatedMonthlySaving.toFixed(2)}</p>
+          <div class="rounded-xl border border-emerald-200 bg-emerald-600 p-3 min-h-[132px] flex flex-col">
+            <div class="min-h-[42px] mb-3 flex items-start">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-100 leading-[1.45]">Your Estimated Monthly Total Saving</p>
+            </div>
+            <p class="text-xl font-bold text-white leading-none mt-auto">RM ${estimatedMonthlySaving.toFixed(2)}</p>
           </div>
         </div>
       </div>

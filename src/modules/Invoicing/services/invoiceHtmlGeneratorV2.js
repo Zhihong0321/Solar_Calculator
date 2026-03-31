@@ -1128,17 +1128,23 @@ body.a4-preview .terms-signature {
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
-                    <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; margin-bottom: 8px; line-height: 1.5;">Your Average TNB Bill<br>Before Solar</div>
-                        <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1;">RM ${beforeSolarBill.toFixed(2)}</div>
+                    <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
+                        <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
+                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">Your Average TNB Bill<br>Before Solar</div>
+                        </div>
+                        <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">RM ${beforeSolarBill.toFixed(2)}</div>
                     </div>
-                    <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; margin-bottom: 8px; line-height: 1.5;">Bill After Solar</div>
-                        <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1;">RM ${afterSolarBill.toFixed(2)}</div>
+                    <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
+                        <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
+                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">Bill After Solar</div>
+                        </div>
+                        <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">RM ${afterSolarBill.toFixed(2)}</div>
                     </div>
-                    <div style="border: 1px solid #059669; border-radius: 12px; background: #059669; padding: 16px;">
-                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #d1fae5; margin-bottom: 8px; line-height: 1.5;">Your Estimated Monthly Total Saving</div>
-                        <div style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1;">RM ${estimatedMonthlySaving.toFixed(2)}</div>
+                    <div style="border: 1px solid #059669; border-radius: 12px; background: #059669; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
+                        <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
+                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #d1fae5; line-height: 1.5;">Your Estimated Monthly Total Saving</div>
+                        </div>
+                        <div style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1; margin-top: auto;">RM ${estimatedMonthlySaving.toFixed(2)}</div>
                     </div>
                 </div>
             </div>
