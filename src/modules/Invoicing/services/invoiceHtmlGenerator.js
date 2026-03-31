@@ -48,8 +48,11 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
   const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
   const beforeSolarBill = Number(invoice.customer_average_tnb);
-  const afterSolarBill = Number(invoice.estimated_new_bill_amount);
+  const storedAfterSolarBill = Number(invoice.estimated_new_bill_amount);
   const estimatedMonthlySaving = Number(invoice.estimated_saving);
+  const afterSolarBill = Number.isFinite(beforeSolarBill) && Number.isFinite(estimatedMonthlySaving)
+    ? Math.max(0, beforeSolarBill - estimatedMonthlySaving)
+    : storedAfterSolarBill;
   const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
     .every((value) => Number.isFinite(value));
 
@@ -579,7 +582,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           </div>
           <div class="rounded-xl border border-slate-200 bg-white p-3 min-h-[132px] flex flex-col">
             <div class="min-h-[42px] mb-3 flex items-start">
-              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 leading-[1.45]">Bill After Solar</p>
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 leading-[1.45]">New Bill After Solar<br>After Export Earning</p>
             </div>
             <p class="text-xl font-bold text-slate-900 leading-none mt-auto">RM ${afterSolarBill.toFixed(2)}</p>
           </div>

@@ -894,6 +894,12 @@ window.generateInvoiceLink = function () {
     if (latestSolarData.actualPanels) params.set('panel_qty', latestSolarData.actualPanels);
     if (latestSolarData.config.panelType) params.set('panel_rating', `${latestSolarData.config.panelType}W`);
 
+    const billAfterSolar = Number(latestSolarData.details?.billAfter);
+    const exportSaving = Number(latestSolarData.details?.exportSaving);
+    const estimatedPayableAfterSolar = Number.isFinite(billAfterSolar)
+        ? Math.max(0, billAfterSolar - (Number.isFinite(exportSaving) ? exportSaving : 0))
+        : null;
+
     // Persist calculator savings metrics for downstream quotation/proposal usage.
     if (latestSolarData.details?.billBefore !== null && latestSolarData.details?.billBefore !== undefined) {
         params.set('customer_average_tnb', latestSolarData.details.billBefore);
@@ -901,8 +907,8 @@ window.generateInvoiceLink = function () {
     if (latestSolarData.monthlySavings !== null && latestSolarData.monthlySavings !== undefined) {
         params.set('estimated_saving', latestSolarData.monthlySavings);
     }
-    if (latestSolarData.details?.billAfter !== null && latestSolarData.details?.billAfter !== undefined) {
-        params.set('estimated_new_bill_amount', latestSolarData.details.billAfter);
+    if (estimatedPayableAfterSolar !== null) {
+        params.set('estimated_new_bill_amount', estimatedPayableAfterSolar.toFixed(2));
     }
 
     window.open(`${invoiceBaseUrl}?${params.toString()}`, '_blank');

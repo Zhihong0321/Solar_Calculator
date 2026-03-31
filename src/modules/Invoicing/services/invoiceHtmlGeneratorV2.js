@@ -34,8 +34,11 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
     const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
     const beforeSolarBill = Number(invoice.customer_average_tnb);
-    const afterSolarBill = Number(invoice.estimated_new_bill_amount);
+    const storedAfterSolarBill = Number(invoice.estimated_new_bill_amount);
     const estimatedMonthlySaving = Number(invoice.estimated_saving);
+    const afterSolarBill = Number.isFinite(beforeSolarBill) && Number.isFinite(estimatedMonthlySaving)
+        ? Math.max(0, beforeSolarBill - estimatedMonthlySaving)
+        : storedAfterSolarBill;
     const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
         .every((value) => Number.isFinite(value));
 
@@ -1136,7 +1139,7 @@ body.a4-preview .terms-signature {
                     </div>
                     <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
                         <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
-                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">Bill After Solar</div>
+                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">New Bill After Solar<br>After Export Earning</div>
                         </div>
                         <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">RM ${afterSolarBill.toFixed(2)}</div>
                     </div>
