@@ -68,6 +68,16 @@ async function getInvoiceColumns(client) {
   return invoiceColumnCache;
 }
 
+function normalizeNullableNumber(value, { integer = false } = {}) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const numericValue = Number(value);
+  const parsed = integer ? Math.round(numericValue) : parseFloat(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 /**
  * [AI-CONTEXT]
  * Intent: Atomically increment the global invoice counter.
@@ -912,6 +922,9 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const shareToken = generateShareToken();
   const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   const finalCreatedBy = String(userId);
+  const customerAverageTnb = normalizeNullableNumber(data.customerAverageTnb, { integer: true });
+  const estimatedSaving = normalizeNullableNumber(data.estimatedSaving);
+  const estimatedNewBillAmount = normalizeNullableNumber(data.estimatedNewBillAmount);
 
   const insertColumns = [
     'bubble_id',
@@ -936,6 +949,21 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   if (invoiceColumns.has('referrer_name')) {
     insertColumns.push('referrer_name');
     values.push(data.referrerName || null);
+  }
+
+  if (invoiceColumns.has('customer_average_tnb')) {
+    insertColumns.push('customer_average_tnb');
+    values.push(customerAverageTnb);
+  }
+
+  if (invoiceColumns.has('estimated_saving')) {
+    insertColumns.push('estimated_saving');
+    values.push(estimatedSaving);
+  }
+
+  if (invoiceColumns.has('estimated_new_bill_amount')) {
+    insertColumns.push('estimated_new_bill_amount');
+    values.push(estimatedNewBillAmount);
   }
 
   insertColumns.push(
@@ -1602,6 +1630,9 @@ async function updateInvoiceTransaction(client, data) {
       `SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent,
               ${invoiceColumns.has('linked_referral') ? 'linked_referral' : 'NULL::text AS linked_referral'},
               ${invoiceColumns.has('referrer_name') ? 'referrer_name' : 'NULL::text AS referrer_name'},
+              ${invoiceColumns.has('customer_average_tnb') ? 'customer_average_tnb' : 'NULL::integer AS customer_average_tnb'},
+              ${invoiceColumns.has('estimated_saving') ? 'estimated_saving' : 'NULL::numeric AS estimated_saving'},
+              ${invoiceColumns.has('estimated_new_bill_amount') ? 'estimated_new_bill_amount' : 'NULL::numeric AS estimated_new_bill_amount'},
               version, paid_amount, linked_payment
        FROM invoice
        WHERE bubble_id = $1`,
@@ -1713,6 +1744,33 @@ async function updateInvoiceTransaction(client, data) {
     if (invoiceColumns.has('referrer_name')) {
       updateAssignments.push(`referrer_name = $${updateParamIdx++}`);
       updateValues.push(data.referrerName || null);
+    }
+
+    if (invoiceColumns.has('customer_average_tnb')) {
+      updateAssignments.push(`customer_average_tnb = $${updateParamIdx++}`);
+      updateValues.push(
+        data.customerAverageTnb !== undefined
+          ? normalizeNullableNumber(data.customerAverageTnb, { integer: true })
+          : currentData.customer_average_tnb
+      );
+    }
+
+    if (invoiceColumns.has('estimated_saving')) {
+      updateAssignments.push(`estimated_saving = $${updateParamIdx++}`);
+      updateValues.push(
+        data.estimatedSaving !== undefined
+          ? normalizeNullableNumber(data.estimatedSaving)
+          : currentData.estimated_saving
+      );
+    }
+
+    if (invoiceColumns.has('estimated_new_bill_amount')) {
+      updateAssignments.push(`estimated_new_bill_amount = $${updateParamIdx++}`);
+      updateValues.push(
+        data.estimatedNewBillAmount !== undefined
+          ? normalizeNullableNumber(data.estimatedNewBillAmount)
+          : currentData.estimated_new_bill_amount
+      );
     }
 
     updateAssignments.push(

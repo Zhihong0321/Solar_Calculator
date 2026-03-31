@@ -168,6 +168,15 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.linked_referral && !invoiceRequestPayload.linkedReferral) {
         invoiceRequestPayload.linkedReferral = invoiceRequestPayload.linked_referral;
     }
+    if (invoiceRequestPayload.customer_average_tnb !== undefined && invoiceRequestPayload.customerAverageTnb === undefined) {
+        invoiceRequestPayload.customerAverageTnb = invoiceRequestPayload.customer_average_tnb;
+    }
+    if (invoiceRequestPayload.estimated_saving !== undefined && invoiceRequestPayload.estimatedSaving === undefined) {
+        invoiceRequestPayload.estimatedSaving = invoiceRequestPayload.estimated_saving;
+    }
+    if (invoiceRequestPayload.estimated_new_bill_amount !== undefined && invoiceRequestPayload.estimatedNewBillAmount === undefined) {
+        invoiceRequestPayload.estimatedNewBillAmount = invoiceRequestPayload.estimated_new_bill_amount;
+    }
 
     // 1. Validation Layer Layer
     const validation = validateInvoiceData(invoiceRequestPayload);
@@ -241,6 +250,9 @@ async function createInvoice(pool, invoiceRequestPayload) {
       profilePicture: invoiceRequestPayload.profilePicture,
       leadSource: invoiceRequestPayload.leadSource,
       remark: invoiceRequestPayload.remark,
+      customerAverageTnb: invoiceRequestPayload.customerAverageTnb,
+      estimatedSaving: invoiceRequestPayload.estimatedSaving,
+      estimatedNewBillAmount: invoiceRequestPayload.estimatedNewBillAmount,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
@@ -345,6 +357,15 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.linked_referral && !invoiceRequestPayload.linkedReferral) {
         invoiceRequestPayload.linkedReferral = invoiceRequestPayload.linked_referral;
     }
+    if (invoiceRequestPayload.customer_average_tnb !== undefined && invoiceRequestPayload.customerAverageTnb === undefined) {
+        invoiceRequestPayload.customerAverageTnb = invoiceRequestPayload.customer_average_tnb;
+    }
+    if (invoiceRequestPayload.estimated_saving !== undefined && invoiceRequestPayload.estimatedSaving === undefined) {
+        invoiceRequestPayload.estimatedSaving = invoiceRequestPayload.estimated_saving;
+    }
+    if (invoiceRequestPayload.estimated_new_bill_amount !== undefined && invoiceRequestPayload.estimatedNewBillAmount === undefined) {
+        invoiceRequestPayload.estimatedNewBillAmount = invoiceRequestPayload.estimated_new_bill_amount;
+    }
 
     // 1. Validation Layer (Same as createInvoice but packageId is optional as we fetch from original)
     // We relax packageId check here as it comes from original invoice
@@ -409,6 +430,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       profilePicture: invoiceRequestPayload.profilePicture,
       leadSource: invoiceRequestPayload.leadSource,
       remark: invoiceRequestPayload.remark,
+      customerAverageTnb: invoiceRequestPayload.customerAverageTnb,
+      estimatedSaving: invoiceRequestPayload.estimatedSaving,
+      estimatedNewBillAmount: invoiceRequestPayload.estimatedNewBillAmount,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,

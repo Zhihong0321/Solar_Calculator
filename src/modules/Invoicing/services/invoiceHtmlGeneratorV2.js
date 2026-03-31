@@ -33,6 +33,11 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
     const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
     const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
+    const beforeSolarBill = Number(invoice.customer_average_tnb);
+    const afterSolarBill = Number(invoice.estimated_new_bill_amount);
+    const estimatedMonthlySaving = Number(invoice.estimated_saving);
+    const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
+        .every((value) => Number.isFinite(value));
 
     // Decide title based on status: QUOTATION for drafts/pending, INVOICE for confirmed/paid
     const isConfirmed = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
@@ -1109,6 +1114,36 @@ body.a4-preview .terms-signature {
                 </div>
             </div>
         </section>
+
+        ${hasSolarSavingsSection ? `
+        <section style="padding: 0 50px; margin-bottom: 32px;">
+            <div style="border: 1px solid #b7e4c7; border-radius: 14px; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 52%, #f8fafc 100%); padding: 22px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px;">
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #047857; margin-bottom: 6px;">Estimated Solar Saving</div>
+                        <div style="font-size: 20px; font-weight: 700; color: #0f172a;">Your solar estimate at a glance</div>
+                    </div>
+                    <div style="padding: 6px 12px; border-radius: 999px; background: #dcfce7; color: #047857; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+                        Monthly Estimate
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
+                    <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px;">
+                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; margin-bottom: 8px; line-height: 1.5;">Your Average TNB Bill<br>Before Solar</div>
+                        <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1;">RM ${beforeSolarBill.toFixed(2)}</div>
+                    </div>
+                    <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px;">
+                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; margin-bottom: 8px; line-height: 1.5;">Bill After Solar</div>
+                        <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1;">RM ${afterSolarBill.toFixed(2)}</div>
+                    </div>
+                    <div style="border: 1px solid #059669; border-radius: 12px; background: #059669; padding: 16px;">
+                        <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #d1fae5; margin-bottom: 8px; line-height: 1.5;">Your Estimated Monthly Total Saving</div>
+                        <div style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1;">RM ${estimatedMonthlySaving.toFixed(2)}</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        ` : ''}
 
         <!-- Items Table -->
         <section class="items-table-wrapper">

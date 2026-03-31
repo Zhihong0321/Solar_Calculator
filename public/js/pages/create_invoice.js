@@ -307,6 +307,24 @@ function applyAssignedReferralSelection(referralId, { autofill = true } = {}) {
     toggleFollowUpSection();
 }
 
+function setHiddenFieldValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = value === null || value === undefined ? '' : String(value);
+}
+
+function applySolarSavingsParams(urlParams) {
+    if (urlParams.has('customer_average_tnb')) {
+        setHiddenFieldValue('customerAverageTnb', urlParams.get('customer_average_tnb'));
+    }
+    if (urlParams.has('estimated_saving')) {
+        setHiddenFieldValue('estimatedSaving', urlParams.get('estimated_saving'));
+    }
+    if (urlParams.has('estimated_new_bill_amount')) {
+        setHiddenFieldValue('estimatedNewBillAmount', urlParams.get('estimated_new_bill_amount'));
+    }
+}
+
 async function fetchAssignedReferralLeads(selectedReferralId = '', { autofillSelection = false } = {}) {
     try {
         const response = await fetch('/api/v1/referrals/my-referrals', { credentials: 'same-origin' });
@@ -1307,6 +1325,9 @@ document.addEventListener('DOMContentLoaded', async function () {
                 if (inv.customer_name_snapshot) document.getElementById('customerName').value = inv.customer_name_snapshot;
                 if (inv.customer_phone_snapshot) document.getElementById('customerPhone').value = inv.customer_phone_snapshot;
                 if (inv.customer_address_snapshot) document.getElementById('customerAddress').value = inv.customer_address_snapshot;
+                setHiddenFieldValue('customerAverageTnb', inv.customer_average_tnb);
+                setHiddenFieldValue('estimatedSaving', inv.estimated_saving);
+                setHiddenFieldValue('estimatedNewBillAmount', inv.estimated_new_bill_amount);
                 if (inv.linked_referral) applyAssignedReferralSelection(inv.linked_referral, { autofill: false });
 
                 let discountVal = '';
@@ -1406,6 +1427,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (urlParams.get('customer_address')) document.getElementById('customerAddress').value = urlParams.get('customer_address');
     if (urlParams.get('discount_given')) document.getElementById('discountGiven').value = urlParams.get('discount_given');
     if (urlParams.get('apply_sst') === 'true') document.getElementById('applySST').checked = true;
+    applySolarSavingsParams(urlParams);
     if (selectedReferralFromUrl) applyAssignedReferralSelection(selectedReferralFromUrl, { autofill: true });
 
     // Setup listeners
@@ -1600,6 +1622,7 @@ function showPackage(pkg) {
     if (urlParams.get('template_id')) {
         document.getElementById('templateIdHidden').value = urlParams.get('template_id');
     }
+    applySolarSavingsParams(urlParams);
 
     updateInvoicePreview();
 }
@@ -1707,6 +1730,9 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         profilePicture: document.getElementById('profilePicture').value || null,
         lead_source: document.getElementById('customerLeadSource')?.value || null,
         remark: document.getElementById('customerRemark')?.value || null,
+        customer_average_tnb: document.getElementById('customerAverageTnb')?.value || null,
+        estimated_saving: document.getElementById('estimatedSaving')?.value || null,
+        estimated_new_bill_amount: document.getElementById('estimatedNewBillAmount')?.value || null,
         discount_given: data.discount_given || null,
         voucher_codes: selectedVouchers.map(v => v.voucher_code),
         apply_sst: document.getElementById('applySST')?.checked || false,

@@ -47,6 +47,11 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
   const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
   const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
+  const beforeSolarBill = Number(invoice.customer_average_tnb);
+  const afterSolarBill = Number(invoice.estimated_new_bill_amount);
+  const estimatedMonthlySaving = Number(invoice.estimated_saving);
+  const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
+    .every((value) => Number.isFinite(value));
 
   // Calculate pre-discount subtotal for the summary
   const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
@@ -552,6 +557,36 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       </div>
       ` : ''}
     </section>
+    
+    ${hasSolarSavingsSection ? `
+    <section class="mb-6">
+      <div class="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-4 shadow-sm">
+        <div class="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <p class="label-text mb-1">Estimated Solar Saving</p>
+            <p class="text-base font-bold text-slate-900">Your solar estimate at a glance</p>
+          </div>
+          <div class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
+            Monthly Estimate
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="rounded-xl border border-slate-200 bg-white p-3">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Your Average TNB Bill<br>Before Solar</p>
+            <p class="text-xl font-bold text-slate-900">RM ${beforeSolarBill.toFixed(2)}</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-3">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Bill After Solar</p>
+            <p class="text-xl font-bold text-slate-900">RM ${afterSolarBill.toFixed(2)}</p>
+          </div>
+          <div class="rounded-xl border border-emerald-200 bg-emerald-600 p-3">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-100 mb-1">Your Estimated Monthly Total Saving</p>
+            <p class="text-xl font-bold text-white">RM ${estimatedMonthlySaving.toFixed(2)}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    ` : ''}
 
     <!-- Line Items -->
     <section class="mb-6">
