@@ -593,6 +593,11 @@ function generateInvoiceHtml(invoice, template, options = {}) {
             <p class="text-xl font-bold text-white leading-none mt-auto">RM ${estimatedMonthlySaving.toFixed(2)}</p>
           </div>
         </div>
+        <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+          <p class="text-[11px] leading-relaxed text-amber-900">
+            Note: Solar saving estimation may vary after final installation. Actual performance can be affected by roof shape and angle, shading, weather conditions, and site-specific installation factors. This estimate assumes a flat roof surface for calculation.
+          </p>
+        </div>
       </div>
     </section>
     ` : ''}

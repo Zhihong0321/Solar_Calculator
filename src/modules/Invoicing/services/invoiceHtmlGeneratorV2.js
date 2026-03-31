@@ -1150,6 +1150,11 @@ body.a4-preview .terms-signature {
                         <div style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1; margin-top: auto;">RM ${estimatedMonthlySaving.toFixed(2)}</div>
                     </div>
                 </div>
+                <div style="margin-top: 14px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; padding: 12px 14px;">
+                    <div style="font-size: 11px; line-height: 1.6; color: #78350f;">
+                        Note: Solar saving estimation may vary after final installation. Actual performance can be affected by roof shape and angle, shading, weather conditions, and site-specific installation factors. This estimate assumes a flat roof surface for calculation.
+                    </div>
+                </div>
             </div>
         </section>
         ` : ''}

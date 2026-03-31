@@ -6,5 +6,6 @@ REPO NAME : Solar Calculator v2
 - Added boxed solar savings section to quotation and invoice previews
 - Improved alignment of the boxed solar savings section in previews
 - Corrected new bill in solar savings box to net payable after export earnings
+- Added installation variance note below solar savings estimate
 
 =====================
