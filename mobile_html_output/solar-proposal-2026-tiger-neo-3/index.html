@@ -250,7 +250,7 @@
 <body>
     <div class="hud">
         <div class="chip title-chip">Solar Proposal 2026_Tiger Neo 3</div>
-        <div class="chip count-chip" id="counter">1 / 24</div>
+        <div class="chip count-chip" id="counter">1 / 23</div>
     </div>
     <div class="chip hint" id="hint">Swipe up or down to change slides. Pinch to zoom.</div>
     <main id="slides">
@@ -419,13 +419,6 @@
                 </div>
             </div>
         </section>
-        <section class="slide" data-slide="23">
-            <div class="slide-shell">
-                <div class="zoomable">
-                    <img src="slides/slide-023.jpg" alt="Slide 23" loading="lazy" />
-                </div>
-            </div>
-        </section>
         <section class="slide" data-slide="24">
             <div class="slide-shell">
                 <div class="zoomable">
@@ -477,11 +470,12 @@
             const counter = document.getElementById('counter');
             const hint = document.getElementById('hint');
             const sections = Array.from(container.querySelectorAll('.slide'));
+            const totalSlides = sections.length;
             let activeIndex = 0;
 
             const updateCounter = (index) => {
                 activeIndex = index;
-                counter.textContent = `${index + 1} / 24`;
+                counter.textContent = `${index + 1} / ${totalSlides}`;
             };
 
             const observer = new IntersectionObserver((entries) => {
