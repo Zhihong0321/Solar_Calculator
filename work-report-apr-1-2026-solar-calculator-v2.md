@@ -19,5 +19,7 @@ REPO NAME : Solar Calculator v2
 - Applied invoice bill-amount precision migration so solar estimate saves can store cents
 - Locked A4 solar savings block to stay on one page instead of splitting across pages
 - Fixed create quotation form getting stuck before submit when April promo payload was built
+- Hardened My Invoices auth handling for JWT sub/email identities and added redirect on unauthorized invoice list loads.
+- Simplified My Invoices auth flow to use one canonical app user identity and added a visible load error state instead of silent failure.
 
 =====================

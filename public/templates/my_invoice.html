@@ -202,6 +202,19 @@
             <p class="text-slate-500 text-xs mt-1">Create a new quotation to get started.</p>
         </div>
 
+        <!-- Error State -->
+        <div id="loadError" class="hidden flex flex-col items-center justify-center py-20 text-center">
+            <div class="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center mb-4 border border-rose-100">
+                <svg class="w-8 h-8 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v4m0 4h.01M10.29 3.86l-7.5 13A1 1 0 003.66 18h16.68a1 1 0 00.87-1.5l-7.5-13a1 1 0 00-1.74 0z"></path></svg>
+            </div>
+            <h3 id="loadErrorTitle" class="text-sm font-semibold text-slate-800">Unable to load quotations</h3>
+            <p id="loadErrorMessage" class="text-slate-500 text-xs mt-1 max-w-sm">Please refresh and try again.</p>
+            <div class="mt-5 flex flex-wrap items-center justify-center gap-2">
+                <button onclick="loadQuotations()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors">Retry</button>
+                <button onclick="goToLogin()" class="border border-slate-200 bg-white text-slate-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors">Log In Again</button>
+            </div>
+        </div>
+
         <!-- Content -->
         <div id="content" class="hidden w-full space-y-8">
             <!-- Follow-up Section -->
@@ -550,6 +563,41 @@
             } catch (e) { alert('Restore failed: ' + e.message); }
         }
 
+        function goToLogin() {
+            const returnTo = encodeURIComponent(window.location.href);
+            window.location.href = `/auth-login?return_to=${returnTo}`;
+        }
+
+        function showLoadError(message) {
+            const loading = document.getElementById('loading');
+            const content = document.getElementById('content');
+            const empty = document.getElementById('empty');
+            const loadError = document.getElementById('loadError');
+            const loadErrorMessage = document.getElementById('loadErrorMessage');
+
+            if (loading) loading.classList.add('hidden');
+            if (content) content.classList.add('hidden');
+            if (empty) empty.classList.add('hidden');
+            if (loadErrorMessage) loadErrorMessage.textContent = message || 'Please refresh and try again.';
+            if (loadError) loadError.classList.remove('hidden');
+        }
+
+        function hideLoadError() {
+            const loadError = document.getElementById('loadError');
+            if (loadError) loadError.classList.add('hidden');
+        }
+
+        async function readResponsePayload(res) {
+            const raw = await res.text();
+            if (!raw) return {};
+
+            try {
+                return JSON.parse(raw);
+            } catch (err) {
+                throw new Error('The server returned an invalid response while loading invoices.');
+            }
+        }
+
         async function loadQuotations() {
             const loading = document.getElementById('loading');
             const content = document.getElementById('content');
@@ -557,6 +605,8 @@
             
             if (loading) loading.classList.remove('hidden');
             if (empty) empty.classList.add('hidden');
+            if (content) content.classList.add('hidden');
+            hideLoadError();
 
             try {
                 const offset = (page - 1) * limit;
@@ -567,7 +617,15 @@
                 if (filterPaymentStatus) query += `&paymentStatus=${filterPaymentStatus}`;
 
                 const res = await fetch(`/api/v1/invoices/my-invoices${query}`);
-                const data = await res.json();
+                const data = await readResponsePayload(res);
+                if (res.status === 401) {
+                    console.warn('[loadQuotations] Unauthorized session, redirecting to login.', data);
+                    goToLogin();
+                    return;
+                }
+                if (!res.ok) {
+                    throw new Error(data?.error || 'Unable to load quotations right now.');
+                }
                 if (!data.success) throw new Error(data.error);
 
                 allInvoices = data.data.invoices || [];
@@ -599,8 +657,7 @@
 
             } catch (err) {
                 console.error('[loadQuotations] Fatal Error:', err);
-                if (loading) loading.classList.add('hidden');
-                // Don't alert here to prevent annoying popups, just log
+                showLoadError(err?.message || 'Unable to load quotations right now. Please try again.');
             }
         }
 
