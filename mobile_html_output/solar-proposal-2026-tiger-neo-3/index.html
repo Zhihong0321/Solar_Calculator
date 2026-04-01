@@ -66,83 +66,6 @@
             box-shadow: var(--shadow);
         }
 
-        .slide-overlay {
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 9%;
-            display: flex;
-            justify-content: center;
-            pointer-events: none;
-            padding: 0 20px;
-            z-index: 3;
-        }
-
-        .slide-overlay[hidden] {
-            display: none;
-        }
-
-        .slide-overlay-card {
-            width: min(90vw, 520px);
-            padding: 18px 20px;
-            border-radius: 20px;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.68));
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            color: #fff;
-            text-align: left;
-        }
-
-        .slide-overlay-kicker {
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: 0.22em;
-            text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.62);
-            margin-bottom: 10px;
-        }
-
-        .slide-overlay-name {
-            font-size: 30px;
-            line-height: 1.05;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            margin: 0 0 8px 0;
-        }
-
-        .slide-overlay-address {
-            font-size: 14px;
-            line-height: 1.55;
-            color: rgba(255, 255, 255, 0.84);
-            white-space: pre-line;
-            margin: 0 0 14px 0;
-        }
-
-        .slide-overlay-system {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            padding-top: 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.12);
-        }
-
-        .slide-overlay-system-label {
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .slide-overlay-system-value {
-            font-size: 18px;
-            line-height: 1.2;
-            font-weight: 700;
-            color: #fff;
-        }
-
         .zoomable {
             width: 100%;
             height: 100%;
@@ -157,6 +80,15 @@
             display: block;
             user-select: none;
             -webkit-user-drag: none;
+            pointer-events: none;
+        }
+
+        .text-overlay {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
             pointer-events: none;
         }
 
@@ -221,36 +153,12 @@
                 max-height: calc(100svh - 24px);
             }
         }
-
-        @media (max-width: 640px) {
-            .slide-overlay {
-                bottom: 7%;
-            }
-
-            .slide-overlay-card {
-                width: min(92vw, 420px);
-                padding: 16px 16px;
-                border-radius: 18px;
-            }
-
-            .slide-overlay-name {
-                font-size: 22px;
-            }
-
-            .slide-overlay-address {
-                font-size: 13px;
-            }
-
-            .slide-overlay-system-value {
-                font-size: 16px;
-            }
-        }
     </style>
 </head>
 <body>
     <div class="hud">
         <div class="chip title-chip">Solar Proposal 2026_Tiger Neo 3</div>
-        <div class="chip count-chip" id="counter">1 / 23</div>
+        <div class="chip count-chip" id="counter">1 / 24</div>
     </div>
     <div class="chip hint" id="hint">Swipe up or down to change slides. Pinch to zoom.</div>
     <main id="slides">
@@ -258,17 +166,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-001.jpg" alt="Slide 1" loading="eager" />
-                </div>
-                <div class="slide-overlay" id="proposalOverlay" hidden>
-                    <div class="slide-overlay-card">
-                        <div class="slide-overlay-kicker">Quotation Summary</div>
-                        <h2 class="slide-overlay-name" id="proposalCustomerName">Valued Customer</h2>
-                        <p class="slide-overlay-address" id="proposalCustomerAddress" hidden></p>
-                        <div class="slide-overlay-system" id="proposalSystemWrap" hidden>
-                            <div class="slide-overlay-system-label">System Size</div>
-                            <div class="slide-overlay-system-value" id="proposalSystemValue"></div>
-                        </div>
-                    </div>
+                    
                 </div>
             </div>
         </section>
@@ -276,6 +174,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-002.jpg" alt="Slide 2" loading="eager" />
+                    
                 </div>
             </div>
         </section>
@@ -283,6 +182,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-003.jpg" alt="Slide 3" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -290,6 +190,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-004.jpg" alt="Slide 4" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -297,6 +198,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-005.jpg" alt="Slide 5" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -304,6 +206,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-006.jpg" alt="Slide 6" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -311,6 +214,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-007.jpg" alt="Slide 7" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -318,6 +222,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-008.jpg" alt="Slide 8" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -325,6 +230,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-009.jpg" alt="Slide 9" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -332,6 +238,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-010.jpg" alt="Slide 10" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -339,6 +246,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-011.jpg" alt="Slide 11" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -346,6 +254,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-012.jpg" alt="Slide 12" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -353,6 +262,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-013.jpg" alt="Slide 13" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -360,6 +270,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-014.jpg" alt="Slide 14" loading="lazy" />
+                    <svg class="text-overlay" viewBox="0 0 1080 1920" aria-hidden="true"><g><text x="775.00" y="387.73" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="59.09" font-weight="400" fill="#E8ECEF">&lt;</tspan><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="53.33" font-weight="400" fill="#E8ECEF">550W</tspan></text></g></svg>
                 </div>
             </div>
         </section>
@@ -367,6 +278,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-015.jpg" alt="Slide 15" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -374,6 +286,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-016.jpg" alt="Slide 16" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -381,6 +294,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-017.jpg" alt="Slide 17" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -388,6 +302,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-018.jpg" alt="Slide 18" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -395,6 +310,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-019.jpg" alt="Slide 19" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -402,6 +318,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-020.jpg" alt="Slide 20" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -409,6 +326,7 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-021.jpg" alt="Slide 21" loading="lazy" />
+                    
                 </div>
             </div>
         </section>
@@ -416,6 +334,15 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-022.jpg" alt="Slide 22" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="23">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-023.jpg" alt="Slide 23" loading="lazy" />
+                    <svg class="text-overlay" viewBox="0 0 1080 1920" aria-hidden="true"><g><text x="118.00" y="1198.41" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• Jinko Tiger Neo N-Type 650W Bi-Facial Array</tspan></text><text x="118.00" y="1260.83" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• SAJ String / DuoMix Inverter System</tspan></text><text x="118.00" y="1323.24" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• Full ATAP &amp; TNB Smart Meter Applications</tspan></text><text x="118.00" y="1385.65" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• Architectural &amp; Electrical System Design</tspan></text><text x="118.00" y="1448.07" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• Roof Surveying &amp; SkyLift Deployment</tspan></text><text x="118.00" y="1510.48" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• 3-Years MSIG All-Risk Coverage </tspan></text></g></svg>
                 </div>
             </div>
         </section>
@@ -423,59 +350,22 @@
             <div class="slide-shell">
                 <div class="zoomable">
                     <img src="slides/slide-024.jpg" alt="Slide 24" loading="lazy" />
+                    <svg class="text-overlay" viewBox="0 0 1080 1920" aria-hidden="true"><g><text x="767.50" y="1415.57" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="44.44" font-weight="700" fill="#AC987D">3 Year</tspan></text><text x="767.50" y="1445.35" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="27.24" font-weight="400" fill="#DCDDDE">Workmanship</tspan></text><text x="767.50" y="1474.20" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="26.40" font-weight="400" fill="#DCDDDE">Guarantee </tspan></text><text x="767.50" y="1503.05" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="26.40" font-weight="400" fill="#DCDDDE">&amp; 1 Year </tspan></text><text x="767.50" y="1531.91" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="26.40" font-weight="400" fill="#DCDDDE">Roof Leak</tspan></text></g></svg>
                 </div>
             </div>
         </section>
     </main>
     <script>
         (() => {
-            const presentationParams = new URLSearchParams(window.location.search);
-            const customerName = presentationParams.get('customer_name') || '';
-            const customerAddress = presentationParams.get('customer_address') || '';
-            const panelQty = parseFloat(presentationParams.get('panel_qty') || '');
-            const panelRating = parseFloat((presentationParams.get('panel_rating') || '').replace(/[^\d.]/g, ''));
-            const systemSizeKwpFromUrl = parseFloat(presentationParams.get('system_size_kwp') || '');
-            const derivedSystemSizeKwp = Number.isFinite(panelQty) && Number.isFinite(panelRating) && panelQty > 0 && panelRating > 0
-                ? (panelQty * panelRating) / 1000
-                : systemSizeKwpFromUrl;
-            const systemSizeLabel = Number.isFinite(derivedSystemSizeKwp) && derivedSystemSizeKwp > 0
-                ? Number.isFinite(panelQty) && Number.isFinite(panelRating) && panelQty > 0 && panelRating > 0
-                    ? `${panelQty.toLocaleString(undefined, { maximumFractionDigits: 0 })} x ${panelRating.toLocaleString(undefined, { maximumFractionDigits: 0 })}W = ${derivedSystemSizeKwp.toFixed(2)} kWp`
-                    : `${derivedSystemSizeKwp.toFixed(2)} kWp`
-                : '';
-
-            const proposalOverlay = document.getElementById('proposalOverlay');
-            const proposalCustomerName = document.getElementById('proposalCustomerName');
-            const proposalCustomerAddress = document.getElementById('proposalCustomerAddress');
-            const proposalSystemWrap = document.getElementById('proposalSystemWrap');
-            const proposalSystemValue = document.getElementById('proposalSystemValue');
-
-            if (customerName || customerAddress || systemSizeLabel) {
-                proposalCustomerName.textContent = customerName || 'Valued Customer';
-
-                if (customerAddress) {
-                    proposalCustomerAddress.textContent = customerAddress;
-                    proposalCustomerAddress.hidden = false;
-                }
-
-                if (systemSizeLabel) {
-                    proposalSystemValue.textContent = systemSizeLabel;
-                    proposalSystemWrap.hidden = false;
-                }
-
-                proposalOverlay.hidden = false;
-            }
-
             const container = document.getElementById('slides');
             const counter = document.getElementById('counter');
             const hint = document.getElementById('hint');
             const sections = Array.from(container.querySelectorAll('.slide'));
-            const totalSlides = sections.length;
             let activeIndex = 0;
 
             const updateCounter = (index) => {
                 activeIndex = index;
-                counter.textContent = `${index + 1} / ${totalSlides}`;
+                counter.textContent = `${index + 1} / 24`;
             };
 
             const observer = new IntersectionObserver((entries) => {

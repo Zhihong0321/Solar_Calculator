@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 function buildTigerNeoPresentationUrl(invoice) {
+  const presentationPath = '/t3_html_presentation/solar-proposal-2026-tiger-neo-3/';
   const params = new URLSearchParams();
   if (invoice.customer_name) params.set('customer_name', invoice.customer_name);
   if (invoice.customer_address) params.set('customer_address', invoice.customer_address);
@@ -19,7 +20,7 @@ function buildTigerNeoPresentationUrl(invoice) {
   if (systemSizeKwp > 0) params.set('system_size_kwp', systemSizeKwp.toFixed(2));
 
   const query = params.toString();
-  return query ? `/t3_html_presentation/?${query}` : '/t3_html_presentation/';
+  return query ? `${presentationPath}?${query}` : presentationPath;
 }
 
 /**
