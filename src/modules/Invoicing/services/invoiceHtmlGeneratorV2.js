@@ -47,6 +47,8 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
     const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
     const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
+    const earnNowRebateAmount = parseFloat(invoice.earn_now_rebate_amount) || 0;
+    const earthMonthGoGreenBonusAmount = parseFloat(invoice.earth_month_go_green_bonus_amount) || 0;
     const beforeSolarBill = parseOptionalCurrency(invoice.customer_average_tnb);
     const storedAfterSolarBill = parseOptionalCurrency(invoice.estimated_new_bill_amount);
     const estimatedMonthlySaving = parseOptionalCurrency(invoice.estimated_saving);
@@ -70,7 +72,14 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const isConfirmed = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
     const titleLabel = isConfirmed ? 'INVOICE' : 'QUOTATION';
 
-    const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
+    const subtotal = totalAmount
+        - sstAmount
+        + discountAmount
+        + voucherAmount
+        + cnyPromoAmount
+        + holidayBoostAmount
+        + earnNowRebateAmount
+        + earthMonthGoGreenBonusAmount;
 
     // Get company info from template
     const companyName = templateData.company_name || 'Atap Solar';
@@ -1898,6 +1907,16 @@ body.a4-preview .terms-signature {
                 <div class="summary-row">
                     <span class="summary-label" style="color: green;">Holiday Boost Reward</span>
                     <span class="summary-value" style="color: green;">-RM ${Math.abs(holidayBoostAmount).toFixed(2)}</span>
+                </div>` : ''}
+                ${earnNowRebateAmount > 0 ? `
+                <div class="summary-row">
+                    <span class="summary-label" style="color: #d97706;">Earn Now Rebate</span>
+                    <span class="summary-value" style="color: #d97706;">-RM ${Math.abs(earnNowRebateAmount).toFixed(2)}</span>
+                </div>` : ''}
+                ${earthMonthGoGreenBonusAmount > 0 ? `
+                <div class="summary-row">
+                    <span class="summary-label" style="color: #047857;">Earth Month Go Green Bonus</span>
+                    <span class="summary-value" style="color: #047857;">-RM ${Math.abs(earthMonthGoGreenBonusAmount).toFixed(2)}</span>
                 </div>` : ''}
                 ${sstAmount > 0 ? `
                 <hr class="summary-divider">

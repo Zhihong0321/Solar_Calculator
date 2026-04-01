@@ -48,6 +48,8 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
   const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
   const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
+  const earnNowRebateAmount = parseFloat(invoice.earn_now_rebate_amount) || 0;
+  const earthMonthGoGreenBonusAmount = parseFloat(invoice.earth_month_go_green_bonus_amount) || 0;
   const beforeSolarBill = Number(invoice.customer_average_tnb);
   const storedAfterSolarBill = Number(invoice.estimated_new_bill_amount);
   const estimatedMonthlySaving = Number(invoice.estimated_saving);
@@ -58,7 +60,14 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     .every((value) => Number.isFinite(value));
 
   // Calculate pre-discount subtotal for the summary
-  const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
+  const subtotal = totalAmount
+    - sstAmount
+    + discountAmount
+    + voucherAmount
+    + cnyPromoAmount
+    + holidayBoostAmount
+    + earnNowRebateAmount
+    + earthMonthGoGreenBonusAmount;
 
   // Get company info from template
   const companyName = templateData.company_name || 'Atap Solar';
@@ -708,6 +717,16 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           <div class="flex justify-between text-emerald-600">
             <span>Holiday Boost Reward</span>
             <span>-RM ${Math.abs(holidayBoostAmount).toFixed(2)}</span>
+          </div>` : ''}
+          ${earnNowRebateAmount > 0 ? `
+          <div class="flex justify-between text-amber-600">
+            <span>Earn Now Rebate</span>
+            <span>-RM ${Math.abs(earnNowRebateAmount).toFixed(2)}</span>
+          </div>` : ''}
+          ${earthMonthGoGreenBonusAmount > 0 ? `
+          <div class="flex justify-between text-emerald-700">
+            <span>Earth Month Go Green Bonus</span>
+            <span>-RM ${Math.abs(earthMonthGoGreenBonusAmount).toFixed(2)}</span>
           </div>` : ''}
           ${sstAmount > 0 ? `
           <div class="flex justify-between text-slate-600">

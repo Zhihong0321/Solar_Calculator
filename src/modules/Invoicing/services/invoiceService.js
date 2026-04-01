@@ -54,6 +54,13 @@ function parseDiscountString(discountGiven) {
   return result;
 }
 
+function normalizeBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.trim().toLowerCase() === 'true';
+  if (typeof value === 'number') return value === 1;
+  return false;
+}
+
 /**
  * @typedef {Object} InvoiceCreationPayload
  * @property {number|string} userId - The unique identifier of the user creating the invoice.
@@ -177,6 +184,12 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.estimated_new_bill_amount !== undefined && invoiceRequestPayload.estimatedNewBillAmount === undefined) {
         invoiceRequestPayload.estimatedNewBillAmount = invoiceRequestPayload.estimated_new_bill_amount;
     }
+    if (invoiceRequestPayload.apply_earn_now_rebate !== undefined && invoiceRequestPayload.applyEarnNowRebate === undefined) {
+        invoiceRequestPayload.applyEarnNowRebate = normalizeBoolean(invoiceRequestPayload.apply_earn_now_rebate);
+    }
+    if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
+        invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
+    }
 
     // 1. Validation Layer Layer
     const validation = validateInvoiceData(invoiceRequestPayload);
@@ -253,6 +266,8 @@ async function createInvoice(pool, invoiceRequestPayload) {
       customerAverageTnb: invoiceRequestPayload.customerAverageTnb,
       estimatedSaving: invoiceRequestPayload.estimatedSaving,
       estimatedNewBillAmount: invoiceRequestPayload.estimatedNewBillAmount,
+      applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate || false,
+      applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus || false,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
@@ -365,6 +380,12 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     }
     if (invoiceRequestPayload.estimated_new_bill_amount !== undefined && invoiceRequestPayload.estimatedNewBillAmount === undefined) {
         invoiceRequestPayload.estimatedNewBillAmount = invoiceRequestPayload.estimated_new_bill_amount;
+    }
+    if (invoiceRequestPayload.apply_earn_now_rebate !== undefined && invoiceRequestPayload.applyEarnNowRebate === undefined) {
+        invoiceRequestPayload.applyEarnNowRebate = normalizeBoolean(invoiceRequestPayload.apply_earn_now_rebate);
+    }
+    if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
+        invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
     }
 
     // 1. Validation Layer (Same as createInvoice but packageId is optional as we fetch from original)

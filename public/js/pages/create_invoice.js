@@ -516,53 +516,111 @@ function parseDiscount(discountStr) {
     return { fixed: discountFixed, percent: discountPercent };
 }
 
-// Utility for CNY 2026 Promo
-function getCNY2026PromoDiscount(panelQty) {
-    const now = new Date();
-    const expiry = new Date('2026-04-01T00:00:00');
-    if (now >= expiry) return 0;
+const APRIL_2026_PROMO_END = new Date('2026-05-01T00:00:00');
 
-    const qty = parseInt(panelQty) || 0;
-    if (qty >= 12 && qty <= 18) return 1000;
+function isApril2026PromotionActive() {
+    return new Date() < APRIL_2026_PROMO_END;
+}
+
+function getEarnNowRebateAmount(panelQty) {
+    if (!isApril2026PromotionActive()) return 0;
+
+    const qty = parseInt(panelQty, 10) || 0;
+    if (qty >= 11 && qty <= 18) return 1000;
     if (qty >= 19 && qty <= 25) return 1500;
     if (qty >= 26 && qty <= 30) return 2000;
-    if (qty >= 31) return 2500;
+    if (qty >= 31 && qty <= 36) return 2500;
     return 0;
 }
 
-// Utility for Holiday Boost 2026 Promo
-function getHolidayBoostDiscount(panelQty) {
-    const now = new Date();
-    const expiry = new Date('2026-04-01T00:00:00'); // Valid until end of Mar 31
-    if (now >= expiry) return 0;
+function getEarthMonthGoGreenBonusAmount(panelQty) {
+    if (!isApril2026PromotionActive()) return 0;
 
-    const qty = parseInt(panelQty) || 0;
-    if (qty >= 12 && qty <= 17) return 600;
+    const qty = parseInt(panelQty, 10) || 0;
+    if (qty >= 11 && qty <= 17) return 600;
     if (qty >= 18 && qty <= 24) return 1200;
     if (qty >= 25 && qty <= 36) return 1500;
     return 0;
 }
 
-// Function to update Promo Banners based on date
-function updatePromoBanners() {
-    const now = new Date();
-    const cnyExpiry = new Date('2026-04-01T00:00:00');
-    const holidayExpiry = new Date('2026-04-01T00:00:00');
+function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
+    const normalizedPanelQty = parseInt(panelQty, 10) || 0;
+    const earnNowEligibleAmount = getEarnNowRebateAmount(normalizedPanelQty);
+    const earthMonthEligibleAmount = getEarthMonthGoGreenBonusAmount(normalizedPanelQty);
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const promotionsEnabled = isApril2026PromotionActive() && !window.isEditMode;
 
-    const holidayBanner = document.getElementById('holidayPromoBanner');
-    const cnyBanner = document.getElementById('cnyPromoBanner');
+    const earnNowAppliedAmount = promotionsEnabled && earnNowToggle?.checked ? earnNowEligibleAmount : 0;
+    const earthMonthAppliedAmount = promotionsEnabled && earthMonthToggle?.checked ? earthMonthEligibleAmount : 0;
 
-    // Show banners if they haven't expired
-    if (now < cnyExpiry) {
-        if (cnyBanner) cnyBanner.classList.remove('hidden');
-    } else {
-        if (cnyBanner) cnyBanner.classList.add('hidden');
+    return {
+        panelQty: normalizedPanelQty,
+        earnNowEligibleAmount,
+        earthMonthEligibleAmount,
+        earnNowAppliedAmount,
+        earthMonthAppliedAmount,
+        totalAppliedAmount: earnNowAppliedAmount + earthMonthAppliedAmount
+    };
+}
+
+function updatePromotionOptionsUI() {
+    const section = document.getElementById('promotionOptionsSection');
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const earnNowAmountDisplay = document.getElementById('earnNowAmountDisplay');
+    const earthMonthAmountDisplay = document.getElementById('earthMonthBonusAmountDisplay');
+    const earnNowHint = document.getElementById('earnNowHint');
+    const earthMonthHint = document.getElementById('earthMonthBonusHint');
+    const promotionsEnabled = isApril2026PromotionActive() && !window.isEditMode;
+    const { panelQty, earnNowEligibleAmount, earthMonthEligibleAmount } = getAppliedPromotionAmounts();
+
+    if (section) {
+        section.classList.toggle('hidden', !promotionsEnabled);
     }
 
-    if (now < holidayExpiry) {
-        if (holidayBanner) holidayBanner.classList.remove('hidden');
-    } else {
-        if (holidayBanner) holidayBanner.classList.add('hidden');
+    if (!promotionsEnabled) {
+        if (earnNowToggle) {
+            earnNowToggle.checked = false;
+            earnNowToggle.disabled = true;
+        }
+        if (earthMonthToggle) {
+            earthMonthToggle.checked = false;
+            earthMonthToggle.disabled = true;
+        }
+        return;
+    }
+
+    if (earnNowAmountDisplay) {
+        earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
+    }
+    if (earthMonthAmountDisplay) {
+        earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
+    }
+
+    if (earnNowToggle) {
+        earnNowToggle.disabled = earnNowEligibleAmount <= 0;
+        if (earnNowToggle.disabled) earnNowToggle.checked = false;
+    }
+    if (earthMonthToggle) {
+        earthMonthToggle.disabled = earthMonthEligibleAmount <= 0;
+        if (earthMonthToggle.disabled) earthMonthToggle.checked = false;
+    }
+
+    if (earnNowHint) {
+        if (earnNowEligibleAmount > 0) {
+            earnNowHint.textContent = `${panelQty} panels detected. Toggle to apply this rebate.`;
+        } else {
+            earnNowHint.textContent = 'Eligible for 11 to 36 solar panels only.';
+        }
+    }
+
+    if (earthMonthHint) {
+        if (earthMonthEligibleAmount > 0) {
+            earthMonthHint.textContent = `${panelQty} panels detected. Toggle to apply this bonus.`;
+        } else {
+            earthMonthHint.textContent = 'Eligible for 11 to 36 solar panels only.';
+        }
     }
 }
 
@@ -729,11 +787,8 @@ function updatePaymentMethodInfo(index) {
     if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
     subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
 
-    const cnyPromoDiscount = getCNY2026PromoDiscount(window.currentPanelQty);
-    subtotalAfterDiscount -= cnyPromoDiscount;
-
-    const holidayBoostDiscount = getHolidayBoostDiscount(window.currentPanelQty);
-    subtotalAfterDiscount -= holidayBoostDiscount;
+    const promotionAmounts = getAppliedPromotionAmounts();
+    subtotalAfterDiscount -= promotionAmounts.totalAppliedAmount;
 
     if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 
@@ -791,13 +846,8 @@ function calculateAllEPPFees() {
     if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
     subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
 
-    // Apply CNY 2026 Promo
-    const cnyPromoDiscount = getCNY2026PromoDiscount(window.currentPanelQty);
-    subtotalAfterDiscount -= cnyPromoDiscount;
-
-    // Apply Holiday Boost 2026 Promo
-    const holidayBoostDiscount = getHolidayBoostDiscount(window.currentPanelQty);
-    subtotalAfterDiscount -= holidayBoostDiscount;
+    const promotionAmounts = getAppliedPromotionAmounts();
+    subtotalAfterDiscount -= promotionAmounts.totalAppliedAmount;
 
     if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 
@@ -971,6 +1021,7 @@ function updateInvoicePreview() {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     const discountInput = document.getElementById('discountGiven')?.value || '';
     const discount = parseDiscount(discountInput);
+    updatePromotionOptionsUI();
 
     const itemsList = document.getElementById('quotationItemsList');
     if (!itemsList) return;
@@ -991,38 +1042,35 @@ function updateInvoicePreview() {
             `;
     itemsList.appendChild(packageItem);
 
-    // Add CNY 2026 Promo Item (Auto-Applied)
-    const cnyPromoDiscount = getCNY2026PromoDiscount(window.currentPanelQty);
-    if (cnyPromoDiscount > 0) {
-        const promoItem = document.createElement('div');
-        promoItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-        promoItem.innerHTML = `
+    const promotionAmounts = getAppliedPromotionAmounts();
+
+    if (promotionAmounts.earnNowAppliedAmount > 0) {
+        const earnNowItem = document.createElement('div');
+        earnNowItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        earnNowItem.innerHTML = `
                     <div class="flex-1">
-                        <div class="font-medium text-orange-600">CNY 2026 Promo Reward</div>
-                        <div class="text-[10px] text-orange-400 font-bold uppercase tracking-tight">Auto-Applied Reward (Panel Qty: ${window.currentPanelQty})</div>
+                        <div class="font-medium text-amber-600">Earn Now Rebate</div>
+                        <div class="text-[10px] text-amber-500 font-bold uppercase tracking-tight">Agent-selected rebate (Panel Qty: ${promotionAmounts.panelQty})</div>
                     </div>
-                    <div class="font-semibold text-orange-600">-RM ${cnyPromoDiscount.toFixed(2)}</div>
+                    <div class="font-semibold text-amber-600">-RM ${promotionAmounts.earnNowAppliedAmount.toFixed(2)}</div>
                 `;
-        itemsList.appendChild(promoItem);
-        // We deduct this after subtotal initialization
+        itemsList.appendChild(earnNowItem);
     }
 
-    // Calculate subtotal (starting with package price)
-    const holidayBoostDiscount = getHolidayBoostDiscount(window.currentPanelQty);
-    if (holidayBoostDiscount > 0) {
-        const holidayItem = document.createElement('div');
-        holidayItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-        holidayItem.innerHTML = `
+    if (promotionAmounts.earthMonthAppliedAmount > 0) {
+        const earthMonthItem = document.createElement('div');
+        earthMonthItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        earthMonthItem.innerHTML = `
                     <div class="flex-1">
-                        <div class="font-medium text-emerald-600">Holiday Boost Reward</div>
-                        <div class="text-[10px] text-emerald-400 font-bold uppercase tracking-tight">Auto-Applied Reward (Panel Qty: ${window.currentPanelQty})</div>
+                        <div class="font-medium text-emerald-600">Earth Month Go Green Bonus</div>
+                        <div class="text-[10px] text-emerald-500 font-bold uppercase tracking-tight">Agent-selected bonus (Panel Qty: ${promotionAmounts.panelQty})</div>
                     </div>
-                    <div class="font-semibold text-emerald-600">-RM ${holidayBoostDiscount.toFixed(2)}</div>
+                    <div class="font-semibold text-emerald-600">-RM ${promotionAmounts.earthMonthAppliedAmount.toFixed(2)}</div>
                 `;
-        itemsList.appendChild(holidayItem);
+        itemsList.appendChild(earthMonthItem);
     }
 
-    let subtotal = packagePrice - cnyPromoDiscount - holidayBoostDiscount;
+    let subtotal = packagePrice - promotionAmounts.totalAppliedAmount;
 
     // Add Extra Items
     getAdditionalInvoiceItems().forEach(item => {
@@ -1280,9 +1328,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     // 2. Fetch User Profile (non-blocking for UI)
     fetchUserProfile();
 
-    // 2a. Update Promo Banners based on date
-    updatePromoBanners();
-
     // 3. Parse URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const packageId = urlParams.get('linked_package') || urlParams.get('package_id');
@@ -1467,6 +1512,12 @@ document.addEventListener('DOMContentLoaded', async function () {
     const sstToggle = document.getElementById('applySST');
     if (sstToggle) sstToggle.addEventListener('change', updateInvoicePreview);
 
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    if (earnNowToggle) earnNowToggle.addEventListener('change', updateInvoicePreview);
+
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    if (earthMonthToggle) earthMonthToggle.addEventListener('change', updateInvoicePreview);
+
     const discountInput = document.getElementById('discountGiven');
     if (discountInput) {
         discountInput.addEventListener('input', updateInvoicePreview);
@@ -1498,6 +1549,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (addBtn) addBtn.addEventListener('click', addPaymentMethodRow);
 
     updateBallastLimitText();
+    updatePromotionOptionsUI();
     updateInvoicePreview();
 });
 
@@ -1592,9 +1644,10 @@ function showPackage(pkg) {
     document.getElementById('packageName').value = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packageIdHidden').value = pkg.bubble_id;
 
-    // Store panel quantity for CNY promo
+    // Store panel quantity for promotion detection
     window.currentPanelQty = pkg.panel_qty || 0;
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
+    updatePromotionOptionsUI();
 
     // Handle tiered max discount policy (vouchers excluded)
     const pkgPriceForLimit = parseFloat(pkg.price) || 0;
@@ -1754,6 +1807,8 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         estimated_new_bill_amount: document.getElementById('estimatedNewBillAmount')?.value || null,
         discount_given: data.discount_given || null,
         voucher_codes: selectedVouchers.map(v => v.voucher_code),
+        apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,
+        apply_earth_month_go_green_bonus: promotionAmounts.earthMonthAppliedAmount > 0,
         apply_sst: document.getElementById('applySST')?.checked || false,
         payment_structure: eppData.payment_structure,
         extra_items: extraItems,

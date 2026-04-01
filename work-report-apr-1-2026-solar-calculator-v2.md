@@ -13,5 +13,7 @@ REPO NAME : Solar Calculator v2
 - Refined invoice solar chart shape and switched labels to AM/PM
 - Applied tiered invoice discount caps for create and edit flows
 - Fixed invoice solar estimate save precision mismatch for matched TNB bill amounts
+- Fixed invoice solar comparison chart to reflect true high-vs-low daytime usage distribution
+- Added April create-invoice promo toggles with panel-based rebate amounts
 
 =====================

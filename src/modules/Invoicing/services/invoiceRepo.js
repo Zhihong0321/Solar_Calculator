@@ -37,34 +37,28 @@ function validateManualDiscountLimit(packagePrice, totalDiscountValue) {
   }
 }
 
-/**
- * CNY 2026 Promotion Utility
- * Valid until 2026-03-31
- */
-function getCNY2026PromoDiscount(panelQty) {
-  const now = new Date();
-  const expiry = new Date('2026-04-01T00:00:00'); // Valid until end of Mar 31
-  if (now >= expiry) return 0;
+const APRIL_2026_PROMO_END = new Date('2026-05-01T00:00:00');
 
-  const qty = parseInt(panelQty) || 0;
-  if (qty >= 12 && qty <= 18) return 1000;
+function isApril2026PromotionActive() {
+  return new Date() < APRIL_2026_PROMO_END;
+}
+
+function getEarnNowRebateDiscount(panelQty) {
+  if (!isApril2026PromotionActive()) return 0;
+
+  const qty = parseInt(panelQty, 10) || 0;
+  if (qty >= 11 && qty <= 18) return 1000;
   if (qty >= 19 && qty <= 25) return 1500;
   if (qty >= 26 && qty <= 30) return 2000;
-  if (qty >= 31) return 2500; // Covers 31-36 and 36+ as per user requirement
+  if (qty >= 31 && qty <= 36) return 2500;
   return 0;
 }
 
-/**
- * Holiday Boost Discount 2026 Utility
- * Valid until 2026-03-31 23:59:00
- */
-function getHolidayBoostDiscount(panelQty) {
-  const now = new Date();
-  const expiry = new Date('2026-04-01T00:00:00'); // Valid until end of Mar 31
-  if (now >= expiry) return 0;
+function getEarthMonthGoGreenBonusDiscount(panelQty) {
+  if (!isApril2026PromotionActive()) return 0;
 
-  const qty = parseInt(panelQty) || 0;
-  if (qty >= 12 && qty <= 17) return 600;
+  const qty = parseInt(panelQty, 10) || 0;
+  if (qty >= 11 && qty <= 17) return 600;
   if (qty >= 18 && qty <= 24) return 1200;
   if (qty >= 25 && qty <= 36) return 1500;
   return 0;
@@ -632,7 +626,16 @@ async function _processVouchers(client, { voucherCodes, voucherCode }, packagePr
  * @private
  */
 function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty = 0) {
-  const { agentMarkup = 0, discountFixed = 0, discountPercent = 0, applySst = false, eppFeeAmount = 0, extraItems = [] } = data;
+  const {
+    agentMarkup = 0,
+    discountFixed = 0,
+    discountPercent = 0,
+    applySst = false,
+    eppFeeAmount = 0,
+    extraItems = [],
+    applyEarnNowRebate = false,
+    applyEarthMonthGoGreenBonus = false
+  } = data;
 
   const markupAmount = parseFloat(agentMarkup) || 0;
   const priceWithMarkup = packagePrice + markupAmount;
@@ -660,15 +663,18 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
     percentDiscountVal = (packagePrice * discountPercent) / 100;
   }
 
-  // CNY 2026 Promo Discount
-  const cnyPromoDiscount = getCNY2026PromoDiscount(panelQty);
-
-  // Holiday Boost 2026 Discount
-  const holidayBoostDiscount = getHolidayBoostDiscount(panelQty);
+  const earnNowRebateDiscount = applyEarnNowRebate ? getEarnNowRebateDiscount(panelQty) : 0;
+  const earthMonthGoGreenBonusDiscount = applyEarthMonthGoGreenBonus ? getEarthMonthGoGreenBonusDiscount(panelQty) : 0;
 
   // Subtotal after ALL adjustments (discounts, vouchers, epp fees, extra items)
   // taxable subtotal = package + markup + extra items - discounts - vouchers - promo
-  const trueSubtotal = priceWithMarkup + extraItemsTotal - discountFixed - percentDiscountVal - totalVoucherAmount - cnyPromoDiscount - holidayBoostDiscount;
+  const trueSubtotal = priceWithMarkup
+    + extraItemsTotal
+    - discountFixed
+    - percentDiscountVal
+    - totalVoucherAmount
+    - earnNowRebateDiscount
+    - earthMonthGoGreenBonusDiscount;
 
   if (trueSubtotal <= 0) {
     throw new Error('Total amount cannot be zero or negative after applying discounts and vouchers.');
@@ -691,8 +697,8 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
     sstRate,
     sstAmount,
     finalTotalAmount,
-    cnyPromoDiscount,
-    holidayBoostDiscount
+    earnNowRebateDiscount,
+    earthMonthGoGreenBonusDiscount
   };
 }
 
@@ -796,8 +802,22 @@ async function getInvoiceByBubbleId(client, bubbleId) {
       .filter(item => item.description?.includes('Holiday Boost Reward'))
       .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
 
+    invoice.earn_now_rebate_amount = invoice.items
+      .filter(item => item.description?.includes('Earn Now Rebate'))
+      .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+
+    invoice.earth_month_go_green_bonus_amount = invoice.items
+      .filter(item => item.description?.includes('Earth Month Go Green Bonus'))
+      .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+
     invoice.discount_amount = invoice.items
-      .filter(item => item.item_type === 'discount' && !item.description?.includes('CNY 2026 Promo') && !item.description?.includes('Holiday Boost Reward'))
+      .filter(item =>
+        item.item_type === 'discount'
+        && !item.description?.includes('CNY 2026 Promo')
+        && !item.description?.includes('Holiday Boost Reward')
+        && !item.description?.includes('Earn Now Rebate')
+        && !item.description?.includes('Earth Month Go Green Bonus')
+      )
       .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
 
     invoice.voucher_amount = invoice.items
@@ -1065,48 +1085,46 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   );
   createdItemIds.push(packageItemBubbleId);
 
-  // 1.2 CNY 2026 Promo Item (Auto-Applied)
-  if (financials.cnyPromoDiscount > 0) {
-    const promoItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+  if (financials.earnNowRebateDiscount > 0) {
+    const earnNowItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
        (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
       [
-        promoItemBubbleId,
+        earnNowItemBubbleId,
         invoiceId,
-        `CNY 2026 Promo Discount (Panel Qty: ${pkg.panel_qty})`,
+        `Earn Now Rebate (Panel Qty: ${pkg.panel_qty})`,
         1,
-        -financials.cnyPromoDiscount,
-        -financials.cnyPromoDiscount,
+        -financials.earnNowRebateDiscount,
+        -financials.earnNowRebateDiscount,
         'discount',
-        5, // Early in the list
+        5,
         false
       ]
     );
-    createdItemIds.push(promoItemBubbleId);
+    createdItemIds.push(earnNowItemBubbleId);
   }
 
-  // 1.3 Holiday Boost 2026 Item (Auto-Applied)
-  if (financials.holidayBoostDiscount > 0) {
-    const holidayItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+  if (financials.earthMonthGoGreenBonusDiscount > 0) {
+    const earthMonthItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
        (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
       [
-        holidayItemBubbleId,
+        earthMonthItemBubbleId,
         invoiceId,
-        `Holiday Boost Reward (Panel Qty: ${pkg.panel_qty})`,
+        `Earth Month Go Green Bonus (Panel Qty: ${pkg.panel_qty})`,
         1,
-        -financials.holidayBoostDiscount,
-        -financials.holidayBoostDiscount,
+        -financials.earthMonthGoGreenBonusDiscount,
+        -financials.earthMonthGoGreenBonusDiscount,
         'discount',
-        6, // After CNY promo
+        6,
         false
       ]
     );
-    createdItemIds.push(holidayItemBubbleId);
+    createdItemIds.push(earthMonthItemBubbleId);
   }
 
   // 1.5 Extra Items
