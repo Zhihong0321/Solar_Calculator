@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
+const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
 
@@ -38,7 +39,10 @@ router.get('/my-invoice', requireAuth, (req, res) => {
 router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
     let client = null;
     try {
-        const userId = req.user.userId;
+        const userId = getAuthenticatedUserId(req);
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
         const limit = parseInt(req.query.limit) || 20;
         const offset = parseInt(req.query.offset) || 0;
         const { startDate, endDate, paymentStatus } = req.query;
@@ -106,7 +110,10 @@ router.get('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
 router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
     try {
         const invoiceData = req.body;
-        const userId = req.user.userId;
+        const userId = getAuthenticatedUserId(req);
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
 
         // Add userId to payload as expected by service
         invoiceData.userId = userId;
@@ -137,7 +144,10 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
  */
 router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     let client = null;
     try {
         client = await pool.connect();
@@ -164,7 +174,10 @@ router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
  */
 router.put('/api/v1/invoices/:bubbleId/restore', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     let client = null;
     try {
         client = await pool.connect();
@@ -192,7 +205,10 @@ router.put('/api/v1/invoices/:bubbleId/restore', requireAuth, async (req, res) =
  */
 router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     const invoiceData = req.body;
     
     try {
