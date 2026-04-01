@@ -85,11 +85,11 @@ async function handlePublicSolarEstimate(req, res) {
       }
 
       const calculationResult = await calculateSolarSavings(pool, tariffPool, {
+        ...DEFAULT_PUBLIC_SOLAR_ESTIMATE,
         amount: averageBill,
         panelType: panelRating,
         overridePanels: panelQty,
-        morningUsage,
-        ...DEFAULT_PUBLIC_SOLAR_ESTIMATE
+        morningUsage
       });
 
       const estimate = buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage);
