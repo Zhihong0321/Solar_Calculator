@@ -1,12 +1,124 @@
 const express = require('express');
 const path = require('path');
 const pool = require('../../../core/database/pool');
+const tariffPool = require('../../../core/database/tariffPool');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const externalPdfService = require('../services/externalPdfService');
+const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
 
 const router = express.Router();
+
+const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
+  sunPeakHour: 3.4,
+  morningUsage: 30,
+  smpPrice: 0.2703,
+  afaRate: 0,
+  historicalAfaRate: 0,
+  percentDiscount: 0,
+  fixedDiscount: 0,
+  batterySize: 0,
+  systemPhase: 3
+});
+
+function buildPublicSolarEstimateResponse(calculationResult, averageBill) {
+  const beforeSolarBill = Number(averageBill);
+  const monthlySaving = Number(calculationResult.monthlySavings);
+  const billAfterSolar = Number(calculationResult.details?.billAfter);
+  const exportSaving = Number(calculationResult.details?.exportSaving);
+  const estimatedNewBillAmount = Number.isFinite(billAfterSolar) && Number.isFinite(exportSaving)
+    ? Math.max(0, billAfterSolar - exportSaving)
+    : (Number.isFinite(beforeSolarBill) && Number.isFinite(monthlySaving)
+      ? Math.max(0, beforeSolarBill - monthlySaving)
+      : null);
+
+  return {
+    customer_average_tnb: Number.isFinite(beforeSolarBill) ? Number(beforeSolarBill.toFixed(2)) : null,
+    estimated_saving: Number.isFinite(monthlySaving) ? Number(monthlySaving.toFixed(2)) : null,
+    estimated_new_bill_amount: Number.isFinite(estimatedNewBillAmount) ? Number(estimatedNewBillAmount.toFixed(2)) : null,
+    bill_after_solar_before_export: Number.isFinite(billAfterSolar) ? Number(billAfterSolar.toFixed(2)) : null,
+    export_earning: Number.isFinite(exportSaving) ? Number(exportSaving.toFixed(2)) : null,
+    assumptions: {
+      sunPeakHour: DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour,
+      offsetPercent: DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
+      batterySize: DEFAULT_PUBLIC_SOLAR_ESTIMATE.batterySize,
+      systemPhase: DEFAULT_PUBLIC_SOLAR_ESTIMATE.systemPhase
+    }
+  };
+}
+
+async function handlePublicSolarEstimate(req, res) {
+  try {
+    const { tokenOrId } = req.params;
+    const averageBill = Number(req.body?.averageBill);
+    const shouldSave = Boolean(req.body?.save);
+
+    if (!Number.isFinite(averageBill) || averageBill <= 0) {
+      return res.status(400).json({ success: false, error: 'Average bill amount must be greater than 0.' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+      if (!invoice) {
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      const panelQty = parseInt(invoice.panel_qty, 10);
+      const panelRating = parseInt(invoice.panel_rating, 10);
+
+      if (!Number.isFinite(panelQty) || panelQty <= 0 || !Number.isFinite(panelRating) || panelRating <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'This quotation package does not have enough panel details for public solar estimation.'
+        });
+      }
+
+      const calculationResult = await calculateSolarSavings(pool, tariffPool, {
+        amount: averageBill,
+        panelType: panelRating,
+        overridePanels: panelQty,
+        ...DEFAULT_PUBLIC_SOLAR_ESTIMATE
+      });
+
+      const estimate = buildPublicSolarEstimateResponse(calculationResult, averageBill);
+
+      if (shouldSave) {
+        const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);
+        if (!bubbleId) {
+          return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        await client.query(
+          `UPDATE invoice
+           SET customer_average_tnb = $1,
+               estimated_saving = $2,
+               estimated_new_bill_amount = $3,
+               updated_at = NOW()
+           WHERE bubble_id = $4`,
+          [
+            estimate.customer_average_tnb,
+            estimate.estimated_saving,
+            estimate.estimated_new_bill_amount,
+            bubbleId
+          ]
+        );
+      }
+
+      res.json({
+        success: true,
+        saved: shouldSave,
+        data: estimate
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error recalculating public solar estimate:', err);
+    res.status(500).json({ success: false, error: err.message || 'Failed to recalculate solar estimate' });
+  }
+}
 
 /**
  * GET /legacy-view/:tokenOrId
@@ -258,6 +370,9 @@ router.post('/view2/:tokenOrId/signature', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+router.post('/view/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
+router.post('/view2/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 
 /**
  * GET /proposal/:shareToken

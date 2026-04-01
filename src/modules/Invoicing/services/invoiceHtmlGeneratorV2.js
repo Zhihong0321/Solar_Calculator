@@ -17,6 +17,15 @@ function buildTigerNeoPresentationUrl(invoice) {
     return query ? `/t3_html_presentation/?${query}` : '/t3_html_presentation/';
 }
 
+function parseOptionalCurrency(value) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+}
+
 function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const items = invoice.items || [];
     const templateData = template || {};
@@ -25,6 +34,10 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const layoutMode = String(options.layout || options.viewMode || '').toLowerCase();
     const isA4Preview = layoutMode === 'a4' || layoutMode === 'a4-preview' || layoutMode === 'print';
     const showInteractiveControls = !options.forPdf && !isA4Preview;
+    const estimateIdentifier = invoice.share_token || invoice.bubble_id || '';
+    const estimatePanelQty = parseFloat(invoice.panel_qty) || 0;
+    const estimatePanelRating = parseFloat(invoice.panel_rating) || 0;
+    const canEstimateSolarSavings = estimatePanelQty > 0 && estimatePanelRating > 0 && Boolean(estimateIdentifier);
 
     // Calculate totals from items
     const sstAmount = parseFloat(invoice.sst_amount) || 0;
@@ -33,14 +46,22 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
     const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
     const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
-    const beforeSolarBill = Number(invoice.customer_average_tnb);
-    const storedAfterSolarBill = Number(invoice.estimated_new_bill_amount);
-    const estimatedMonthlySaving = Number(invoice.estimated_saving);
-    const afterSolarBill = Number.isFinite(beforeSolarBill) && Number.isFinite(estimatedMonthlySaving)
+    const beforeSolarBill = parseOptionalCurrency(invoice.customer_average_tnb);
+    const storedAfterSolarBill = parseOptionalCurrency(invoice.estimated_new_bill_amount);
+    const estimatedMonthlySaving = parseOptionalCurrency(invoice.estimated_saving);
+    const afterSolarBill = beforeSolarBill !== null && estimatedMonthlySaving !== null
         ? Math.max(0, beforeSolarBill - estimatedMonthlySaving)
         : storedAfterSolarBill;
     const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
-        .every((value) => Number.isFinite(value));
+        .every((value) => value !== null);
+    const showSolarSavingsSection = hasSolarSavingsSection || (showInteractiveControls && canEstimateSolarSavings);
+    const solarSavingsSectionBadge = hasSolarSavingsSection ? 'Monthly Estimate' : 'Package Estimate';
+    const solarSavingsSectionIntro = hasSolarSavingsSection
+        ? 'Your solar estimate at a glance'
+        : 'Estimate your savings with this package';
+    const solarSavingsHelperText = hasSolarSavingsSection
+        ? 'Based on this quotation package and the latest saved estimate.'
+        : 'Enter your average TNB bill to preview savings using default assumptions: 3.4 sun peak, 30% offset, and this package size.';
 
     // Decide title based on status: QUOTATION for drafts/pending, INVOICE for confirmed/paid
     const isConfirmed = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
@@ -995,6 +1016,180 @@ body.a4-preview .terms-signature {
         window.open('/view/' + shareToken + '?layout=a4', '_blank', 'noopener');
       }
 
+      const solarEstimateState = {
+        identifier: ${JSON.stringify(estimateIdentifier)},
+        hasSavedEstimate: ${hasSolarSavingsSection ? 'true' : 'false'},
+        canEstimate: ${canEstimateSolarSavings ? 'true' : 'false'},
+        currentAverageBill: ${beforeSolarBill !== null ? beforeSolarBill.toFixed(2) : 'null'},
+        latestPreview: null
+      };
+
+      function formatSolarEstimateMoney(value) {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? 'RM ' + numeric.toFixed(2) : 'RM --';
+      }
+
+      function updateSolarEstimateStatus(message, tone) {
+        const statusEl = document.getElementById('solarEstimateStatus');
+        if (!statusEl) return;
+
+        const tones = {
+          neutral: { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
+          success: { bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          warning: { bg: '#fffbeb', border: '#fde68a', color: '#92400e' }
+        };
+        const style = tones[tone] || tones.neutral;
+
+        statusEl.textContent = message;
+        statusEl.style.background = style.bg;
+        statusEl.style.borderColor = style.border;
+        statusEl.style.color = style.color;
+      }
+
+      function applySolarEstimateToPage(data, options = {}) {
+        const beforeValue = document.getElementById('solarEstimateBeforeValue');
+        const afterValue = document.getElementById('solarEstimateAfterValue');
+        const savingValue = document.getElementById('solarEstimateSavingValue');
+        const saveHint = document.getElementById('solarEstimateSaveHint');
+
+        if (beforeValue) beforeValue.textContent = formatSolarEstimateMoney(data.customer_average_tnb);
+        if (afterValue) afterValue.textContent = formatSolarEstimateMoney(data.estimated_new_bill_amount);
+        if (savingValue) savingValue.textContent = formatSolarEstimateMoney(data.estimated_saving);
+
+        if (saveHint) {
+          saveHint.textContent = options.saved
+            ? 'Saved to this quotation.'
+            : 'Preview updated. Save if you want this estimate stored in the quotation.';
+          saveHint.style.display = options.showSaveHint ? 'block' : 'none';
+        }
+
+        updateSolarEstimateStatus(
+          options.saved
+            ? 'This quotation now includes the latest solar estimate.'
+            : 'Estimate calculated using default assumptions and this package size.',
+          options.saved ? 'success' : 'neutral'
+        );
+      }
+
+      async function requestSolarEstimate(averageBill, save) {
+        const response = await fetch('/view/' + solarEstimateState.identifier + '/solar-estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ averageBill, save })
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to calculate solar estimate');
+        }
+
+        return result;
+      }
+
+      async function openSolarEstimatePrompt() {
+        if (!solarEstimateState.canEstimate || !solarEstimateState.identifier) {
+          return Swal.fire({
+            icon: 'info',
+            title: 'Estimate Unavailable',
+            text: 'This quotation package does not have enough panel details for solar estimation.',
+            confirmButtonColor: '#0f172a'
+          });
+        }
+
+        const { value: inputValue } = await Swal.fire({
+          title: 'Recalculate Solar Saving',
+          input: 'number',
+          inputLabel: 'Average Monthly TNB Bill (RM)',
+          inputPlaceholder: 'Enter your average bill amount',
+          inputValue: solarEstimateState.currentAverageBill || '',
+          inputAttributes: {
+            min: '1',
+            step: '1'
+          },
+          showCancelButton: true,
+          confirmButtonText: 'Calculate',
+          confirmButtonColor: '#059669',
+          cancelButtonText: 'Cancel',
+          preConfirm: (value) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric) || numeric <= 0) {
+              Swal.showValidationMessage('Please enter a valid average TNB bill amount.');
+              return false;
+            }
+            return Math.round(numeric);
+          }
+        });
+
+        if (!inputValue) {
+          return;
+        }
+
+        try {
+          Swal.fire({
+            title: 'Calculating...',
+            text: 'Checking this package against your bill amount.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => Swal.showLoading()
+          });
+
+          const result = await requestSolarEstimate(inputValue, false);
+          const estimate = result.data;
+
+          solarEstimateState.currentAverageBill = estimate.customer_average_tnb;
+          solarEstimateState.latestPreview = estimate;
+          applySolarEstimateToPage(estimate, { showSaveHint: true, saved: false });
+
+          const saveChoice = await Swal.fire({
+            icon: 'success',
+            title: 'Estimate Ready',
+            html:
+              '<div style="text-align:left;font-size:14px;line-height:1.7;">' +
+              '<div><strong>Your Average TNB Bill:</strong> ' + formatSolarEstimateMoney(estimate.customer_average_tnb) + '</div>' +
+              '<div><strong>New Bill After Solar:</strong> ' + formatSolarEstimateMoney(estimate.estimated_new_bill_amount) + '</div>' +
+              '<div><strong>Estimated Monthly Saving:</strong> ' + formatSolarEstimateMoney(estimate.estimated_saving) + '</div>' +
+              '</div>',
+            showDenyButton: true,
+            confirmButtonText: 'Save Estimate',
+            denyButtonText: 'Keep Preview Only',
+            confirmButtonColor: '#059669',
+            denyButtonColor: '#0f172a'
+          });
+
+          if (!saveChoice.isConfirmed) {
+            updateSolarEstimateStatus('Preview updated. The quotation is unchanged until you save the estimate.', 'warning');
+            return;
+          }
+
+          Swal.fire({
+            title: 'Saving...',
+            text: 'Updating this quotation with the new estimate.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => Swal.showLoading()
+          });
+
+          const savedResult = await requestSolarEstimate(inputValue, true);
+          solarEstimateState.hasSavedEstimate = true;
+          solarEstimateState.latestPreview = null;
+          applySolarEstimateToPage(savedResult.data, { showSaveHint: true, saved: true });
+
+          await Swal.fire({
+            icon: 'success',
+            title: 'Estimate Saved',
+            text: 'The solar saving section has been updated for this quotation.',
+            confirmButtonColor: '#059669'
+          });
+        } catch (err) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Recalculation Failed',
+            text: err.message,
+            confirmButtonColor: '#0f172a'
+          });
+        }
+      }
+
       function resetSignature() {
         Swal.fire({
           title: 'Re-sign Document?',
@@ -1118,38 +1313,54 @@ body.a4-preview .terms-signature {
             </div>
         </section>
 
-        ${hasSolarSavingsSection ? `
+        ${showSolarSavingsSection ? `
         <section style="padding: 0 50px; margin-bottom: 32px;">
             <div style="border: 1px solid #b7e4c7; border-radius: 14px; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 52%, #f8fafc 100%); padding: 22px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px;">
                     <div>
                         <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #047857; margin-bottom: 6px;">Estimated Solar Saving</div>
-                        <div style="font-size: 20px; font-weight: 700; color: #0f172a;">Your solar estimate at a glance</div>
+                        <div style="font-size: 20px; font-weight: 700; color: #0f172a;">${solarSavingsSectionIntro}</div>
+                        <div style="margin-top: 6px; font-size: 12px; line-height: 1.6; color: #475569;">${solarSavingsHelperText}</div>
                     </div>
-                    <div style="padding: 6px 12px; border-radius: 999px; background: #dcfce7; color: #047857; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-                        Monthly Estimate
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+                        <div style="padding: 6px 12px; border-radius: 999px; background: #dcfce7; color: #047857; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+                            ${solarSavingsSectionBadge}
+                        </div>
+                        ${showInteractiveControls && canEstimateSolarSavings ? `
+                        <button type="button" onclick="openSolarEstimatePrompt()" style="border: 1px solid #0f172a; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 16px; cursor: pointer; white-space: nowrap;">
+                            Recalculate
+                        </button>
+                        ` : ''}
                     </div>
+                </div>
+                <div id="solarEstimateStatus" style="margin-bottom: 14px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; padding: 12px 14px; font-size: 12px; line-height: 1.6; color: #1d4ed8;">
+                    ${hasSolarSavingsSection
+                        ? 'This quotation already has a saved solar estimate.'
+                        : 'No saved estimate yet. Use Recalculate to preview this package against your average TNB bill.'}
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
                     <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
                         <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
                             <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">Your Average TNB Bill<br>Before Solar</div>
                         </div>
-                        <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">RM ${beforeSolarBill.toFixed(2)}</div>
+                        <div id="solarEstimateBeforeValue" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${beforeSolarBill !== null ? `RM ${beforeSolarBill.toFixed(2)}` : 'RM --'}</div>
                     </div>
                     <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
                         <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
                             <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">New Bill After Solar<br>After Export Earning</div>
                         </div>
-                        <div style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">RM ${afterSolarBill.toFixed(2)}</div>
+                        <div id="solarEstimateAfterValue" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${afterSolarBill !== null ? `RM ${afterSolarBill.toFixed(2)}` : 'RM --'}</div>
                     </div>
                     <div style="border: 1px solid #059669; border-radius: 12px; background: #059669; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
                         <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
                             <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #d1fae5; line-height: 1.5;">Your Estimated Monthly Total Saving</div>
                         </div>
-                        <div style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1; margin-top: auto;">RM ${estimatedMonthlySaving.toFixed(2)}</div>
+                        <div id="solarEstimateSavingValue" style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1; margin-top: auto;">${estimatedMonthlySaving !== null ? `RM ${estimatedMonthlySaving.toFixed(2)}` : 'RM --'}</div>
                     </div>
                 </div>
+                ${showInteractiveControls && canEstimateSolarSavings ? `
+                <div id="solarEstimateSaveHint" style="display: none; margin-top: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
+                ` : ''}
                 <div style="margin-top: 14px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; padding: 12px 14px;">
                     <div style="font-size: 11px; line-height: 1.6; color: #78350f;">
                         Note: Solar saving estimation may vary after final installation. Actual performance can be affected by roof shape and angle, shading, weather conditions, and site-specific installation factors. This estimate assumes a flat roof surface for calculation.
