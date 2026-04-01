@@ -951,7 +951,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const shareToken = generateShareToken();
   const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   const finalCreatedBy = String(userId);
-  const customerAverageTnb = normalizeNullableNumber(data.customerAverageTnb, { integer: true });
+  const customerAverageTnb = normalizeNullableNumber(data.customerAverageTnb);
   const estimatedSaving = normalizeNullableNumber(data.estimatedSaving);
   const estimatedNewBillAmount = normalizeNullableNumber(data.estimatedNewBillAmount);
 
@@ -1655,7 +1655,7 @@ async function updateInvoiceTransaction(client, data) {
       `SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent,
               ${invoiceColumns.has('linked_referral') ? 'linked_referral' : 'NULL::text AS linked_referral'},
               ${invoiceColumns.has('referrer_name') ? 'referrer_name' : 'NULL::text AS referrer_name'},
-              ${invoiceColumns.has('customer_average_tnb') ? 'customer_average_tnb' : 'NULL::integer AS customer_average_tnb'},
+              ${invoiceColumns.has('customer_average_tnb') ? 'customer_average_tnb' : 'NULL::numeric AS customer_average_tnb'},
               ${invoiceColumns.has('estimated_saving') ? 'estimated_saving' : 'NULL::numeric AS estimated_saving'},
               ${invoiceColumns.has('estimated_new_bill_amount') ? 'estimated_new_bill_amount' : 'NULL::numeric AS estimated_new_bill_amount'},
               version, paid_amount, linked_payment
@@ -1771,7 +1771,7 @@ async function updateInvoiceTransaction(client, data) {
       updateAssignments.push(`customer_average_tnb = $${updateParamIdx++}`);
       updateValues.push(
         data.customerAverageTnb !== undefined
-          ? normalizeNullableNumber(data.customerAverageTnb, { integer: true })
+          ? normalizeNullableNumber(data.customerAverageTnb)
           : currentData.customer_average_tnb
       );
     }
