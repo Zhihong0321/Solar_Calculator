@@ -120,6 +120,37 @@
                 </div>
             </div>
 
+            <div id="promotionOptionsSection" class="hidden bg-amber-50 p-4 rounded-lg border-2 border-amber-200">
+                <div class="flex flex-col gap-1 mb-3">
+                    <h2 class="font-bold text-lg text-gray-900">April 2026 Promotions</h2>
+                    <p class="text-xs text-amber-800 font-medium">New invoice creation only. Toggle each option on or off based on the detected package panel quantity.</p>
+                </div>
+                <div class="space-y-3">
+                    <label class="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-white">
+                        <input type="checkbox" id="applyEarnNowRebate"
+                            class="mt-1 h-5 w-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                <span class="text-sm font-semibold text-gray-900">Earn Now Rebate</span>
+                                <span id="earnNowAmountDisplay" class="text-sm font-bold text-amber-700">RM 0.00</span>
+                            </div>
+                            <p id="earnNowHint" class="text-xs text-gray-600 mt-1">Select a package to detect the rebate amount.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-3 p-3 rounded-lg border border-emerald-200 bg-white">
+                        <input type="checkbox" id="applyEarthMonthGoGreenBonus"
+                            class="mt-1 h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                <span class="text-sm font-semibold text-gray-900">Earth Month Go Green Bonus</span>
+                                <span id="earthMonthBonusAmountDisplay" class="text-sm font-bold text-emerald-700">RM 0.00</span>
+                            </div>
+                            <p id="earthMonthBonusHint" class="text-xs text-gray-600 mt-1">Select a package to detect the bonus amount.</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
             <!-- Quotation Items Preview -->
             <div class="bg-gray-50 p-4 rounded-lg border-2 border-gray-300">
                 <h2 class="font-bold text-lg mb-4 text-gray-900">Quotation Items Preview</h2>
@@ -313,37 +344,6 @@
                             "500" or "10%")</p>
                         <p id="inputMaxDiscountRow" class="text-xs font-bold text-red-600 hidden">Max Allowed: <span
                                 id="inputMaxDiscountDisplay">RM 0.00</span></p>
-                    </div>
-                </div>
-
-                <div id="promotionOptionsSection" class="hidden bg-amber-50 p-4 rounded-lg border-2 border-amber-200">
-                    <div class="flex flex-col gap-1 mb-3">
-                        <h2 class="font-bold text-lg text-gray-900">April 2026 Promotions</h2>
-                        <p class="text-xs text-amber-800 font-medium">New invoice creation only. Toggle each option on or off based on the detected package panel quantity.</p>
-                    </div>
-                    <div class="space-y-3">
-                        <label class="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-white">
-                            <input type="checkbox" id="applyEarnNowRebate"
-                                class="mt-1 h-5 w-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500">
-                            <div class="flex-1 min-w-0">
-                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                    <span class="text-sm font-semibold text-gray-900">Earn Now Rebate</span>
-                                    <span id="earnNowAmountDisplay" class="text-sm font-bold text-amber-700">RM 0.00</span>
-                                </div>
-                                <p id="earnNowHint" class="text-xs text-gray-600 mt-1">Select a package to detect the rebate amount.</p>
-                            </div>
-                        </label>
-                        <label class="flex items-start gap-3 p-3 rounded-lg border border-emerald-200 bg-white">
-                            <input type="checkbox" id="applyEarthMonthGoGreenBonus"
-                                class="mt-1 h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
-                            <div class="flex-1 min-w-0">
-                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                    <span class="text-sm font-semibold text-gray-900">Earth Month Go Green Bonus</span>
-                                    <span id="earthMonthBonusAmountDisplay" class="text-sm font-bold text-emerald-700">RM 0.00</span>
-                                </div>
-                                <p id="earthMonthBonusHint" class="text-xs text-gray-600 mt-1">Select a package to detect the bonus amount.</p>
-                            </div>
-                        </label>
                     </div>
                 </div>
 
