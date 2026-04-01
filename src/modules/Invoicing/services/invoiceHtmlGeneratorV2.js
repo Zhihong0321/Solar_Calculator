@@ -838,6 +838,145 @@ body.a4-preview .terms-signature {
         padding: 0 20px !important;
         margin-bottom: 30px !important;
     }
+
+    .solar-estimate-section {
+        padding: 0 12px !important;
+        margin-bottom: 24px !important;
+    }
+
+    .solar-estimate-shell {
+        padding: 14px !important;
+        border-radius: 12px !important;
+    }
+
+    .solar-estimate-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .solar-estimate-title {
+        font-size: 16px !important;
+        line-height: 1.3 !important;
+    }
+
+    .solar-estimate-helper {
+        font-size: 11px !important;
+        line-height: 1.5 !important;
+    }
+
+    .solar-estimate-header-actions {
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+
+    .solar-estimate-badge,
+    .solar-estimate-recalculate {
+        align-self: flex-start !important;
+    }
+
+    .solar-estimate-badge {
+        font-size: 9px !important;
+        padding: 5px 10px !important;
+    }
+
+    .solar-estimate-recalculate {
+        font-size: 10px !important;
+        padding: 9px 12px !important;
+    }
+
+    .solar-estimate-status,
+    .solar-estimate-save-hint {
+        font-size: 11px !important;
+        line-height: 1.5 !important;
+    }
+
+    .solar-estimate-cards {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .solar-estimate-card {
+        min-height: 112px !important;
+        padding: 14px !important;
+    }
+
+    .solar-estimate-card-label-wrap {
+        min-height: 34px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .solar-estimate-card-label {
+        font-size: 9px !important;
+        line-height: 1.35 !important;
+        letter-spacing: 0.08em !important;
+    }
+
+    .solar-estimate-card-value {
+        font-size: 22px !important;
+    }
+
+    .solar-calc-panel {
+        margin-top: 14px !important;
+        padding: 12px !important;
+        border-radius: 12px !important;
+    }
+
+    .solar-calc-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .solar-calc-title {
+        font-size: 12px !important;
+    }
+
+    .solar-calc-button-row {
+        gap: 6px !important;
+    }
+
+    .solar-calc-button,
+    .solar-calc-save-button {
+        font-size: 9px !important;
+        padding: 9px 10px !important;
+        flex: 1 1 auto !important;
+        justify-content: center !important;
+    }
+
+    .solar-calc-summary {
+        font-size: 11px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .solar-calc-legend {
+        gap: 10px !important;
+        margin-bottom: 10px !important;
+        font-size: 10px !important;
+    }
+
+    .solar-calc-chart-box {
+        padding: 10px !important;
+        border-radius: 12px !important;
+    }
+
+    .solar-calc-chart-note {
+        font-size: 10px !important;
+        line-height: 1.45 !important;
+        margin-top: 8px !important;
+    }
+
+    .solar-note-box {
+        margin-top: 12px !important;
+        padding: 10px 12px !important;
+    }
+
+    .solar-note-text {
+        font-size: 10px !important;
+        line-height: 1.55 !important;
+    }
 }
     </style>
 </head>
@@ -1132,6 +1271,11 @@ body.a4-preview .terms-signature {
         const solarPattern = data.charts.solarGenerationPattern.slice(0, 24).map((entry) => Number(entry.generation) || 0);
         const maxValue = Math.max(1, ...usagePattern, ...solarPattern);
         const rows = 10;
+        const isCompact = window.innerWidth <= 768;
+        const blockHeight = isCompact ? 10 : 14;
+        const blockRadius = isCompact ? 3 : 4;
+        const columnGap = isCompact ? 2 : 4;
+        const labelFontSize = isCompact ? 9 : 10;
 
         const columnsHtml = usagePattern.map((usage, hour) => {
           const solar = solarPattern[hour] || 0;
@@ -1155,16 +1299,20 @@ body.a4-preview .terms-signature {
               borderColor = '#dc6363';
             }
 
-            return '<div style="height: 14px; border-radius: 4px; background: ' + blockColor + '; border: 1px solid ' + borderColor + ';"></div>';
+            return '<div style="height: ' + blockHeight + 'px; border-radius: ' + blockRadius + 'px; background: ' + blockColor + '; border: 1px solid ' + borderColor + ';"></div>';
           }).join('');
 
-          return '<div style="display:flex; flex-direction:column-reverse; gap:4px;">' + blocks + '</div>';
+          return '<div style="display:flex; flex-direction:column-reverse; gap:' + columnGap + 'px;">' + blocks + '</div>';
         }).join('');
 
         const hourLabelsHtml = Array.from({ length: 24 }, (_, hour) => {
           const label = hour % 3 === 0 ? String(hour).padStart(2, '0') : '';
-          return '<div style="text-align:center; font-size:10px; font-weight:700; color:#64748b;">' + label + '</div>';
+          return '<div style="text-align:center; font-size:' + labelFontSize + 'px; font-weight:700; color:#64748b;">' + label + '</div>';
         }).join('');
+
+        chartGrid.style.gap = columnGap + 'px';
+        chartGrid.style.minHeight = isCompact ? '126px' : '176px';
+        chartHours.style.gap = columnGap + 'px';
 
         chartGrid.innerHTML = columnsHtml;
         chartHours.innerHTML = hourLabelsHtml;
@@ -1565,70 +1713,70 @@ body.a4-preview .terms-signature {
         </section>
 
         ${showSolarSavingsSection ? `
-        <section style="padding: 0 50px; margin-bottom: 32px;">
-            <div style="border: 1px solid #b7e4c7; border-radius: 14px; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 52%, #f8fafc 100%); padding: 22px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px;">
+        <section class="solar-estimate-section" style="padding: 0 50px; margin-bottom: 32px;">
+            <div class="solar-estimate-shell" style="border: 1px solid #b7e4c7; border-radius: 14px; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 52%, #f8fafc 100%); padding: 22px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);">
+                <div class="solar-estimate-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px;">
                     <div>
                         <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #047857; margin-bottom: 6px;">Estimated Solar Saving</div>
-                        <div style="font-size: 20px; font-weight: 700; color: #0f172a;">${solarSavingsSectionIntro}</div>
-                        <div style="margin-top: 6px; font-size: 12px; line-height: 1.6; color: #475569;">${solarSavingsHelperText}</div>
+                        <div class="solar-estimate-title" style="font-size: 20px; font-weight: 700; color: #0f172a;">${solarSavingsSectionIntro}</div>
+                        <div class="solar-estimate-helper" style="margin-top: 6px; font-size: 12px; line-height: 1.6; color: #475569;">${solarSavingsHelperText}</div>
                     </div>
-                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
-                        <div style="padding: 6px 12px; border-radius: 999px; background: #dcfce7; color: #047857; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+                    <div class="solar-estimate-header-actions" style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+                        <div class="solar-estimate-badge" style="padding: 6px 12px; border-radius: 999px; background: #dcfce7; color: #047857; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
                             ${solarSavingsSectionBadge}
                         </div>
                         ${showInteractiveControls && canEstimateSolarSavings ? `
-                        <button type="button" id="solarRecalculateBtn" onclick="openSolarEstimatePrompt()" style="border: 1px solid #0f172a; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 16px; cursor: pointer; white-space: nowrap;">
+                        <button type="button" id="solarRecalculateBtn" class="solar-estimate-recalculate" onclick="openSolarEstimatePrompt()" style="border: 1px solid #0f172a; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 16px; cursor: pointer; white-space: nowrap;">
                             Recalculate
                         </button>
                         ` : ''}
                     </div>
                 </div>
-                <div id="solarEstimateStatus" style="margin-bottom: 14px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; padding: 12px 14px; font-size: 12px; line-height: 1.6; color: #1d4ed8;">
+                <div id="solarEstimateStatus" class="solar-estimate-status" style="margin-bottom: 14px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; padding: 12px 14px; font-size: 12px; line-height: 1.6; color: #1d4ed8;">
                     ${hasSolarSavingsSection
                         ? 'This quotation already has a saved solar estimate. Use the day-usage buttons below to compare scenarios.'
                         : 'No saved estimate yet. Use Recalculate to preview this package against your average TNB bill.'}
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
-                    <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
-                        <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
-                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">Your Average TNB Bill<br>Before Solar</div>
+                <div class="solar-estimate-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
+                    <div class="solar-estimate-card" style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
+                        <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
+                            <div class="solar-estimate-card-label" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">Your Average TNB Bill<br>Before Solar</div>
                         </div>
-                        <div id="solarEstimateBeforeValue" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${beforeSolarBill !== null ? `RM ${beforeSolarBill.toFixed(2)}` : 'RM --'}</div>
+                        <div id="solarEstimateBeforeValue" class="solar-estimate-card-value" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${beforeSolarBill !== null ? `RM ${beforeSolarBill.toFixed(2)}` : 'RM --'}</div>
                     </div>
-                    <div style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
-                        <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
-                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">New Bill After Solar<br>After Export Earning</div>
+                    <div class="solar-estimate-card" style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
+                        <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
+                            <div class="solar-estimate-card-label" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">New Bill After Solar<br>After Export Earning</div>
                         </div>
-                        <div id="solarEstimateAfterValue" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${afterSolarBill !== null ? `RM ${afterSolarBill.toFixed(2)}` : 'RM --'}</div>
+                        <div id="solarEstimateAfterValue" class="solar-estimate-card-value" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${afterSolarBill !== null ? `RM ${afterSolarBill.toFixed(2)}` : 'RM --'}</div>
                     </div>
-                    <div style="border: 1px solid #059669; border-radius: 12px; background: #059669; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
-                        <div style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
-                            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #d1fae5; line-height: 1.5;">Your Estimated Monthly Total Saving</div>
+                    <div class="solar-estimate-card" style="border: 1px solid #059669; border-radius: 12px; background: #059669; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
+                        <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
+                            <div class="solar-estimate-card-label" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #d1fae5; line-height: 1.5;">Your Estimated Monthly Total Saving</div>
                         </div>
-                        <div id="solarEstimateSavingValue" style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1; margin-top: auto;">${estimatedMonthlySaving !== null ? `RM ${estimatedMonthlySaving.toFixed(2)}` : 'RM --'}</div>
+                        <div id="solarEstimateSavingValue" class="solar-estimate-card-value" style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1; margin-top: auto;">${estimatedMonthlySaving !== null ? `RM ${estimatedMonthlySaving.toFixed(2)}` : 'RM --'}</div>
                     </div>
                 </div>
                 ${showInteractiveControls && canEstimateSolarSavings ? `
-                <div style="margin-top: 18px; border: 1px solid #dbeafe; border-radius: 14px; background: #f8fbff; padding: 16px;">
-                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
-                        <div style="font-size: 13px; font-weight: 700; color: #0f172a;">How the saving is calculated</div>
-                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                            <button type="button" id="solarScenarioBtn_low30" onclick="switchSolarScenario('low30')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                <div class="solar-calc-panel" style="margin-top: 18px; border: 1px solid #dbeafe; border-radius: 14px; background: #f8fbff; padding: 16px;">
+                    <div class="solar-calc-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
+                        <div class="solar-calc-title" style="font-size: 13px; font-weight: 700; color: #0f172a;">How the saving is calculated</div>
+                        <div class="solar-calc-button-row" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <button type="button" id="solarScenarioBtn_low30" class="solar-calc-button" onclick="switchSolarScenario('low30')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
                                 Low Day Usage (30%)
                             </button>
-                            <button type="button" id="solarScenarioBtn_high80" onclick="switchSolarScenario('high80')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                            <button type="button" id="solarScenarioBtn_high80" class="solar-calc-button" onclick="switchSolarScenario('high80')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
                                 High Day Usage (80%)
                             </button>
-                            <button type="button" id="saveSolarScenarioBtn" onclick="saveCurrentSolarScenario()" style="display: none; border: 1px solid #059669; border-radius: 999px; background: #059669; color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                            <button type="button" id="saveSolarScenarioBtn" class="solar-calc-save-button" onclick="saveCurrentSolarScenario()" style="display: none; border: 1px solid #059669; border-radius: 999px; background: #059669; color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
                                 Save This Scenario
                             </button>
                         </div>
                     </div>
-                    <div id="solarScenarioSummary" style="margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #334155;">
+                    <div id="solarScenarioSummary" class="solar-calc-summary" style="margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #334155;">
                         Choose a scenario to see how direct offset and export change your savings.
                     </div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 12px; font-size: 12px; color: #475569;">
+                    <div class="solar-calc-legend" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 12px; font-size: 12px; color: #475569;">
                         <div style="display: inline-flex; align-items: center; gap: 8px;">
                             <span style="width: 14px; height: 14px; border-radius: 4px; background: #dc6363; border: 1px solid #dc6363;"></span>
                             <span>Usage</span>
@@ -1642,17 +1790,17 @@ body.a4-preview .terms-signature {
                             <span>Excess solar export</span>
                         </div>
                     </div>
-                    <div style="border: 1px solid #dbeafe; border-radius: 14px; background: #ffffff; padding: 14px;">
+                    <div class="solar-calc-chart-box" style="border: 1px solid #dbeafe; border-radius: 14px; background: #ffffff; padding: 14px;">
                         <div id="solarEstimateChartEmpty" style="font-size: 12px; line-height: 1.7; color: #64748b;">Enter an average TNB bill and choose a scenario to see the 24-hour offset chart.</div>
                         <div id="solarEstimateChartGrid" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; align-items: end; min-height: 176px;"></div>
                         <div id="solarEstimateChartHours" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; margin-top: 10px;"></div>
-                        <div style="margin-top: 10px; font-size: 11px; color: #64748b;">24 columns, 1 hour per column. 10 rows show relative usage and solar intensity.</div>
+                        <div class="solar-calc-chart-note" style="margin-top: 10px; font-size: 11px; color: #64748b;">24 columns, 1 hour per column. 10 rows show relative usage and solar intensity.</div>
                     </div>
                 </div>
-                <div id="solarEstimateSaveHint" style="display: none; margin-top: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
+                <div id="solarEstimateSaveHint" class="solar-estimate-save-hint" style="display: none; margin-top: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
                 ` : ''}
-                <div style="margin-top: 14px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; padding: 12px 14px;">
-                    <div style="font-size: 11px; line-height: 1.6; color: #78350f;">
+                <div class="solar-note-box" style="margin-top: 14px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; padding: 12px 14px;">
+                    <div class="solar-note-text" style="font-size: 11px; line-height: 1.6; color: #78350f;">
                         Note: Solar saving estimation may vary after final installation. Actual performance can be affected by roof shape and angle, shading, weather conditions, and site-specific installation factors. This estimate assumes a flat roof surface for calculation.
                     </div>
                 </div>
