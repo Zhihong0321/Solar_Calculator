@@ -31,7 +31,22 @@ let referralInvoiceFilterId = null;
 const BALLAST_UNIT_PRICE = 120;
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
-const MANUAL_DISCOUNT_MAX_PERCENT = 7; // SYSTEM-WIDE: Max manual discount = 7% of package price (VOUCHERS EXCLUDED)
+const MANUAL_DISCOUNT_POLICY = [
+    { minPrice: 40000, maxPercent: 7 },
+    { minPrice: 30000, maxPercent: 6 },
+    { minPrice: 18000, maxPercent: 5 }
+];
+
+function getManualDiscountPolicy(packagePrice) {
+    const normalizedPrice = parseFloat(packagePrice) || 0;
+    const matchedTier = MANUAL_DISCOUNT_POLICY.find(tier => normalizedPrice >= tier.minPrice);
+    const maxPercent = matchedTier ? matchedTier.maxPercent : 0;
+
+    return {
+        maxPercent,
+        maxAmount: normalizedPrice * (maxPercent / 100)
+    };
+}
 
 function getCurrentPanelQty() {
     return Math.max(0, parseInt(window.currentPanelQty, 10) || 0);
@@ -1163,10 +1178,12 @@ function updateInvoicePreview() {
         subtotal -= percentAmount;
     }
 
-    // Validation for Max Discount
+    // Validation for tiered manual discount limit
     const totalDiscountValue = (discount.fixed || 0) + (packagePrice * (discount.percent || 0) / 100);
     const discountInputField = document.getElementById('discountGiven');
-    if (window.maxDiscountAllowed > 0 && totalDiscountValue > window.maxDiscountAllowed) {
+    const maxDiscountAllowed = Number(window.maxDiscountAllowed) || 0;
+    const allowedDiscountPercent = window.maxDiscountPercentAllowed || 0;
+    if (totalDiscountValue > (maxDiscountAllowed + 0.01)) {
         window._maxDiscountExceeded = true;
         if (discountInputField) {
             discountInputField.classList.add('border-red-500', 'bg-red-50');
@@ -1175,7 +1192,7 @@ function updateInvoicePreview() {
         const warningMsg = document.createElement('div');
         warningMsg.className = 'text-xs text-red-600 font-bold mt-1';
         warningMsg.id = 'discountLimitWarning';
-        warningMsg.textContent = `⚠️ Exceeds max allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)}`;
+        warningMsg.textContent = `⚠️ Exceeds max allowed discount of RM ${maxDiscountAllowed.toFixed(2)} (${allowedDiscountPercent}% of package price)`;
 
         // Remove existing warning if any
         const existingWarning = document.getElementById('discountLimitWarning');
@@ -1599,9 +1616,11 @@ function showPackage(pkg) {
     window.currentPackageType = pkg.type || '';
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
 
-    // Handle Max Discount — SYSTEM-WIDE: 7% of package price (vouchers excluded)
+    // Handle tiered max discount policy (vouchers excluded)
     const pkgPriceForLimit = parseFloat(pkg.price) || 0;
-    window.maxDiscountAllowed = pkgPriceForLimit * (MANUAL_DISCOUNT_MAX_PERCENT / 100);
+    const { maxPercent, maxAmount } = getManualDiscountPolicy(pkgPriceForLimit);
+    window.maxDiscountAllowed = maxAmount;
+    window.maxDiscountPercentAllowed = maxPercent;
     const maxDiscountRow = document.getElementById('maxDiscountRow');
     const maxDiscountDisplay = document.getElementById('maxDiscountDisplay');
 
@@ -1611,10 +1630,10 @@ function showPackage(pkg) {
 
     // Always show — limit is unconditional
     if (maxDiscountRow) maxDiscountRow.classList.remove('hidden');
-    if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)} (${MANUAL_DISCOUNT_MAX_PERCENT}% of package price)`;
+    if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)} (${maxPercent}% of package price)`;
 
     if (inputMaxDiscountRow) inputMaxDiscountRow.classList.remove('hidden');
-    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${window.maxDiscountAllowed.toFixed(2)} (${MANUAL_DISCOUNT_MAX_PERCENT}% of package price — vouchers excluded)`;
+    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${window.maxDiscountAllowed.toFixed(2)} (${maxPercent}% of package price — vouchers excluded)`;
 
     if (pkg.invoice_desc) {
         const descContainer = document.getElementById('packageDescContainer');
@@ -1657,7 +1676,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         Swal.fire({
             icon: 'error',
             title: 'Max Discount Exceeded',
-            text: `The discount entered exceeds the maximum allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)}.`
+            text: `The discount entered exceeds the maximum allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)} (${window.maxDiscountPercentAllowed || 0}% of package price).`
         });
         return;
     }

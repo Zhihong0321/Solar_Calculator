@@ -11,5 +11,6 @@ REPO NAME : Solar Calculator v2
 - Fixed solar savings cap so export credit cannot exceed payable bill
 - Aligned invoice recalculate display with closest matched TNB bill
 - Refined invoice solar chart shape and switched labels to AM/PM
+- Applied tiered invoice discount caps for create and edit flows
 
 =====================

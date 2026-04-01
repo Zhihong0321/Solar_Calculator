@@ -9,8 +9,33 @@
 const crypto = require('crypto');
 let invoiceColumnCache = null;
 
-// SYSTEM-WIDE DISCOUNT POLICY
-const MANUAL_DISCOUNT_MAX_PERCENT = 7; // Max manual discount = 7% of package price (VOUCHERS EXCLUDED)
+// Tiered manual discount policy based on package price
+const MANUAL_DISCOUNT_POLICY = [
+  { minPrice: 40000, maxPercent: 7 },
+  { minPrice: 30000, maxPercent: 6 },
+  { minPrice: 18000, maxPercent: 5 }
+];
+
+function getManualDiscountPolicy(packagePrice) {
+  const normalizedPrice = parseFloat(packagePrice) || 0;
+  const matchedTier = MANUAL_DISCOUNT_POLICY.find((tier) => normalizedPrice >= tier.minPrice);
+  const maxPercent = matchedTier ? matchedTier.maxPercent : 0;
+
+  return {
+    maxPercent,
+    maxAmount: normalizedPrice * (maxPercent / 100)
+  };
+}
+
+function validateManualDiscountLimit(packagePrice, totalDiscountValue) {
+  const { maxPercent, maxAmount } = getManualDiscountPolicy(packagePrice);
+
+  if (totalDiscountValue > (maxAmount + 0.01)) {
+    throw new Error(
+      `Manual discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the maximum allowed for this package tier of ${maxPercent}% of package price (RM ${maxAmount.toFixed(2)}). Vouchers are not subject to this limit.`
+    );
+  }
+}
 
 /**
  * CNY 2026 Promotion Utility
@@ -1287,13 +1312,9 @@ async function createInvoiceOnTheFly(client, data) {
     // 3. Calculate Financials
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, deps.pkg ? deps.pkg.panel_qty : 0);
 
-    // 3.5 Validate Max Discount — SYSTEM-WIDE: 7% of package price (vouchers excluded)
-    const maxDiscountAllowed = packagePrice * (MANUAL_DISCOUNT_MAX_PERCENT / 100);
+    // 3.5 Validate tiered max discount policy (vouchers excluded)
     const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
-
-    if (totalDiscountValue > (maxDiscountAllowed + 0.01)) { // +0.01 buffer for float precision
-      throw new Error(`Manual discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the system maximum of ${MANUAL_DISCOUNT_MAX_PERCENT}% of package price (RM ${maxDiscountAllowed.toFixed(2)}). Vouchers are not subject to this limit.`);
-    }
+    validateManualDiscountLimit(packagePrice, totalDiscountValue);
 
     // 4. Create Invoice Header
     const invoice = await _createInvoiceRecord(client, data, financials, deps, voucherInfo);
@@ -1717,13 +1738,9 @@ async function updateInvoiceTransaction(client, data) {
     const voucherInfo = await _processVouchers(client, data, packagePrice);
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
 
-    // Validate Max Discount — SYSTEM-WIDE: 7% of package price (vouchers excluded)
-    const maxDiscountAllowed = packagePrice * (MANUAL_DISCOUNT_MAX_PERCENT / 100);
+    // Validate tiered max discount policy (vouchers excluded)
     const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
-
-    if (totalDiscountValue > (maxDiscountAllowed + 0.01)) {
-      throw new Error(`Manual discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the system maximum of ${MANUAL_DISCOUNT_MAX_PERCENT}% of package price (RM ${maxDiscountAllowed.toFixed(2)}). Vouchers are not subject to this limit.`);
-    }
+    validateManualDiscountLimit(packagePrice, totalDiscountValue);
 
     const { finalTotalAmount } = financials;
 
