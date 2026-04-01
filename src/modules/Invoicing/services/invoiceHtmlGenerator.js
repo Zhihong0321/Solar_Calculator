@@ -655,23 +655,27 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       <!-- Payment Details (Left on Desktop, Bottom on Mobile) -->
       <div class="flex-1 order-2 sm:order-1">
         ${bankName ? `
-        <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
-          <p class="label-text mb-2">Payment Details</p>
+        <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-800 shadow-lg">
+          <p class="label-text mb-2 text-slate-300">Payment Details</p>
           <div class="space-y-1">
             <div class="flex justify-between text-xs">
-              <span class="text-slate-500">Bank</span>
-              <span class="font-medium text-slate-900 text-right">${bankName}</span>
+              <span class="text-slate-400">Bank</span>
+              <span class="font-semibold text-white text-right">${bankName}</span>
             </div>
             ${bankAccountNo ? `
             <div class="flex justify-between text-xs">
-              <span class="text-slate-500">Account No.</span>
-              <span class="font-medium text-slate-900 text-right">${bankAccountNo}</span>
+              <span class="text-slate-400">Account No.</span>
+              <span class="font-semibold text-white text-right">${bankAccountNo}</span>
             </div>` : ''}
              ${bankAccountName ? `
             <div class="flex justify-between text-xs">
-              <span class="text-slate-500">Account Name</span>
-              <span class="font-medium text-slate-900 text-right">${bankAccountName}</span>
+              <span class="text-slate-400">Account Name</span>
+              <span class="font-semibold text-white text-right">${bankAccountName}</span>
             </div>` : ''}
+            <div class="flex justify-between text-xs pt-3 mt-3 border-t border-slate-700">
+              <span class="text-slate-300 uppercase tracking-wider">Payment Ref</span>
+              <span class="font-bold text-white text-right">${invoice.invoice_number || invoice.bubble_id || '-'}</span>
+            </div>
           </div>
         </div>
         ` : ''}
