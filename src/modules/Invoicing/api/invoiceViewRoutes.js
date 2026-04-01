@@ -23,7 +23,9 @@ const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
 });
 
 function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage) {
-  const beforeSolarBill = Number(averageBill);
+  const requestedBillAmount = Number(averageBill);
+  const matchedBillAmount = Number(calculationResult.details?.billBefore);
+  const beforeSolarBill = Number.isFinite(matchedBillAmount) ? matchedBillAmount : requestedBillAmount;
   const monthlySaving = Number(calculationResult.monthlySavings);
   const billAfterSolar = Number(calculationResult.details?.billAfter);
   const exportSaving = Number(calculationResult.details?.exportSaving);
@@ -37,6 +39,7 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
       : null));
 
   return {
+    requested_bill_amount: Number.isFinite(requestedBillAmount) ? Number(requestedBillAmount.toFixed(2)) : null,
     customer_average_tnb: Number.isFinite(beforeSolarBill) ? Number(beforeSolarBill.toFixed(2)) : null,
     estimated_saving: Number.isFinite(monthlySaving) ? Number(monthlySaving.toFixed(2)) : null,
     estimated_new_bill_amount: Number.isFinite(estimatedNewBillAmount) ? Number(estimatedNewBillAmount.toFixed(2)) : null,

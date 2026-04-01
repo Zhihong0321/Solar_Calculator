@@ -1334,10 +1334,23 @@ body.a4-preview .terms-signature {
         const afterValue = document.getElementById('solarEstimateAfterValue');
         const savingValue = document.getElementById('solarEstimateSavingValue');
         const saveHint = document.getElementById('solarEstimateSaveHint');
+        const matchedBillHint = document.getElementById('solarMatchedBillHint');
+        const requestedBill = Number(data.requested_bill_amount);
+        const matchedBill = Number(data.customer_average_tnb);
 
         if (beforeValue) beforeValue.textContent = formatSolarEstimateMoney(data.customer_average_tnb);
         if (afterValue) afterValue.textContent = formatSolarEstimateMoney(data.estimated_new_bill_amount);
         if (savingValue) savingValue.textContent = formatSolarEstimateMoney(data.estimated_saving);
+
+        if (matchedBillHint) {
+          if (Number.isFinite(requestedBill) && Number.isFinite(matchedBill) && Math.abs(requestedBill - matchedBill) >= 0.01) {
+            matchedBillHint.textContent = 'Requested bill RM ' + requestedBill.toFixed(2) + '. Closest matched TNB bill used for calculation: RM ' + matchedBill.toFixed(2) + '.';
+            matchedBillHint.style.display = 'block';
+          } else {
+            matchedBillHint.textContent = '';
+            matchedBillHint.style.display = 'none';
+          }
+        }
 
         renderSolarUsageChart(data);
         updateSolarScenarioButtons();
@@ -1462,7 +1475,7 @@ body.a4-preview .terms-signature {
               Swal.showValidationMessage('Please enter a valid average TNB bill amount.');
               return false;
             }
-            return Math.round(numeric);
+            return Number(numeric.toFixed(2));
           }
         });
 
@@ -1737,6 +1750,7 @@ body.a4-preview .terms-signature {
                         ? 'This quotation already has a saved solar estimate. Use the day-usage buttons below to compare scenarios.'
                         : 'No saved estimate yet. Use Recalculate to preview this package against your average TNB bill.'}
                 </div>
+                <div id="solarMatchedBillHint" class="solar-estimate-save-hint" style="display: none; margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
                 <div class="solar-estimate-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
                     <div class="solar-estimate-card" style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
                         <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
