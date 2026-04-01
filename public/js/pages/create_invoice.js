@@ -1782,6 +1782,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
 
     // Calculate EPP fees
     const eppData = calculateAllEPPFees();
+    const promotionAmounts = getAppliedPromotionAmounts();
 
     // Prepare extra items (Manual Items + Micro Inverters)
     const extraItems = getAdditionalInvoiceItems().map(item => ({
@@ -1791,47 +1792,46 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         total_price: item.qty * item.unit_price
     }));
 
-    // Prepare request data
-    const requestData = {
-        linked_package: data.linked_package,
-        template_id: data.template_id || null,
-        linked_referral: data.linked_referral || null,
-        customer_name: data.customer_name || null,
-        customer_phone: data.customer_phone || null,
-        customer_address: data.customer_address || null,
-        profilePicture: document.getElementById('profilePicture').value || null,
-        lead_source: document.getElementById('customerLeadSource')?.value || null,
-        remark: document.getElementById('customerRemark')?.value || null,
-        customer_average_tnb: document.getElementById('customerAverageTnb')?.value || null,
-        estimated_saving: document.getElementById('estimatedSaving')?.value || null,
-        estimated_new_bill_amount: document.getElementById('estimatedNewBillAmount')?.value || null,
-        discount_given: data.discount_given || null,
-        voucher_codes: selectedVouchers.map(v => v.voucher_code),
-        apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,
-        apply_earth_month_go_green_bonus: promotionAmounts.earthMonthAppliedAmount > 0,
-        apply_sst: document.getElementById('applySST')?.checked || false,
-        payment_structure: eppData.payment_structure,
-        extra_items: extraItems,
-        followUpDays: data.follow_up_days || null
-    };
-
-
-    // Add EPP fee data if exists
-    if (eppData.total_fee > 0 && eppData.description) {
-        requestData.epp_fee_amount = eppData.total_fee;
-        requestData.epp_fee_description = eppData.description;
-    }
-
-    // Handle Edit Mode vs Create Mode
-    let endpoint = '/api/v1/invoices/on-the-fly';
-    if (window.isEditMode && window.editInvoiceId) {
-        endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;
-        // Preserve markup
-        requestData.agent_markup = window.currentAgentMarkup || 0;
-    }
-
-    // Call the API
     try {
+        // Prepare request data
+        const requestData = {
+            linked_package: data.linked_package,
+            template_id: data.template_id || null,
+            linked_referral: data.linked_referral || null,
+            customer_name: data.customer_name || null,
+            customer_phone: data.customer_phone || null,
+            customer_address: data.customer_address || null,
+            profilePicture: document.getElementById('profilePicture').value || null,
+            lead_source: document.getElementById('customerLeadSource')?.value || null,
+            remark: document.getElementById('customerRemark')?.value || null,
+            customer_average_tnb: document.getElementById('customerAverageTnb')?.value || null,
+            estimated_saving: document.getElementById('estimatedSaving')?.value || null,
+            estimated_new_bill_amount: document.getElementById('estimatedNewBillAmount')?.value || null,
+            discount_given: data.discount_given || null,
+            voucher_codes: selectedVouchers.map(v => v.voucher_code),
+            apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,
+            apply_earth_month_go_green_bonus: promotionAmounts.earthMonthAppliedAmount > 0,
+            apply_sst: document.getElementById('applySST')?.checked || false,
+            payment_structure: eppData.payment_structure,
+            extra_items: extraItems,
+            followUpDays: data.follow_up_days || null
+        };
+
+        // Add EPP fee data if exists
+        if (eppData.total_fee > 0 && eppData.description) {
+            requestData.epp_fee_amount = eppData.total_fee;
+            requestData.epp_fee_description = eppData.description;
+        }
+
+        // Handle Edit Mode vs Create Mode
+        let endpoint = '/api/v1/invoices/on-the-fly';
+        if (window.isEditMode && window.editInvoiceId) {
+            endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;
+            // Preserve markup
+            requestData.agent_markup = window.currentAgentMarkup || 0;
+        }
+
+        // Call the API
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -1846,11 +1846,10 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
             window.location.href = result.invoice_link;
         } else {
             alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
         }
     } catch (error) {
         alert('Error: ' + error.message);
+    } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
     }

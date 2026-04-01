@@ -18,5 +18,6 @@ REPO NAME : Solar Calculator v2
 - Moved create-invoice promo toggles between package info and preview
 - Applied invoice bill-amount precision migration so solar estimate saves can store cents
 - Locked A4 solar savings block to stay on one page instead of splitting across pages
+- Fixed create quotation form getting stuck before submit when April promo payload was built
 
 =====================
