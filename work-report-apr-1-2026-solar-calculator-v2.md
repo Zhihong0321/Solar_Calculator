@@ -8,5 +8,6 @@ REPO NAME : Solar Calculator v2
 - Added day-usage scenario toggle and hourly solar offset chart on invoice view
 - Fixed invoice solar scenario toggle using correct day-usage percentage
 - Improved mobile layout for invoice solar comparison section
+- Fixed solar savings cap so export credit cannot exceed payable bill
 
 =====================

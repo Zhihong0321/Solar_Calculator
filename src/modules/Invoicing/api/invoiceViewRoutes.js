@@ -27,11 +27,14 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
   const monthlySaving = Number(calculationResult.monthlySavings);
   const billAfterSolar = Number(calculationResult.details?.billAfter);
   const exportSaving = Number(calculationResult.details?.exportSaving);
-  const estimatedNewBillAmount = Number.isFinite(billAfterSolar) && Number.isFinite(exportSaving)
-    ? Math.max(0, billAfterSolar - exportSaving)
+  const payableAfterSolar = Number(calculationResult.details?.estimatedPayableAfterSolar);
+  const estimatedNewBillAmount = Number.isFinite(payableAfterSolar)
+    ? payableAfterSolar
+    : (Number.isFinite(billAfterSolar) && Number.isFinite(exportSaving)
+      ? Math.max(0, billAfterSolar - exportSaving)
     : (Number.isFinite(beforeSolarBill) && Number.isFinite(monthlySaving)
       ? Math.max(0, beforeSolarBill - monthlySaving)
-      : null);
+      : null));
 
   return {
     customer_average_tnb: Number.isFinite(beforeSolarBill) ? Number(beforeSolarBill.toFixed(2)) : null,

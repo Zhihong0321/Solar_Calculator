@@ -412,15 +412,18 @@ class SolarCalculator {
         const billReduction = beforeBreakdown.total - afterBreakdown.total;
         // Export rate logic: if reduced bill total kWh usage > 1500 kWh, use 0.3703, otherwise use smpPrice
         const effectiveExportRate = netUsageKwh > 1500 ? 0.3703 : smpPrice;
-        const exportSaving = exportKwh * effectiveExportRate;
+        const exportSavingRaw = exportKwh * effectiveExportRate;
         const backupGenerationSaving = backupGenerationKwh * effectiveExportRate;
-        const totalMonthlySavings = billReduction + exportSaving;
 
         const billReductionBaseline = beforeBreakdown.total - baselineBreakdown.total;
         // For baseline, check netUsageBaseline instead
         const effectiveExportRateBaseline = netUsageBaseline > 1500 ? 0.3703 : smpPrice;
-        const exportSavingBaseline = exportKwhBaseline * effectiveExportRateBaseline;
+        const exportSavingBaselineRaw = exportKwhBaseline * effectiveExportRateBaseline;
+        const exportSavingBaseline = Math.min(exportSavingBaselineRaw, baselineBreakdown.total);
         const totalMonthlySavingsBaseline = billReductionBaseline + exportSavingBaseline;
+        const exportSaving = Math.min(exportSavingRaw, afterBreakdown.total);
+        const totalMonthlySavings = billReduction + exportSaving;
+        const estimatedPayableAfterSolar = Math.max(0, afterBreakdown.total - exportSavingRaw);
 
         // 9. System Costs
         let systemCostBeforeDiscount = null, finalSystemCost = null, totalDiscountAmount = 0, paybackPeriod = 'N/A';
@@ -478,7 +481,8 @@ class SolarCalculator {
             details: {
                 monthlyUsageKwh, monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
                 billBefore: beforeBreakdown.total.toFixed(2), billAfter: afterBreakdown.total.toFixed(2),
-                billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2),
+                billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2), exportSavingRaw: exportSavingRaw.toFixed(2),
+                estimatedPayableAfterSolar: estimatedPayableAfterSolar.toFixed(2),
                 netUsageKwh: netUsageKwh.toFixed(2), exportKwh: exportKwh.toFixed(2),
                 backupGenerationKwh: backupGenerationKwh.toFixed(2),
                 backupGenerationSaving: backupGenerationSaving.toFixed(2),
@@ -491,8 +495,9 @@ class SolarCalculator {
                 },
                 battery: {
                     baseline: {
-                        billReduction: billReductionBaseline, exportCredit: exportSavingBaseline,
+                        billReduction: billReductionBaseline, exportCredit: exportSavingBaseline, exportCreditRaw: exportSavingBaselineRaw,
                         totalSavings: totalMonthlySavingsBaseline.toFixed(2), billAfter: baselineBreakdown.total,
+                        estimatedPayableAfterSolar: Math.max(0, baselineBreakdown.total - exportSavingBaselineRaw),
                         billBreakdown: {
                             items: [
                                 { label: 'Usage', before: beforeBreakdown.usage, after: baselineBreakdown.usage, delta: beforeBreakdown.usage - baselineBreakdown.usage },
@@ -896,9 +901,12 @@ window.generateInvoiceLink = function () {
 
     const billAfterSolar = Number(latestSolarData.details?.billAfter);
     const exportSaving = Number(latestSolarData.details?.exportSaving);
-    const estimatedPayableAfterSolar = Number.isFinite(billAfterSolar)
-        ? Math.max(0, billAfterSolar - (Number.isFinite(exportSaving) ? exportSaving : 0))
-        : null;
+    const payableAfterSolar = Number(latestSolarData.details?.estimatedPayableAfterSolar);
+    const estimatedPayableAfterSolar = Number.isFinite(payableAfterSolar)
+        ? payableAfterSolar
+        : (Number.isFinite(billAfterSolar)
+            ? Math.max(0, billAfterSolar - (Number.isFinite(exportSaving) ? exportSaving : 0))
+            : null);
 
     // Persist calculator savings metrics for downstream quotation/proposal usage.
     if (latestSolarData.details?.billBefore !== null && latestSolarData.details?.billBefore !== undefined) {

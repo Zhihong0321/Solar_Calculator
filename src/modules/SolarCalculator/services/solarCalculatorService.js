@@ -282,9 +282,9 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const exportRate = netUsageKwh > 1500 ? 0.3703 : smp;
     const exportRateBaseline = netUsageBaseline > 1500 ? 0.3703 : smp;
 
-    const exportSaving = exportKwh * exportRate;
+    const exportSavingRaw = exportKwh * exportRate;
     const backupGenerationSaving = backupGenerationKwh * exportRate;
-    const exportSavingBaseline = exportKwhBaseline * exportRateBaseline;
+    const exportSavingBaselineRaw = exportKwhBaseline * exportRateBaseline;
 
     const beforeBreakdown = buildBillBreakdown(tariff, afaRate);
     const afterBreakdown = buildBillBreakdown(afterTariff, afaRate);
@@ -299,6 +299,12 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const billReductionBaseline = afterBillBaseline !== null
       ? Math.max(0, billBefore - afterBillBaseline)
       : morningSaving;
+    const exportSavingBaseline = afterBillBaseline !== null
+      ? Math.min(exportSavingBaselineRaw, afterBillBaseline)
+      : exportSavingBaselineRaw;
+    const estimatedPayableAfterSolarBaseline = afterBillBaseline !== null
+      ? Math.max(0, afterBillBaseline - exportSavingBaselineRaw)
+      : Math.max(0, billBefore - (billReductionBaseline + exportSavingBaseline));
 
     const afterBill = afterBreakdown ? afterBreakdown.total : null;
     const afterUsageMatched = afterTariff && afterTariff.usage_kwh !== null
@@ -306,6 +312,12 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
       : null;
 
     const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
+    const exportSaving = afterBill !== null
+      ? Math.min(exportSavingRaw, afterBill)
+      : exportSavingRaw;
+    const estimatedPayableAfterSolar = afterBill !== null
+      ? Math.max(0, afterBill - exportSavingRaw)
+      : Math.max(0, billBefore - (billReduction + exportSaving));
 
     const totalMonthlySavings = billReduction + exportSaving;
     const totalMonthlySavingsBaseline = billReductionBaseline + exportSavingBaseline;
@@ -344,9 +356,11 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const savingsBreakdown = {
       billReduction: Number(billReduction.toFixed(2)),
       exportCredit: Number(exportSaving.toFixed(2)),
+      exportCreditRaw: Number(exportSavingRaw.toFixed(2)),
       afaImpact: Number(afaSaving.toFixed(2)),
       baseBillReduction: Number(baseBillReduction.toFixed(2)),
-      total: Number((billReduction + exportSaving).toFixed(2))
+      total: Number((billReduction + exportSaving).toFixed(2)),
+      payableAfterSolar: Number(estimatedPayableAfterSolar.toFixed(2))
     };
 
     let systemCostBeforeDiscount = null;
@@ -465,6 +479,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         backupGenerationSaving: backupGenerationSaving.toFixed(2),
         donatedKwh: donatedKwh.toFixed(2),
         exportSaving: exportSaving.toFixed(2),
+        exportSavingRaw: exportSavingRaw.toFixed(2),
         morningUsageRate: morningUsageRate,
         exportRate: exportRate,
         effectiveExportRate: exportRate.toFixed(4),
@@ -472,6 +487,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         afterUsageKwh: (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh).toFixed(2),
         billBefore: billBefore.toFixed(2),
         billAfter: afterBill !== null ? afterBill.toFixed(2) : null,
+        estimatedPayableAfterSolar: estimatedPayableAfterSolar.toFixed(2),
         billReduction: billReduction.toFixed(2),
         billBreakdown: {
           before: beforeBreakdown,
@@ -492,10 +508,12 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
           baseline: {
             billReduction: billReductionBaseline.toFixed(2),
             exportCredit: exportSavingBaseline.toFixed(2),
+            exportCreditRaw: exportSavingBaselineRaw.toFixed(2),
             afaImpact: ((monthlyUsageKwh - (afterUsageMatchedBaseline || netUsageBaseline)) * afaRate).toFixed(2),
             baseBillReduction: (billReductionBaseline - ((monthlyUsageKwh - (afterUsageMatchedBaseline || netUsageBaseline)) * afaRate)).toFixed(2),
             totalSavings: totalMonthlySavingsBaseline.toFixed(2),
             billAfter: afterBillBaseline !== null ? afterBillBaseline.toFixed(2) : null,
+            estimatedPayableAfterSolar: estimatedPayableAfterSolarBaseline.toFixed(2),
             usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null,
             billBreakdown: {
               before: beforeBreakdown,
