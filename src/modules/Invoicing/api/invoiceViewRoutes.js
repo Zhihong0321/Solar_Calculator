@@ -22,7 +22,7 @@ const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
   systemPhase: 3
 });
 
-function buildPublicSolarEstimateResponse(calculationResult, averageBill) {
+function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage) {
   const beforeSolarBill = Number(averageBill);
   const monthlySaving = Number(calculationResult.monthlySavings);
   const billAfterSolar = Number(calculationResult.details?.billAfter);
@@ -39,9 +39,11 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill) {
     estimated_new_bill_amount: Number.isFinite(estimatedNewBillAmount) ? Number(estimatedNewBillAmount.toFixed(2)) : null,
     bill_after_solar_before_export: Number.isFinite(billAfterSolar) ? Number(billAfterSolar.toFixed(2)) : null,
     export_earning: Number.isFinite(exportSaving) ? Number(exportSaving.toFixed(2)) : null,
+    day_usage_share: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
+    charts: calculationResult.charts || null,
     assumptions: {
       sunPeakHour: DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour,
-      offsetPercent: DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
+      offsetPercent: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
       batterySize: DEFAULT_PUBLIC_SOLAR_ESTIMATE.batterySize,
       systemPhase: DEFAULT_PUBLIC_SOLAR_ESTIMATE.systemPhase
     }
@@ -53,9 +55,16 @@ async function handlePublicSolarEstimate(req, res) {
     const { tokenOrId } = req.params;
     const averageBill = Number(req.body?.averageBill);
     const shouldSave = Boolean(req.body?.save);
+    const requestedMorningUsage = Number(req.body?.morningUsage);
+    const morningUsage = Number.isFinite(requestedMorningUsage)
+      ? requestedMorningUsage
+      : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage;
 
     if (!Number.isFinite(averageBill) || averageBill <= 0) {
       return res.status(400).json({ success: false, error: 'Average bill amount must be greater than 0.' });
+    }
+    if (!Number.isFinite(morningUsage) || morningUsage < 1 || morningUsage > 100) {
+      return res.status(400).json({ success: false, error: 'Day usage share must be between 1 and 100.' });
     }
 
     const client = await pool.connect();
@@ -79,10 +88,11 @@ async function handlePublicSolarEstimate(req, res) {
         amount: averageBill,
         panelType: panelRating,
         overridePanels: panelQty,
+        morningUsage,
         ...DEFAULT_PUBLIC_SOLAR_ESTIMATE
       });
 
-      const estimate = buildPublicSolarEstimateResponse(calculationResult, averageBill);
+      const estimate = buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage);
 
       if (shouldSave) {
         const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);

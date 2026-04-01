@@ -60,9 +60,11 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const solarSavingsSectionIntro = hasSolarSavingsSection
         ? 'Your solar estimate at a glance'
         : 'Estimate your savings with this package';
-    const solarSavingsHelperText = hasSolarSavingsSection
-        ? 'Based on this quotation package and the latest saved estimate.'
-        : 'Enter your average TNB bill to preview savings using default assumptions: 3.4 sun peak, 30% offset, and this package size.';
+    const solarSavingsHelperText = showInteractiveControls
+        ? (hasSolarSavingsSection
+            ? 'Switch between low and high day usage to compare direct offset versus export, based on this quotation package.'
+            : 'Enter your average TNB bill, then compare Low Day Usage (30%) vs High Day Usage (80%) using this package size.')
+        : 'Based on this quotation package and the latest saved estimate.';
 
     // Decide title based on status: QUOTATION for drafts/pending, INVOICE for confirmed/paid
     const isConfirmed = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
@@ -1017,12 +1019,37 @@ body.a4-preview .terms-signature {
         window.open('/view/' + shareToken + '?layout=a4', '_blank', 'noopener');
       }
 
+      const solarEstimateEndpointBase = window.location.pathname.startsWith('/view2/') ? '/view2/' : '/view/';
+      const solarScenarioConfig = {
+        low30: {
+          key: 'low30',
+          label: 'Low Day Usage',
+          shortLabel: '30% Offset',
+          morningUsage: 30,
+          summary: 'Lower daytime usage sends more solar to grid export, which usually earns less per kWh than direct offset.'
+        },
+        high80: {
+          key: 'high80',
+          label: 'High Day Usage',
+          shortLabel: '80% Offset',
+          morningUsage: 80,
+          summary: 'Higher daytime usage lets more solar offset your own bill directly, which usually gives stronger savings.'
+        }
+      };
+
       const solarEstimateState = {
         identifier: ${JSON.stringify(estimateIdentifier)},
         hasSavedEstimate: ${hasSolarSavingsSection ? 'true' : 'false'},
         canEstimate: ${canEstimateSolarSavings ? 'true' : 'false'},
         currentAverageBill: ${beforeSolarBill !== null ? beforeSolarBill.toFixed(2) : 'null'},
-        latestPreview: null
+        currentScenarioKey: 'low30',
+        latestPreview: null,
+        savedEstimate: ${hasSolarSavingsSection ? `{
+          customer_average_tnb: ${beforeSolarBill !== null ? beforeSolarBill.toFixed(2) : 'null'},
+          estimated_new_bill_amount: ${afterSolarBill !== null ? afterSolarBill.toFixed(2) : 'null'},
+          estimated_saving: ${estimatedMonthlySaving !== null ? estimatedMonthlySaving.toFixed(2) : 'null'}
+        }` : 'null'},
+        cache: {}
       };
 
       function formatSolarEstimateMoney(value) {
@@ -1047,6 +1074,113 @@ body.a4-preview .terms-signature {
         statusEl.style.color = style.color;
       }
 
+      function setSolarScenarioButtonsDisabled(disabled) {
+        Object.keys(solarScenarioConfig).forEach((scenarioKey) => {
+          const button = document.getElementById('solarScenarioBtn_' + scenarioKey);
+          if (button) button.disabled = disabled;
+        });
+        const recalcBtn = document.getElementById('solarRecalculateBtn');
+        const saveBtn = document.getElementById('saveSolarScenarioBtn');
+        if (recalcBtn) recalcBtn.disabled = disabled;
+        if (saveBtn) saveBtn.disabled = disabled;
+      }
+
+      function updateSolarScenarioButtons() {
+        Object.keys(solarScenarioConfig).forEach((scenarioKey) => {
+          const button = document.getElementById('solarScenarioBtn_' + scenarioKey);
+          if (!button) return;
+
+          const isActive = solarEstimateState.currentScenarioKey === scenarioKey;
+          button.style.background = isActive ? '#0f172a' : '#ffffff';
+          button.style.color = isActive ? '#ffffff' : '#0f172a';
+          button.style.borderColor = isActive ? '#0f172a' : '#cbd5e1';
+          button.style.boxShadow = isActive ? '0 10px 20px rgba(15, 23, 42, 0.16)' : 'none';
+        });
+      }
+
+      function updateScenarioSummary() {
+        const summaryEl = document.getElementById('solarScenarioSummary');
+        if (!summaryEl) return;
+
+        const scenario = solarScenarioConfig[solarEstimateState.currentScenarioKey];
+        if (!scenario) {
+          summaryEl.textContent = 'Choose a scenario to see how direct offset and export change your savings.';
+          return;
+        }
+
+        summaryEl.textContent = scenario.label + ' (' + scenario.shortLabel + '): ' + scenario.summary;
+      }
+
+      function renderSolarUsageChart(data) {
+        const chartGrid = document.getElementById('solarEstimateChartGrid');
+        const chartHours = document.getElementById('solarEstimateChartHours');
+        const chartEmpty = document.getElementById('solarEstimateChartEmpty');
+
+        if (!chartGrid || !chartHours) return;
+
+        if (!data || !data.charts || !Array.isArray(data.charts.electricityUsagePattern) || !Array.isArray(data.charts.solarGenerationPattern)) {
+          chartGrid.innerHTML = '';
+          chartHours.innerHTML = '';
+          if (chartEmpty) {
+            chartEmpty.style.display = 'block';
+            chartEmpty.textContent = 'Enter an average TNB bill and choose a scenario to see the 24-hour offset chart.';
+          }
+          return;
+        }
+
+        const usagePattern = data.charts.electricityUsagePattern.slice(0, 24).map((entry) => Number(entry.usage) || 0);
+        const solarPattern = data.charts.solarGenerationPattern.slice(0, 24).map((entry) => Number(entry.generation) || 0);
+        const maxValue = Math.max(1, ...usagePattern, ...solarPattern);
+        const rows = 10;
+
+        const columnsHtml = usagePattern.map((usage, hour) => {
+          const solar = solarPattern[hour] || 0;
+          const usageUnits = Math.min(rows, Math.ceil((usage / maxValue) * rows));
+          const solarUnits = Math.min(rows, Math.ceil((solar / maxValue) * rows));
+          const offsetUnits = Math.min(usageUnits, solarUnits);
+
+          const blocks = Array.from({ length: rows }, (_, levelIndex) => {
+            const level = levelIndex + 1;
+            let blockColor = 'transparent';
+            let borderColor = 'rgba(203, 213, 225, 0.5)';
+
+            if (level <= offsetUnits) {
+              blockColor = '#6d97df';
+              borderColor = '#dc6a6a';
+            } else if (solarUnits > usageUnits && level <= solarUnits) {
+              blockColor = '#6cab4f';
+              borderColor = '#6cab4f';
+            } else if (usageUnits > solarUnits && level <= usageUnits) {
+              blockColor = '#dc6363';
+              borderColor = '#dc6363';
+            }
+
+            return '<div style="height: 14px; border-radius: 4px; background: ' + blockColor + '; border: 1px solid ' + borderColor + ';"></div>';
+          }).join('');
+
+          return '<div style="display:flex; flex-direction:column-reverse; gap:4px;">' + blocks + '</div>';
+        }).join('');
+
+        const hourLabelsHtml = Array.from({ length: 24 }, (_, hour) => {
+          const label = hour % 3 === 0 ? String(hour).padStart(2, '0') : '';
+          return '<div style="text-align:center; font-size:10px; font-weight:700; color:#64748b;">' + label + '</div>';
+        }).join('');
+
+        chartGrid.innerHTML = columnsHtml;
+        chartHours.innerHTML = hourLabelsHtml;
+
+        if (chartEmpty) {
+          chartEmpty.style.display = 'none';
+          chartEmpty.textContent = '';
+        }
+      }
+
+      function updateSolarSaveButtonVisibility(hasPreview) {
+        const saveBtn = document.getElementById('saveSolarScenarioBtn');
+        if (!saveBtn) return;
+        saveBtn.style.display = hasPreview ? 'inline-flex' : 'none';
+      }
+
       function applySolarEstimateToPage(data, options = {}) {
         const beforeValue = document.getElementById('solarEstimateBeforeValue');
         const afterValue = document.getElementById('solarEstimateAfterValue');
@@ -1057,26 +1191,35 @@ body.a4-preview .terms-signature {
         if (afterValue) afterValue.textContent = formatSolarEstimateMoney(data.estimated_new_bill_amount);
         if (savingValue) savingValue.textContent = formatSolarEstimateMoney(data.estimated_saving);
 
+        renderSolarUsageChart(data);
+        updateSolarScenarioButtons();
+        updateScenarioSummary();
+        updateSolarSaveButtonVisibility(Boolean(data && solarEstimateState.currentAverageBill));
+
         if (saveHint) {
           saveHint.textContent = options.saved
             ? 'Saved to this quotation.'
-            : 'Preview updated. Save if you want this estimate stored in the quotation.';
+            : 'Preview updated. Save this scenario if you want these numbers stored in the quotation.';
           saveHint.style.display = options.showSaveHint ? 'block' : 'none';
         }
 
         updateSolarEstimateStatus(
           options.saved
-            ? 'This quotation now includes the latest solar estimate.'
-            : 'Estimate calculated using default assumptions and this package size.',
+            ? 'This quotation now includes the latest solar estimate for the selected day-usage scenario.'
+            : 'Preview updated. Switch between scenarios to compare direct offset versus grid export.',
           options.saved ? 'success' : 'neutral'
         );
       }
 
-      async function requestSolarEstimate(averageBill, save) {
-        const response = await fetch('/view/' + solarEstimateState.identifier + '/solar-estimate', {
+      async function requestSolarEstimate(averageBill, options = {}) {
+        const response = await fetch(solarEstimateEndpointBase + solarEstimateState.identifier + '/solar-estimate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ averageBill, save })
+          body: JSON.stringify({
+            averageBill,
+            save: Boolean(options.save),
+            morningUsage: options.morningUsage
+          })
         });
 
         const result = await response.json();
@@ -1084,10 +1227,64 @@ body.a4-preview .terms-signature {
           throw new Error(result.error || 'Failed to calculate solar estimate');
         }
 
-        return result;
+        return result.data;
       }
 
-      async function openSolarEstimatePrompt() {
+      async function loadSolarScenarioPreview(scenarioKey, options = {}) {
+        const scenario = solarScenarioConfig[scenarioKey];
+        if (!scenario) return null;
+
+        if (!solarEstimateState.currentAverageBill) {
+          return openSolarEstimatePrompt(scenarioKey);
+        }
+
+        solarEstimateState.currentScenarioKey = scenarioKey;
+        updateSolarScenarioButtons();
+        updateScenarioSummary();
+
+        const cacheKey = scenarioKey + '::' + String(solarEstimateState.currentAverageBill);
+        if (!options.force && !options.save && solarEstimateState.cache[cacheKey]) {
+          const cached = solarEstimateState.cache[cacheKey];
+          solarEstimateState.latestPreview = cached;
+          applySolarEstimateToPage(cached, { showSaveHint: true, saved: false });
+          return cached;
+        }
+
+        try {
+          setSolarScenarioButtonsDisabled(true);
+          if (options.loadingMessage) {
+            updateSolarEstimateStatus(options.loadingMessage, 'neutral');
+          }
+
+          const data = await requestSolarEstimate(solarEstimateState.currentAverageBill, {
+            save: options.save,
+            morningUsage: scenario.morningUsage
+          });
+
+          solarEstimateState.cache[cacheKey] = data;
+          solarEstimateState.latestPreview = data;
+
+          if (options.save) {
+            solarEstimateState.savedEstimate = {
+              customer_average_tnb: data.customer_average_tnb,
+              estimated_new_bill_amount: data.estimated_new_bill_amount,
+              estimated_saving: data.estimated_saving
+            };
+            solarEstimateState.hasSavedEstimate = true;
+          }
+
+          applySolarEstimateToPage(data, {
+            showSaveHint: true,
+            saved: Boolean(options.save)
+          });
+
+          return data;
+        } finally {
+          setSolarScenarioButtonsDisabled(false);
+        }
+      }
+
+      async function openSolarEstimatePrompt(preferredScenarioKey = solarEstimateState.currentScenarioKey) {
         if (!solarEstimateState.canEstimate || !solarEstimateState.identifier) {
           return Swal.fire({
             icon: 'info',
@@ -1108,7 +1305,7 @@ body.a4-preview .terms-signature {
             step: '1'
           },
           showCancelButton: true,
-          confirmButtonText: 'Calculate',
+          confirmButtonText: 'Use This Bill',
           confirmButtonColor: '#059669',
           cancelButtonText: 'Cancel',
           preConfirm: (value) => {
@@ -1122,74 +1319,123 @@ body.a4-preview .terms-signature {
         });
 
         if (!inputValue) {
-          return;
+          return null;
+        }
+
+        const billChanged = Number(inputValue) !== Number(solarEstimateState.currentAverageBill);
+        solarEstimateState.currentAverageBill = Number(inputValue);
+        solarEstimateState.currentScenarioKey = preferredScenarioKey;
+
+        if (billChanged) {
+          solarEstimateState.cache = {};
+          solarEstimateState.latestPreview = null;
+        }
+
+        await loadSolarScenarioPreview(preferredScenarioKey, {
+          force: true,
+          loadingMessage: 'Calculating the selected day-usage scenario...'
+        });
+
+        return true;
+      }
+
+      async function switchSolarScenario(scenarioKey) {
+        if (!solarEstimateState.currentAverageBill) {
+          return openSolarEstimatePrompt(scenarioKey);
         }
 
         try {
-          Swal.fire({
-            title: 'Calculating...',
-            text: 'Checking this package against your bill amount.',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            didOpen: () => Swal.showLoading()
-          });
-
-          const result = await requestSolarEstimate(inputValue, false);
-          const estimate = result.data;
-
-          solarEstimateState.currentAverageBill = estimate.customer_average_tnb;
-          solarEstimateState.latestPreview = estimate;
-          applySolarEstimateToPage(estimate, { showSaveHint: true, saved: false });
-
-          const saveChoice = await Swal.fire({
-            icon: 'success',
-            title: 'Estimate Ready',
-            html:
-              '<div style="text-align:left;font-size:14px;line-height:1.7;">' +
-              '<div><strong>Your Average TNB Bill:</strong> ' + formatSolarEstimateMoney(estimate.customer_average_tnb) + '</div>' +
-              '<div><strong>New Bill After Solar:</strong> ' + formatSolarEstimateMoney(estimate.estimated_new_bill_amount) + '</div>' +
-              '<div><strong>Estimated Monthly Saving:</strong> ' + formatSolarEstimateMoney(estimate.estimated_saving) + '</div>' +
-              '</div>',
-            showDenyButton: true,
-            confirmButtonText: 'Save Estimate',
-            denyButtonText: 'Keep Preview Only',
-            confirmButtonColor: '#059669',
-            denyButtonColor: '#0f172a'
-          });
-
-          if (!saveChoice.isConfirmed) {
-            updateSolarEstimateStatus('Preview updated. The quotation is unchanged until you save the estimate.', 'warning');
-            return;
-          }
-
-          Swal.fire({
-            title: 'Saving...',
-            text: 'Updating this quotation with the new estimate.',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            didOpen: () => Swal.showLoading()
-          });
-
-          const savedResult = await requestSolarEstimate(inputValue, true);
-          solarEstimateState.hasSavedEstimate = true;
-          solarEstimateState.latestPreview = null;
-          applySolarEstimateToPage(savedResult.data, { showSaveHint: true, saved: true });
-
-          await Swal.fire({
-            icon: 'success',
-            title: 'Estimate Saved',
-            text: 'The solar saving section has been updated for this quotation.',
-            confirmButtonColor: '#059669'
+          await loadSolarScenarioPreview(scenarioKey, {
+            loadingMessage: 'Updating the solar offset comparison...'
           });
         } catch (err) {
           await Swal.fire({
             icon: 'error',
-            title: 'Recalculation Failed',
+            title: 'Scenario Update Failed',
             text: err.message,
             confirmButtonColor: '#0f172a'
           });
         }
       }
+
+      async function saveCurrentSolarScenario() {
+        if (!solarEstimateState.currentAverageBill) {
+          return openSolarEstimatePrompt(solarEstimateState.currentScenarioKey);
+        }
+
+        try {
+          Swal.fire({
+            title: 'Saving...',
+            text: 'Updating this quotation with the selected scenario.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => Swal.showLoading()
+          });
+
+          await loadSolarScenarioPreview(solarEstimateState.currentScenarioKey, {
+            force: true,
+            save: true
+          });
+
+          await Swal.fire({
+            icon: 'success',
+            title: 'Scenario Saved',
+            text: 'The quotation now stores the currently selected day-usage scenario.',
+            confirmButtonColor: '#059669'
+          });
+        } catch (err) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Save Failed',
+            text: err.message,
+            confirmButtonColor: '#0f172a'
+          });
+        }
+      }
+
+      async function initializeSolarScenarioEstimate() {
+        updateSolarScenarioButtons();
+        updateScenarioSummary();
+
+        if (!solarEstimateState.canEstimate || !solarEstimateState.currentAverageBill) {
+          renderSolarUsageChart(null);
+          updateSolarSaveButtonVisibility(false);
+          return;
+        }
+
+        try {
+          const billAmount = solarEstimateState.currentAverageBill;
+          const [lowEstimate, highEstimate] = await Promise.all([
+            requestSolarEstimate(billAmount, { morningUsage: solarScenarioConfig.low30.morningUsage }),
+            requestSolarEstimate(billAmount, { morningUsage: solarScenarioConfig.high80.morningUsage })
+          ]);
+
+          solarEstimateState.cache['low30::' + String(billAmount)] = lowEstimate;
+          solarEstimateState.cache['high80::' + String(billAmount)] = highEstimate;
+
+          const savedEstimate = solarEstimateState.savedEstimate;
+          if (savedEstimate) {
+            const lowScore = Math.abs((Number(lowEstimate.estimated_saving) || 0) - (Number(savedEstimate.estimated_saving) || 0))
+              + Math.abs((Number(lowEstimate.estimated_new_bill_amount) || 0) - (Number(savedEstimate.estimated_new_bill_amount) || 0));
+            const highScore = Math.abs((Number(highEstimate.estimated_saving) || 0) - (Number(savedEstimate.estimated_saving) || 0))
+              + Math.abs((Number(highEstimate.estimated_new_bill_amount) || 0) - (Number(savedEstimate.estimated_new_bill_amount) || 0));
+
+            solarEstimateState.currentScenarioKey = highScore < lowScore ? 'high80' : 'low30';
+          }
+
+          const initialData = solarEstimateState.currentScenarioKey === 'high80' ? highEstimate : lowEstimate;
+          solarEstimateState.latestPreview = initialData;
+          applySolarEstimateToPage(initialData, {
+            showSaveHint: false,
+            saved: solarEstimateState.hasSavedEstimate
+          });
+        } catch (err) {
+          renderSolarUsageChart(null);
+          updateSolarEstimateStatus('Saved estimate shown. Use Recalculate if you want to compare day-usage scenarios again.', 'warning');
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', initializeSolarScenarioEstimate);
 
       function resetSignature() {
         Swal.fire({
@@ -1332,7 +1578,7 @@ body.a4-preview .terms-signature {
                             ${solarSavingsSectionBadge}
                         </div>
                         ${showInteractiveControls && canEstimateSolarSavings ? `
-                        <button type="button" onclick="openSolarEstimatePrompt()" style="border: 1px solid #0f172a; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 16px; cursor: pointer; white-space: nowrap;">
+                        <button type="button" id="solarRecalculateBtn" onclick="openSolarEstimatePrompt()" style="border: 1px solid #0f172a; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 16px; cursor: pointer; white-space: nowrap;">
                             Recalculate
                         </button>
                         ` : ''}
@@ -1340,7 +1586,7 @@ body.a4-preview .terms-signature {
                 </div>
                 <div id="solarEstimateStatus" style="margin-bottom: 14px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; padding: 12px 14px; font-size: 12px; line-height: 1.6; color: #1d4ed8;">
                     ${hasSolarSavingsSection
-                        ? 'This quotation already has a saved solar estimate.'
+                        ? 'This quotation already has a saved solar estimate. Use the day-usage buttons below to compare scenarios.'
                         : 'No saved estimate yet. Use Recalculate to preview this package against your average TNB bill.'}
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
@@ -1364,6 +1610,45 @@ body.a4-preview .terms-signature {
                     </div>
                 </div>
                 ${showInteractiveControls && canEstimateSolarSavings ? `
+                <div style="margin-top: 18px; border: 1px solid #dbeafe; border-radius: 14px; background: #f8fbff; padding: 16px;">
+                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
+                        <div style="font-size: 13px; font-weight: 700; color: #0f172a;">How the saving is calculated</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <button type="button" id="solarScenarioBtn_low30" onclick="switchSolarScenario('low30')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                                Low Day Usage (30%)
+                            </button>
+                            <button type="button" id="solarScenarioBtn_high80" onclick="switchSolarScenario('high80')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                                High Day Usage (80%)
+                            </button>
+                            <button type="button" id="saveSolarScenarioBtn" onclick="saveCurrentSolarScenario()" style="display: none; border: 1px solid #059669; border-radius: 999px; background: #059669; color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                                Save This Scenario
+                            </button>
+                        </div>
+                    </div>
+                    <div id="solarScenarioSummary" style="margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #334155;">
+                        Choose a scenario to see how direct offset and export change your savings.
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 12px; font-size: 12px; color: #475569;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span style="width: 14px; height: 14px; border-radius: 4px; background: #dc6363; border: 1px solid #dc6363;"></span>
+                            <span>Usage</span>
+                        </div>
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span style="width: 14px; height: 14px; border-radius: 4px; background: #6d97df; border: 1px solid #dc6a6a;"></span>
+                            <span>Solar offset usage</span>
+                        </div>
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span style="width: 14px; height: 14px; border-radius: 4px; background: #6cab4f; border: 1px solid #6cab4f;"></span>
+                            <span>Excess solar export</span>
+                        </div>
+                    </div>
+                    <div style="border: 1px solid #dbeafe; border-radius: 14px; background: #ffffff; padding: 14px;">
+                        <div id="solarEstimateChartEmpty" style="font-size: 12px; line-height: 1.7; color: #64748b;">Enter an average TNB bill and choose a scenario to see the 24-hour offset chart.</div>
+                        <div id="solarEstimateChartGrid" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; align-items: end; min-height: 176px;"></div>
+                        <div id="solarEstimateChartHours" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; margin-top: 10px;"></div>
+                        <div style="margin-top: 10px; font-size: 11px; color: #64748b;">24 columns, 1 hour per column. 10 rows show relative usage and solar intensity.</div>
+                    </div>
+                </div>
                 <div id="solarEstimateSaveHint" style="display: none; margin-top: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
                 ` : ''}
                 <div style="margin-top: 14px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; padding: 12px 14px;">
