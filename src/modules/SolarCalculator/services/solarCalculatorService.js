@@ -120,6 +120,42 @@ const calculateBreakdownDelta = (beforeValue, afterValue) => {
   return before - after;
 };
 
+const DAY_USAGE_WEIGHTS = [
+  0, 0, 0, 0, 0, 0, 0.35, 0.7, 0.95, 1.05, 1.12, 1.18,
+  1.2, 1.14, 1.02, 0.92, 0.82, 0.72, 0.48, 0
+];
+
+const NIGHT_USAGE_WEIGHTS = [
+  0.42, 0.38, 0.34, 0.3, 0.32, 0.44, 0.6, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0.58, 0.92, 1.08, 1.14, 1.02, 0.7
+];
+
+function buildUsagePattern(dailyUsageKwh, dayUsagePercent) {
+  const safeDailyUsage = Number.isFinite(dailyUsageKwh) ? Math.max(0, dailyUsageKwh) : 0;
+  const safeDayUsagePercent = Number.isFinite(dayUsagePercent)
+    ? Math.min(100, Math.max(0, dayUsagePercent))
+    : 30;
+
+  const dayUsageKwh = safeDailyUsage * (safeDayUsagePercent / 100);
+  const nightUsageKwh = Math.max(0, safeDailyUsage - dayUsageKwh);
+  const dayWeightTotal = DAY_USAGE_WEIGHTS.reduce((sum, weight) => sum + weight, 0) || 1;
+  const nightWeightTotal = NIGHT_USAGE_WEIGHTS.reduce((sum, weight) => sum + weight, 0) || 1;
+
+  return Array.from({ length: 24 }, (_, hour) => {
+    const dayPortion = DAY_USAGE_WEIGHTS[hour] > 0
+      ? (dayUsageKwh * DAY_USAGE_WEIGHTS[hour]) / dayWeightTotal
+      : 0;
+    const nightPortion = NIGHT_USAGE_WEIGHTS[hour] > 0
+      ? (nightUsageKwh * NIGHT_USAGE_WEIGHTS[hour]) / nightWeightTotal
+      : 0;
+
+    return {
+      hour,
+      usage: (dayPortion + nightPortion).toFixed(3)
+    };
+  });
+}
+
 /**
  * Main Calculation Logic
  * @param {object} pool - Database pool
@@ -387,45 +423,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
 
     // Patterns
     const dailyUsageKwh = monthlyUsageKwh / 30;
-    const electricityUsagePattern = [];
-    for (let hour = 0; hour < 24; hour++) {
-      let usageMultiplier;
-      if (hour >= 0 && hour <= 4) {
-        usageMultiplier = 0.18;
-      } else if (hour === 5) {
-        usageMultiplier = 0.32;
-      } else if (hour === 6) {
-        usageMultiplier = 1.05 * (morningPercent / 100);
-      } else if (hour === 7) {
-        usageMultiplier = 1.35 * (morningPercent / 100);
-      } else if (hour === 8) {
-        usageMultiplier = 1.6 * (morningPercent / 100);
-      } else if (hour === 9) {
-        usageMultiplier = 1.25 * (morningPercent / 100);
-      } else if (hour >= 10 && hour <= 16) {
-        usageMultiplier = 0.68 * (1 - (morningPercent / 100) * 0.28);
-      } else if (hour === 17) {
-        usageMultiplier = 0.92;
-      } else if (hour === 18) {
-        usageMultiplier = 1.7;
-      } else if (hour === 19) {
-        usageMultiplier = 1.95;
-      } else if (hour === 20) {
-        usageMultiplier = 2.12;
-      } else if (hour === 21) {
-        usageMultiplier = 2.18;
-      } else if (hour === 22) {
-        usageMultiplier = 1.88;
-      } else if (hour === 23) {
-        usageMultiplier = 0.95;
-      } else {
-        usageMultiplier = 0.24;
-      }
-      electricityUsagePattern.push({
-        hour: hour,
-        usage: (dailyUsageKwh * usageMultiplier / 10).toFixed(3)
-      });
-    }
+    const electricityUsagePattern = buildUsagePattern(dailyUsageKwh, morningPercent);
 
     const solarGenerationPattern = [];
     for (let hour = 0; hour < 24; hour++) {

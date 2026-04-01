@@ -226,7 +226,11 @@ body.a4-preview .summary-section,
 body.a4-preview .terms-signature,
 body.a4-preview .invoice-footer,
 body.a4-preview .signature-image,
-body.a4-preview .promotional-banner {
+body.a4-preview .promotional-banner,
+body.a4-preview .avoid-break,
+body.a4-preview .solar-estimate-section,
+body.a4-preview .solar-estimate-shell,
+body.a4-preview .solar-estimate-cards {
     break-inside: avoid;
     page-break-inside: avoid;
 }
@@ -1741,7 +1745,7 @@ body.a4-preview .terms-signature {
         </section>
 
         ${showSolarSavingsSection ? `
-        <section class="solar-estimate-section" style="padding: 0 50px; margin-bottom: 32px;">
+        <section class="solar-estimate-section avoid-break" style="padding: 0 50px; margin-bottom: 32px;">
             <div class="solar-estimate-shell" style="border: 1px solid #b7e4c7; border-radius: 14px; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 52%, #f8fafc 100%); padding: 22px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);">
                 <div class="solar-estimate-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px;">
                     <div>

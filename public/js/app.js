@@ -24,6 +24,42 @@ const chartInstances = {
     combined: null
 };
 
+const DAY_USAGE_WEIGHTS = [
+    0, 0, 0, 0, 0, 0, 0.35, 0.7, 0.95, 1.05, 1.12, 1.18,
+    1.2, 1.14, 1.02, 0.92, 0.82, 0.72, 0.48, 0
+];
+
+const NIGHT_USAGE_WEIGHTS = [
+    0.42, 0.38, 0.34, 0.3, 0.32, 0.44, 0.6, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0.58, 0.92, 1.08, 1.14, 1.02, 0.7
+];
+
+function buildUsagePattern(dailyUsageKwh, dayUsagePercent) {
+    const safeDailyUsage = Number.isFinite(dailyUsageKwh) ? Math.max(0, dailyUsageKwh) : 0;
+    const safeDayUsagePercent = Number.isFinite(dayUsagePercent)
+        ? Math.min(100, Math.max(0, dayUsagePercent))
+        : 30;
+
+    const dayUsageKwh = safeDailyUsage * (safeDayUsagePercent / 100);
+    const nightUsageKwh = Math.max(0, safeDailyUsage - dayUsageKwh);
+    const dayWeightTotal = DAY_USAGE_WEIGHTS.reduce((sum, weight) => sum + weight, 0) || 1;
+    const nightWeightTotal = NIGHT_USAGE_WEIGHTS.reduce((sum, weight) => sum + weight, 0) || 1;
+
+    return Array.from({ length: 24 }, (_, hour) => {
+        const dayPortion = DAY_USAGE_WEIGHTS[hour] > 0
+            ? (dayUsageKwh * DAY_USAGE_WEIGHTS[hour]) / dayWeightTotal
+            : 0;
+        const nightPortion = NIGHT_USAGE_WEIGHTS[hour] > 0
+            ? (nightUsageKwh * NIGHT_USAGE_WEIGHTS[hour]) / nightWeightTotal
+            : 0;
+
+        return {
+            hour,
+            usage: (dayPortion + nightPortion).toFixed(3)
+        };
+    });
+}
+
 // --- Initialization ---
 window.onload = function () {
     testConnection();
@@ -449,26 +485,7 @@ class SolarCalculator {
 
         // 10. Chart Data
         const dailyUsageKwh = monthlyUsageKwh / 30;
-        const electricityUsagePattern = [];
-        for (let hour = 0; hour < 24; hour++) {
-            let m;
-            if (hour >= 0 && hour <= 4) m = 0.18;
-            else if (hour === 5) m = 0.32;
-            else if (hour === 6) m = 1.05 * (morningUsage / 100);
-            else if (hour === 7) m = 1.35 * (morningUsage / 100);
-            else if (hour === 8) m = 1.6 * (morningUsage / 100);
-            else if (hour === 9) m = 1.25 * (morningUsage / 100);
-            else if (hour >= 10 && hour <= 16) m = 0.68 * (1 - (morningUsage / 100) * 0.28);
-            else if (hour === 17) m = 0.92;
-            else if (hour === 18) m = 1.7;
-            else if (hour === 19) m = 1.95;
-            else if (hour === 20) m = 2.12;
-            else if (hour === 21) m = 2.18;
-            else if (hour === 22) m = 1.88;
-            else if (hour === 23) m = 0.95;
-            else m = 0.24;
-            electricityUsagePattern.push({ hour, usage: (dailyUsageKwh * m / 10).toFixed(3) });
-        }
+        const electricityUsagePattern = buildUsagePattern(dailyUsageKwh, morningUsage);
         const solarGenPattern = [];
         for (let hour = 0; hour < 24; hour++) {
             let m = 0;

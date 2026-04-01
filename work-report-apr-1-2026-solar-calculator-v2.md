@@ -16,5 +16,7 @@ REPO NAME : Solar Calculator v2
 - Fixed invoice solar comparison chart to reflect true high-vs-low daytime usage distribution
 - Added April create-invoice promo toggles with panel-based rebate amounts
 - Moved create-invoice promo toggles between package info and preview
+- Applied invoice bill-amount precision migration so solar estimate saves can store cents
+- Locked A4 solar savings block to stay on one page instead of splitting across pages
 
 =====================
