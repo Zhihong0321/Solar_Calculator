@@ -1177,6 +1177,26 @@ body.a4-preview .terms-signature {
             </table>
         </section>
 
+        <!-- Warranties -->
+        ${invoice.warranties && invoice.warranties.length > 0 ? `
+        <section class="avoid-break" style="padding: 0 50px; margin-bottom: 40px;">
+           <div class="bg-slate-50 rounded-t-lg border border-slate-200 px-4 py-3 flex text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+             Product Warranties
+           </div>
+           <div class="border border-t-0 border-slate-200 rounded-b-lg p-5 bg-white shadow-sm">
+             <div class="space-y-4">
+               ${invoice.warranties.map((w, idx) => `
+                 <div class="flex flex-col sm:flex-row gap-2 sm:gap-6 sm:items-start text-sm">
+                   <div class="sm:w-1/3 font-bold text-slate-800">${w.name || 'Product'}</div>
+                   <div class="flex-1 text-slate-600 text-xs whitespace-pre-line leading-relaxed">${w.terms || ''}</div>
+                 </div>
+                 ${idx < invoice.warranties.length - 1 ? '<hr class="border-slate-50 my-4">' : ''}
+               `).join('')}
+             </div>
+           </div>
+        </section>
+        ` : ''}
+
         <!-- Summary -->
         <section class="summary-section">
             <div class="summary-left">

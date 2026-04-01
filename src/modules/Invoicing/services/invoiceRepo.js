@@ -151,7 +151,7 @@ async function _fetchWarrantyInfo(client, packageId) {
   try {
     // 1. Get Package Details
     const pkgRes = await client.query(
-      `SELECT panel, linked_package_item 
+      `SELECT panel, inverter_1, inverter_2, inverter_3, inverter_4, linked_package_item 
        FROM package 
        WHERE bubble_id = $1`,
       [packageId]
@@ -163,6 +163,10 @@ async function _fetchWarrantyInfo(client, packageId) {
     // 2. Collect Product IDs
     const productIds = [];
     if (pkg.panel) productIds.push(pkg.panel);
+    if (pkg.inverter_1) productIds.push(pkg.inverter_1);
+    if (pkg.inverter_2) productIds.push(pkg.inverter_2);
+    if (pkg.inverter_3) productIds.push(pkg.inverter_3);
+    if (pkg.inverter_4) productIds.push(pkg.inverter_4);
 
     // 3. Check Package Items for more products
     const linkedItems = pkg.linked_package_item;
