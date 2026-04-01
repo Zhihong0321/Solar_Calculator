@@ -1306,7 +1306,13 @@ body.a4-preview .terms-signature {
         }).join('');
 
         const hourLabelsHtml = Array.from({ length: 24 }, (_, hour) => {
-          const label = hour % 3 === 0 ? String(hour).padStart(2, '0') : '';
+          const label = hour % 2 === 0
+            ? new Date(Date.UTC(2000, 0, 1, hour, 0, 0)).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                hour12: true,
+                timeZone: 'UTC'
+              }).replace(/\s/g, '')
+            : '';
           return '<div style="text-align:center; font-size:' + labelFontSize + 'px; font-weight:700; color:#64748b;">' + label + '</div>';
         }).join('');
 

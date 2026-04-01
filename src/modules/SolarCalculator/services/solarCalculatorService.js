@@ -390,14 +390,36 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const electricityUsagePattern = [];
     for (let hour = 0; hour < 24; hour++) {
       let usageMultiplier;
-      if (hour >= 6 && hour <= 9) {
-        usageMultiplier = 1.8 * (morningPercent / 100);
-      } else if (hour >= 18 && hour <= 22) {
-        usageMultiplier = 2.2;
-      } else if (hour >= 10 && hour <= 17) {
-        usageMultiplier = 0.8 * (1 - (morningPercent / 100) * 0.3);
+      if (hour >= 0 && hour <= 4) {
+        usageMultiplier = 0.18;
+      } else if (hour === 5) {
+        usageMultiplier = 0.32;
+      } else if (hour === 6) {
+        usageMultiplier = 1.05 * (morningPercent / 100);
+      } else if (hour === 7) {
+        usageMultiplier = 1.35 * (morningPercent / 100);
+      } else if (hour === 8) {
+        usageMultiplier = 1.6 * (morningPercent / 100);
+      } else if (hour === 9) {
+        usageMultiplier = 1.25 * (morningPercent / 100);
+      } else if (hour >= 10 && hour <= 16) {
+        usageMultiplier = 0.68 * (1 - (morningPercent / 100) * 0.28);
+      } else if (hour === 17) {
+        usageMultiplier = 0.92;
+      } else if (hour === 18) {
+        usageMultiplier = 1.7;
+      } else if (hour === 19) {
+        usageMultiplier = 1.95;
+      } else if (hour === 20) {
+        usageMultiplier = 2.12;
+      } else if (hour === 21) {
+        usageMultiplier = 2.18;
+      } else if (hour === 22) {
+        usageMultiplier = 1.88;
+      } else if (hour === 23) {
+        usageMultiplier = 0.95;
       } else {
-        usageMultiplier = 0.3;
+        usageMultiplier = 0.24;
       }
       electricityUsagePattern.push({
         hour: hour,

@@ -452,10 +452,21 @@ class SolarCalculator {
         const electricityUsagePattern = [];
         for (let hour = 0; hour < 24; hour++) {
             let m;
-            if (hour >= 6 && hour <= 9) m = 1.8 * (morningUsage / 100);
-            else if (hour >= 18 && hour <= 22) m = 2.2;
-            else if (hour >= 10 && hour <= 17) m = 0.8 * (1 - (morningUsage / 100) * 0.3);
-            else m = 0.3;
+            if (hour >= 0 && hour <= 4) m = 0.18;
+            else if (hour === 5) m = 0.32;
+            else if (hour === 6) m = 1.05 * (morningUsage / 100);
+            else if (hour === 7) m = 1.35 * (morningUsage / 100);
+            else if (hour === 8) m = 1.6 * (morningUsage / 100);
+            else if (hour === 9) m = 1.25 * (morningUsage / 100);
+            else if (hour >= 10 && hour <= 16) m = 0.68 * (1 - (morningUsage / 100) * 0.28);
+            else if (hour === 17) m = 0.92;
+            else if (hour === 18) m = 1.7;
+            else if (hour === 19) m = 1.95;
+            else if (hour === 20) m = 2.12;
+            else if (hour === 21) m = 2.18;
+            else if (hour === 22) m = 1.88;
+            else if (hour === 23) m = 0.95;
+            else m = 0.24;
             electricityUsagePattern.push({ hour, usage: (dailyUsageKwh * m / 10).toFixed(3) });
         }
         const solarGenPattern = [];
