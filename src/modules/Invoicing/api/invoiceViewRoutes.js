@@ -22,7 +22,7 @@ const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
   systemPhase: 3
 });
 
-function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage) {
+function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour) {
   const requestedBillAmount = Number(averageBill);
   const matchedBillAmount = Number(calculationResult.details?.billBefore);
   const beforeSolarBill = Number.isFinite(matchedBillAmount) ? matchedBillAmount : requestedBillAmount;
@@ -48,7 +48,7 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
     day_usage_share: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
     charts: calculationResult.charts || null,
     assumptions: {
-      sunPeakHour: DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour,
+      sunPeakHour: Number.isFinite(Number(sunPeakHour)) ? Number(sunPeakHour) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour,
       offsetPercent: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
       batterySize: DEFAULT_PUBLIC_SOLAR_ESTIMATE.batterySize,
       systemPhase: DEFAULT_PUBLIC_SOLAR_ESTIMATE.systemPhase
@@ -61,16 +61,11 @@ async function handlePublicSolarEstimate(req, res) {
     const { tokenOrId } = req.params;
     const averageBill = Number(req.body?.averageBill);
     const shouldSave = Boolean(req.body?.save);
+    const requestedSunPeakHour = Number(req.body?.sunPeakHour);
     const requestedMorningUsage = Number(req.body?.morningUsage);
-    const morningUsage = Number.isFinite(requestedMorningUsage)
-      ? requestedMorningUsage
-      : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage;
 
     if (!Number.isFinite(averageBill) || averageBill <= 0) {
       return res.status(400).json({ success: false, error: 'Average bill amount must be greater than 0.' });
-    }
-    if (!Number.isFinite(morningUsage) || morningUsage < 1 || morningUsage > 100) {
-      return res.status(400).json({ success: false, error: 'Day usage share must be between 1 and 100.' });
     }
 
     const client = await pool.connect();
@@ -78,6 +73,26 @@ async function handlePublicSolarEstimate(req, res) {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
       if (!invoice) {
         return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      const storedSunPeakHour = Number(invoice?.solar_sun_peak_hour);
+      const storedMorningUsage = Number(invoice?.solar_morning_usage_percent);
+      const sunPeakHour = Number.isFinite(requestedSunPeakHour)
+        ? requestedSunPeakHour
+        : (Number.isFinite(storedSunPeakHour)
+          ? storedSunPeakHour
+          : DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour);
+      const morningUsage = Number.isFinite(requestedMorningUsage)
+        ? requestedMorningUsage
+        : (Number.isFinite(storedMorningUsage)
+          ? storedMorningUsage
+          : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage);
+
+      if (!Number.isFinite(sunPeakHour) || sunPeakHour < 3.0 || sunPeakHour > 4.5) {
+        return res.status(400).json({ success: false, error: 'Sun Peak Hour must be between 3.0 and 4.5.' });
+      }
+      if (!Number.isFinite(morningUsage) || morningUsage < 1 || morningUsage > 100) {
+        return res.status(400).json({ success: false, error: 'Day usage share must be between 1 and 100.' });
       }
 
       const panelQty = parseInt(invoice.panel_qty, 10);
@@ -93,12 +108,13 @@ async function handlePublicSolarEstimate(req, res) {
       const calculationResult = await calculateSolarSavings(pool, tariffPool, {
         ...DEFAULT_PUBLIC_SOLAR_ESTIMATE,
         amount: averageBill,
+        sunPeakHour,
         panelType: panelRating,
         overridePanels: panelQty,
         morningUsage
       });
 
-      const estimate = buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage);
+      const estimate = buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour);
 
       if (shouldSave) {
         const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);
@@ -111,12 +127,16 @@ async function handlePublicSolarEstimate(req, res) {
            SET customer_average_tnb = $1,
                estimated_saving = $2,
                estimated_new_bill_amount = $3,
+               solar_sun_peak_hour = $4,
+               solar_morning_usage_percent = $5,
                updated_at = NOW()
-           WHERE bubble_id = $4`,
+           WHERE bubble_id = $6`,
           [
             estimate.customer_average_tnb,
             estimate.estimated_saving,
             estimate.estimated_new_bill_amount,
+            Number(sunPeakHour.toFixed(2)),
+            Number(morningUsage.toFixed(2)),
             bubbleId
           ]
         );

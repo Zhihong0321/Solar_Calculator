@@ -184,6 +184,12 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.estimated_new_bill_amount !== undefined && invoiceRequestPayload.estimatedNewBillAmount === undefined) {
         invoiceRequestPayload.estimatedNewBillAmount = invoiceRequestPayload.estimated_new_bill_amount;
     }
+    if (invoiceRequestPayload.solar_sun_peak_hour !== undefined && invoiceRequestPayload.solarSunPeakHour === undefined) {
+        invoiceRequestPayload.solarSunPeakHour = invoiceRequestPayload.solar_sun_peak_hour;
+    }
+    if (invoiceRequestPayload.solar_morning_usage_percent !== undefined && invoiceRequestPayload.solarMorningUsagePercent === undefined) {
+        invoiceRequestPayload.solarMorningUsagePercent = invoiceRequestPayload.solar_morning_usage_percent;
+    }
     if (invoiceRequestPayload.apply_earn_now_rebate !== undefined && invoiceRequestPayload.applyEarnNowRebate === undefined) {
         invoiceRequestPayload.applyEarnNowRebate = normalizeBoolean(invoiceRequestPayload.apply_earn_now_rebate);
     }
@@ -380,6 +386,12 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     }
     if (invoiceRequestPayload.estimated_new_bill_amount !== undefined && invoiceRequestPayload.estimatedNewBillAmount === undefined) {
         invoiceRequestPayload.estimatedNewBillAmount = invoiceRequestPayload.estimated_new_bill_amount;
+    }
+    if (invoiceRequestPayload.solar_sun_peak_hour !== undefined && invoiceRequestPayload.solarSunPeakHour === undefined) {
+        invoiceRequestPayload.solarSunPeakHour = invoiceRequestPayload.solar_sun_peak_hour;
+    }
+    if (invoiceRequestPayload.solar_morning_usage_percent !== undefined && invoiceRequestPayload.solarMorningUsagePercent === undefined) {
+        invoiceRequestPayload.solarMorningUsagePercent = invoiceRequestPayload.solar_morning_usage_percent;
     }
     if (invoiceRequestPayload.apply_earn_now_rebate !== undefined && invoiceRequestPayload.applyEarnNowRebate === undefined) {
         invoiceRequestPayload.applyEarnNowRebate = normalizeBoolean(invoiceRequestPayload.apply_earn_now_rebate);

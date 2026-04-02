@@ -886,6 +886,12 @@ window.generateInvoiceLink = function () {
     if (estimatedPayableAfterSolar !== null) {
         params.set('estimated_new_bill_amount', estimatedPayableAfterSolar.toFixed(2));
     }
+    if (latestSolarData.config?.sunPeakHour !== null && latestSolarData.config?.sunPeakHour !== undefined) {
+        params.set('solar_sun_peak_hour', latestSolarData.config.sunPeakHour);
+    }
+    if (latestSolarData.config?.morningUsage !== null && latestSolarData.config?.morningUsage !== undefined) {
+        params.set('solar_morning_usage_percent', latestSolarData.config.morningUsage);
+    }
 
     window.open(`${invoiceBaseUrl}?${params.toString()}`, '_blank');
 };

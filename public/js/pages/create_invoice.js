@@ -338,6 +338,12 @@ function applySolarSavingsParams(urlParams) {
     if (urlParams.has('estimated_new_bill_amount')) {
         setHiddenFieldValue('estimatedNewBillAmount', urlParams.get('estimated_new_bill_amount'));
     }
+    if (urlParams.has('solar_sun_peak_hour')) {
+        setHiddenFieldValue('solarSunPeakHour', urlParams.get('solar_sun_peak_hour'));
+    }
+    if (urlParams.has('solar_morning_usage_percent')) {
+        setHiddenFieldValue('solarMorningUsagePercent', urlParams.get('solar_morning_usage_percent'));
+    }
 }
 
 async function fetchAssignedReferralLeads(selectedReferralId = '', { autofillSelection = false } = {}) {
@@ -1390,6 +1396,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 setHiddenFieldValue('customerAverageTnb', inv.customer_average_tnb);
                 setHiddenFieldValue('estimatedSaving', inv.estimated_saving);
                 setHiddenFieldValue('estimatedNewBillAmount', inv.estimated_new_bill_amount);
+                setHiddenFieldValue('solarSunPeakHour', inv.solar_sun_peak_hour);
+                setHiddenFieldValue('solarMorningUsagePercent', inv.solar_morning_usage_percent);
                 if (inv.linked_referral) applyAssignedReferralSelection(inv.linked_referral, { autofill: false });
 
                 let discountVal = '';
@@ -1807,6 +1815,8 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
             customer_average_tnb: document.getElementById('customerAverageTnb')?.value || null,
             estimated_saving: document.getElementById('estimatedSaving')?.value || null,
             estimated_new_bill_amount: document.getElementById('estimatedNewBillAmount')?.value || null,
+            solar_sun_peak_hour: document.getElementById('solarSunPeakHour')?.value || null,
+            solar_morning_usage_percent: document.getElementById('solarMorningUsagePercent')?.value || null,
             discount_given: data.discount_given || null,
             voucher_codes: selectedVouchers.map(v => v.voucher_code),
             apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,

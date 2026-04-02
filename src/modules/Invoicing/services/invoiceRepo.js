@@ -974,6 +974,8 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const customerAverageTnb = normalizeNullableNumber(data.customerAverageTnb);
   const estimatedSaving = normalizeNullableNumber(data.estimatedSaving);
   const estimatedNewBillAmount = normalizeNullableNumber(data.estimatedNewBillAmount);
+  const solarSunPeakHour = normalizeNullableNumber(data.solarSunPeakHour);
+  const solarMorningUsagePercent = normalizeNullableNumber(data.solarMorningUsagePercent);
 
   const insertColumns = [
     'bubble_id',
@@ -1013,6 +1015,16 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   if (invoiceColumns.has('estimated_new_bill_amount')) {
     insertColumns.push('estimated_new_bill_amount');
     values.push(estimatedNewBillAmount);
+  }
+
+  if (invoiceColumns.has('solar_sun_peak_hour')) {
+    insertColumns.push('solar_sun_peak_hour');
+    values.push(solarSunPeakHour);
+  }
+
+  if (invoiceColumns.has('solar_morning_usage_percent')) {
+    insertColumns.push('solar_morning_usage_percent');
+    values.push(solarMorningUsagePercent);
   }
 
   insertColumns.push(
@@ -1676,6 +1688,8 @@ async function updateInvoiceTransaction(client, data) {
               ${invoiceColumns.has('customer_average_tnb') ? 'customer_average_tnb' : 'NULL::numeric AS customer_average_tnb'},
               ${invoiceColumns.has('estimated_saving') ? 'estimated_saving' : 'NULL::numeric AS estimated_saving'},
               ${invoiceColumns.has('estimated_new_bill_amount') ? 'estimated_new_bill_amount' : 'NULL::numeric AS estimated_new_bill_amount'},
+              ${invoiceColumns.has('solar_sun_peak_hour') ? 'solar_sun_peak_hour' : 'NULL::numeric AS solar_sun_peak_hour'},
+              ${invoiceColumns.has('solar_morning_usage_percent') ? 'solar_morning_usage_percent' : 'NULL::numeric AS solar_morning_usage_percent'},
               version, paid_amount, linked_payment
        FROM invoice
        WHERE bubble_id = $1`,
@@ -1809,6 +1823,24 @@ async function updateInvoiceTransaction(client, data) {
         data.estimatedNewBillAmount !== undefined
           ? normalizeNullableNumber(data.estimatedNewBillAmount)
           : currentData.estimated_new_bill_amount
+      );
+    }
+
+    if (invoiceColumns.has('solar_sun_peak_hour')) {
+      updateAssignments.push(`solar_sun_peak_hour = $${updateParamIdx++}`);
+      updateValues.push(
+        data.solarSunPeakHour !== undefined
+          ? normalizeNullableNumber(data.solarSunPeakHour)
+          : currentData.solar_sun_peak_hour
+      );
+    }
+
+    if (invoiceColumns.has('solar_morning_usage_percent')) {
+      updateAssignments.push(`solar_morning_usage_percent = $${updateParamIdx++}`);
+      updateValues.push(
+        data.solarMorningUsagePercent !== undefined
+          ? normalizeNullableNumber(data.solarMorningUsagePercent)
+          : currentData.solar_morning_usage_percent
       );
     }
 
