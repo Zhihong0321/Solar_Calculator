@@ -52,6 +52,8 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const beforeSolarBill = parseOptionalCurrency(invoice.customer_average_tnb);
     const storedAfterSolarBill = parseOptionalCurrency(invoice.estimated_new_bill_amount);
     const estimatedMonthlySaving = parseOptionalCurrency(invoice.estimated_saving);
+    const storedSunPeakHour = parseOptionalCurrency(invoice.solar_sun_peak_hour) ?? 3.4;
+    const storedMorningUsagePercent = parseOptionalCurrency(invoice.solar_morning_usage_percent) ?? 30;
     const afterSolarBill = beforeSolarBill !== null && estimatedMonthlySaving !== null
         ? Math.max(0, beforeSolarBill - estimatedMonthlySaving)
         : storedAfterSolarBill;
@@ -1194,12 +1196,16 @@ body.a4-preview .terms-signature {
         hasSavedEstimate: ${hasSolarSavingsSection ? 'true' : 'false'},
         canEstimate: ${canEstimateSolarSavings ? 'true' : 'false'},
         currentAverageBill: ${beforeSolarBill !== null ? beforeSolarBill.toFixed(2) : 'null'},
-        currentScenarioKey: 'low30',
+        currentScenarioKey: 'custom',
+        currentSunPeakHour: ${storedSunPeakHour.toFixed(2)},
+        currentMorningUsage: ${storedMorningUsagePercent.toFixed(2)},
         latestPreview: null,
         savedEstimate: ${hasSolarSavingsSection ? `{
           customer_average_tnb: ${beforeSolarBill !== null ? beforeSolarBill.toFixed(2) : 'null'},
           estimated_new_bill_amount: ${afterSolarBill !== null ? afterSolarBill.toFixed(2) : 'null'},
-          estimated_saving: ${estimatedMonthlySaving !== null ? estimatedMonthlySaving.toFixed(2) : 'null'}
+          estimated_saving: ${estimatedMonthlySaving !== null ? estimatedMonthlySaving.toFixed(2) : 'null'},
+          solar_sun_peak_hour: ${storedSunPeakHour.toFixed(2)},
+          solar_morning_usage_percent: ${storedMorningUsagePercent.toFixed(2)}
         }` : 'null'},
         cache: {}
       };
@@ -1250,17 +1256,53 @@ body.a4-preview .terms-signature {
         });
       }
 
+      function syncSolarParameterInputs() {
+        const sunPeakInput = document.getElementById('solarSunPeakHourInput');
+        const morningUsageInput = document.getElementById('solarMorningUsageInput');
+        if (sunPeakInput && Number.isFinite(Number(solarEstimateState.currentSunPeakHour))) {
+          sunPeakInput.value = Number(solarEstimateState.currentSunPeakHour).toFixed(1);
+        }
+        if (morningUsageInput && Number.isFinite(Number(solarEstimateState.currentMorningUsage))) {
+          morningUsageInput.value = Number(solarEstimateState.currentMorningUsage).toFixed(0);
+        }
+      }
+
+      function readSolarParameterInputs() {
+        const sunPeakInput = document.getElementById('solarSunPeakHourInput');
+        const morningUsageInput = document.getElementById('solarMorningUsageInput');
+
+        const sunPeakHour = Number(sunPeakInput ? sunPeakInput.value : solarEstimateState.currentSunPeakHour);
+        const morningUsage = Number(morningUsageInput ? morningUsageInput.value : solarEstimateState.currentMorningUsage);
+
+        if (!Number.isFinite(sunPeakHour) || sunPeakHour < 3.0 || sunPeakHour > 4.5) {
+          throw new Error('Sun Peak Hour must be between 3.0 and 4.5.');
+        }
+        if (!Number.isFinite(morningUsage) || morningUsage < 1 || morningUsage > 100) {
+          throw new Error('Morning offset must be between 1% and 100%.');
+        }
+
+        solarEstimateState.currentSunPeakHour = Number(sunPeakHour.toFixed(2));
+        solarEstimateState.currentMorningUsage = Number(morningUsage.toFixed(2));
+
+        const matchedScenario = Object.values(solarScenarioConfig).find((scenario) => Number(scenario.morningUsage) === Number(solarEstimateState.currentMorningUsage));
+        solarEstimateState.currentScenarioKey = matchedScenario ? matchedScenario.key : 'custom';
+        return {
+          sunPeakHour: solarEstimateState.currentSunPeakHour,
+          morningUsage: solarEstimateState.currentMorningUsage
+        };
+      }
+
       function updateScenarioSummary() {
         const summaryEl = document.getElementById('solarScenarioSummary');
         if (!summaryEl) return;
 
         const scenario = solarScenarioConfig[solarEstimateState.currentScenarioKey];
         if (!scenario) {
-          summaryEl.textContent = 'Choose a scenario to see how direct offset and export change your savings.';
+          summaryEl.textContent = 'Custom assumptions: ' + Number(solarEstimateState.currentMorningUsage).toFixed(0) + '% morning offset at ' + Number(solarEstimateState.currentSunPeakHour).toFixed(1) + ' sun peak hour.';
           return;
         }
 
-        summaryEl.textContent = scenario.label + ' (' + scenario.shortLabel + '): ' + scenario.summary;
+        summaryEl.textContent = scenario.label + ' (' + scenario.shortLabel + ', ' + Number(solarEstimateState.currentSunPeakHour).toFixed(1) + 'h sun peak): ' + scenario.summary;
       }
 
       function renderSolarUsageChart(data) {
@@ -1360,6 +1402,17 @@ body.a4-preview .terms-signature {
         if (beforeValue) beforeValue.textContent = formatSolarEstimateMoney(data.customer_average_tnb);
         if (afterValue) afterValue.textContent = formatSolarEstimateMoney(data.estimated_new_bill_amount);
         if (savingValue) savingValue.textContent = formatSolarEstimateMoney(data.estimated_saving);
+        if (data && data.assumptions) {
+          const assumptionSunPeak = Number(data.assumptions.sunPeakHour);
+          const assumptionOffset = Number(data.assumptions.offsetPercent);
+          if (Number.isFinite(assumptionSunPeak)) {
+            solarEstimateState.currentSunPeakHour = Number(assumptionSunPeak.toFixed(2));
+          }
+          if (Number.isFinite(assumptionOffset)) {
+            solarEstimateState.currentMorningUsage = Number(assumptionOffset.toFixed(2));
+          }
+          syncSolarParameterInputs();
+        }
 
         if (matchedBillHint) {
           if (Number.isFinite(requestedBill) && Number.isFinite(matchedBill) && Math.abs(requestedBill - matchedBill) >= 0.01) {
@@ -1392,13 +1445,21 @@ body.a4-preview .terms-signature {
       }
 
       async function requestSolarEstimate(averageBill, options = {}) {
+        const sunPeakHour = Number.isFinite(Number(options.sunPeakHour))
+          ? Number(options.sunPeakHour)
+          : Number(solarEstimateState.currentSunPeakHour);
+        const morningUsage = Number.isFinite(Number(options.morningUsage))
+          ? Number(options.morningUsage)
+          : Number(solarEstimateState.currentMorningUsage);
+
         const response = await fetch(solarEstimateEndpointBase + solarEstimateState.identifier + '/solar-estimate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             averageBill,
             save: Boolean(options.save),
-            morningUsage: options.morningUsage
+            sunPeakHour,
+            morningUsage
           })
         });
 
@@ -1411,18 +1472,25 @@ body.a4-preview .terms-signature {
       }
 
       async function loadSolarScenarioPreview(scenarioKey, options = {}) {
-        const scenario = solarScenarioConfig[scenarioKey];
-        if (!scenario) return null;
-
         if (!solarEstimateState.currentAverageBill) {
           return openSolarEstimatePrompt(scenarioKey);
         }
 
-        solarEstimateState.currentScenarioKey = scenarioKey;
+        if (scenarioKey && solarScenarioConfig[scenarioKey]) {
+          solarEstimateState.currentScenarioKey = scenarioKey;
+          solarEstimateState.currentMorningUsage = Number(solarScenarioConfig[scenarioKey].morningUsage);
+          syncSolarParameterInputs();
+        }
+
+        const params = readSolarParameterInputs();
         updateSolarScenarioButtons();
         updateScenarioSummary();
 
-        const cacheKey = scenarioKey + '::' + String(solarEstimateState.currentAverageBill);
+        const cacheKey = [
+          String(solarEstimateState.currentAverageBill),
+          Number(params.sunPeakHour).toFixed(2),
+          Number(params.morningUsage).toFixed(2)
+        ].join('::');
         if (!options.force && !options.save && solarEstimateState.cache[cacheKey]) {
           const cached = solarEstimateState.cache[cacheKey];
           solarEstimateState.latestPreview = cached;
@@ -1438,7 +1506,8 @@ body.a4-preview .terms-signature {
 
           const data = await requestSolarEstimate(solarEstimateState.currentAverageBill, {
             save: options.save,
-            morningUsage: scenario.morningUsage
+            sunPeakHour: params.sunPeakHour,
+            morningUsage: params.morningUsage
           });
 
           solarEstimateState.cache[cacheKey] = data;
@@ -1448,7 +1517,9 @@ body.a4-preview .terms-signature {
             solarEstimateState.savedEstimate = {
               customer_average_tnb: data.customer_average_tnb,
               estimated_new_bill_amount: data.estimated_new_bill_amount,
-              estimated_saving: data.estimated_saving
+              estimated_saving: data.estimated_saving,
+              solar_sun_peak_hour: Number(params.sunPeakHour),
+              solar_morning_usage_percent: Number(params.morningUsage)
             };
             solarEstimateState.hasSavedEstimate = true;
           }
@@ -1538,6 +1609,26 @@ body.a4-preview .terms-signature {
         }
       }
 
+      async function refreshSolarEstimateWithCurrentInputs() {
+        if (!solarEstimateState.currentAverageBill) {
+          return openSolarEstimatePrompt();
+        }
+
+        try {
+          await loadSolarScenarioPreview(null, {
+            force: true,
+            loadingMessage: 'Updating the solar assumptions...'
+          });
+        } catch (err) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Update Failed',
+            text: err.message,
+            confirmButtonColor: '#0f172a'
+          });
+        }
+      }
+
       async function saveCurrentSolarScenario() {
         if (!solarEstimateState.currentAverageBill) {
           return openSolarEstimatePrompt(solarEstimateState.currentScenarioKey);
@@ -1574,6 +1665,7 @@ body.a4-preview .terms-signature {
       }
 
       async function initializeSolarScenarioEstimate() {
+        syncSolarParameterInputs();
         updateSolarScenarioButtons();
         updateScenarioSummary();
 
@@ -1585,25 +1677,17 @@ body.a4-preview .terms-signature {
 
         try {
           const billAmount = solarEstimateState.currentAverageBill;
-          const [lowEstimate, highEstimate] = await Promise.all([
-            requestSolarEstimate(billAmount, { morningUsage: solarScenarioConfig.low30.morningUsage }),
-            requestSolarEstimate(billAmount, { morningUsage: solarScenarioConfig.high80.morningUsage })
-          ]);
-
-          solarEstimateState.cache['low30::' + String(billAmount)] = lowEstimate;
-          solarEstimateState.cache['high80::' + String(billAmount)] = highEstimate;
-
-          const savedEstimate = solarEstimateState.savedEstimate;
-          if (savedEstimate) {
-            const lowScore = Math.abs((Number(lowEstimate.estimated_saving) || 0) - (Number(savedEstimate.estimated_saving) || 0))
-              + Math.abs((Number(lowEstimate.estimated_new_bill_amount) || 0) - (Number(savedEstimate.estimated_new_bill_amount) || 0));
-            const highScore = Math.abs((Number(highEstimate.estimated_saving) || 0) - (Number(savedEstimate.estimated_saving) || 0))
-              + Math.abs((Number(highEstimate.estimated_new_bill_amount) || 0) - (Number(savedEstimate.estimated_new_bill_amount) || 0));
-
-            solarEstimateState.currentScenarioKey = highScore < lowScore ? 'high80' : 'low30';
-          }
-
-          const initialData = solarEstimateState.currentScenarioKey === 'high80' ? highEstimate : lowEstimate;
+          const initialData = await requestSolarEstimate(billAmount, {
+            sunPeakHour: solarEstimateState.currentSunPeakHour,
+            morningUsage: solarEstimateState.currentMorningUsage
+          });
+          solarEstimateState.cache[
+            [
+              String(billAmount),
+              Number(solarEstimateState.currentSunPeakHour).toFixed(2),
+              Number(solarEstimateState.currentMorningUsage).toFixed(2)
+            ].join('::')
+          ] = initialData;
           solarEstimateState.latestPreview = initialData;
           applySolarEstimateToPage(initialData, {
             showSaveHint: false,
@@ -1792,6 +1876,21 @@ body.a4-preview .terms-signature {
                 </div>
                 ${showInteractiveControls && canEstimateSolarSavings ? `
                 <div class="solar-calc-panel" style="margin-top: 18px; border: 1px solid #dbeafe; border-radius: 14px; background: #f8fbff; padding: 16px;">
+                    <div class="solar-calc-params" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px;">
+                        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569;">
+                            <span>Sun Peak Hour</span>
+                            <input type="number" id="solarSunPeakHourInput" min="3.0" max="4.5" step="0.1" value="${storedSunPeakHour.toFixed(1)}" style="border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #0f172a; font-size: 14px; font-weight: 700; padding: 10px 12px; outline: none;">
+                        </label>
+                        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569;">
+                            <span>Morning Offset (%)</span>
+                            <input type="number" id="solarMorningUsageInput" min="1" max="100" step="1" value="${storedMorningUsagePercent.toFixed(0)}" style="border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #0f172a; font-size: 14px; font-weight: 700; padding: 10px 12px; outline: none;">
+                        </label>
+                        <div style="display: flex; align-items: end;">
+                            <button type="button" onclick="refreshSolarEstimateWithCurrentInputs()" style="width: 100%; border: 1px solid #0f172a; border-radius: 10px; background: #0f172a; color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 11px 14px; cursor: pointer;">
+                                Update Preview
+                            </button>
+                        </div>
+                    </div>
                     <div class="solar-calc-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
                         <div class="solar-calc-title" style="font-size: 13px; font-weight: 700; color: #0f172a;">How the saving is calculated</div>
                         <div class="solar-calc-button-row" style="display: flex; flex-wrap: wrap; gap: 8px;">
