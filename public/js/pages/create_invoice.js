@@ -374,69 +374,108 @@ async function fetchVouchers() {
 
         if (result.success) {
             availableVouchers = result.vouchers;
-            populateVoucherSelect();
+            renderVoucherPickerOptions();
+            updateVoucherSelectionSummary();
         }
     } catch (err) {
         console.error('Error fetching vouchers:', err);
     }
 }
 
-// Populate voucher dropdown
-function populateVoucherSelect() {
-    const select = document.getElementById('voucherSelectDropdown');
-    if (!select) return;
+function formatVoucherValue(voucher) {
+    if (voucher.discount_amount) return `RM ${parseFloat(voucher.discount_amount).toFixed(2)}`;
+    if (voucher.discount_percent) return `${parseFloat(voucher.discount_percent)}%`;
+    return 'Promo';
+}
 
-    // Keep first option
-    select.innerHTML = '<option value="">-- Select a Voucher --</option>';
-
-    // availableVouchers already contains only active, non-deleted vouchers (filtered server-side)
-    availableVouchers.forEach(v => {
-        const option = document.createElement('option');
-        option.value = v.voucher_code;
-        let text = v.title || v.voucher_code;
-        if (v.discount_amount) text += ` (RM ${v.discount_amount})`;
-        if (v.discount_percent) text += ` (${v.discount_percent}%)`;
-        option.textContent = text;
-        select.appendChild(option);
+function syncVoucherPickerSelection() {
+    const checkboxes = document.querySelectorAll('.voucher-picker-checkbox');
+    checkboxes.forEach((checkbox) => {
+        checkbox.checked = !!selectedVouchers.find((voucher) => voucher.voucher_code === checkbox.value);
     });
 }
 
-// Get currently previewed voucher (in dropdown)
-function getPreviewVoucher() {
-    const select = document.getElementById('voucherSelectDropdown');
-    if (!select || !select.value) return null;
-    return availableVouchers.find(v => v.voucher_code === select.value) || null;
-}
+function renderVoucherPickerOptions() {
+    const list = document.getElementById('voucherPickerList');
+    const emptyState = document.getElementById('voucherEmptyState');
+    if (!list) return;
 
-// Add voucher to selection
-function addVoucher() {
-    const voucher = getPreviewVoucher();
-    if (!voucher) return;
-
-    // Check if already added
-    if (selectedVouchers.find(v => v.voucher_code === voucher.voucher_code)) {
-        alert('This voucher is already added.');
+    if (!availableVouchers.length) {
+        list.innerHTML = '<div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">No active vouchers found.</div>';
+        if (emptyState) emptyState.classList.remove('hidden');
         return;
     }
 
-    // Check conflicts (simple logic for now: if user selects one, it just adds. 
-    // If explicit "auto_cancel" logic is needed, it goes here. 
-    // For now, we assume user knows what they are doing or backend validates)
-
-    selectedVouchers.push(voucher);
-    renderSelectedVouchers();
-    updateInvoicePreview();
-
-    // Reset dropdown
-    const select = document.getElementById('voucherSelectDropdown');
-    if (select) select.value = "";
-    updateVoucherInfo();
+    if (emptyState) emptyState.classList.add('hidden');
+    list.innerHTML = availableVouchers.map((voucher) => {
+        const checked = selectedVouchers.find((selected) => selected.voucher_code === voucher.voucher_code) ? 'checked' : '';
+        const description = voucher.invoice_description || 'No description provided.';
+        const terms = voucher.terms_conditions || 'No terms provided.';
+        const availability = voucher.voucher_availability ?? '∞';
+        return `
+            <label class="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 hover:border-green-300 hover:bg-green-50">
+                <input type="checkbox" class="voucher-picker-checkbox mt-1 h-5 w-5 rounded border-slate-300 text-green-600 focus:ring-green-500" value="${voucher.voucher_code}" ${checked}>
+                <div class="min-w-0 flex-1">
+                    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="text-sm font-semibold text-slate-900">${voucher.title || voucher.voucher_code}</div>
+                        <div class="text-sm font-bold text-green-700">${formatVoucherValue(voucher)}</div>
+                    </div>
+                    <div class="text-xs font-medium uppercase tracking-wide text-slate-500 mt-1">${voucher.voucher_code} · ${availability} left</div>
+                    <p class="mt-2 text-sm text-slate-700">${description}</p>
+                    <p class="mt-2 text-xs italic text-slate-500">${terms}</p>
+                </div>
+            </label>
+        `;
+    }).join('');
 }
 
-// Remove voucher from selection
+function updateVoucherSelectionSummary() {
+    const summary = document.getElementById('voucherSelectionSummary');
+    if (!summary) return;
+
+    if (!availableVouchers.length) {
+        summary.textContent = 'No active vouchers available.';
+        return;
+    }
+
+    if (!selectedVouchers.length) {
+        summary.textContent = `${availableVouchers.length} available. No vouchers selected.`;
+        return;
+    }
+
+    summary.textContent = `${selectedVouchers.length} voucher${selectedVouchers.length === 1 ? '' : 's'} selected.`;
+}
+
+function openVoucherPicker() {
+    const modal = document.getElementById('voucherPickerModal');
+    if (!modal) return;
+    renderVoucherPickerOptions();
+    syncVoucherPickerSelection();
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+function closeVoucherPicker() {
+    const modal = document.getElementById('voucherPickerModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+function applyVoucherSelections() {
+    const selectedCodes = Array.from(document.querySelectorAll('.voucher-picker-checkbox:checked')).map((checkbox) => checkbox.value);
+    selectedVouchers = availableVouchers.filter((voucher) => selectedCodes.includes(voucher.voucher_code));
+    renderSelectedVouchers();
+    updateVoucherSelectionSummary();
+    updateInvoicePreview();
+    closeVoucherPicker();
+}
+
 function removeVoucher(code) {
     selectedVouchers = selectedVouchers.filter(v => v.voucher_code !== code);
     renderSelectedVouchers();
+    updateVoucherSelectionSummary();
+    syncVoucherPickerSelection();
     updateInvoicePreview();
 }
 
@@ -459,7 +498,7 @@ function renderSelectedVouchers() {
         item.className = 'flex justify-between items-center bg-white p-2 rounded border border-green-200 shadow-sm';
 
         let valText = '';
-        if (v.discount_amount) valText = `RM ${v.discount_amount}`;
+        if (v.discount_amount) valText = `RM ${parseFloat(v.discount_amount).toFixed(2)}`;
         else if (v.discount_percent) valText = `${v.discount_percent}%`;
 
         item.innerHTML = `
@@ -476,24 +515,7 @@ function renderSelectedVouchers() {
                 `;
         list.appendChild(item);
     });
-}
-
-// Update voucher info display (dropdown preview)
-function updateVoucherInfo() {
-    const voucher = getPreviewVoucher();
-    const infoDiv = document.getElementById('voucherInfo');
-    const titleEl = document.getElementById('voucherTitle');
-    const descEl = document.getElementById('voucherDesc');
-    const termsEl = document.getElementById('voucherTerms');
-
-    if (voucher) {
-        infoDiv.classList.remove('hidden');
-        titleEl.textContent = voucher.title || voucher.voucher_code;
-        descEl.textContent = voucher.invoice_description || '';
-        termsEl.textContent = voucher.terms_conditions || '';
-    } else {
-        infoDiv.classList.add('hidden');
-    }
+    updateVoucherSelectionSummary();
 }
 
 // Parse discount string (same logic as backend)
@@ -1511,11 +1533,29 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
     }
 
-    const voucherSelect = document.getElementById('voucherSelectDropdown');
-    if (voucherSelect) voucherSelect.addEventListener('change', () => updateVoucherInfo());
-
     const addVoucherBtn = document.getElementById('addVoucherBtn');
-    if (addVoucherBtn) addVoucherBtn.addEventListener('click', addVoucher);
+    if (addVoucherBtn) addVoucherBtn.addEventListener('click', openVoucherPicker);
+
+    const closeVoucherModalBtn = document.getElementById('closeVoucherModalBtn');
+    if (closeVoucherModalBtn) closeVoucherModalBtn.addEventListener('click', closeVoucherPicker);
+
+    const cancelVoucherModalBtn = document.getElementById('cancelVoucherModalBtn');
+    if (cancelVoucherModalBtn) cancelVoucherModalBtn.addEventListener('click', closeVoucherPicker);
+
+    const applyVoucherSelectionBtn = document.getElementById('applyVoucherSelectionBtn');
+    if (applyVoucherSelectionBtn) applyVoucherSelectionBtn.addEventListener('click', applyVoucherSelections);
+
+    const voucherPickerBackdrop = document.getElementById('voucherPickerBackdrop');
+    if (voucherPickerBackdrop) voucherPickerBackdrop.addEventListener('click', closeVoucherPicker);
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            const voucherModal = document.getElementById('voucherPickerModal');
+            if (voucherModal && !voucherModal.classList.contains('hidden')) {
+                closeVoucherPicker();
+            }
+        }
+    });
 
     const sstToggle = document.getElementById('applySST');
     if (sstToggle) sstToggle.addEventListener('change', updateInvoicePreview);
