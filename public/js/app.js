@@ -716,20 +716,10 @@ document.getElementById('billForm').addEventListener('submit', async function (e
 window.calculateSolarSavings = async function () {
     if (!currentTariffData) return showNotification('Please complete Bill Analysis first.', 'error');
 
-    const params = {
-        amount: parseFloat(document.getElementById('billAmount').value),
-        sunPeakHour: parseFloat(document.getElementById('sunPeakHour').value),
-        morningUsage: parseFloat(document.getElementById('morningUsage').value),
-        panelType: parseInt(document.getElementById('panelRating').value),
-        smpPrice: parseFloat(document.getElementById('smpPrice').value),
-        afaRate: parseFloat(document.getElementById('afaRate').value) || 0,
-        historicalAfaRate: currentHistoricalAfaRate,
-        percentDiscount: parseFloat(document.getElementById('percentDiscount').value) || 0,
-        fixedDiscount: parseFloat(document.getElementById('fixedDiscount').value) || 0,
+    const params = collectLiveSolarParams({
         batterySize: 0,
-        overridePanels: '',
-        systemPhase: parseInt(document.getElementById('systemPhase').value) || 3
-    };
+        overridePanels: ''
+    });
     latestSolarParams = params;
 
     // Show inline loading inside the results card area
@@ -755,6 +745,32 @@ window.calculateSolarSavings = async function () {
         solarDiv.innerHTML = `<div class="py-10 text-center text-xs font-bold uppercase text-rose-600 border border-rose-300 p-4">[ Calculation Error: ${err.message} ]</div>`;
     }
 };
+
+function collectLiveSolarParams(overrides = {}) {
+    const panelRatingInput = document.getElementById('panelRating');
+    const panelCountInput = document.querySelector('#floatingPanelBar input[type="number"]');
+    const livePanelOverride = panelCountInput ? parseInt(panelCountInput.value, 10) : NaN;
+    const fallbackOverride = latestSolarParams?.overridePanels;
+    const resolvedOverridePanels = Number.isFinite(livePanelOverride) && livePanelOverride >= 1
+        ? livePanelOverride
+        : (fallbackOverride !== undefined ? fallbackOverride : '');
+
+    return {
+        amount: parseFloat(document.getElementById('billAmount').value),
+        sunPeakHour: parseFloat(document.getElementById('sunPeakHour').value),
+        morningUsage: parseFloat(document.getElementById('morningUsage').value),
+        panelType: panelRatingInput ? parseInt(panelRatingInput.value, 10) : 650,
+        smpPrice: parseFloat(document.getElementById('smpPrice').value),
+        afaRate: parseFloat(document.getElementById('afaRate').value) || 0,
+        historicalAfaRate: currentHistoricalAfaRate,
+        percentDiscount: parseFloat(document.getElementById('percentDiscount')?.value) || 0,
+        fixedDiscount: parseFloat(document.getElementById('fixedDiscount')?.value) || 0,
+        batterySize: latestSolarParams?.batterySize || 0,
+        overridePanels: resolvedOverridePanels,
+        systemPhase: parseInt(document.getElementById('systemPhase').value, 10) || 3,
+        ...overrides
+    };
+}
 
 window.triggerSpontaneousUpdate = function (source) {
     if (!latestSolarParams) {
@@ -792,7 +808,12 @@ window.triggerSpontaneousUpdate = function (source) {
 async function runAndDisplay() {
     if (!latestSolarParams) return;
     try {
-        const result = await fetchSolarCalculation(latestSolarParams);
+        const params = collectLiveSolarParams({
+            batterySize: latestSolarParams.batterySize || 0,
+            overridePanels: latestSolarParams.overridePanels
+        });
+        latestSolarParams = params;
+        const result = await fetchSolarCalculation(params);
         latestSolarData = result;
         displaySolarCalculation(result);
     } catch (err) {
@@ -835,7 +856,30 @@ window.syncAndTrigger = function (id, value) {
     }
 };
 
-window.generateInvoiceLink = function () {
+window.generateInvoiceLink = async function () {
+    if (!currentTariffData) {
+        showNotification('Please complete Bill Analysis first.', 'error');
+        return;
+    }
+
+    try {
+        clearTimeout(_spontaneousDebounceTimer);
+
+        const freshParams = collectLiveSolarParams({
+            batterySize: latestSolarParams?.batterySize || 0,
+            overridePanels: latestSolarParams?.overridePanels
+        });
+        latestSolarParams = freshParams;
+
+        const freshResult = await fetchSolarCalculation(freshParams);
+        latestSolarData = freshResult;
+        displaySolarCalculation(freshResult);
+    } catch (err) {
+        console.error('[generateInvoiceLink] Failed to refresh latest calculation:', err);
+        showNotification('Failed to refresh latest saving before creating quotation.', 'error');
+        return;
+    }
+
     if (!latestSolarData || !latestSolarData.selectedPackage || !latestSolarData.selectedPackage.linked_package) {
         showNotification('No valid package selected for quotation. Please ensure a package is matched.', 'error');
         return;
