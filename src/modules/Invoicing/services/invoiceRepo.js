@@ -7,7 +7,6 @@
  * Performance Note: Uses atomic updates for invoice number generation to prevent race conditions.
  */
 const crypto = require('crypto');
-let invoiceColumnCache = null;
 
 // Tiered manual discount policy based on package price
 const MANUAL_DISCOUNT_POLICY = [
@@ -73,18 +72,13 @@ function generateShareToken() {
 }
 
 async function getInvoiceColumns(client) {
-  if (invoiceColumnCache) {
-    return invoiceColumnCache;
-  }
-
   const result = await client.query(
     `SELECT column_name
      FROM information_schema.columns
      WHERE table_schema = 'public' AND table_name = 'invoice'`
   );
 
-  invoiceColumnCache = new Set(result.rows.map((row) => row.column_name));
-  return invoiceColumnCache;
+  return new Set(result.rows.map((row) => row.column_name));
 }
 
 function normalizeNullableNumber(value, { integer = false } = {}) {
