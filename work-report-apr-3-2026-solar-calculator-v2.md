@@ -8,5 +8,6 @@ REPO NAME : Solar Calculator v2
 - Applied invoice solar assumption DB migration and removed stale invoice column caching.
 - Improved invoice voucher selection with multi-checkbox popup on create and edit pages
 - Fixed voucher popup scrolling and simplified voucher list layout on invoice pages
+- Raised invoice voucher popup above mobile nav so the close button stays tappable
 
 =====================
