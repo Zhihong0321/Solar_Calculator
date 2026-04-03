@@ -361,8 +361,6 @@ function renderVoucherPickerOptions() {
     if (emptyState) emptyState.classList.add('hidden');
     list.innerHTML = availableVouchers.map((voucher) => {
         const checked = selectedVouchers.find((selected) => selected.voucher_code === voucher.voucher_code) ? 'checked' : '';
-        const description = voucher.invoice_description || 'No description provided.';
-        const terms = voucher.terms_conditions || 'No terms provided.';
         const availability = voucher.voucher_availability ?? '∞';
         return `
             <label class="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 hover:border-green-300 hover:bg-green-50">
@@ -373,8 +371,6 @@ function renderVoucherPickerOptions() {
                         <div class="text-sm font-bold text-green-700">${formatVoucherValue(voucher)}</div>
                     </div>
                     <div class="text-xs font-medium uppercase tracking-wide text-slate-500 mt-1">${voucher.voucher_code} · ${availability} left</div>
-                    <p class="mt-2 text-sm text-slate-700">${description}</p>
-                    <p class="mt-2 text-xs italic text-slate-500">${terms}</p>
                 </div>
             </label>
         `;
@@ -456,7 +452,7 @@ function renderSelectedVouchers() {
         item.innerHTML = `
                     <div class="flex-1">
                         <div class="text-sm font-semibold text-gray-900">${v.title || v.voucher_code}</div>
-                        <div class="text-xs text-gray-600">${v.invoice_description || ''}</div>
+                        <div class="text-xs text-gray-500 uppercase tracking-wide mt-1">${v.voucher_code}</div>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="text-sm font-bold text-green-600">${valText}</span>

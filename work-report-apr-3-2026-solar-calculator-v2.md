@@ -7,5 +7,6 @@ REPO NAME : Solar Calculator v2
 - Fixed invoice service to pass saved sun peak and morning usage values into invoice storage.
 - Applied invoice solar assumption DB migration and removed stale invoice column caching.
 - Improved invoice voucher selection with multi-checkbox popup on create and edit pages
+- Fixed voucher popup scrolling and simplified voucher list layout on invoice pages
 
 =====================
