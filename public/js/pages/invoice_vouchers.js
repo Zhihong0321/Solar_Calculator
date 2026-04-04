@@ -103,21 +103,29 @@ function resolveNextUrl(nextUrl, invoiceId) {
 }
 
 function applyVoucherSelectionState(item) {
-    if (!item?.wrapper || !item?.checkbox || !item?.titleEl || !item?.codeEl) return;
+    if (!item?.wrapper || !item?.checkbox || !item?.titleEl) return;
 
     if (item.checkbox.checked) {
-        item.wrapper.className = 'flex items-center gap-3 rounded-xl border border-blue-500 bg-gradient-to-br from-blue-950 via-blue-800 to-sky-600 px-3 py-3 shadow-lg shadow-blue-900/20 transition-all duration-200';
+        item.wrapper.className = 'flex items-center gap-3 rounded-xl border px-3 py-3 transition-all duration-200';
+        item.wrapper.style.background = 'linear-gradient(135deg, #172554 0%, #1d4ed8 58%, #38bdf8 100%)';
+        item.wrapper.style.borderColor = '#3b82f6';
+        item.wrapper.style.boxShadow = '0 18px 34px rgba(30, 64, 175, 0.22)';
         item.titleEl.className = 'text-sm font-semibold text-white';
         if (item.codeEl) {
-            item.codeEl.className = 'text-xs uppercase tracking-wide text-blue-100';
+            item.codeEl.className = 'text-xs uppercase tracking-wide';
+            item.codeEl.style.color = '#dbeafe';
         }
         return;
     }
 
     item.wrapper.className = 'flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50';
+    item.wrapper.style.background = '';
+    item.wrapper.style.borderColor = '';
+    item.wrapper.style.boxShadow = '';
     item.titleEl.className = 'text-sm font-medium text-slate-900';
     if (item.codeEl) {
         item.codeEl.className = 'text-xs uppercase tracking-wide text-slate-500';
+        item.codeEl.style.color = '';
     }
 }
 
