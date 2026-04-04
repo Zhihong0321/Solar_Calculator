@@ -241,6 +241,7 @@ function renderVouchers() {
             ? `<button onclick="restoreVoucher('${voucher.bubble_id}')" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">Restore</button>`
             : `
                 <button onclick="editVoucher('${voucher.bubble_id}')" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">Edit</button>
+                <button onclick="duplicateVoucher('${voucher.bubble_id}')" class="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100">Duplicate</button>
                 <button onclick="toggleActive('${voucher.bubble_id}')" class="rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100">${active ? 'Set Inactive' : 'Set Active'}</button>
                 <button onclick="deleteVoucher('${voucher.bubble_id}')" class="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100">Delete</button>
             `;
@@ -436,6 +437,17 @@ async function toggleActive(id) {
         await fetchVouchers();
     } catch (error) {
         showToast(error.message || 'Failed to toggle voucher', 'error');
+    }
+}
+
+async function duplicateVoucher(id) {
+    try {
+        await fetchJson(`/api/vouchers/${id}/duplicate`, { method: 'POST' });
+        showToast('Voucher duplicated successfully');
+        await Promise.all([fetchCategories(), fetchVouchers()]);
+    } catch (error) {
+        console.error('Error duplicating voucher:', error);
+        showToast(error.message || 'Failed to duplicate voucher', 'error');
     }
 }
 

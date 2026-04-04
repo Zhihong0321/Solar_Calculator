@@ -326,6 +326,28 @@ async function checkVoucherCodeExists(pool, code, excludeId = null) {
     return result.rows.length > 0;
 }
 
+async function _generateDuplicateVoucherIdentity(pool, originalVoucher) {
+    const originalTitle = String(originalVoucher?.title || 'Voucher').trim() || 'Voucher';
+    const originalCode = String(originalVoucher?.voucher_code || 'VOUCHER').trim().toUpperCase() || 'VOUCHER';
+    const titleBase = `${originalTitle} - DUP`;
+    const codeBase = `${originalCode}_DUP`;
+
+    for (let index = 1; index <= 9999; index += 1) {
+        const nextTitle = index === 1 ? titleBase : `${titleBase} ${index}`;
+        const nextCode = index === 1 ? codeBase : `${codeBase}${index}`;
+        const exists = await checkVoucherCodeExists(pool, nextCode);
+
+        if (!exists) {
+            return {
+                title: nextTitle,
+                voucher_code: nextCode
+            };
+        }
+    }
+
+    throw new Error('Unable to generate a unique duplicate voucher code.');
+}
+
 async function toggleVoucherStatus(pool, id) {
     const identifierColumn = _resolveIdentifierColumn(id);
     const result = await pool.query(
@@ -378,6 +400,31 @@ async function createVoucher(pool, data) {
     );
 
     return result.rows[0];
+}
+
+async function duplicateVoucher(pool, id, createdBy = null) {
+    const originalVoucher = await getVoucherById(pool, id);
+    if (!originalVoucher) {
+        return null;
+    }
+
+    const duplicateIdentity = await _generateDuplicateVoucherIdentity(pool, originalVoucher);
+    return createVoucher(pool, {
+        title: duplicateIdentity.title,
+        voucher_code: duplicateIdentity.voucher_code,
+        voucher_type: originalVoucher.voucher_type,
+        discount_amount: originalVoucher.discount_amount,
+        discount_percent: originalVoucher.discount_percent,
+        active: !!originalVoucher.active,
+        voucher_availability: originalVoucher.voucher_availability,
+        terms_conditions: originalVoucher.terms_conditions,
+        available_until: originalVoucher.available_until,
+        public: !!originalVoucher.public,
+        created_by: createdBy,
+        deductable_from_commission: originalVoucher.deductable_from_commission,
+        invoice_description: originalVoucher.invoice_description,
+        linked_voucher_category: originalVoucher.linked_voucher_category || null
+    });
 }
 
 async function updateVoucher(pool, id, data) {
@@ -759,6 +806,7 @@ module.exports = {
     getAllVouchers,
     getVoucherById,
     createVoucher,
+    duplicateVoucher,
     updateVoucher,
     deleteVoucher,
     restoreVoucher,

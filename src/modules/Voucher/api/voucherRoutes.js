@@ -281,6 +281,25 @@ router.post('/api/vouchers', requireAuth, async (req, res) => {
     }
 });
 
+router.post('/api/vouchers/:id/duplicate', requireAuth, async (req, res) => {
+    try {
+        const duplicate = await voucherRepo.duplicateVoucher(
+            pool,
+            req.params.id,
+            req.user?.bubbleId || req.user?.userId || null
+        );
+
+        if (!duplicate) {
+            return res.status(404).json({ error: 'Voucher not found' });
+        }
+
+        res.status(201).json(duplicate);
+    } catch (err) {
+        console.error('Error duplicating voucher:', err);
+        res.status(500).json({ error: 'Failed to duplicate voucher' });
+    }
+});
+
 router.patch('/api/vouchers/:id/toggle', requireAuth, async (req, res) => {
     try {
         const newStatus = await voucherRepo.toggleVoucherStatus(pool, req.params.id);
