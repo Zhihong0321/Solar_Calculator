@@ -7,5 +7,6 @@ REPO NAME : Solar Calculator v2
 - Added voucher category max quotation amount range support across UI, API, and Postgres
 - Added voucher duplication action in Voucher Management
 - Added voucher category max panel quantity gate
+- Improved voucher-step auto-swap selection and selected card styling
 
 =====================

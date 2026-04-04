@@ -102,6 +102,34 @@ function resolveNextUrl(nextUrl, invoiceId) {
     return '/my-invoice';
 }
 
+function applyVoucherSelectionState(item) {
+    if (!item?.wrapper || !item?.checkbox || !item?.titleEl || !item?.codeEl) return;
+
+    if (item.checkbox.checked) {
+        item.wrapper.className = 'flex items-center gap-3 rounded-xl border border-blue-500 bg-gradient-to-br from-blue-950 via-blue-800 to-sky-600 px-3 py-3 shadow-lg shadow-blue-900/20 transition-all duration-200';
+        item.titleEl.className = 'text-sm font-semibold text-white';
+        if (item.codeEl) {
+            item.codeEl.className = 'text-xs uppercase tracking-wide text-blue-100';
+        }
+        return;
+    }
+
+    item.wrapper.className = 'flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50';
+    item.titleEl.className = 'text-sm font-medium text-slate-900';
+    if (item.codeEl) {
+        item.codeEl.className = 'text-xs uppercase tracking-wide text-slate-500';
+    }
+}
+
+function recomputeSelectedIds(checkboxesByCategory) {
+    return new Set(
+        Array.from(checkboxesByCategory.values())
+            .flatMap((state) => state.items)
+            .filter((item) => item.checkbox.checked)
+            .map((item) => item.checkbox.value)
+    );
+}
+
 async function init() {
     const { invoiceId, nextUrl, sourceInvoiceId } = parseQuery();
     const loadingState = document.getElementById('loadingState');
@@ -203,10 +231,10 @@ async function init() {
         const body = document.createElement('div');
         body.className = 'space-y-2 px-4 py-3';
 
-        const checkboxes = [];
+        const items = [];
         category.vouchers.forEach((voucher) => {
             const wrapper = document.createElement('label');
-            wrapper.className = 'flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 hover:border-slate-300';
+            wrapper.className = 'flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50';
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -216,42 +244,60 @@ async function init() {
 
             const meta = document.createElement('div');
             meta.className = 'min-w-0';
-            meta.innerHTML = `
-                <p class="text-sm font-medium text-slate-900">${voucher.title}</p>
-                ${voucher.code ? `<p class="text-xs uppercase tracking-wide text-slate-500">${voucher.code}</p>` : ''}
-            `;
+            const titleEl = document.createElement('p');
+            titleEl.textContent = voucher.title;
+            titleEl.className = 'text-sm font-medium text-slate-900';
+            meta.appendChild(titleEl);
+
+            let codeEl = null;
+            if (voucher.code) {
+                codeEl = document.createElement('p');
+                codeEl.textContent = voucher.code;
+                codeEl.className = 'text-xs uppercase tracking-wide text-slate-500';
+                meta.appendChild(codeEl);
+            }
 
             wrapper.appendChild(checkbox);
             wrapper.appendChild(meta);
             body.appendChild(wrapper);
-            checkboxes.push(checkbox);
+            const item = {
+                checkbox,
+                wrapper,
+                titleEl,
+                codeEl
+            };
+            applyVoucherSelectionState(item);
+            items.push(item);
         });
 
         checkboxesByCategory.set(category.id, {
             maxSelectable: category.maxSelectable,
-            checkboxes
+            items
         });
         card.appendChild(body);
         categoryList.appendChild(card);
     });
 
-    const enforceCategoryLimit = (categoryState, changedCheckbox) => {
-        const checked = categoryState.checkboxes.filter((checkbox) => checkbox.checked);
-        if (checked.length <= categoryState.maxSelectable) return;
-        changedCheckbox.checked = false;
-        alert(`You can only select up to ${categoryState.maxSelectable} voucher(s) in this group.`);
+    const enforceCategoryLimit = (categoryState, changedItem) => {
+        const checkedItems = categoryState.items.filter((item) => item.checkbox.checked);
+        if (checkedItems.length <= categoryState.maxSelectable) return;
+
+        const overflowCount = checkedItems.length - categoryState.maxSelectable;
+        checkedItems
+            .filter((item) => item !== changedItem)
+            .slice(0, overflowCount)
+            .forEach((item) => {
+                item.checkbox.checked = false;
+                applyVoucherSelectionState(item);
+            });
     };
 
     checkboxesByCategory.forEach((categoryState) => {
-        categoryState.checkboxes.forEach((checkbox) => {
-            checkbox.addEventListener('change', () => {
-                enforceCategoryLimit(categoryState, checkbox);
-                selectedIds = new Set(
-                    Array.from(checkboxesByCategory.values())
-                        .flatMap((state) => state.checkboxes)
-                        .filter((cb) => cb.checked)
-                        .map((cb) => cb.value)
-                );
+        categoryState.items.forEach((item) => {
+            item.checkbox.addEventListener('change', () => {
+                enforceCategoryLimit(categoryState, item);
+                applyVoucherSelectionState(item);
+                selectedIds = recomputeSelectedIds(checkboxesByCategory);
                 renderSummary(selectedIds);
             });
         });
