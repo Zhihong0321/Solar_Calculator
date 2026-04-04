@@ -47,6 +47,9 @@ function _validateCategoryRow(category) {
     const parsedMinPanelQuantity = category.min_panel_quantity === null || category.min_panel_quantity === undefined
         ? null
         : parseInt(category.min_panel_quantity, 10);
+    const parsedMaxPanelQuantity = category.max_panel_quantity === null || category.max_panel_quantity === undefined
+        ? null
+        : parseInt(category.max_panel_quantity, 10);
 
     if (!Number.isInteger(maxSelectable) || maxSelectable <= 0) {
         throw new Error('max_selectable must be a positive integer');
@@ -58,13 +61,20 @@ function _validateCategoryRow(category) {
         throw new Error('max_package_amount must be greater than or equal to min_package_amount');
     }
 
+    if (!Number.isNaN(parsedMinPanelQuantity) && !Number.isNaN(parsedMaxPanelQuantity)
+        && parsedMinPanelQuantity !== null && parsedMaxPanelQuantity !== null
+        && parsedMaxPanelQuantity < parsedMinPanelQuantity) {
+        throw new Error('max_panel_quantity must be greater than or equal to min_panel_quantity');
+    }
+
     return {
         ...category,
         max_selectable: maxSelectable,
         package_type_scope: scope,
         min_package_amount: Number.isNaN(parsedMinPackageAmount) ? null : parsedMinPackageAmount,
         max_package_amount: Number.isNaN(parsedMaxPackageAmount) ? null : parsedMaxPackageAmount,
-        min_panel_quantity: Number.isNaN(parsedMinPanelQuantity) ? null : parsedMinPanelQuantity
+        min_panel_quantity: Number.isNaN(parsedMinPanelQuantity) ? null : parsedMinPanelQuantity,
+        max_panel_quantity: Number.isNaN(parsedMaxPanelQuantity) ? null : parsedMaxPanelQuantity
     };
 }
 
@@ -72,16 +82,18 @@ function _evaluateCategoryEligibility(category, invoiceContext) {
     const minPackageAmount = category.min_package_amount;
     const maxPackageAmount = category.max_package_amount;
     const minPanelQty = category.min_panel_quantity;
+    const maxPanelQty = category.max_panel_quantity;
     const scope = _normalizePackageTypeScope(category.package_type_scope);
     const invoicePackageType = _normalizeInvoicePackageType(invoiceContext.packageTypeRaw);
 
     const amountOk = minPackageAmount === null || invoiceContext.packageAmount >= minPackageAmount;
     const maxAmountOk = maxPackageAmount === null || invoiceContext.packageAmount <= maxPackageAmount;
     const panelOk = minPanelQty === null || invoiceContext.panelQty >= minPanelQty;
+    const maxPanelOk = maxPanelQty === null || invoiceContext.panelQty <= maxPanelQty;
     const typeOk = scope === 'all' || scope === invoicePackageType;
 
     return {
-        eligible: amountOk && maxAmountOk && panelOk && typeOk,
+        eligible: amountOk && maxAmountOk && panelOk && maxPanelOk && typeOk,
         checks: {
             packageAmount: {
                 required: minPackageAmount,
@@ -97,6 +109,11 @@ function _evaluateCategoryEligibility(category, invoiceContext) {
                 required: minPanelQty,
                 actual: invoiceContext.panelQty,
                 passed: panelOk
+            },
+            maxPanelQty: {
+                required: maxPanelQty,
+                actual: invoiceContext.panelQty,
+                passed: maxPanelOk
             },
             packageType: {
                 required: scope,
@@ -161,12 +178,12 @@ async function createVoucherCategory(pool, data) {
     const result = await pool.query(
         `INSERT INTO voucher_category (
             bubble_id, name, description, max_selectable,
-            min_package_amount, max_package_amount, min_panel_quantity, package_type_scope,
+            min_package_amount, max_package_amount, min_panel_quantity, max_panel_quantity, package_type_scope,
             active, disabled, sort_order, created_by, created_at, updated_at
          ) VALUES (
             $1, $2, $3, $4,
-            $5, $6, $7, $8,
-            $9, $10, $11, $12, NOW(), NOW()
+            $5, $6, $7, $8, $9,
+            $10, $11, $12, $13, NOW(), NOW()
          )
          RETURNING *`,
         [
@@ -177,6 +194,7 @@ async function createVoucherCategory(pool, data) {
             normalized.min_package_amount,
             normalized.max_package_amount,
             normalized.min_panel_quantity,
+            normalized.max_panel_quantity,
             normalized.package_type_scope,
             normalized.active !== undefined ? !!normalized.active : true,
             normalized.disabled !== undefined ? !!normalized.disabled : false,
@@ -206,12 +224,13 @@ async function updateVoucherCategory(pool, id, data) {
             min_package_amount = $4,
             max_package_amount = $5,
             min_panel_quantity = $6,
-            package_type_scope = $7,
-            active = $8,
-            disabled = $9,
-            sort_order = $10,
+            max_panel_quantity = $7,
+            package_type_scope = $8,
+            active = $9,
+            disabled = $10,
+            sort_order = $11,
             updated_at = NOW()
-         WHERE ${identifierColumn} = $11
+         WHERE ${identifierColumn} = $12
          RETURNING *`,
         [
             merged.name,
@@ -220,6 +239,7 @@ async function updateVoucherCategory(pool, id, data) {
             merged.min_package_amount,
             merged.max_package_amount,
             merged.min_panel_quantity,
+            merged.max_panel_quantity,
             merged.package_type_scope,
             !!merged.active,
             !!merged.disabled,
@@ -652,7 +672,9 @@ async function replaceInvoiceVoucherSelections(pool, { invoiceId, voucherBubbleI
                     c.disabled AS category_disabled,
                     c."delete" AS category_deleted,
                     c.min_package_amount,
+                    c.max_package_amount,
                     c.min_panel_quantity,
+                    c.max_panel_quantity,
                     c.package_type_scope
                  FROM voucher v
                  LEFT JOIN voucher_category c ON c.bubble_id = v.linked_voucher_category
@@ -691,7 +713,9 @@ async function replaceInvoiceVoucherSelections(pool, { invoiceId, voucherBubbleI
                 disabled: voucher.category_disabled,
                 deleted: voucher.category_deleted,
                 min_package_amount: voucher.min_package_amount,
+                max_package_amount: voucher.max_package_amount,
                 min_panel_quantity: voucher.min_panel_quantity,
+                max_panel_quantity: voucher.max_panel_quantity,
                 package_type_scope: voucher.package_type_scope
             };
 

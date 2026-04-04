@@ -27,6 +27,9 @@ function normalizeCategoryPayload(body = {}) {
         min_panel_quantity: body.min_panel_quantity === '' || body.min_panel_quantity === null || body.min_panel_quantity === undefined
             ? null
             : parseInt(body.min_panel_quantity, 10),
+        max_panel_quantity: body.max_panel_quantity === '' || body.max_panel_quantity === null || body.max_panel_quantity === undefined
+            ? null
+            : parseInt(body.max_panel_quantity, 10),
         package_type_scope: body.package_type_scope || 'all',
         sort_order: body.sort_order !== undefined ? parseInt(body.sort_order, 10) : 0
     };

@@ -6,5 +6,6 @@ REPO NAME : Solar Calculator v2
 - Fixed voucher management API error caused by ambiguous voucher/category status filters
 - Added voucher category max quotation amount range support across UI, API, and Postgres
 - Added voucher duplication action in Voucher Management
+- Added voucher category max panel quantity gate
 
 =====================

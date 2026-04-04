@@ -762,6 +762,11 @@ function isVoucherCategoryEligible(category, invoiceSummary) {
     return false;
   }
 
+  const maxPanelQuantity = parseInt(category.max_panel_quantity, 10);
+  if (Number.isFinite(maxPanelQuantity) && invoiceSummary.panelQty > maxPanelQuantity) {
+    return false;
+  }
+
   const requiredScope = normalizeVoucherCategoryPackageType(category.package_type_scope);
   if (requiredScope !== 'all' && requiredScope !== invoiceSummary.packageTypeScope) {
     return false;
