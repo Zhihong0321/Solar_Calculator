@@ -20,6 +20,10 @@ router.get('/edit-invoice', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, '../../../../public/templates/edit_invoice.html'));
 });
 
+router.get('/invoice-vouchers', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, '../../../../public/templates/invoice_vouchers.html'));
+});
+
 router.get('/invoice-office', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, '../../../../public/templates/invoice_office.html'));
 });
@@ -232,6 +236,72 @@ router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) 
     } catch (err) {
         console.error('Error creating invoice version:', err);
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.get('/api/v1/invoices/:bubbleId/voucher-step', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
+        if (!invoice) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by, invoice.linked_agent);
+        if (!isOwner) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const data = await invoiceRepo.getVoucherStepData(client, bubbleId);
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error('Error fetching voucher-step data:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+router.put('/api/v1/invoices/:bubbleId/vouchers', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
+        if (!invoice) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by, invoice.linked_agent);
+        if (!isOwner) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const applied = await invoiceRepo.applyInvoiceVoucherSelections(
+            client,
+            bubbleId,
+            req.body?.voucher_ids || [],
+            String(userId)
+        );
+
+        res.json({ success: true, data: applied });
+    } catch (err) {
+        console.error('Error applying invoice vouchers:', err);
+        res.status(400).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
     }
 });
 

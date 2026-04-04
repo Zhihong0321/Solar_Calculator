@@ -7,6 +7,7 @@
  * Performance Note: Uses atomic updates for invoice number generation to prevent race conditions.
  */
 const crypto = require('crypto');
+const tablePresenceCache = new Map();
 
 // Tiered manual discount policy based on package price
 const MANUAL_DISCOUNT_POLICY = [
@@ -79,6 +80,42 @@ async function getInvoiceColumns(client) {
   );
 
   return new Set(result.rows.map((row) => row.column_name));
+}
+
+async function hasTable(client, tableName) {
+  if (tablePresenceCache.has(tableName)) {
+    return tablePresenceCache.get(tableName);
+  }
+
+  const result = await client.query(
+    `SELECT 1
+     FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = $1
+     LIMIT 1`,
+    [tableName]
+  );
+
+  const exists = result.rows.length > 0;
+  tablePresenceCache.set(tableName, exists);
+  return exists;
+}
+
+async function getTableColumns(client, tableName) {
+  const cacheKey = `${tableName}:columns`;
+  if (tablePresenceCache.has(cacheKey)) {
+    return tablePresenceCache.get(cacheKey);
+  }
+
+  const result = await client.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = $1`,
+    [tableName]
+  );
+
+  const columns = new Set(result.rows.map((row) => row.column_name));
+  tablePresenceCache.set(cacheKey, columns);
+  return columns;
 }
 
 function normalizeNullableNumber(value, { integer = false } = {}) {
@@ -353,6 +390,103 @@ async function getVoucherByCode(client, voucherCode) {
   }
 }
 
+async function getVoucherById(client, voucherId) {
+  try {
+    const result = await client.query(
+      `SELECT *
+       FROM voucher
+       WHERE bubble_id = $1 OR id::text = $1
+       LIMIT 1`,
+      [voucherId]
+    );
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error('Error fetching voucher by ID:', err);
+    throw err;
+  }
+}
+
+function _buildVoucherInfoFromRows(voucherRows, packagePrice) {
+  const seenCodes = new Set();
+  let totalVoucherAmount = 0;
+  const voucherItemsToCreate = [];
+  const validVoucherCodes = [];
+  const selectedVoucherIds = [];
+
+  for (const voucher of voucherRows) {
+    if (!voucher) continue;
+
+    const code = String(voucher.voucher_code || '').trim();
+    if (!code || seenCodes.has(code)) continue;
+    seenCodes.add(code);
+
+    let amount = 0;
+    let desc = '';
+
+    if (voucher.discount_amount) {
+      amount = parseFloat(voucher.discount_amount) || 0;
+      desc = voucher.invoice_description || `Voucher: ${code}`;
+    } else if (voucher.discount_percent) {
+      amount = (packagePrice * parseFloat(voucher.discount_percent)) / 100;
+      desc = voucher.invoice_description || `Voucher: ${code}`;
+    }
+
+    if (amount > 0) {
+      totalVoucherAmount += amount;
+      validVoucherCodes.push(code);
+      selectedVoucherIds.push(voucher.bubble_id || String(voucher.id || ''));
+      voucherItemsToCreate.push({
+        description: desc,
+        amount,
+        code,
+        voucherId: voucher.bubble_id || String(voucher.id || ''),
+        categoryId: voucher.linked_voucher_category || null
+      });
+    }
+  }
+
+  return { totalVoucherAmount, voucherItemsToCreate, validVoucherCodes, selectedVoucherIds };
+}
+
+async function _getInvoiceSelectedVoucherRows(client, invoiceId, fallbackVoucherCode) {
+  const hasSelectionTable = await hasTable(client, 'invoice_voucher_selection');
+  if (hasSelectionTable) {
+    const selectionColumns = await getTableColumns(client, 'invoice_voucher_selection');
+    const linkedVoucherCategorySelect = selectionColumns.has('linked_voucher_category')
+      ? 'ivs.linked_voucher_category as selected_category_id,'
+      : 'NULL::text as selected_category_id,';
+
+    const result = await client.query(
+      `SELECT
+          v.*,
+          ${linkedVoucherCategorySelect}
+          ivs.bubble_id as selection_id
+       FROM invoice_voucher_selection ivs
+       LEFT JOIN voucher v ON ivs.linked_voucher = v.bubble_id OR ivs.linked_voucher = v.id::text
+       WHERE ivs.linked_invoice = $1
+       ORDER BY ivs.created_at ASC`,
+      [invoiceId]
+    );
+
+    const rows = result.rows.filter((row) => row?.voucher_code);
+    if (rows.length > 0) {
+      return rows;
+    }
+  }
+
+  const codes = String(fallbackVoucherCode || '')
+    .split(',')
+    .map((code) => code.trim())
+    .filter(Boolean);
+
+  const rows = [];
+  for (const code of codes) {
+    const voucher = await getVoucherByCode(client, code);
+    if (voucher) rows.push(voucher);
+  }
+  return rows;
+}
+
 /**
  * Find or create a customer
  * @param {object} client - Database client
@@ -582,37 +716,164 @@ async function _processVouchers(client, { voucherCodes, voucherCode }, packagePr
   // Remove duplicates
   finalVoucherCodes = [...new Set(finalVoucherCodes)];
 
-  let totalVoucherAmount = 0;
-  const voucherItemsToCreate = [];
-  const validVoucherCodes = [];
-
+  const voucherRows = [];
   for (const code of finalVoucherCodes) {
     const voucher = await getVoucherByCode(client, code);
     if (voucher) {
-      let amount = 0;
-      let desc = '';
-
-      if (voucher.discount_amount) {
-        amount = parseFloat(voucher.discount_amount) || 0;
-        desc = voucher.invoice_description || `Voucher: ${code}`;
-      } else if (voucher.discount_percent) {
-        amount = (packagePrice * parseFloat(voucher.discount_percent)) / 100;
-        desc = voucher.invoice_description || `Voucher: ${code}`;
-      }
-
-      if (amount > 0) {
-        totalVoucherAmount += amount;
-        validVoucherCodes.push(code);
-        voucherItemsToCreate.push({
-          description: desc,
-          amount: amount,
-          code: code
-        });
-      }
+      voucherRows.push(voucher);
     }
   }
 
-  return { totalVoucherAmount, voucherItemsToCreate, validVoucherCodes };
+  return _buildVoucherInfoFromRows(voucherRows, packagePrice);
+}
+
+async function _processExistingInvoiceVouchers(client, invoiceId, fallbackVoucherCode, packagePrice) {
+  const voucherRows = await _getInvoiceSelectedVoucherRows(client, invoiceId, fallbackVoucherCode);
+  return _buildVoucherInfoFromRows(voucherRows, packagePrice);
+}
+
+function normalizeVoucherCategoryPackageType(rawType) {
+  const value = String(rawType || '').trim().toLowerCase();
+  if (!value) return 'all';
+  if (value === 'all') return 'all';
+  if (value === 'resi' || value === 'residential') return 'resi';
+  if (value === 'non-resi' || value === 'non_resi' || value === 'non residential' || value === 'non-residential' || value === 'commercial') {
+    return 'non-resi';
+  }
+  return value.includes('residential') ? 'resi' : 'non-resi';
+}
+
+function isVoucherCategoryEligible(category, invoiceSummary) {
+  if (!category || !invoiceSummary) return false;
+  if (!category.active || category.disabled) return false;
+
+  const minPackageAmount = parseFloat(category.min_package_amount);
+  if (Number.isFinite(minPackageAmount) && invoiceSummary.packagePrice < minPackageAmount) {
+    return false;
+  }
+
+  const minPanelQuantity = parseInt(category.min_panel_quantity, 10);
+  if (Number.isFinite(minPanelQuantity) && invoiceSummary.panelQty < minPanelQuantity) {
+    return false;
+  }
+
+  const requiredScope = normalizeVoucherCategoryPackageType(category.package_type_scope);
+  if (requiredScope !== 'all' && requiredScope !== invoiceSummary.packageTypeScope) {
+    return false;
+  }
+
+  return true;
+}
+
+async function _getInvoiceVoucherStepSummary(client, invoiceId) {
+  const result = await client.query(
+    `SELECT
+        i.bubble_id,
+        i.invoice_number,
+        i.total_amount,
+        i.voucher_code,
+        i.linked_package,
+        COALESCE(c.name, 'Valued Customer') AS customer_name,
+        pkg.price AS package_price,
+        pkg.panel_qty,
+        pkg.type AS package_type
+     FROM invoice i
+     LEFT JOIN customer c ON i.linked_customer = c.customer_id
+     LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
+     WHERE i.bubble_id = $1
+     LIMIT 1`,
+    [invoiceId]
+  );
+
+  const invoice = result.rows[0];
+  if (!invoice) return null;
+
+  return {
+    ...invoice,
+    packagePrice: parseFloat(invoice.package_price) || 0,
+    panelQty: parseInt(invoice.panel_qty, 10) || 0,
+    packageTypeScope: normalizeVoucherCategoryPackageType(invoice.package_type)
+  };
+}
+
+async function getVoucherStepData(client, invoiceId) {
+  const invoiceSummary = await _getInvoiceVoucherStepSummary(client, invoiceId);
+  if (!invoiceSummary) {
+    throw new Error('Invoice not found');
+  }
+
+  const categoriesExist = await hasTable(client, 'voucher_category');
+  const selectionsExist = await hasTable(client, 'invoice_voucher_selection');
+  if (!categoriesExist) {
+    return {
+      invoice: invoiceSummary,
+      categories: [],
+      selectedVoucherIds: [],
+      selectedVoucherCodes: []
+    };
+  }
+
+  const voucherColumns = await getTableColumns(client, 'voucher');
+  const hasCategoryLink = voucherColumns.has('linked_voucher_category');
+
+  const categoryRows = await client.query(
+    `SELECT *
+     FROM voucher_category
+     WHERE active = TRUE AND COALESCE(disabled, FALSE) = FALSE
+     ORDER BY created_at ASC, name ASC`
+  );
+
+  const selectionRows = selectionsExist
+    ? await client.query(
+      `SELECT linked_voucher
+       FROM invoice_voucher_selection
+       WHERE linked_invoice = $1`,
+      [invoiceId]
+    )
+    : { rows: [] };
+
+  const selectedVoucherIds = new Set(selectionRows.rows.map((row) => String(row.linked_voucher)));
+  const legacySelected = await _getInvoiceSelectedVoucherRows(client, invoiceId, invoiceSummary.voucher_code);
+  legacySelected.forEach((voucher) => {
+    if (voucher?.bubble_id) selectedVoucherIds.add(String(voucher.bubble_id));
+    if (voucher?.id !== undefined && voucher?.id !== null) selectedVoucherIds.add(String(voucher.id));
+  });
+
+  const categories = [];
+  for (const category of categoryRows.rows) {
+    const eligible = isVoucherCategoryEligible(category, invoiceSummary);
+    const vouchers = hasCategoryLink
+      ? await client.query(
+        `SELECT *
+         FROM voucher
+         WHERE linked_voucher_category = $1
+           AND active = TRUE
+           AND ("delete" IS NULL OR "delete" = FALSE)
+         ORDER BY created_at ASC, title ASC`,
+        [category.bubble_id]
+      )
+      : { rows: [] };
+
+    if (!vouchers.rows.length) continue;
+
+    categories.push({
+      ...category,
+      eligible,
+      vouchers: vouchers.rows.map((voucher) => ({
+        ...voucher,
+        is_selected: selectedVoucherIds.has(String(voucher.bubble_id)) || selectedVoucherIds.has(String(voucher.id))
+      }))
+    });
+  }
+
+  return {
+    invoice: invoiceSummary,
+    categories,
+    selectedVoucherIds: legacySelected
+      .map((voucher) => voucher.bubble_id || String(voucher.id || ''))
+      .filter(Boolean),
+    selectedVoucherCodes: legacySelected.map((voucher) => voucher.voucher_code).filter(Boolean)
+  };
 }
 
 /**
@@ -1761,7 +2022,9 @@ async function updateInvoiceTransaction(client, data) {
 
     // 4. Calculate Financials
     const packagePrice = parseFloat(pkg.price) || 0;
-    const voucherInfo = await _processVouchers(client, data, packagePrice);
+    const voucherInfo = Array.isArray(data.voucherCodes) || data.voucherCode
+      ? await _processVouchers(client, data, packagePrice)
+      : await _processExistingInvoiceVouchers(client, bubbleId, currentData.voucher_code, packagePrice);
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
 
     // Validate tiered max discount policy (vouchers excluded)
@@ -1880,6 +2143,265 @@ async function updateInvoiceTransaction(client, data) {
       ...result,
       customerBubbleId: customerBubbleId
     };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => { });
+    throw err;
+  }
+}
+
+async function _replaceInvoiceVoucherSelections(client, invoiceId, voucherRows, createdBy) {
+  const hasSelectionTable = await hasTable(client, 'invoice_voucher_selection');
+  if (!hasSelectionTable) return;
+
+  const selectionColumns = await getTableColumns(client, 'invoice_voucher_selection');
+  const previousSelections = await client.query(
+    `SELECT linked_voucher
+     FROM invoice_voucher_selection
+     WHERE linked_invoice = $1`,
+    [invoiceId]
+  );
+
+  const previousVoucherIds = new Set(previousSelections.rows.map((row) => String(row.linked_voucher)));
+  const nextVoucherIds = new Set(
+    voucherRows
+      .map((voucher) => String(voucher.bubble_id || voucher.id || ''))
+      .filter(Boolean)
+  );
+
+  const releasedIds = [...previousVoucherIds].filter((id) => !nextVoucherIds.has(id));
+  const newlyAppliedIds = [...nextVoucherIds].filter((id) => !previousVoucherIds.has(id));
+
+  if (releasedIds.length > 0) {
+    await client.query(
+      `UPDATE voucher
+       SET voucher_availability = CASE
+         WHEN voucher_availability IS NULL THEN NULL
+         ELSE voucher_availability + 1
+       END,
+       updated_at = NOW()
+       WHERE bubble_id = ANY($1::text[])`,
+      [releasedIds]
+    );
+  }
+
+  if (newlyAppliedIds.length > 0) {
+    const locked = await client.query(
+      `SELECT bubble_id, voucher_availability
+       FROM voucher
+       WHERE bubble_id = ANY($1::text[])
+       FOR UPDATE`,
+      [newlyAppliedIds]
+    );
+
+    for (const voucher of locked.rows) {
+      if (voucher.voucher_availability !== null && parseInt(voucher.voucher_availability, 10) <= 0) {
+        throw new Error(`Voucher ${voucher.bubble_id} is no longer available.`);
+      }
+    }
+
+    await client.query(
+      `UPDATE voucher
+       SET voucher_availability = CASE
+         WHEN voucher_availability IS NULL THEN NULL
+         ELSE voucher_availability - 1
+       END,
+       updated_at = NOW()
+       WHERE bubble_id = ANY($1::text[])`,
+      [newlyAppliedIds]
+    );
+  }
+
+  await client.query('DELETE FROM invoice_voucher_selection WHERE linked_invoice = $1', [invoiceId]);
+
+  for (const voucher of voucherRows) {
+    const selectionBubbleId = `ivs_${crypto.randomBytes(8).toString('hex')}`;
+    const fields = ['bubble_id', 'linked_invoice', 'linked_voucher'];
+    const values = [selectionBubbleId, invoiceId, voucher.bubble_id || String(voucher.id)];
+
+    if (selectionColumns.has('linked_voucher_category')) {
+      fields.push('linked_voucher_category');
+      values.push(voucher.linked_voucher_category || null);
+    }
+    if (selectionColumns.has('voucher_code_snapshot')) {
+      fields.push('voucher_code_snapshot');
+      values.push(voucher.voucher_code || null);
+    }
+    if (selectionColumns.has('voucher_title_snapshot')) {
+      fields.push('voucher_title_snapshot');
+      values.push(voucher.title || null);
+    }
+    if (selectionColumns.has('voucher_amount_snapshot')) {
+      fields.push('voucher_amount_snapshot');
+      values.push(voucher.discount_amount || null);
+    }
+    if (selectionColumns.has('voucher_percent_snapshot')) {
+      fields.push('voucher_percent_snapshot');
+      values.push(voucher.discount_percent || null);
+    }
+    if (selectionColumns.has('created_by')) {
+      fields.push('created_by');
+      values.push(createdBy || null);
+    }
+
+    const placeholders = values.map((_, index) => `$${index + 1}`).join(', ');
+    await client.query(
+      `INSERT INTO invoice_voucher_selection (${fields.join(', ')}, created_at, updated_at)
+       VALUES (${placeholders}, NOW(), NOW())`,
+      values
+    );
+  }
+}
+
+async function applyInvoiceVoucherSelections(client, invoiceId, voucherIds, userId) {
+  await client.query('BEGIN');
+
+  try {
+    const invoice = await _getInvoiceVoucherStepSummary(client, invoiceId);
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
+
+    const categoriesExist = await hasTable(client, 'voucher_category');
+    const selectionExists = await hasTable(client, 'invoice_voucher_selection');
+    if (!categoriesExist || !selectionExists) {
+      throw new Error('Voucher category setup is not available yet.');
+    }
+
+    const categoryColumns = await getTableColumns(client, 'voucher_category');
+    const voucherColumns = await getTableColumns(client, 'voucher');
+    if (!voucherColumns.has('linked_voucher_category')) {
+      throw new Error('Voucher category linkage is not available yet.');
+    }
+
+    const normalizedVoucherIds = [...new Set((Array.isArray(voucherIds) ? voucherIds : []).map((id) => String(id).trim()).filter(Boolean))];
+    const selectedRows = [];
+    for (const voucherId of normalizedVoucherIds) {
+      const voucher = await getVoucherById(client, voucherId);
+      if (!voucher) {
+        throw new Error(`Voucher not found: ${voucherId}`);
+      }
+      selectedRows.push(voucher);
+    }
+
+    const categoryMap = new Map();
+    const categoryIds = [...new Set(selectedRows.map((row) => row.linked_voucher_category).filter(Boolean))];
+    if (categoryIds.length > 0) {
+      const categories = await client.query(
+        `SELECT *
+         FROM voucher_category
+         WHERE bubble_id = ANY($1::text[])`,
+        [categoryIds]
+      );
+      categories.rows.forEach((category) => categoryMap.set(category.bubble_id, category));
+    }
+
+    const selectedByCategory = new Map();
+    for (const voucher of selectedRows) {
+      if (!voucher.linked_voucher_category) {
+        throw new Error(`Voucher ${voucher.voucher_code} is not assigned to an active voucher group.`);
+      }
+
+      const category = categoryMap.get(voucher.linked_voucher_category);
+      if (!category || !category.active || category.disabled) {
+        throw new Error(`Voucher group for ${voucher.voucher_code} is not active.`);
+      }
+
+      if (!isVoucherCategoryEligible(category, invoice)) {
+        throw new Error(`Invoice does not meet the requirements for voucher group "${category.name}".`);
+      }
+
+      if (!selectedByCategory.has(category.bubble_id)) {
+        selectedByCategory.set(category.bubble_id, []);
+      }
+      selectedByCategory.get(category.bubble_id).push(voucher);
+    }
+
+    for (const [categoryId, vouchers] of selectedByCategory.entries()) {
+      const category = categoryMap.get(categoryId);
+      const maxSelectable = Math.max(1, parseInt(category.max_selectable, 10) || 1);
+      if (vouchers.length > maxSelectable) {
+        throw new Error(`Voucher group "${category.name}" allows only ${maxSelectable} voucher${maxSelectable === 1 ? '' : 's'}.`);
+      }
+    }
+
+    await _replaceInvoiceVoucherSelections(client, invoiceId, selectedRows, userId);
+
+    const allItemsResult = await client.query(
+      `SELECT bubble_id, description, amount, inv_item_type, sort, created_at
+       FROM invoice_item
+       WHERE linked_invoice = $1
+       ORDER BY sort ASC, created_at ASC`,
+      [invoiceId]
+    );
+
+    const existingItems = allItemsResult.rows;
+    const preservedItems = existingItems.filter((item) => item.inv_item_type !== 'voucher' && item.inv_item_type !== 'sst');
+    const removedItemIds = existingItems
+      .filter((item) => item.inv_item_type === 'voucher' || item.inv_item_type === 'sst')
+      .map((item) => item.bubble_id);
+
+    if (removedItemIds.length > 0) {
+      await client.query(
+        `DELETE FROM invoice_item
+         WHERE bubble_id = ANY($1::text[])`,
+        [removedItemIds]
+      );
+    }
+
+    const baseTaxableWithoutVoucher = preservedItems
+      .filter((item) => !['notice', 'epp_fee'].includes(item.inv_item_type))
+      .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+    const eppFeeTotal = preservedItems
+      .filter((item) => item.inv_item_type === 'epp_fee')
+      .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+    const voucherInfo = _buildVoucherInfoFromRows(selectedRows, invoice.packagePrice);
+    const taxableSubtotal = baseTaxableWithoutVoucher - voucherInfo.totalVoucherAmount;
+    if (taxableSubtotal <= 0) {
+      throw new Error('Total amount cannot be zero or negative after applying discounts and vouchers.');
+    }
+
+    const hadSst = existingItems.some((item) => item.inv_item_type === 'sst');
+    const sstAmount = hadSst ? (taxableSubtotal * 6) / 100 : 0;
+    const finalTotalAmount = taxableSubtotal + sstAmount + eppFeeTotal;
+
+    const newItemIds = preservedItems.map((item) => item.bubble_id);
+    let sortOrder = 101;
+    for (const vItem of voucherInfo.voucherItemsToCreate) {
+      const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+      await client.query(
+        `INSERT INTO invoice_item
+         (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+         VALUES ($1, $2, $3, 1, $4, $5, 'voucher', $6, NOW(), NOW(), FALSE)`,
+        [itemBubbleId, invoiceId, vItem.description, -vItem.amount, -vItem.amount, sortOrder++]
+      );
+      newItemIds.push(itemBubbleId);
+    }
+
+    if (sstAmount > 0) {
+      const sstItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+      await client.query(
+        `INSERT INTO invoice_item
+         (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+         VALUES ($1, $2, 'SST (6%)', 1, $3, $3, 'sst', 300, NOW(), NOW(), FALSE)`,
+        [sstItemBubbleId, invoiceId, sstAmount]
+      );
+      newItemIds.push(sstItemBubbleId);
+    }
+
+    await client.query(
+      `UPDATE invoice
+       SET voucher_code = $1,
+           total_amount = $2,
+           balance_due = $2 - COALESCE(paid_amount, 0),
+           linked_invoice_item = $3,
+           updated_at = NOW()
+       WHERE bubble_id = $4`,
+      [voucherInfo.validVoucherCodes.join(', ') || null, finalTotalAmount, newItemIds, invoiceId]
+    );
+
+    await client.query('COMMIT');
+    return getInvoiceByBubbleId(client, invoiceId);
   } catch (err) {
     await client.query('ROLLBACK').catch(() => { });
     throw err;
@@ -2082,6 +2604,8 @@ module.exports = {
   getPublicVouchers,
   updateInvoiceTransaction,
   getInvoiceByBubbleId,
+  getVoucherStepData,
+  applyInvoiceVoucherSelections,
   getInvoiceHistory,
   getInvoiceActionById,
   deleteSampleInvoices,

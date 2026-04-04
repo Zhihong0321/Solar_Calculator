@@ -162,8 +162,6 @@ function getExtraItemsNegativeTotal() {
 
 const BANKS = Object.keys(EPP_RATES);
 let paymentMethodCounter = 0;
-let availableVouchers = [];
-let selectedVouchers = [];
 let assignedReferralLeads = [];
 let referralInvoiceFilterId = null;
 
@@ -364,154 +362,6 @@ async function fetchAssignedReferralLeads(selectedReferralId = '', { autofillSel
     } catch (error) {
         console.error('Error loading assigned referral leads:', error);
     }
-}
-
-// Fetch available vouchers - only active, non-deleted vouchers for agent use
-async function fetchVouchers() {
-    try {
-        const response = await fetch('/api/vouchers?status=active');
-        const result = await response.json();
-
-        if (result.success) {
-            availableVouchers = result.vouchers;
-            renderVoucherPickerOptions();
-            updateVoucherSelectionSummary();
-        }
-    } catch (err) {
-        console.error('Error fetching vouchers:', err);
-    }
-}
-
-function formatVoucherValue(voucher) {
-    if (voucher.discount_amount) return `RM ${parseFloat(voucher.discount_amount).toFixed(2)}`;
-    if (voucher.discount_percent) return `${parseFloat(voucher.discount_percent)}%`;
-    return 'Promo';
-}
-
-function syncVoucherPickerSelection() {
-    const checkboxes = document.querySelectorAll('.voucher-picker-checkbox');
-    checkboxes.forEach((checkbox) => {
-        checkbox.checked = !!selectedVouchers.find((voucher) => voucher.voucher_code === checkbox.value);
-    });
-}
-
-function renderVoucherPickerOptions() {
-    const list = document.getElementById('voucherPickerList');
-    const emptyState = document.getElementById('voucherEmptyState');
-    if (!list) return;
-
-    if (!availableVouchers.length) {
-        list.innerHTML = '<div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">No active vouchers found.</div>';
-        if (emptyState) emptyState.classList.remove('hidden');
-        return;
-    }
-
-    if (emptyState) emptyState.classList.add('hidden');
-    list.innerHTML = availableVouchers.map((voucher) => {
-        const checked = selectedVouchers.find((selected) => selected.voucher_code === voucher.voucher_code) ? 'checked' : '';
-        const availability = voucher.voucher_availability ?? '∞';
-        return `
-            <label class="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 hover:border-green-300 hover:bg-green-50">
-                <input type="checkbox" class="voucher-picker-checkbox mt-1 h-5 w-5 rounded border-slate-300 text-green-600 focus:ring-green-500" value="${voucher.voucher_code}" ${checked}>
-                <div class="min-w-0 flex-1">
-                    <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="text-sm font-semibold text-slate-900">${voucher.title || voucher.voucher_code}</div>
-                        <div class="text-sm font-bold text-green-700">${formatVoucherValue(voucher)}</div>
-                    </div>
-                    <div class="text-xs font-medium uppercase tracking-wide text-slate-500 mt-1">${voucher.voucher_code} · ${availability} left</div>
-                </div>
-            </label>
-        `;
-    }).join('');
-}
-
-function updateVoucherSelectionSummary() {
-    const summary = document.getElementById('voucherSelectionSummary');
-    if (!summary) return;
-
-    if (!availableVouchers.length) {
-        summary.textContent = 'No active vouchers available.';
-        return;
-    }
-
-    if (!selectedVouchers.length) {
-        summary.textContent = `${availableVouchers.length} available. No vouchers selected.`;
-        return;
-    }
-
-    summary.textContent = `${selectedVouchers.length} voucher${selectedVouchers.length === 1 ? '' : 's'} selected.`;
-}
-
-function openVoucherPicker() {
-    const modal = document.getElementById('voucherPickerModal');
-    if (!modal) return;
-    renderVoucherPickerOptions();
-    syncVoucherPickerSelection();
-    modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
-}
-
-function closeVoucherPicker() {
-    const modal = document.getElementById('voucherPickerModal');
-    if (!modal) return;
-    modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
-}
-
-function applyVoucherSelections() {
-    const selectedCodes = Array.from(document.querySelectorAll('.voucher-picker-checkbox:checked')).map((checkbox) => checkbox.value);
-    selectedVouchers = availableVouchers.filter((voucher) => selectedCodes.includes(voucher.voucher_code));
-    renderSelectedVouchers();
-    updateVoucherSelectionSummary();
-    updateInvoicePreview();
-    closeVoucherPicker();
-}
-
-function removeVoucher(code) {
-    selectedVouchers = selectedVouchers.filter(v => v.voucher_code !== code);
-    renderSelectedVouchers();
-    updateVoucherSelectionSummary();
-    syncVoucherPickerSelection();
-    updateInvoicePreview();
-}
-
-// Render selected vouchers list
-function renderSelectedVouchers() {
-    const container = document.getElementById('selectedVouchersContainer');
-    const list = document.getElementById('selectedVouchersList');
-    if (!container || !list) return;
-
-    if (selectedVouchers.length === 0) {
-        container.classList.add('hidden');
-        return;
-    }
-
-    container.classList.remove('hidden');
-    list.innerHTML = '';
-
-    selectedVouchers.forEach(v => {
-        const item = document.createElement('div');
-        item.className = 'flex justify-between items-center bg-white p-2 rounded border border-green-200 shadow-sm';
-
-        let valText = '';
-        if (v.discount_amount) valText = `RM ${parseFloat(v.discount_amount).toFixed(2)}`;
-        else if (v.discount_percent) valText = `${v.discount_percent}%`;
-
-        item.innerHTML = `
-                    <div class="flex-1">
-                        <div class="text-sm font-semibold text-gray-900">${v.title || v.voucher_code}</div>
-                        <div class="text-xs text-gray-500 uppercase tracking-wide mt-1">${v.voucher_code}</div>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm font-bold text-green-600">${valText}</span>
-                        <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="removeVoucher('${v.voucher_code}')" title="Remove">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
-                    </div>
-                `;
-        list.appendChild(item);
-    });
-    updateVoucherSelectionSummary();
 }
 
 // Parse discount string (same logic as backend)
@@ -785,22 +635,10 @@ function updatePaymentMethodInfo(index) {
     const amountType = amountTypeSelect?.value;
     const amountValue = parseFloat(amountValueInput?.value || 0);
 
-    // Calculate package price after discount and voucher
+    // Calculate package price after discount
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     const discountInput = document.getElementById('discountGiven')?.value || '';
     const discount = parseDiscount(discountInput);
-
-    // Calculate total voucher amount
-    let totalVoucherAmount = 0;
-    selectedVouchers.forEach(voucher => {
-        let amount = 0;
-        if (voucher.discount_amount) {
-            amount = parseFloat(voucher.discount_amount);
-        } else if (voucher.discount_percent) {
-            amount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
-        }
-        totalVoucherAmount += amount;
-    });
 
     // Calculate extra items total
     const extraItemsTotal = getAdditionalInvoiceItems()
@@ -809,7 +647,6 @@ function updatePaymentMethodInfo(index) {
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
     if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
-    subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
 
     const promotionAmounts = getAppliedPromotionAmounts();
     subtotalAfterDiscount -= promotionAmounts.totalAppliedAmount;
@@ -844,22 +681,10 @@ function updatePaymentMethodInfo(index) {
 
 // Calculate all EPP fees and create description
 function calculateAllEPPFees() {
-    // Calculate package price after discount and voucher
+    // Calculate package price after discount
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     const discountInput = document.getElementById('discountGiven')?.value || '';
     const discount = parseDiscount(discountInput);
-
-    // Calculate total voucher amount
-    let totalVoucherAmount = 0;
-    selectedVouchers.forEach(voucher => {
-        let amount = 0;
-        if (voucher.discount_amount) {
-            amount = parseFloat(voucher.discount_amount);
-        } else if (voucher.discount_percent) {
-            amount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
-        }
-        totalVoucherAmount += amount;
-    });
 
     // Calculate extra items total
     const extraItemsTotal = getAdditionalInvoiceItems()
@@ -868,7 +693,6 @@ function calculateAllEPPFees() {
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
     if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
-    subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
 
     const promotionAmounts = getAppliedPromotionAmounts();
     subtotalAfterDiscount -= promotionAmounts.totalAppliedAmount;
@@ -1191,29 +1015,6 @@ function updateInvoicePreview() {
         if (existingWarning) existingWarning.remove();
     }
 
-    // Add Voucher Items
-    selectedVouchers.forEach(voucher => {
-        let voucherAmount = 0;
-        if (voucher.discount_amount) {
-            voucherAmount = parseFloat(voucher.discount_amount);
-        } else if (voucher.discount_percent) {
-            voucherAmount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
-        }
-
-        if (voucherAmount > 0) {
-            const voucherItem = document.createElement('div');
-            voucherItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-            voucherItem.innerHTML = `
-                        <div class="flex-1">
-                            <div class="font-medium text-green-600">${voucher.title || 'Voucher'} (${voucher.voucher_code})</div>
-                        </div>
-                        <div class="font-semibold text-green-600">-RM ${voucherAmount.toFixed(2)}</div>
-                    `;
-            itemsList.appendChild(voucherItem);
-            subtotal -= voucherAmount;
-        }
-    });
-
     const trueSubtotal = subtotal;
     if (trueSubtotal <= 0) {
         window._subtotalIsZeroOrNegative = true;
@@ -1445,17 +1246,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                     setBallastQty(ballastQty);
                 }
 
-                await fetchVouchers();
-                if (inv.voucher_code) {
-                    const codes = inv.voucher_code.split(',').map(s => s.trim());
-                    codes.forEach(code => {
-                        const v = availableVouchers.find(av => av.voucher_code === code);
-                        if (v && !selectedVouchers.find(sv => sv.voucher_code === v.voucher_code)) {
-                            selectedVouchers.push(v);
-                        }
-                    });
-                    renderSelectedVouchers();
-                }
                 // Clear loading warning if everything is okay
                 document.getElementById('warningMessage').classList.add('hidden');
             } else {
@@ -1469,7 +1259,6 @@ document.addEventListener('DOMContentLoaded', async function () {
             await fetchPackageDetails(packageId);
             pageLog('Package details loaded successfully.');
             addPaymentMethodRow();
-            await fetchVouchers();
             // Clear loading warning
             document.getElementById('warningMessage').classList.add('hidden');
         }
@@ -1491,14 +1280,12 @@ document.addEventListener('DOMContentLoaded', async function () {
                 throw new Error(`No package found matching ${panelQty} panels @ ${panelRating}`);
             }
             addPaymentMethodRow();
-            await fetchVouchers();
         }
         // BRANCH D: Browse Mode
         else {
             pageLog('No parameters found, prompting user to browse.');
             document.getElementById('packageIdForm').classList.remove('hidden');
             addPaymentMethodRow();
-            await fetchVouchers();
         }
     } catch (err) {
         pageLog(`FATAL ERROR: ${err.message}`, 'red-400');
@@ -1528,30 +1315,6 @@ document.addEventListener('DOMContentLoaded', async function () {
             applyAssignedReferralSelection(event.target.value, { autofill: true });
         });
     }
-
-    const addVoucherBtn = document.getElementById('addVoucherBtn');
-    if (addVoucherBtn) addVoucherBtn.addEventListener('click', openVoucherPicker);
-
-    const closeVoucherModalBtn = document.getElementById('closeVoucherModalBtn');
-    if (closeVoucherModalBtn) closeVoucherModalBtn.addEventListener('click', closeVoucherPicker);
-
-    const cancelVoucherModalBtn = document.getElementById('cancelVoucherModalBtn');
-    if (cancelVoucherModalBtn) cancelVoucherModalBtn.addEventListener('click', closeVoucherPicker);
-
-    const applyVoucherSelectionBtn = document.getElementById('applyVoucherSelectionBtn');
-    if (applyVoucherSelectionBtn) applyVoucherSelectionBtn.addEventListener('click', applyVoucherSelections);
-
-    const voucherPickerBackdrop = document.getElementById('voucherPickerBackdrop');
-    if (voucherPickerBackdrop) voucherPickerBackdrop.addEventListener('click', closeVoucherPicker);
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            const voucherModal = document.getElementById('voucherPickerModal');
-            if (voucherModal && !voucherModal.classList.contains('hidden')) {
-                closeVoucherPicker();
-            }
-        }
-    });
 
     const sstToggle = document.getElementById('applySST');
     if (sstToggle) sstToggle.addEventListener('change', updateInvoicePreview);
@@ -1693,7 +1456,7 @@ function showPackage(pkg) {
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
     updatePromotionOptionsUI();
 
-    // Handle tiered max discount policy (vouchers excluded)
+    // Handle tiered max discount policy
     const pkgPriceForLimit = parseFloat(pkg.price) || 0;
     const { maxPercent, maxAmount } = getManualDiscountPolicy(pkgPriceForLimit);
     window.maxDiscountAllowed = maxAmount;
@@ -1710,7 +1473,7 @@ function showPackage(pkg) {
     if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)} (${maxPercent}% of package price)`;
 
     if (inputMaxDiscountRow) inputMaxDiscountRow.classList.remove('hidden');
-    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${window.maxDiscountAllowed.toFixed(2)} (${maxPercent}% of package price — vouchers excluded)`;
+    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${window.maxDiscountAllowed.toFixed(2)} (${maxPercent}% of package price)`;
 
     if (pkg.invoice_desc) {
         const descContainer = document.getElementById('packageDescContainer');
@@ -1755,6 +1518,20 @@ function showWarning(message) {
     document.getElementById('warningText').textContent = message;
 }
 
+function buildPostSubmitVoucherStepUrl({ invoiceId, nextUrl }) {
+    const params = new URLSearchParams();
+    if (invoiceId) params.set('id', invoiceId);
+    if (nextUrl) params.set('next', nextUrl);
+    return `/invoice-vouchers?${params.toString()}`;
+}
+
+function resolveCreateFlowNextUrl(result) {
+    if (result?.invoice_link) return result.invoice_link;
+    if (result?.data?.shareToken) return `/view/${result.data.shareToken}`;
+    if (result?.data?.bubbleId) return `/invoice-office?id=${result.data.bubbleId}`;
+    return '/my-invoice';
+}
+
 // Handle form submission
 document.getElementById('quotationForm')?.addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -1790,7 +1567,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         Swal.fire({
             icon: 'error',
             title: 'Invalid Total Amount',
-            text: 'The total amount cannot be zero or negative after applying discounts and vouchers. Please adjust the discounts.'
+            text: 'The total amount cannot be zero or negative after applying discounts. Please adjust the discounts.'
         });
         return;
     }
@@ -1854,7 +1631,6 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
             solar_sun_peak_hour: document.getElementById('solarSunPeakHour')?.value || null,
             solar_morning_usage_percent: document.getElementById('solarMorningUsagePercent')?.value || null,
             discount_given: data.discount_given || null,
-            voucher_codes: selectedVouchers.map(v => v.voucher_code),
             apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,
             apply_earth_month_go_green_bonus: promotionAmounts.earthMonthAppliedAmount > 0,
             apply_sst: document.getElementById('applySST')?.checked || false,
@@ -1889,7 +1665,12 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         const result = await response.json();
 
         if (response.ok && result.success) {
-            window.location.href = result.invoice_link;
+            const createdInvoiceId = result?.data?.bubbleId || '';
+            const postSubmitVoucherStepUrl = buildPostSubmitVoucherStepUrl({
+                invoiceId: createdInvoiceId,
+                nextUrl: resolveCreateFlowNextUrl(result)
+            });
+            window.location.href = postSubmitVoucherStepUrl;
         } else {
             alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
         }
