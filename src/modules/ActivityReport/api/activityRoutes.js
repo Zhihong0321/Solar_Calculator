@@ -48,44 +48,43 @@ function getCurrentMonthRange(baseDate = new Date()) {
 }
 
 async function resolveAgentIdentifiers(client, actorId) {
-  const identifiers = new Set([String(actorId)]);
+  const normalized = String(actorId);
+  const identifiers = new Set();
 
+  // 1. Try to resolve as a USER first to avoid ambiguous integer collisions between user.id and agent.id
   const userResult = await client.query(
-    `SELECT DISTINCT
-       u.id::text as user_id,
-       u.bubble_id,
-       u.linked_agent_profile,
-       a.bubble_id as agent_bubble_id,
-       a.linked_user_login
+    `SELECT a.id::text AS agent_id,
+            a.bubble_id AS agent_bubble_id,
+            u.bubble_id AS user_bubble_id,
+            u.linked_agent_profile
      FROM "user" u
-     LEFT JOIN agent a
-       ON (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.linked_user_login)
-     WHERE u.id::text = $1
-        OR u.bubble_id = $1
-        OR u.linked_agent_profile = $1
-        OR a.bubble_id = $1
-        OR a.linked_user_login = $1`,
-    [String(actorId)]
+     LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.linked_user_login)
+     WHERE u.id::text = $1 OR u.bubble_id = $1`,
+    [normalized]
   );
 
-  userResult.rows.forEach(row => {
-    [row.user_id, row.bubble_id, row.linked_agent_profile, row.agent_bubble_id, row.linked_user_login]
-      .filter(Boolean)
-      .forEach(value => identifiers.add(String(value)));
-  });
-
-  const agentResult = await client.query(
-    `SELECT bubble_id, linked_user_login
-     FROM agent
-     WHERE bubble_id = $1 OR linked_user_login = $1`,
-    [String(actorId)]
-  );
-
-  agentResult.rows.forEach(row => {
-    [row.bubble_id, row.linked_user_login]
-      .filter(Boolean)
-      .forEach(value => identifiers.add(String(value)));
-  });
+  if (userResult.rows.length > 0) {
+    userResult.rows.forEach((row) => {
+      [row.agent_id, row.agent_bubble_id, row.user_bubble_id, row.linked_agent_profile]
+        .filter(Boolean)
+        .forEach((v) => identifiers.add(String(v)));
+    });
+  } else {
+    // 2. If no user found, try resolving as an AGENT directly
+    const agentResult = await client.query(
+      `SELECT a.id::text AS agent_id,
+              a.bubble_id AS agent_bubble_id,
+              a.linked_user_login AS user_bubble_id
+       FROM agent a
+       WHERE a.id::text = $1 OR a.bubble_id = $1`,
+      [normalized]
+    );
+    agentResult.rows.forEach((row) => {
+      [row.agent_id, row.agent_bubble_id, row.user_bubble_id]
+        .filter(Boolean)
+        .forEach((v) => identifiers.add(String(v)));
+    });
+  }
 
   return Array.from(identifiers);
 }

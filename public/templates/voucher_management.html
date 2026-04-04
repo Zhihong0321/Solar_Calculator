@@ -128,6 +128,11 @@
                 <p class="text-slate-500 font-medium">Create and manage discount vouchers for your customers.</p>
             </div>
             <div class="flex items-center gap-3">
+                <button onclick="openCategoryModal()"
+                    class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-5 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
+                    <i class="fa-solid fa-layer-group text-slate-700 text-sm"></i>
+                    <span>Create Category</span>
+                </button>
                 <a href="https://drive.google.com/file/d/1JDTki3iHjyN8cYZJzFRUS_FK5PyKGV7V/view?usp=sharing"
                     target="_blank"
                     class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-5 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md">
@@ -141,6 +146,24 @@
                 </button>
             </div>
         </header>
+
+        <section class="mb-10">
+            <div class="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h2 class="text-xl font-extrabold tracking-tight text-slate-900">Voucher Categories</h2>
+                    <p class="text-sm font-medium text-slate-500">Set max selections, invoice requirements, and disabled state for each voucher group.</p>
+                </div>
+                <button onclick="openCategoryModal()"
+                    class="rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800">
+                    Add Category
+                </button>
+            </div>
+            <div id="categoryList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-10 text-center text-sm text-slate-400">
+                    Loading voucher categories...
+                </div>
+            </div>
+        </section>
 
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -241,6 +264,14 @@
                         </div>
                     </div>
 
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Voucher Category</label>
+                        <select id="linked_voucher_category"
+                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium">
+                            <option value="">Uncategorized (Hidden in voucher step)</option>
+                        </select>
+                    </div>
+
                     <div id="commissionDeductionField"
                         class="hidden space-y-2 bg-orange-50 p-4 rounded-xl border border-orange-100">
                         <label class="text-xs font-bold text-orange-700 uppercase tracking-wider px-1">
@@ -325,6 +356,113 @@
                         <button type="submit"
                             class="flex-[2] px-6 py-3 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-all shadow-xl shadow-slate-200">
                             Save Voucher
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="categoryModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="modal-overlay absolute inset-0" onclick="closeCategoryModal()"></div>
+        <div class="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative z-10 shadow-2xl">
+            <div class="p-8">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 id="categoryModalTitle" class="text-2xl font-bold text-slate-900">Create Voucher Category</h2>
+                    <button onclick="closeCategoryModal()"
+                        class="w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+
+                <form id="categoryForm" class="space-y-6">
+                    <input type="hidden" id="categoryId">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Category Name</label>
+                            <input type="text" id="category_name" required placeholder="e.g. Panel Reward"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Max Selectable</label>
+                            <input type="number" id="category_max_selectable" min="1" value="1"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium">
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Description</label>
+                        <textarea id="category_description" rows="2" placeholder="Optional note for this voucher group..."
+                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Min Quotation Amount</label>
+                            <input type="number" id="category_min_package_amount" min="0" step="0.01" placeholder="No minimum"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Max Quotation Amount</label>
+                            <input type="number" id="category_max_package_amount" min="0" step="0.01" placeholder="No maximum"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Min Panel Quantity</label>
+                            <input type="number" id="category_min_panel_quantity" min="0" placeholder="No minimum"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Max Panel Quantity</label>
+                            <input type="number" id="category_max_panel_quantity" min="0" placeholder="No maximum"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Package Type</label>
+                            <select id="category_package_type_scope"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium">
+                                <option value="all">All</option>
+                                <option value="resi">Resi</option>
+                                <option value="non-resi">Non-Resi</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-6 pt-2">
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <div class="relative">
+                                <input type="checkbox" id="category_active" checked class="sr-only peer">
+                                <div class="w-12 h-6 bg-slate-200 rounded-full peer peer-checked:bg-green-500 transition-all"></div>
+                                <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-6"></div>
+                            </div>
+                            <span class="text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Category Active</span>
+                        </label>
+
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <div class="relative">
+                                <input type="checkbox" id="category_disabled" class="sr-only peer">
+                                <div class="w-12 h-6 bg-slate-200 rounded-full peer peer-checked:bg-amber-500 transition-all"></div>
+                                <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-6"></div>
+                            </div>
+                            <span class="text-sm font-bold text-slate-600 group-hover:text-slate-900 transition-colors">Disabled In Voucher Step</span>
+                        </label>
+                    </div>
+
+                    <div class="pt-6 flex gap-4">
+                        <button type="button" onclick="closeCategoryModal()"
+                            class="flex-1 px-6 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="flex-[2] px-6 py-3 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-all shadow-xl shadow-slate-200">
+                            Save Category
                         </button>
                     </div>
                 </form>

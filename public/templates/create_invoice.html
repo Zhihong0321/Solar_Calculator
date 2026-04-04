@@ -48,32 +48,6 @@
 
         <h1 class="text-2xl font-bold mb-6 text-gray-900">Create Quotation</h1>
 
-        <!-- Holiday Boost 2026 Promo Banner -->
-        <div id="holidayPromoBanner"
-            class="hidden mb-6 rounded-lg overflow-hidden border-2 border-emerald-200 bg-emerald-900 shadow-lg relative group">
-            <img src="/images/holiday_boost_2026.png" alt="Holiday Boost 2026" class="w-full h-auto object-cover">
-            <div
-                class="absolute inset-0 bg-gradient-to-t from-emerald-950/80 via-transparent to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <p class="text-white font-bold text-xs uppercase tracking-widest">Double Holiday Boost</p>
-                <p class="text-emerald-300 text-[10px]">Valid until March 31, 2026</p>
-            </div>
-        </div>
-
-        <!-- CNY 2026 Promo Banner (Legacy Fallback) -->
-        <div id="cnyPromoBanner"
-            class="hidden mb-6 rounded-lg overflow-hidden border-2 border-orange-200 bg-gradient-to-r from-red-600 to-red-800 p-6 flex flex-col items-center justify-center text-center shadow-lg relative">
-            <div class="absolute top-2 right-4 text-4xl opacity-20 select-none">🐎</div>
-            <div class="absolute bottom-2 left-4 text-4xl opacity-20 select-none">🏮</div>
-            <div class="text-orange-300 font-bold uppercase tracking-[0.2em] text-xs mb-1">Chinese New Year 2026</div>
-            <h2 class="text-3xl font-black text-white mb-2 drop-shadow-md">CNY SPECIAL PROMO</h2>
-            <div class="bg-white/10 backdrop-blur-sm rounded-full px-6 py-2 border border-white/20 mb-3">
-                <span class="text-white font-bold text-lg italic">Get up to <span class="text-yellow-400 text-2xl">RM
-                        2,500</span> Reward</span>
-            </div>
-            <p class="text-red-100 text-[10px] font-medium uppercase tracking-wider">Auto-applied reward based on total
-                solar panels</p>
-        </div>
-
         <div id="errorMessage" class="hidden mb-6 p-4 bg-red-50 border-2 border-red-400 rounded-lg">
             <div class="flex items-start">
                 <div class="flex-shrink-0">
@@ -143,6 +117,37 @@
                         <pre class="whitespace-pre-wrap text-sm text-gray-800 bg-white p-3 rounded border border-gray-200 font-sans"
                             id="packageDescDisplay"></pre>
                     </div>
+                </div>
+            </div>
+
+            <div id="promotionOptionsSection" class="hidden bg-amber-50 p-4 rounded-lg border-2 border-amber-200">
+                <div class="flex flex-col gap-1 mb-3">
+                    <h2 class="font-bold text-lg text-gray-900">April 2026 Promotions</h2>
+                    <p class="text-xs text-amber-800 font-medium">New invoice creation only. Toggle each option on or off based on the detected package panel quantity.</p>
+                </div>
+                <div class="space-y-3">
+                    <label class="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-white">
+                        <input type="checkbox" id="applyEarnNowRebate"
+                            class="mt-1 h-5 w-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                <span class="text-sm font-semibold text-gray-900">Earn Now Rebate</span>
+                                <span id="earnNowAmountDisplay" class="text-sm font-bold text-amber-700">RM 0.00</span>
+                            </div>
+                            <p id="earnNowHint" class="text-xs text-gray-600 mt-1">Select a package to detect the rebate amount.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-3 p-3 rounded-lg border border-emerald-200 bg-white">
+                        <input type="checkbox" id="applyEarthMonthGoGreenBonus"
+                            class="mt-1 h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                <span class="text-sm font-semibold text-gray-900">Earth Month Go Green Bonus</span>
+                                <span id="earthMonthBonusAmountDisplay" class="text-sm font-bold text-emerald-700">RM 0.00</span>
+                            </div>
+                            <p id="earthMonthBonusHint" class="text-xs text-gray-600 mt-1">Select a package to detect the bonus amount.</p>
+                        </div>
+                    </label>
                 </div>
             </div>
 
@@ -226,6 +231,12 @@
                 <input type="hidden" id="packagePrice" value="0">
                 <input type="hidden" id="packageName" value="">
                 <input type="hidden" id="profilePicture">
+                <input type="hidden" name="linked_referral" id="linkedReferral">
+                <input type="hidden" name="customer_average_tnb" id="customerAverageTnb">
+                <input type="hidden" name="estimated_saving" id="estimatedSaving">
+                <input type="hidden" name="estimated_new_bill_amount" id="estimatedNewBillAmount">
+                <input type="hidden" name="solar_sun_peak_hour" id="solarSunPeakHour">
+                <input type="hidden" name="solar_morning_usage_percent" id="solarMorningUsagePercent">
 
                 <div class="flex items-center gap-4 mb-6 bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
                     <div id="profilePreview"
@@ -238,6 +249,15 @@
                         <p class="text-sm font-bold text-gray-700 uppercase">Customer Profile Picture</p>
                         <p class="text-xs text-gray-500 mt-0.5">Will be saved to our server from WhatsApp.</p>
                     </div>
+                </div>
+
+                <div class="bg-emerald-50 p-4 rounded-lg border-2 border-emerald-200">
+                    <label class="block text-sm font-semibold mb-2 text-emerald-900">Assigned Referral Lead</label>
+                    <select id="assignedReferralSelect"
+                        class="w-full border-2 border-emerald-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-emerald-500 focus:outline-none">
+                        <option value="">Manual customer entry</option>
+                    </select>
+                    <p class="text-xs text-emerald-700 mt-2">Selecting a referral autofills the customer fields, and you can still edit them before saving.</p>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -344,36 +364,6 @@
                     <p id="extraItemsDiscountWarning"
                         class="hidden text-xs text-red-600 font-bold mt-2 bg-red-50 border border-red-300 rounded px-3 py-2">
                     </p>
-                </div>
-
-                <!-- Voucher Section -->
-                <div class="bg-green-50 p-4 rounded-lg border-2 border-green-200">
-                    <label class="block text-sm font-semibold mb-2 text-gray-900">Vouchers</label>
-                    <div class="flex gap-2 mb-3">
-                        <select id="voucherSelectDropdown"
-                            class="flex-1 min-w-0 border-2 border-gray-300 rounded px-3 py-2 text-gray-900 bg-white focus:border-green-500 focus:outline-none">
-                            <option value="">-- Select a Voucher --</option>
-                        </select>
-                        <button type="button" id="addVoucherBtn"
-                            class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded shadow-sm transition-colors">
-                            Add
-                        </button>
-                    </div>
-
-                    <!-- Selected Vouchers List -->
-                    <div id="selectedVouchersContainer" class="hidden space-y-2 mb-2">
-                        <h4 class="text-xs font-semibold text-green-800 uppercase tracking-wide">Applied Vouchers:</h4>
-                        <div id="selectedVouchersList" class="space-y-2">
-                            <!-- Items populated by JS -->
-                        </div>
-                    </div>
-
-                    <!-- Voucher Info Preview (for the currently selected item in dropdown) -->
-                    <div id="voucherInfo" class="hidden mt-2 p-3 bg-white rounded border border-green-100 shadow-sm">
-                        <p class="text-sm font-semibold text-green-800" id="voucherTitle"></p>
-                        <p class="text-xs text-green-700 mt-1" id="voucherDesc"></p>
-                        <p class="text-xs text-green-600 mt-1 italic" id="voucherTerms"></p>
-                    </div>
                 </div>
 
                 <!-- SST Toggle (default: OFF) -->

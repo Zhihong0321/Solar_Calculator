@@ -5,6 +5,24 @@
 const fs = require('fs');
 const path = require('path');
 
+function buildTigerNeoPresentationUrl(invoice) {
+  const presentationPath = '/t3_html_presentation/solar-proposal-2026-tiger-neo-3/';
+  const params = new URLSearchParams();
+  if (invoice.customer_name) params.set('customer_name', invoice.customer_name);
+  if (invoice.customer_address) params.set('customer_address', invoice.customer_address);
+
+  const panelQty = parseFloat(invoice.panel_qty) || 0;
+  const panelRating = parseFloat(invoice.panel_rating) || 0;
+  const systemSizeKwp = parseFloat(invoice.system_size_kwp) || (panelQty && panelRating ? (panelQty * panelRating) / 1000 : 0);
+
+  if (panelQty > 0) params.set('panel_qty', String(panelQty));
+  if (panelRating > 0) params.set('panel_rating', String(panelRating));
+  if (systemSizeKwp > 0) params.set('system_size_kwp', systemSizeKwp.toFixed(2));
+
+  const query = params.toString();
+  return query ? `${presentationPath}?${query}` : presentationPath;
+}
+
 /**
  * Generate invoice HTML
  * @param {object} invoice - Invoice object with items
@@ -30,9 +48,26 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
   const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
   const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
+  const earnNowRebateAmount = parseFloat(invoice.earn_now_rebate_amount) || 0;
+  const earthMonthGoGreenBonusAmount = parseFloat(invoice.earth_month_go_green_bonus_amount) || 0;
+  const beforeSolarBill = Number(invoice.customer_average_tnb);
+  const storedAfterSolarBill = Number(invoice.estimated_new_bill_amount);
+  const estimatedMonthlySaving = Number(invoice.estimated_saving);
+  const afterSolarBill = Number.isFinite(beforeSolarBill) && Number.isFinite(estimatedMonthlySaving)
+    ? Math.max(0, beforeSolarBill - estimatedMonthlySaving)
+    : storedAfterSolarBill;
+  const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
+    .every((value) => Number.isFinite(value));
 
   // Calculate pre-discount subtotal for the summary
-  const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
+  const subtotal = totalAmount
+    - sstAmount
+    + discountAmount
+    + voucherAmount
+    + cnyPromoAmount
+    + holidayBoostAmount
+    + earnNowRebateAmount
+    + earthMonthGoGreenBonusAmount;
 
   // Get company info from template
   const companyName = templateData.company_name || 'Atap Solar';
@@ -82,6 +117,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   // Generate HTML - Premium Mobile-Optimized Design
   // Use the specific requested logo
   const displayLogoUrl = '/logo-08.png';
+  const tigerNeoPresentationUrl = buildTigerNeoPresentationUrl(invoice);
 
   const html = `
 <!DOCTYPE html>
@@ -294,18 +330,18 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     
     <!-- Tiger Neo 3 Promotion Section -->
     ${hasTigerNeo3 ? `
-    <div class="mb-8 overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 no-print">
-      <div class="relative group">
-        <img src="/TigerNeo3.jpg" alt="Tiger Neo 3 - 2026 Best Solar Panel" class="w-full h-auto object-cover transform transition-transform duration-700 hover:scale-105">
+    <a href="${tigerNeoPresentationUrl}" target="_blank" rel="noopener noreferrer" class="mb-8 block overflow-hidden rounded-2xl bg-white shadow-lg border border-slate-200 no-print group">
+      <div class="relative">
+        <img src="/TigerNeo3.jpg" alt="Tiger Neo 3 - 2026 Best Solar Panel" class="w-full h-auto object-cover transform transition-transform duration-700 group-hover:scale-105">
         <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
       </div>
       <div class="p-5 flex flex-col items-center gap-4 bg-slate-50/50">
-        <a href="/Tiger_Neo_30_Beyond_Limits.pdf" target="_blank" class="premium-button w-full text-center py-5 px-6 rounded-xl text-white font-black text-sm sm:text-lg uppercase tracking-wider shadow-2xl transform transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
+        <span class="premium-button w-full text-center py-5 px-6 rounded-xl text-white font-black text-sm sm:text-lg uppercase tracking-wider shadow-2xl transform transition-all group-hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
           2026 BEST SOLAR PANEL FOR ALL SUMMER - TIGER NEO 3
-        </a>
+        </span>
         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse">Click above to view full specifications</p>
       </div>
-    </div>
+    </a>
     ` : ''}
 
     ${!options.forPdf ? `
@@ -534,6 +570,47 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       </div>
       ` : ''}
     </section>
+    
+    ${hasSolarSavingsSection ? `
+    <section class="mb-6">
+      <div class="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-4 shadow-sm">
+        <div class="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <p class="label-text mb-1">Estimated Solar Saving</p>
+            <p class="text-base font-bold text-slate-900">Your solar estimate at a glance</p>
+          </div>
+          <div class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
+            Monthly Estimate
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
+          <div class="rounded-xl border border-slate-200 bg-white p-3 min-h-[132px] flex flex-col">
+            <div class="min-h-[42px] mb-3 flex items-start">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 leading-[1.45]">Your Average TNB Bill<br>Before Solar</p>
+            </div>
+            <p class="text-xl font-bold text-slate-900 leading-none mt-auto">RM ${beforeSolarBill.toFixed(2)}</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-3 min-h-[132px] flex flex-col">
+            <div class="min-h-[42px] mb-3 flex items-start">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 leading-[1.45]">New Bill After Solar<br>After Export Earning</p>
+            </div>
+            <p class="text-xl font-bold text-slate-900 leading-none mt-auto">RM ${afterSolarBill.toFixed(2)}</p>
+          </div>
+          <div class="rounded-xl border border-emerald-200 bg-emerald-600 p-3 min-h-[132px] flex flex-col">
+            <div class="min-h-[42px] mb-3 flex items-start">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-100 leading-[1.45]">Your Estimated Monthly Total Saving</p>
+            </div>
+            <p class="text-xl font-bold text-white leading-none mt-auto">RM ${estimatedMonthlySaving.toFixed(2)}</p>
+          </div>
+        </div>
+        <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+          <p class="text-[11px] leading-relaxed text-amber-900">
+            Note: Solar saving estimation may vary after final installation. Actual performance can be affected by roof shape and angle, shading, weather conditions, and site-specific installation factors. This estimate assumes a flat roof surface for calculation.
+          </p>
+        </div>
+      </div>
+    </section>
+    ` : ''}
 
     <!-- Line Items -->
     <section class="mb-6">
@@ -588,23 +665,27 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       <!-- Payment Details (Left on Desktop, Bottom on Mobile) -->
       <div class="flex-1 order-2 sm:order-1">
         ${bankName ? `
-        <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
-          <p class="label-text mb-2">Payment Details</p>
+        <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-800 shadow-lg">
+          <p class="label-text mb-2 text-slate-300">Payment Details</p>
           <div class="space-y-1">
             <div class="flex justify-between text-xs">
-              <span class="text-slate-500">Bank</span>
-              <span class="font-medium text-slate-900 text-right">${bankName}</span>
+              <span class="text-slate-400">Bank</span>
+              <span class="font-semibold text-white text-right">${bankName}</span>
             </div>
             ${bankAccountNo ? `
             <div class="flex justify-between text-xs">
-              <span class="text-slate-500">Account No.</span>
-              <span class="font-medium text-slate-900 text-right">${bankAccountNo}</span>
+              <span class="text-slate-400">Account No.</span>
+              <span class="font-semibold text-white text-right">${bankAccountNo}</span>
             </div>` : ''}
              ${bankAccountName ? `
             <div class="flex justify-between text-xs">
-              <span class="text-slate-500">Account Name</span>
-              <span class="font-medium text-slate-900 text-right">${bankAccountName}</span>
+              <span class="text-slate-400">Account Name</span>
+              <span class="font-semibold text-white text-right">${bankAccountName}</span>
             </div>` : ''}
+            <div class="flex justify-between text-xs pt-3 mt-3 border-t border-slate-700">
+              <span class="text-slate-300 uppercase tracking-wider">Payment Ref</span>
+              <span class="font-bold text-white text-right">${invoice.invoice_number || invoice.bubble_id || '-'}</span>
+            </div>
           </div>
         </div>
         ` : ''}
@@ -636,6 +717,16 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           <div class="flex justify-between text-emerald-600">
             <span>Holiday Boost Reward</span>
             <span>-RM ${Math.abs(holidayBoostAmount).toFixed(2)}</span>
+          </div>` : ''}
+          ${earnNowRebateAmount > 0 ? `
+          <div class="flex justify-between text-amber-600">
+            <span>Earn Now Rebate</span>
+            <span>-RM ${Math.abs(earnNowRebateAmount).toFixed(2)}</span>
+          </div>` : ''}
+          ${earthMonthGoGreenBonusAmount > 0 ? `
+          <div class="flex justify-between text-emerald-700">
+            <span>Earth Month Go Green Bonus</span>
+            <span>-RM ${Math.abs(earthMonthGoGreenBonusAmount).toFixed(2)}</span>
           </div>` : ''}
           ${sstAmount > 0 ? `
           <div class="flex justify-between text-slate-600">

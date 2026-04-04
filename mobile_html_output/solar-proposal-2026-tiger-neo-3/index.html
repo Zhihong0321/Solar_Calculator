@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=yes" />
+    <link rel="icon" href="data:," />
+    <title>Solar Proposal 2026_Tiger Neo 3</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #070707;
+            --card: #111111;
+            --line: rgba(255, 255, 255, 0.12);
+            --text: #f3f3f3;
+            --muted: rgba(255, 255, 255, 0.68);
+            --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background:
+                radial-gradient(circle at top, rgba(255, 170, 64, 0.15), transparent 32%),
+                linear-gradient(180deg, #101010 0%, var(--bg) 38%, #020202 100%);
+            color: var(--text);
+            font-family: "Segoe UI", system-ui, sans-serif;
+        }
+
+        body.zoom-active #slides {
+            scroll-snap-type: none;
+        }
+
+        #slides {
+            height: 100svh;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none;
+            overscroll-behavior-y: contain;
+        }
+
+        #slides::-webkit-scrollbar {
+            display: none;
+        }
+
+        .slide {
+            min-height: 100svh;
+            padding: 0;
+            display: grid;
+            place-items: center;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+        }
+
+        .slide-shell {
+            width: min(100vw, calc(100svh * 9 / 16));
+            aspect-ratio: 9 / 16;
+            position: relative;
+            overflow: hidden;
+            background: #000;
+            box-shadow: var(--shadow);
+        }
+
+        .zoomable {
+            width: 100%;
+            height: 100%;
+            transform-origin: 0 0;
+            will-change: transform;
+            touch-action: manipulation;
+        }
+
+        .zoomable img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            user-select: none;
+            -webkit-user-drag: none;
+            pointer-events: none;
+        }
+
+        .text-overlay {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+            pointer-events: none;
+        }
+
+        .hud {
+            position: fixed;
+            inset: env(safe-area-inset-top, 0) 0 auto 0;
+            padding: 14px 14px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .chip {
+            background: rgba(17, 17, 17, 0.72);
+            border: 1px solid var(--line);
+            color: var(--muted);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 999px;
+            padding: 10px 14px;
+            box-shadow: var(--shadow);
+        }
+
+        .title-chip {
+            max-width: calc(100vw - 140px);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .count-chip {
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .hint {
+            position: fixed;
+            left: 50%;
+            bottom: calc(16px + env(safe-area-inset-bottom, 0));
+            transform: translateX(-50%);
+            z-index: 10;
+            font-size: 12px;
+            text-align: center;
+            transition: opacity 0.35s ease;
+        }
+
+        .hint.is-hidden {
+            opacity: 0;
+        }
+
+        @media (orientation: landscape) {
+            .slide {
+                padding: 12px;
+            }
+
+            .slide-shell {
+                max-height: calc(100svh - 24px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="hud">
+        <div class="chip title-chip">Solar Proposal 2026_Tiger Neo 3</div>
+        <div class="chip count-chip" id="counter">1 / 24</div>
+    </div>
+    <div class="chip hint" id="hint">Swipe up or down to change slides. Pinch to zoom.</div>
+    <main id="slides">
+        <section class="slide" data-slide="1">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-001.jpg" alt="Slide 1" loading="eager" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="2">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-002.jpg" alt="Slide 2" loading="eager" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="3">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-003.jpg" alt="Slide 3" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="4">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-004.jpg" alt="Slide 4" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="5">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-005.jpg" alt="Slide 5" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="6">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-006.jpg" alt="Slide 6" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="7">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-007.jpg" alt="Slide 7" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="8">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-008.jpg" alt="Slide 8" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="9">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-009.jpg" alt="Slide 9" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="10">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-010.jpg" alt="Slide 10" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="11">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-011.jpg" alt="Slide 11" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="12">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-012.jpg" alt="Slide 12" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="13">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-013.jpg" alt="Slide 13" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="14">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-014.jpg" alt="Slide 14" loading="lazy" />
+                    <svg class="text-overlay" viewBox="0 0 1080 1920" aria-hidden="true"><g><text x="775.00" y="387.73" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="59.09" font-weight="400" fill="#E8ECEF">&lt;</tspan><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="53.33" font-weight="400" fill="#E8ECEF">550W</tspan></text></g></svg>
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="15">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-015.jpg" alt="Slide 15" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="16">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-016.jpg" alt="Slide 16" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="17">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-017.jpg" alt="Slide 17" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="18">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-018.jpg" alt="Slide 18" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="19">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-019.jpg" alt="Slide 19" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="20">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-020.jpg" alt="Slide 20" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="21">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-021.jpg" alt="Slide 21" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="22">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-022.jpg" alt="Slide 22" loading="lazy" />
+                    
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="23">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-023.jpg" alt="Slide 23" loading="lazy" />
+                    <svg class="text-overlay" viewBox="0 0 1080 1920" aria-hidden="true"><g><text x="118.00" y="1198.41" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• Jinko Tiger Neo N-Type 650W Bi-Facial Array</tspan></text><text x="118.00" y="1260.83" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• SAJ String / DuoMix Inverter System</tspan></text><text x="118.00" y="1323.24" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• Full ATAP &amp; TNB Smart Meter Applications</tspan></text><text x="118.00" y="1385.65" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• Architectural &amp; Electrical System Design</tspan></text><text x="118.00" y="1448.07" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• Roof Surveying &amp; SkyLift Deployment</tspan></text><text x="118.00" y="1510.48" text-anchor="start" xml:space="preserve"><tspan font-family="&quot;Arial Narrow&quot;, Arial, sans-serif" font-size="44.13" font-weight="400" fill="#E2E2E2">• 3-Years MSIG All-Risk Coverage </tspan></text></g></svg>
+                </div>
+            </div>
+        </section>
+        <section class="slide" data-slide="24">
+            <div class="slide-shell">
+                <div class="zoomable">
+                    <img src="slides/slide-024.jpg" alt="Slide 24" loading="lazy" />
+                    <svg class="text-overlay" viewBox="0 0 1080 1920" aria-hidden="true"><g><text x="767.50" y="1415.57" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="44.44" font-weight="700" fill="#AC987D">3 Year</tspan></text><text x="767.50" y="1445.35" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="27.24" font-weight="400" fill="#DCDDDE">Workmanship</tspan></text><text x="767.50" y="1474.20" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="26.40" font-weight="400" fill="#DCDDDE">Guarantee </tspan></text><text x="767.50" y="1503.05" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="26.40" font-weight="400" fill="#DCDDDE">&amp; 1 Year </tspan></text><text x="767.50" y="1531.91" text-anchor="middle" xml:space="preserve"><tspan font-family="&quot;Segoe UI&quot;, Arial, sans-serif" font-size="26.40" font-weight="400" fill="#DCDDDE">Roof Leak</tspan></text></g></svg>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script>
+        (() => {
+            const container = document.getElementById('slides');
+            const counter = document.getElementById('counter');
+            const hint = document.getElementById('hint');
+            const sections = Array.from(container.querySelectorAll('.slide'));
+            let activeIndex = 0;
+
+            const updateCounter = (index) => {
+                activeIndex = index;
+                counter.textContent = `${index + 1} / 24`;
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                const visible = entries
+                    .filter((entry) => entry.isIntersecting)
+                    .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+                if (!visible) return;
+                const index = sections.indexOf(visible.target);
+                if (index >= 0) updateCounter(index);
+            }, {
+                root: container,
+                threshold: [0.55, 0.75],
+            });
+
+            sections.forEach((section) => observer.observe(section));
+
+            const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+            const resetHint = () => {
+                hint.classList.add('is-hidden');
+            };
+
+            const applyZoom = (zoomable, state) => {
+                const shell = zoomable.parentElement;
+                const maxX = 0;
+                const maxY = 0;
+                const minX = Math.min(0, shell.clientWidth - shell.clientWidth * state.scale);
+                const minY = Math.min(0, shell.clientHeight - shell.clientHeight * state.scale);
+                state.tx = state.scale === 1 ? 0 : clamp(state.tx, minX, maxX);
+                state.ty = state.scale === 1 ? 0 : clamp(state.ty, minY, maxY);
+                zoomable.style.transform = `translate(${state.tx}px, ${state.ty}px) scale(${state.scale})`;
+                document.body.classList.toggle('zoom-active', state.scale > 1.01);
+            };
+
+            const midpoint = (touches, rect) => {
+                return {
+                    x: ((touches[0].clientX + touches[1].clientX) / 2) - rect.left,
+                    y: ((touches[0].clientY + touches[1].clientY) / 2) - rect.top,
+                };
+            };
+
+            const distance = (touches) => {
+                const dx = touches[0].clientX - touches[1].clientX;
+                const dy = touches[0].clientY - touches[1].clientY;
+                return Math.hypot(dx, dy);
+            };
+
+            container.querySelectorAll('.zoomable').forEach((zoomable) => {
+                const state = {
+                    scale: 1,
+                    tx: 0,
+                    ty: 0,
+                    dragStartX: 0,
+                    dragStartY: 0,
+                    dragOriginX: 0,
+                    dragOriginY: 0,
+                    pinchStartScale: 1,
+                    pinchStartDistance: 0,
+                    pinchStartTx: 0,
+                    pinchStartTy: 0,
+                    pinchAnchorX: 0,
+                    pinchAnchorY: 0,
+                    dragging: false,
+                    pinching: false,
+                };
+
+                const resetZoom = () => {
+                    state.scale = 1;
+                    state.tx = 0;
+                    state.ty = 0;
+                    state.dragging = false;
+                    state.pinching = false;
+                    applyZoom(zoomable, state);
+                };
+
+                zoomable.parentElement.addEventListener('dblclick', () => {
+                    resetZoom();
+                    resetHint();
+                });
+
+                zoomable.addEventListener('touchstart', (event) => {
+                    if (event.touches.length === 2) {
+                        const rect = zoomable.parentElement.getBoundingClientRect();
+                        const anchor = midpoint(event.touches, rect);
+                        state.pinching = true;
+                        state.dragging = false;
+                        state.pinchStartScale = state.scale;
+                        state.pinchStartDistance = distance(event.touches);
+                        state.pinchStartTx = state.tx;
+                        state.pinchStartTy = state.ty;
+                        state.pinchAnchorX = (anchor.x - state.tx) / state.scale;
+                        state.pinchAnchorY = (anchor.y - state.ty) / state.scale;
+                        resetHint();
+                    } else if (event.touches.length === 1 && state.scale > 1.01) {
+                        state.dragging = true;
+                        state.pinching = false;
+                        state.dragStartX = event.touches[0].clientX;
+                        state.dragStartY = event.touches[0].clientY;
+                        state.dragOriginX = state.tx;
+                        state.dragOriginY = state.ty;
+                        resetHint();
+                    }
+                }, { passive: true });
+
+                zoomable.addEventListener('touchmove', (event) => {
+                    if (event.touches.length === 2 && state.pinching) {
+                        event.preventDefault();
+                        const rect = zoomable.parentElement.getBoundingClientRect();
+                        const anchor = midpoint(event.touches, rect);
+                        const nextScale = clamp(
+                            state.pinchStartScale * (distance(event.touches) / Math.max(state.pinchStartDistance, 1)),
+                            1,
+                            4
+                        );
+                        state.scale = nextScale;
+                        state.tx = anchor.x - state.pinchAnchorX * nextScale;
+                        state.ty = anchor.y - state.pinchAnchorY * nextScale;
+                        applyZoom(zoomable, state);
+                    } else if (event.touches.length === 1 && state.dragging && state.scale > 1.01) {
+                        event.preventDefault();
+                        state.tx = state.dragOriginX + (event.touches[0].clientX - state.dragStartX);
+                        state.ty = state.dragOriginY + (event.touches[0].clientY - state.dragStartY);
+                        applyZoom(zoomable, state);
+                    }
+                }, { passive: false });
+
+                zoomable.addEventListener('touchend', () => {
+                    if (state.scale <= 1.01) {
+                        resetZoom();
+                    } else {
+                        state.dragging = false;
+                        state.pinching = false;
+                        applyZoom(zoomable, state);
+                    }
+                });
+
+                window.addEventListener('resize', () => applyZoom(zoomable, state));
+                applyZoom(zoomable, state);
+            });
+
+            window.addEventListener('keydown', (event) => {
+                if (!['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Space'].includes(event.key)) return;
+                event.preventDefault();
+                const delta =
+                    event.key === 'ArrowUp' || event.key === 'PageUp' ? -1 : 1;
+                const next = clamp(activeIndex + delta, 0, sections.length - 1);
+                sections[next].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                resetHint();
+            });
+
+            container.addEventListener('scroll', resetHint, { passive: true });
+            setTimeout(() => hint.classList.add('is-hidden'), 2800);
+        })();
+    </script>
+</body>
+</html>

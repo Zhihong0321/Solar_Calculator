@@ -4,6 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
+const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
 
 const router = express.Router();
@@ -23,7 +24,11 @@ router.get('/submit-payment', (req, res) => {
 router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
     const { method, date, referenceNo, notes, proof, epp, paymentBank, paymentId, amount } = req.body;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     if (!method || !date) {
         return res.status(400).json({ success: false, error: 'Missing required fields: method and date are required.' });
@@ -239,7 +244,10 @@ router.get('/api/v1/submitted-payments/:paymentId/detail', requireAuth, async (r
  */
 router.delete('/api/v1/submitted-payments/:paymentId', requireAuth, async (req, res) => {
     const { paymentId } = req.params;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     let client = null;
 
     try {

@@ -1,5 +1,32 @@
 // invoiceHtmlGeneratorV2.js
 
+function buildTigerNeoPresentationUrl(invoice) {
+    const presentationPath = '/t3_html_presentation/solar-proposal-2026-tiger-neo-3/';
+    const params = new URLSearchParams();
+    if (invoice.customer_name) params.set('customer_name', invoice.customer_name);
+    if (invoice.customer_address) params.set('customer_address', invoice.customer_address);
+
+    const panelQty = parseFloat(invoice.panel_qty) || 0;
+    const panelRating = parseFloat(invoice.panel_rating) || 0;
+    const systemSizeKwp = parseFloat(invoice.system_size_kwp) || (panelQty && panelRating ? (panelQty * panelRating) / 1000 : 0);
+
+    if (panelQty > 0) params.set('panel_qty', String(panelQty));
+    if (panelRating > 0) params.set('panel_rating', String(panelRating));
+    if (systemSizeKwp > 0) params.set('system_size_kwp', systemSizeKwp.toFixed(2));
+
+    const query = params.toString();
+    return query ? `${presentationPath}?${query}` : presentationPath;
+}
+
+function parseOptionalCurrency(value) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+}
+
 function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const items = invoice.items || [];
     const templateData = template || {};
@@ -8,6 +35,10 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const layoutMode = String(options.layout || options.viewMode || '').toLowerCase();
     const isA4Preview = layoutMode === 'a4' || layoutMode === 'a4-preview' || layoutMode === 'print';
     const showInteractiveControls = !options.forPdf && !isA4Preview;
+    const estimateIdentifier = invoice.share_token || invoice.bubble_id || '';
+    const estimatePanelQty = parseFloat(invoice.panel_qty) || 0;
+    const estimatePanelRating = parseFloat(invoice.panel_rating) || 0;
+    const canEstimateSolarSavings = estimatePanelQty > 0 && estimatePanelRating > 0 && Boolean(estimateIdentifier);
 
     // Calculate totals from items
     const sstAmount = parseFloat(invoice.sst_amount) || 0;
@@ -16,12 +47,41 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const voucherAmount = parseFloat(invoice.voucher_amount) || 0;
     const cnyPromoAmount = parseFloat(invoice.cny_promo_amount) || 0;
     const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
+    const earnNowRebateAmount = parseFloat(invoice.earn_now_rebate_amount) || 0;
+    const earthMonthGoGreenBonusAmount = parseFloat(invoice.earth_month_go_green_bonus_amount) || 0;
+    const beforeSolarBill = parseOptionalCurrency(invoice.customer_average_tnb);
+    const storedAfterSolarBill = parseOptionalCurrency(invoice.estimated_new_bill_amount);
+    const estimatedMonthlySaving = parseOptionalCurrency(invoice.estimated_saving);
+    const storedSunPeakHour = parseOptionalCurrency(invoice.solar_sun_peak_hour) ?? 3.4;
+    const storedMorningUsagePercent = parseOptionalCurrency(invoice.solar_morning_usage_percent) ?? 30;
+    const afterSolarBill = beforeSolarBill !== null && estimatedMonthlySaving !== null
+        ? Math.max(0, beforeSolarBill - estimatedMonthlySaving)
+        : storedAfterSolarBill;
+    const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
+        .every((value) => value !== null);
+    const showSolarSavingsSection = hasSolarSavingsSection || (showInteractiveControls && canEstimateSolarSavings);
+    const solarSavingsSectionBadge = hasSolarSavingsSection ? 'Monthly Estimate' : 'Package Estimate';
+    const solarSavingsSectionIntro = hasSolarSavingsSection
+        ? 'Your solar estimate at a glance'
+        : 'Estimate your savings with this package';
+    const solarSavingsHelperText = showInteractiveControls
+        ? (hasSolarSavingsSection
+            ? 'Switch between low and high day usage to compare direct offset versus export, based on this quotation package.'
+            : 'Enter your average TNB bill, then compare Low Day Usage (30%) vs High Day Usage (80%) using this package size.')
+        : 'Based on this quotation package and the latest saved estimate.';
 
     // Decide title based on status: QUOTATION for drafts/pending, INVOICE for confirmed/paid
     const isConfirmed = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
     const titleLabel = isConfirmed ? 'INVOICE' : 'QUOTATION';
 
-    const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
+    const subtotal = totalAmount
+        - sstAmount
+        + discountAmount
+        + voucherAmount
+        + cnyPromoAmount
+        + holidayBoostAmount
+        + earnNowRebateAmount
+        + earthMonthGoGreenBonusAmount;
 
     // Get company info from template
     const companyName = templateData.company_name || 'Atap Solar';
@@ -59,8 +119,12 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    ${isA4Preview 
+        ? '<meta name="viewport" content="width=820">' 
+        : '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">'
+    }
     <title>${titleLabel} ${invoice.invoice_number}${isA4Preview ? ' - A4 Preview' : ''}</title>
+    ${isA4Preview ? '<script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>' : ''}
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -105,6 +169,18 @@ body {
 body.a4-preview {
     background: #e7ebef;
     padding: 16px;
+    height: auto;
+}
+
+body.a4-preview .pagedjs_page {
+    background-color: #ffffff;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+    margin: 0 auto 24px auto;
+}
+
+@page {
+    size: A4;
+    margin: 15mm 20mm 20mm 20mm;
 }
 
 .invoice-container {
@@ -117,10 +193,9 @@ body.a4-preview {
 }
 
 body.a4-preview .invoice-container {
-    max-width: 210mm;
-    width: min(210mm, 100%);
-    min-height: 297mm;
-    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+    width: 100%;
+    max-width: 100%;
+    box-shadow: none;
     padding-bottom: 0;
     overflow: visible;
 }
@@ -128,6 +203,10 @@ body.a4-preview .invoice-container {
 body.a4-preview .invoice-actions,
 body.a4-preview .promotional-banner,
 body.a4-preview .no-print {
+    display: none !important;
+}
+
+body.a4-preview .floating-a4-preview {
     display: none !important;
 }
 
@@ -149,9 +228,18 @@ body.a4-preview .summary-section,
 body.a4-preview .terms-signature,
 body.a4-preview .invoice-footer,
 body.a4-preview .signature-image,
-body.a4-preview .promotional-banner {
+body.a4-preview .promotional-banner,
+body.a4-preview .avoid-break,
+body.a4-preview .solar-estimate-section,
+body.a4-preview .solar-estimate-shell,
+body.a4-preview .solar-estimate-cards {
     break-inside: avoid;
     page-break-inside: avoid;
+}
+
+body.a4-preview .terms-signature {
+    break-before: page;
+    page-break-before: always;
 }
 
 /* Header Start */
@@ -255,6 +343,35 @@ body.a4-preview .promotional-banner {
 
 .btn-preview { color: #0f172a; border: 1px solid #0f172a; }
 .btn-preview:hover { background: #0f172a; color: #fff; }
+
+.floating-a4-preview {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 90;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+}
+
+.floating-a4-preview button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #0f172a, #334155);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.floating-a4-preview button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
+}
 
 /* Billing Details */
 .billing-details {
@@ -736,6 +853,145 @@ body.a4-preview .promotional-banner {
         padding: 0 20px !important;
         margin-bottom: 30px !important;
     }
+
+    .solar-estimate-section {
+        padding: 0 12px !important;
+        margin-bottom: 24px !important;
+    }
+
+    .solar-estimate-shell {
+        padding: 14px !important;
+        border-radius: 12px !important;
+    }
+
+    .solar-estimate-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .solar-estimate-title {
+        font-size: 16px !important;
+        line-height: 1.3 !important;
+    }
+
+    .solar-estimate-helper {
+        font-size: 11px !important;
+        line-height: 1.5 !important;
+    }
+
+    .solar-estimate-header-actions {
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+
+    .solar-estimate-badge,
+    .solar-estimate-recalculate {
+        align-self: flex-start !important;
+    }
+
+    .solar-estimate-badge {
+        font-size: 9px !important;
+        padding: 5px 10px !important;
+    }
+
+    .solar-estimate-recalculate {
+        font-size: 10px !important;
+        padding: 9px 12px !important;
+    }
+
+    .solar-estimate-status,
+    .solar-estimate-save-hint {
+        font-size: 11px !important;
+        line-height: 1.5 !important;
+    }
+
+    .solar-estimate-cards {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .solar-estimate-card {
+        min-height: 112px !important;
+        padding: 14px !important;
+    }
+
+    .solar-estimate-card-label-wrap {
+        min-height: 34px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .solar-estimate-card-label {
+        font-size: 9px !important;
+        line-height: 1.35 !important;
+        letter-spacing: 0.08em !important;
+    }
+
+    .solar-estimate-card-value {
+        font-size: 22px !important;
+    }
+
+    .solar-calc-panel {
+        margin-top: 14px !important;
+        padding: 12px !important;
+        border-radius: 12px !important;
+    }
+
+    .solar-calc-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .solar-calc-title {
+        font-size: 12px !important;
+    }
+
+    .solar-calc-button-row {
+        gap: 6px !important;
+    }
+
+    .solar-calc-button,
+    .solar-calc-save-button {
+        font-size: 9px !important;
+        padding: 9px 10px !important;
+        flex: 1 1 auto !important;
+        justify-content: center !important;
+    }
+
+    .solar-calc-summary {
+        font-size: 11px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .solar-calc-legend {
+        gap: 10px !important;
+        margin-bottom: 10px !important;
+        font-size: 10px !important;
+    }
+
+    .solar-calc-chart-box {
+        padding: 10px !important;
+        border-radius: 12px !important;
+    }
+
+    .solar-calc-chart-note {
+        font-size: 10px !important;
+        line-height: 1.45 !important;
+        margin-top: 8px !important;
+    }
+
+    .solar-note-box {
+        margin-top: 12px !important;
+        padding: 10px 12px !important;
+    }
+
+    .solar-note-text {
+        font-size: 10px !important;
+        line-height: 1.55 !important;
+    }
 }
     </style>
 </head>
@@ -765,6 +1021,14 @@ body.a4-preview .promotional-banner {
     </script>
 
     ${showInteractiveControls ? `
+    ${(invoice.share_token || invoice.bubble_id) ? `
+    <div class="floating-a4-preview no-print">
+      <button onclick="openA4Preview('${invoice.share_token || invoice.bubble_id}')">
+        <span>A4 Preview</span>
+      </button>
+    </div>
+    ` : ''}
+
     <!-- Signature Modal -->
     <div id="signatureModal" class="fixed inset-0 z-[100] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="signatureBox">
@@ -909,6 +1173,534 @@ body.a4-preview .promotional-banner {
         window.open('/view/' + shareToken + '?layout=a4', '_blank', 'noopener');
       }
 
+      const solarEstimateEndpointBase = window.location.pathname.startsWith('/view2/') ? '/view2/' : '/view/';
+      const solarScenarioConfig = {
+        low30: {
+          key: 'low30',
+          label: 'Low Day Usage',
+          shortLabel: '30% Offset',
+          morningUsage: 30,
+          summary: 'Lower daytime usage sends more solar to grid export, which usually earns less per kWh than direct offset.'
+        },
+        high80: {
+          key: 'high80',
+          label: 'High Day Usage',
+          shortLabel: '80% Offset',
+          morningUsage: 80,
+          summary: 'Higher daytime usage lets more solar offset your own bill directly, which usually gives stronger savings.'
+        }
+      };
+
+      const solarEstimateState = {
+        identifier: ${JSON.stringify(estimateIdentifier)},
+        hasSavedEstimate: ${hasSolarSavingsSection ? 'true' : 'false'},
+        canEstimate: ${canEstimateSolarSavings ? 'true' : 'false'},
+        currentAverageBill: ${beforeSolarBill !== null ? beforeSolarBill.toFixed(2) : 'null'},
+        currentScenarioKey: 'custom',
+        currentSunPeakHour: ${storedSunPeakHour.toFixed(2)},
+        currentMorningUsage: ${storedMorningUsagePercent.toFixed(2)},
+        latestPreview: null,
+        savedEstimate: ${hasSolarSavingsSection ? `{
+          customer_average_tnb: ${beforeSolarBill !== null ? beforeSolarBill.toFixed(2) : 'null'},
+          estimated_new_bill_amount: ${afterSolarBill !== null ? afterSolarBill.toFixed(2) : 'null'},
+          estimated_saving: ${estimatedMonthlySaving !== null ? estimatedMonthlySaving.toFixed(2) : 'null'},
+          solar_sun_peak_hour: ${storedSunPeakHour.toFixed(2)},
+          solar_morning_usage_percent: ${storedMorningUsagePercent.toFixed(2)}
+        }` : 'null'},
+        cache: {}
+      };
+
+      function formatSolarEstimateMoney(value) {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? 'RM ' + numeric.toFixed(2) : 'RM --';
+      }
+
+      function updateSolarEstimateStatus(message, tone) {
+        const statusEl = document.getElementById('solarEstimateStatus');
+        if (!statusEl) return;
+
+        const tones = {
+          neutral: { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
+          success: { bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          warning: { bg: '#fffbeb', border: '#fde68a', color: '#92400e' }
+        };
+        const style = tones[tone] || tones.neutral;
+
+        statusEl.textContent = message;
+        statusEl.style.background = style.bg;
+        statusEl.style.borderColor = style.border;
+        statusEl.style.color = style.color;
+      }
+
+      function setSolarScenarioButtonsDisabled(disabled) {
+        Object.keys(solarScenarioConfig).forEach((scenarioKey) => {
+          const button = document.getElementById('solarScenarioBtn_' + scenarioKey);
+          if (button) button.disabled = disabled;
+        });
+        const recalcBtn = document.getElementById('solarRecalculateBtn');
+        const saveBtn = document.getElementById('saveSolarScenarioBtn');
+        if (recalcBtn) recalcBtn.disabled = disabled;
+        if (saveBtn) saveBtn.disabled = disabled;
+      }
+
+      function updateSolarScenarioButtons() {
+        Object.keys(solarScenarioConfig).forEach((scenarioKey) => {
+          const button = document.getElementById('solarScenarioBtn_' + scenarioKey);
+          if (!button) return;
+
+          const isActive = solarEstimateState.currentScenarioKey === scenarioKey;
+          button.style.background = isActive ? '#0f172a' : '#ffffff';
+          button.style.color = isActive ? '#ffffff' : '#0f172a';
+          button.style.borderColor = isActive ? '#0f172a' : '#cbd5e1';
+          button.style.boxShadow = isActive ? '0 10px 20px rgba(15, 23, 42, 0.16)' : 'none';
+        });
+      }
+
+      function syncSolarParameterInputs() {
+        const sunPeakInput = document.getElementById('solarSunPeakHourInput');
+        const morningUsageInput = document.getElementById('solarMorningUsageInput');
+        if (sunPeakInput && Number.isFinite(Number(solarEstimateState.currentSunPeakHour))) {
+          sunPeakInput.value = Number(solarEstimateState.currentSunPeakHour).toFixed(1);
+        }
+        if (morningUsageInput && Number.isFinite(Number(solarEstimateState.currentMorningUsage))) {
+          morningUsageInput.value = Number(solarEstimateState.currentMorningUsage).toFixed(0);
+        }
+      }
+
+      function readSolarParameterInputs() {
+        const sunPeakInput = document.getElementById('solarSunPeakHourInput');
+        const morningUsageInput = document.getElementById('solarMorningUsageInput');
+
+        const sunPeakHour = Number(sunPeakInput ? sunPeakInput.value : solarEstimateState.currentSunPeakHour);
+        const morningUsage = Number(morningUsageInput ? morningUsageInput.value : solarEstimateState.currentMorningUsage);
+
+        if (!Number.isFinite(sunPeakHour) || sunPeakHour < 3.0 || sunPeakHour > 4.5) {
+          throw new Error('Sun Peak Hour must be between 3.0 and 4.5.');
+        }
+        if (!Number.isFinite(morningUsage) || morningUsage < 1 || morningUsage > 100) {
+          throw new Error('Morning offset must be between 1% and 100%.');
+        }
+
+        solarEstimateState.currentSunPeakHour = Number(sunPeakHour.toFixed(2));
+        solarEstimateState.currentMorningUsage = Number(morningUsage.toFixed(2));
+
+        const matchedScenario = Object.values(solarScenarioConfig).find((scenario) => Number(scenario.morningUsage) === Number(solarEstimateState.currentMorningUsage));
+        solarEstimateState.currentScenarioKey = matchedScenario ? matchedScenario.key : 'custom';
+        return {
+          sunPeakHour: solarEstimateState.currentSunPeakHour,
+          morningUsage: solarEstimateState.currentMorningUsage
+        };
+      }
+
+      function updateScenarioSummary() {
+        const summaryEl = document.getElementById('solarScenarioSummary');
+        if (!summaryEl) return;
+
+        const scenario = solarScenarioConfig[solarEstimateState.currentScenarioKey];
+        if (!scenario) {
+          summaryEl.textContent = 'Custom assumptions: ' + Number(solarEstimateState.currentMorningUsage).toFixed(0) + '% morning offset at ' + Number(solarEstimateState.currentSunPeakHour).toFixed(1) + ' sun peak hour.';
+          return;
+        }
+
+        summaryEl.textContent = scenario.label + ' (' + scenario.shortLabel + ', ' + Number(solarEstimateState.currentSunPeakHour).toFixed(1) + 'h sun peak): ' + scenario.summary;
+      }
+
+      function renderSolarUsageChart(data) {
+        const chartGrid = document.getElementById('solarEstimateChartGrid');
+        const chartHours = document.getElementById('solarEstimateChartHours');
+        const chartEmpty = document.getElementById('solarEstimateChartEmpty');
+
+        if (!chartGrid || !chartHours) return;
+
+        if (!data || !data.charts || !Array.isArray(data.charts.electricityUsagePattern) || !Array.isArray(data.charts.solarGenerationPattern)) {
+          chartGrid.innerHTML = '';
+          chartHours.innerHTML = '';
+          if (chartEmpty) {
+            chartEmpty.style.display = 'block';
+            chartEmpty.textContent = 'Enter an average TNB bill and choose a scenario to see the 24-hour offset chart.';
+          }
+          return;
+        }
+
+        const usagePattern = data.charts.electricityUsagePattern.slice(0, 24).map((entry) => Number(entry.usage) || 0);
+        const solarPattern = data.charts.solarGenerationPattern.slice(0, 24).map((entry) => Number(entry.generation) || 0);
+        const maxValue = Math.max(1, ...usagePattern, ...solarPattern);
+        const rows = 10;
+        const isCompact = window.innerWidth <= 768;
+        const blockHeight = isCompact ? 10 : 14;
+        const blockRadius = isCompact ? 3 : 4;
+        const columnGap = isCompact ? 2 : 4;
+        const labelFontSize = isCompact ? 9 : 10;
+
+        const columnsHtml = usagePattern.map((usage, hour) => {
+          const solar = solarPattern[hour] || 0;
+          const usageUnits = Math.min(rows, Math.ceil((usage / maxValue) * rows));
+          const solarUnits = Math.min(rows, Math.ceil((solar / maxValue) * rows));
+          const offsetUnits = Math.min(usageUnits, solarUnits);
+
+          const blocks = Array.from({ length: rows }, (_, levelIndex) => {
+            const level = levelIndex + 1;
+            let blockColor = 'transparent';
+            let borderColor = 'rgba(203, 213, 225, 0.5)';
+
+            if (level <= offsetUnits) {
+              blockColor = '#6d97df';
+              borderColor = '#dc6a6a';
+            } else if (solarUnits > usageUnits && level <= solarUnits) {
+              blockColor = '#6cab4f';
+              borderColor = '#6cab4f';
+            } else if (usageUnits > solarUnits && level <= usageUnits) {
+              blockColor = '#dc6363';
+              borderColor = '#dc6363';
+            }
+
+            return '<div style="height: ' + blockHeight + 'px; border-radius: ' + blockRadius + 'px; background: ' + blockColor + '; border: 1px solid ' + borderColor + ';"></div>';
+          }).join('');
+
+          return '<div style="display:flex; flex-direction:column-reverse; gap:' + columnGap + 'px;">' + blocks + '</div>';
+        }).join('');
+
+        const hourLabelsHtml = Array.from({ length: 24 }, (_, hour) => {
+          const label = hour % 2 === 0
+            ? new Date(Date.UTC(2000, 0, 1, hour, 0, 0)).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                hour12: true,
+                timeZone: 'UTC'
+              }).replace(/\s/g, '')
+            : '';
+          return '<div style="text-align:center; font-size:' + labelFontSize + 'px; font-weight:700; color:#64748b;">' + label + '</div>';
+        }).join('');
+
+        chartGrid.style.gap = columnGap + 'px';
+        chartGrid.style.minHeight = isCompact ? '126px' : '176px';
+        chartHours.style.gap = columnGap + 'px';
+
+        chartGrid.innerHTML = columnsHtml;
+        chartHours.innerHTML = hourLabelsHtml;
+
+        if (chartEmpty) {
+          chartEmpty.style.display = 'none';
+          chartEmpty.textContent = '';
+        }
+      }
+
+      function updateSolarSaveButtonVisibility(hasPreview) {
+        const saveBtn = document.getElementById('saveSolarScenarioBtn');
+        if (!saveBtn) return;
+        saveBtn.style.display = hasPreview ? 'inline-flex' : 'none';
+      }
+
+      function applySolarEstimateToPage(data, options = {}) {
+        const beforeValue = document.getElementById('solarEstimateBeforeValue');
+        const afterValue = document.getElementById('solarEstimateAfterValue');
+        const savingValue = document.getElementById('solarEstimateSavingValue');
+        const saveHint = document.getElementById('solarEstimateSaveHint');
+        const matchedBillHint = document.getElementById('solarMatchedBillHint');
+        const requestedBill = Number(data.requested_bill_amount);
+        const matchedBill = Number(data.customer_average_tnb);
+
+        if (beforeValue) beforeValue.textContent = formatSolarEstimateMoney(data.customer_average_tnb);
+        if (afterValue) afterValue.textContent = formatSolarEstimateMoney(data.estimated_new_bill_amount);
+        if (savingValue) savingValue.textContent = formatSolarEstimateMoney(data.estimated_saving);
+        if (data && data.assumptions) {
+          const assumptionSunPeak = Number(data.assumptions.sunPeakHour);
+          const assumptionOffset = Number(data.assumptions.offsetPercent);
+          if (Number.isFinite(assumptionSunPeak)) {
+            solarEstimateState.currentSunPeakHour = Number(assumptionSunPeak.toFixed(2));
+          }
+          if (Number.isFinite(assumptionOffset)) {
+            solarEstimateState.currentMorningUsage = Number(assumptionOffset.toFixed(2));
+          }
+          syncSolarParameterInputs();
+        }
+
+        if (matchedBillHint) {
+          if (Number.isFinite(requestedBill) && Number.isFinite(matchedBill) && Math.abs(requestedBill - matchedBill) >= 0.01) {
+            matchedBillHint.textContent = 'Requested bill RM ' + requestedBill.toFixed(2) + '. Closest matched TNB bill used for calculation: RM ' + matchedBill.toFixed(2) + '.';
+            matchedBillHint.style.display = 'block';
+          } else {
+            matchedBillHint.textContent = '';
+            matchedBillHint.style.display = 'none';
+          }
+        }
+
+        renderSolarUsageChart(data);
+        updateSolarScenarioButtons();
+        updateScenarioSummary();
+        updateSolarSaveButtonVisibility(Boolean(data && solarEstimateState.currentAverageBill));
+
+        if (saveHint) {
+          saveHint.textContent = options.saved
+            ? 'Saved to this quotation.'
+            : 'Preview updated. Save this scenario if you want these numbers stored in the quotation.';
+          saveHint.style.display = options.showSaveHint ? 'block' : 'none';
+        }
+
+        updateSolarEstimateStatus(
+          options.saved
+            ? 'This quotation now includes the latest solar estimate for the selected day-usage scenario.'
+            : 'Preview updated. Switch between scenarios to compare direct offset versus grid export.',
+          options.saved ? 'success' : 'neutral'
+        );
+      }
+
+      async function requestSolarEstimate(averageBill, options = {}) {
+        const sunPeakHour = Number.isFinite(Number(options.sunPeakHour))
+          ? Number(options.sunPeakHour)
+          : Number(solarEstimateState.currentSunPeakHour);
+        const morningUsage = Number.isFinite(Number(options.morningUsage))
+          ? Number(options.morningUsage)
+          : Number(solarEstimateState.currentMorningUsage);
+
+        const response = await fetch(solarEstimateEndpointBase + solarEstimateState.identifier + '/solar-estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            averageBill,
+            save: Boolean(options.save),
+            sunPeakHour,
+            morningUsage
+          })
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to calculate solar estimate');
+        }
+
+        return result.data;
+      }
+
+      async function loadSolarScenarioPreview(scenarioKey, options = {}) {
+        if (!solarEstimateState.currentAverageBill) {
+          return openSolarEstimatePrompt(scenarioKey);
+        }
+
+        if (scenarioKey && solarScenarioConfig[scenarioKey]) {
+          solarEstimateState.currentScenarioKey = scenarioKey;
+          solarEstimateState.currentMorningUsage = Number(solarScenarioConfig[scenarioKey].morningUsage);
+          syncSolarParameterInputs();
+        }
+
+        const params = readSolarParameterInputs();
+        updateSolarScenarioButtons();
+        updateScenarioSummary();
+
+        const cacheKey = [
+          String(solarEstimateState.currentAverageBill),
+          Number(params.sunPeakHour).toFixed(2),
+          Number(params.morningUsage).toFixed(2)
+        ].join('::');
+        if (!options.force && !options.save && solarEstimateState.cache[cacheKey]) {
+          const cached = solarEstimateState.cache[cacheKey];
+          solarEstimateState.latestPreview = cached;
+          applySolarEstimateToPage(cached, { showSaveHint: true, saved: false });
+          return cached;
+        }
+
+        try {
+          setSolarScenarioButtonsDisabled(true);
+          if (options.loadingMessage) {
+            updateSolarEstimateStatus(options.loadingMessage, 'neutral');
+          }
+
+          const data = await requestSolarEstimate(solarEstimateState.currentAverageBill, {
+            save: options.save,
+            sunPeakHour: params.sunPeakHour,
+            morningUsage: params.morningUsage
+          });
+
+          solarEstimateState.cache[cacheKey] = data;
+          solarEstimateState.latestPreview = data;
+
+          if (options.save) {
+            solarEstimateState.savedEstimate = {
+              customer_average_tnb: data.customer_average_tnb,
+              estimated_new_bill_amount: data.estimated_new_bill_amount,
+              estimated_saving: data.estimated_saving,
+              solar_sun_peak_hour: Number(params.sunPeakHour),
+              solar_morning_usage_percent: Number(params.morningUsage)
+            };
+            solarEstimateState.hasSavedEstimate = true;
+          }
+
+          applySolarEstimateToPage(data, {
+            showSaveHint: true,
+            saved: Boolean(options.save)
+          });
+
+          return data;
+        } finally {
+          setSolarScenarioButtonsDisabled(false);
+        }
+      }
+
+      async function openSolarEstimatePrompt(preferredScenarioKey = solarEstimateState.currentScenarioKey) {
+        if (!solarEstimateState.canEstimate || !solarEstimateState.identifier) {
+          return Swal.fire({
+            icon: 'info',
+            title: 'Estimate Unavailable',
+            text: 'This quotation package does not have enough panel details for solar estimation.',
+            confirmButtonColor: '#0f172a'
+          });
+        }
+
+        const { value: inputValue } = await Swal.fire({
+          title: 'Recalculate Solar Saving',
+          input: 'number',
+          inputLabel: 'Average Monthly TNB Bill (RM)',
+          inputPlaceholder: 'Enter your average bill amount',
+          inputValue: solarEstimateState.currentAverageBill || '',
+          inputAttributes: {
+            min: '1',
+            step: '1'
+          },
+          showCancelButton: true,
+          confirmButtonText: 'Use This Bill',
+          confirmButtonColor: '#059669',
+          cancelButtonText: 'Cancel',
+          preConfirm: (value) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric) || numeric <= 0) {
+              Swal.showValidationMessage('Please enter a valid average TNB bill amount.');
+              return false;
+            }
+            return Number(numeric.toFixed(2));
+          }
+        });
+
+        if (!inputValue) {
+          return null;
+        }
+
+        const billChanged = Number(inputValue) !== Number(solarEstimateState.currentAverageBill);
+        solarEstimateState.currentAverageBill = Number(inputValue);
+        solarEstimateState.currentScenarioKey = preferredScenarioKey;
+
+        if (billChanged) {
+          solarEstimateState.cache = {};
+          solarEstimateState.latestPreview = null;
+        }
+
+        await loadSolarScenarioPreview(preferredScenarioKey, {
+          force: true,
+          loadingMessage: 'Calculating the selected day-usage scenario...'
+        });
+
+        return true;
+      }
+
+      async function switchSolarScenario(scenarioKey) {
+        if (!solarEstimateState.currentAverageBill) {
+          return openSolarEstimatePrompt(scenarioKey);
+        }
+
+        try {
+          await loadSolarScenarioPreview(scenarioKey, {
+            loadingMessage: 'Updating the solar offset comparison...'
+          });
+        } catch (err) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Scenario Update Failed',
+            text: err.message,
+            confirmButtonColor: '#0f172a'
+          });
+        }
+      }
+
+      async function refreshSolarEstimateWithCurrentInputs() {
+        if (!solarEstimateState.currentAverageBill) {
+          return openSolarEstimatePrompt();
+        }
+
+        try {
+          await loadSolarScenarioPreview(null, {
+            force: true,
+            loadingMessage: 'Updating the solar assumptions...'
+          });
+        } catch (err) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Update Failed',
+            text: err.message,
+            confirmButtonColor: '#0f172a'
+          });
+        }
+      }
+
+      async function saveCurrentSolarScenario() {
+        if (!solarEstimateState.currentAverageBill) {
+          return openSolarEstimatePrompt(solarEstimateState.currentScenarioKey);
+        }
+
+        try {
+          Swal.fire({
+            title: 'Saving...',
+            text: 'Updating this quotation with the selected scenario.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => Swal.showLoading()
+          });
+
+          await loadSolarScenarioPreview(solarEstimateState.currentScenarioKey, {
+            force: true,
+            save: true
+          });
+
+          await Swal.fire({
+            icon: 'success',
+            title: 'Scenario Saved',
+            text: 'The quotation now stores the currently selected day-usage scenario.',
+            confirmButtonColor: '#059669'
+          });
+        } catch (err) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Save Failed',
+            text: err.message,
+            confirmButtonColor: '#0f172a'
+          });
+        }
+      }
+
+      async function initializeSolarScenarioEstimate() {
+        syncSolarParameterInputs();
+        updateSolarScenarioButtons();
+        updateScenarioSummary();
+
+        if (!solarEstimateState.canEstimate || !solarEstimateState.currentAverageBill) {
+          renderSolarUsageChart(null);
+          updateSolarSaveButtonVisibility(false);
+          return;
+        }
+
+        try {
+          const billAmount = solarEstimateState.currentAverageBill;
+          const initialData = await requestSolarEstimate(billAmount, {
+            sunPeakHour: solarEstimateState.currentSunPeakHour,
+            morningUsage: solarEstimateState.currentMorningUsage
+          });
+          solarEstimateState.cache[
+            [
+              String(billAmount),
+              Number(solarEstimateState.currentSunPeakHour).toFixed(2),
+              Number(solarEstimateState.currentMorningUsage).toFixed(2)
+            ].join('::')
+          ] = initialData;
+          solarEstimateState.latestPreview = initialData;
+          applySolarEstimateToPage(initialData, {
+            showSaveHint: false,
+            saved: solarEstimateState.hasSavedEstimate
+          });
+        } catch (err) {
+          renderSolarUsageChart(null);
+          updateSolarEstimateStatus('Saved estimate shown. Use Recalculate if you want to compare day-usage scenarios again.', 'warning');
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', initializeSolarScenarioEstimate);
+
       function resetSignature() {
         Swal.fire({
           title: 'Re-sign Document?',
@@ -1015,22 +1807,138 @@ body.a4-preview .promotional-banner {
                     <span class="meta-value">: ${invoice.customer_email || '-'}</span>
                 </div>
             </div>
-            <div class="payment-method">
-                <span class="label">Payment Method</span>
+            <div class="payment-method" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: 1px solid #0f172a; border-radius: 16px; padding: 18px 20px; box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);">
+                <span class="label" style="color: #cbd5e1;">Payment Method</span>
                 <div class="meta-row">
-                    <span class="meta-label">Bank Name</span>
-                    <span class="meta-value">: ${bankName || '-'}</span>
+                    <span class="meta-label" style="color: #94a3b8;">Bank Name</span>
+                    <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankName || '-'}</span>
                 </div>
                 <div class="meta-row">
-                    <span class="meta-label">Account No</span>
-                    <span class="meta-value">: ${bankAccountNo || '-'}</span>
+                    <span class="meta-label" style="color: #94a3b8;">Account No</span>
+                    <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankAccountNo || '-'}</span>
                 </div>
                 <div class="meta-row">
-                    <span class="meta-label">Account Name</span>
-                    <span class="meta-value">: ${bankAccountName || '-'}</span>
+                    <span class="meta-label" style="color: #94a3b8;">Account Name</span>
+                    <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankAccountName || '-'}</span>
+                </div>
+                <div class="meta-row" style="margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(148, 163, 184, 0.35);">
+                    <span class="meta-label" style="color: #94a3b8;">Payment Ref</span>
+                    <span class="meta-value" style="color: #f8fafc; font-weight: 800; letter-spacing: 0.04em;">: ${invoice.invoice_number || invoice.bubble_id || '-'}</span>
                 </div>
             </div>
         </section>
+
+        ${showSolarSavingsSection ? `
+        <section class="solar-estimate-section avoid-break" style="padding: 0 50px; margin-bottom: 32px;">
+            <div class="solar-estimate-shell" style="border: 1px solid #b7e4c7; border-radius: 14px; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 52%, #f8fafc 100%); padding: 22px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);">
+                <div class="solar-estimate-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px;">
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #047857; margin-bottom: 6px;">Estimated Solar Saving</div>
+                        <div class="solar-estimate-title" style="font-size: 20px; font-weight: 700; color: #0f172a;">${solarSavingsSectionIntro}</div>
+                        <div class="solar-estimate-helper" style="margin-top: 6px; font-size: 12px; line-height: 1.6; color: #475569;">${solarSavingsHelperText}</div>
+                    </div>
+                    <div class="solar-estimate-header-actions" style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+                        <div class="solar-estimate-badge" style="padding: 6px 12px; border-radius: 999px; background: #dcfce7; color: #047857; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+                            ${solarSavingsSectionBadge}
+                        </div>
+                        ${showInteractiveControls && canEstimateSolarSavings ? `
+                        <button type="button" id="solarRecalculateBtn" class="solar-estimate-recalculate" onclick="openSolarEstimatePrompt()" style="border: 1px solid #0f172a; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 16px; cursor: pointer; white-space: nowrap;">
+                            Recalculate
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+                <div id="solarEstimateStatus" class="solar-estimate-status" style="margin-bottom: 14px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; padding: 12px 14px; font-size: 12px; line-height: 1.6; color: #1d4ed8;">
+                    ${hasSolarSavingsSection
+                        ? 'This quotation already has a saved solar estimate. Use the day-usage buttons below to compare scenarios.'
+                        : 'No saved estimate yet. Use Recalculate to preview this package against your average TNB bill.'}
+                </div>
+                <div id="solarMatchedBillHint" class="solar-estimate-save-hint" style="display: none; margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
+                <div class="solar-estimate-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
+                    <div class="solar-estimate-card" style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
+                        <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
+                            <div class="solar-estimate-card-label" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">Your Average TNB Bill<br>Before Solar</div>
+                        </div>
+                        <div id="solarEstimateBeforeValue" class="solar-estimate-card-value" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${beforeSolarBill !== null ? `RM ${beforeSolarBill.toFixed(2)}` : 'RM --'}</div>
+                    </div>
+                    <div class="solar-estimate-card" style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
+                        <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
+                            <div class="solar-estimate-card-label" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">New Bill After Solar<br>After Export Earning</div>
+                        </div>
+                        <div id="solarEstimateAfterValue" class="solar-estimate-card-value" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${afterSolarBill !== null ? `RM ${afterSolarBill.toFixed(2)}` : 'RM --'}</div>
+                    </div>
+                    <div class="solar-estimate-card" style="border: 1px solid #059669; border-radius: 12px; background: #059669; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
+                        <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
+                            <div class="solar-estimate-card-label" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #d1fae5; line-height: 1.5;">Your Estimated Monthly Total Saving</div>
+                        </div>
+                        <div id="solarEstimateSavingValue" class="solar-estimate-card-value" style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1; margin-top: auto;">${estimatedMonthlySaving !== null ? `RM ${estimatedMonthlySaving.toFixed(2)}` : 'RM --'}</div>
+                    </div>
+                </div>
+                ${showInteractiveControls && canEstimateSolarSavings ? `
+                <div class="solar-calc-panel" style="margin-top: 18px; border: 1px solid #dbeafe; border-radius: 14px; background: #f8fbff; padding: 16px;">
+                    <div class="solar-calc-params" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px;">
+                        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569;">
+                            <span>Sun Peak Hour</span>
+                            <input type="number" id="solarSunPeakHourInput" min="3.0" max="4.5" step="0.1" value="${storedSunPeakHour.toFixed(1)}" style="border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #0f172a; font-size: 14px; font-weight: 700; padding: 10px 12px; outline: none;">
+                        </label>
+                        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569;">
+                            <span>Morning Offset (%)</span>
+                            <input type="number" id="solarMorningUsageInput" min="1" max="100" step="1" value="${storedMorningUsagePercent.toFixed(0)}" style="border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #0f172a; font-size: 14px; font-weight: 700; padding: 10px 12px; outline: none;">
+                        </label>
+                        <div style="display: flex; align-items: end;">
+                            <button type="button" onclick="refreshSolarEstimateWithCurrentInputs()" style="width: 100%; border: 1px solid #0f172a; border-radius: 10px; background: #0f172a; color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 11px 14px; cursor: pointer;">
+                                Update Preview
+                            </button>
+                        </div>
+                    </div>
+                    <div class="solar-calc-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
+                        <div class="solar-calc-title" style="font-size: 13px; font-weight: 700; color: #0f172a;">How the saving is calculated</div>
+                        <div class="solar-calc-button-row" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <button type="button" id="solarScenarioBtn_low30" class="solar-calc-button" onclick="switchSolarScenario('low30')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                                Low Day Usage (30%)
+                            </button>
+                            <button type="button" id="solarScenarioBtn_high80" class="solar-calc-button" onclick="switchSolarScenario('high80')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                                High Day Usage (80%)
+                            </button>
+                            <button type="button" id="saveSolarScenarioBtn" class="solar-calc-save-button" onclick="saveCurrentSolarScenario()" style="display: none; border: 1px solid #059669; border-radius: 999px; background: #059669; color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                                Save This Scenario
+                            </button>
+                        </div>
+                    </div>
+                    <div id="solarScenarioSummary" class="solar-calc-summary" style="margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #334155;">
+                        Choose a scenario to see how direct offset and export change your savings.
+                    </div>
+                    <div class="solar-calc-legend" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 12px; font-size: 12px; color: #475569;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span style="width: 14px; height: 14px; border-radius: 4px; background: #dc6363; border: 1px solid #dc6363;"></span>
+                            <span>Usage</span>
+                        </div>
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span style="width: 14px; height: 14px; border-radius: 4px; background: #6d97df; border: 1px solid #dc6a6a;"></span>
+                            <span>Solar offset usage</span>
+                        </div>
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span style="width: 14px; height: 14px; border-radius: 4px; background: #6cab4f; border: 1px solid #6cab4f;"></span>
+                            <span>Excess solar export</span>
+                        </div>
+                    </div>
+                    <div class="solar-calc-chart-box" style="border: 1px solid #dbeafe; border-radius: 14px; background: #ffffff; padding: 14px;">
+                        <div id="solarEstimateChartEmpty" style="font-size: 12px; line-height: 1.7; color: #64748b;">Enter an average TNB bill and choose a scenario to see the 24-hour offset chart.</div>
+                        <div id="solarEstimateChartGrid" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; align-items: end; min-height: 176px;"></div>
+                        <div id="solarEstimateChartHours" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; margin-top: 10px;"></div>
+                        <div class="solar-calc-chart-note" style="margin-top: 10px; font-size: 11px; color: #64748b;">24 columns, 1 hour per column. 10 rows show relative usage and solar intensity.</div>
+                    </div>
+                </div>
+                <div id="solarEstimateSaveHint" class="solar-estimate-save-hint" style="display: none; margin-top: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
+                ` : ''}
+                <div class="solar-note-box" style="margin-top: 14px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; padding: 12px 14px;">
+                    <div class="solar-note-text" style="font-size: 11px; line-height: 1.6; color: #78350f;">
+                        Note: Solar saving estimation may vary after final installation. Actual performance can be affected by roof shape and angle, shading, weather conditions, and site-specific installation factors. This estimate assumes a flat roof surface for calculation.
+                    </div>
+                </div>
+            </div>
+        </section>
+        ` : ''}
 
         <!-- Items Table -->
         <section class="items-table-wrapper">
@@ -1049,6 +1957,26 @@ body.a4-preview .promotional-banner {
                 </tbody>
             </table>
         </section>
+
+        <!-- Warranties -->
+        ${invoice.warranties && invoice.warranties.length > 0 ? `
+        <section class="avoid-break" style="padding: 0 50px; margin-bottom: 40px;">
+           <div class="bg-slate-50 rounded-t-lg border border-slate-200 px-4 py-3 flex text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+             Product Warranties
+           </div>
+           <div class="border border-t-0 border-slate-200 rounded-b-lg p-5 bg-white shadow-sm">
+             <div class="space-y-4">
+               ${invoice.warranties.map((w, idx) => `
+                 <div class="flex flex-col sm:flex-row gap-2 sm:gap-6 sm:items-start text-sm">
+                   <div class="sm:w-1/3 font-bold text-slate-800">${w.name || 'Product'}</div>
+                   <div class="flex-1 text-slate-600 text-xs whitespace-pre-line leading-relaxed">${w.terms || ''}</div>
+                 </div>
+                 ${idx < invoice.warranties.length - 1 ? '<hr class="border-slate-50 my-4">' : ''}
+               `).join('')}
+             </div>
+           </div>
+        </section>
+        ` : ''}
 
         <!-- Summary -->
         <section class="summary-section">
@@ -1083,6 +2011,16 @@ body.a4-preview .promotional-banner {
                     <span class="summary-label" style="color: green;">Holiday Boost Reward</span>
                     <span class="summary-value" style="color: green;">-RM ${Math.abs(holidayBoostAmount).toFixed(2)}</span>
                 </div>` : ''}
+                ${earnNowRebateAmount > 0 ? `
+                <div class="summary-row">
+                    <span class="summary-label" style="color: #d97706;">Earn Now Rebate</span>
+                    <span class="summary-value" style="color: #d97706;">-RM ${Math.abs(earnNowRebateAmount).toFixed(2)}</span>
+                </div>` : ''}
+                ${earthMonthGoGreenBonusAmount > 0 ? `
+                <div class="summary-row">
+                    <span class="summary-label" style="color: #047857;">Earth Month Go Green Bonus</span>
+                    <span class="summary-value" style="color: #047857;">-RM ${Math.abs(earthMonthGoGreenBonusAmount).toFixed(2)}</span>
+                </div>` : ''}
                 ${sstAmount > 0 ? `
                 <hr class="summary-divider">
                 <div class="summary-row">
@@ -1098,14 +2036,14 @@ body.a4-preview .promotional-banner {
 
         <!-- Tiger Neo 3 Promotional Banner -->
         ${hasTigerNeo3 && !isA4Preview ? `
-        <section class="promotional-banner no-print" style="padding: 0 50px; margin-bottom: 40px; cursor: pointer;" onclick="window.location.href = 'https://tiger-neo-3-production.up.railway.app/index.html?return=' + encodeURIComponent(window.location.href);">
+        <a class="promotional-banner no-print" href="${buildTigerNeoPresentationUrl(invoice)}" target="_blank" rel="noopener noreferrer" style="display: block; padding: 0 50px; margin-bottom: 40px; cursor: pointer;">
             <div style="border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
                 <img src="/slide-001.webp" alt="Rise With Tiger Neo 3" style="width: 100%; display: block; object-fit: cover;">
                 <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 20px 15px 10px; color: white; text-align: right; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">
                     Click to view Interactive Proposal <i class='bx bx-right-arrow-alt' style="vertical-align: middle; font-size: 14px;"></i>
                 </div>
             </div>
-        </section>
+        </a>
         ` : ''}
 
         <!-- Terms & Signature -->

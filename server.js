@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
@@ -22,9 +23,11 @@ const SalesTeam = require('./src/modules/SalesTeam');
 const sedaRoutes = require('./routes/sedaRoutes');
 const ActivityReport = require('./src/modules/ActivityReport');
 const Health = require('./src/modules/Health');
+const BugReport = require('./src/modules/BugReport');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const AUTH_URL = process.env.AUTH_URL || 'https://auth.atap.solar';
 
 // Trust Proxy for Railway/Load Balancers
 app.set('trust proxy', 1);
@@ -76,21 +79,56 @@ app.use(SalesTeam.router);
 app.use(sedaRoutes);
 app.use(ActivityReport.router);
 app.use(Health.router);
+app.use('/api/v1/bug', BugReport.bugRoutes);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
 app.use('/proposal', express.static('portable-proposal'));
+app.use('/t3_html_presentation', express.static('mobile_html_output'));
 
 const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'storage');
 app.use('/uploads', express.static(storagePath));
 app.use('/seda-files', express.static(path.join(storagePath, 'seda_registration')));
 app.use('/agent-docs', express.static(path.join(storagePath, 'agent_documents')));
 
-app.get('/', (req, res) => {
-  if (req.cookies.auth_token) {
-    return res.redirect('/agent/home');
+function clearAuthCookies(res) {
+  res.clearCookie('auth_token', { path: '/' });
+  res.clearCookie('auth_token', { path: '/', domain: '.atap.solar' });
+}
+
+function buildAbsoluteReturnTo(req, fallbackPath = '/agent/home') {
+  const requested = typeof req.query.return_to === 'string' ? req.query.return_to.trim() : '';
+  if (requested.startsWith('http://') || requested.startsWith('https://')) {
+    return requested;
   }
+
+  const relativePath = requested.startsWith('/') ? requested : fallbackPath;
+  return `${req.protocol}://${req.get('host')}${relativePath}`;
+}
+
+app.get('/', (req, res) => {
+  const token = req.cookies.auth_token;
+
+  if (!token) {
+    return res.redirect('/login');
+  }
+
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+    return res.redirect('/agent/home');
+  } catch (err) {
+    clearAuthCookies(res);
+    return res.redirect('/login');
+  }
+});
+
+app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
+});
+
+app.get('/auth-login', (req, res) => {
+  const returnTo = encodeURIComponent(buildAbsoluteReturnTo(req));
+  res.redirect(`${AUTH_URL}/?return_to=${returnTo}`);
 });
 
 // Agent Registration Route
@@ -367,6 +405,14 @@ app.get('/chat-dashboard', (req, res) => {
 
 app.get('/chat-settings', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'chat_settings.html'));
+});
+
+app.get('/bug-dashboard', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'bug_dashboard.html'));
+});
+
+app.get('/bug-chat', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'bug_chat.html'));
 });
 
 // API endpoint to test database connection (Core Health)

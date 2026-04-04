@@ -54,6 +54,13 @@ function parseDiscountString(discountGiven) {
   return result;
 }
 
+function normalizeBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.trim().toLowerCase() === 'true';
+  if (typeof value === 'number') return value === 1;
+  return false;
+}
+
 /**
  * @typedef {Object} InvoiceCreationPayload
  * @property {number|string} userId - The unique identifier of the user creating the invoice.
@@ -165,6 +172,30 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.lead_source && !invoiceRequestPayload.leadSource) {
         invoiceRequestPayload.leadSource = invoiceRequestPayload.lead_source;
     }
+    if (invoiceRequestPayload.linked_referral && !invoiceRequestPayload.linkedReferral) {
+        invoiceRequestPayload.linkedReferral = invoiceRequestPayload.linked_referral;
+    }
+    if (invoiceRequestPayload.customer_average_tnb !== undefined && invoiceRequestPayload.customerAverageTnb === undefined) {
+        invoiceRequestPayload.customerAverageTnb = invoiceRequestPayload.customer_average_tnb;
+    }
+    if (invoiceRequestPayload.estimated_saving !== undefined && invoiceRequestPayload.estimatedSaving === undefined) {
+        invoiceRequestPayload.estimatedSaving = invoiceRequestPayload.estimated_saving;
+    }
+    if (invoiceRequestPayload.estimated_new_bill_amount !== undefined && invoiceRequestPayload.estimatedNewBillAmount === undefined) {
+        invoiceRequestPayload.estimatedNewBillAmount = invoiceRequestPayload.estimated_new_bill_amount;
+    }
+    if (invoiceRequestPayload.solar_sun_peak_hour !== undefined && invoiceRequestPayload.solarSunPeakHour === undefined) {
+        invoiceRequestPayload.solarSunPeakHour = invoiceRequestPayload.solar_sun_peak_hour;
+    }
+    if (invoiceRequestPayload.solar_morning_usage_percent !== undefined && invoiceRequestPayload.solarMorningUsagePercent === undefined) {
+        invoiceRequestPayload.solarMorningUsagePercent = invoiceRequestPayload.solar_morning_usage_percent;
+    }
+    if (invoiceRequestPayload.apply_earn_now_rebate !== undefined && invoiceRequestPayload.applyEarnNowRebate === undefined) {
+        invoiceRequestPayload.applyEarnNowRebate = normalizeBoolean(invoiceRequestPayload.apply_earn_now_rebate);
+    }
+    if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
+        invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
+    }
 
     // 1. Validation Layer Layer
     const validation = validateInvoiceData(invoiceRequestPayload);
@@ -234,9 +265,17 @@ async function createInvoice(pool, invoiceRequestPayload) {
       customerName: invoiceRequestPayload.customerName,
       customerPhone: invoiceRequestPayload.customerPhone,
       customerAddress: invoiceRequestPayload.customerAddress,
+      linkedReferral: invoiceRequestPayload.linkedReferral,
       profilePicture: invoiceRequestPayload.profilePicture,
       leadSource: invoiceRequestPayload.leadSource,
       remark: invoiceRequestPayload.remark,
+      customerAverageTnb: invoiceRequestPayload.customerAverageTnb,
+      estimatedSaving: invoiceRequestPayload.estimatedSaving,
+      estimatedNewBillAmount: invoiceRequestPayload.estimatedNewBillAmount,
+      solarSunPeakHour: invoiceRequestPayload.solarSunPeakHour,
+      solarMorningUsagePercent: invoiceRequestPayload.solarMorningUsagePercent,
+      applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate || false,
+      applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus || false,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
@@ -338,6 +377,30 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.lead_source && !invoiceRequestPayload.leadSource) {
         invoiceRequestPayload.leadSource = invoiceRequestPayload.lead_source;
     }
+    if (invoiceRequestPayload.linked_referral && !invoiceRequestPayload.linkedReferral) {
+        invoiceRequestPayload.linkedReferral = invoiceRequestPayload.linked_referral;
+    }
+    if (invoiceRequestPayload.customer_average_tnb !== undefined && invoiceRequestPayload.customerAverageTnb === undefined) {
+        invoiceRequestPayload.customerAverageTnb = invoiceRequestPayload.customer_average_tnb;
+    }
+    if (invoiceRequestPayload.estimated_saving !== undefined && invoiceRequestPayload.estimatedSaving === undefined) {
+        invoiceRequestPayload.estimatedSaving = invoiceRequestPayload.estimated_saving;
+    }
+    if (invoiceRequestPayload.estimated_new_bill_amount !== undefined && invoiceRequestPayload.estimatedNewBillAmount === undefined) {
+        invoiceRequestPayload.estimatedNewBillAmount = invoiceRequestPayload.estimated_new_bill_amount;
+    }
+    if (invoiceRequestPayload.solar_sun_peak_hour !== undefined && invoiceRequestPayload.solarSunPeakHour === undefined) {
+        invoiceRequestPayload.solarSunPeakHour = invoiceRequestPayload.solar_sun_peak_hour;
+    }
+    if (invoiceRequestPayload.solar_morning_usage_percent !== undefined && invoiceRequestPayload.solarMorningUsagePercent === undefined) {
+        invoiceRequestPayload.solarMorningUsagePercent = invoiceRequestPayload.solar_morning_usage_percent;
+    }
+    if (invoiceRequestPayload.apply_earn_now_rebate !== undefined && invoiceRequestPayload.applyEarnNowRebate === undefined) {
+        invoiceRequestPayload.applyEarnNowRebate = normalizeBoolean(invoiceRequestPayload.apply_earn_now_rebate);
+    }
+    if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
+        invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
+    }
 
     // 1. Validation Layer (Same as createInvoice but packageId is optional as we fetch from original)
     // We relax packageId check here as it comes from original invoice
@@ -398,9 +461,15 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       customerName: invoiceRequestPayload.customerName, // Updates name if provided
       customerPhone: invoiceRequestPayload.customerPhone,
       customerAddress: invoiceRequestPayload.customerAddress,
+      linkedReferral: invoiceRequestPayload.linkedReferral,
       profilePicture: invoiceRequestPayload.profilePicture,
       leadSource: invoiceRequestPayload.leadSource,
       remark: invoiceRequestPayload.remark,
+      customerAverageTnb: invoiceRequestPayload.customerAverageTnb,
+      estimatedSaving: invoiceRequestPayload.estimatedSaving,
+      estimatedNewBillAmount: invoiceRequestPayload.estimatedNewBillAmount,
+      solarSunPeakHour: invoiceRequestPayload.solarSunPeakHour,
+      solarMorningUsagePercent: invoiceRequestPayload.solarMorningUsagePercent,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,

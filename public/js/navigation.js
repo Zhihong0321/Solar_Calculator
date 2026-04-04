@@ -250,7 +250,7 @@
             toolLabel: 'Activity Review',
             toolDescription: 'Manager review board',
             icon: 'review',
-            visibleIf: ({ roles }) => roles.includes('kc')
+            visibleIf: ({ roles }) => roles.includes('kc') || roles.includes('sales-manager')
         },
         {
             pageKey: 'sales-kpi',
@@ -265,7 +265,7 @@
             toolLabel: 'Sales KPI',
             toolDescription: 'Manager KPI overview',
             icon: 'kpi',
-            visibleIf: ({ roles }) => roles.includes('kc')
+            visibleIf: ({ roles }) => roles.includes('kc') || roles.includes('sales-manager')
         },
         {
             pageKey: 'select-package',
@@ -937,7 +937,7 @@
             } finally {
                 this.clear();
                 document.cookie = 'auth_token=; Max-Age=0; path=/;';
-                window.location.href = '/domestic';
+                window.location.href = '/login';
             }
         },
 

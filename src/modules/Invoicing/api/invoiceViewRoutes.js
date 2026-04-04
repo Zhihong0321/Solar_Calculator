@@ -1,12 +1,160 @@
 const express = require('express');
 const path = require('path');
 const pool = require('../../../core/database/pool');
+const tariffPool = require('../../../core/database/tariffPool');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const externalPdfService = require('../services/externalPdfService');
+const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
 
 const router = express.Router();
+
+const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
+  sunPeakHour: 3.4,
+  morningUsage: 30,
+  smpPrice: 0.2703,
+  afaRate: 0,
+  historicalAfaRate: 0,
+  percentDiscount: 0,
+  fixedDiscount: 0,
+  batterySize: 0,
+  systemPhase: 3
+});
+
+function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour) {
+  const requestedBillAmount = Number(averageBill);
+  const matchedBillAmount = Number(calculationResult.details?.billBefore);
+  const beforeSolarBill = Number.isFinite(matchedBillAmount) ? matchedBillAmount : requestedBillAmount;
+  const monthlySaving = Number(calculationResult.monthlySavings);
+  const billAfterSolar = Number(calculationResult.details?.billAfter);
+  const exportSaving = Number(calculationResult.details?.exportSaving);
+  const payableAfterSolar = Number(calculationResult.details?.estimatedPayableAfterSolar);
+  const estimatedNewBillAmount = Number.isFinite(payableAfterSolar)
+    ? payableAfterSolar
+    : (Number.isFinite(billAfterSolar) && Number.isFinite(exportSaving)
+      ? Math.max(0, billAfterSolar - exportSaving)
+    : (Number.isFinite(beforeSolarBill) && Number.isFinite(monthlySaving)
+      ? Math.max(0, beforeSolarBill - monthlySaving)
+      : null));
+
+  return {
+    requested_bill_amount: Number.isFinite(requestedBillAmount) ? Number(requestedBillAmount.toFixed(2)) : null,
+    customer_average_tnb: Number.isFinite(beforeSolarBill) ? Number(beforeSolarBill.toFixed(2)) : null,
+    estimated_saving: Number.isFinite(monthlySaving) ? Number(monthlySaving.toFixed(2)) : null,
+    estimated_new_bill_amount: Number.isFinite(estimatedNewBillAmount) ? Number(estimatedNewBillAmount.toFixed(2)) : null,
+    bill_after_solar_before_export: Number.isFinite(billAfterSolar) ? Number(billAfterSolar.toFixed(2)) : null,
+    export_earning: Number.isFinite(exportSaving) ? Number(exportSaving.toFixed(2)) : null,
+    day_usage_share: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
+    charts: calculationResult.charts || null,
+    assumptions: {
+      sunPeakHour: Number.isFinite(Number(sunPeakHour)) ? Number(sunPeakHour) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour,
+      offsetPercent: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
+      batterySize: DEFAULT_PUBLIC_SOLAR_ESTIMATE.batterySize,
+      systemPhase: DEFAULT_PUBLIC_SOLAR_ESTIMATE.systemPhase
+    }
+  };
+}
+
+async function handlePublicSolarEstimate(req, res) {
+  try {
+    const { tokenOrId } = req.params;
+    const averageBill = Number(req.body?.averageBill);
+    const shouldSave = Boolean(req.body?.save);
+    const requestedSunPeakHour = Number(req.body?.sunPeakHour);
+    const requestedMorningUsage = Number(req.body?.morningUsage);
+
+    if (!Number.isFinite(averageBill) || averageBill <= 0) {
+      return res.status(400).json({ success: false, error: 'Average bill amount must be greater than 0.' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+      if (!invoice) {
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      const storedSunPeakHour = Number(invoice?.solar_sun_peak_hour);
+      const storedMorningUsage = Number(invoice?.solar_morning_usage_percent);
+      const sunPeakHour = Number.isFinite(requestedSunPeakHour)
+        ? requestedSunPeakHour
+        : (Number.isFinite(storedSunPeakHour)
+          ? storedSunPeakHour
+          : DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour);
+      const morningUsage = Number.isFinite(requestedMorningUsage)
+        ? requestedMorningUsage
+        : (Number.isFinite(storedMorningUsage)
+          ? storedMorningUsage
+          : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage);
+
+      if (!Number.isFinite(sunPeakHour) || sunPeakHour < 3.0 || sunPeakHour > 4.5) {
+        return res.status(400).json({ success: false, error: 'Sun Peak Hour must be between 3.0 and 4.5.' });
+      }
+      if (!Number.isFinite(morningUsage) || morningUsage < 1 || morningUsage > 100) {
+        return res.status(400).json({ success: false, error: 'Day usage share must be between 1 and 100.' });
+      }
+
+      const panelQty = parseInt(invoice.panel_qty, 10);
+      const panelRating = parseInt(invoice.panel_rating, 10);
+
+      if (!Number.isFinite(panelQty) || panelQty <= 0 || !Number.isFinite(panelRating) || panelRating <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'This quotation package does not have enough panel details for public solar estimation.'
+        });
+      }
+
+      const calculationResult = await calculateSolarSavings(pool, tariffPool, {
+        ...DEFAULT_PUBLIC_SOLAR_ESTIMATE,
+        amount: averageBill,
+        sunPeakHour,
+        panelType: panelRating,
+        overridePanels: panelQty,
+        morningUsage
+      });
+
+      const estimate = buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour);
+
+      if (shouldSave) {
+        const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);
+        if (!bubbleId) {
+          return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        await client.query(
+          `UPDATE invoice
+           SET customer_average_tnb = $1,
+               estimated_saving = $2,
+               estimated_new_bill_amount = $3,
+               solar_sun_peak_hour = $4,
+               solar_morning_usage_percent = $5,
+               updated_at = NOW()
+           WHERE bubble_id = $6`,
+          [
+            estimate.customer_average_tnb,
+            estimate.estimated_saving,
+            estimate.estimated_new_bill_amount,
+            Number(sunPeakHour.toFixed(2)),
+            Number(morningUsage.toFixed(2)),
+            bubbleId
+          ]
+        );
+      }
+
+      res.json({
+        success: true,
+        saved: shouldSave,
+        data: estimate
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error recalculating public solar estimate:', err);
+    res.status(500).json({ success: false, error: err.message || 'Failed to recalculate solar estimate' });
+  }
+}
 
 /**
  * GET /legacy-view/:tokenOrId
@@ -258,6 +406,9 @@ router.post('/view2/:tokenOrId/signature', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+router.post('/view/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
+router.post('/view2/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 
 /**
  * GET /proposal/:shareToken

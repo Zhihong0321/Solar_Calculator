@@ -24,6 +24,42 @@ const chartInstances = {
     combined: null
 };
 
+const DAY_USAGE_WEIGHTS = [
+    0, 0, 0, 0, 0, 0, 0.35, 0.7, 0.95, 1.05, 1.12, 1.18,
+    1.2, 1.14, 1.02, 0.92, 0.82, 0.72, 0.48, 0
+];
+
+const NIGHT_USAGE_WEIGHTS = [
+    0.42, 0.38, 0.34, 0.3, 0.32, 0.44, 0.6, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0.58, 0.92, 1.08, 1.14, 1.02, 0.7
+];
+
+function buildUsagePattern(dailyUsageKwh, dayUsagePercent) {
+    const safeDailyUsage = Number.isFinite(dailyUsageKwh) ? Math.max(0, dailyUsageKwh) : 0;
+    const safeDayUsagePercent = Number.isFinite(dayUsagePercent)
+        ? Math.min(100, Math.max(0, dayUsagePercent))
+        : 30;
+
+    const dayUsageKwh = safeDailyUsage * (safeDayUsagePercent / 100);
+    const nightUsageKwh = Math.max(0, safeDailyUsage - dayUsageKwh);
+    const dayWeightTotal = DAY_USAGE_WEIGHTS.reduce((sum, weight) => sum + weight, 0) || 1;
+    const nightWeightTotal = NIGHT_USAGE_WEIGHTS.reduce((sum, weight) => sum + weight, 0) || 1;
+
+    return Array.from({ length: 24 }, (_, hour) => {
+        const dayPortion = DAY_USAGE_WEIGHTS[hour] > 0
+            ? (dayUsageKwh * DAY_USAGE_WEIGHTS[hour]) / dayWeightTotal
+            : 0;
+        const nightPortion = NIGHT_USAGE_WEIGHTS[hour] > 0
+            ? (nightUsageKwh * NIGHT_USAGE_WEIGHTS[hour]) / nightWeightTotal
+            : 0;
+
+        return {
+            hour,
+            usage: (dayPortion + nightPortion).toFixed(3)
+        };
+    });
+}
+
 // --- Initialization ---
 window.onload = function () {
     testConnection();
@@ -412,15 +448,18 @@ class SolarCalculator {
         const billReduction = beforeBreakdown.total - afterBreakdown.total;
         // Export rate logic: if reduced bill total kWh usage > 1500 kWh, use 0.3703, otherwise use smpPrice
         const effectiveExportRate = netUsageKwh > 1500 ? 0.3703 : smpPrice;
-        const exportSaving = exportKwh * effectiveExportRate;
+        const exportSavingRaw = exportKwh * effectiveExportRate;
         const backupGenerationSaving = backupGenerationKwh * effectiveExportRate;
-        const totalMonthlySavings = billReduction + exportSaving;
 
         const billReductionBaseline = beforeBreakdown.total - baselineBreakdown.total;
         // For baseline, check netUsageBaseline instead
         const effectiveExportRateBaseline = netUsageBaseline > 1500 ? 0.3703 : smpPrice;
-        const exportSavingBaseline = exportKwhBaseline * effectiveExportRateBaseline;
+        const exportSavingBaselineRaw = exportKwhBaseline * effectiveExportRateBaseline;
+        const exportSavingBaseline = Math.min(exportSavingBaselineRaw, baselineBreakdown.total);
         const totalMonthlySavingsBaseline = billReductionBaseline + exportSavingBaseline;
+        const exportSaving = Math.min(exportSavingRaw, afterBreakdown.total);
+        const totalMonthlySavings = billReduction + exportSaving;
+        const estimatedPayableAfterSolar = Math.max(0, afterBreakdown.total - exportSavingRaw);
 
         // 9. System Costs
         let systemCostBeforeDiscount = null, finalSystemCost = null, totalDiscountAmount = 0, paybackPeriod = 'N/A';
@@ -446,15 +485,7 @@ class SolarCalculator {
 
         // 10. Chart Data
         const dailyUsageKwh = monthlyUsageKwh / 30;
-        const electricityUsagePattern = [];
-        for (let hour = 0; hour < 24; hour++) {
-            let m;
-            if (hour >= 6 && hour <= 9) m = 1.8 * (morningUsage / 100);
-            else if (hour >= 18 && hour <= 22) m = 2.2;
-            else if (hour >= 10 && hour <= 17) m = 0.8 * (1 - (morningUsage / 100) * 0.3);
-            else m = 0.3;
-            electricityUsagePattern.push({ hour, usage: (dailyUsageKwh * m / 10).toFixed(3) });
-        }
+        const electricityUsagePattern = buildUsagePattern(dailyUsageKwh, morningUsage);
         const solarGenPattern = [];
         for (let hour = 0; hour < 24; hour++) {
             let m = 0;
@@ -478,7 +509,8 @@ class SolarCalculator {
             details: {
                 monthlyUsageKwh, monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
                 billBefore: beforeBreakdown.total.toFixed(2), billAfter: afterBreakdown.total.toFixed(2),
-                billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2),
+                billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2), exportSavingRaw: exportSavingRaw.toFixed(2),
+                estimatedPayableAfterSolar: estimatedPayableAfterSolar.toFixed(2),
                 netUsageKwh: netUsageKwh.toFixed(2), exportKwh: exportKwh.toFixed(2),
                 backupGenerationKwh: backupGenerationKwh.toFixed(2),
                 backupGenerationSaving: backupGenerationSaving.toFixed(2),
@@ -491,8 +523,9 @@ class SolarCalculator {
                 },
                 battery: {
                     baseline: {
-                        billReduction: billReductionBaseline, exportCredit: exportSavingBaseline,
+                        billReduction: billReductionBaseline, exportCredit: exportSavingBaseline, exportCreditRaw: exportSavingBaselineRaw,
                         totalSavings: totalMonthlySavingsBaseline.toFixed(2), billAfter: baselineBreakdown.total,
+                        estimatedPayableAfterSolar: Math.max(0, baselineBreakdown.total - exportSavingBaselineRaw),
                         billBreakdown: {
                             items: [
                                 { label: 'Usage', before: beforeBreakdown.usage, after: baselineBreakdown.usage, delta: beforeBreakdown.usage - baselineBreakdown.usage },
@@ -611,81 +644,21 @@ window.updateEPPCalculation = function (event) {
 };
 
 // --- Sun Peak Detector ---
-let lastDetectedSunPeak = 3.4;
-
+// Feature intentionally disabled to keep sun peak input manual only.
 window.openSunPeakDetector = function () {
-    document.getElementById('sunPeakModal').classList.remove('hidden');
-    document.getElementById('sunPeakResult').classList.add('hidden');
-    document.getElementById('sunPeakAddress').value = '';
-    document.getElementById('sunPeakAddress').focus();
-
-    // Add one-time listener for Enter key
-    const addressInput = document.getElementById('sunPeakAddress');
-    const handleEnter = (e) => {
-        if (e.key === 'Enter') {
-            detectSunPeak();
-            addressInput.removeEventListener('keydown', handleEnter);
-        }
-    };
-    addressInput.addEventListener('keydown', handleEnter);
+    showNotification('Sun Peak Detector is disabled.', 'info');
 };
 
 window.closeSunPeakDetector = function () {
-    document.getElementById('sunPeakModal').classList.add('hidden');
-    // Reset state if needed
+    // Detector removed.
 };
 
 window.detectSunPeak = async function () {
-    const address = document.getElementById('sunPeakAddress').value;
-    if (!address) return showNotification('Please enter an address', 'error');
-
-    const btn = document.getElementById('detectSunPeakBtn');
-    const loading = document.getElementById('sunPeakLoading');
-    const resultDiv = document.getElementById('sunPeakResult');
-    const widgetContainer = document.getElementById('sunPeakWidgetContainer');
-    const valDisplay = document.getElementById('sunPeakValue');
-
-    btn.disabled = true;
-    btn.classList.add('opacity-50');
-    loading.classList.remove('hidden');
-    resultDiv.classList.add('hidden');
-
-    try {
-        const response = await fetch(`https://solar-analysis-app-production.up.railway.app/api/solar-widget?address=${encodeURIComponent(address)}`);
-        const data = await response.json();
-
-        if (response.ok && data.solar_data) {
-            widgetContainer.innerHTML = data.widget_html;
-
-            // Extract numeric value from range (e.g., "4.2+" -> 4.2)
-            const rangeStr = data.solar_data.match.range || "3.4";
-            const peakVal = parseFloat(rangeStr.replace('+', '')) || 3.4;
-
-            lastDetectedSunPeak = peakVal;
-            valDisplay.innerText = peakVal.toFixed(1) + ' h';
-
-            resultDiv.classList.remove('hidden');
-        } else {
-            showNotification('Could not detect solar data for this address.', 'error');
-        }
-    } catch (err) {
-        console.error(err);
-        showNotification('API Error. Please try again.', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.classList.remove('opacity-50');
-        loading.classList.add('hidden');
-    }
+    showNotification('Sun Peak Detector is disabled.', 'info');
 };
 
 window.applyDetectedSunPeak = function () {
-    const sunPeakInput = document.getElementById('sunPeakHour');
-    if (sunPeakInput) {
-        sunPeakInput.value = lastDetectedSunPeak.toFixed(1);
-        triggerSpontaneousUpdate('sunPeakHour');
-        showNotification(`Applied ${lastDetectedSunPeak.toFixed(1)}h to calculator`, 'info');
-    }
-    closeSunPeakDetector();
+    showNotification('Sun Peak Detector is disabled.', 'info');
 };
 
 // --- Interaction Handlers ---
@@ -743,20 +716,10 @@ document.getElementById('billForm').addEventListener('submit', async function (e
 window.calculateSolarSavings = async function () {
     if (!currentTariffData) return showNotification('Please complete Bill Analysis first.', 'error');
 
-    const params = {
-        amount: parseFloat(document.getElementById('billAmount').value),
-        sunPeakHour: parseFloat(document.getElementById('sunPeakHour').value),
-        morningUsage: parseFloat(document.getElementById('morningUsage').value),
-        panelType: parseInt(document.getElementById('panelRating').value),
-        smpPrice: parseFloat(document.getElementById('smpPrice').value),
-        afaRate: parseFloat(document.getElementById('afaRate').value) || 0,
-        historicalAfaRate: currentHistoricalAfaRate,
-        percentDiscount: parseFloat(document.getElementById('percentDiscount').value) || 0,
-        fixedDiscount: parseFloat(document.getElementById('fixedDiscount').value) || 0,
+    const params = collectLiveSolarParams({
         batterySize: 0,
-        overridePanels: '',
-        systemPhase: parseInt(document.getElementById('systemPhase').value) || 3
-    };
+        overridePanels: ''
+    });
     latestSolarParams = params;
 
     // Show inline loading inside the results card area
@@ -782,6 +745,32 @@ window.calculateSolarSavings = async function () {
         solarDiv.innerHTML = `<div class="py-10 text-center text-xs font-bold uppercase text-rose-600 border border-rose-300 p-4">[ Calculation Error: ${err.message} ]</div>`;
     }
 };
+
+function collectLiveSolarParams(overrides = {}) {
+    const panelRatingInput = document.getElementById('panelRating');
+    const panelCountInput = document.querySelector('#floatingPanelBar input[type="number"]');
+    const livePanelOverride = panelCountInput ? parseInt(panelCountInput.value, 10) : NaN;
+    const fallbackOverride = latestSolarParams?.overridePanels;
+    const resolvedOverridePanels = Number.isFinite(livePanelOverride) && livePanelOverride >= 1
+        ? livePanelOverride
+        : (fallbackOverride !== undefined ? fallbackOverride : '');
+
+    return {
+        amount: parseFloat(document.getElementById('billAmount').value),
+        sunPeakHour: parseFloat(document.getElementById('sunPeakHour').value),
+        morningUsage: parseFloat(document.getElementById('morningUsage').value),
+        panelType: panelRatingInput ? parseInt(panelRatingInput.value, 10) : 650,
+        smpPrice: parseFloat(document.getElementById('smpPrice').value),
+        afaRate: parseFloat(document.getElementById('afaRate').value) || 0,
+        historicalAfaRate: currentHistoricalAfaRate,
+        percentDiscount: parseFloat(document.getElementById('percentDiscount')?.value) || 0,
+        fixedDiscount: parseFloat(document.getElementById('fixedDiscount')?.value) || 0,
+        batterySize: latestSolarParams?.batterySize || 0,
+        overridePanels: resolvedOverridePanels,
+        systemPhase: parseInt(document.getElementById('systemPhase').value, 10) || 3,
+        ...overrides
+    };
+}
 
 window.triggerSpontaneousUpdate = function (source) {
     if (!latestSolarParams) {
@@ -819,7 +808,12 @@ window.triggerSpontaneousUpdate = function (source) {
 async function runAndDisplay() {
     if (!latestSolarParams) return;
     try {
-        const result = await fetchSolarCalculation(latestSolarParams);
+        const params = collectLiveSolarParams({
+            batterySize: latestSolarParams.batterySize || 0,
+            overridePanels: latestSolarParams.overridePanels
+        });
+        latestSolarParams = params;
+        const result = await fetchSolarCalculation(params);
         latestSolarData = result;
         displaySolarCalculation(result);
     } catch (err) {
@@ -862,7 +856,30 @@ window.syncAndTrigger = function (id, value) {
     }
 };
 
-window.generateInvoiceLink = function () {
+window.generateInvoiceLink = async function () {
+    if (!currentTariffData) {
+        showNotification('Please complete Bill Analysis first.', 'error');
+        return;
+    }
+
+    try {
+        clearTimeout(_spontaneousDebounceTimer);
+
+        const freshParams = collectLiveSolarParams({
+            batterySize: latestSolarParams?.batterySize || 0,
+            overridePanels: latestSolarParams?.overridePanels
+        });
+        latestSolarParams = freshParams;
+
+        const freshResult = await fetchSolarCalculation(freshParams);
+        latestSolarData = freshResult;
+        displaySolarCalculation(freshResult);
+    } catch (err) {
+        console.error('[generateInvoiceLink] Failed to refresh latest calculation:', err);
+        showNotification('Failed to refresh latest saving before creating quotation.', 'error');
+        return;
+    }
+
     if (!latestSolarData || !latestSolarData.selectedPackage || !latestSolarData.selectedPackage.linked_package) {
         showNotification('No valid package selected for quotation. Please ensure a package is matched.', 'error');
         return;
@@ -893,6 +910,32 @@ window.generateInvoiceLink = function () {
     // Optional: Panel Info (for reference)
     if (latestSolarData.actualPanels) params.set('panel_qty', latestSolarData.actualPanels);
     if (latestSolarData.config.panelType) params.set('panel_rating', `${latestSolarData.config.panelType}W`);
+
+    const billAfterSolar = Number(latestSolarData.details?.billAfter);
+    const exportSaving = Number(latestSolarData.details?.exportSaving);
+    const payableAfterSolar = Number(latestSolarData.details?.estimatedPayableAfterSolar);
+    const estimatedPayableAfterSolar = Number.isFinite(payableAfterSolar)
+        ? payableAfterSolar
+        : (Number.isFinite(billAfterSolar)
+            ? Math.max(0, billAfterSolar - (Number.isFinite(exportSaving) ? exportSaving : 0))
+            : null);
+
+    // Persist calculator savings metrics for downstream quotation/proposal usage.
+    if (latestSolarData.details?.billBefore !== null && latestSolarData.details?.billBefore !== undefined) {
+        params.set('customer_average_tnb', latestSolarData.details.billBefore);
+    }
+    if (latestSolarData.monthlySavings !== null && latestSolarData.monthlySavings !== undefined) {
+        params.set('estimated_saving', latestSolarData.monthlySavings);
+    }
+    if (estimatedPayableAfterSolar !== null) {
+        params.set('estimated_new_bill_amount', estimatedPayableAfterSolar.toFixed(2));
+    }
+    if (latestSolarData.config?.sunPeakHour !== null && latestSolarData.config?.sunPeakHour !== undefined) {
+        params.set('solar_sun_peak_hour', latestSolarData.config.sunPeakHour);
+    }
+    if (latestSolarData.config?.morningUsage !== null && latestSolarData.config?.morningUsage !== undefined) {
+        params.set('solar_morning_usage_percent', latestSolarData.config.morningUsage);
+    }
 
     window.open(`${invoiceBaseUrl}?${params.toString()}`, '_blank');
 };
@@ -951,10 +994,6 @@ function displayBillBreakdown(data) {
                         </div>
                     </div>
                     <div class="md:col-span-2 pt-2 flex flex-col sm:flex-row gap-3">
-                        <button onclick="openSunPeakDetector()" class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(251,191,36,0.5)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] flex items-center justify-center gap-2">
-                            <span class="w-2 h-2 bg-yellow-400 rounded-full"></span>
-                            Sun_Peak_Detector
-                        </button>
                         <button onclick="calculateSolarSavings()" class="text-xs md:text-sm font-bold uppercase tracking-wide border-2 border-fact px-8 py-3 md:px-10 md:py-3.5 hover:bg-black hover:text-white transition-all w-full sm:w-auto shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]">Generate_ROI_Matrix -></button>
                     </div>
                 </div>

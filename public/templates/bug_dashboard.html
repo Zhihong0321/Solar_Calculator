@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Bug Submission Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/tailwind.css">
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#b91c1c">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SolarChat">
+    <link rel="apple-touch-icon" href="/logo.png">
+
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { 
+            background-color: #f0f2f5; 
+            height: 100vh;
+            height: 100dvh;
+            overscroll-behavior: none;
+        }
+        .chat-row:hover { background-color: #f5f6f6; }
+        .unread-badge {
+            background-color: #25d366;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="flex flex-col overflow-hidden w-full">
+
+    <!-- Header -->
+    <header class="bg-red-700 text-white px-6 flex items-center justify-between shrink-0 shadow-md z-10" style="padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: 1rem;">
+        <div class="flex items-center gap-3">
+            <button onclick="window.location.href='/agent/home'" class="p-1 hover:bg-white/10 rounded-full transition-colors" title="Go Back">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            </button>
+            <h1 class="font-bold text-lg">IT Bug Submissions</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <button onclick="location.reload()" class="p-2 hover:bg-white/10 rounded-full transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Search/Filter Bar -->
+    <div class="bg-white px-4 py-2 border-b border-gray-200 shrink-0">
+        <div class="relative max-w-md mx-auto">
+            <input type="text" id="searchInput" oninput="filterThreads()" placeholder="Search user or message..." 
+                   class="w-full bg-gray-100 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-red-500 outline-none">
+            <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Threads List -->
+    <main class="flex-1 overflow-y-auto bg-white" id="threadContainer">
+        <div class="flex flex-col" id="threadsList">
+            <!-- Loading State -->
+            <div class="p-8 text-center text-gray-500">
+                <div class="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-red-600 rounded-full mb-4"></div>
+                <p>Loading bug reports...</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let allThreads = [];
+
+        async function init() {
+            await loadThreads();
+            setInterval(loadThreads, 10000);
+        }
+
+        async function loadThreads() {
+            try {
+                const res = await fetch('/api/v1/bug/threads');
+                
+                if (res.status === 401 || res.status === 403) {
+                    window.location.href = '/agent/home';
+                    return;
+                }
+
+                const json = await res.json();
+                if (json.success) {
+                    allThreads = json.threads;
+                    renderThreads(allThreads);
+                }
+            } catch (err) {
+                console.error('Load Threads Error:', err);
+            }
+        }
+
+        function renderThreads(threads) {
+            const container = document.getElementById('threadsList');
+            
+            if (threads.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-gray-500">
+                        <p>No bugs reported.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = threads.map(thread => {
+                const date = thread.last_message_at ? formatTime(new Date(thread.last_message_at)) : '';
+                const lastMsg = formatLastMessage(thread);
+                const firstLetter = thread.user_name ? thread.user_name.charAt(0).toUpperCase() : 'U';
+                
+                return `
+                    <div onclick="openChat('${thread.thread_id}')" 
+                         class="chat-row flex items-center gap-4 px-4 py-3 cursor-pointer border-b border-gray-100 transition-colors">
+                        <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold shrink-0">
+                            ${firstLetter}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline mb-1">
+                                <div class="flex items-center gap-2 truncate">
+                                    <h3 class="font-semibold text-gray-900 truncate">${thread.user_name || thread.user_email || 'Unknown User'}</h3>
+                                </div>
+                                <span class="text-[11px] text-gray-500 whitespace-nowrap">${date}</span>
+                            </div>
+                            <div class="flex justify-between items-center gap-2">
+                                <p class="text-sm text-gray-500 truncate flex-1">${lastMsg}</p>
+                                ${thread.status === 'open' ? `<span class="bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase">OPEN</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function formatLastMessage(thread) {
+            if (!thread.last_message_at) return 'No messages yet';
+            if (thread.last_message_type === 'image') return '📷 Screenshot';
+            if (thread.last_message_type === 'file') return '📄 Log File';
+            return thread.last_message || '';
+        }
+
+        function formatTime(date) {
+            const now = new Date();
+            const timeZone = 'Asia/Kuala_Lumpur';
+
+            const options = { timeZone, year: 'numeric', month: 'numeric', day: 'numeric' };
+            const dateStr = date.toLocaleDateString('en-MY', options);
+            const nowStr = now.toLocaleDateString('en-MY', options);
+            const isToday = dateStr === nowStr;
+
+            if (isToday) {
+                return date.toLocaleTimeString('en-MY', { timeZone, hour: '2-digit', minute: '2-digit' });
+            }
+
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            const yesterdayStr = yesterday.toLocaleDateString('en-MY', options);
+            if (dateStr === yesterdayStr) {
+                return 'Yesterday';
+            }
+
+            return date.toLocaleDateString('en-MY', { timeZone, month: 'short', day: 'numeric' });
+        }
+
+        function filterThreads() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allThreads.filter(t => 
+                (t.user_name && t.user_name.toLowerCase().includes(query)) ||
+                (t.last_message && t.last_message.toLowerCase().includes(query))
+            );
+            renderThreads(filtered);
+        }
+
+        function openChat(threadId) {
+            window.location.href = `/bug-chat?id=${threadId}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

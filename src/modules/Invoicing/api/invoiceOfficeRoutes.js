@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
+const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
 
 const router = express.Router();
@@ -294,7 +295,10 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
     let client = null;
     try {
         const { bubbleId } = req.params;
-        const userId = req.user.userId;
+        const userId = getAuthenticatedUserId(req);
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
 
         client = await pool.connect();
 
@@ -343,7 +347,10 @@ router.get('/api/v1/invoice-office/:bubbleId/extras', requireAuth, async (req, r
     let client = null;
     try {
         const { bubbleId } = req.params;
-        const userId = req.user.userId;
+        const userId = getAuthenticatedUserId(req);
+        if (!userId) {
+            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        }
 
         client = await pool.connect();
 
@@ -377,7 +384,10 @@ router.get('/api/v1/invoice-office/:bubbleId/extras', requireAuth, async (req, r
  */
 router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     let client = null;
     try {
@@ -422,7 +432,10 @@ router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (
  */
 router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     let client = null;
     try {
@@ -468,7 +481,10 @@ router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, 
 router.delete('/api/v1/invoice-office/:bubbleId/pv-system-drawing', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
     const { url } = req.body;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     if (!url) return res.status(400).json({ success: false, error: 'URL required' });
 
@@ -499,7 +515,10 @@ router.delete('/api/v1/invoice-office/:bubbleId/pv-system-drawing', requireAuth,
 router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
     const { url } = req.body;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     if (!url) return res.status(400).json({ success: false, error: 'URL required' });
 
@@ -530,7 +549,10 @@ router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async 
 router.put('/api/v1/invoice-office/:bubbleId/follow-up', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
     const { followUpDays } = req.body;
-    const userId = req.user.userId;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     let client = null;
     try {

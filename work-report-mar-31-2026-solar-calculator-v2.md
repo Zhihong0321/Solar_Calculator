@@ -1,0 +1,13 @@
+DATE  : Mar 31, 2026
+REPO NAME : Solar Calculator v2
+
+- Verified quotation schema support for solar savings fields in prod DB
+- Passed solar savings metrics from calculator into saved quotations
+- Added boxed solar savings section to quotation and invoice previews
+- Improved alignment of the boxed solar savings section in previews
+- Corrected new bill in solar savings box to net payable after export earnings
+- Added installation variance note below solar savings estimate
+- Removed slide 23 from Tiger Neo 3 HTML presentation
+- Made full Tiger Neo 3 invoice banner clickable
+
+=====================

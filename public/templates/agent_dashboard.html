@@ -514,6 +514,28 @@
               Guide for onboarding
             </p>
           </a>
+
+          <a href="/bug-chat" class="tool-card">
+            <div class="tool-icon bg-red-50 text-red-600 hover:bg-red-600 transition-colors">
+              <i class="fa-solid fa-bug text-2xl"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900 text-center">
+              Bug Submission
+            </h3>
+            <p class="text-[10px] text-slate-400 font-medium mt-1 text-center">
+              Report IT Issues to AI
+            </p>
+          </a>
+
+          <a href="/bug-dashboard" id="bugDashboardCard" class="tool-card hidden">
+            <div class="tool-icon">
+              <i class="fa-solid fa-helmet-safety text-2xl text-rose-500"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900">IT Bug Submissions</h3>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">
+              Admin Review
+            </p>
+          </a>
         </div>
       </section>
     </div>
@@ -558,7 +580,7 @@
       try {
         const response = await fetch("/api/agent/me");
         if (response.status === 401) {
-          window.location.href = "/domestic";
+          window.location.href = "/login";
           return;
         }
         if (!response.ok) throw new Error("Failed to fetch profile");
@@ -578,7 +600,10 @@
         if (accessLevels.includes("kc")) {
           const voucherCard = document.getElementById("voucherToolCard");
           if (voucherCard) voucherCard.classList.remove("hidden");
+        }
 
+        // Check access level for Activity Review
+        if (accessLevels.includes("kc") || accessLevels.includes("sales-manager")) {
           const activityReviewCard =
             document.getElementById("activityReviewCard");
           if (activityReviewCard)
@@ -603,6 +628,12 @@
           if (referralLeadManagementNav) referralLeadManagementNav.classList.remove("hidden");
         }
 
+        // Check access level for IT Bug Dashboard
+        if (accessLevels.includes("engineering") || accessLevels.includes("admin") || accessLevels.includes("superadmin") || accessLevels.includes("ceo") || accessLevels.includes("project")) {
+            const bugCard = document.getElementById("bugDashboardCard");
+            if (bugCard) bugCard.classList.remove("hidden");
+        }
+
         const avatarUrl =
           data.profile_picture ||
           `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || "Agent")}&background=0D8ABC&color=fff&bold=true`;
@@ -619,11 +650,11 @@
       if (!confirm("This will end your session. Proceed?")) return;
       try {
         await fetch("/api/admin/logout", { method: "POST" });
-        window.location.href = "/domestic";
+        window.location.href = "/login";
       } catch (e) {
         // Fallback to client-side
         document.cookie = "auth_token=; Max-Age=0; path=/;";
-        window.location.reload();
+        window.location.href = "/login";
       }
     }
 

@@ -908,7 +908,7 @@
         async function logout() {
             if (!confirm('End your session?')) return;
             await fetch('/api/admin/logout', { method: 'POST' });
-            window.location.href = '/domestic';
+            window.location.href = '/login';
         }
     </script>
     <script src="/js/navigation.js"></script>
