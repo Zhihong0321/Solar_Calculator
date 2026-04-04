@@ -9,5 +9,6 @@ REPO NAME : Solar Calculator v2
 - Added voucher category max panel quantity gate
 - Improved voucher-step auto-swap selection and selected card styling
 - Fixed selected voucher gradient rendering in voucher step
+- Fixed edit voucher step to preload existing saved selections
 
 =====================

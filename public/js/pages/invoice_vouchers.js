@@ -16,6 +16,10 @@ function normalizeNumber(value, fallback = 0) {
 function readSelectedVoucherIds(payload) {
     if (!payload || typeof payload !== 'object') return [];
 
+    if (Array.isArray(payload.selectedVoucherIds)) {
+        return payload.selectedVoucherIds.map(String);
+    }
+
     if (Array.isArray(payload.selected_voucher_ids)) {
         return payload.selected_voucher_ids.map(String);
     }
