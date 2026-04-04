@@ -13,10 +13,11 @@ function _resolveIdentifierColumn(id) {
     return _isNumericId(id) ? 'id' : 'bubble_id';
 }
 
-function _whereByStatus(status = 'all') {
-    if (status === 'deleted') return `WHERE "delete" = TRUE`;
-    if (status === 'active') return `WHERE active = TRUE AND ("delete" IS NULL OR "delete" = FALSE)`;
-    if (status === 'inactive') return `WHERE active = FALSE AND ("delete" IS NULL OR "delete" = FALSE)`;
+function _whereByStatus(status = 'all', alias = '') {
+    const prefix = alias ? `${alias}.` : '';
+    if (status === 'deleted') return `WHERE ${prefix}"delete" = TRUE`;
+    if (status === 'active') return `WHERE ${prefix}active = TRUE AND (${prefix}"delete" IS NULL OR ${prefix}"delete" = FALSE)`;
+    if (status === 'inactive') return `WHERE ${prefix}active = FALSE AND (${prefix}"delete" IS NULL OR ${prefix}"delete" = FALSE)`;
     return '';
 }
 
@@ -93,7 +94,7 @@ function _evaluateCategoryEligibility(category, invoiceContext) {
  * Voucher category CRUD
  */
 async function getAllVoucherCategories(pool, status = 'all') {
-    const whereClause = _whereByStatus(status);
+    const whereClause = _whereByStatus(status, 'c');
     const result = await pool.query(
         `SELECT
             c.*,
@@ -260,7 +261,7 @@ async function restoreVoucherCategory(pool, id) {
  * Voucher CRUD
  */
 async function getAllVouchers(pool, status = 'all') {
-    const whereClause = _whereByStatus(status);
+    const whereClause = _whereByStatus(status, 'v');
     const result = await pool.query(
         `SELECT
             v.*,
