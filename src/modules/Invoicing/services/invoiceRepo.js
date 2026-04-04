@@ -752,6 +752,11 @@ function isVoucherCategoryEligible(category, invoiceSummary) {
     return false;
   }
 
+  const maxPackageAmount = parseFloat(category.max_package_amount);
+  if (Number.isFinite(maxPackageAmount) && invoiceSummary.packagePrice > maxPackageAmount) {
+    return false;
+  }
+
   const minPanelQuantity = parseInt(category.min_panel_quantity, 10);
   if (Number.isFinite(minPanelQuantity) && invoiceSummary.panelQty < minPanelQuantity) {
     return false;

@@ -169,6 +169,9 @@ function renderCategories() {
         if (category.min_package_amount !== null && category.min_package_amount !== undefined) {
             requirementBits.push(`Min amount RM ${Number(category.min_package_amount).toLocaleString()}`);
         }
+        if (category.max_package_amount !== null && category.max_package_amount !== undefined) {
+            requirementBits.push(`Max amount RM ${Number(category.max_package_amount).toLocaleString()}`);
+        }
         if (category.min_panel_quantity !== null && category.min_panel_quantity !== undefined) {
             requirementBits.push(`Min panels ${category.min_panel_quantity}`);
         }
@@ -360,6 +363,7 @@ function openCategoryModal(id = null) {
     document.getElementById('category_disabled').checked = false;
     document.getElementById('category_max_selectable').value = 1;
     document.getElementById('category_package_type_scope').value = 'all';
+    document.getElementById('category_max_package_amount').value = '';
 
     if (id) {
         const category = currentCategories.find((item) => item.bubble_id === id);
@@ -370,6 +374,7 @@ function openCategoryModal(id = null) {
             document.getElementById('category_description').value = category.description || '';
             document.getElementById('category_max_selectable').value = category.max_selectable || 1;
             document.getElementById('category_min_package_amount').value = category.min_package_amount ?? '';
+            document.getElementById('category_max_package_amount').value = category.max_package_amount ?? '';
             document.getElementById('category_min_panel_quantity').value = category.min_panel_quantity ?? '';
             document.getElementById('category_package_type_scope').value = category.package_type_scope || 'all';
             document.getElementById('category_active').checked = !!category.active;
@@ -395,6 +400,7 @@ async function handleCategorySubmit(event) {
         description: document.getElementById('category_description').value.trim() || null,
         max_selectable: document.getElementById('category_max_selectable').value || 1,
         min_package_amount: document.getElementById('category_min_package_amount').value || null,
+        max_package_amount: document.getElementById('category_max_package_amount').value || null,
         min_panel_quantity: document.getElementById('category_min_panel_quantity').value || null,
         package_type_scope: document.getElementById('category_package_type_scope').value || 'all',
         active: document.getElementById('category_active').checked,

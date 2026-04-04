@@ -21,6 +21,9 @@ function normalizeCategoryPayload(body = {}) {
         min_package_amount: body.min_package_amount === '' || body.min_package_amount === null || body.min_package_amount === undefined
             ? null
             : parseFloat(body.min_package_amount),
+        max_package_amount: body.max_package_amount === '' || body.max_package_amount === null || body.max_package_amount === undefined
+            ? null
+            : parseFloat(body.max_package_amount),
         min_panel_quantity: body.min_panel_quantity === '' || body.min_panel_quantity === null || body.min_panel_quantity === undefined
             ? null
             : parseInt(body.min_panel_quantity, 10),

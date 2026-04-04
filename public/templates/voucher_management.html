@@ -397,12 +397,20 @@
                             class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium"></textarea>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-2">
-                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Min Package Amount</label>
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Min Quotation Amount</label>
                             <input type="number" id="category_min_package_amount" min="0" step="0.01" placeholder="No minimum"
                                 class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium">
                         </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Max Quotation Amount</label>
+                            <input type="number" id="category_max_package_amount" min="0" step="0.01" placeholder="No maximum"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none transition-all font-medium">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-2">
                             <label class="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">Min Panel Quantity</label>
                             <input type="number" id="category_min_panel_quantity" min="0" placeholder="No minimum"

@@ -41,6 +41,9 @@ function _validateCategoryRow(category) {
     const parsedMinPackageAmount = category.min_package_amount === null || category.min_package_amount === undefined
         ? null
         : parseFloat(category.min_package_amount);
+    const parsedMaxPackageAmount = category.max_package_amount === null || category.max_package_amount === undefined
+        ? null
+        : parseFloat(category.max_package_amount);
     const parsedMinPanelQuantity = category.min_panel_quantity === null || category.min_panel_quantity === undefined
         ? null
         : parseInt(category.min_panel_quantity, 10);
@@ -49,32 +52,46 @@ function _validateCategoryRow(category) {
         throw new Error('max_selectable must be a positive integer');
     }
 
+    if (!Number.isNaN(parsedMinPackageAmount) && !Number.isNaN(parsedMaxPackageAmount)
+        && parsedMinPackageAmount !== null && parsedMaxPackageAmount !== null
+        && parsedMaxPackageAmount < parsedMinPackageAmount) {
+        throw new Error('max_package_amount must be greater than or equal to min_package_amount');
+    }
+
     return {
         ...category,
         max_selectable: maxSelectable,
         package_type_scope: scope,
         min_package_amount: Number.isNaN(parsedMinPackageAmount) ? null : parsedMinPackageAmount,
+        max_package_amount: Number.isNaN(parsedMaxPackageAmount) ? null : parsedMaxPackageAmount,
         min_panel_quantity: Number.isNaN(parsedMinPanelQuantity) ? null : parsedMinPanelQuantity
     };
 }
 
 function _evaluateCategoryEligibility(category, invoiceContext) {
     const minPackageAmount = category.min_package_amount;
+    const maxPackageAmount = category.max_package_amount;
     const minPanelQty = category.min_panel_quantity;
     const scope = _normalizePackageTypeScope(category.package_type_scope);
     const invoicePackageType = _normalizeInvoicePackageType(invoiceContext.packageTypeRaw);
 
     const amountOk = minPackageAmount === null || invoiceContext.packageAmount >= minPackageAmount;
+    const maxAmountOk = maxPackageAmount === null || invoiceContext.packageAmount <= maxPackageAmount;
     const panelOk = minPanelQty === null || invoiceContext.panelQty >= minPanelQty;
     const typeOk = scope === 'all' || scope === invoicePackageType;
 
     return {
-        eligible: amountOk && panelOk && typeOk,
+        eligible: amountOk && maxAmountOk && panelOk && typeOk,
         checks: {
             packageAmount: {
                 required: minPackageAmount,
                 actual: invoiceContext.packageAmount,
                 passed: amountOk
+            },
+            maxPackageAmount: {
+                required: maxPackageAmount,
+                actual: invoiceContext.packageAmount,
+                passed: maxAmountOk
             },
             panelQty: {
                 required: minPanelQty,
@@ -144,12 +161,12 @@ async function createVoucherCategory(pool, data) {
     const result = await pool.query(
         `INSERT INTO voucher_category (
             bubble_id, name, description, max_selectable,
-            min_package_amount, min_panel_quantity, package_type_scope,
+            min_package_amount, max_package_amount, min_panel_quantity, package_type_scope,
             active, disabled, sort_order, created_by, created_at, updated_at
          ) VALUES (
             $1, $2, $3, $4,
-            $5, $6, $7,
-            $8, $9, $10, $11, NOW(), NOW()
+            $5, $6, $7, $8,
+            $9, $10, $11, $12, NOW(), NOW()
          )
          RETURNING *`,
         [
@@ -158,6 +175,7 @@ async function createVoucherCategory(pool, data) {
             normalized.description || null,
             normalized.max_selectable,
             normalized.min_package_amount,
+            normalized.max_package_amount,
             normalized.min_panel_quantity,
             normalized.package_type_scope,
             normalized.active !== undefined ? !!normalized.active : true,
@@ -186,19 +204,21 @@ async function updateVoucherCategory(pool, id, data) {
             description = $2,
             max_selectable = $3,
             min_package_amount = $4,
-            min_panel_quantity = $5,
-            package_type_scope = $6,
-            active = $7,
-            disabled = $8,
-            sort_order = $9,
+            max_package_amount = $5,
+            min_panel_quantity = $6,
+            package_type_scope = $7,
+            active = $8,
+            disabled = $9,
+            sort_order = $10,
             updated_at = NOW()
-         WHERE ${identifierColumn} = $10
+         WHERE ${identifierColumn} = $11
          RETURNING *`,
         [
             merged.name,
             merged.description || null,
             merged.max_selectable,
             merged.min_package_amount,
+            merged.max_package_amount,
             merged.min_panel_quantity,
             merged.package_type_scope,
             !!merged.active,
