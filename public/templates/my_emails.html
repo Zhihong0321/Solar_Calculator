@@ -313,6 +313,13 @@
         </div>
     </main>
 
+    <button onclick="showClaimModal()" aria-label="Claim official email"
+        class="md:hidden fixed right-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-xs font-bold text-white shadow-xl active:scale-95 transition-all"
+        style="z-index: 95; bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);">
+        <i class="fa-solid fa-plus-circle"></i>
+        <span>Claim Email</span>
+    </button>
+
     <!-- Claim Account Modal -->
     <div id="claimModal"
         class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
