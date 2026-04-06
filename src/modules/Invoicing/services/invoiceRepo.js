@@ -601,7 +601,8 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         c.profile_picture as profile_picture,
         c.lead_source as lead_source,
         c.remark as remark,
-        pkg.package_name as package_name
+        pkg.package_name as package_name,
+        pkg.type as package_type
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id

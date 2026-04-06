@@ -20,6 +20,13 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     // Decide title based on status: QUOTATION for drafts/pending, INVOICE for confirmed/paid
     const isConfirmed = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
     const titleLabel = isConfirmed ? 'INVOICE' : 'QUOTATION';
+    const packageType = String(invoice.package_type || invoice.type || '').trim();
+    const isCommercialQuotation = !isConfirmed && packageType === 'Tariff B&D Low Voltage';
+    const hasSiteVisitItem = items.some(item => {
+        const sourceText = `${item.description || ''} ${item.product_name || ''}`.toLowerCase();
+        return /site\s+vi(?:sit|tit)\s+by/.test(sourceText);
+    });
+    const showPreSiteVisitReminder = isCommercialQuotation && !hasSiteVisitItem;
 
     const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount;
 
@@ -224,6 +231,44 @@ body.a4-preview .promotional-banner {
     margin-top: 15px;
     flex-wrap: wrap;
     justify-content: flex-end;
+}
+
+.pre-site-visit-alert {
+    margin: 0 50px 30px;
+    padding: 24px 26px;
+    border: 3px solid #b91c1c;
+    background: linear-gradient(135deg, #fff7ed 0%, #fee2e2 100%);
+    box-shadow: 0 14px 30px rgba(185, 28, 28, 0.16);
+}
+
+.pre-site-visit-alert-label {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background: #7f1d1d;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.pre-site-visit-alert h2 {
+    margin: 0 0 10px;
+    color: #7f1d1d;
+    font-size: 28px;
+    line-height: 1.05;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.pre-site-visit-alert p {
+    margin: 0;
+    color: #7f1d1d;
+    font-size: 15px;
+    line-height: 1.6;
+    font-weight: 600;
 }
 
 .action-btn {
@@ -619,6 +664,25 @@ body.a4-preview .promotional-banner {
         gap: 10px;
     }
 
+    .pre-site-visit-alert {
+        margin: 0 20px 24px;
+        padding: 18px 18px 20px;
+    }
+
+    .pre-site-visit-alert-label {
+        font-size: 10px;
+        letter-spacing: 0.08em;
+    }
+
+    .pre-site-visit-alert h2 {
+        font-size: 22px;
+    }
+
+    .pre-site-visit-alert p {
+        font-size: 14px;
+        line-height: 1.55;
+    }
+
     .billing-details {
         flex-direction: column;
         gap: 30px;
@@ -974,6 +1038,14 @@ body.a4-preview .promotional-banner {
                 ` : ''}
             </div>
         </header>
+
+        ${showPreSiteVisitReminder ? `
+        <section class="pre-site-visit-alert">
+            <span class="pre-site-visit-alert-label">Important Commercial Notice</span>
+            <h2>Pre-Site-Visit Quotation</h2>
+            <p>This quotation is preliminary and the quoted price is not final. Final pricing is subject to site visit findings, technical assessment, and scope confirmation.</p>
+        </section>
+        ` : ''}
 
         <!-- Billing details 1 -->
         <section class="billing-details">

@@ -22,6 +22,15 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const items = invoice.items || [];
   const hasTigerNeo3 = items.some(item => (item.description || '').toLowerCase().includes('tiger neo 3'));
   const templateData = template || {};
+  const invoiceStatus = String(invoice.status || '').toLowerCase();
+  const isConfirmed = invoiceStatus === 'confirmed' || invoiceStatus === 'paid';
+  const packageType = String(invoice.package_type || invoice.type || '').trim();
+  const isCommercialQuotation = !isConfirmed && packageType === 'Tariff B&D Low Voltage';
+  const hasSiteVisitItem = items.some(item => {
+    const sourceText = `${item.description || ''} ${item.product_name || ''}`.toLowerCase();
+    return /site\s+vi(?:sit|tit)\s+by/.test(sourceText);
+  });
+  const showPreSiteVisitReminder = isCommercialQuotation && !hasSiteVisitItem;
 
   // Calculate totals from items
   const sstAmount = parseFloat(invoice.sst_amount) || 0;
@@ -162,6 +171,42 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     .divider {
       border-bottom: 1px solid #e2e8f0;
       margin: 16px 0;
+    }
+    .pre-site-visit-alert {
+      margin: 0 0 20px;
+      padding: 18px 16px;
+      border: 3px solid #b91c1c;
+      background: linear-gradient(135deg, #fff7ed 0%, #fee2e2 100%);
+      box-shadow: 0 14px 28px rgba(185, 28, 28, 0.14);
+      border-radius: 14px;
+    }
+    .pre-site-visit-alert-badge {
+      display: inline-flex;
+      align-items: center;
+      margin-bottom: 10px;
+      padding: 5px 9px;
+      background: #7f1d1d;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-radius: 999px;
+    }
+    .pre-site-visit-alert-title {
+      margin: 0 0 10px;
+      color: #7f1d1d;
+      font-size: 24px;
+      line-height: 1.05;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .pre-site-visit-alert-copy {
+      margin: 0;
+      color: #7f1d1d;
+      font-size: 14px;
+      line-height: 1.55;
+      font-weight: 600;
     }
     /* Premium Button Styling */
     .premium-button {
@@ -305,6 +350,14 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         </a>
         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse">Click above to view full specifications</p>
       </div>
+    </div>
+    ` : ''}
+
+    ${showPreSiteVisitReminder ? `
+    <div class="pre-site-visit-alert">
+      <div class="pre-site-visit-alert-badge">Important Commercial Notice</div>
+      <h2 class="pre-site-visit-alert-title">Pre-Site-Visit Quotation</h2>
+      <p class="pre-site-visit-alert-copy">This quotation is preliminary and the quoted price is not final. Final pricing is subject to site visit findings, technical assessment, and scope confirmation.</p>
     </div>
     ` : ''}
 
