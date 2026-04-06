@@ -13,6 +13,8 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 let currentSimulationParams = null;
 let currentPanelQuantity = null;
 let currentPackageData = null;
+let latestCommercialSolarData = null;
+let invoiceBaseUrl = '/create-invoice';
 const COMMERCIAL_PACKAGE_TYPE = 'Tariff B&D Low Voltage';
 const DEFAULT_COMMERCIAL_PANEL_RATING = 590;
 
@@ -29,9 +31,22 @@ DAYS.forEach(day => {
 
 window.onload = function () {
     testConnection();
+    fetchConfig();
     initializeData();
     initWorkingHoursUI();
 };
+
+async function fetchConfig() {
+    try {
+        const response = await fetch('/api/config');
+        const config = await response.json();
+        if (response.ok && config.invoiceBaseUrl) {
+            invoiceBaseUrl = config.invoiceBaseUrl;
+        }
+    } catch (err) {
+        console.error('Failed to fetch config, using default invoice URL:', invoiceBaseUrl, err);
+    }
+}
 
 function parsePanelRating(value) {
     const panelRating = parseInt(value, 10);
@@ -424,6 +439,7 @@ async function executeFullAnalysis() {
         fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'non-domestic.js:315', message: 'Before calling calculateSolarSavings', data: { matchedBillDataExists: !!matchedBillData, matchedBillData: matchedBillData, hasTotalBill: !!matchedBillData?.total_bill, initialPanels: initialPanels }, timestamp: Date.now(), runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
         // #endregion
         const results = await calculateSolarSavings(initialPanels, currentSimulationParams);
+        latestCommercialSolarData = results;
         displayFullROIResults(results, recommendedPanels);
     } catch (err) {
         // #region agent log
@@ -452,6 +468,7 @@ async function updatePanelQuantity(change) {
 
     try {
         const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
+        latestCommercialSolarData = results;
         displayFullROIResults(results, null, true);
     } catch (err) {
         console.error('Failed to recalculate:', err);
@@ -470,6 +487,7 @@ async function setPanelQuantity(qty) {
 
     try {
         const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
+        latestCommercialSolarData = results;
         displayFullROIResults(results, null, true);
     } catch (err) {
         console.error('Failed to recalculate:', err);
@@ -479,6 +497,7 @@ async function setPanelQuantity(qty) {
 
 function displayFullROIResults(data, recommendedPanels = null, isRecalculation = false) {
     const resultsDiv = document.getElementById('calculatorResults');
+    latestCommercialSolarData = data;
 
     // Create or find the ROI container to ensure we replace instead of append
     let roiContainer = document.getElementById('roi-results-view');
@@ -495,6 +514,7 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
     const isCustomQty = data.pkg && data.pkg.panel_qty !== data.finalPanels;
     const pricePerPanel = data.pkg ? data.pkg.price / data.pkg.panel_qty : 3500 * (data.panelRating / 1000);
     const estimatedCost = isCustomQty ? pricePerPanel * data.finalPanels : data.systemCost;
+    const canCreateQuotation = Boolean(data.pkg && data.pkg.bubble_id);
 
     roiContainer.innerHTML = `
         <div class="space-y-12 ${isRecalculation ? '' : 'animate-in fade-in slide-in-from-bottom-4 duration-700'}">
@@ -714,9 +734,20 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
 
             <div class="flex flex-col items-center gap-4 pt-10 border-t border-divider">
                 <div class="text-[10px] uppercase font-bold tier-3 opacity-60">Modeling_Hardware: ${data.pkg ? data.pkg.package_name : 'Custom_Commercial_Build'}${isCustomQty ? ' (Cost Interpolated)' : ''}</div>
-                <button onclick="window.print()" class="text-[10px] font-bold uppercase tracking-widest border-2 border-fact px-10 py-4 hover:bg-black hover:text-white transition-all shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">
-                    [ DOWNLOAD_FULL_PRECISION_REPORT ]
-                </button>
+                <div class="flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center">
+                    <button
+                        onclick="window.generateCommercialQuotation()"
+                        ${canCreateQuotation ? '' : 'disabled'}
+                        class="text-[10px] font-bold uppercase tracking-widest border-2 border-emerald-600 px-8 py-4 text-emerald-700 transition-all shadow-[5px_5px_0px_0px_rgba(16,185,129,0.18)] hover:bg-emerald-600 hover:text-white hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400 disabled:shadow-none disabled:hover:bg-transparent disabled:hover:text-slate-400">
+                        [ CREATE_COMMERCIAL_QUOTATION ]
+                    </button>
+                    <button onclick="window.print()" class="text-[10px] font-bold uppercase tracking-widest border-2 border-fact px-10 py-4 hover:bg-black hover:text-white transition-all shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]">
+                        [ DOWNLOAD_FULL_PRECISION_REPORT ]
+                    </button>
+                </div>
+                ${canCreateQuotation
+                    ? `<p class="text-center text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Matched commercial package ready for quotation preview.</p>`
+                    : `<p class="text-center text-[10px] font-semibold uppercase tracking-wide text-amber-600">No commercial package match found yet. Quotation stays disabled until a package is matched.</p>`}
             </div>
         </div>
     `;
@@ -763,6 +794,44 @@ function renderSavingsPieChart(billSaving, exportSaving) {
 }
 
 function formatCurrency(v) { return Number(v || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+window.generateCommercialQuotation = function () {
+    const quoteData = latestCommercialSolarData;
+    const linkedPackageId = quoteData?.pkg?.bubble_id || currentPackageData?.bubble_id;
+
+    if (!matchedBillData || !currentSimulationParams) {
+        alert('Please complete the commercial bill analysis and ROI calculation first.');
+        return;
+    }
+
+    if (!linkedPackageId) {
+        alert('No commercial package is matched yet, so quotation cannot be created.');
+        return;
+    }
+
+    const panelQty = quoteData?.finalPanels || currentPanelQuantity || quoteData?.pkg?.panel_qty;
+    const panelRating = parsePanelRating(quoteData?.panelRating || currentSimulationParams.panelRating);
+    const currentBill = Number(matchedBillData.total_bill);
+    const newBill = Number(quoteData?.newBill?.total_bill);
+    const exportEarnings = Number(quoteData?.exportEarnings);
+    const payableAfterSolar = Number.isFinite(newBill)
+        ? Math.max(0, newBill - (Number.isFinite(exportEarnings) ? exportEarnings : 0))
+        : null;
+
+    const params = new URLSearchParams();
+    params.set('linked_package', linkedPackageId);
+    params.set('panel_qty', String(panelQty));
+    params.set('panel_rating', `${panelRating}W`);
+    params.set('package_type', COMMERCIAL_PACKAGE_TYPE);
+    params.set('customer_name', 'Sample Quotation');
+
+    if (Number.isFinite(currentBill)) params.set('customer_average_tnb', String(currentBill));
+    if (Number.isFinite(quoteData?.totalMonthlySavings)) params.set('estimated_saving', String(quoteData.totalMonthlySavings));
+    if (payableAfterSolar !== null) params.set('estimated_new_bill_amount', String(payableAfterSolar));
+    if (Number.isFinite(currentSimulationParams?.sunPeak)) params.set('solar_sun_peak_hour', String(currentSimulationParams.sunPeak));
+
+    window.location.href = `${invoiceBaseUrl}?${params.toString()}`;
+};
 
 async function testConnection() {
     const s = document.getElementById('dbStatus');

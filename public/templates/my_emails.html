@@ -236,6 +236,11 @@
                 </div>
             </div>
             <div class="flex items-center gap-2 md:gap-3">
+                <button onclick="showClaimModal()" id="btnClaimHeader"
+                    class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm transition-all hover:bg-blue-700 md:px-4 md:text-xs">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    <span>Claim Email</span>
+                </button>
                 <button onclick="showComposeModal()" id="btnCompose"
                     class="hidden flex items-center gap-2 bg-slate-900 text-white px-3 md:px-4 py-2 rounded-lg text-[10px] md:text-xs font-bold hover:bg-slate-800 transition-all">
                     <i class="fa-solid fa-pen-to-square"></i>
@@ -314,10 +319,10 @@
     </main>
 
     <button onclick="showClaimModal()" aria-label="Claim official email"
-        class="md:hidden fixed right-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-xs font-bold text-white shadow-xl active:scale-95 transition-all"
-        style="z-index: 95; bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);">
+        class="md:hidden fixed left-4 right-4 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3.5 text-sm font-bold text-white shadow-2xl active:scale-95 transition-all"
+        style="z-index: 120; bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);">
         <i class="fa-solid fa-plus-circle"></i>
-        <span>Claim Email</span>
+        <span>Claim Official Email</span>
     </button>
 
     <!-- Claim Account Modal -->

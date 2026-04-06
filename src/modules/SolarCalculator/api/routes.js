@@ -86,6 +86,10 @@ router.get('/readonly/package/lookup', async (req, res) => {
   try {
     const qtyRaw = req.query.panelQty;
     const bubbleIdRaw = req.query.panelBubbleId || null;
+    const requestedType = String(req.query.type || '').trim();
+    const resolvedPackageType = requestedType === 'Tariff B&D Low Voltage' || requestedType.toLowerCase() === 'commercial'
+      ? 'Tariff B&D Low Voltage'
+      : 'Residential';
     if (!qtyRaw) return res.status(400).json({ error: 'panelQty is required' });
     const qty = parseInt(qtyRaw, 10);
     client = await pool.connect();
@@ -96,22 +100,30 @@ router.get('/readonly/package/lookup', async (req, res) => {
                pr.id as product_id, pr.bubble_id, pr.solar_output_rating
         FROM package p
         JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
-        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = 'Residential' AND pr.bubble_id = $2
+        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = $3 AND pr.bubble_id = $2
         ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10`;
-      result = await client.query(queryByBubble, [qty, bubbleIdRaw]);
+      result = await client.query(queryByBubble, [qty, bubbleIdRaw, resolvedPackageType]);
     } else {
       const queryByWatt = `
         SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
                pr.id as product_id, pr.bubble_id, pr.solar_output_rating
         FROM package p
         JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
-        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = 'Residential' AND pr.solar_output_rating = $2
+        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = $3 AND pr.solar_output_rating = $2
         ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10`;
       const wattRaw = req.query.panelType;
       const watt = wattRaw ? parseInt(wattRaw, 10) : null;
-      result = await client.query(queryByWatt, [qty, watt]);
+      result = await client.query(queryByWatt, [qty, watt, resolvedPackageType]);
     }
-    return res.json({ searchParams: { panelQty: qty, panelBubbleId: bubbleIdRaw }, count: result.rowCount, packages: result.rows });
+    return res.json({
+      searchParams: {
+        panelQty: qty,
+        panelBubbleId: bubbleIdRaw,
+        type: resolvedPackageType
+      },
+      count: result.rowCount,
+      packages: result.rows
+    });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to lookup packages', details: err.message });
   } finally {

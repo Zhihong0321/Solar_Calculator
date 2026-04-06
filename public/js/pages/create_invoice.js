@@ -1158,6 +1158,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const packageId = urlParams.get('linked_package') || urlParams.get('package_id');
     const panelQty = urlParams.get('panel_qty');
     const panelRating = urlParams.get('panel_rating');
+    const packageType = urlParams.get('package_type') || urlParams.get('type');
     const editInvoiceId = urlParams.get('edit_invoice_id') || urlParams.get('id');
     const selectedReferralFromUrl = urlParams.get('linked_referral') || '';
     referralInvoiceFilterId = editInvoiceId || null;
@@ -1268,7 +1269,12 @@ document.addEventListener('DOMContentLoaded', async function () {
             showWarning('🔍 Searching for the best solar package for you...');
 
             const ratingInt = parseInt(panelRating.replace(/\D/g, ''));
-            const lookupRes = await fetch(`/readonly/package/lookup?panelQty=${panelQty}&panelType=${ratingInt}`);
+            const lookupParams = new URLSearchParams({
+                panelQty,
+                panelType: String(ratingInt)
+            });
+            if (packageType) lookupParams.set('type', packageType);
+            const lookupRes = await fetch(`/readonly/package/lookup?${lookupParams.toString()}`);
             const lookupData = await lookupRes.json();
 
             if (lookupData.packages && lookupData.packages.length > 0) {
