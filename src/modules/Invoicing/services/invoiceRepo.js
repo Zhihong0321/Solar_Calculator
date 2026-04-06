@@ -1016,7 +1016,8 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         c.lead_source as lead_source,
         c.remark as remark,
         ${referralFieldSelect}
-        pkg.package_name as package_name
+        pkg.package_name as package_name,
+        pkg.type as package_type
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
        ${referralJoin}
