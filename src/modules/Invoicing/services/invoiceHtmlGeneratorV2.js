@@ -27,6 +27,42 @@ function parseOptionalCurrency(value) {
     return Number.isFinite(numeric) ? numeric : null;
 }
 
+function normalizeInvoicePackageType(...rawValues) {
+    const values = rawValues
+        .map((value) => String(value || '').trim().toLowerCase())
+        .filter(Boolean);
+
+    if (values.length === 0) return '';
+
+    const hasCommercialSignal = values.some((value) => (
+        value === 'commercial'
+        || value === 'tariff b&d low voltage'
+        || value === 'non-resi'
+        || value === 'non_resi'
+        || value === 'non residential'
+        || value === 'non-residential'
+        || value.includes('commercial')
+        || value.includes('tariff b&d')
+        || value.includes('low voltage')
+        || value.includes('non residential')
+        || value.includes('non-residential')
+        || value.includes('non domestic')
+        || value.includes('non-domestic')
+    ));
+
+    if (hasCommercialSignal) return 'commercial';
+
+    const hasResidentialSignal = values.some((value) => (
+        value === 'resi'
+        || value === 'residential'
+        || value.includes('residential')
+    ));
+
+    if (hasResidentialSignal) return 'residential';
+
+    return values[0];
+}
+
 function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const items = invoice.items || [];
     const templateData = template || {};
@@ -59,7 +95,13 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         : storedAfterSolarBill;
     const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
         .every((value) => value !== null);
-    const showSolarSavingsSection = hasSolarSavingsSection || (showInteractiveControls && canEstimateSolarSavings);
+    const normalizedPackageType = normalizeInvoicePackageType(
+        invoice.package_type,
+        invoice.type,
+        invoice.package_name
+    );
+    const isCommercialPackage = normalizedPackageType === 'commercial';
+    const showSolarSavingsSection = !isCommercialPackage && (hasSolarSavingsSection || (showInteractiveControls && canEstimateSolarSavings));
     const solarSavingsSectionBadge = hasSolarSavingsSection ? 'Monthly Estimate' : 'Package Estimate';
     const solarSavingsSectionIntro = hasSolarSavingsSection
         ? 'Your solar estimate at a glance'
@@ -73,8 +115,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     // Decide title based on status: QUOTATION for drafts/pending, INVOICE for confirmed/paid
     const isConfirmed = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
     const titleLabel = isConfirmed ? 'INVOICE' : 'QUOTATION';
-    const packageType = String(invoice.package_type || invoice.type || '').trim();
-    const isCommercialQuotation = !isConfirmed && packageType === 'Tariff B&D Low Voltage';
+    const isCommercialQuotation = !isConfirmed && isCommercialPackage;
     const hasSiteVisitItem = items.some(item => {
         const sourceText = `${item.description || ''} ${item.product_name || ''}`.toLowerCase();
         return /site\s+vi(?:sit|tit)\s+by/.test(sourceText);

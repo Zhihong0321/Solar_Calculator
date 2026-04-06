@@ -23,6 +23,42 @@ function buildTigerNeoPresentationUrl(invoice) {
   return query ? `${presentationPath}?${query}` : presentationPath;
 }
 
+function normalizeInvoicePackageType(...rawValues) {
+  const values = rawValues
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  if (values.length === 0) return '';
+
+  const hasCommercialSignal = values.some((value) => (
+    value === 'commercial'
+    || value === 'tariff b&d low voltage'
+    || value === 'non-resi'
+    || value === 'non_resi'
+    || value === 'non residential'
+    || value === 'non-residential'
+    || value.includes('commercial')
+    || value.includes('tariff b&d')
+    || value.includes('low voltage')
+    || value.includes('non residential')
+    || value.includes('non-residential')
+    || value.includes('non domestic')
+    || value.includes('non-domestic')
+  ));
+
+  if (hasCommercialSignal) return 'commercial';
+
+  const hasResidentialSignal = values.some((value) => (
+    value === 'resi'
+    || value === 'residential'
+    || value.includes('residential')
+  ));
+
+  if (hasResidentialSignal) return 'residential';
+
+  return values[0];
+}
+
 /**
  * Generate invoice HTML
  * @param {object} invoice - Invoice object with items
@@ -42,8 +78,12 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const templateData = template || {};
   const invoiceStatus = String(invoice.status || '').toLowerCase();
   const isConfirmed = invoiceStatus === 'confirmed' || invoiceStatus === 'paid';
-  const packageType = String(invoice.package_type || invoice.type || '').trim();
-  const isCommercialQuotation = !isConfirmed && packageType === 'Tariff B&D Low Voltage';
+  const normalizedPackageType = normalizeInvoicePackageType(
+    invoice.package_type,
+    invoice.type,
+    invoice.package_name
+  );
+  const isCommercialQuotation = !isConfirmed && normalizedPackageType === 'commercial';
   const hasSiteVisitItem = items.some(item => {
     const sourceText = `${item.description || ''} ${item.product_name || ''}`.toLowerCase();
     return /site\s+vi(?:sit|tit)\s+by/.test(sourceText);
@@ -65,8 +105,9 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const afterSolarBill = Number.isFinite(beforeSolarBill) && Number.isFinite(estimatedMonthlySaving)
     ? Math.max(0, beforeSolarBill - estimatedMonthlySaving)
     : storedAfterSolarBill;
-  const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
-    .every((value) => Number.isFinite(value));
+  const hasSolarSavingsSection = normalizedPackageType !== 'commercial'
+    && [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
+      .every((value) => Number.isFinite(value));
 
   // Calculate pre-discount subtotal for the summary
   const subtotal = totalAmount
