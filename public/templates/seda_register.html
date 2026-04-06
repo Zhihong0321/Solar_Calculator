@@ -745,13 +745,31 @@
             });
         }
 
+        function normalizeSelectedFileMime(file) {
+            const rawMime = (file?.type || '').toLowerCase();
+            if (rawMime) return rawMime;
+
+            const filename = (file?.name || '').toLowerCase();
+            if (filename.endsWith('.pdf')) return 'application/pdf';
+            return rawMime;
+        }
+
+        function coerceDataUrlMimeType(dataUrl, mimeType) {
+            if (!mimeType || typeof dataUrl !== 'string') return dataUrl;
+            if (/^data:[^,]*,/.test(dataUrl)) {
+                return dataUrl.replace(/^data:[^,]*,/, `data:${mimeType};base64,`);
+            }
+            return dataUrl;
+        }
+
         function validateSelectedFile(inputId, file) {
             const rule = FILE_VALIDATION_RULES[inputId];
             if (!rule) return { ok: true };
-            if (!isAllowedMime(file.type || '', rule.accept)) {
+            const normalizedMime = normalizeSelectedFileMime(file);
+            if (!isAllowedMime(normalizedMime, rule.accept)) {
                 return {
                     ok: false,
-                    message: `${rule.label}: unsupported file type "${file.type || 'unknown'}". Allowed: ${rule.accept.join(', ')}.`
+                    message: `${rule.label}: unsupported file type "${normalizedMime || 'unknown'}". Allowed: ${rule.accept.join(', ')}.`
                 };
             }
             if (file.size > rule.maxBytes) {
@@ -1147,7 +1165,9 @@ Thank you!`;
                     checkType = optimized.mimeType;
                     checkSize = optimized.sizeBytes;
                 } else {
+                    checkType = normalizeSelectedFileMime(file);
                     dataUrl = await readFileAsDataUrl(file);
+                    dataUrl = coerceDataUrlMimeType(dataUrl, checkType);
                 }
 
                 const validation = validateSelectedFile(inputId, { type: checkType, size: checkSize });
@@ -1550,6 +1570,16 @@ Thank you!`;
             }
         }
 
+        function resetStagedFilesAfterSave() {
+            fileData = {};
+            stagedFileNames = {};
+            Object.values(FILE_FIELD_TO_INPUT_ID).forEach((inputId) => {
+                const input = document.getElementById(inputId);
+                if (input) input.value = '';
+                clearFieldErrorByInputId(inputId);
+            });
+        }
+
         async function saveSedaForm(e) {
             if (e) e.preventDefault();
             clearAllUploadErrors();
@@ -1596,6 +1626,7 @@ Thank you!`;
                     timer: 3000,
                     timerProgressBar: true
                 });
+                resetStagedFilesAfterSave();
                 // Refresh data to show any server-side updates/filenames
                 await loadData();
             } catch (err) {

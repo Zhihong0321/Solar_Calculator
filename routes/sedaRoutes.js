@@ -43,9 +43,20 @@ function isMimeAllowed(mimeType, allowed = []) {
     });
 }
 
+function bufferLooksLikePdf(buffer) {
+    return Buffer.isBuffer(buffer) && buffer.length >= 5 && buffer.slice(0, 5).toString('ascii') === '%PDF-';
+}
+
+function normalizeDetectedMimeType(mimeType, buffer) {
+    const normalized = typeof mimeType === 'string' ? mimeType.toLowerCase().trim() : '';
+    if (normalized === 'application/pdf') return normalized;
+    if (bufferLooksLikePdf(buffer)) return 'application/pdf';
+    return normalized;
+}
+
 function parseDataUrlFile(fileData) {
     const matches = typeof fileData === 'string'
-        ? fileData.match(/^data:([A-Za-z0-9.+/-]+);base64,([\s\S]+)$/)
+        ? fileData.match(/^data:([^;,]*);base64,([\s\S]+)$/)
         : null;
     if (!matches || matches.length !== 3) {
         return { error: 'Invalid base64 data URL format.' };
@@ -62,7 +73,7 @@ function parseDataUrlFile(fileData) {
         return { error: 'File payload is empty after decoding.' };
     }
 
-    return { mimeType, buffer };
+    return { mimeType: normalizeDetectedMimeType(mimeType, buffer), buffer };
 }
 
 function validateSingleFileField(field, rawValue) {

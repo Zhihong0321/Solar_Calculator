@@ -16,5 +16,7 @@ REPO NAME : Solar Calculator v2
 - Upgraded mobile invoice create/edit pages with inline voucher editing and section navigation
 - Validated mobile invoice workspace upgrade with successful build and navigation tests
 - Made invoice voucher selection mobile-friendly and selectable before quotation submit
+- Pulled the latest `codex/a4-invoice-preview` updates into the local folder.
+- Hardened SEDA PDF uploads by accepting flaky PDF MIME metadata and clearing saved staged files to prevent repeat oversized uploads.
 
 =====================
