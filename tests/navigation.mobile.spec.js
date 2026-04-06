@@ -204,6 +204,6 @@ test('logout uses shared session flow', async ({ page }) => {
 
     await page.click('button[data-agent-nav-tools]');
     await page.click('button[data-agent-nav-logout]');
-    await expect(page).toHaveURL(/\/domestic$/);
-    await expect(page.locator('#domestic-landing')).toBeVisible();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.locator('main')).toContainText('/login');
 });
