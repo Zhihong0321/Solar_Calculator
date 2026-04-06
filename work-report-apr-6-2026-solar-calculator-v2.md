@@ -10,5 +10,8 @@ REPO NAME : Solar Calculator v2
 - Created a comprehensive mobile-optimized tutorial and demo recording for the Commercial Solar Calculator flow, covering data entry to final quotation UI.
 - Pulled latest a4 invoice preview branch updates and preserved local changes.
 - Updated the homescreen install flow to use the new black-and-red logo.
+- Pushed the updated homescreen install logo changes to the a4 invoice preview branch.
+- Rebuilt the homescreen install icons with the correct Eternalgy logo style.
+- Pushed the corrected homescreen install logo update to the a4 invoice preview branch.
 
 =====================
