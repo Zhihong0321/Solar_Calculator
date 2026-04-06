@@ -37,12 +37,21 @@
 .agent-pwa-install__icon {
     width: 2.25rem;
     height: 2.25rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
+    border-radius: 0.8rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+}
+
+.agent-pwa-install__icon-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
 }
 
 .agent-pwa-install__copy {

@@ -7,5 +7,8 @@ REPO NAME : Solar Calculator v2
 - Hidden the Energy Saving panel and chart for commercial invoice previews.
 - Hardened commercial invoice preview detection so the Energy Saving compare panel and chart stay hidden.
 - Restored invoice proposal trigger logic so Tiger Neo 3 items show the Tiger Neo 3 banner and other invoices keep the portable proposal quick access button.
+- Created a comprehensive mobile-optimized tutorial and demo recording for the Commercial Solar Calculator flow, covering data entry to final quotation UI.
+- Pulled latest a4 invoice preview branch updates and preserved local changes.
+- Updated the homescreen install flow to use the new black-and-red logo.
 
 =====================

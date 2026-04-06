@@ -178,11 +178,7 @@
         root.innerHTML = `
             <button type="button" class="agent-pwa-install__button" data-agent-pwa-open>
                 <span class="agent-pwa-install__icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M12 3v12"></path>
-                        <path d="M7 10l5 5 5-5"></path>
-                        <path d="M5 21h14"></path>
-                    </svg>
+                    <img src="${APPLE_ICON_PATH}" alt="" class="agent-pwa-install__icon-image" />
                 </span>
                 <span class="agent-pwa-install__copy">
                     <span class="agent-pwa-install__eyebrow">Agent App</span>
