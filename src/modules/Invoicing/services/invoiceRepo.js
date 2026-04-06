@@ -390,6 +390,79 @@ async function getVoucherByCode(client, voucherCode) {
   }
 }
 
+async function getVoucherPreviewDataByPackage(client, packageId) {
+  const pkg = await getPackageById(client, packageId);
+  if (!pkg) {
+    throw new Error('Package not found');
+  }
+
+  const packageSummary = {
+    bubble_id: null,
+    invoice_number: null,
+    total_amount: null,
+    voucher_code: null,
+    linked_package: pkg.bubble_id,
+    customer_name: 'Draft Quotation',
+    package_price: pkg.price,
+    panel_qty: pkg.panel_qty,
+    package_type: pkg.type,
+    packagePrice: parseFloat(pkg.price) || 0,
+    panelQty: parseInt(pkg.panel_qty, 10) || 0,
+    packageTypeScope: normalizeVoucherCategoryPackageType(pkg.type)
+  };
+
+  const categoriesExist = await hasTable(client, 'voucher_category');
+  if (!categoriesExist) {
+    return {
+      invoice: packageSummary,
+      categories: [],
+      selectedVoucherIds: [],
+      selectedVoucherCodes: []
+    };
+  }
+
+  const voucherColumns = await getTableColumns(client, 'voucher');
+  const hasCategoryLink = voucherColumns.has('linked_voucher_category');
+
+  const categoryRows = await client.query(
+    `SELECT *
+     FROM voucher_category
+     WHERE active = TRUE AND COALESCE(disabled, FALSE) = FALSE
+     ORDER BY created_at ASC, name ASC`
+  );
+
+  const categories = [];
+  for (const category of categoryRows.rows) {
+    const eligible = isVoucherCategoryEligible(category, packageSummary);
+    const vouchers = hasCategoryLink
+      ? await client.query(
+        `SELECT *
+         FROM voucher
+         WHERE linked_voucher_category = $1
+           AND active = TRUE
+           AND ("delete" IS NULL OR "delete" = FALSE)
+         ORDER BY created_at ASC, title ASC`,
+        [category.bubble_id]
+      )
+      : { rows: [] };
+
+    if (!vouchers.rows.length) continue;
+
+    categories.push({
+      ...category,
+      eligible,
+      vouchers: vouchers.rows
+    });
+  }
+
+  return {
+    invoice: packageSummary,
+    categories,
+    selectedVoucherIds: [],
+    selectedVoucherCodes: []
+  };
+}
+
 async function getVoucherById(client, voucherId) {
   try {
     const result = await client.query(
@@ -704,7 +777,7 @@ async function _fetchDependencies(client, data) {
  * Helper: Process vouchers and calculate total voucher amount
  * @private
  */
-async function _processVouchers(client, { voucherCodes, voucherCode }, packagePrice) {
+async function _processVouchers(client, { voucherCodes, voucherCode, voucherIds }, packagePrice) {
   // Consolidate codes: prefer voucherCodes array, fallback to voucherCode string
   let finalVoucherCodes = [];
   if (Array.isArray(voucherCodes) && voucherCodes.length > 0) {
@@ -713,10 +786,19 @@ async function _processVouchers(client, { voucherCodes, voucherCode }, packagePr
     finalVoucherCodes = [voucherCode];
   }
 
+  const finalVoucherIds = [...new Set((Array.isArray(voucherIds) ? voucherIds : []).map((id) => String(id).trim()).filter(Boolean))];
+
   // Remove duplicates
   finalVoucherCodes = [...new Set(finalVoucherCodes)];
 
   const voucherRows = [];
+  for (const voucherId of finalVoucherIds) {
+    const voucher = await getVoucherById(client, voucherId);
+    if (voucher) {
+      voucherRows.push(voucher);
+    }
+  }
+
   for (const code of finalVoucherCodes) {
     const voucher = await getVoucherByCode(client, code);
     if (voucher) {
@@ -2033,7 +2115,7 @@ async function updateInvoiceTransaction(client, data) {
 
     // 4. Calculate Financials
     const packagePrice = parseFloat(pkg.price) || 0;
-    const voucherInfo = Array.isArray(data.voucherCodes) || data.voucherCode
+    const voucherInfo = Array.isArray(data.voucherCodes) || data.voucherCode || (Array.isArray(data.voucherIds) && data.voucherIds.length > 0)
       ? await _processVouchers(client, data, packagePrice)
       : await _processExistingInvoiceVouchers(client, bubbleId, currentData.voucher_code, packagePrice);
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
@@ -2615,6 +2697,7 @@ module.exports = {
   getPublicVouchers,
   updateInvoiceTransaction,
   getInvoiceByBubbleId,
+  getVoucherPreviewDataByPackage,
   getVoucherStepData,
   applyInvoiceVoucherSelections,
   getInvoiceHistory,

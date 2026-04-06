@@ -27,9 +27,7 @@ let paymentMethodCounter = 0;
 let assignedReferralLeads = [];
 let referralInvoiceFilterId = null;
 let inlineVoucherStep = null;
-let activeVoucherInvoiceId = '';
-let activeVoucherNextUrl = '';
-let voucherStepApplied = false;
+let selectedDraftVouchers = [];
 const BALLAST_UNIT_PRICE = 120;
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
@@ -439,10 +437,21 @@ function updateWorkspaceStatuses() {
     const paymentRows = document.querySelectorAll('#paymentMethodsContainer > *').length;
     setSectionStatus('payment-setup', paymentRows > 0 ? 'Ready' : 'Pending', paymentRows > 0 ? 'ready' : 'warning');
 
-    const voucherLabel = activeVoucherInvoiceId
-        ? (voucherStepApplied ? 'Ready' : 'Open after save')
-        : 'Optional';
-    const voucherTone = activeVoucherInvoiceId ? (voucherStepApplied ? 'ready' : 'warning') : 'optional';
+    const voucherRootVisible = !document.getElementById('voucherStepRoot')?.classList.contains('hidden');
+    const voucherLabel = !packageReady
+        ? 'Select package first'
+        : selectedDraftVouchers.length > 0
+            ? `${selectedDraftVouchers.length} selected`
+            : voucherRootVisible
+                ? 'Optional'
+                : 'Loading';
+    const voucherTone = !packageReady
+        ? 'warning'
+        : selectedDraftVouchers.length > 0
+            ? 'ready'
+            : voucherRootVisible
+                ? 'optional'
+                : 'warning';
     setSectionStatus('voucher-selection', voucherLabel, voucherTone);
 
     const reviewReady = packageReady && customerReady && pricingHealthy;
@@ -473,49 +482,102 @@ function initWorkspaceShell() {
     updateWorkspaceStatuses();
 }
 
-function setPostSubmitStatus(message) {
-    const el = document.getElementById('postSubmitFlowStatus');
-    if (!el) return;
-    el.textContent = message;
-    el.classList.remove('hidden');
+function getSelectedDraftVoucherIds() {
+    return selectedDraftVouchers
+        .map((voucher) => String(voucher?.id || voucher?.bubble_id || ''))
+        .filter(Boolean);
 }
 
-async function openInlineVoucherStep({ invoiceId, nextUrl, sourceInvoiceId = '', scrollToSection = true }) {
+function getSelectedDraftVoucherTotal(packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0)) {
+    return selectedDraftVouchers.reduce((sum, voucher) => {
+        const fixedAmount = parseFloat(voucher?.discountAmount || 0) || 0;
+        const percentAmount = (parseFloat(voucher?.discountPercent || 0) || 0) > 0
+            ? packagePrice * ((parseFloat(voucher.discountPercent) || 0) / 100)
+            : 0;
+        return sum + fixedAmount + percentAmount;
+    }, 0);
+}
+
+function buildDraftVoucherRows(packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0)) {
+    return selectedDraftVouchers
+        .map((voucher) => {
+            const fixedAmount = parseFloat(voucher?.discountAmount || 0) || 0;
+            const percentValue = parseFloat(voucher?.discountPercent || 0) || 0;
+            const amount = fixedAmount > 0 ? fixedAmount : packagePrice * (percentValue / 100);
+            if (amount <= 0) return null;
+            return {
+                id: String(voucher?.id || voucher?.bubble_id || ''),
+                title: voucher?.title || voucher?.code || 'Voucher',
+                code: voucher?.code || '',
+                amount,
+                label: fixedAmount > 0 ? `RM ${fixedAmount.toFixed(2)}` : `${percentValue}%`
+            };
+        })
+        .filter(Boolean);
+}
+
+async function fetchVoucherPreviewData(packageId) {
+    const response = await fetch(`/api/v1/vouchers/preview?package_id=${encodeURIComponent(packageId)}`, {
+        credentials: 'same-origin'
+    });
+    const json = await response.json();
+    if (!response.ok) {
+        throw new Error(json?.error || 'Failed to load voucher preview.');
+    }
+    return json?.data || {};
+}
+
+async function loadDraftVoucherStepForPackage(packageId, { selectedIds = [], scrollToSection = false } = {}) {
     const hint = document.getElementById('voucherInlineHint');
     const root = document.getElementById('voucherStepRoot');
     if (!root || !window.InvoiceVoucherStep) return;
-
-    activeVoucherInvoiceId = invoiceId;
-    activeVoucherNextUrl = nextUrl;
-    voucherStepApplied = false;
-
-    hint?.classList.add('hidden');
-    root.classList.remove('hidden');
+    if (!packageId) {
+        selectedDraftVouchers = [];
+        root.classList.add('hidden');
+        if (hint) {
+            hint.textContent = 'Select a package to load available vouchers.';
+            hint.classList.remove('hidden');
+        }
+        updateInvoicePreview();
+        updateWorkspaceStatuses();
+        return;
+    }
 
     if (!inlineVoucherStep) {
         inlineVoucherStep = window.InvoiceVoucherStep.create(root, {
             title: 'Voucher Selection',
-            subtitle: 'Keep editing on the same page, then continue back to the quotation office view.',
-            applyLabel: 'Apply Vouchers and Continue',
-            skipLabel: 'Skip for Now',
-            onChange: () => updateWorkspaceStatuses(),
-            onApplied: () => {
-                voucherStepApplied = true;
+            subtitle: 'Adjust vouchers before saving so the new version already contains the right pricing.',
+            showHeader: false,
+            embedded: true,
+            showFooter: false,
+            onChange: ({ selectedVouchers = [] }) => {
+                selectedDraftVouchers = selectedVouchers;
+                updateInvoicePreview();
                 updateWorkspaceStatuses();
-                window.location.href = activeVoucherNextUrl || `/invoice-office?id=${encodeURIComponent(activeVoucherInvoiceId)}`;
-            },
-            onSkipped: () => {
-                updateWorkspaceStatuses();
-                window.location.href = activeVoucherNextUrl || `/invoice-office?id=${encodeURIComponent(activeVoucherInvoiceId)}`;
             }
         });
     }
 
-    await inlineVoucherStep.load({ invoiceId, nextUrl, sourceInvoiceId });
-    setPostSubmitStatus('New version saved. Voucher selection is now ready below.');
-    updateWorkspaceStatuses();
-    if (scrollToSection) {
-        scrollToWorkspaceSection('voucher-selection');
+    try {
+        const payload = await fetchVoucherPreviewData(packageId);
+        hint?.classList.add('hidden');
+        root.classList.remove('hidden');
+        await inlineVoucherStep.loadPayload(payload, {
+            selectedIds
+        });
+        updateWorkspaceStatuses();
+        if (scrollToSection) {
+            scrollToWorkspaceSection('voucher-selection');
+        }
+    } catch (error) {
+        root.classList.add('hidden');
+        selectedDraftVouchers = [];
+        if (hint) {
+            hint.textContent = error.message || 'Unable to load vouchers for this package.';
+            hint.classList.remove('hidden');
+        }
+        updateInvoicePreview();
+        updateWorkspaceStatuses();
     }
 }
 
@@ -876,6 +938,7 @@ function updatePaymentMethodInfo(index) {
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
     if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+    subtotalAfterDiscount -= getSelectedDraftVoucherTotal(packagePrice);
 
     if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 
@@ -919,6 +982,7 @@ function calculateAllEPPFees() {
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
     if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+    subtotalAfterDiscount -= getSelectedDraftVoucherTotal(packagePrice);
 
     if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 
@@ -1174,6 +1238,21 @@ function updateInvoicePreview() {
         itemsList.appendChild(percentDiscountItem);
         subtotal -= percentAmount;
     }
+
+    const voucherRows = buildDraftVoucherRows(packagePrice);
+    voucherRows.forEach((voucher) => {
+        const voucherItem = document.createElement('div');
+        voucherItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        voucherItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-amber-700">${voucher.title}</div>
+                        <div class="text-sm text-amber-600">${voucher.code || 'Voucher'} • ${voucher.label}</div>
+                    </div>
+                    <div class="font-semibold text-amber-700">-RM ${voucher.amount.toFixed(2)}</div>
+                `;
+        itemsList.appendChild(voucherItem);
+        subtotal -= voucher.amount;
+    });
 
     // Validation for tiered manual discount limit
     const totalDiscountValue = (discount.fixed || 0) + (packagePrice * (discount.percent || 0) / 100);
@@ -1444,10 +1523,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             // 8. Add first payment method row (default: Cash, 100%)
             addPaymentMethodRow();
 
-            await openInlineVoucherStep({
-                invoiceId: editInvoiceId,
-                sourceInvoiceId: '',
-                nextUrl: `/invoice-office?id=${editInvoiceId}`,
+            const invoiceVoucherPayload = await window.InvoiceVoucherStep.fetchVoucherStepData(editInvoiceId);
+            const selectedVoucherIds = window.InvoiceVoucherStep.readSelectedVoucherIds(invoiceVoucherPayload);
+            await loadDraftVoucherStepForPackage(invPackageId, {
+                selectedIds: selectedVoucherIds,
                 scrollToSection: false
             });
 
@@ -1598,6 +1677,14 @@ function showPackage(pkg) {
         document.getElementById('packageDescDisplay').textContent = '';
     }
 
+    if (inlineVoucherStep) {
+        loadDraftVoucherStepForPackage(pkg.bubble_id, {
+            selectedIds: getSelectedDraftVoucherIds()
+        }).catch((error) => {
+            console.error('Unable to refresh voucher preview:', error);
+        });
+    }
+
     updateInvoicePreview();
 }
 
@@ -1606,14 +1693,6 @@ function showError(message) {
     errorDiv.classList.remove('hidden');
     document.getElementById('errorText').textContent = message;
     updateWorkspaceStatuses();
-}
-
-function buildPostSubmitVoucherStepUrl({ invoiceId, nextUrl, sourceInvoiceId = '' }) {
-    const params = new URLSearchParams();
-    if (invoiceId) params.set('id', invoiceId);
-    if (nextUrl) params.set('next', nextUrl);
-    if (sourceInvoiceId) params.set('source_invoice_id', sourceInvoiceId);
-    return `/invoice-vouchers?${params.toString()}`;
 }
 
 // Handle form submission
@@ -1706,7 +1785,8 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         discount_given: data.discount_given || null,
         apply_sst: document.getElementById('applySST')?.checked || false,
         payment_structure: eppData.payment_structure,
-        extra_items: extraItems
+        extra_items: extraItems,
+        voucher_ids: getSelectedDraftVoucherIds()
     };
 
 
@@ -1735,11 +1815,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
 
         if (response.ok && result.success) {
             const newVersionInvoiceId = result?.data?.bubbleId || window.editInvoiceId;
-            await openInlineVoucherStep({
-                invoiceId: newVersionInvoiceId,
-                sourceInvoiceId: window.editInvoiceId,
-                nextUrl: `/invoice-office?id=${newVersionInvoiceId}`
-            });
+            window.location.href = `/invoice-office?id=${newVersionInvoiceId}`;
         } else {
             alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
             submitBtn.disabled = false;

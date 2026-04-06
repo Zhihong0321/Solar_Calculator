@@ -305,6 +305,30 @@ router.put('/api/v1/invoices/:bubbleId/vouchers', requireAuth, async (req, res) 
     }
 });
 
+router.get('/api/v1/vouchers/preview', requireAuth, async (req, res) => {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const packageId = String(req.query.package_id || '').trim();
+    if (!packageId) {
+        return res.status(400).json({ success: false, error: 'package_id is required' });
+    }
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        const data = await invoiceRepo.getVoucherPreviewDataByPackage(client, packageId);
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error('Error fetching voucher preview data:', err);
+        res.status(400).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 /**
  * GET /api/v1/invoices/:bubbleId/history
  * Get action history for an invoice

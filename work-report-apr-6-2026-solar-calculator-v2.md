@@ -15,5 +15,6 @@ REPO NAME : Solar Calculator v2
 - Pushed the corrected homescreen install logo update to the a4 invoice preview branch.
 - Upgraded mobile invoice create/edit pages with inline voucher editing and section navigation
 - Validated mobile invoice workspace upgrade with successful build and navigation tests
+- Made invoice voucher selection mobile-friendly and selectable before quotation submit
 
 =====================

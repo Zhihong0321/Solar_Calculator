@@ -160,6 +160,9 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.voucher_codes && !invoiceRequestPayload.voucherCodes) {
         invoiceRequestPayload.voucherCodes = invoiceRequestPayload.voucher_codes;
     }
+    if (invoiceRequestPayload.voucher_ids && !invoiceRequestPayload.voucherIds) {
+        invoiceRequestPayload.voucherIds = invoiceRequestPayload.voucher_ids;
+    }
     if (invoiceRequestPayload.customer_name && !invoiceRequestPayload.customerName) {
         invoiceRequestPayload.customerName = invoiceRequestPayload.customer_name;
     }
@@ -261,6 +264,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
       templateId: invoiceRequestPayload.templateId,
       voucherCode: invoiceRequestPayload.voucherCode,
       voucherCodes: invoiceRequestPayload.voucherCodes,
+      voucherIds: invoiceRequestPayload.voucherIds,
       agentMarkup: invoiceRequestPayload.agentMarkup || 0,
       customerName: invoiceRequestPayload.customerName,
       customerPhone: invoiceRequestPayload.customerPhone,
@@ -365,6 +369,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.voucher_codes && !invoiceRequestPayload.voucherCodes) {
         invoiceRequestPayload.voucherCodes = invoiceRequestPayload.voucher_codes;
     }
+    if (invoiceRequestPayload.voucher_ids && !invoiceRequestPayload.voucherIds) {
+        invoiceRequestPayload.voucherIds = invoiceRequestPayload.voucher_ids;
+    }
     if (invoiceRequestPayload.customer_name && !invoiceRequestPayload.customerName) {
         invoiceRequestPayload.customerName = invoiceRequestPayload.customer_name;
     }
@@ -457,6 +464,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       // templateId: We reuse original
       voucherCode: invoiceRequestPayload.voucherCode,
       voucherCodes: invoiceRequestPayload.voucherCodes,
+      voucherIds: invoiceRequestPayload.voucherIds,
       agentMarkup: invoiceRequestPayload.agentMarkup || 0,
       customerName: invoiceRequestPayload.customerName, // Updates name if provided
       customerPhone: invoiceRequestPayload.customerPhone,
