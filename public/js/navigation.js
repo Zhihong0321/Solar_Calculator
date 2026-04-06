@@ -3,6 +3,8 @@
     const PROFILE_CACHE_KEY = 'atap_nav_profile_cache_v1';
     const MOBILE_MEDIA_QUERY = '(max-width: 768px)';
     const STYLESHEET_HREF = '/css/navigation-shell.css';
+    const PWA_INSTALL_STYLESHEET_HREF = '/css/pwa-install.css';
+    const PWA_INSTALL_SCRIPT_SRC = '/js/pwa-install.js';
     const MAX_HISTORY_ITEMS = 40;
     const DEFAULT_HOME = '/agent/home';
     const TOOLS_ROOT_KEY = 'tools';
@@ -412,6 +414,38 @@
         link.href = STYLESHEET_HREF;
         link.dataset.agentShell = 'true';
         document.head.appendChild(link);
+    }
+
+    function ensurePwaStylesheet() {
+        if (document.querySelector(`link[data-agent-pwa="true"][href="${PWA_INSTALL_STYLESHEET_HREF}"]`)) {
+            return;
+        }
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = PWA_INSTALL_STYLESHEET_HREF;
+        link.dataset.agentPwa = 'true';
+        document.head.appendChild(link);
+    }
+
+    function ensurePwaInstallManager() {
+        ensurePwaStylesheet();
+
+        if (window.AgentOsInstallManager) {
+            window.AgentOsInstallManager.init();
+            return;
+        }
+
+        if (document.querySelector(`script[data-agent-pwa="true"][src="${PWA_INSTALL_SCRIPT_SRC}"]`)) {
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = PWA_INSTALL_SCRIPT_SRC;
+        script.dataset.agentPwa = 'true';
+        script.onload = () => {
+            window.AgentOsInstallManager?.init();
+        };
+        document.head.appendChild(script);
     }
 
     function iconMarkup(name, className = 'agent-shell-icon') {
@@ -875,6 +909,7 @@
     const NavManager = {
         async init() {
             ensureStylesheet();
+            ensurePwaInstallManager();
             this.currentConfig = resolveConfig();
             recordCurrentPage(this.currentConfig);
             setDesktopActiveState(this.currentConfig);

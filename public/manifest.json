@@ -1,26 +1,24 @@
 {
-  "name": "Atap Solar Chat",
-  "short_name": "SolarChat",
-  "id": "/chat-dashboard",
-  "description": "Internal communication for Solar Calculator v2",
-  "start_url": "/chat-dashboard",
+  "id": "/agent/home",
+  "name": "Eternalgy Agent OS",
+  "short_name": "Agent OS",
+  "description": "Eternalgy Agent OS for quotations, customers, chat, SEDA, and daily agent workflows.",
+  "start_url": "/agent/home",
   "scope": "/",
-  "display": "fullscreen",
-  "background_color": "#f0f2f5",
-  "theme_color": "#1e3a8a",
+  "display": "standalone",
   "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/icons/eternalgy-agent-os-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
-      "src": "/logo.png",
+      "src": "/icons/eternalgy-agent-os-512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }

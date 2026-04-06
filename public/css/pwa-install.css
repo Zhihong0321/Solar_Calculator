@@ -1,0 +1,190 @@
+.agent-pwa-install {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 65;
+}
+
+.agent-pwa-install.hidden {
+    display: none;
+}
+
+.agent-pwa-install__button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #fff;
+    font: 700 0.875rem/1 "Inter", sans-serif;
+    box-shadow: 0 18px 30px -18px rgba(15, 23, 42, 0.75);
+    cursor: pointer;
+}
+
+.agent-pwa-install__button:hover {
+    transform: translateY(-1px);
+}
+
+.agent-pwa-install__button:focus-visible,
+.agent-pwa-install__close:focus-visible,
+.agent-pwa-modal__button:focus-visible {
+    outline: 2px solid #0f172a;
+    outline-offset: 2px;
+}
+
+.agent-pwa-install__icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.agent-pwa-install__copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+}
+
+.agent-pwa-install__eyebrow {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.agent-pwa-install__label {
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.agent-pwa-install__close {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.15rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0;
+    border-radius: 999px;
+    background: #fff;
+    color: #475569;
+    box-shadow: 0 8px 18px -14px rgba(15, 23, 42, 0.7);
+    cursor: pointer;
+}
+
+.agent-pwa-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.58);
+    backdrop-filter: blur(10px);
+}
+
+.agent-pwa-modal.is-open {
+    display: flex;
+}
+
+.agent-pwa-modal__panel {
+    width: min(100%, 28rem);
+    background: #fff;
+    border-radius: 1.5rem;
+    padding: 1.25rem;
+    box-shadow: 0 32px 80px -40px rgba(15, 23, 42, 0.55);
+}
+
+.agent-pwa-modal__header {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.agent-pwa-modal__logo {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.agent-pwa-modal__title {
+    margin: 0;
+    color: #0f172a;
+    font: 800 1rem/1.2 "Inter", sans-serif;
+}
+
+.agent-pwa-modal__subtitle {
+    margin: 0.25rem 0 0;
+    color: #475569;
+    font: 500 0.85rem/1.5 "Inter", sans-serif;
+}
+
+.agent-pwa-modal__steps {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #1e293b;
+    font: 600 0.9rem/1.6 "Inter", sans-serif;
+}
+
+.agent-pwa-modal__steps li + li {
+    margin-top: 0.45rem;
+}
+
+.agent-pwa-modal__note {
+    margin: 1rem 0 0;
+    padding: 0.85rem 0.95rem;
+    border-radius: 1rem;
+    background: #f8fafc;
+    color: #475569;
+    font: 500 0.8rem/1.5 "Inter", sans-serif;
+}
+
+.agent-pwa-modal__actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.agent-pwa-modal__button {
+    flex: 1;
+    border: 0;
+    border-radius: 0.95rem;
+    padding: 0.85rem 1rem;
+    font: 700 0.875rem/1 "Inter", sans-serif;
+    cursor: pointer;
+}
+
+.agent-pwa-modal__button--secondary {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.agent-pwa-modal__button--primary {
+    background: #0f172a;
+    color: #fff;
+}
+
+@media (max-width: 768px) {
+    body.nav-shell-mobile-active .agent-pwa-install {
+        left: 1rem;
+        right: 1rem;
+        bottom: calc(env(safe-area-inset-bottom) + 5.5rem);
+    }
+
+    body.nav-shell-mobile-active .agent-pwa-install__button {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}

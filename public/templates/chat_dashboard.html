@@ -9,15 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/tailwind.css">
     
-    <!-- PWA Meta Tags -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#1e3a8a">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="SolarChat">
-    <link rel="apple-touch-icon" href="/logo.png">
-
     <style>
         * { font-family: 'Inter', sans-serif; }
         body { 
@@ -95,25 +86,13 @@
         let lastThreadsCount = 0;
         let lastThreadsHash = "";
 
-        // Global variable to store the install prompt event
-        window.deferredInstallPrompt = null;
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            console.log('Capture beforeinstallprompt');
-            e.preventDefault();
-            window.deferredInstallPrompt = e;
-        });
-
         async function init() {
             await loadThreads();
             // Polling every 10 seconds for the dashboard
             setInterval(loadThreads, 10000);
 
-            // Register Service Worker
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(() => console.log('Service Worker Registered'))
-                    .catch(err => console.error('SW Registration Failed', err));
+            if (window.AgentOsInstallManager?.updateUi) {
+                window.AgentOsInstallManager.updateUi();
             }
         }
 
