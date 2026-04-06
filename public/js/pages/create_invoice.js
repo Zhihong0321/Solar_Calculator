@@ -1440,15 +1440,7 @@ function showPackage(pkg) {
     const packageInfo = document.getElementById('quotationFormContainer');
     packageInfo.classList.remove('hidden');
 
-    // Show/Hide Residential Header
-    const resHeader = document.getElementById('residentialHeader');
-    if (resHeader) {
-        if ((pkg.type || '').toUpperCase() === 'RESIDENTIAL') {
-            resHeader.classList.remove('hidden');
-        } else {
-            resHeader.classList.add('hidden');
-        }
-    }
+    updatePackageTypeHeader(pkg.type);
 
     document.getElementById('packageNameDisplay').textContent = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packagePriceDisplay').textContent = `RM ${(parseFloat(pkg.price) || 0).toFixed(2)}`;
@@ -1510,6 +1502,52 @@ function showPackage(pkg) {
     applySolarSavingsParams(urlParams);
 
     updateInvoicePreview();
+}
+
+function normalizePackageTypeHeader(rawType) {
+    const value = String(rawType || '').trim().toLowerCase();
+    if (!value) return null;
+
+    if (value === 'residential' || value === 'resi') {
+        return {
+            label: 'RESIDENTIAL',
+            classes: ['bg-emerald-950']
+        };
+    }
+
+    if (
+        value === 'commercial'
+        || value === 'non-resi'
+        || value === 'non_resi'
+        || value === 'non residential'
+        || value === 'non-residential'
+    ) {
+        return {
+            label: 'COMMERCIAL',
+            classes: ['bg-slate-900']
+        };
+    }
+
+    return null;
+}
+
+function updatePackageTypeHeader(rawType) {
+    const header = document.getElementById('packageTypeHeader');
+    const label = document.getElementById('packageTypeHeaderText');
+    if (!header || !label) return;
+
+    const config = normalizePackageTypeHeader(rawType);
+    header.classList.remove('bg-emerald-950', 'bg-slate-900');
+
+    if (!config) {
+        header.classList.add('hidden');
+        label.textContent = '';
+        return;
+    }
+
+    label.textContent = config.label;
+    header.classList.add(...config.classes);
+    header.classList.remove('hidden');
 }
 
 function showError(message) {
