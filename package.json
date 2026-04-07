@@ -9,7 +9,8 @@
     "build": "npm run build:css",
     "build:css": "tailwindcss -c tailwind.config.js -i ./src/styles/tailwind.css -o ./public/css/tailwind.css --minify",
     "db:migrate": "node database/run_migrations.js",
-    "test:navigation": "playwright test tests/navigation.mobile.spec.js"
+    "test:navigation": "playwright test tests/navigation.mobile.spec.js",
+    "seda:optimize-uploads": "node scripts/optimize_seda_uploads.js"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
@@ -18,7 +19,8 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

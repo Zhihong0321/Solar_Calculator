@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const multer = require('multer');
 const { Pool } = require('pg');
 const { requireAuth } = require('../middleware/auth');
 const sedaRepo = require('../src/modules/Invoicing/services/sedaRepo');
@@ -15,18 +16,21 @@ const pool = new Pool({
 });
 
 const router = express.Router();
-const KEEP_FILE_VALUE = '__KEEP__';
 let cachedRegStatusColumn = null;
+const MAX_SEDA_UPLOAD_BYTES = 30 * 1024 * 1024;
+const MAX_SEDA_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_SEDA_PDF_BYTES = 25 * 1024 * 1024;
+const MAX_SEDA_EXTRACTION_BYTES = 25 * 1024 * 1024;
 
 const FILE_FIELD_RULES = {
-    mykad_front: { label: 'MyKad Front', allowed: ['image/*'], maxBytes: 8 * 1024 * 1024 },
-    mykad_back: { label: 'MyKad Back', allowed: ['image/*'], maxBytes: 8 * 1024 * 1024 },
-    mykad_pdf: { label: 'MyKad PDF', allowed: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
-    tnb_bill_1: { label: 'TNB Bill Month 1', allowed: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
-    tnb_bill_2: { label: 'TNB Bill Month 2', allowed: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
-    tnb_bill_3: { label: 'TNB Bill Month 3', allowed: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
-    property_proof: { label: 'Property Ownership Proof', allowed: ['application/pdf', 'image/*'], maxBytes: 15 * 1024 * 1024 },
-    tnb_meter: { label: 'TNB Meter Image', allowed: ['image/*'], maxBytes: 8 * 1024 * 1024 }
+    mykad_front: { label: 'MyKad Front', allowed: ['image/*'], maxBytes: MAX_SEDA_IMAGE_BYTES, column: 'ic_copy_front' },
+    mykad_back: { label: 'MyKad Back', allowed: ['image/*'], maxBytes: MAX_SEDA_IMAGE_BYTES, column: 'ic_copy_back' },
+    mykad_pdf: { label: 'MyKad PDF', allowed: ['application/pdf'], maxBytes: MAX_SEDA_PDF_BYTES, column: 'mykad_pdf' },
+    tnb_bill_1: { label: 'TNB Bill Month 1', allowed: ['application/pdf'], maxBytes: MAX_SEDA_PDF_BYTES, column: 'tnb_bill_1' },
+    tnb_bill_2: { label: 'TNB Bill Month 2', allowed: ['application/pdf'], maxBytes: MAX_SEDA_PDF_BYTES, column: 'tnb_bill_2' },
+    tnb_bill_3: { label: 'TNB Bill Month 3', allowed: ['application/pdf'], maxBytes: MAX_SEDA_PDF_BYTES, column: 'tnb_bill_3' },
+    property_proof: { label: 'Property Ownership Proof', allowed: ['application/pdf', 'image/*'], maxBytes: MAX_SEDA_PDF_BYTES, column: 'property_ownership_prove' },
+    tnb_meter: { label: 'TNB Meter Image', allowed: ['image/*'], maxBytes: MAX_SEDA_IMAGE_BYTES, column: 'tnb_meter' }
 };
 
 function formatBytes(bytes) {
@@ -41,6 +45,54 @@ function isMimeAllowed(mimeType, allowed = []) {
         if (rule.endsWith('/*')) return mimeType.startsWith(rule.replace('/*', '/'));
         return mimeType === rule;
     });
+}
+
+function extensionLooksLikeImage(filename) {
+    return /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(filename || '');
+}
+
+function extensionLooksLikePdf(filename) {
+    return /\.pdf$/i.test(filename || '');
+}
+
+function isAllowedUploadFile(file, allowed = []) {
+    const mime = (file?.mimetype || '').toLowerCase();
+    const name = file?.originalname || '';
+
+    return allowed.some((rule) => {
+        if (rule === 'application/pdf') {
+            return mime === 'application/pdf' || (!mime || mime === 'application/octet-stream') && extensionLooksLikePdf(name);
+        }
+        if (rule === 'image/*') {
+            return mime.startsWith('image/') || (!mime || mime === 'application/octet-stream') && extensionLooksLikeImage(name);
+        }
+        return mime === rule;
+    });
+}
+
+function getStorageRoot() {
+    return process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../storage');
+}
+
+function ensureDir(dirPath) {
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+    }
+}
+
+function getUploadedFileExtension(file) {
+    const originalExt = path.extname(file?.originalname || '');
+    if (originalExt) return originalExt.toLowerCase();
+
+    const mime = (file?.mimetype || '').toLowerCase();
+    if (mime === 'application/pdf') return '.pdf';
+    if (mime === 'image/png') return '.png';
+    if (mime === 'image/webp') return '.webp';
+    if (mime === 'image/gif') return '.gif';
+    if (mime === 'image/bmp') return '.bmp';
+    if (mime === 'image/heic') return '.heic';
+    if (mime === 'image/heif') return '.heif';
+    return '.jpg';
 }
 
 function bufferLooksLikePdf(buffer) {
@@ -76,75 +128,116 @@ function parseDataUrlFile(fileData) {
     return { mimeType: normalizeDetectedMimeType(mimeType, buffer), buffer };
 }
 
-function validateSingleFileField(field, rawValue) {
-    const rules = FILE_FIELD_RULES[field] || { label: field, allowed: ['application/pdf', 'image/*'], maxBytes: 10 * 1024 * 1024 };
-    const label = rules.label;
-
-    if (rawValue === undefined) return { state: 'keep' };
-    if (rawValue === null || rawValue === '') return { state: 'clear' };
-    if (typeof rawValue === 'string' && rawValue.startsWith('http')) return { state: 'set', preExistingUrl: rawValue };
-
-    const parsed = parseDataUrlFile(rawValue);
-    if (parsed.error) {
-        return {
-            state: 'error',
-            error: {
-                field,
-                label,
-                code: 'INVALID_FILE_FORMAT',
-                message: `${label}: ${parsed.error}`,
-                expected: `Allowed: ${rules.allowed.join(', ')}, Max: ${formatBytes(rules.maxBytes)}`
-            }
-        };
-    }
-
-    if (!isMimeAllowed(parsed.mimeType, rules.allowed)) {
-        return {
-            state: 'error',
-            error: {
-                field,
-                label,
-                code: 'UNSUPPORTED_MIME_TYPE',
-                message: `${label}: Unsupported file type ${parsed.mimeType}.`,
-                mimeType: parsed.mimeType,
-                expected: rules.allowed
-            }
-        };
-    }
-
-    if (parsed.buffer.length > rules.maxBytes) {
-        return {
-            state: 'error',
-            error: {
-                field,
-                label,
-                code: 'FILE_TOO_LARGE',
-                message: `${label}: File size ${formatBytes(parsed.buffer.length)} exceeds limit ${formatBytes(rules.maxBytes)}.`,
-                sizeBytes: parsed.buffer.length,
-                maxBytes: rules.maxBytes
-            }
-        };
-    }
-
-    return { state: 'set', mimeType: parsed.mimeType, buffer: parsed.buffer };
-}
-
-function persistValidatedFile(req, uploadDir, id, prefix, validationResult) {
-    if (validationResult.state === 'keep') return KEEP_FILE_VALUE;
-    if (validationResult.state === 'clear') return null;
-    if (validationResult.preExistingUrl) return validationResult.preExistingUrl;
-
-    const ext = validationResult.mimeType === 'application/pdf' ? '.pdf' : '.jpg';
-    const filename = `${prefix}_${id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
-    fs.writeFileSync(path.join(uploadDir, filename), validationResult.buffer);
-
+function buildSedaFileUrl(req, filename) {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.get('host');
     return `${protocol}://${host}/seda-files/${filename}`;
 }
 
+function cleanupUploadedFile(file) {
+    try {
+        if (file?.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    } catch (cleanupErr) {
+        console.error('[SEDA Upload] Failed to clean up uploaded file:', cleanupErr);
+    }
+}
+
+function formatSedaUploadError(err, rule) {
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return `${rule.label}: File exceeds ${formatBytes(MAX_SEDA_UPLOAD_BYTES)} transport limit.`;
+        }
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            return 'Unexpected upload field received.';
+        }
+        return err.message || 'Upload failed.';
+    }
+    return err?.message || 'Upload failed.';
+}
+
+const sedaUploadMiddleware = multer({
+    storage: multer.diskStorage({
+        destination(req, file, cb) {
+            const uploadDir = path.join(getStorageRoot(), 'seda_registration');
+            ensureDir(uploadDir);
+            cb(null, uploadDir);
+        },
+        filename(req, file, cb) {
+            const field = req.params.field;
+            const recordId = req.sedaRecordId || 'unknown';
+            const filename = `${field}_${recordId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${getUploadedFileExtension(file)}`;
+            cb(null, filename);
+        }
+    }),
+    limits: { fileSize: MAX_SEDA_UPLOAD_BYTES, files: 1 },
+    fileFilter(req, file, cb) {
+        const rule = FILE_FIELD_RULES[req.params.field];
+        if (!rule) {
+            return cb(new Error('Unsupported upload field.'));
+        }
+        if (!isAllowedUploadFile(file, rule.allowed)) {
+            return cb(new Error(`${rule.label}: Unsupported file type.`));
+        }
+        cb(null, true);
+    }
+}).single('file');
+
+function runSedaUpload(req, res) {
+    return new Promise((resolve, reject) => {
+        sedaUploadMiddleware(req, res, (err) => {
+            if (err) return reject(err);
+            resolve();
+        });
+    });
+}
+
+async function persistUploadedSedaFile(client, req, field, recordId) {
+    const rule = FILE_FIELD_RULES[field];
+    if (!rule) {
+        return { ok: false, status: 400, payload: { success: false, error: 'Unsupported upload field.' } };
+    }
+
+    const uploadedFile = req.file;
+    if (!uploadedFile) {
+        return { ok: false, status: 400, payload: { success: false, error: `${rule.label}: No file uploaded.` } };
+    }
+
+    if (uploadedFile.size > rule.maxBytes) {
+        cleanupUploadedFile(uploadedFile);
+        return {
+            ok: false,
+            status: 400,
+            payload: {
+                success: false,
+                error: `${rule.label}: File size ${formatBytes(uploadedFile.size)} exceeds limit ${formatBytes(rule.maxBytes)}.`
+            }
+        };
+    }
+
+    const fileUrl = buildSedaFileUrl(req, uploadedFile.filename);
+    await client.query(
+        `UPDATE seda_registration
+         SET ${rule.column} = $1,
+             modified_date = NOW(),
+             updated_at = NOW()
+         WHERE bubble_id = $2`,
+        [fileUrl, recordId]
+    );
+
+    return {
+        ok: true,
+        payload: {
+            success: true,
+            field,
+            url: fileUrl,
+            filename: uploadedFile.filename,
+            message: `${rule.label} uploaded successfully.`
+        }
+    };
+}
+
 function validateExtractionPayload(fileData, options = {}) {
-    const { label = 'Document', allowed = ['application/pdf', 'image/*'], maxBytes = 20 * 1024 * 1024 } = options;
+    const { label = 'Document', allowed = ['application/pdf', 'image/*'], maxBytes = MAX_SEDA_EXTRACTION_BYTES } = options;
     const parsed = parseDataUrlFile(fileData);
     if (parsed.error) {
         return {
@@ -318,10 +411,7 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
     const {
         installation_address, city, state, postcode, tnb_account_no, phase_type,
         e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad,
-        ic_no, email, e_email,
-        mykad_front, mykad_back, mykad_pdf,
-        tnb_bill_1, tnb_bill_2, tnb_bill_3,
-        property_proof, tnb_meter
+        ic_no, email, e_email
     } = req.body;
 
     const client = await pool.connect();
@@ -334,64 +424,6 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
         }
 
         const id = seda.bubble_id;
-
-        // Storage setup
-        const storageRoot = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../storage');
-        const uploadDir = path.join(storageRoot, 'seda_registration');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        const fileFieldPayloads = {
-            mykad_front,
-            mykad_back,
-            mykad_pdf,
-            tnb_bill_1,
-            tnb_bill_2,
-            tnb_bill_3,
-            property_proof,
-            tnb_meter
-        };
-
-        const fileFieldPrefixes = {
-            mykad_front: 'mykad_front',
-            mykad_back: 'mykad_back',
-            mykad_pdf: 'mykad_pdf',
-            tnb_bill_1: 'tnb_bill_1',
-            tnb_bill_2: 'tnb_bill_2',
-            tnb_bill_3: 'tnb_bill_3',
-            property_proof: 'property_proof',
-            tnb_meter: 'tnb_meter'
-        };
-
-        const fileErrors = [];
-        const fileUrls = {};
-        for (const [field, inputValue] of Object.entries(fileFieldPayloads)) {
-            const check = validateSingleFileField(field, inputValue);
-            if (check.state === 'error') {
-                fileErrors.push(check.error);
-                continue;
-            }
-            fileUrls[field] = persistValidatedFile(req, uploadDir, id, fileFieldPrefixes[field], check);
-        }
-
-        if (fileErrors.length > 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'File validation failed.',
-                code: 'FILE_VALIDATION_FAILED',
-                details: fileErrors
-            });
-        }
-
-        const url_mykad_front = fileUrls.mykad_front;
-        const url_mykad_back = fileUrls.mykad_back;
-        const url_mykad_pdf = fileUrls.mykad_pdf;
-        const url_tnb_1 = fileUrls.tnb_bill_1;
-        const url_tnb_2 = fileUrls.tnb_bill_2;
-        const url_tnb_3 = fileUrls.tnb_bill_3;
-        const url_property_proof = fileUrls.property_proof;
-        const url_tnb_meter = fileUrls.tnb_meter;
 
         // Update DB
         await client.query(
@@ -409,23 +441,12 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
                  ic_no = COALESCE($11, ic_no),
                  email = COALESCE($12, email),
                  e_email = COALESCE($13, e_email),
-                 ic_copy_front = CASE WHEN $14 = '${KEEP_FILE_VALUE}' THEN ic_copy_front ELSE $14 END,
-                 ic_copy_back = CASE WHEN $15 = '${KEEP_FILE_VALUE}' THEN ic_copy_back ELSE $15 END,
-                 mykad_pdf = CASE WHEN $16 = '${KEEP_FILE_VALUE}' THEN mykad_pdf ELSE $16 END,
-                 tnb_bill_1 = CASE WHEN $17 = '${KEEP_FILE_VALUE}' THEN tnb_bill_1 ELSE $17 END,
-                 tnb_bill_2 = CASE WHEN $18 = '${KEEP_FILE_VALUE}' THEN tnb_bill_2 ELSE $18 END,
-                 tnb_bill_3 = CASE WHEN $19 = '${KEEP_FILE_VALUE}' THEN tnb_bill_3 ELSE $19 END,
-                 property_ownership_prove = CASE WHEN $20 = '${KEEP_FILE_VALUE}' THEN property_ownership_prove ELSE $20 END,
-                 tnb_meter = CASE WHEN $21 = '${KEEP_FILE_VALUE}' THEN tnb_meter ELSE $21 END,
                  modified_date = NOW(),
                  updated_at = NOW()
-             WHERE bubble_id = $22`,
+             WHERE bubble_id = $14`,
             [
                 installation_address, city, state, postcode, tnb_account_no, phase_type,
                 e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad || null, ic_no, email || null, e_email || null,
-                url_mykad_front, url_mykad_back, url_mykad_pdf,
-                url_tnb_1, url_tnb_2, url_tnb_3,
-                url_property_proof, url_tnb_meter,
                 id
             ]
         );
@@ -454,6 +475,46 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
     } catch (err) {
         console.error('Error saving SEDA (public):', err);
         res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/api/v1/seda-public/:shareToken/upload/:field', async (req, res) => {
+    const { shareToken, field } = req.params;
+    const rule = FILE_FIELD_RULES[field];
+    if (!rule) {
+        return res.status(400).json({ success: false, error: 'Unsupported upload field.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        const seda = await sedaRepo.getByShareToken(client, shareToken);
+        if (!seda) {
+            return res.status(404).json({ success: false, error: 'Registration not found or expired' });
+        }
+
+        req.sedaRecordId = seda.bubble_id;
+
+        try {
+            await runSedaUpload(req, res);
+        } catch (err) {
+            return res.status(400).json({
+                success: false,
+                error: formatSedaUploadError(err, rule)
+            });
+        }
+
+        const result = await persistUploadedSedaFile(client, req, field, seda.bubble_id);
+        if (!result.ok) {
+            return res.status(result.status).json(result.payload);
+        }
+
+        return res.json(result.payload);
+    } catch (err) {
+        cleanupUploadedFile(req.file);
+        console.error('[SEDA Public Upload] Error:', err);
+        return res.status(500).json({ success: false, error: 'Failed to upload file.' });
     } finally {
         client.release();
     }
@@ -532,6 +593,49 @@ router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('[My SEDA] Error:', err);
         res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/api/v1/seda/:id/upload/:field', async (req, res) => {
+    const { id, field } = req.params;
+    const rule = FILE_FIELD_RULES[field];
+    if (!rule) {
+        return res.status(400).json({ success: false, error: 'Unsupported upload field.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        const existing = await client.query(
+            'SELECT bubble_id FROM seda_registration WHERE bubble_id = $1',
+            [id]
+        );
+        if (existing.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Registration not found' });
+        }
+
+        req.sedaRecordId = id;
+
+        try {
+            await runSedaUpload(req, res);
+        } catch (err) {
+            return res.status(400).json({
+                success: false,
+                error: formatSedaUploadError(err, rule)
+            });
+        }
+
+        const result = await persistUploadedSedaFile(client, req, field, id);
+        if (!result.ok) {
+            return res.status(result.status).json(result.payload);
+        }
+
+        return res.json(result.payload);
+    } catch (err) {
+        cleanupUploadedFile(req.file);
+        console.error('[SEDA Upload] Error:', err);
+        return res.status(500).json({ success: false, error: 'Failed to upload file.' });
     } finally {
         client.release();
     }
@@ -624,7 +728,7 @@ router.post('/api/v1/seda/extract-tnb', async (req, res) => {
         const fileCheck = validateExtractionPayload(fileData, {
             label: 'TNB Bill',
             allowed: ['application/pdf', 'image/*'],
-            maxBytes: 20 * 1024 * 1024
+            maxBytes: MAX_SEDA_EXTRACTION_BYTES
         });
         if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
         const { mimeType, buffer } = fileCheck;
@@ -666,7 +770,7 @@ router.post('/api/v1/seda/extract-mykad', async (req, res) => {
         const fileCheck = validateExtractionPayload(fileData, {
             label: 'MyKad Document',
             allowed: ['application/pdf', 'image/*'],
-            maxBytes: 20 * 1024 * 1024
+            maxBytes: MAX_SEDA_EXTRACTION_BYTES
         });
         if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
         const { mimeType, buffer } = fileCheck;
@@ -720,7 +824,7 @@ router.post('/api/v1/seda/verify-meter', async (req, res) => {
         const fileCheck = validateExtractionPayload(fileData, {
             label: 'TNB Meter Photo',
             allowed: ['image/*'],
-            maxBytes: 12 * 1024 * 1024
+            maxBytes: MAX_SEDA_IMAGE_BYTES
         });
         if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
         const { mimeType, buffer } = fileCheck;
@@ -760,7 +864,7 @@ router.post('/api/v1/seda/verify-ownership', async (req, res) => {
         const fileCheck = validateExtractionPayload(fileData, {
             label: 'Ownership Document',
             allowed: ['application/pdf', 'image/*'],
-            maxBytes: 20 * 1024 * 1024
+            maxBytes: MAX_SEDA_EXTRACTION_BYTES
         });
         if (!fileCheck.ok) return res.status(fileCheck.status).json(fileCheck.payload);
         const { mimeType, buffer } = fileCheck;
@@ -857,106 +961,33 @@ router.post('/api/v1/seda/:id', async (req, res) => {
     const {
         installation_address, city, state, postcode, tnb_account_no, phase_type,
         e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad,
-        ic_no, email, e_email,
-        // Files (Base64)
-        mykad_front, mykad_back, mykad_pdf,
-        tnb_bill_1, tnb_bill_2, tnb_bill_3,
-        property_proof, tnb_meter
+        ic_no, email, e_email
     } = req.body;
 
     const client = await pool.connect();
     try {
-        // Storage setup
-        const storageRoot = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../storage');
-        const uploadDir = path.join(storageRoot, 'seda_registration');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        const fileFieldPayloads = {
-            mykad_front,
-            mykad_back,
-            mykad_pdf,
-            tnb_bill_1,
-            tnb_bill_2,
-            tnb_bill_3,
-            property_proof,
-            tnb_meter
-        };
-
-        const fileFieldPrefixes = {
-            mykad_front: 'mykad_front',
-            mykad_back: 'mykad_back',
-            mykad_pdf: 'mykad_pdf',
-            tnb_bill_1: 'tnb_bill_1',
-            tnb_bill_2: 'tnb_bill_2',
-            tnb_bill_3: 'tnb_bill_3',
-            property_proof: 'property_proof',
-            tnb_meter: 'tnb_meter'
-        };
-
-        const fileErrors = [];
-        const fileUrls = {};
-        for (const [field, inputValue] of Object.entries(fileFieldPayloads)) {
-            const check = validateSingleFileField(field, inputValue);
-            if (check.state === 'error') {
-                fileErrors.push(check.error);
-                continue;
-            }
-            fileUrls[field] = persistValidatedFile(req, uploadDir, id, fileFieldPrefixes[field], check);
-        }
-
-        if (fileErrors.length > 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'File validation failed.',
-                code: 'FILE_VALIDATION_FAILED',
-                details: fileErrors
-            });
-        }
-
-        const url_mykad_front = fileUrls.mykad_front;
-        const url_mykad_back = fileUrls.mykad_back;
-        const url_mykad_pdf = fileUrls.mykad_pdf;
-        const url_tnb_1 = fileUrls.tnb_bill_1;
-        const url_tnb_2 = fileUrls.tnb_bill_2;
-        const url_tnb_3 = fileUrls.tnb_bill_3;
-        const url_property_proof = fileUrls.property_proof;
-        const url_tnb_meter = fileUrls.tnb_meter;
-
         // Update DB
         await client.query(
             `UPDATE seda_registration 
              SET installation_address = COALESCE($1, installation_address),
-    city = COALESCE($2, city),
-    state = COALESCE($3, state),
-    postcode = COALESCE($4, postcode),
-    tnb_account_no = COALESCE($5, tnb_account_no),
-    phase_type = COALESCE($6, phase_type),
-    e_contact_name = COALESCE($7, e_contact_name),
-    e_contact_relationship = COALESCE($8, e_contact_relationship),
-    e_contact_no = COALESCE($9, e_contact_no),
-    e_contact_mykad = COALESCE($10, e_contact_mykad),
-    ic_no = COALESCE($11, ic_no),
-    email = COALESCE($12, email),
-    e_email = COALESCE($13, e_email),
-    ic_copy_front = CASE WHEN $14 = '${KEEP_FILE_VALUE}' THEN ic_copy_front ELSE $14 END,
-        ic_copy_back = CASE WHEN $15 = '${KEEP_FILE_VALUE}' THEN ic_copy_back ELSE $15 END,
-            mykad_pdf = CASE WHEN $16 = '${KEEP_FILE_VALUE}' THEN mykad_pdf ELSE $16 END,
-                tnb_bill_1 = CASE WHEN $17 = '${KEEP_FILE_VALUE}' THEN tnb_bill_1 ELSE $17 END,
-                    tnb_bill_2 = CASE WHEN $18 = '${KEEP_FILE_VALUE}' THEN tnb_bill_2 ELSE $18 END,
-                        tnb_bill_3 = CASE WHEN $19 = '${KEEP_FILE_VALUE}' THEN tnb_bill_3 ELSE $19 END,
-                            property_ownership_prove = CASE WHEN $20 = '${KEEP_FILE_VALUE}' THEN property_ownership_prove ELSE $20 END,
-                                tnb_meter = CASE WHEN $21 = '${KEEP_FILE_VALUE}' THEN tnb_meter ELSE $21 END,
-                                    modified_date = NOW(),
-                                    updated_at = NOW()
-             WHERE bubble_id = $22`,
+                 city = COALESCE($2, city),
+                 state = COALESCE($3, state),
+                 postcode = COALESCE($4, postcode),
+                 tnb_account_no = COALESCE($5, tnb_account_no),
+                 phase_type = COALESCE($6, phase_type),
+                 e_contact_name = COALESCE($7, e_contact_name),
+                 e_contact_relationship = COALESCE($8, e_contact_relationship),
+                 e_contact_no = COALESCE($9, e_contact_no),
+                 e_contact_mykad = COALESCE($10, e_contact_mykad),
+                 ic_no = COALESCE($11, ic_no),
+                 email = COALESCE($12, email),
+                 e_email = COALESCE($13, e_email),
+                 modified_date = NOW(),
+                 updated_at = NOW()
+             WHERE bubble_id = $14`,
             [
                 installation_address, city, state, postcode, tnb_account_no, phase_type,
                 e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad || null, ic_no, email || null, e_email || null,
-                url_mykad_front, url_mykad_back, url_mykad_pdf,
-                url_tnb_1, url_tnb_2, url_tnb_3,
-                url_property_proof, url_tnb_meter,
                 id
             ]
         );

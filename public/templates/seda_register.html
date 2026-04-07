@@ -686,7 +686,6 @@
         </form>
     </div>
 
-    <script defer src="/js/utils/image_optimizer.js"></script>
     <script>
         // Determine access mode: public (shareToken) or authenticated (bubble_id)
         const pathParts = window.location.pathname.split('/');
@@ -695,25 +694,24 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         const sedaId = urlParams.get('id');
-        let fileData = {};
-        let stagedFileNames = {};
         let existingFileUrls = {};
-        let pendingFiles = 0;
         let extractionInterval = null;
         let linkedInvoiceId = null;
         let customerPhone = null;
         let customerName = null;
         let isWhatsAppVerified = false;
         const LOAD_TIMEOUT_MS = 20000;
+        const SEDA_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+        const SEDA_PDF_MAX_BYTES = 25 * 1024 * 1024;
         const FILE_VALIDATION_RULES = {
-            fileMyKadFront: { label: 'MyKad Front', accept: ['image/*'], maxBytes: 8 * 1024 * 1024 },
-            fileMyKadBack: { label: 'MyKad Back', accept: ['image/*'], maxBytes: 8 * 1024 * 1024 },
-            fileMyKadPdf: { label: 'MyKad PDF', accept: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
-            fileTnb1: { label: 'TNB Bill Month 1', accept: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
-            fileTnb2: { label: 'TNB Bill Month 2', accept: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
-            fileTnb3: { label: 'TNB Bill Month 3', accept: ['application/pdf'], maxBytes: 15 * 1024 * 1024 },
-            filePropertyProof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'], maxBytes: 15 * 1024 * 1024 },
-            fileTnbMeter: { label: 'TNB Meter Photo', accept: ['image/*'], maxBytes: 8 * 1024 * 1024 }
+            fileMyKadFront: { label: 'MyKad Front', accept: ['image/*'], maxBytes: SEDA_IMAGE_MAX_BYTES },
+            fileMyKadBack: { label: 'MyKad Back', accept: ['image/*'], maxBytes: SEDA_IMAGE_MAX_BYTES },
+            fileMyKadPdf: { label: 'MyKad PDF', accept: ['application/pdf'], maxBytes: SEDA_PDF_MAX_BYTES },
+            fileTnb1: { label: 'TNB Bill Month 1', accept: ['application/pdf'], maxBytes: SEDA_PDF_MAX_BYTES },
+            fileTnb2: { label: 'TNB Bill Month 2', accept: ['application/pdf'], maxBytes: SEDA_PDF_MAX_BYTES },
+            fileTnb3: { label: 'TNB Bill Month 3', accept: ['application/pdf'], maxBytes: SEDA_PDF_MAX_BYTES },
+            filePropertyProof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'], maxBytes: SEDA_PDF_MAX_BYTES },
+            fileTnbMeter: { label: 'TNB Meter Photo', accept: ['image/*'], maxBytes: SEDA_IMAGE_MAX_BYTES }
         };
         const FILE_FIELD_TO_INPUT_ID = {
             mykad_front: 'fileMyKadFront',
@@ -752,14 +750,6 @@
             const filename = (file?.name || '').toLowerCase();
             if (filename.endsWith('.pdf')) return 'application/pdf';
             return rawMime;
-        }
-
-        function coerceDataUrlMimeType(dataUrl, mimeType) {
-            if (!mimeType || typeof dataUrl !== 'string') return dataUrl;
-            if (/^data:[^,]*,/.test(dataUrl)) {
-                return dataUrl.replace(/^data:[^,]*,/, `data:${mimeType};base64,`);
-            }
-            return dataUrl;
         }
 
         function validateSelectedFile(inputId, file) {
@@ -828,15 +818,6 @@
             }
         }
 
-        function readFileAsDataUrl(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-
         function getFilenameFromUrl(url, fallback = 'document.pdf') {
             if (!url || typeof url !== 'string') return fallback;
             try {
@@ -857,11 +838,100 @@
             });
         }
 
+        function getUploadEndpoint(fieldKey) {
+            return isPublicMode
+                ? `/api/v1/seda-public/${shareToken}/upload/${fieldKey}`
+                : `/api/v1/seda/${sedaId}/upload/${fieldKey}`;
+        }
+
+        function renderExistingFile(url, previewId) {
+            if (!url) return;
+            const previewEl = document.getElementById(previewId);
+            if (!previewEl) return;
+
+            const inputGroup = previewEl.closest('.input-group');
+            let viewBox = inputGroup.querySelector('.existing-file-view');
+            if (!viewBox) {
+                viewBox = document.createElement('div');
+                viewBox.className = 'existing-file-view mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-[10px]';
+                inputGroup.appendChild(viewBox);
+            }
+
+            const isPdf = url.toLowerCase().endsWith('.pdf');
+            viewBox.innerHTML = `
+                <div class="flex items-center gap-2">
+                    ${isPdf
+                        ? '<div class="w-8 h-8 bg-red-100 text-red-600 rounded flex items-center justify-center font-bold text-[8px]">PDF</div>'
+                        : `<img src="${url}" class="w-8 h-8 object-cover rounded">`
+                    }
+                    <span class="text-slate-500 font-medium">Uploaded Document</span>
+                </div>
+                <a href="${url}" target="_blank" class="text-brand-blue font-bold hover:underline px-2 py-1 bg-white border border-slate-200 rounded">VIEW</a>
+            `;
+        }
+
+        async function uploadSelectedFile(input, previewId, options = {}) {
+            const file = input.files[0];
+            if (!file) return null;
+
+            const validation = validateSelectedFile(input.id, file);
+            if (!validation.ok) {
+                setFieldErrorByInputId(input.id, validation.message);
+                input.value = '';
+                throw new Error(validation.message);
+            }
+
+            const fieldKey = INPUT_ID_TO_FILE_FIELD[input.id];
+            if (!fieldKey) {
+                input.value = '';
+                throw new Error('Unknown file field.');
+            }
+            const previousUrl = existingFileUrls[fieldKey];
+
+            clearFieldErrorByInputId(input.id);
+            showPreview(file, previewId);
+
+            if (options.loadingText) startLoading(options.loadingText);
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const res = await fetchWithTimeout(getUploadEndpoint(fieldKey), {
+                    method: 'POST',
+                    body: formData,
+                    timeoutMs: options.timeoutMs || 120000
+                });
+                const json = await parseApiResponse(res);
+                existingFileUrls[fieldKey] = json.url;
+                renderExistingFile(json.url, previewId);
+                updateFormProgress();
+                return json.url;
+            } catch (err) {
+                setFieldErrorByInputId(input.id, err.message || 'Upload failed.');
+                if (previousUrl) {
+                    renderExistingFile(previousUrl, previewId);
+                } else {
+                    const previewEl = document.getElementById(previewId);
+                    if (previewEl) {
+                        previewEl.innerHTML = '';
+                        previewEl.style.display = 'none';
+                    }
+                }
+                throw err;
+            } finally {
+                input.value = '';
+                if (options.loadingText) stopLoading();
+                updateTnb1ExtractButton();
+                syncTnb1StatusFromStoredFile();
+            }
+        }
+
         function updateTnb1ExtractButton() {
             const btn = document.getElementById('btnExtractTnb1');
             if (!btn) return;
 
-            const hasUploadedFile = !!(fileData.tnb_bill_1 || existingFileUrls.tnb_bill_1);
+            const hasUploadedFile = !!existingFileUrls.tnb_bill_1;
             btn.disabled = !hasUploadedFile;
 
             if (hasUploadedFile) {
@@ -891,7 +961,7 @@
         }
 
         function syncTnb1StatusFromStoredFile() {
-            const hasUploadedFile = !!(fileData.tnb_bill_1 || existingFileUrls.tnb_bill_1);
+            const hasUploadedFile = !!existingFileUrls.tnb_bill_1;
             if (hasUploadedFile) {
                 setTnb1Status({
                     uploadTone: 'success',
@@ -1089,36 +1159,30 @@ Thank you!`;
             const file = input.files[0];
             if (!file) return;
 
-            // If it's an image, show loading since optimization might take a second
-            if (file.type.startsWith('image/')) startLoading('Processing Image...');
-
             clearFieldErrorByInputId(input.id);
-            showPreview(file, previewId);
             try {
-                await storeFile(input.id, file);
+                await uploadSelectedFile(input, previewId, {
+                    loadingText: 'Uploading document...',
+                    timeoutMs: 120000
+                });
 
-                // Success indicator for the user
                 Swal.fire({
                     icon: 'success',
-                    title: 'File Attached',
-                    text: `${file.name} is ready to be saved.`,
+                    title: 'File Uploaded',
+                    text: `${file.name} has been uploaded successfully.`,
                     toast: true,
                     position: 'top-end',
                     showConfirmButton: false,
                     timer: 3000
                 });
             } catch (err) {
-                input.value = '';
-                Swal.fire({ icon: 'error', title: 'Upload Rejected', text: err.message || 'Failed to process file.' });
-            } finally {
-                if (input.id === 'fileTnb1') updateTnb1ExtractButton();
-                if (file.type.startsWith('image/')) stopLoading();
+                Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message || 'Failed to upload file.' });
             }
         }
 
         async function handleTnb1Upload(input) {
             await handleFile(input, 'previewTnb1');
-            if (fileData.tnb_bill_1) {
+            if (existingFileUrls.tnb_bill_1) {
                 setTnb1Status({
                     uploadTone: 'success',
                     uploadText: 'Uploaded',
@@ -1138,50 +1202,6 @@ Thank you!`;
                 previewEl.innerHTML = `<img src="${URL.createObjectURL(file)}" class="max-h-24 mx-auto rounded mt-2 border border-slate-200">`;
             } else {
                 previewEl.innerHTML = `<div class="mt-2 text-blue-600 font-bold text-xs"><i class="fa-solid fa-file-pdf"></i> PDF Selected</div>`;
-            }
-        }
-
-        async function storeFile(inputId, file) {
-            pendingFiles++;
-            try {
-                const key = INPUT_ID_TO_FILE_FIELD[inputId];
-                if (!key) throw new Error('Unknown file field.');
-
-                let dataUrl;
-                let checkType = file.type || '';
-                let checkSize = file.size || 0;
-
-                if (file.type.startsWith('image/')) {
-                    if (!window.ImageOptimizer) throw new Error('Image optimizer is unavailable.');
-                    const rules = FILE_VALIDATION_RULES[inputId];
-                    const optimized = await ImageOptimizer.optimizeImageFile(file, {
-                        maxDimension: 2560,
-                        outputType: 'image/webp',
-                        quality: 0.82,
-                        minQuality: 0.55,
-                        targetBytes: rules?.maxBytes || null
-                    });
-                    dataUrl = optimized.dataUrl;
-                    checkType = optimized.mimeType;
-                    checkSize = optimized.sizeBytes;
-                } else {
-                    checkType = normalizeSelectedFileMime(file);
-                    dataUrl = await readFileAsDataUrl(file);
-                    dataUrl = coerceDataUrlMimeType(dataUrl, checkType);
-                }
-
-                const validation = validateSelectedFile(inputId, { type: checkType, size: checkSize });
-                if (!validation.ok) throw new Error(validation.message);
-
-                fileData[key] = dataUrl;
-                stagedFileNames[inputId] = file.name;
-                existingFileUrls[key] = null;
-                return dataUrl;
-            } catch (err) {
-                setFieldErrorByInputId(inputId, err.message || 'File processing failed.');
-                throw err;
-            } finally {
-                pendingFiles--;
             }
         }
 
@@ -1268,27 +1288,31 @@ Thank you!`;
             const file = input.files[0];
             if (!file) return;
 
-            startLoading(type === 'tnb' ? 'Preparing TNB Bill...' : 'Preparing MyKad...');
             clearFieldErrorByInputId(input.id);
             const previewId = input.id === 'fileTnb1' ? 'previewTnb1' : input.id === 'fileMyKadFront' ? 'previewMyKadFront' : 'previewMyKadPdf';
-            showPreview(file, previewId);
-
-            let processedData = null;
             try {
-                processedData = await storeFile(input.id, file);
+                await uploadSelectedFile(input, previewId, {
+                    loadingText: type === 'tnb' ? 'Uploading TNB Bill...' : 'Uploading MyKad...',
+                    timeoutMs: 120000
+                });
             } catch (err) {
-                stopLoading();
-                input.value = '';
-                Swal.fire({ icon: 'error', title: 'Upload Rejected', text: err.message || 'Failed to process file.' });
+                Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message || 'Failed to upload file.' });
                 return;
             }
 
-            document.getElementById('loadingText').innerText = type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...';
+            startLoading(type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...');
             try {
+                const fieldKey = INPUT_ID_TO_FILE_FIELD[input.id];
+                const processedData = await getFileDataForExtraction(fieldKey);
                 const res = await fetchWithTimeout(type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fileData: processedData, filename: file.name, sedaId })
+                    body: JSON.stringify({
+                        fileData: processedData,
+                        filename: getFilenameFromUrl(existingFileUrls[fieldKey], file.name),
+                        sedaId
+                    }),
+                    timeoutMs: 120000
                 });
                 const json = await parseApiResponse(res);
                 stopLoading();
@@ -1301,18 +1325,14 @@ Thank you!`;
         }
 
         async function getFileDataForExtraction(fieldKey) {
-            const stagedData = fileData[fieldKey];
-            if (typeof stagedData === 'string' && stagedData.startsWith('data:')) {
-                return stagedData;
-            }
-
             const existingUrl = existingFileUrls[fieldKey];
             if (!existingUrl) {
-                throw new Error('Upload a TNB Bill first before sending it for extraction.');
+                throw new Error('Upload the document first before sending it for extraction.');
             }
 
             const response = await fetchWithTimeout(existingUrl, {
-                headers: { Accept: '*/*' }
+                headers: { Accept: '*/*' },
+                timeoutMs: 120000
             });
 
             if (!response.ok) {
@@ -1327,7 +1347,7 @@ Thank you!`;
             const input = document.getElementById('fileTnb1');
             if (!input) return;
 
-            const hasUploadedFile = !!(fileData.tnb_bill_1 || existingFileUrls.tnb_bill_1);
+            const hasUploadedFile = !!existingFileUrls.tnb_bill_1;
             if (!hasUploadedFile) {
                 syncTnb1StatusFromStoredFile();
                 Swal.fire({ icon: 'info', title: 'No Uploaded File', text: 'Upload TNB Bill Month 1 first before sending it for extraction.' });
@@ -1346,14 +1366,13 @@ Thank you!`;
 
             try {
                 const processedData = await getFileDataForExtraction('tnb_bill_1');
-                const filename = stagedFileNames[input.id]
-                    || input.files?.[0]?.name
-                    || getFilenameFromUrl(existingFileUrls.tnb_bill_1, 'tnb-bill-1.pdf');
+                const filename = getFilenameFromUrl(existingFileUrls.tnb_bill_1, 'tnb-bill-1.pdf');
 
                 const res = await fetchWithTimeout('/api/v1/seda/extract-tnb', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fileData: processedData, filename, sedaId })
+                    body: JSON.stringify({ fileData: processedData, filename, sedaId }),
+                    timeoutMs: 120000
                 });
                 const json = await parseApiResponse(res);
                 stopLoading();
@@ -1383,29 +1402,33 @@ Thank you!`;
             const file = input.files[0];
             if (!file) return;
 
-            startLoading(type === 'meter' ? 'Preparing Meter Photo...' : 'Preparing Ownership Doc...');
             clearFieldErrorByInputId(input.id);
             const previewId = type === 'meter' ? 'previewTnbMeter' : 'previewPropertyProof';
-            showPreview(file, previewId);
-
-            let processedData = null;
             try {
-                processedData = await storeFile(input.id, file);
+                await uploadSelectedFile(input, previewId, {
+                    loadingText: type === 'meter' ? 'Uploading Meter Photo...' : 'Uploading Ownership Document...',
+                    timeoutMs: 120000
+                });
             } catch (err) {
-                stopLoading();
-                input.value = '';
-                Swal.fire({ icon: 'error', title: 'Upload Rejected', text: err.message || 'Failed to process file.' });
+                Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message || 'Failed to upload file.' });
                 return;
             }
 
-            document.getElementById('loadingText').innerText = type === 'meter' ? 'Verifying Meter...' : 'Verifying Ownership...';
+            startLoading(type === 'meter' ? 'Verifying Meter...' : 'Verifying Ownership...');
             try {
-                const payload = { fileData: processedData, filename: file.name, sedaId };
+                const fieldKey = INPUT_ID_TO_FILE_FIELD[input.id];
+                const processedData = await getFileDataForExtraction(fieldKey);
+                const payload = {
+                    fileData: processedData,
+                    filename: getFilenameFromUrl(existingFileUrls[fieldKey], file.name),
+                    sedaId
+                };
                 if (type === 'ownership') payload.context = { name: document.getElementById('applicantName').value, address: document.getElementById('installAddress').value };
                 const res = await fetchWithTimeout(type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    timeoutMs: 120000
                 });
                 const json = await parseApiResponse(res);
                 stopLoading();
@@ -1480,37 +1503,14 @@ Thank you!`;
                         tnb_meter: data.tnb_meter || null
                     };
 
-                    const showExisting = (url, previewId) => {
-                        if (!url) return;
-                        const previewEl = document.getElementById(previewId);
-                        const inputGroup = previewEl.closest('.input-group');
-                        let viewBox = inputGroup.querySelector('.existing-file-view');
-                        if (!viewBox) {
-                            viewBox = document.createElement('div');
-                            viewBox.className = 'existing-file-view mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-[10px]';
-                            inputGroup.appendChild(viewBox);
-                        }
-                        const isPdf = url.toLowerCase().endsWith('.pdf');
-                        viewBox.innerHTML = `
-                            <div class="flex items-center gap-2">
-                                ${isPdf ?
-                                '<div class="w-8 h-8 bg-red-100 text-red-600 rounded flex items-center justify-center font-bold text-[8px]">PDF</div>' :
-                                `<img src="${url}" class="w-8 h-8 object-cover rounded">`
-                            }
-                                <span class="text-slate-500 font-medium">Existing Document</span>
-                            </div>
-                            <a href="${url}" target="_blank" class="text-brand-blue font-bold hover:underline px-2 py-1 bg-white border border-slate-200 rounded">VIEW</a>
-                        `;
-                    };
-
-                    showExisting(data.ic_copy_front, 'previewMyKadFront');
-                    showExisting(data.ic_copy_back, 'previewMyKadBack');
-                    showExisting(data.mykad_pdf, 'previewMyKadPdf');
-                    showExisting(data.tnb_bill_1, 'previewTnb1');
-                    showExisting(data.tnb_bill_2, 'previewTnb2');
-                    showExisting(data.tnb_bill_3, 'previewTnb3');
-                    showExisting(data.property_ownership_prove, 'previewPropertyProof');
-                    showExisting(data.tnb_meter, 'previewTnbMeter');
+                    renderExistingFile(data.ic_copy_front, 'previewMyKadFront');
+                    renderExistingFile(data.ic_copy_back, 'previewMyKadBack');
+                    renderExistingFile(data.mykad_pdf, 'previewMyKadPdf');
+                    renderExistingFile(data.tnb_bill_1, 'previewTnb1');
+                    renderExistingFile(data.tnb_bill_2, 'previewTnb2');
+                    renderExistingFile(data.tnb_bill_3, 'previewTnb3');
+                    renderExistingFile(data.property_ownership_prove, 'previewPropertyProof');
+                    renderExistingFile(data.tnb_meter, 'previewTnbMeter');
                     if (data.mykad_pdf) setMyKadMode('pdf');
                     updateTnb1ExtractButton();
                     syncTnb1StatusFromStoredFile();
@@ -1570,9 +1570,7 @@ Thank you!`;
             }
         }
 
-        function resetStagedFilesAfterSave() {
-            fileData = {};
-            stagedFileNames = {};
+        function resetFileInputs() {
             Object.values(FILE_FIELD_TO_INPUT_ID).forEach((inputId) => {
                 const input = document.getElementById(inputId);
                 if (input) input.value = '';
@@ -1583,16 +1581,6 @@ Thank you!`;
         async function saveSedaForm(e) {
             if (e) e.preventDefault();
             clearAllUploadErrors();
-
-            // Wait for any pending file reads
-            if (pendingFiles > 0) {
-                startLoading('Preparing files...');
-                let checks = 0;
-                while (pendingFiles > 0 && checks < 100) {
-                    await new Promise(r => setTimeout(r, 100));
-                    checks++;
-                }
-            }
 
             startLoading('Saving Changes...');
             const payload = {
@@ -1608,11 +1596,15 @@ Thank you!`;
                 e_email: document.getElementById('emergencyEmail').value,
                 e_contact_mykad: document.getElementById('emergencyMyKad').value,
                 ic_no: document.getElementById('applicantIC').value,
-                email: document.getElementById('applicantEmail').value,
-                ...fileData
+                email: document.getElementById('applicantEmail').value
             };
             try {
-                const res = await fetchWithTimeout(getApiEndpoint(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await fetchWithTimeout(getApiEndpoint(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    timeoutMs: 60000
+                });
                 const json = await parseApiResponse(res);
                 if (!json.success) throw new Error(json.error || 'Save failed');
 
@@ -1626,7 +1618,7 @@ Thank you!`;
                     timer: 3000,
                     timerProgressBar: true
                 });
-                resetStagedFilesAfterSave();
+                resetFileInputs();
                 // Refresh data to show any server-side updates/filenames
                 await loadData();
             } catch (err) {
@@ -1653,14 +1645,14 @@ Thank you!`;
                 if (item.fields) item.fields.forEach(fid => { if (!document.getElementById(fid)?.value.trim()) isDone = false; });
                 if (item.files) {
                     if (item.id === 'check-mykad') {
-                        const hasPdf = fileData.mykad_pdf || !!document.getElementById('previewMyKadPdf').closest('.input-group').querySelector('.existing-file-view');
-                        const hasFront = fileData.mykad_front || !!document.getElementById('previewMyKadFront').closest('.input-group').querySelector('.existing-file-view');
+                        const hasPdf = !!existingFileUrls.mykad_pdf || !!document.getElementById('previewMyKadPdf').closest('.input-group').querySelector('.existing-file-view');
+                        const hasFront = !!existingFileUrls.mykad_front || !!document.getElementById('previewMyKadFront').closest('.input-group').querySelector('.existing-file-view');
                         if (!hasPdf && !hasFront) isDone = false;
                     } else {
                         item.files.forEach(fKey => {
                             const previewId = fKey.startsWith('tnb_bill_') ? 'previewTnb' + fKey.split('_').pop() : fKey === 'property_proof' ? 'previewPropertyProof' : fKey === 'tnb_meter' ? 'previewTnbMeter' : '';
                             const hasExisting = !!document.getElementById(previewId)?.closest('.input-group').querySelector('.existing-file-view');
-                            if (!fileData[fKey] && !hasExisting) isDone = false;
+                            if (!existingFileUrls[fKey] && !hasExisting) isDone = false;
                         });
                     }
                 }
