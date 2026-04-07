@@ -937,7 +937,7 @@ window.generateInvoiceLink = async function () {
         params.set('solar_morning_usage_percent', latestSolarData.config.morningUsage);
     }
 
-    window.open(`${invoiceBaseUrl}?${params.toString()}`, '_blank');
+    window.location.assign(`${invoiceBaseUrl}?${params.toString()}`);
 };
 
 // --- UI Rendering ---
