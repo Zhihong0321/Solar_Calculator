@@ -15,5 +15,7 @@ REPO NAME : Solar Calculator v2
 - Added March to May 2026 AFA period values to the solar calculator.
 - Restricted solar calculator battery sizing to 0, 16, 32, or 48 kWh.
 - Built the app and committed the invoice and solar calculator updates.
+- Fixed invoice preview solar savings to use the saved payable-after-export amount.
+- Unified invoice solar estimate math and added a regression test for preview consistency.
 
 =====================

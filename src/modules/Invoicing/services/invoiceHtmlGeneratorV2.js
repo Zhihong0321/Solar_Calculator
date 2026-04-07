@@ -1,5 +1,7 @@
 // invoiceHtmlGeneratorV2.js
 
+const { parseOptionalCurrency, normalizeSolarEstimateFields } = require('./solarEstimateValues');
+
 function buildTigerNeoPresentationUrl(invoice) {
     const presentationPath = '/t3_html_presentation/solar-proposal-2026-tiger-neo-3/';
     const params = new URLSearchParams();
@@ -16,15 +18,6 @@ function buildTigerNeoPresentationUrl(invoice) {
 
     const query = params.toString();
     return query ? `${presentationPath}?${query}` : presentationPath;
-}
-
-function parseOptionalCurrency(value) {
-    if (value === null || value === undefined || value === '') {
-        return null;
-    }
-
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? numeric : null;
 }
 
 function normalizeInvoicePackageType(...rawValues) {
@@ -85,14 +78,17 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
     const earnNowRebateAmount = parseFloat(invoice.earn_now_rebate_amount) || 0;
     const earthMonthGoGreenBonusAmount = parseFloat(invoice.earth_month_go_green_bonus_amount) || 0;
-    const beforeSolarBill = parseOptionalCurrency(invoice.customer_average_tnb);
-    const storedAfterSolarBill = parseOptionalCurrency(invoice.estimated_new_bill_amount);
-    const estimatedMonthlySaving = parseOptionalCurrency(invoice.estimated_saving);
+    const normalizedEstimate = normalizeSolarEstimateFields({
+        customerAverageTnb: invoice.customer_average_tnb,
+        estimatedSaving: invoice.estimated_saving,
+        estimatedNewBillAmount: invoice.estimated_new_bill_amount
+    });
+    const beforeSolarBill = normalizedEstimate.beforeSolarBill;
+    const storedAfterSolarBill = normalizedEstimate.estimatedNewBillAmount;
+    const estimatedMonthlySaving = normalizedEstimate.estimatedSaving;
     const storedSunPeakHour = parseOptionalCurrency(invoice.solar_sun_peak_hour) ?? 3.4;
     const storedMorningUsagePercent = parseOptionalCurrency(invoice.solar_morning_usage_percent) ?? 30;
-    const afterSolarBill = beforeSolarBill !== null && estimatedMonthlySaving !== null
-        ? Math.max(0, beforeSolarBill - estimatedMonthlySaving)
-        : storedAfterSolarBill;
+    const afterSolarBill = storedAfterSolarBill;
     const hasSolarSavingsSection = [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
         .every((value) => value !== null);
     const normalizedPackageType = normalizeInvoicePackageType(

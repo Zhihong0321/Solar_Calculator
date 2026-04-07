@@ -6,6 +6,7 @@ const invoiceRepo = require('../services/invoiceRepo');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const externalPdfService = require('../services/externalPdfService');
+const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
 
 const router = express.Router();
@@ -23,28 +24,22 @@ const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
 });
 
 function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour) {
-  const requestedBillAmount = Number(averageBill);
-  const matchedBillAmount = Number(calculationResult.details?.billBefore);
-  const beforeSolarBill = Number.isFinite(matchedBillAmount) ? matchedBillAmount : requestedBillAmount;
-  const monthlySaving = Number(calculationResult.monthlySavings);
-  const billAfterSolar = Number(calculationResult.details?.billAfter);
-  const exportSaving = Number(calculationResult.details?.exportSaving);
-  const payableAfterSolar = Number(calculationResult.details?.estimatedPayableAfterSolar);
-  const estimatedNewBillAmount = Number.isFinite(payableAfterSolar)
-    ? payableAfterSolar
-    : (Number.isFinite(billAfterSolar) && Number.isFinite(exportSaving)
-      ? Math.max(0, billAfterSolar - exportSaving)
-    : (Number.isFinite(beforeSolarBill) && Number.isFinite(monthlySaving)
-      ? Math.max(0, beforeSolarBill - monthlySaving)
-      : null));
+  const normalizedEstimate = normalizeSolarEstimateFields({
+    requestedBillAmount: averageBill,
+    customerAverageTnb: calculationResult.details?.billBefore,
+    estimatedSaving: calculationResult.monthlySavings,
+    billAfterSolarBeforeExport: calculationResult.details?.billAfter,
+    exportEarning: calculationResult.details?.exportSaving,
+    payableAfterSolar: calculationResult.details?.estimatedPayableAfterSolar
+  });
 
   return {
-    requested_bill_amount: Number.isFinite(requestedBillAmount) ? Number(requestedBillAmount.toFixed(2)) : null,
-    customer_average_tnb: Number.isFinite(beforeSolarBill) ? Number(beforeSolarBill.toFixed(2)) : null,
-    estimated_saving: Number.isFinite(monthlySaving) ? Number(monthlySaving.toFixed(2)) : null,
-    estimated_new_bill_amount: Number.isFinite(estimatedNewBillAmount) ? Number(estimatedNewBillAmount.toFixed(2)) : null,
-    bill_after_solar_before_export: Number.isFinite(billAfterSolar) ? Number(billAfterSolar.toFixed(2)) : null,
-    export_earning: Number.isFinite(exportSaving) ? Number(exportSaving.toFixed(2)) : null,
+    requested_bill_amount: normalizedEstimate.requestedBillAmount,
+    customer_average_tnb: normalizedEstimate.beforeSolarBill,
+    estimated_saving: normalizedEstimate.estimatedSaving,
+    estimated_new_bill_amount: normalizedEstimate.estimatedNewBillAmount,
+    bill_after_solar_before_export: normalizedEstimate.billAfterSolarBeforeExport,
+    export_earning: normalizedEstimate.exportEarning,
     day_usage_share: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
     charts: calculationResult.charts || null,
     assumptions: {
