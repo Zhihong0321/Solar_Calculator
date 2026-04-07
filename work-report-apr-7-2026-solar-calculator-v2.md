@@ -14,5 +14,6 @@ REPO NAME : Solar Calculator v2
 - Moved invoice payment method box below the total amount in invoice view.
 - Added March to May 2026 AFA period values to the solar calculator.
 - Restricted solar calculator battery sizing to 0, 16, 32, or 48 kWh.
+- Built the app and committed the invoice and solar calculator updates.
 
 =====================
