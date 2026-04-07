@@ -4,6 +4,8 @@
  * tariff lookups, and system sizing.
  */
 
+const ALLOWED_BATTERY_SIZES = new Set([0, 16, 32, 48]);
+
 // Helper function to find the closest tariff based on adjusted total (bill + afa)
 const findClosestTariff = async (client, targetAmount, afaRate) => {
   const query = `
@@ -206,6 +208,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   if (!peakHour || peakHour < 3.0 || peakHour > 4.5) throw new Error('Sun Peak Hour must be between 3.0 and 4.5');
   if (!morningPercent || morningPercent < 1 || morningPercent > 100) throw new Error('Morning Usage must be between 1% and 100%');
   if (!smp || smp < 0.19 || smp > 0.2703) throw new Error('SMP price must be between RM 0.19 and RM 0.2703');
+  if (!ALLOWED_BATTERY_SIZES.has(batterySizeVal)) throw new Error('Battery size must be 0, 16, 32, or 48 kWh');
 
   const tariffClient = await tariffPool.connect();
   const mainClient = await mainPool.connect();

@@ -754,39 +754,8 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     ` : ''}
 
     <!-- Summary & Payment -->
-    <div class="flex flex-col sm:flex-row gap-8 mb-8">
-      
-      <!-- Payment Details (Left on Desktop, Bottom on Mobile) -->
-      <div class="flex-1 order-2 sm:order-1">
-        ${bankName ? `
-        <div class="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-800 shadow-lg">
-          <p class="label-text mb-2 text-slate-300">Payment Details</p>
-          <div class="space-y-1">
-            <div class="flex justify-between text-xs">
-              <span class="text-slate-400">Bank</span>
-              <span class="font-semibold text-white text-right">${bankName}</span>
-            </div>
-            ${bankAccountNo ? `
-            <div class="flex justify-between text-xs">
-              <span class="text-slate-400">Account No.</span>
-              <span class="font-semibold text-white text-right">${bankAccountNo}</span>
-            </div>` : ''}
-             ${bankAccountName ? `
-            <div class="flex justify-between text-xs">
-              <span class="text-slate-400">Account Name</span>
-              <span class="font-semibold text-white text-right">${bankAccountName}</span>
-            </div>` : ''}
-            <div class="flex justify-between text-xs pt-3 mt-3 border-t border-slate-700">
-              <span class="text-slate-300 uppercase tracking-wider">Payment Ref</span>
-              <span class="font-bold text-white text-right">${invoice.invoice_number || invoice.bubble_id || '-'}</span>
-            </div>
-          </div>
-        </div>
-        ` : ''}
-      </div>
-
-      <!-- Totals (Right on Desktop, Top on Mobile) -->
-      <div class="flex-1 sm:max-w-xs order-1 sm:order-2">
+    <div class="mb-8 flex justify-end">
+      <div class="w-full sm:max-w-xs">
         <div class="space-y-2 text-sm">
           <div class="flex justify-between text-slate-600">
             <span>Subtotal</span>
@@ -831,6 +800,31 @@ function generateInvoiceHtml(invoice, template, options = {}) {
             <span class="font-bold text-slate-900">Total</span>
             <span class="text-2xl font-bold text-slate-900 leading-none">RM ${totalAmount.toFixed(2)}</span>
           </div>
+          ${bankName ? `
+          <div class="mt-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4 rounded-2xl border border-slate-800 shadow-lg">
+            <p class="label-text mb-2 text-slate-300">Payment Details</p>
+            <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-400">Bank</span>
+                <span class="font-semibold text-white text-right">${bankName}</span>
+              </div>
+              ${bankAccountNo ? `
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-400">Account No.</span>
+                <span class="font-semibold text-white text-right">${bankAccountNo}</span>
+              </div>` : ''}
+               ${bankAccountName ? `
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-400">Account Name</span>
+                <span class="font-semibold text-white text-right">${bankAccountName}</span>
+              </div>` : ''}
+              <div class="flex justify-between text-xs pt-3 mt-3 border-t border-slate-700">
+                <span class="text-slate-300 uppercase tracking-wider">Payment Ref</span>
+                <span class="font-bold text-white text-right">${invoice.invoice_number || invoice.bubble_id || '-'}</span>
+              </div>
+            </div>
+          </div>
+          ` : ''}
         </div>
       </div>
     </div>

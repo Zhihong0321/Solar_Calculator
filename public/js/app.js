@@ -34,6 +34,18 @@ const NIGHT_USAGE_WEIGHTS = [
     0, 0, 0, 0, 0, 0, 0.58, 0.92, 1.08, 1.14, 1.02, 0.7
 ];
 
+const ALLOWED_BATTERY_SIZES = [0, 16, 32, 48];
+
+function normalizeBatterySize(value) {
+    const numeric = Number(value);
+    return ALLOWED_BATTERY_SIZES.includes(numeric) ? numeric : 0;
+}
+
+function getBatterySizeStepIndex(value) {
+    const normalized = normalizeBatterySize(value);
+    return ALLOWED_BATTERY_SIZES.indexOf(normalized);
+}
+
 function buildUsagePattern(dailyUsageKwh, dayUsagePercent) {
     const safeDailyUsage = Number.isFinite(dailyUsageKwh) ? Math.max(0, dailyUsageKwh) : 0;
     const safeDayUsagePercent = Number.isFinite(dayUsagePercent)
@@ -765,7 +777,7 @@ function collectLiveSolarParams(overrides = {}) {
         historicalAfaRate: currentHistoricalAfaRate,
         percentDiscount: parseFloat(document.getElementById('percentDiscount')?.value) || 0,
         fixedDiscount: parseFloat(document.getElementById('fixedDiscount')?.value) || 0,
-        batterySize: latestSolarParams?.batterySize || 0,
+        batterySize: normalizeBatterySize(latestSolarParams?.batterySize || 0),
         overridePanels: resolvedOverridePanels,
         systemPhase: parseInt(document.getElementById('systemPhase').value, 10) || 3,
         ...overrides
@@ -832,7 +844,16 @@ async function requestPanelUpdate(newCount) {
 
 window.adjustBatterySize = function (delta) {
     if (!latestSolarParams) return;
-    latestSolarParams.batterySize = Math.max(0, (latestSolarParams.batterySize || 0) + delta);
+    const currentIndex = getBatterySizeStepIndex(latestSolarParams.batterySize);
+    const nextIndex = Math.max(0, Math.min(ALLOWED_BATTERY_SIZES.length - 1, currentIndex + delta));
+    latestSolarParams.batterySize = ALLOWED_BATTERY_SIZES[nextIndex];
+    clearTimeout(_spontaneousDebounceTimer);
+    _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 150);
+};
+
+window.setBatterySize = function (size) {
+    if (!latestSolarParams) return;
+    latestSolarParams.batterySize = normalizeBatterySize(size);
     clearTimeout(_spontaneousDebounceTimer);
     _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 150);
 };
@@ -1169,19 +1190,27 @@ function displaySolarCalculation(data) {
                 </div>
             </section>
 
-            ${data.config.batterySize > 0 ? `
+            ${normalizeBatterySize(data.config.batterySize) > 0 ? `
                 <section class="pt-8 md:pt-10 border-t border-divider">
                     <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">08_BATTERY_STORAGE</h2>
                     <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                        <div class="flex items-center border-2 border-fact bg-white">
-                            <button onclick="adjustBatterySize(-5)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-lg md:text-xl font-bold">-</button>
-                            <span class="w-20 md:w-24 text-center text-lg md:text-xl font-bold">${data.config.batterySize} kWh</span>
-                            <button onclick="adjustBatterySize(5)" class="w-10 h-10 md:w-12 md:h-12 hover:bg-black hover:text-white transition-colors text-lg md:text-xl font-bold">+</button>
+                        <div class="space-y-3">
+                            <div class="flex flex-wrap gap-2">
+                                ${ALLOWED_BATTERY_SIZES.map((size) => `
+                                    <button
+                                        onclick="setBatterySize(${size})"
+                                        class="min-w-[60px] border-2 px-3 py-2 text-xs md:text-sm font-bold transition-colors ${normalizeBatterySize(data.config.batterySize) === size ? 'border-black bg-black text-white' : 'border-fact bg-white hover:bg-black hover:text-white'}"
+                                    >
+                                        ${size} kWh
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <p class="text-[10px] md:text-xs uppercase tier-3 font-semibold">Battery limited to 16 kWh modules, max 3 units.</p>
                         </div>
                         <div><p class="text-[10px] md:text-xs uppercase tier-3 font-semibold">Value_Add</p><p class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${formatCurrency(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings))} / mo</p></div>
                     </div>
                 </section>
-            ` : `<div class="text-center pt-4"><button onclick="adjustBatterySize(5)" class="text-[10px] md:text-xs uppercase tracking-wide underline font-semibold tier-3 hover:tier-1">[+] Simulate_Battery_Storage</button></div>`}
+            ` : `<div class="text-center pt-4"><button onclick="setBatterySize(16)" class="text-[10px] md:text-xs uppercase tracking-wide underline font-semibold tier-3 hover:tier-1">[+] Simulate_Battery_Storage_16kWh</button></div>`}
         </div>
     `;
 

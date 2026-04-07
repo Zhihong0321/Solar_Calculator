@@ -1920,25 +1920,6 @@ body.a4-preview .terms-signature {
                     <span class="meta-value">: ${invoice.customer_email || '-'}</span>
                 </div>
             </div>
-            <div class="payment-method" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: 1px solid #0f172a; border-radius: 16px; padding: 18px 20px; box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);">
-                <span class="label" style="color: #cbd5e1;">Payment Method</span>
-                <div class="meta-row">
-                    <span class="meta-label" style="color: #94a3b8;">Bank Name</span>
-                    <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankName || '-'}</span>
-                </div>
-                <div class="meta-row">
-                    <span class="meta-label" style="color: #94a3b8;">Account No</span>
-                    <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankAccountNo || '-'}</span>
-                </div>
-                <div class="meta-row">
-                    <span class="meta-label" style="color: #94a3b8;">Account Name</span>
-                    <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankAccountName || '-'}</span>
-                </div>
-                <div class="meta-row" style="margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(148, 163, 184, 0.35);">
-                    <span class="meta-label" style="color: #94a3b8;">Payment Ref</span>
-                    <span class="meta-value" style="color: #f8fafc; font-weight: 800; letter-spacing: 0.04em;">: ${invoice.invoice_number || invoice.bubble_id || '-'}</span>
-                </div>
-            </div>
         </section>
 
         ${showSolarSavingsSection ? `
@@ -2144,6 +2125,27 @@ body.a4-preview .terms-signature {
                     <span class="summary-label">TOTAL</span>
                     <span class="summary-value">RM ${totalAmount.toFixed(2)}</span>
                 </div>
+                ${bankName ? `
+                <div class="payment-method" style="margin: 14px 15px 0; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: 1px solid #0f172a; border-radius: 16px; padding: 18px 20px; box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);">
+                    <span class="label" style="color: #cbd5e1;">Payment Method</span>
+                    <div class="meta-row">
+                        <span class="meta-label" style="color: #94a3b8;">Bank Name</span>
+                        <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankName || '-'}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label" style="color: #94a3b8;">Account No</span>
+                        <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankAccountNo || '-'}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label" style="color: #94a3b8;">Account Name</span>
+                        <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankAccountName || '-'}</span>
+                    </div>
+                    <div class="meta-row" style="margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(148, 163, 184, 0.35);">
+                        <span class="meta-label" style="color: #94a3b8;">Payment Ref</span>
+                        <span class="meta-value" style="color: #f8fafc; font-weight: 800; letter-spacing: 0.04em;">: ${invoice.invoice_number || invoice.bubble_id || '-'}</span>
+                    </div>
+                </div>
+                ` : ''}
             </div>
         </section>
 

@@ -11,5 +11,8 @@ REPO NAME : Solar Calculator v2
 - Changed calculator quotation button to open in the same tab for mobile browser compatibility
 - Investigated INV-1008552 in PostgreSQL and identified the customer name as KEW KIM WEE
 - Added April promo support to the edit invoice page
+- Moved invoice payment method box below the total amount in invoice view.
+- Added March to May 2026 AFA period values to the solar calculator.
+- Restricted solar calculator battery sizing to 0, 16, 32, or 48 kWh.
 
 =====================

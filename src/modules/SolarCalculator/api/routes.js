@@ -263,7 +263,15 @@ router.get('/api/solar-calculation', async (req, res) => {
     const result = await calculateSolarSavings(pool, tariffPool, req.query);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to calculate solar savings', details: err.message });
+    const validationMessages = [
+      'Invalid bill amount',
+      'Sun Peak Hour must be between 3.0 and 4.5',
+      'Morning Usage must be between 1% and 100%',
+      'SMP price must be between RM 0.19 and RM 0.2703',
+      'Battery size must be 0, 16, 32, or 48 kWh'
+    ];
+    const status = validationMessages.includes(err.message) ? 400 : 500;
+    res.status(status).json({ error: 'Failed to calculate solar savings', details: err.message });
   }
 });
 
