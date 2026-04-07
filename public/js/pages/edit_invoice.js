@@ -1978,7 +1978,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
 
         if (response.ok && result.success) {
             const newVersionInvoiceId = result?.data?.bubbleId || window.editInvoiceId;
-            window.location.href = `/invoice-office?id=${newVersionInvoiceId}`;
+            window.location.href = `/view/${encodeURIComponent(newVersionInvoiceId)}`;
         } else {
             alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
             submitBtn.disabled = false;

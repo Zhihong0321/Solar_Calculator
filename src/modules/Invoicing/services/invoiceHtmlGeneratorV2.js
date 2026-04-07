@@ -638,6 +638,40 @@ body.a4-preview .terms-signature {
     font-weight: 600;
 }
 
+.payment-method {
+    margin-top: 14px;
+    border: 1.5px solid #334155;
+    border-radius: 16px;
+    padding: 18px 15px;
+    background: transparent;
+    box-shadow: none;
+}
+
+.payment-method .label {
+    color: var(--text-main);
+    margin-bottom: 12px;
+}
+
+.payment-method .meta-row {
+    margin-bottom: 8px;
+}
+
+.payment-method .meta-label,
+.payment-method .meta-value {
+    color: var(--text-main);
+}
+
+.payment-method .meta-value {
+    font-weight: 700;
+}
+
+.payment-method .payment-ref-row {
+    margin-top: 10px;
+    margin-bottom: 0;
+    padding-top: 12px;
+    border-top: 1px solid rgba(51, 65, 85, 0.25);
+}
+
 /* Terms & Signature */
 .terms-signature {
     display: flex;
@@ -2122,23 +2156,23 @@ body.a4-preview .terms-signature {
                     <span class="summary-value">RM ${totalAmount.toFixed(2)}</span>
                 </div>
                 ${bankName ? `
-                <div class="payment-method" style="margin: 14px 15px 0; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: 1px solid #0f172a; border-radius: 16px; padding: 18px 20px; box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);">
-                    <span class="label" style="color: #cbd5e1;">Payment Method</span>
+                <div class="payment-method">
+                    <span class="label">Payment Method</span>
                     <div class="meta-row">
-                        <span class="meta-label" style="color: #94a3b8;">Bank Name</span>
-                        <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankName || '-'}</span>
+                        <span class="meta-label">Bank Name</span>
+                        <span class="meta-value">: ${bankName || '-'}</span>
                     </div>
                     <div class="meta-row">
-                        <span class="meta-label" style="color: #94a3b8;">Account No</span>
-                        <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankAccountNo || '-'}</span>
+                        <span class="meta-label">Account No</span>
+                        <span class="meta-value">: ${bankAccountNo || '-'}</span>
                     </div>
                     <div class="meta-row">
-                        <span class="meta-label" style="color: #94a3b8;">Account Name</span>
-                        <span class="meta-value" style="color: #ffffff; font-weight: 700;">: ${bankAccountName || '-'}</span>
+                        <span class="meta-label">Account Name</span>
+                        <span class="meta-value">: ${bankAccountName || '-'}</span>
                     </div>
-                    <div class="meta-row" style="margin-top: 10px; padding-top: 12px; border-top: 1px solid rgba(148, 163, 184, 0.35);">
-                        <span class="meta-label" style="color: #94a3b8;">Payment Ref</span>
-                        <span class="meta-value" style="color: #f8fafc; font-weight: 800; letter-spacing: 0.04em;">: ${invoice.invoice_number || invoice.bubble_id || '-'}</span>
+                    <div class="meta-row payment-ref-row">
+                        <span class="meta-label">Payment Ref</span>
+                        <span class="meta-value" style="letter-spacing: 0.04em;">: ${invoice.invoice_number || invoice.bubble_id || '-'}</span>
                     </div>
                 </div>
                 ` : ''}

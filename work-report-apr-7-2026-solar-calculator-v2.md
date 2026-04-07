@@ -17,5 +17,8 @@ REPO NAME : Solar Calculator v2
 - Built the app and committed the invoice and solar calculator updates.
 - Fixed invoice preview solar savings to use the saved payable-after-export amount.
 - Unified invoice solar estimate math and added a regression test for preview consistency.
+- Restored invoice preview buttons on My Invoice and Invoice Office, with fallback viewer links for older invoices.
+- Restyled invoice payment method card to match summary width and page text colors
+- Changed edit invoice save flow to open invoice preview and renamed action to Save And Preview
 
 =====================
