@@ -28,7 +28,9 @@ let assignedReferralLeads = [];
 let referralInvoiceFilterId = null;
 let inlineVoucherStep = null;
 let selectedDraftVouchers = [];
+let loadedInvoiceItems = [];
 const BALLAST_UNIT_PRICE = 120;
+const APRIL_2026_PROMO_END = new Date('2026-05-01T00:00:00');
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
 const MANUAL_DISCOUNT_POLICY = [
@@ -130,6 +132,123 @@ function getAdditionalInvoiceItems() {
     }
 
     return items;
+}
+
+function isApril2026PromotionActive() {
+    return new Date() < APRIL_2026_PROMO_END;
+}
+
+function getEarnNowRebateAmount(panelQty) {
+    if (!isApril2026PromotionActive()) return 0;
+
+    const qty = parseInt(panelQty, 10) || 0;
+    if (qty >= 11 && qty <= 18) return 1000;
+    if (qty >= 19 && qty <= 25) return 1500;
+    if (qty >= 26 && qty <= 30) return 2000;
+    if (qty >= 31 && qty <= 36) return 2500;
+    return 0;
+}
+
+function getEarthMonthGoGreenBonusAmount(panelQty) {
+    if (!isApril2026PromotionActive()) return 0;
+
+    const qty = parseInt(panelQty, 10) || 0;
+    if (qty >= 11 && qty <= 17) return 600;
+    if (qty >= 18 && qty <= 24) return 1200;
+    if (qty >= 25 && qty <= 36) return 1500;
+    return 0;
+}
+
+function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
+    const normalizedPanelQty = parseInt(panelQty, 10) || 0;
+    const earnNowEligibleAmount = getEarnNowRebateAmount(normalizedPanelQty);
+    const earthMonthEligibleAmount = getEarthMonthGoGreenBonusAmount(normalizedPanelQty);
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const promotionsEnabled = isApril2026PromotionActive();
+
+    const earnNowAppliedAmount = promotionsEnabled && earnNowToggle?.checked ? earnNowEligibleAmount : 0;
+    const earthMonthAppliedAmount = promotionsEnabled && earthMonthToggle?.checked ? earthMonthEligibleAmount : 0;
+
+    return {
+        panelQty: normalizedPanelQty,
+        earnNowEligibleAmount,
+        earthMonthEligibleAmount,
+        earnNowAppliedAmount,
+        earthMonthAppliedAmount,
+        totalAppliedAmount: earnNowAppliedAmount + earthMonthAppliedAmount
+    };
+}
+
+function updatePromotionOptionsUI() {
+    const section = document.getElementById('promotionOptionsSection');
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const earnNowAmountDisplay = document.getElementById('earnNowAmountDisplay');
+    const earthMonthAmountDisplay = document.getElementById('earthMonthBonusAmountDisplay');
+    const earnNowHint = document.getElementById('earnNowHint');
+    const earthMonthHint = document.getElementById('earthMonthBonusHint');
+    const promotionsEnabled = isApril2026PromotionActive();
+    const { panelQty, earnNowEligibleAmount, earthMonthEligibleAmount } = getAppliedPromotionAmounts();
+
+    if (section) {
+        section.classList.toggle('hidden', !promotionsEnabled);
+    }
+
+    if (!promotionsEnabled) {
+        if (earnNowToggle) {
+            earnNowToggle.checked = false;
+            earnNowToggle.disabled = true;
+        }
+        if (earthMonthToggle) {
+            earthMonthToggle.checked = false;
+            earthMonthToggle.disabled = true;
+        }
+        return;
+    }
+
+    if (earnNowAmountDisplay) {
+        earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
+    }
+    if (earthMonthAmountDisplay) {
+        earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
+    }
+
+    if (earnNowToggle) {
+        earnNowToggle.disabled = earnNowEligibleAmount <= 0;
+        if (earnNowToggle.disabled) earnNowToggle.checked = false;
+    }
+    if (earthMonthToggle) {
+        earthMonthToggle.disabled = earthMonthEligibleAmount <= 0;
+        if (earthMonthToggle.disabled) earthMonthToggle.checked = false;
+    }
+
+    if (earnNowHint) {
+        earnNowHint.textContent = earnNowEligibleAmount > 0
+            ? `${panelQty} panels detected. Toggle to apply this rebate.`
+            : 'Eligible for 11 to 36 solar panels only.';
+    }
+
+    if (earthMonthHint) {
+        earthMonthHint.textContent = earthMonthEligibleAmount > 0
+            ? `${panelQty} panels detected. Toggle to apply this bonus.`
+            : 'Eligible for 11 to 36 solar panels only.';
+    }
+}
+
+function hydratePromotionSelections(items = []) {
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const earnNowApplied = items.some((item) => String(item?.description || '').toLowerCase().includes('earn now rebate'));
+    const earthMonthApplied = items.some((item) => String(item?.description || '').toLowerCase().includes('earth month go green bonus'));
+
+    if (earnNowToggle) {
+        earnNowToggle.checked = earnNowApplied;
+    }
+
+    if (earthMonthToggle) {
+        earthMonthToggle.checked = earthMonthApplied;
+    }
 }
 
 // Calculate total negative amount from all extra items (manual)
@@ -1156,6 +1275,8 @@ function updateInvoicePreview() {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     const discountInput = document.getElementById('discountGiven')?.value || '';
     const discount = parseDiscount(discountInput);
+    updatePromotionOptionsUI();
+    const promotionAmounts = getAppliedPromotionAmounts();
 
     const itemsList = document.getElementById('quotationItemsList');
     if (!itemsList) return;
@@ -1173,11 +1294,37 @@ function updateInvoicePreview() {
                     <div class="text-sm text-gray-600">1 × RM ${packagePrice.toFixed(2)}</div>
                 </div>
                 <div class="font-semibold text-gray-900">RM ${packagePrice.toFixed(2)}</div>
-            `;
+    `;
     itemsList.appendChild(packageItem);
 
+    if (promotionAmounts.earnNowAppliedAmount > 0) {
+        const earnNowItem = document.createElement('div');
+        earnNowItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        earnNowItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-amber-600">Earn Now Rebate</div>
+                        <div class="text-[10px] text-amber-500 font-bold uppercase tracking-tight">Agent-selected rebate (Panel Qty: ${promotionAmounts.panelQty})</div>
+                    </div>
+                    <div class="font-semibold text-amber-600">-RM ${promotionAmounts.earnNowAppliedAmount.toFixed(2)}</div>
+                `;
+        itemsList.appendChild(earnNowItem);
+    }
+
+    if (promotionAmounts.earthMonthAppliedAmount > 0) {
+        const earthMonthItem = document.createElement('div');
+        earthMonthItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        earthMonthItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-emerald-600">Earth Month Go Green Bonus</div>
+                        <div class="text-[10px] text-emerald-500 font-bold uppercase tracking-tight">Agent-selected bonus (Panel Qty: ${promotionAmounts.panelQty})</div>
+                    </div>
+                    <div class="font-semibold text-emerald-600">-RM ${promotionAmounts.earthMonthAppliedAmount.toFixed(2)}</div>
+                `;
+        itemsList.appendChild(earthMonthItem);
+    }
+
     // Calculate subtotal (starting with package price)
-    let subtotal = packagePrice;
+    let subtotal = packagePrice - promotionAmounts.totalAppliedAmount;
 
     // Add Extra Items
     getAdditionalInvoiceItems().forEach(item => {
@@ -1481,6 +1628,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             // 6. Extra/Manual Items - Load ALL items from database
             if (inv.items && Array.isArray(inv.items)) {
                 console.log('[Edit Invoice] Loading', inv.items.length, 'items from invoice');
+                loadedInvoiceItems = inv.items;
 
                 // Group items by type
                 const packageItems = inv.items.filter(i => i.is_a_package || i.item_type === 'package');
@@ -1517,6 +1665,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             } else {
                 console.warn('[Edit Invoice] No items found in invoice data');
             }
+            hydratePromotionSelections(loadedInvoiceItems);
             // 7. Trigger preview update
             updateInvoicePreview();
 
@@ -1559,6 +1708,16 @@ document.addEventListener('DOMContentLoaded', async function () {
         sstToggle.addEventListener('change', updateInvoicePreview);
     }
 
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    if (earnNowToggle) {
+        earnNowToggle.addEventListener('change', updateInvoicePreview);
+    }
+
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    if (earthMonthToggle) {
+        earthMonthToggle.addEventListener('change', updateInvoicePreview);
+    }
+
     // Update preview when discount input changes
     const discountInput = document.getElementById('discountGiven');
     if (discountInput) {
@@ -1590,6 +1749,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     updateBallastLimitText();
+    updatePromotionOptionsUI();
     updatePackageChangeControls();
     updateWorkspaceStatuses();
 });
@@ -1647,6 +1807,7 @@ function showPackage(pkg) {
     window.currentPanelQty = pkg.panel_qty || 0;
     window.currentPackageType = pkg.type || '';
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
+    updatePromotionOptionsUI();
 
     // Handle tiered max discount policy
     const pkgPriceForLimit = parseFloat(pkg.price) || 0;
@@ -1784,6 +1945,8 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         remark: document.getElementById('customerRemark')?.value || null,
         discount_given: data.discount_given || null,
         apply_sst: document.getElementById('applySST')?.checked || false,
+        applyEarnNowRebate: document.getElementById('applyEarnNowRebate')?.checked || false,
+        applyEarthMonthGoGreenBonus: document.getElementById('applyEarthMonthGoGreenBonus')?.checked || false,
         payment_structure: eppData.payment_structure,
         extra_items: extraItems,
         voucher_ids: getSelectedDraftVoucherIds()

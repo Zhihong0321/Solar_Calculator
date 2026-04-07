@@ -119,6 +119,23 @@
                         <section id="price-controls" data-section="price-controls" class="rounded-3xl border border-indigo-200 bg-white p-6 shadow-sm">
                             <p class="text-xs font-bold uppercase tracking-[0.22em] text-indigo-700">Section 3</p>
                             <h2 class="mt-1 text-xl font-bold text-slate-900">Price Controls</h2>
+                            <p class="mt-1 text-sm text-slate-600">Pricing changes live together here so it feels more like configuring an offer and less like hunting through a long form.</p>
+                            <div id="promotionOptionsSection" class="mt-5 hidden rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
+                                <div class="mb-3 flex flex-col gap-1">
+                                    <h3 class="text-lg font-bold text-slate-900">April 2026 Promotions</h3>
+                                    <p class="text-xs font-medium text-amber-800">Toggle each option on or off based on the detected package panel quantity.</p>
+                                </div>
+                                <div class="space-y-3">
+                                    <label class="flex items-start gap-3 rounded-xl border border-amber-200 bg-white p-3">
+                                        <input type="checkbox" id="applyEarnNowRebate" class="mt-1 h-5 w-5 rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+                                        <div class="min-w-0 flex-1"><div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><span class="text-sm font-semibold text-slate-900">Earn Now Rebate</span><span id="earnNowAmountDisplay" class="text-sm font-bold text-amber-700">RM 0.00</span></div><p id="earnNowHint" class="mt-1 text-xs text-slate-600">Select a package to detect the rebate amount.</p></div>
+                                    </label>
+                                    <label class="flex items-start gap-3 rounded-xl border border-emerald-200 bg-white p-3">
+                                        <input type="checkbox" id="applyEarthMonthGoGreenBonus" class="mt-1 h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                                        <div class="min-w-0 flex-1"><div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><span class="text-sm font-semibold text-slate-900">Earth Month Go Green Bonus</span><span id="earthMonthBonusAmountDisplay" class="text-sm font-bold text-emerald-700">RM 0.00</span></div><p id="earthMonthBonusHint" class="mt-1 text-xs text-slate-600">Select a package to detect the bonus amount.</p></div>
+                                    </label>
+                                </div>
+                            </div>
                             <div class="rounded-2xl border-2 border-cyan-200 bg-cyan-50 p-4">
                                 <div class="flex items-start justify-between gap-4">
                                     <div><h3 class="text-lg font-bold text-cyan-900">Ballast System</h3><p class="text-sm text-cyan-800">Add RM 120 per ballast to stabilize panel placement.</p><p class="mt-1 text-xs text-cyan-700" id="ballastLimitText">Default: 0 ballast. Max: 0 ballast.</p></div>

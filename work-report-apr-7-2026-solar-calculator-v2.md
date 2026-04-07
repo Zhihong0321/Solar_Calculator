@@ -9,5 +9,7 @@ REPO NAME : Solar Calculator v2
 - Raised SEDA upload limits and added cron image optimizer
 - Committed and pushed SEDA upload overhaul updates
 - Changed calculator quotation button to open in the same tab for mobile browser compatibility
+- Investigated INV-1008552 in PostgreSQL and identified the customer name as KEW KIM WEE
+- Added April promo support to the edit invoice page
 
 =====================
