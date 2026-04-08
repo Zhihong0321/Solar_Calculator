@@ -7,6 +7,7 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
+const { beginAgentAuditTransaction, resolveAgentAuditContext } = require('../services/agentAuditContext');
 
 const router = express.Router();
 const MAX_BATCH_FILES = 12;
@@ -392,6 +393,7 @@ router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (
     let client = null;
     try {
         client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
 
         const access = await getInvoiceAccess(client, bubbleId, userId);
         if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
@@ -406,10 +408,12 @@ router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (
 
         const uploadedUrls = files.map((file) => getAbsoluteUploadUrl(req, 'roof_images', file.filename));
 
+        await beginAgentAuditTransaction(client, auditContext);
         await client.query(
             'UPDATE invoice SET linked_roof_image = array_cat(COALESCE(linked_roof_image, ARRAY[]::text[]), $1), updated_at = NOW() WHERE bubble_id = $2',
             [uploadedUrls, bubbleId]
         );
+        await client.query('COMMIT');
 
         res.json({
             success: true,
@@ -419,6 +423,7 @@ router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (
         });
     } catch (err) {
         console.error('Roof image upload error:', err);
+        if (client) await client.query('ROLLBACK').catch(() => {});
         cleanupFiles(Array.isArray(req.files) ? req.files : []);
         const status = err instanceof multer.MulterError || err?.message?.startsWith('Unsupported file type') ? 400 : 500;
         res.status(status).json({ success: false, error: formatUploadError(err, ROOF_IMAGE_MAX_BYTES) });
@@ -440,6 +445,7 @@ router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, 
     let client = null;
     try {
         client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
 
         const access = await getInvoiceAccess(client, bubbleId, userId);
         if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
@@ -454,10 +460,12 @@ router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, 
 
         const uploadedUrls = files.map((file) => getAbsoluteUploadUrl(req, 'pv_drawings', file.filename));
 
+        await beginAgentAuditTransaction(client, auditContext);
         await client.query(
             'UPDATE invoice SET pv_system_drawing = array_cat(COALESCE(pv_system_drawing, ARRAY[]::text[]), $1), updated_at = NOW() WHERE bubble_id = $2',
             [uploadedUrls, bubbleId]
         );
+        await client.query('COMMIT');
 
         res.json({
             success: true,
@@ -467,6 +475,7 @@ router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, 
         });
     } catch (err) {
         console.error('PV drawing upload error:', err);
+        if (client) await client.query('ROLLBACK').catch(() => {});
         cleanupFiles(Array.isArray(req.files) ? req.files : []);
         const status = err instanceof multer.MulterError || err?.message?.startsWith('Unsupported file type') ? 400 : 500;
         res.status(status).json({ success: false, error: formatUploadError(err, PV_DRAWING_MAX_BYTES) });
@@ -491,18 +500,22 @@ router.delete('/api/v1/invoice-office/:bubbleId/pv-system-drawing', requireAuth,
     let client = null;
     try {
         client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
 
         const access = await getInvoiceAccess(client, bubbleId, userId);
         if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
         if (!access.isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
+        await beginAgentAuditTransaction(client, auditContext);
         await client.query(
             'UPDATE invoice SET pv_system_drawing = array_remove(pv_system_drawing, $1), updated_at = NOW() WHERE bubble_id = $2',
             [url, bubbleId]
         );
+        await client.query('COMMIT');
 
         res.json({ success: true });
     } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
@@ -525,18 +538,22 @@ router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async 
     let client = null;
     try {
         client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
 
         const access = await getInvoiceAccess(client, bubbleId, userId);
         if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
         if (!access.isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
 
+        await beginAgentAuditTransaction(client, auditContext);
         await client.query(
             'UPDATE invoice SET linked_roof_image = array_remove(linked_roof_image, $1), updated_at = NOW() WHERE bubble_id = $2',
             [url, bubbleId]
         );
+        await client.query('COMMIT');
 
         res.json({ success: true });
     } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
@@ -557,6 +574,7 @@ router.put('/api/v1/invoice-office/:bubbleId/follow-up', requireAuth, async (req
     let client = null;
     try {
         client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
 
         const invCheck = await client.query('SELECT created_by, linked_agent FROM invoice WHERE bubble_id = $1', [bubbleId]);
         if (invCheck.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice not found' });
@@ -571,13 +589,16 @@ router.put('/api/v1/invoice-office/:bubbleId/follow-up', requireAuth, async (req
             followUpDate = date.toISOString();
         }
 
+        await beginAgentAuditTransaction(client, auditContext);
         await client.query(
             'UPDATE invoice SET follow_up_date = $1, updated_at = NOW() WHERE bubble_id = $2',
             [followUpDate, bubbleId]
         );
+        await client.query('COMMIT');
 
         res.json({ success: true, followUpDate });
     } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();

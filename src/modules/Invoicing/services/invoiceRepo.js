@@ -7,6 +7,7 @@
  * Performance Note: Uses atomic updates for invoice number generation to prevent race conditions.
  */
 const crypto = require('crypto');
+const { beginAgentAuditTransaction } = require('./agentAuditContext');
 const tablePresenceCache = new Map();
 
 // Tiered manual discount policy based on package price
@@ -1667,7 +1668,7 @@ async function createInvoiceOnTheFly(client, data) {
 
   try {
     // Start transaction
-    await client.query('BEGIN');
+    await beginAgentAuditTransaction(client, data.auditContext);
 
     const linkedReferral = await _resolveLinkedReferral(client, data.userId, data.linkedReferral || null);
     if (linkedReferral) {
@@ -2026,7 +2027,7 @@ async function updateInvoiceTransaction(client, data) {
   const invoiceColumns = await getInvoiceColumns(client);
 
   try {
-    await client.query('BEGIN');
+    await beginAgentAuditTransaction(client, data.auditContext);
 
     // 1. Fetch current record
     const currentRes = await client.query(
@@ -2345,10 +2346,10 @@ async function _replaceInvoiceVoucherSelections(client, invoiceId, voucherRows, 
   }
 }
 
-async function applyInvoiceVoucherSelections(client, invoiceId, voucherIds, userId) {
-  await client.query('BEGIN');
-
+async function applyInvoiceVoucherSelections(client, invoiceId, voucherIds, userId, auditContext) {
   try {
+    await beginAgentAuditTransaction(client, auditContext);
+
     const invoice = await _getInvoiceVoucherStepSummary(client, invoiceId);
     if (!invoice) {
       throw new Error('Invoice not found');
@@ -2585,9 +2586,9 @@ async function getInvoiceHistory(client, bubbleId) {
  * @param {string} userId - User ID
  * @returns {Promise<number>} Count of deleted invoices
  */
-async function deleteSampleInvoices(client, userId) {
+async function deleteSampleInvoices(client, userId, auditContext) {
   try {
-    await client.query('BEGIN');
+    await beginAgentAuditTransaction(client, auditContext);
 
     // 1. Find target invoices (created by user)
     let userBubbleId = null;

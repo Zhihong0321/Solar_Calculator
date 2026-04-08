@@ -5,6 +5,8 @@ const { requireAuth } = require('../../../core/middleware/auth');
 const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
+const invoiceHistoryRepo = require('../services/invoiceHistoryRepo');
+const { beginAgentAuditTransaction, resolveAgentAuditContext } = require('../services/agentAuditContext');
 
 const router = express.Router();
 
@@ -64,10 +66,13 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
         // Build URLs (Legacy support)
         const protocol = req.protocol;
         const host = req.get('host');
-        const invoices = result.invoices.map(inv => ({
-            ...inv,
-            share_url: inv.share_token ? `${protocol}://${host}/view/${inv.share_token}` : null
-        }));
+        const invoices = result.invoices.map(inv => {
+            const publicIdentifier = inv.share_token || inv.bubble_id || null;
+            return {
+                ...inv,
+                share_url: publicIdentifier ? `${protocol}://${host}/view/${publicIdentifier}` : null
+            };
+        });
 
         res.json({
             success: true,
@@ -121,6 +126,7 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
 
         // Add userId to payload as expected by service
         invoiceData.userId = userId;
+        invoiceData.auditActor = req.user;
 
         const result = await invoiceService.createInvoice(pool, invoiceData);
 
@@ -155,6 +161,7 @@ router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
     let client = null;
     try {
         client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
         
         // Ownership check
         const inv = await client.query('SELECT created_by, linked_agent FROM invoice WHERE bubble_id = $1', [bubbleId]);
@@ -163,9 +170,12 @@ router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
         const isOwner = await invoiceRepo.verifyOwnership(client, userId, inv.rows[0].created_by, inv.rows[0].linked_agent);
         if (!isOwner) return res.status(403).json({ success: false, error: 'Access denied' });
 
+        await beginAgentAuditTransaction(client, auditContext);
         await client.query("UPDATE invoice SET status = 'deleted', updated_at = NOW() WHERE bubble_id = $1", [bubbleId]);
+        await client.query('COMMIT');
         res.json({ success: true });
     } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
@@ -185,6 +195,7 @@ router.put('/api/v1/invoices/:bubbleId/restore', requireAuth, async (req, res) =
     let client = null;
     try {
         client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
         
         // Ownership check
         const inv = await client.query('SELECT created_by, linked_agent FROM invoice WHERE bubble_id = $1', [bubbleId]);
@@ -194,9 +205,12 @@ router.put('/api/v1/invoices/:bubbleId/restore', requireAuth, async (req, res) =
         if (!isOwner) return res.status(403).json({ success: false, error: 'Access denied' });
 
         // Restore to draft
+        await beginAgentAuditTransaction(client, auditContext);
         await client.query("UPDATE invoice SET status = 'draft', updated_at = NOW() WHERE bubble_id = $1", [bubbleId]);
+        await client.query('COMMIT');
         res.json({ success: true });
     } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
@@ -218,6 +232,7 @@ router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) 
     try {
         // Add userId to payload
         invoiceData.userId = userId;
+        invoiceData.auditActor = req.user;
 
         const result = await invoiceService.createInvoiceVersion(pool, bubbleId, invoiceData);
         
@@ -279,6 +294,7 @@ router.put('/api/v1/invoices/:bubbleId/vouchers', requireAuth, async (req, res) 
     let client = null;
     try {
         client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
         const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
         if (!invoice) {
             return res.status(404).json({ success: false, error: 'Invoice not found' });
@@ -293,7 +309,8 @@ router.put('/api/v1/invoices/:bubbleId/vouchers', requireAuth, async (req, res) 
             client,
             bubbleId,
             req.body?.voucher_ids || [],
-            String(userId)
+            String(userId),
+            auditContext
         );
 
         res.json({ success: true, data: applied });
@@ -335,17 +352,28 @@ router.get('/api/v1/vouchers/preview', requireAuth, async (req, res) => {
  */
 router.get('/api/v1/invoices/:bubbleId/history', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     let client = null;
     try {
         client = await pool.connect();
-        const result = await client.query(
-            `SELECT a.*, u.name as user_name 
-             FROM invoice_action a
-             LEFT JOIN "user" u ON a.created_by = u.id::text OR a.created_by = u.bubble_id
-             WHERE a.invoice_id = $1 
-             ORDER BY a.created_at DESC`,
-            [bubbleId]
-        );
+        const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
+        if (!invoice) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by, invoice.linked_agent);
+        if (!isOwner) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const result = await invoiceHistoryRepo.loadInvoiceHistory(client, bubbleId);
+        if (!result) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
         res.json({ success: true, data: result.rows });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -361,11 +389,17 @@ router.get('/api/v1/invoices/:bubbleId/history', requireAuth, async (req, res) =
  */
 
 router.delete('/api/v1/invoices/cleanup-samples', requireAuth, async (req, res) => {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
     let client = null;
     try {
         client = await pool.connect();
-        await client.query("DELETE FROM invoice WHERE customer_name LIKE '%Sample%' OR customer_name LIKE '%Test%'");
-        res.json({ success: true });
+        const auditContext = await resolveAgentAuditContext(client, req.user);
+        const deletedCount = await invoiceRepo.deleteSampleInvoices(client, userId, auditContext);
+        res.json({ success: true, message: `${deletedCount} sample quotation(s) moved to trash.` });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     } finally {

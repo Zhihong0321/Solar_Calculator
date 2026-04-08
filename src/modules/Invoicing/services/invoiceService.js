@@ -4,6 +4,7 @@
  */
 const invoiceRepo = require('./invoiceRepo');
 const sedaService = require('./sedaService');
+const { resolveAgentAuditContext } = require('./agentAuditContext');
 
 /**
  * Parse discount_given string into discount_fixed and discount_percent
@@ -138,6 +139,8 @@ async function createInvoice(pool, invoiceRequestPayload) {
   const client = await pool.connect();
 
   try {
+    const auditContext = await resolveAgentAuditContext(client, invoiceRequestPayload.auditActor);
+
     // 0. Normalize Data (Handle field name variations from frontend)
     if (invoiceRequestPayload.linked_package && !invoiceRequestPayload.packageId) {
         invoiceRequestPayload.packageId = invoiceRequestPayload.linked_package;
@@ -256,6 +259,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
     // 3. Repository Delegation
     // We construct a pure object for the repo, ensuring it only gets what it needs.
     const repoPayload = {
+      auditContext,
       userId: invoiceRequestPayload.userId,
       packageId: invoiceRequestPayload.packageId,
       discountFixed: discountFixed,
@@ -347,6 +351,8 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
   const client = await pool.connect();
 
   try {
+    const auditContext = await resolveAgentAuditContext(client, invoiceRequestPayload.auditActor);
+
     // 0. Normalize Data
     if (invoiceRequestPayload.linked_package && !invoiceRequestPayload.packageId) {
         invoiceRequestPayload.packageId = invoiceRequestPayload.linked_package;
@@ -455,6 +461,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     }
 
     const repoPayload = {
+      auditContext,
       userId: invoiceRequestPayload.userId,
       originalBubbleId: originalBubbleId, // CRITICAL: This triggers version logic
       packageId: invoiceRequestPayload.packageId || null,
