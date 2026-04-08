@@ -9,5 +9,8 @@ REPO NAME : Solar Calculator v2
 - Added shared invoice audit stamping and mobile edit history for Agent OS
 - Fixed shared invoice history query to handle integer audit IDs
 - Fixed shared invoice history bind count handling for dynamic audit queries
+- Added hybrid inverter upgrade selection and package cloning flow to invoice create/edit screens
+- Removed unsupported user role lookup from audit stamping
+- Fixed Agent OS audit context to use only available auth identity fields and stabilized shared invoice history loading
 
 =====================

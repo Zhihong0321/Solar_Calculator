@@ -43,7 +43,6 @@ async function resolveAgentAuditContext(client, authUser = {}) {
       `SELECT
           u.id::text AS user_id,
           u.bubble_id AS user_bubble_id,
-          u.role AS user_role,
           u.access_level,
           u.email,
           a.name AS agent_name,
@@ -92,7 +91,7 @@ async function resolveAgentAuditContext(client, authUser = {}) {
       || row?.email
     ),
     userRole: normalizeRole(
-      row?.user_role || authUser?.role,
+      authUser?.role,
       row?.access_level || authUser?.access_level,
       hasAgentIdentity
     ),
