@@ -286,20 +286,22 @@ async function runCalculatorLogicCheck() {
       const result = await calculateSolarSavings(pool, tariffPool, scenario.params);
       const monthlySavings = roundMoney(result.monthlySavings);
       const billReduction = roundMoney(result.details?.billReduction);
+      const actualEeiSaving = roundMoney(result.details?.actualEeiSaving);
       const exportSaving = roundMoney(result.details?.exportSaving);
       const billAfter = roundMoney(result.details?.billAfter);
       const estimatedPayableAfterSolar = roundMoney(Math.max(0, toNumber(result.details?.billAfter || 0) - toNumber(result.details?.exportSaving || 0)));
       const actualPanels = toNumber(result.actualPanels);
       const savingsBreakdownTotal = roundMoney(result.savingsBreakdown?.total);
+      const grossBillReduction = roundMoney((billReduction || 0) + (actualEeiSaving || 0));
 
       const assertions = [
         createAssertion('Actual Panels', actualPanels, scenario.expected.actualPanels, 0),
         createAssertion('Monthly Savings', monthlySavings, scenario.expected.monthlySavings),
-        createAssertion('Bill Reduction', billReduction, scenario.expected.billReduction),
+        createAssertion('Gross Bill Reduction', grossBillReduction, scenario.expected.billReduction),
         createAssertion('Export Savings', exportSaving, scenario.expected.exportSaving),
         createAssertion('Bill After Solar', billAfter, scenario.expected.billAfter),
         createAssertion('Estimated Payable', estimatedPayableAfterSolar, scenario.expected.estimatedPayableAfterSolar),
-        createAssertion('Formula: billReduction + exportSaving', monthlySavings, roundMoney((billReduction || 0) + (exportSaving || 0))),
+        createAssertion('Formula: billReduction + actualEeiSaving + exportSaving', monthlySavings, roundMoney((billReduction || 0) + (actualEeiSaving || 0) + (exportSaving || 0))),
         createAssertion('Formula: billAfter - exportSaving', estimatedPayableAfterSolar, roundMoney(Math.max(0, (billAfter || 0) - (exportSaving || 0)))),
         createAssertion('Savings Breakdown Total', savingsBreakdownTotal, monthlySavings)
       ];
@@ -316,6 +318,8 @@ async function runCalculatorLogicCheck() {
           actualPanels,
           monthlySavings,
           billReduction,
+          actualEeiSaving,
+          grossBillReduction,
           exportSaving,
           billAfter,
           estimatedPayableAfterSolar

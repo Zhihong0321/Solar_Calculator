@@ -82,7 +82,23 @@ const parseCurrencyValue = (value, fallback = 0) => {
   return Number.isNaN(numeric) ? fallback : numeric;
 };
 
-const buildBillBreakdown = (tariffRow, afaRate) => {
+const resolveActualUsageKwh = (usageAfterOffsetKwh, exportKwh) =>
+  Math.max(0, parseCurrencyValue(usageAfterOffsetKwh) - parseCurrencyValue(exportKwh));
+
+const resolveActualEeiValue = (tariffRow, eeiTariffRow, actualUsageKwh) => {
+  if (actualUsageKwh <= 0) {
+    return 0;
+  }
+
+  return parseCurrencyValue(
+    eeiTariffRow?.energy_efficiency_incentive
+      ?? eeiTariffRow?.eei
+      ?? tariffRow?.energy_efficiency_incentive
+      ?? tariffRow?.eei
+  );
+};
+
+const buildBillBreakdown = (tariffRow, afaRate, options = {}) => {
   if (!tariffRow) {
     return null;
   }
@@ -91,14 +107,17 @@ const buildBillBreakdown = (tariffRow, afaRate) => {
   const network = parseCurrencyValue(tariffRow.network_charge ?? tariffRow.network);
   const capacity = parseCurrencyValue(tariffRow.capacity_charge ?? tariffRow.capacity);
   const sst = parseCurrencyValue(tariffRow.sst_tax ?? tariffRow.sst_normal);
-  const eei = parseCurrencyValue(tariffRow.energy_efficiency_incentive ?? tariffRow.eei);
+  const originalEei = parseCurrencyValue(tariffRow.energy_efficiency_incentive ?? tariffRow.eei);
+  const eei = options.overrideEei === null || options.overrideEei === undefined
+    ? originalEei
+    : parseCurrencyValue(options.overrideEei, originalEei);
   const usageKwh = parseCurrencyValue(tariffRow.usage_kwh);
   const fuelAdjustment = parseCurrencyValue(tariffRow.fuel_adjustment);
   const afa = usageKwh * afaRate;
-  const baseTotal = parseCurrencyValue(
-    tariffRow.total_bill,
-    usage + network + capacity + sst + eei
-  ) - fuelAdjustment;
+  const hasStoredTotal = tariffRow.total_bill !== null && tariffRow.total_bill !== undefined;
+  const baseTotal = hasStoredTotal
+    ? (parseCurrencyValue(tariffRow.total_bill) - fuelAdjustment - originalEei + eei)
+    : (usage + network + capacity + sst + eei);
   const total = baseTotal + afa;
 
   return {
@@ -107,6 +126,8 @@ const buildBillBreakdown = (tariffRow, afaRate) => {
     capacity,
     sst,
     eei,
+    eeiOriginal: originalEei,
+    eeiUsageKwh: options.eeiUsageKwh ?? usageKwh,
     afa,
     total,
     totalBase: total - afa
@@ -121,6 +142,9 @@ const calculateBreakdownDelta = (beforeValue, afterValue) => {
   const after = parseCurrencyValue(afterValue);
   return before - after;
 };
+
+const calculateEeiSaving = (beforeEei, afterEei) =>
+  calculateBreakdownDelta(beforeEei, afterEei);
 
 const DAY_USAGE_WEIGHTS = [
   0, 0, 0, 0, 0, 0, 0.35, 0.7, 0.95, 1.05, 1.12, 1.18,
@@ -311,8 +335,19 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const backupGenerationKwh = Math.min(exceededGeneration, netUsageKwh * 0.1);
     const donatedKwh = Math.max(0, exceededGeneration - backupGenerationKwh);
 
+    const actualUsageBaselineKwh = resolveActualUsageKwh(netUsageBaseline, exportKwhBaseline);
+    const actualUsageBaselineForLookup = Math.max(0, Math.floor(actualUsageBaselineKwh));
+    const actualUsageKwh = resolveActualUsageKwh(netUsageKwh, exportKwh);
+    const actualUsageForLookup = Math.max(0, Math.floor(actualUsageKwh));
+
     const baselineTariff = await lookupTariffByUsage(tariffClient, netUsageBaselineForLookup);
     const afterTariff = await lookupTariffByUsage(tariffClient, netUsageForLookup);
+    const baselineEeiTariff = actualUsageBaselineKwh > 0
+      ? await lookupTariffByUsage(tariffClient, actualUsageBaselineForLookup)
+      : null;
+    const afterEeiTariff = actualUsageKwh > 0
+      ? await lookupTariffByUsage(tariffClient, actualUsageForLookup)
+      : null;
 
     // Savings
     const morningUsageRate = 0.4869;
@@ -326,8 +361,16 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const exportSavingBaselineRaw = exportKwhBaseline * exportRateBaseline;
 
     const beforeBreakdown = buildBillBreakdown(tariff, afaRate);
-    const afterBreakdown = buildBillBreakdown(afterTariff, afaRate);
-    const baselineBreakdown = buildBillBreakdown(baselineTariff, afaRate);
+    const actualEeiBaseline = resolveActualEeiValue(baselineTariff, baselineEeiTariff, actualUsageBaselineKwh);
+    const actualEei = resolveActualEeiValue(afterTariff, afterEeiTariff, actualUsageKwh);
+    const afterBreakdown = buildBillBreakdown(afterTariff, afaRate, {
+      overrideEei: actualEei,
+      eeiUsageKwh: actualUsageForLookup
+    });
+    const baselineBreakdown = buildBillBreakdown(baselineTariff, afaRate, {
+      overrideEei: actualEeiBaseline,
+      eeiUsageKwh: actualUsageBaselineForLookup
+    });
 
     const billBefore = beforeBreakdown ? beforeBreakdown.total : 0;
 
@@ -335,31 +378,41 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const afterUsageMatchedBaseline = baselineTariff && baselineTariff.usage_kwh !== null
       ? parseFloat(baselineTariff.usage_kwh)
       : null;
-    const billReductionBaseline = afterBillBaseline !== null
+    const actualEeiSavingBaseline = calculateEeiSaving(
+      beforeBreakdown ? beforeBreakdown.eei : 0,
+      baselineBreakdown ? baselineBreakdown.eei : null
+    );
+    const grossBillReductionBaseline = afterBillBaseline !== null
       ? Math.max(0, billBefore - afterBillBaseline)
       : morningSaving;
+    const billReductionBaseline = Math.max(0, grossBillReductionBaseline - actualEeiSavingBaseline);
     const exportSavingBaseline = afterBillBaseline !== null
       ? Math.min(exportSavingBaselineRaw, afterBillBaseline)
       : exportSavingBaselineRaw;
     const estimatedPayableAfterSolarBaseline = afterBillBaseline !== null
       ? Math.max(0, afterBillBaseline - exportSavingBaselineRaw)
-      : Math.max(0, billBefore - (billReductionBaseline + exportSavingBaseline));
+      : Math.max(0, billBefore - (billReductionBaseline + actualEeiSavingBaseline + exportSavingBaseline));
 
     const afterBill = afterBreakdown ? afterBreakdown.total : null;
     const afterUsageMatched = afterTariff && afterTariff.usage_kwh !== null
       ? parseFloat(afterTariff.usage_kwh)
       : null;
 
-    const billReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
+    const actualEeiSaving = calculateEeiSaving(
+      beforeBreakdown ? beforeBreakdown.eei : 0,
+      afterBreakdown ? afterBreakdown.eei : null
+    );
+    const grossBillReduction = afterBill !== null ? Math.max(0, billBefore - afterBill) : morningSaving;
+    const billReduction = Math.max(0, grossBillReduction - actualEeiSaving);
     const exportSaving = afterBill !== null
       ? Math.min(exportSavingRaw, afterBill)
       : exportSavingRaw;
     const estimatedPayableAfterSolar = afterBill !== null
       ? Math.max(0, afterBill - exportSavingRaw)
-      : Math.max(0, billBefore - (billReduction + exportSaving));
+      : Math.max(0, billBefore - (billReduction + actualEeiSaving + exportSaving));
 
-    const totalMonthlySavings = billReduction + exportSaving;
-    const totalMonthlySavingsBaseline = billReductionBaseline + exportSavingBaseline;
+    const totalMonthlySavings = billReduction + actualEeiSaving + exportSaving;
+    const totalMonthlySavingsBaseline = billReductionBaseline + actualEeiSavingBaseline + exportSavingBaseline;
 
     const usageReduction = monthlyUsageKwh - (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh);
     const afaSaving = usageReduction * afaRate;
@@ -394,11 +447,13 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
 
     const savingsBreakdown = {
       billReduction: Number(billReduction.toFixed(2)),
+      eeiSaving: Number(actualEeiSaving.toFixed(2)),
       exportCredit: Number(exportSaving.toFixed(2)),
       exportCreditRaw: Number(exportSavingRaw.toFixed(2)),
       afaImpact: Number(afaSaving.toFixed(2)),
       baseBillReduction: Number(baseBillReduction.toFixed(2)),
-      total: Number((billReduction + exportSaving).toFixed(2)),
+      grossBillReduction: Number(grossBillReduction.toFixed(2)),
+      total: Number((billReduction + actualEeiSaving + exportSaving).toFixed(2)),
       payableAfterSolar: Number(estimatedPayableAfterSolar.toFixed(2))
     };
 
@@ -507,6 +562,10 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         exportRate: exportRate,
         effectiveExportRate: exportRate.toFixed(4),
         netUsageKwh: netUsageKwh.toFixed(2),
+        actualUsageForEeiKwh: actualUsageKwh.toFixed(2),
+        actualUsageForEeiLookupKwh: actualUsageForLookup,
+        actualEei: actualEei.toFixed(2),
+        actualEeiSaving: actualEeiSaving.toFixed(2),
         afterUsageKwh: (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh).toFixed(2),
         billBefore: billBefore.toFixed(2),
         billAfter: afterBill !== null ? afterBill.toFixed(2) : null,
@@ -530,14 +589,19 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
           },
           baseline: {
             billReduction: billReductionBaseline.toFixed(2),
+            eeiSaving: actualEeiSavingBaseline.toFixed(2),
             exportCredit: exportSavingBaseline.toFixed(2),
             exportCreditRaw: exportSavingBaselineRaw.toFixed(2),
             afaImpact: ((monthlyUsageKwh - (afterUsageMatchedBaseline || netUsageBaseline)) * afaRate).toFixed(2),
             baseBillReduction: (billReductionBaseline - ((monthlyUsageKwh - (afterUsageMatchedBaseline || netUsageBaseline)) * afaRate)).toFixed(2),
+            grossBillReduction: grossBillReductionBaseline.toFixed(2),
             totalSavings: totalMonthlySavingsBaseline.toFixed(2),
             billAfter: afterBillBaseline !== null ? afterBillBaseline.toFixed(2) : null,
             estimatedPayableAfterSolar: estimatedPayableAfterSolarBaseline.toFixed(2),
             usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null,
+            actualUsageForEeiKwh: actualUsageBaselineKwh.toFixed(2),
+            actualUsageForEeiLookupKwh: actualUsageBaselineForLookup,
+            actualEei: actualEeiBaseline.toFixed(2),
             billBreakdown: {
               before: beforeBreakdown,
               after: baselineBreakdown,

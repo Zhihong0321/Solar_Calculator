@@ -363,6 +363,55 @@ class SolarCalculator {
         return match || [...this.tariffs].sort((a, b) => a.usage_kwh - b.usage_kwh)[0];
     }
 
+    resolveActualUsageKwh(usageAfterOffsetKwh, exportKwh) {
+        return Math.max(0, Number(usageAfterOffsetKwh || 0) - Number(exportKwh || 0));
+    }
+
+    resolveActualEeiValue(tariffRow, eeiTariffRow, actualUsageKwh) {
+        if (actualUsageKwh <= 0) {
+            return 0;
+        }
+
+        const candidate = eeiTariffRow?.eei ?? tariffRow?.eei ?? 0;
+        const numeric = Number(candidate);
+        return Number.isFinite(numeric) ? numeric : 0;
+    }
+
+    buildBreakdown(tariffRow, afaRate, options = {}) {
+        const usage = Number(tariffRow.usage_normal || 0);
+        const network = Number(tariffRow.network || 0);
+        const capacity = Number(tariffRow.capacity || 0);
+        const sst = Number(tariffRow.sst_normal || 0);
+        const originalEei = Number(tariffRow.eei || 0);
+        const eei = options.overrideEei === null || options.overrideEei === undefined
+            ? originalEei
+            : Number(options.overrideEei || 0);
+        const afa = Number(tariffRow.usage_kwh || 0) * afaRate;
+        const fuelAdjustment = Number(tariffRow.fuel_adjustment || 0);
+        const hasStoredTotal = tariffRow.bill_total_normal !== null && tariffRow.bill_total_normal !== undefined;
+        const baseTotal = hasStoredTotal
+            ? (Number(tariffRow.bill_total_normal || 0) - fuelAdjustment - originalEei + eei)
+            : (usage + network + capacity + sst + eei);
+
+        return {
+            usage,
+            network,
+            capacity,
+            sst,
+            eei,
+            eeiOriginal: originalEei,
+            eeiUsageKwh: options.eeiUsageKwh ?? Number(tariffRow.usage_kwh || 0),
+            afa,
+            total: baseTotal + afa
+        };
+    }
+
+    calculateEeiSaving(beforeEei, afterEei) {
+        const before = Number(beforeEei || 0);
+        const after = afterEei === null || afterEei === undefined ? before : Number(afterEei || 0);
+        return before - after;
+    }
+
     calculate(params) {
         const {
             amount, sunPeakHour, morningUsage, panelType,
@@ -423,6 +472,10 @@ class SolarCalculator {
         // ATAP Solar Malaysia: Max export = reduced import from grid
         const potentialExport = Math.max(0, monthlySolarGeneration - morningUsageKwh - monthlyMaxDischarge);
         const exportKwh = Math.min(potentialExport, netUsageKwh);
+        const actualUsageBaselineKwh = this.resolveActualUsageKwh(netUsageBaseline, exportKwhBaseline);
+        const actualUsageBaselineForLookup = Math.max(0, Math.floor(actualUsageBaselineKwh));
+        const actualUsageKwh = this.resolveActualUsageKwh(netUsageKwh, exportKwh);
+        const actualUsageForLookup = Math.max(0, Math.floor(actualUsageKwh));
 
         // Backup Generation Logic:
         // Exceeded generation is used as a weather buffer, capped at 10% of reduced import
@@ -433,18 +486,20 @@ class SolarCalculator {
         // 8. Financials
         const baselineTariff = this.lookupTariffByUsage(netUsageBaseline);
         const afterTariff = this.lookupTariffByUsage(netUsageKwh);
+        const baselineEeiTariff = actualUsageBaselineKwh > 0 ? this.lookupTariffByUsage(actualUsageBaselineForLookup) : null;
+        const afterEeiTariff = actualUsageKwh > 0 ? this.lookupTariffByUsage(actualUsageForLookup) : null;
+        const actualEeiBaseline = this.resolveActualEeiValue(baselineTariff, baselineEeiTariff, actualUsageBaselineKwh);
+        const actualEei = this.resolveActualEeiValue(afterTariff, afterEeiTariff, actualUsageKwh);
 
-        const buildBreakdown = (t) => {
-            const afa = t.usage_kwh * afaRate;
-            return {
-                usage: t.usage_normal, network: t.network, capacity: t.capacity,
-                sst: t.sst_normal, eei: t.eei, afa, total: t.bill_total_normal + afa
-            };
-        };
-
-        const beforeBreakdown = buildBreakdown(tariff);
-        const afterBreakdown = buildBreakdown(afterTariff);
-        const baselineBreakdown = buildBreakdown(baselineTariff);
+        const beforeBreakdown = this.buildBreakdown(tariff, afaRate);
+        const afterBreakdown = this.buildBreakdown(afterTariff, afaRate, {
+            overrideEei: actualEei,
+            eeiUsageKwh: actualUsageForLookup
+        });
+        const baselineBreakdown = this.buildBreakdown(baselineTariff, afaRate, {
+            overrideEei: actualEeiBaseline,
+            eeiUsageKwh: actualUsageBaselineForLookup
+        });
 
         // Confidence Level Calculation
         // Base 90%, -7% for every 0.1h above 3.4h
@@ -457,20 +512,24 @@ class SolarCalculator {
         }
 
         // Final Savings Logic
-        const billReduction = beforeBreakdown.total - afterBreakdown.total;
+        const actualEeiSaving = this.calculateEeiSaving(beforeBreakdown.eei, afterBreakdown.eei);
+        const grossBillReduction = beforeBreakdown.total - afterBreakdown.total;
+        const billReduction = Math.max(0, grossBillReduction - actualEeiSaving);
         // Export rate logic: if reduced bill total kWh usage > 1500 kWh, use 0.3703, otherwise use smpPrice
         const effectiveExportRate = netUsageKwh > 1500 ? 0.3703 : smpPrice;
         const exportSavingRaw = exportKwh * effectiveExportRate;
         const backupGenerationSaving = backupGenerationKwh * effectiveExportRate;
 
-        const billReductionBaseline = beforeBreakdown.total - baselineBreakdown.total;
+        const actualEeiSavingBaseline = this.calculateEeiSaving(beforeBreakdown.eei, baselineBreakdown.eei);
+        const grossBillReductionBaseline = beforeBreakdown.total - baselineBreakdown.total;
+        const billReductionBaseline = Math.max(0, grossBillReductionBaseline - actualEeiSavingBaseline);
         // For baseline, check netUsageBaseline instead
         const effectiveExportRateBaseline = netUsageBaseline > 1500 ? 0.3703 : smpPrice;
         const exportSavingBaselineRaw = exportKwhBaseline * effectiveExportRateBaseline;
         const exportSavingBaseline = Math.min(exportSavingBaselineRaw, baselineBreakdown.total);
-        const totalMonthlySavingsBaseline = billReductionBaseline + exportSavingBaseline;
+        const totalMonthlySavingsBaseline = billReductionBaseline + actualEeiSavingBaseline + exportSavingBaseline;
         const exportSaving = Math.min(exportSavingRaw, afterBreakdown.total);
-        const totalMonthlySavings = billReduction + exportSaving;
+        const totalMonthlySavings = billReduction + actualEeiSaving + exportSaving;
         const estimatedPayableAfterSolar = Math.max(0, afterBreakdown.total - exportSavingRaw);
 
         // 9. System Costs
@@ -524,20 +583,32 @@ class SolarCalculator {
                 billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2), exportSavingRaw: exportSavingRaw.toFixed(2),
                 estimatedPayableAfterSolar: estimatedPayableAfterSolar.toFixed(2),
                 netUsageKwh: netUsageKwh.toFixed(2), exportKwh: exportKwh.toFixed(2),
+                actualUsageForEeiKwh: actualUsageKwh.toFixed(2),
+                actualUsageForEeiLookupKwh: actualUsageForLookup,
+                actualEei: actualEei.toFixed(2),
+                actualEeiSaving: actualEeiSaving.toFixed(2),
                 backupGenerationKwh: backupGenerationKwh.toFixed(2),
                 backupGenerationSaving: backupGenerationSaving.toFixed(2),
                 donatedKwh: donatedKwh.toFixed(2),
                 effectiveExportRate: effectiveExportRate.toFixed(4),
                 totalGeneration: monthlySolarGeneration.toFixed(2),
                 savingsBreakdown: {
+                    billReduction: billReduction.toFixed(2),
+                    eeiSaving: actualEeiSaving.toFixed(2),
+                    exportCredit: exportSaving.toFixed(2),
+                    grossBillReduction: grossBillReduction.toFixed(2),
                     afaImpact: (monthlyUsageKwh - netUsageBaseline) * afaRate,
-                    baseBillReduction: billReductionBaseline - ((monthlyUsageKwh - netUsageBaseline) * afaRate),
+                    baseBillReduction: billReduction - ((monthlyUsageKwh - netUsageBaseline) * afaRate),
                 },
                 battery: {
                     baseline: {
-                        billReduction: billReductionBaseline, exportCredit: exportSavingBaseline, exportCreditRaw: exportSavingBaselineRaw,
+                        billReduction: billReductionBaseline, eeiSaving: actualEeiSavingBaseline, exportCredit: exportSavingBaseline, exportCreditRaw: exportSavingBaselineRaw,
+                        grossBillReduction: grossBillReductionBaseline,
                         totalSavings: totalMonthlySavingsBaseline.toFixed(2), billAfter: baselineBreakdown.total,
                         estimatedPayableAfterSolar: Math.max(0, baselineBreakdown.total - exportSavingBaselineRaw),
+                        actualUsageForEeiKwh: actualUsageBaselineKwh.toFixed(2),
+                        actualUsageForEeiLookupKwh: actualUsageBaselineForLookup,
+                        actualEei: actualEeiBaseline.toFixed(2),
                         billBreakdown: {
                             items: [
                                 { label: 'Usage', before: beforeBreakdown.usage, after: baselineBreakdown.usage, delta: beforeBreakdown.usage - baselineBreakdown.usage },
@@ -1075,7 +1146,11 @@ function displaySolarCalculation(data) {
                         <div class="flex justify-between items-baseline text-sm md:text-base"><span>New_Monthly_Bill:</span><span class="font-bold">RM ${formatCurrency(ds.billAfter)}</span></div>
                         <div class="text-sm md:text-base">
                             <div class="flex justify-between items-baseline"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(ds.billReduction)}</span></div>
-                            <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">total import ${parseFloat(ds.netUsageKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh</div>
+                            <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">excluding EEI subsidy, total import ${parseFloat(ds.netUsageKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh</div>
+                        </div>
+                        <div class="text-sm md:text-base">
+                            <div class="flex justify-between items-baseline"><span>Actual_EEI_Saving:</span><span class="font-bold">RM ${formatCurrency(ds.actualEeiSaving)}</span></div>
+                            <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">actual usage ${parseFloat(ds.actualUsageForEeiKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh -> EEI ${formatCurrency(ds.actualEei)}</div>
                         </div>
                         <div class="text-sm md:text-base">
                             <div class="flex justify-between items-baseline"><span>Export_Savings:</span><span class="font-bold">RM ${formatCurrency(ds.exportSaving)}</span></div>
@@ -1095,6 +1170,7 @@ function displaySolarCalculation(data) {
                         
                         <div class="pt-4 mt-4 border-t border-white/10 space-y-3">
                             <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Monthly_Savings:</span><span class="font-bold">RM ${formatCurrency(data.monthlySavings)}</span></div>
+                            <div class="text-[9px] md:text-[10px] opacity-60 text-right italic">(Bill Reduction RM ${formatCurrency(ds.billReduction)} + Actual EEI Saving RM ${formatCurrency(ds.actualEeiSaving)} + Export Income RM ${formatCurrency(ds.exportSaving)})</div>
                             <div class="flex justify-between items-baseline text-lg md:text-xl text-white pt-2 border-t border-white/20">
                                 <span class="text-[10px] md:text-xs font-bold uppercase tracking-wide opacity-80">Estimated_Payable_After_Solar:</span>
                                 <span class="font-bold">RM ${formatCurrency(Math.max(0, ds.billAfter - ds.exportSaving))}</span>
