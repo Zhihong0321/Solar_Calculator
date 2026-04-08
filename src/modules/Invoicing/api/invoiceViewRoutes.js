@@ -8,6 +8,7 @@ const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const externalPdfService = require('../services/externalPdfService');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
+const { getBillCycleMetrics, normalizeBillCycleMode } = require('../../SolarCalculator/services/billCycleModeService');
 
 const router = express.Router();
 
@@ -23,14 +24,16 @@ const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
   systemPhase: 3
 });
 
-function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour) {
+function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour, billCycleMode) {
+  const resolvedBillCycleMode = normalizeBillCycleMode(billCycleMode);
+  const cycleMetrics = getBillCycleMetrics(calculationResult, resolvedBillCycleMode);
   const normalizedEstimate = normalizeSolarEstimateFields({
     requestedBillAmount: averageBill,
     customerAverageTnb: calculationResult.details?.billBefore,
-    estimatedSaving: calculationResult.monthlySavings,
-    billAfterSolarBeforeExport: calculationResult.details?.billAfter,
-    exportEarning: calculationResult.details?.exportSaving,
-    payableAfterSolar: calculationResult.details?.estimatedPayableAfterSolar
+    estimatedSaving: cycleMetrics.selected?.estimated_saving ?? calculationResult.monthlySavings,
+    billAfterSolarBeforeExport: cycleMetrics.selected?.bill_after_solar_before_export ?? calculationResult.details?.billAfter,
+    exportEarning: cycleMetrics.selected?.export_earning ?? calculationResult.details?.exportSaving,
+    payableAfterSolar: cycleMetrics.selected?.estimated_new_bill_amount ?? calculationResult.details?.estimatedPayableAfterSolar
   });
 
   return {
@@ -40,11 +43,14 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
     estimated_new_bill_amount: normalizedEstimate.estimatedNewBillAmount,
     bill_after_solar_before_export: normalizedEstimate.billAfterSolarBeforeExport,
     export_earning: normalizedEstimate.exportEarning,
+    bill_cycle_modes: cycleMetrics.modes,
+    selected_bill_cycle_mode: resolvedBillCycleMode,
     day_usage_share: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
     charts: calculationResult.charts || null,
     assumptions: {
       sunPeakHour: Number.isFinite(Number(sunPeakHour)) ? Number(sunPeakHour) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour,
       offsetPercent: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
+      billCycleMode: resolvedBillCycleMode,
       batterySize: DEFAULT_PUBLIC_SOLAR_ESTIMATE.batterySize,
       systemPhase: DEFAULT_PUBLIC_SOLAR_ESTIMATE.systemPhase
     }
@@ -58,6 +64,7 @@ async function handlePublicSolarEstimate(req, res) {
     const shouldSave = Boolean(req.body?.save);
     const requestedSunPeakHour = Number(req.body?.sunPeakHour);
     const requestedMorningUsage = Number(req.body?.morningUsage);
+    const requestedBillCycleMode = normalizeBillCycleMode(req.body?.billCycleMode);
 
     if (!Number.isFinite(averageBill) || averageBill <= 0) {
       return res.status(400).json({ success: false, error: 'Average bill amount must be greater than 0.' });
@@ -109,7 +116,13 @@ async function handlePublicSolarEstimate(req, res) {
         morningUsage
       });
 
-      const estimate = buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour);
+      const estimate = buildPublicSolarEstimateResponse(
+        calculationResult,
+        averageBill,
+        morningUsage,
+        sunPeakHour,
+        requestedBillCycleMode
+      );
 
       if (shouldSave) {
         const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);

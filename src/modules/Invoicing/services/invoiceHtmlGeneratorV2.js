@@ -1332,6 +1332,7 @@ body.a4-preview .terms-signature {
         canEstimate: ${canEstimateSolarSavings ? 'true' : 'false'},
         currentAverageBill: ${beforeSolarBill !== null ? beforeSolarBill.toFixed(2) : 'null'},
         currentScenarioKey: 'custom',
+        currentBillCycleMode: 'fullMonth',
         currentSunPeakHour: ${storedSunPeakHour.toFixed(2)},
         currentMorningUsage: ${storedMorningUsagePercent.toFixed(2)},
         latestPreview: null,
@@ -1340,7 +1341,8 @@ body.a4-preview .terms-signature {
           estimated_new_bill_amount: ${afterSolarBill !== null ? afterSolarBill.toFixed(2) : 'null'},
           estimated_saving: ${estimatedMonthlySaving !== null ? estimatedMonthlySaving.toFixed(2) : 'null'},
           solar_sun_peak_hour: ${storedSunPeakHour.toFixed(2)},
-          solar_morning_usage_percent: ${storedMorningUsagePercent.toFixed(2)}
+          solar_morning_usage_percent: ${storedMorningUsagePercent.toFixed(2)},
+          selected_bill_cycle_mode: 'fullMonth'
         }` : 'null'},
         cache: {}
       };
@@ -1348,6 +1350,45 @@ body.a4-preview .terms-signature {
       function formatSolarEstimateMoney(value) {
         const numeric = Number(value);
         return Number.isFinite(numeric) ? 'RM ' + numeric.toFixed(2) : 'RM --';
+      }
+
+      function normalizeSolarBillCycleMode(mode) {
+        return mode === 'under28Days' ? 'under28Days' : 'fullMonth';
+      }
+
+      function nearlyEqualSolarEstimateMoney(a, b) {
+        return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= 0.05;
+      }
+
+      function getSolarBillCycleModes(data) {
+        return data && data.bill_cycle_modes ? data.bill_cycle_modes : null;
+      }
+
+      function getSelectedSolarBillCycleMetrics(data, preferredMode) {
+        const modes = getSolarBillCycleModes(data);
+        if (!modes) return null;
+        const normalizedMode = normalizeSolarBillCycleMode(preferredMode || data.selected_bill_cycle_mode);
+        return modes[normalizedMode] || modes.fullMonth || null;
+      }
+
+      function inferSolarBillCycleModeFromSavedEstimate(data) {
+        const modes = getSolarBillCycleModes(data);
+        if (!modes) {
+          return normalizeSolarBillCycleMode(solarEstimateState.currentBillCycleMode);
+        }
+
+        const savedAfter = Number(solarEstimateState.savedEstimate && solarEstimateState.savedEstimate.estimated_new_bill_amount);
+        const savedSaving = Number(solarEstimateState.savedEstimate && solarEstimateState.savedEstimate.estimated_saving);
+        if (nearlyEqualSolarEstimateMoney(savedAfter, Number(modes.under28Days && modes.under28Days.estimated_new_bill_amount))
+          && nearlyEqualSolarEstimateMoney(savedSaving, Number(modes.under28Days && modes.under28Days.estimated_saving))) {
+          return 'under28Days';
+        }
+        if (nearlyEqualSolarEstimateMoney(savedAfter, Number(modes.fullMonth && modes.fullMonth.estimated_new_bill_amount))
+          && nearlyEqualSolarEstimateMoney(savedSaving, Number(modes.fullMonth && modes.fullMonth.estimated_saving))) {
+          return 'fullMonth';
+        }
+
+        return normalizeSolarBillCycleMode(data.selected_bill_cycle_mode || solarEstimateState.currentBillCycleMode);
       }
 
       function updateSolarEstimateStatus(message, tone) {
@@ -1372,6 +1413,10 @@ body.a4-preview .terms-signature {
           const button = document.getElementById('solarScenarioBtn_' + scenarioKey);
           if (button) button.disabled = disabled;
         });
+        ['fullMonth', 'under28Days'].forEach((modeKey) => {
+          const button = document.getElementById('solarBillCycleBtn_' + modeKey);
+          if (button) button.disabled = disabled;
+        });
         const recalcBtn = document.getElementById('solarRecalculateBtn');
         const saveBtn = document.getElementById('saveSolarScenarioBtn');
         if (recalcBtn) recalcBtn.disabled = disabled;
@@ -1384,6 +1429,19 @@ body.a4-preview .terms-signature {
           if (!button) return;
 
           const isActive = solarEstimateState.currentScenarioKey === scenarioKey;
+          button.style.background = isActive ? '#0f172a' : '#ffffff';
+          button.style.color = isActive ? '#ffffff' : '#0f172a';
+          button.style.borderColor = isActive ? '#0f172a' : '#cbd5e1';
+          button.style.boxShadow = isActive ? '0 10px 20px rgba(15, 23, 42, 0.16)' : 'none';
+        });
+      }
+
+      function updateSolarBillCycleButtons() {
+        ['fullMonth', 'under28Days'].forEach((modeKey) => {
+          const button = document.getElementById('solarBillCycleBtn_' + modeKey);
+          if (!button) return;
+
+          const isActive = normalizeSolarBillCycleMode(solarEstimateState.currentBillCycleMode) === modeKey;
           button.style.background = isActive ? '#0f172a' : '#ffffff';
           button.style.color = isActive ? '#ffffff' : '#0f172a';
           button.style.borderColor = isActive ? '#0f172a' : '#cbd5e1';
@@ -1531,22 +1589,37 @@ body.a4-preview .terms-signature {
         const savingValue = document.getElementById('solarEstimateSavingValue');
         const saveHint = document.getElementById('solarEstimateSaveHint');
         const matchedBillHint = document.getElementById('solarMatchedBillHint');
+        const cycleHint = document.getElementById('solarBillCycleHint');
         const requestedBill = Number(data.requested_bill_amount);
         const matchedBill = Number(data.customer_average_tnb);
+        const selectedCycleMetrics = getSelectedSolarBillCycleMetrics(data, solarEstimateState.currentBillCycleMode);
 
         if (beforeValue) beforeValue.textContent = formatSolarEstimateMoney(data.customer_average_tnb);
-        if (afterValue) afterValue.textContent = formatSolarEstimateMoney(data.estimated_new_bill_amount);
-        if (savingValue) savingValue.textContent = formatSolarEstimateMoney(data.estimated_saving);
         if (data && data.assumptions) {
           const assumptionSunPeak = Number(data.assumptions.sunPeakHour);
           const assumptionOffset = Number(data.assumptions.offsetPercent);
+          const assumptionBillCycleMode = normalizeSolarBillCycleMode(data.assumptions.billCycleMode);
           if (Number.isFinite(assumptionSunPeak)) {
             solarEstimateState.currentSunPeakHour = Number(assumptionSunPeak.toFixed(2));
           }
           if (Number.isFinite(assumptionOffset)) {
             solarEstimateState.currentMorningUsage = Number(assumptionOffset.toFixed(2));
           }
+          if (!options.preserveBillCycleMode) {
+            solarEstimateState.currentBillCycleMode = assumptionBillCycleMode;
+          }
           syncSolarParameterInputs();
+        }
+
+        if (afterValue) {
+          afterValue.textContent = formatSolarEstimateMoney(
+            selectedCycleMetrics ? selectedCycleMetrics.estimated_new_bill_amount : data.estimated_new_bill_amount
+          );
+        }
+        if (savingValue) {
+          savingValue.textContent = formatSolarEstimateMoney(
+            selectedCycleMetrics ? selectedCycleMetrics.estimated_saving : data.estimated_saving
+          );
         }
 
         if (matchedBillHint) {
@@ -1559,8 +1632,24 @@ body.a4-preview .terms-signature {
           }
         }
 
+        if (cycleHint) {
+          if (selectedCycleMetrics) {
+            const cycleLabel = selectedCycleMetrics.label || (normalizeSolarBillCycleMode(solarEstimateState.currentBillCycleMode) === 'under28Days' ? '<28 Days Bill Cycle' : 'Full Month Bill Cycle');
+            let hintText = cycleLabel + ' applied.';
+            if (normalizeSolarBillCycleMode(solarEstimateState.currentBillCycleMode) === 'under28Days') {
+              hintText += ' SST recalculated to RM ' + Number(selectedCycleMetrics.recalculatedSst || 0).toFixed(2) + ' based on 8% of usage + network + capacity.';
+            }
+            cycleHint.textContent = hintText;
+            cycleHint.style.display = 'block';
+          } else {
+            cycleHint.textContent = '';
+            cycleHint.style.display = 'none';
+          }
+        }
+
         renderSolarUsageChart(data);
         updateSolarScenarioButtons();
+        updateSolarBillCycleButtons();
         updateScenarioSummary();
         updateSolarSaveButtonVisibility(Boolean(data && solarEstimateState.currentAverageBill));
 
@@ -1586,6 +1675,9 @@ body.a4-preview .terms-signature {
         const morningUsage = Number.isFinite(Number(options.morningUsage))
           ? Number(options.morningUsage)
           : Number(solarEstimateState.currentMorningUsage);
+        const billCycleMode = normalizeSolarBillCycleMode(
+          options.billCycleMode !== undefined ? options.billCycleMode : solarEstimateState.currentBillCycleMode
+        );
 
         const response = await fetch(solarEstimateEndpointBase + solarEstimateState.identifier + '/solar-estimate', {
           method: 'POST',
@@ -1594,7 +1686,8 @@ body.a4-preview .terms-signature {
             averageBill,
             save: Boolean(options.save),
             sunPeakHour,
-            morningUsage
+            morningUsage,
+            billCycleMode
           })
         });
 
@@ -1629,7 +1722,7 @@ body.a4-preview .terms-signature {
         if (!options.force && !options.save && solarEstimateState.cache[cacheKey]) {
           const cached = solarEstimateState.cache[cacheKey];
           solarEstimateState.latestPreview = cached;
-          applySolarEstimateToPage(cached, { showSaveHint: true, saved: false });
+          applySolarEstimateToPage(cached, { showSaveHint: true, saved: false, preserveBillCycleMode: true });
           return cached;
         }
 
@@ -1642,7 +1735,8 @@ body.a4-preview .terms-signature {
           const data = await requestSolarEstimate(solarEstimateState.currentAverageBill, {
             save: options.save,
             sunPeakHour: params.sunPeakHour,
-            morningUsage: params.morningUsage
+            morningUsage: params.morningUsage,
+            billCycleMode: solarEstimateState.currentBillCycleMode
           });
 
           solarEstimateState.cache[cacheKey] = data;
@@ -1654,14 +1748,16 @@ body.a4-preview .terms-signature {
               estimated_new_bill_amount: data.estimated_new_bill_amount,
               estimated_saving: data.estimated_saving,
               solar_sun_peak_hour: Number(params.sunPeakHour),
-              solar_morning_usage_percent: Number(params.morningUsage)
+              solar_morning_usage_percent: Number(params.morningUsage),
+              selected_bill_cycle_mode: normalizeSolarBillCycleMode(solarEstimateState.currentBillCycleMode)
             };
             solarEstimateState.hasSavedEstimate = true;
           }
 
           applySolarEstimateToPage(data, {
             showSaveHint: true,
-            saved: Boolean(options.save)
+            saved: Boolean(options.save),
+            preserveBillCycleMode: true
           });
 
           return data;
@@ -1764,6 +1860,25 @@ body.a4-preview .terms-signature {
         }
       }
 
+      function setSolarBillCycleMode(mode) {
+        solarEstimateState.currentBillCycleMode = normalizeSolarBillCycleMode(mode);
+        updateSolarBillCycleButtons();
+
+        if (solarEstimateState.latestPreview) {
+          applySolarEstimateToPage(solarEstimateState.latestPreview, {
+            showSaveHint: true,
+            saved: false,
+            preserveBillCycleMode: true
+          });
+          updateSolarEstimateStatus('Preview updated for ' + (solarEstimateState.currentBillCycleMode === 'under28Days' ? '<28 Days Bill Cycle.' : 'Full Month Bill Cycle.'), 'neutral');
+          return;
+        }
+
+        if (solarEstimateState.savedEstimate) {
+          updateSolarEstimateStatus('Saved estimate shown for ' + (solarEstimateState.currentBillCycleMode === 'under28Days' ? '<28 Days Bill Cycle.' : 'Full Month Bill Cycle.'), 'neutral');
+        }
+      }
+
       async function saveCurrentSolarScenario() {
         if (!solarEstimateState.currentAverageBill) {
           return openSolarEstimatePrompt(solarEstimateState.currentScenarioKey);
@@ -1802,6 +1917,7 @@ body.a4-preview .terms-signature {
       async function initializeSolarScenarioEstimate() {
         syncSolarParameterInputs();
         updateSolarScenarioButtons();
+        updateSolarBillCycleButtons();
         updateScenarioSummary();
 
         if (!solarEstimateState.canEstimate || !solarEstimateState.currentAverageBill) {
@@ -1814,8 +1930,14 @@ body.a4-preview .terms-signature {
           const billAmount = solarEstimateState.currentAverageBill;
           const initialData = await requestSolarEstimate(billAmount, {
             sunPeakHour: solarEstimateState.currentSunPeakHour,
-            morningUsage: solarEstimateState.currentMorningUsage
+            morningUsage: solarEstimateState.currentMorningUsage,
+            billCycleMode: solarEstimateState.currentBillCycleMode
           });
+          if (solarEstimateState.hasSavedEstimate) {
+            solarEstimateState.currentBillCycleMode = inferSolarBillCycleModeFromSavedEstimate(initialData);
+          } else if (initialData && initialData.selected_bill_cycle_mode) {
+            solarEstimateState.currentBillCycleMode = normalizeSolarBillCycleMode(initialData.selected_bill_cycle_mode);
+          }
           solarEstimateState.cache[
             [
               String(billAmount),
@@ -1826,7 +1948,8 @@ body.a4-preview .terms-signature {
           solarEstimateState.latestPreview = initialData;
           applySolarEstimateToPage(initialData, {
             showSaveHint: false,
-            saved: solarEstimateState.hasSavedEstimate
+            saved: solarEstimateState.hasSavedEstimate,
+            preserveBillCycleMode: true
           });
         } catch (err) {
           renderSolarUsageChart(null);
@@ -1977,7 +2100,19 @@ body.a4-preview .terms-signature {
                         ? 'This quotation already has a saved solar estimate. Use the day-usage buttons below to compare scenarios.'
                         : 'No saved estimate yet. Use Recalculate to preview this package against your average TNB bill.'}
                 </div>
+                <div class="solar-bill-cycle-row" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px;">
+                    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569;">Bill Cycle Mode</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <button type="button" id="solarBillCycleBtn_fullMonth" onclick="setSolarBillCycleMode('fullMonth')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                            Full Month Bill Cycle
+                        </button>
+                        <button type="button" id="solarBillCycleBtn_under28Days" onclick="setSolarBillCycleMode('under28Days')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
+                            &lt;28 Days Bill Cycle
+                        </button>
+                    </div>
+                </div>
                 <div id="solarMatchedBillHint" class="solar-estimate-save-hint" style="display: none; margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
+                <div id="solarBillCycleHint" class="solar-estimate-save-hint" style="display: none; margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
                 <div class="solar-estimate-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
                     <div class="solar-estimate-card" style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
                         <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">

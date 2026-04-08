@@ -84,6 +84,10 @@ function normalizeBillCycleMode(mode) {
 }
 
 function buildBillCycleMetrics(data) {
+    if (data && data.billCycleModes && data.billCycleModes.fullMonth && data.billCycleModes.under28Days) {
+        return data.billCycleModes;
+    }
+
     const ds = data?.details || {};
     const afterBreakdown = data?.billBreakdownComparison?.after || ds?.billBreakdown?.after || null;
     const beforeBreakdown = data?.billBreakdownComparison?.before || ds?.billBreakdown?.before || null;

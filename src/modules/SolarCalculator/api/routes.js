@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../../../core/database/pool');
 const tariffPool = require('../../../core/database/tariffPool');
 const { findClosestTariff, calculateSolarSavings } = require('../services/solarCalculatorService');
+const { buildBillCycleModes } = require('../services/billCycleModeService');
 
 const router = express.Router();
 
@@ -261,7 +262,10 @@ router.get('/api/calculate-bill', async (req, res) => {
 router.get('/api/solar-calculation', async (req, res) => {
   try {
     const result = await calculateSolarSavings(pool, tariffPool, req.query);
-    res.json(result);
+    res.json({
+      ...result,
+      billCycleModes: buildBillCycleModes(result)
+    });
   } catch (err) {
     const validationMessages = [
       'Invalid bill amount',
