@@ -90,7 +90,7 @@ async function resolveInvoiceFamilyIds(client, bubbleId) {
     ? await client.query(
       `SELECT bubble_id
          FROM invoice_item
-        WHERE linked_invoice = ANY($1::text[])`,
+        WHERE linked_invoice::text = ANY($1::text[])`,
       [familyIds]
     )
     : { rows: [] };
@@ -119,16 +119,16 @@ function buildAuditWhereClause(columns, alias) {
     'linked_invoice_id'
   ].forEach((column) => {
     if (columns.has(column)) {
-      conditions.push(`${alias}.${column} = ANY($1::text[])`);
+      conditions.push(`${alias}.${column}::text = ANY($1::text[])`);
     }
   });
 
   if (columns.has('entity_id')) {
     if (columns.has('entity_type')) {
-      conditions.push(`(${alias}.entity_type = 'invoice' AND ${alias}.entity_id = ANY($1::text[]))`);
-      conditions.push(`(${alias}.entity_type = 'invoice_item' AND ${alias}.entity_id = ANY($2::text[]))`);
+      conditions.push(`(${alias}.entity_type = 'invoice' AND ${alias}.entity_id::text = ANY($1::text[]))`);
+      conditions.push(`(${alias}.entity_type = 'invoice_item' AND ${alias}.entity_id::text = ANY($2::text[]))`);
     } else {
-      conditions.push(`${alias}.entity_id = ANY($3::text[])`);
+      conditions.push(`${alias}.entity_id::text = ANY($3::text[])`);
     }
   }
 

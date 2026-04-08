@@ -7,5 +7,6 @@ REPO NAME : Solar Calculator v2
 - Synced the invoice view mini calculator with shared solar calculator bill-cycle logic and mode toggles
 - Created shared hybrid inverter upgrade pricing table in Postgres and drafted Admin OS implementation guidance
 - Added shared invoice audit stamping and mobile edit history for Agent OS
+- Fixed shared invoice history query to handle integer audit IDs
 
 =====================
