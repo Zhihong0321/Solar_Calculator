@@ -12,5 +12,6 @@ REPO NAME : Solar Calculator v2
 - Added hybrid inverter upgrade selection and package cloning flow to invoice create/edit screens
 - Removed unsupported user role lookup from audit stamping
 - Fixed Agent OS audit context to use only available auth identity fields and stabilized shared invoice history loading
+- Made shared invoice edit history more compact on mobile with smaller text and denser before/after rendering
 
 =====================
