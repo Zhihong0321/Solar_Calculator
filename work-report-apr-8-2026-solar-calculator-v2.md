@@ -8,5 +8,6 @@ REPO NAME : Solar Calculator v2
 - Created shared hybrid inverter upgrade pricing table in Postgres and drafted Admin OS implementation guidance
 - Added shared invoice audit stamping and mobile edit history for Agent OS
 - Fixed shared invoice history query to handle integer audit IDs
+- Fixed shared invoice history bind count handling for dynamic audit queries
 
 =====================

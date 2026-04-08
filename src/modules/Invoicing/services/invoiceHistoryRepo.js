@@ -106,8 +106,16 @@ async function resolveInvoiceFamilyIds(client, bubbleId) {
   };
 }
 
-function buildAuditWhereClause(columns, alias) {
+function buildAuditWhereClause(columns, alias, familyIds, itemIds) {
   const conditions = [];
+  const values = [];
+
+  const pushValues = (items) => {
+    values.push(items);
+    return `$${values.length}::text[]`;
+  };
+
+  const familyPlaceholder = familyIds.length > 0 ? pushValues(familyIds) : null;
 
   [
     'invoice_id',
@@ -118,21 +126,34 @@ function buildAuditWhereClause(columns, alias) {
     'invoice_ref',
     'linked_invoice_id'
   ].forEach((column) => {
-    if (columns.has(column)) {
-      conditions.push(`${alias}.${column}::text = ANY($1::text[])`);
+    if (columns.has(column) && familyPlaceholder) {
+      conditions.push(`${alias}.${column}::text = ANY(${familyPlaceholder})`);
     }
   });
 
   if (columns.has('entity_id')) {
     if (columns.has('entity_type')) {
-      conditions.push(`(${alias}.entity_type = 'invoice' AND ${alias}.entity_id::text = ANY($1::text[]))`);
-      conditions.push(`(${alias}.entity_type = 'invoice_item' AND ${alias}.entity_id::text = ANY($2::text[]))`);
+      if (familyPlaceholder) {
+        conditions.push(`(${alias}.entity_type = 'invoice' AND ${alias}.entity_id::text = ANY(${familyPlaceholder}))`);
+      }
+
+      if (itemIds.length > 0) {
+        const itemPlaceholder = pushValues(itemIds);
+        conditions.push(`(${alias}.entity_type = 'invoice_item' AND ${alias}.entity_id::text = ANY(${itemPlaceholder}))`);
+      }
     } else {
-      conditions.push(`${alias}.entity_id::text = ANY($3::text[])`);
+      const combinedIds = [...new Set([...familyIds, ...itemIds])];
+      if (combinedIds.length > 0) {
+        const combinedPlaceholder = pushValues(combinedIds);
+        conditions.push(`${alias}.entity_id::text = ANY(${combinedPlaceholder})`);
+      }
     }
   }
 
-  return conditions;
+  return {
+    conditions,
+    values
+  };
 }
 
 async function readHistoryRowsFromTable(client, tableName, familyIds, itemIds) {
@@ -141,7 +162,7 @@ async function readHistoryRowsFromTable(client, tableName, familyIds, itemIds) {
   }
 
   const columns = await getTableColumns(client, tableName);
-  const whereConditions = buildAuditWhereClause(columns, 'audit');
+  const { conditions: whereConditions, values } = buildAuditWhereClause(columns, 'audit', familyIds, itemIds);
   if (whereConditions.length === 0) {
     return [];
   }
@@ -158,11 +179,7 @@ async function readHistoryRowsFromTable(client, tableName, familyIds, itemIds) {
        FROM ${tableName} audit
       WHERE ${whereConditions.join(' OR ')}
       ${orderColumn ? `ORDER BY audit.${orderColumn} DESC` : ''}`,
-    [
-      familyIds,
-      itemIds,
-      [...new Set([...familyIds, ...itemIds])]
-    ]
+    values
   );
 
   return rawResult.rows.map((row) => ({
