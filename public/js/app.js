@@ -4,6 +4,7 @@ let latestSolarData = null;
 let originalSolarData = null; // Baseline for price comparison (the very first recommendation)
 let currentHistoricalAfaRate = 0;
 let invoiceBaseUrl = 'https://quote.atap.solar/create-invoice';
+let selectedBillCycleMode = 'fullMonth';
 
 // Surgical mode: stores the single matched tariff row from Bill Analysis
 let currentTariffData = null;
@@ -35,6 +36,7 @@ const NIGHT_USAGE_WEIGHTS = [
 ];
 
 const ALLOWED_BATTERY_SIZES = [0, 16, 32, 48];
+const SHORT_BILL_CYCLE_SST_RATE = 0.08;
 
 function normalizeBatterySize(value) {
     const numeric = Number(value);
@@ -68,6 +70,80 @@ function buildUsagePattern(dailyUsageKwh, dayUsagePercent) {
         return {
             hour,
             usage: (dayPortion + nightPortion).toFixed(3)
+        };
+    });
+}
+
+function toFiniteNumber(value, fallback = 0) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function normalizeBillCycleMode(mode) {
+    return mode === 'under28Days' ? 'under28Days' : 'fullMonth';
+}
+
+function buildBillCycleMetrics(data) {
+    const ds = data?.details || {};
+    const afterBreakdown = data?.billBreakdownComparison?.after || ds?.billBreakdown?.after || null;
+    const beforeBreakdown = data?.billBreakdownComparison?.before || ds?.billBreakdown?.before || null;
+    const billBefore = toFiniteNumber(ds.billBefore, toFiniteNumber(beforeBreakdown?.total));
+    const fullBillAfter = toFiniteNumber(ds.billAfter, toFiniteNumber(afterBreakdown?.total));
+    const actualEeiSaving = toFiniteNumber(ds.actualEeiSaving, toFiniteNumber(data?.savingsBreakdown?.eeiSaving));
+    const exportSaving = toFiniteNumber(ds.exportSaving);
+    const fullBillReduction = toFiniteNumber(ds.billReduction, toFiniteNumber(data?.savingsBreakdown?.billReduction));
+    const fullTotalSavings = toFiniteNumber(data?.monthlySavings);
+    const fullPayableAfterSolar = Number.isFinite(Number(ds.estimatedPayableAfterSolar))
+        ? toFiniteNumber(ds.estimatedPayableAfterSolar)
+        : Math.max(0, fullBillAfter - exportSaving);
+    const currentSst = toFiniteNumber(afterBreakdown?.sst);
+    const shortCycleSstBase = toFiniteNumber(afterBreakdown?.usage) + toFiniteNumber(afterBreakdown?.network) + toFiniteNumber(afterBreakdown?.capacity);
+    const recalculatedSst = shortCycleSstBase * SHORT_BILL_CYCLE_SST_RATE;
+    const under28BillAfter = Math.max(0, fullBillAfter - currentSst + recalculatedSst);
+    const under28GrossBillReduction = Math.max(0, billBefore - under28BillAfter);
+    const under28BillReduction = Math.max(0, under28GrossBillReduction - actualEeiSaving);
+    const under28TotalSavings = under28BillReduction + actualEeiSaving + exportSaving;
+    const under28PayableAfterSolar = Math.max(0, under28BillAfter - exportSaving);
+
+    return {
+        fullMonth: {
+            key: 'fullMonth',
+            label: 'Full Month Bill Cycle',
+            billAfter: fullBillAfter,
+            billReduction: fullBillReduction,
+            totalSavings: fullTotalSavings,
+            payableAfterSolar: fullPayableAfterSolar,
+            currentSst,
+            recalculatedSst: currentSst,
+            shortCycleSstBase
+        },
+        under28Days: {
+            key: 'under28Days',
+            label: '<28 Days Bill Cycle',
+            billAfter: under28BillAfter,
+            billReduction: under28BillReduction,
+            totalSavings: under28TotalSavings,
+            payableAfterSolar: under28PayableAfterSolar,
+            currentSst,
+            recalculatedSst,
+            shortCycleSstBase
+        }
+    };
+}
+
+function buildBillBreakdownItemsForMode(data, modeMetrics) {
+    const items = Array.isArray(data?.billBreakdownComparison?.items) ? data.billBreakdownComparison.items : [];
+    return items.map((item) => {
+        if (modeMetrics.key !== 'under28Days' || item.label !== 'SST') {
+            return item;
+        }
+
+        const before = toFiniteNumber(item.before);
+        const after = modeMetrics.recalculatedSst;
+        return {
+            ...item,
+            after,
+            delta: before - after
         };
     });
 }
@@ -929,6 +1005,13 @@ window.setBatterySize = function (size) {
     _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 150);
 };
 
+window.setBillCycleMode = function (mode) {
+    selectedBillCycleMode = normalizeBillCycleMode(mode);
+    if (latestSolarData) {
+        displaySolarCalculation(latestSolarData);
+    }
+};
+
 window.adjustPanelCount = function (delta) {
     if (!latestSolarData) return;
     requestPanelUpdate(Math.max(1, latestSolarData.actualPanels + delta));
@@ -1003,20 +1086,17 @@ window.generateInvoiceLink = async function () {
     if (latestSolarData.actualPanels) params.set('panel_qty', latestSolarData.actualPanels);
     if (latestSolarData.config.panelType) params.set('panel_rating', `${latestSolarData.config.panelType}W`);
 
-    const billAfterSolar = Number(latestSolarData.details?.billAfter);
-    const exportSaving = Number(latestSolarData.details?.exportSaving);
-    const payableAfterSolar = Number(latestSolarData.details?.estimatedPayableAfterSolar);
-    const estimatedPayableAfterSolar = Number.isFinite(payableAfterSolar)
-        ? payableAfterSolar
-        : (Number.isFinite(billAfterSolar)
-            ? Math.max(0, billAfterSolar - (Number.isFinite(exportSaving) ? exportSaving : 0))
-            : null);
+    const billCycleModes = buildBillCycleMetrics(latestSolarData);
+    const selectedCycleMetrics = billCycleModes[normalizeBillCycleMode(selectedBillCycleMode)] || billCycleModes.fullMonth;
+    const estimatedPayableAfterSolar = selectedCycleMetrics?.payableAfterSolar ?? null;
 
     // Persist calculator savings metrics for downstream quotation/proposal usage.
     if (latestSolarData.details?.billBefore !== null && latestSolarData.details?.billBefore !== undefined) {
         params.set('customer_average_tnb', latestSolarData.details.billBefore);
     }
-    if (latestSolarData.monthlySavings !== null && latestSolarData.monthlySavings !== undefined) {
+    if (selectedCycleMetrics && Number.isFinite(selectedCycleMetrics.totalSavings)) {
+        params.set('estimated_saving', selectedCycleMetrics.totalSavings.toFixed(2));
+    } else if (latestSolarData.monthlySavings !== null && latestSolarData.monthlySavings !== undefined) {
         params.set('estimated_saving', latestSolarData.monthlySavings);
     }
     if (estimatedPayableAfterSolar !== null) {
@@ -1131,6 +1211,10 @@ function displaySolarCalculation(data) {
 
     const ds = data.details;
     const b = ds.battery.baseline;
+    const billCycleModes = buildBillCycleMetrics(data);
+    const activeBillCycleMode = normalizeBillCycleMode(selectedBillCycleMode);
+    const cycleMetrics = billCycleModes[activeBillCycleMode] || billCycleModes.fullMonth;
+    const billBreakdownItems = buildBillBreakdownItemsForMode(data, cycleMetrics);
 
     solarDiv.innerHTML = `
         <div class="space-y-10 md:space-y-16">
@@ -1142,10 +1226,14 @@ function displaySolarCalculation(data) {
                         <div class="sm:text-right"><p class="opacity-70 text-[10px] md:text-xs tracking-wide uppercase">System_Size</p><p class="font-bold text-base md:text-lg">${((data.actualPanels * data.config.panelType) / 1000).toFixed(2)} kWp</p></div>
                     </div>
                     <div class="h-px bg-white/20"></div>
+                    <div class="flex flex-wrap justify-end gap-2">
+                        <button onclick="setBillCycleMode('fullMonth')" class="border px-3 py-1.5 text-[10px] md:text-xs font-bold uppercase tracking-wide transition-colors ${activeBillCycleMode === 'fullMonth' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/40 hover:border-white hover:bg-white/10'}">Full Month Bill Cycle</button>
+                        <button onclick="setBillCycleMode('under28Days')" class="border px-3 py-1.5 text-[10px] md:text-xs font-bold uppercase tracking-wide transition-colors ${activeBillCycleMode === 'under28Days' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/40 hover:border-white hover:bg-white/10'}">&lt;28 Days Bill Cycle</button>
+                    </div>
                     <div class="space-y-4">
-                        <div class="flex justify-between items-baseline text-sm md:text-base"><span>New_Monthly_Bill:</span><span class="font-bold">RM ${formatCurrency(ds.billAfter)}</span></div>
+                        <div class="flex justify-between items-baseline text-sm md:text-base"><span>New_Monthly_Bill:</span><span class="font-bold">RM ${formatCurrency(cycleMetrics.billAfter)}</span></div>
                         <div class="text-sm md:text-base">
-                            <div class="flex justify-between items-baseline"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(ds.billReduction)}</span></div>
+                            <div class="flex justify-between items-baseline"><span>Bill_Reduction:</span><span class="font-bold">RM ${formatCurrency(cycleMetrics.billReduction)}</span></div>
                             <div class="text-[10px] md:text-xs opacity-60 mt-0.5 text-right">excluding EEI subsidy, total import ${parseFloat(ds.netUsageKwh).toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh</div>
                         </div>
                         <div class="text-sm md:text-base">
@@ -1169,13 +1257,14 @@ function displaySolarCalculation(data) {
                         </div>
                         
                         <div class="pt-4 mt-4 border-t border-white/10 space-y-3">
-                            <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Monthly_Savings:</span><span class="font-bold">RM ${formatCurrency(data.monthlySavings)}</span></div>
-                            <div class="text-[9px] md:text-[10px] opacity-60 text-right italic">(Bill Reduction RM ${formatCurrency(ds.billReduction)} + Actual EEI Saving RM ${formatCurrency(ds.actualEeiSaving)} + Export Income RM ${formatCurrency(ds.exportSaving)})</div>
+                            <div class="flex justify-between items-baseline text-sm md:text-base text-emerald-400"><span>Net_Monthly_Savings:</span><span class="font-bold">RM ${formatCurrency(cycleMetrics.totalSavings)}</span></div>
+                            <div class="text-[9px] md:text-[10px] opacity-60 text-right italic">(Bill Reduction RM ${formatCurrency(cycleMetrics.billReduction)} + Actual EEI Saving RM ${formatCurrency(ds.actualEeiSaving)} + Export Income RM ${formatCurrency(ds.exportSaving)})</div>
                             <div class="flex justify-between items-baseline text-lg md:text-xl text-white pt-2 border-t border-white/20">
                                 <span class="text-[10px] md:text-xs font-bold uppercase tracking-wide opacity-80">Estimated_Payable_After_Solar:</span>
-                                <span class="font-bold">RM ${formatCurrency(Math.max(0, ds.billAfter - ds.exportSaving))}</span>
+                                <span class="font-bold">RM ${formatCurrency(cycleMetrics.payableAfterSolar)}</span>
                             </div>
-                            <div class="text-[9px] md:text-[10px] opacity-60 text-right italic">(TNB Bill RM ${formatCurrency(ds.billAfter)} - Export Income RM ${formatCurrency(ds.exportSaving)})</div>
+                            <div class="text-[9px] md:text-[10px] opacity-60 text-right italic">(TNB Bill RM ${formatCurrency(cycleMetrics.billAfter)} - Export Income RM ${formatCurrency(ds.exportSaving)})</div>
+                            ${activeBillCycleMode === 'under28Days' ? `<div class="text-[9px] md:text-[10px] opacity-60 text-right italic">(SST adjusted: current RM ${formatCurrency(cycleMetrics.currentSst)} -> new RM ${formatCurrency(cycleMetrics.recalculatedSst)} based on 8% of Usage + Network + Capacity)</div>` : ''}
                         </div>
 
                         <div class="flex justify-between items-baseline text-sm md:text-base text-orange-400"><span>Confidence_Level:</span><span class="font-bold">${data.confidenceLevel}%</span></div>
@@ -1189,8 +1278,8 @@ function displaySolarCalculation(data) {
                         ` : ''}
                     </div>
                     <div class="pt-6 border-t border-white/40 flex justify-between items-baseline">
-                        <span class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-white/70">Total_Savings (Inc. Export):</span>
-                        <span class="text-3xl md:text-4xl font-bold tracking-tight text-emerald-400">RM ${data.monthlySavings}</span>
+                        <span class="text-[10px] md:text-xs font-bold uppercase tracking-wide text-white/70">Total_Savings (Inc. Export) [${cycleMetrics.label}]:</span>
+                        <span class="text-3xl md:text-4xl font-bold tracking-tight text-emerald-400">RM ${formatCurrency(cycleMetrics.totalSavings)}</span>
                     </div>
                 </div>
             </section>
@@ -1253,9 +1342,10 @@ function displaySolarCalculation(data) {
 
             <section class="pt-2">
                 <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">07_SAVINGS_LEDGER</h2>
+                ${activeBillCycleMode === 'under28Days' ? `<div class="mb-4 text-[10px] md:text-xs uppercase tracking-wide tier-3">SST row updated for &lt;28 Days Bill Cycle at 8% of Usage + Network + Capacity.</div>` : ''}
                 <div class="space-y-3">
                     <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 md:gap-4 tier-3 uppercase text-[10px] md:text-xs tracking-wide pb-3 border-b border-divider"><span>Component</span><span class="text-right">Before</span><span class="text-right">After</span><span class="text-right">Delta</span></div>
-                    ${data.billBreakdownComparison.items.map(i => `
+                    ${billBreakdownItems.map(i => `
                         <div class="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 md:gap-4 py-1.5 border-b border-divider/50 text-sm">
                             <span class="tier-2 uppercase tracking-tight">${i.label}</span>
                             <span class="text-right">${formatCurrency(i.before)}</span>
