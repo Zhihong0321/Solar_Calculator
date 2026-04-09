@@ -11,6 +11,17 @@ const https = require('https');
 const customerRepo = require('../services/customerRepo');
 
 const router = express.Router();
+const WHATSAPP_API_BASE_URL = process.env.WHATSAPP_API_URL || 'https://whatsapp-api-server-production-c15f.up.railway.app';
+const WHATSAPP_API_CHECK_TIMEOUT_MS = Number(process.env.WHATSAPP_API_TIMEOUT_MS || 10000);
+
+function parseMaybeJson(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    return null;
+  }
+}
 
 // --- Pages ---
 
@@ -36,7 +47,7 @@ router.post('/api/customers/check-whatsapp', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Phone number is required' });
     }
 
-    const externalApiUrl = 'https://whatsapp-api-server-production-c15f.up.railway.app/api/check-user';
+    const externalApiUrl = new URL('/api/check-user', WHATSAPP_API_BASE_URL).toString();
 
     // Create a promise to handle the https request
     const checkWhatsAppUser = () => {
@@ -44,8 +55,10 @@ router.post('/api/customers/check-whatsapp', requireAuth, async (req, res) => {
         const request = https.request(externalApiUrl, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: WHATSAPP_API_CHECK_TIMEOUT_MS
         }, (response) => {
           let data = '';
 
@@ -55,19 +68,36 @@ router.post('/api/customers/check-whatsapp', requireAuth, async (req, res) => {
 
           response.on('end', () => {
             try {
+              const payload = parseMaybeJson(data) || {};
+              const isNotReady = response.statusCode === 400 && /WhatsApp not ready/i.test(data);
+
+              if (isNotReady) {
+                resolve({
+                  success: false,
+                  isWhatsAppUser: false,
+                  ready: false,
+                  error: 'WhatsApp service is not ready'
+                });
+                return;
+              }
+
               if (response.statusCode >= 200 && response.statusCode < 300) {
-                resolve(JSON.parse(data));
+                resolve(payload);
               } else {
                 reject(new Error(`External API returned ${response.statusCode}: ${data}`));
               }
             } catch (e) {
-              reject(new Error('Failed to parse external API response'));
+              reject(new Error(`Failed to parse external API response: ${e.message}`));
             }
           });
         });
 
         request.on('error', (err) => {
           reject(err);
+        });
+
+        request.setTimeout(WHATSAPP_API_CHECK_TIMEOUT_MS, () => {
+          request.destroy(new Error('WhatsApp API request timed out'));
         });
 
         request.write(JSON.stringify({ phone }));
