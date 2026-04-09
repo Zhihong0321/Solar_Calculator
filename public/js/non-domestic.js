@@ -64,6 +64,13 @@ function calculateRecommendedPanelQuantity(panelRating, totalMonthlyKwh) {
     return Math.max(1, Math.ceil((recommendedKw * 1000) / panelRating));
 }
 
+function syncPanelQuantityInput(qty) {
+    const input = document.getElementById('panelQtyInput');
+    if (input) {
+        input.value = String(qty);
+    }
+}
+
 function findClosestCommercialPackage(panelQty, panelRating) {
     return db.packages
         .filter(p => p.type === COMMERCIAL_PACKAGE_TYPE && p.solar_output_rating === panelRating)
@@ -209,18 +216,37 @@ async function refreshCommercialReportFromInputs() {
     if (!params || !Number.isFinite(currentPanelQuantity)) return;
 
     currentSimulationParams = params;
-    const requestToken = ++commercialReportRefreshToken;
+    const recommendedPanels = calculateRecommendedPanelQuantity(params.panelRating, params.totalMonthlyKwh);
 
     try {
-        const recommendedPanels = calculateRecommendedPanelQuantity(params.panelRating, params.totalMonthlyKwh);
-        const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
+        await recalculateCommercialReport(currentPanelQuantity, {
+            recommendedPanels,
+            isRecalculation: true
+        });
+    } catch (err) {
+        console.error('Failed to refresh commercial report:', err);
+    }
+}
+
+async function recalculateCommercialReport(panelQty, options = {}) {
+    if (!currentSimulationParams) return;
+
+    const normalizedQty = Math.max(1, parseInt(panelQty, 10) || 1);
+    currentPanelQuantity = normalizedQty;
+    syncPanelQuantityInput(normalizedQty);
+
+    const requestToken = ++commercialReportRefreshToken;
+    const { recommendedPanels = null, isRecalculation = true } = options;
+
+    try {
+        const results = await calculateSolarSavings(normalizedQty, currentSimulationParams);
         if (requestToken !== commercialReportRefreshToken) return;
 
         latestCommercialSolarData = results;
-        displayFullROIResults(results, recommendedPanels, true);
+        displayFullROIResults(results, recommendedPanels, isRecalculation);
     } catch (err) {
         if (requestToken !== commercialReportRefreshToken) return;
-        console.error('Failed to refresh commercial report:', err);
+        throw err;
     }
 }
 
@@ -551,19 +577,8 @@ async function updatePanelQuantity(change) {
     const newQuantity = Math.max(1, currentPanelQuantity + change);
     if (newQuantity === currentPanelQuantity) return;
 
-    currentPanelQuantity = newQuantity;
-
-    // Show loading state
-    const updateBtn = document.getElementById('updateCalculationBtn');
-    if (updateBtn) {
-        updateBtn.innerHTML = 'Recalculating...';
-        updateBtn.disabled = true;
-    }
-
     try {
-        const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
-        latestCommercialSolarData = results;
-        displayFullROIResults(results, null, true);
+        await recalculateCommercialReport(newQuantity, { isRecalculation: true });
     } catch (err) {
         console.error('Failed to recalculate:', err);
         alert('Recalculation failed. Check console for details.');
@@ -577,12 +592,8 @@ async function setPanelQuantity(qty) {
     const newQuantity = Math.max(1, parseInt(qty) || 1);
     if (newQuantity === currentPanelQuantity) return;
 
-    currentPanelQuantity = newQuantity;
-
     try {
-        const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
-        latestCommercialSolarData = results;
-        displayFullROIResults(results, null, true);
+        await recalculateCommercialReport(newQuantity, { isRecalculation: true });
     } catch (err) {
         console.error('Failed to recalculate:', err);
         alert('Recalculation failed. Check console for details.');
@@ -643,6 +654,7 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
                                 value="${data.finalPanels}" 
                                 min="1"
                                 class="w-20 h-12 bg-white/10 border border-white/20 text-center text-xl font-bold text-white"
+                                oninput="setPanelQuantity(this.value)"
                                 onchange="setPanelQuantity(this.value)"
                             >
                             <button onclick="updatePanelQuantity(1)" class="w-12 h-12 bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-xl font-bold transition-colors">

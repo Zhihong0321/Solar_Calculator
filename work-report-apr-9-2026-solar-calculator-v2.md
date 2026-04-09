@@ -4,5 +4,6 @@ REPO NAME : Solar Calculator v2
 - Made the WhatsApp check proxy resilient to upstream 'not ready' failures and configurable via WHATSAPP_API_URL
 - Added a temporary kill switch to disable WhatsApp customer API calls and photo sync
 - Made the commercial ROI report auto-refresh when simulation parameters or working hours change.
+- Fixed commercial panel quantity recalculation so the saving report refreshes immediately and stays in sync with the quantity input.
 
 =====================
