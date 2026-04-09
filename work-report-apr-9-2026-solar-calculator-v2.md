@@ -5,5 +5,6 @@ REPO NAME : Solar Calculator v2
 - Added a temporary kill switch to disable WhatsApp customer API calls and photo sync
 - Made the commercial ROI report auto-refresh when simulation parameters or working hours change.
 - Fixed commercial panel quantity recalculation so the saving report refreshes immediately and stays in sync with the quantity input.
+- Unified commercial ROI recomputation so every parameter change reruns the same analysis path.
 
 =====================

@@ -205,49 +205,40 @@ function scheduleCommercialReportRefresh() {
 
     commercialReportRefreshTimer = setTimeout(() => {
         commercialReportRefreshTimer = null;
-        refreshCommercialReportFromInputs();
+        runCommercialRoiAnalysis({ preserveCurrentPanelQty: true, isRecalculation: true })
+            .catch(err => console.error('Failed to refresh commercial report:', err));
     }, 200);
 }
 
-async function refreshCommercialReportFromInputs() {
-    if (!hasCommercialReport()) return;
+async function runCommercialRoiAnalysis(options = {}) {
+    if (!matchedBillData || !matchedBillData.total_bill) {
+        throw new Error('Please complete Step 1 (Bill Analysis) first to get matched bill data.');
+    }
 
     const params = readCommercialSimulationParamsFromInputs();
-    if (!params || !Number.isFinite(currentPanelQuantity)) return;
+    if (!params) {
+        throw new Error('Commercial simulation parameters are not ready.');
+    }
 
     currentSimulationParams = params;
     const recommendedPanels = calculateRecommendedPanelQuantity(params.panelRating, params.totalMonthlyKwh);
-
-    try {
-        await recalculateCommercialReport(currentPanelQuantity, {
-            recommendedPanels,
-            isRecalculation: true
-        });
-    } catch (err) {
-        console.error('Failed to refresh commercial report:', err);
-    }
-}
-
-async function recalculateCommercialReport(panelQty, options = {}) {
-    if (!currentSimulationParams) return;
-
-    const normalizedQty = Math.max(1, parseInt(panelQty, 10) || 1);
+    const initialPackage = findClosestCommercialPackage(recommendedPanels, params.panelRating);
+    const fallbackPanels = initialPackage ? initialPackage.panel_qty : recommendedPanels;
+    const desiredPanels = options.panelQty !== undefined && options.panelQty !== null
+        ? options.panelQty
+        : (options.preserveCurrentPanelQty && Number.isFinite(currentPanelQuantity) ? currentPanelQuantity : fallbackPanels);
+    const normalizedQty = Math.max(1, parseInt(desiredPanels, 10) || 1);
     currentPanelQuantity = normalizedQty;
     syncPanelQuantityInput(normalizedQty);
 
     const requestToken = ++commercialReportRefreshToken;
-    const { recommendedPanels = null, isRecalculation = true } = options;
+    const { isRecalculation = false } = options;
 
-    try {
-        const results = await calculateSolarSavings(normalizedQty, currentSimulationParams);
-        if (requestToken !== commercialReportRefreshToken) return;
+    const results = await calculateSolarSavings(normalizedQty, currentSimulationParams);
+    if (requestToken !== commercialReportRefreshToken) return;
 
-        latestCommercialSolarData = results;
-        displayFullROIResults(results, recommendedPanels, isRecalculation);
-    } catch (err) {
-        if (requestToken !== commercialReportRefreshToken) return;
-        throw err;
-    }
+    latestCommercialSolarData = results;
+    displayFullROIResults(results, recommendedPanels, isRecalculation);
 }
 
 window.setDayOff = function (dayKey) {
@@ -524,49 +515,11 @@ async function calculateSolarSavings(panelQty, params) {
 }
 
 async function executeFullAnalysis() {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'non-domestic.js:300', message: 'executeFullAnalysis entry - checking matchedBillData', data: { matchedBillDataExists: !!matchedBillData, matchedBillData: matchedBillData, hasTotalBill: !!matchedBillData?.total_bill, matchedBillDataType: typeof matchedBillData, matchedBillDataKeys: matchedBillData ? Object.keys(matchedBillData) : null }, timestamp: Date.now(), runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
-    // #endregion
-    if (!matchedBillData || !matchedBillData.total_bill) {
-        alert('Please complete Step 1 (Bill Analysis) first to get matched bill data.');
-        return;
-    }
-
-    const sunPeak = parseFloat(document.getElementById('sunPeakHour').value);
-    const panelRating = parsePanelRating(document.getElementById('panelRating').value);
-    const baseLoadPct = parseFloat(document.getElementById('baseLoadPercent').value) / 100;
-    const smpPrice = parseFloat(document.getElementById('smpPrice').value);
-
-    const totalMonthlyKwh = parseFloat(matchedBillData.usage_kwh);
-
-    // Store parameters for later recalculation
-    currentSimulationParams = { sunPeak, panelRating, baseLoadPct, smpPrice, totalMonthlyKwh };
-
-    // 2. Recommend System Size - STABLE (Based on Monthly Usage only)
-    // Target system size to cover ~80% of total monthly generation potential
-    let recommendedPanels = calculateRecommendedPanelQuantity(panelRating, totalMonthlyKwh);
-
-    // Use only commercial packages that match the selected panel rating.
-    let pkg = findClosestCommercialPackage(recommendedPanels, panelRating);
-
-    // Use package panel quantity or recommended
-    const initialPanels = pkg ? pkg.panel_qty : recommendedPanels;
-    currentPanelQuantity = initialPanels;
-    currentPackageData = pkg;
-
     try {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'non-domestic.js:315', message: 'Before calling calculateSolarSavings', data: { matchedBillDataExists: !!matchedBillData, matchedBillData: matchedBillData, hasTotalBill: !!matchedBillData?.total_bill, initialPanels: initialPanels }, timestamp: Date.now(), runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
-        // #endregion
-        const results = await calculateSolarSavings(initialPanels, currentSimulationParams);
-        latestCommercialSolarData = results;
-        displayFullROIResults(results, recommendedPanels);
+        await runCommercialRoiAnalysis({ preserveCurrentPanelQty: false, isRecalculation: false });
     } catch (err) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/763e2188-a536-4287-b5bd-ab4fdc00c912', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'non-domestic.js:319', message: 'Error caught in executeFullAnalysis', data: { errorMessage: err.message, errorStack: err.stack, matchedBillDataExists: !!matchedBillData, matchedBillData: matchedBillData }, timestamp: Date.now(), runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
-        // #endregion
         console.error('Failed to calculate savings:', err);
-        alert('Simulation failed. Check console for details.');
+        alert(err.message || 'Simulation failed. Check console for details.');
     }
 }
 
@@ -578,7 +531,7 @@ async function updatePanelQuantity(change) {
     if (newQuantity === currentPanelQuantity) return;
 
     try {
-        await recalculateCommercialReport(newQuantity, { isRecalculation: true });
+        await runCommercialRoiAnalysis({ panelQty: newQuantity, preserveCurrentPanelQty: false, isRecalculation: true });
     } catch (err) {
         console.error('Failed to recalculate:', err);
         alert('Recalculation failed. Check console for details.');
@@ -593,7 +546,7 @@ async function setPanelQuantity(qty) {
     if (newQuantity === currentPanelQuantity) return;
 
     try {
-        await recalculateCommercialReport(newQuantity, { isRecalculation: true });
+        await runCommercialRoiAnalysis({ panelQty: newQuantity, preserveCurrentPanelQty: false, isRecalculation: true });
     } catch (err) {
         console.error('Failed to recalculate:', err);
         alert('Recalculation failed. Check console for details.');
