@@ -15,6 +15,9 @@ let currentPanelQuantity = null;
 let currentPackageData = null;
 let latestCommercialSolarData = null;
 let invoiceBaseUrl = '/create-invoice';
+let commercialReportRefreshTimer = null;
+let commercialReportRefreshToken = 0;
+let savingsPieChart = null;
 const COMMERCIAL_PACKAGE_TYPE = 'Tariff B&D Low Voltage';
 const DEFAULT_COMMERCIAL_PANEL_RATING = 590;
 
@@ -34,6 +37,7 @@ window.onload = function () {
     fetchConfig();
     initializeData();
     initWorkingHoursUI();
+    initCommercialParameterSync();
 };
 
 async function fetchConfig() {
@@ -51,6 +55,13 @@ async function fetchConfig() {
 function parsePanelRating(value) {
     const panelRating = parseInt(value, 10);
     return Number.isFinite(panelRating) ? panelRating : DEFAULT_COMMERCIAL_PANEL_RATING;
+}
+
+function calculateRecommendedPanelQuantity(panelRating, totalMonthlyKwh) {
+    const sunPeakStandard = 3.4;
+    const targetMonthlyGen = totalMonthlyKwh * 0.8;
+    const recommendedKw = targetMonthlyGen / 30 / sunPeakStandard;
+    return Math.max(1, Math.ceil((recommendedKw * 1000) / panelRating));
 }
 
 function findClosestCommercialPackage(panelQty, panelRating) {
@@ -119,12 +130,98 @@ function initWorkingHoursUI() {
             const endPct = (end / 24) * 100;
             highlight.style.left = startPct + '%';
             highlight.style.width = (endPct - startPct) + '%';
+
+            scheduleCommercialReportRefresh();
         };
 
         startInput.oninput = updateSlider;
         endInput.oninput = updateSlider;
         updateSlider();
     });
+}
+
+function initCommercialParameterSync() {
+    const parameterIds = ['sunPeakHour', 'panelRating', 'baseLoadPercent', 'smpPrice'];
+
+    parameterIds.forEach(id => {
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        const syncAndRefresh = () => {
+            const params = readCommercialSimulationParamsFromInputs();
+            if (params) {
+                currentSimulationParams = params;
+            }
+            scheduleCommercialReportRefresh();
+        };
+
+        input.addEventListener('input', syncAndRefresh);
+        input.addEventListener('change', syncAndRefresh);
+    });
+}
+
+function hasCommercialReport() {
+    return Boolean(latestCommercialSolarData && currentSimulationParams && currentPanelQuantity !== null);
+}
+
+function readCommercialSimulationParamsFromInputs() {
+    if (!matchedBillData) return null;
+
+    const sunPeakHourInput = document.getElementById('sunPeakHour');
+    const panelRatingInput = document.getElementById('panelRating');
+    const baseLoadPercentInput = document.getElementById('baseLoadPercent');
+    const smpPriceInput = document.getElementById('smpPrice');
+
+    if (!sunPeakHourInput || !panelRatingInput || !baseLoadPercentInput || !smpPriceInput) {
+        return null;
+    }
+
+    const sunPeak = parseFloat(sunPeakHourInput.value);
+    const panelRating = parsePanelRating(panelRatingInput.value);
+    const baseLoadPct = parseFloat(baseLoadPercentInput.value) / 100;
+    const smpPrice = parseFloat(smpPriceInput.value);
+    const totalMonthlyKwh = parseFloat(matchedBillData.usage_kwh);
+
+    if (!Number.isFinite(sunPeak) || !Number.isFinite(panelRating) || !Number.isFinite(baseLoadPct) || !Number.isFinite(smpPrice) || !Number.isFinite(totalMonthlyKwh)) {
+        return null;
+    }
+
+    return { sunPeak, panelRating, baseLoadPct, smpPrice, totalMonthlyKwh };
+}
+
+function scheduleCommercialReportRefresh() {
+    if (!hasCommercialReport()) return;
+
+    if (commercialReportRefreshTimer) {
+        clearTimeout(commercialReportRefreshTimer);
+    }
+
+    commercialReportRefreshTimer = setTimeout(() => {
+        commercialReportRefreshTimer = null;
+        refreshCommercialReportFromInputs();
+    }, 200);
+}
+
+async function refreshCommercialReportFromInputs() {
+    if (!hasCommercialReport()) return;
+
+    const params = readCommercialSimulationParamsFromInputs();
+    if (!params || !Number.isFinite(currentPanelQuantity)) return;
+
+    currentSimulationParams = params;
+    const requestToken = ++commercialReportRefreshToken;
+
+    try {
+        const recommendedPanels = calculateRecommendedPanelQuantity(params.panelRating, params.totalMonthlyKwh);
+        const results = await calculateSolarSavings(currentPanelQuantity, currentSimulationParams);
+        if (requestToken !== commercialReportRefreshToken) return;
+
+        latestCommercialSolarData = results;
+        displayFullROIResults(results, recommendedPanels, true);
+    } catch (err) {
+        if (requestToken !== commercialReportRefreshToken) return;
+        console.error('Failed to refresh commercial report:', err);
+    }
 }
 
 window.setDayOff = function (dayKey) {
@@ -421,10 +518,7 @@ async function executeFullAnalysis() {
 
     // 2. Recommend System Size - STABLE (Based on Monthly Usage only)
     // Target system size to cover ~80% of total monthly generation potential
-    const sunPeakStandard = 3.4;
-    const targetMonthlyGen = totalMonthlyKwh * 0.8;
-    const recommendedKw = (targetMonthlyGen / 30 / sunPeakStandard);
-    let recommendedPanels = Math.max(1, Math.ceil((recommendedKw * 1000) / panelRating));
+    let recommendedPanels = calculateRecommendedPanelQuantity(panelRating, totalMonthlyKwh);
 
     // Use only commercial packages that match the selected panel rating.
     let pkg = findClosestCommercialPackage(recommendedPanels, panelRating);
@@ -763,8 +857,12 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
 }
 
 function renderSavingsPieChart(billSaving, exportSaving) {
+    if (savingsPieChart) {
+        savingsPieChart.destroy();
+    }
+
     const ctx = document.getElementById('savingsPieChart').getContext('2d');
-    new Chart(ctx, {
+    savingsPieChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['Bill Reduction', 'Export Credit'],
