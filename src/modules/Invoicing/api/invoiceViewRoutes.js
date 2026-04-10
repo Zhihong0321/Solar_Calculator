@@ -5,6 +5,7 @@ const tariffPool = require('../../../core/database/tariffPool');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
+const invoiceHtmlGeneratorV3 = require('../services/invoiceHtmlGeneratorV3');
 const externalPdfService = require('../services/externalPdfService');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
@@ -415,8 +416,105 @@ router.post('/view2/:tokenOrId/signature', async (req, res) => {
   }
 });
 
+/**
+ * GET /view-v3/:tokenOrId
+ * Long-form public or private view of an invoice (V3)
+ */
+router.get('/view-v3/:tokenOrId', async (req, res) => {
+  try {
+    const { tokenOrId } = req.params;
+    const layout = String(req.query.layout || '').toLowerCase();
+    const client = await pool.connect();
+    try {
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+
+      if (invoice) {
+        const html = invoiceHtmlGeneratorV3.generateInvoiceHtmlV3(invoice, invoice.template, { layout });
+        res.send(html);
+      } else {
+        res.status(404).send('Invoice not found');
+      }
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error viewing invoice V3:', err);
+    res.status(500).send('Error loading invoice');
+  }
+});
+
+/**
+ * GET /view-v3/:tokenOrId/pdf
+ * Generate PDF for an invoice using V3 template
+ */
+router.get('/view-v3/:tokenOrId/pdf', async (req, res) => {
+  try {
+    const { tokenOrId } = req.params;
+    const client = await pool.connect();
+    try {
+      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+
+      if (!invoice) {
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      const html = invoiceHtmlGeneratorV3.generateInvoiceHtmlV3(invoice, invoice.template, { forPdf: true });
+      const pdfResult = await externalPdfService.generatePdf(html);
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(pdfResult);
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error generating PDF for V3:', err);
+    res.status(500).json({ success: false, error: 'Error generating PDF: ' + err.message });
+  }
+});
+
+/**
+ * POST /view-v3/:tokenOrId/signature
+ * Save customer signature for an invoice (v3 route)
+ */
+router.post('/view-v3/:tokenOrId/signature', async (req, res) => {
+  try {
+    const { tokenOrId } = req.params;
+    const { signature } = req.body;
+
+    if (!signature) {
+      return res.status(400).json({ success: false, error: 'Signature data is required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);
+      if (!bubbleId) {
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      await client.query(
+        `UPDATE invoice
+         SET customer_signature = $1,
+             signature_date = NOW(),
+             updated_at = NOW()
+         WHERE bubble_id = $2`,
+        [signature, bubbleId]
+      );
+
+      res.json({ success: true, message: 'Signature saved successfully' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[SIGNATURE-V3] Critical error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.post('/view/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 router.post('/view2/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
+router.post('/view-v3/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 
 /**
  * GET /proposal/:shareToken

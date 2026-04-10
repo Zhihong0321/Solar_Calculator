@@ -276,6 +276,289 @@ async function getPackageById(client, packageId) {
   }
 }
 
+function inferPhaseScopeFromProductName(productName) {
+  const normalizedName = String(productName || '').toUpperCase();
+  if (!normalizedName) return null;
+  if (normalizedName.includes('[3P]') || normalizedName.includes('THREE PHASE')) return 'three_phase';
+  if (normalizedName.includes('[1P]') || normalizedName.includes('SINGLE PHASE')) return 'single_phase';
+  return null;
+}
+
+function inferInverterKind(productName) {
+  const normalizedName = String(productName || '').toUpperCase();
+  if (!normalizedName) return 'unknown';
+  if (normalizedName.includes(' H2 ') || normalizedName.includes('HYBRID')) return 'hybrid';
+  if (normalizedName.includes(' R5 ') || normalizedName.includes(' R6 ') || normalizedName.includes('STRING')) return 'string';
+  return 'unknown';
+}
+
+function inferInverterModelCode(productName) {
+  const normalizedName = String(productName || '').toUpperCase();
+  if (!normalizedName) return null;
+
+  if (normalizedName.includes('R5 5KW')) return 'R5-5K-S2';
+  if (normalizedName.includes('R5 6KW')) return 'R5-6K-S2';
+  if (normalizedName.includes('R5 7KW')) return 'R5-7K-S2';
+  if (normalizedName.includes('R5 8KW')) return 'R5-8K-S2';
+  if (normalizedName.includes('R6 8KW')) return 'R6-8K-T2';
+  if (normalizedName.includes('R6 10KW')) return 'R6-10K-T2';
+  if (normalizedName.includes('R6 12KW')) return 'R6-12K-T2';
+  if (normalizedName.includes('R6 12.5KW') || normalizedName.includes('R6 15KW')) return 'R6-12.5/15K-T2-32';
+  if (normalizedName.includes('R6 20KW')) return 'R6-20K-T2-32';
+  if (normalizedName.includes('H2 5KW')) return 'H2-5K-LS2';
+  if (normalizedName.includes('H2 6KW')) return 'H2-6K-LS2';
+  if (normalizedName.includes('H2 8KW') && normalizedName.includes('THREE PHASE')) return 'H2-8K-LT2';
+  if (normalizedName.includes('H2 8KW')) return 'H2-8K-LS2';
+  if (normalizedName.includes('H2 10KW')) return 'H2-10K-LT2';
+  if (normalizedName.includes('H2 12KW')) return 'H2-12K-LT2';
+  if (normalizedName.includes('H2 15KW')) return 'H2-15K-LT2';
+  if (normalizedName.includes('H2 20KW')) return 'H2-20K-LT2';
+
+  return null;
+}
+
+function formatMoneyLabel(value) {
+  return `RM ${(parseFloat(value) || 0).toFixed(2)}`;
+}
+
+function buildHybridUpgradePackageName(sourcePackageName, targetModelCode) {
+  const baseName = String(sourcePackageName || 'Custom Solar Package').trim();
+  const suffix = targetModelCode ? `Hybrid ${targetModelCode}` : 'Hybrid Upgrade';
+  if (baseName.toUpperCase().includes('HYBRID')) {
+    return baseName;
+  }
+  return `${baseName} (${suffix})`;
+}
+
+function buildHybridUpgradePackageDescription(sourceDescription, targetInverterName, topUpAmount) {
+  const lines = String(sourceDescription || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  let replacedInverterLine = false;
+  const updatedLines = lines.map((line) => {
+    if (!replacedInverterLine && /inverter/i.test(line)) {
+      replacedInverterLine = true;
+      return `1X ${targetInverterName}`;
+    }
+    return line;
+  });
+
+  if (!replacedInverterLine && targetInverterName) {
+    updatedLines.push(`1X ${targetInverterName}`);
+  }
+
+  const upgradeNote = `Hybrid inverter upgrade included (${formatMoneyLabel(topUpAmount)} top-up)`;
+  if (!updatedLines.some((line) => line.toLowerCase() === upgradeNote.toLowerCase())) {
+    updatedLines.push(upgradeNote);
+  }
+
+  return updatedLines.join('\n');
+}
+
+async function getHybridUpgradeOptionsForPackage(client, packageId) {
+  const rulesTableExists = await hasTable(client, 'hybrid_inverter_upgrade_rule');
+  if (!rulesTableExists) {
+    return {
+      packageId,
+      packageAlreadyHybrid: false,
+      currentInverter: null,
+      rules: []
+    };
+  }
+
+  const packageColumns = await getTableColumns(client, 'package');
+  const packageRes = await client.query(
+    `SELECT
+        p.bubble_id,
+        p.package_name,
+        p.price,
+        p.invoice_desc,
+        p.inverter_1,
+        ${packageColumns.has('package_scope') ? 'p.package_scope' : "'system'::text AS package_scope"},
+        ${packageColumns.has('source_package_bubble_id') ? 'p.source_package_bubble_id' : 'NULL::text AS source_package_bubble_id'},
+        ${packageColumns.has('root_package_bubble_id') ? 'p.root_package_bubble_id' : 'NULL::text AS root_package_bubble_id'},
+        ${packageColumns.has('linked_invoice_bubble_id') ? 'p.linked_invoice_bubble_id' : 'NULL::text AS linked_invoice_bubble_id'},
+        ${packageColumns.has('created_from_reason') ? 'p.created_from_reason' : 'NULL::text AS created_from_reason'},
+        pr.bubble_id AS inverter_product_bubble_id,
+        pr.name AS inverter_name
+     FROM package p
+     LEFT JOIN product pr
+       ON CAST(p.inverter_1 AS TEXT) = CAST(pr.bubble_id AS TEXT)
+       OR CAST(p.inverter_1 AS TEXT) = CAST(pr.id AS TEXT)
+     WHERE p.bubble_id = $1
+     LIMIT 1`,
+    [packageId]
+  );
+
+  if (packageRes.rows.length === 0) {
+    throw new Error('Package not found');
+  }
+
+  const pkg = packageRes.rows[0];
+  const currentInverterName = pkg.inverter_name || null;
+  const currentInverterProductId = pkg.inverter_1 || pkg.inverter_product_bubble_id || null;
+  const phaseScope = inferPhaseScopeFromProductName(currentInverterName);
+  const currentModelCode = inferInverterModelCode(currentInverterName);
+  const inverterKind = inferInverterKind(currentInverterName);
+
+  const currentInverter = currentInverterName
+    ? {
+      product_bubble_id: currentInverterProductId,
+      name: currentInverterName,
+      model_code: currentModelCode,
+      phase_scope: phaseScope,
+      inverter_kind: inverterKind
+    }
+    : null;
+
+  if (!currentInverter || inverterKind === 'hybrid') {
+    return {
+      packageId,
+      packageAlreadyHybrid: inverterKind === 'hybrid',
+      currentInverter,
+      rules: []
+    };
+  }
+
+  const ruleRes = await client.query(
+    `SELECT
+        bubble_id,
+        phase_scope,
+        from_model_code,
+        from_product_bubble_id,
+        from_product_name_snapshot,
+        to_model_code,
+        to_product_bubble_id,
+        to_product_name_snapshot,
+        price_amount,
+        currency_code,
+        stock_ready,
+        active,
+        notes,
+        sort_order
+     FROM hybrid_inverter_upgrade_rule
+     WHERE rule_type = 'inverter_upgrade'
+       AND active = TRUE
+       AND (
+         ($1::text IS NOT NULL AND from_product_bubble_id = $1)
+         OR ($2::text IS NOT NULL AND from_model_code = $2)
+       )
+       AND ($3::text IS NULL OR phase_scope = $3)
+     ORDER BY sort_order ASC, id ASC`,
+    [currentInverterProductId, currentModelCode, phaseScope]
+  );
+
+  const rules = ruleRes.rows.map((row) => ({
+    ...row,
+    price_amount: parseFloat(row.price_amount) || 0,
+    is_selectable: Boolean(row.to_product_bubble_id)
+  }));
+
+  return {
+    packageId,
+    packageAlreadyHybrid: false,
+    currentInverter,
+    rules
+  };
+}
+
+async function clonePackageWithHybridUpgrade(client, sourcePackageId, ruleBubbleId, userId, linkedInvoiceId = null) {
+  const packageColumns = await getTableColumns(client, 'package');
+  const context = await getHybridUpgradeOptionsForPackage(client, sourcePackageId);
+  const selectedRule = context.rules.find((rule) => String(rule.bubble_id) === String(ruleBubbleId));
+
+  if (!selectedRule) {
+    throw new Error('Selected hybrid inverter upgrade rule is not valid for this package.');
+  }
+
+  if (!selectedRule.is_selectable) {
+    throw new Error('Selected hybrid inverter upgrade rule is missing the target hybrid inverter mapping.');
+  }
+
+  const sourceRes = await client.query(`SELECT * FROM package WHERE bubble_id = $1 LIMIT 1`, [sourcePackageId]);
+  if (sourceRes.rows.length === 0) {
+    throw new Error('Source package not found for hybrid upgrade.');
+  }
+
+  const sourcePackage = sourceRes.rows[0];
+  const customPackageId = `pkg_${crypto.randomBytes(10).toString('hex')}`;
+  const customPrice = (parseFloat(sourcePackage.price) || 0) + (parseFloat(selectedRule.price_amount) || 0);
+  const rootPackageId = sourcePackage.root_package_bubble_id || sourcePackage.source_package_bubble_id || sourcePackage.bubble_id;
+  const targetInverterName = selectedRule.to_product_name_snapshot || selectedRule.to_model_code || 'Hybrid Inverter';
+
+  const insertValues = [];
+  const columnNames = [];
+  const pushColumn = (columnName, value) => {
+    columnNames.push(columnName);
+    insertValues.push(value);
+  };
+
+  pushColumn('bubble_id', customPackageId);
+  if (packageColumns.has('last_synced_at')) pushColumn('last_synced_at', new Date());
+  if (packageColumns.has('created_at')) pushColumn('created_at', new Date());
+  if (packageColumns.has('updated_at')) pushColumn('updated_at', new Date());
+  if (packageColumns.has('special')) pushColumn('special', sourcePackage.special);
+  if (packageColumns.has('panel_qty')) pushColumn('panel_qty', sourcePackage.panel_qty);
+  if (packageColumns.has('created_date')) pushColumn('created_date', sourcePackage.created_date);
+  if (packageColumns.has('price')) pushColumn('price', customPrice);
+  if (packageColumns.has('invoice_desc')) pushColumn('invoice_desc', buildHybridUpgradePackageDescription(sourcePackage.invoice_desc, targetInverterName, selectedRule.price_amount));
+  if (packageColumns.has('linked_package_item')) pushColumn('linked_package_item', sourcePackage.linked_package_item);
+  if (packageColumns.has('created_by')) pushColumn('created_by', String(userId || sourcePackage.created_by || 'system'));
+  if (packageColumns.has('package_name')) pushColumn('package_name', buildHybridUpgradePackageName(sourcePackage.package_name, selectedRule.to_model_code));
+  if (packageColumns.has('panel')) pushColumn('panel', sourcePackage.panel);
+  if (packageColumns.has('type')) pushColumn('type', sourcePackage.type);
+  if (packageColumns.has('max_discount')) pushColumn('max_discount', sourcePackage.max_discount);
+  if (packageColumns.has('need_approval')) pushColumn('need_approval', sourcePackage.need_approval);
+  if (packageColumns.has('active')) pushColumn('active', false);
+  if (packageColumns.has('modified_date')) pushColumn('modified_date', new Date());
+  if (packageColumns.has('password')) pushColumn('password', null);
+  if (packageColumns.has('creation_date')) pushColumn('creation_date', sourcePackage.creation_date);
+  if (packageColumns.has('creator')) pushColumn('creator', sourcePackage.creator);
+  if (packageColumns.has('slug')) pushColumn('slug', null);
+  if (packageColumns.has('system_default')) pushColumn('system_default', null);
+  if (packageColumns.has('inverter_1')) pushColumn('inverter_1', selectedRule.to_product_bubble_id);
+  if (packageColumns.has('inverter_2')) pushColumn('inverter_2', sourcePackage.inverter_2);
+  if (packageColumns.has('inverter_3')) pushColumn('inverter_3', sourcePackage.inverter_3);
+  if (packageColumns.has('inverter_4')) pushColumn('inverter_4', sourcePackage.inverter_4);
+  if (packageColumns.has('unique_id')) pushColumn('unique_id', customPackageId);
+  if (packageColumns.has('package_scope')) pushColumn('package_scope', 'invoice_custom');
+  if (packageColumns.has('source_package_bubble_id')) pushColumn('source_package_bubble_id', sourcePackage.bubble_id);
+  if (packageColumns.has('root_package_bubble_id')) pushColumn('root_package_bubble_id', rootPackageId);
+  if (packageColumns.has('linked_invoice_bubble_id')) pushColumn('linked_invoice_bubble_id', linkedInvoiceId);
+  if (packageColumns.has('is_locked')) pushColumn('is_locked', false);
+  if (packageColumns.has('created_from_reason')) pushColumn('created_from_reason', `hybrid_upgrade:${selectedRule.bubble_id}`);
+
+  const placeholders = insertValues.map((_, index) => `$${index + 1}`).join(', ');
+  const insertQuery = `
+    INSERT INTO package (${columnNames.join(', ')})
+    VALUES (${placeholders})
+    RETURNING bubble_id, package_name AS name, price, panel, panel_qty, invoice_desc, type, max_discount
+  `;
+
+  const insertRes = await client.query(insertQuery, insertValues);
+  return {
+    package: insertRes.rows[0],
+    selectedRule
+  };
+}
+
+async function attachCustomPackageToInvoice(client, packageId, invoiceId) {
+  const packageColumns = await getTableColumns(client, 'package');
+  if (!packageColumns.has('linked_invoice_bubble_id')) {
+    return;
+  }
+
+  await client.query(
+    `UPDATE package
+     SET linked_invoice_bubble_id = $1,
+         updated_at = NOW()
+     WHERE bubble_id = $2`,
+    [invoiceId, packageId]
+  );
+}
+
 /**
  * Get invoice payment state used by edit restrictions.
  * Counts both verified payments and submitted payments as "has payment".
@@ -1181,11 +1464,21 @@ async function getInvoiceByBubbleId(client, bubbleId) {
       parallelQueries.push(
         (async () => {
           const packageResult = await client.query(
-            `SELECT p.panel_qty, p.panel, pr.solar_output_rating
+            `SELECT
+                p.panel_qty,
+                p.panel,
+                p.inverter_1,
+                panel_product.name AS panel_name,
+                inverter_product.name AS inverter_name,
+                panel_product.solar_output_rating
              FROM package p
-             LEFT JOIN product pr ON (
-               CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-               OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
+             LEFT JOIN product panel_product ON (
+               CAST(p.panel AS TEXT) = CAST(panel_product.id AS TEXT)
+               OR CAST(p.panel AS TEXT) = CAST(panel_product.bubble_id AS TEXT)
+             )
+             LEFT JOIN product inverter_product ON (
+               CAST(p.inverter_1 AS TEXT) = CAST(inverter_product.id AS TEXT)
+               OR CAST(p.inverter_1 AS TEXT) = CAST(inverter_product.bubble_id AS TEXT)
              )
              WHERE p.bubble_id = $1`,
             [invoice.linked_package]
@@ -1194,6 +1487,8 @@ async function getInvoiceByBubbleId(client, bubbleId) {
             const packageData = packageResult.rows[0];
             invoice.panel_qty = packageData.panel_qty;
             invoice.panel_rating = packageData.solar_output_rating;
+            invoice.panel_name = packageData.panel_name || invoice.panel_name || null;
+            invoice.inverter_name = packageData.inverter_name || invoice.inverter_name || null;
             if (packageData.panel_qty && packageData.solar_output_rating) {
               invoice.system_size_kwp = (packageData.panel_qty * packageData.solar_output_rating) / 1000;
             }
@@ -1681,6 +1976,17 @@ async function createInvoiceOnTheFly(client, data) {
       data.remark = data.remark || `Assigned referral lead selected: ${linkedReferral.name || linkedReferral.bubble_id}`;
     }
 
+    if (data.hybridUpgradeRuleId) {
+      const clonedPackage = await clonePackageWithHybridUpgrade(
+        client,
+        data.packageId,
+        data.hybridUpgradeRuleId,
+        data.userId
+      );
+      data.packageId = clonedPackage.package.bubble_id;
+      data.createdCustomPackageId = clonedPackage.package.bubble_id;
+    }
+
     // 1. Fetch Dependencies (Package, Customer, Template)
     const deps = await _fetchDependencies(client, data);
 
@@ -1697,6 +2003,10 @@ async function createInvoiceOnTheFly(client, data) {
 
     // 4. Create Invoice Header
     const invoice = await _createInvoiceRecord(client, data, financials, deps, voucherInfo);
+
+    if (data.createdCustomPackageId) {
+      await attachCustomPackageToInvoice(client, data.createdCustomPackageId, invoice.bubble_id);
+    }
 
     // 5. Create Line Items
     await _createLineItems(client, invoice.bubble_id, data, financials, deps, voucherInfo);
@@ -2067,9 +2377,9 @@ async function updateInvoiceTransaction(client, data) {
       data.referrerName = data.referrerName ?? currentData.referrer_name ?? null;
     }
 
-    const requestedPackageId = data.packageId || currentData.linked_package || null;
+    const requestedSourcePackageId = data.packageId || currentData.linked_package || null;
     const currentPackageId = currentData.linked_package || null;
-    const isPackageChange = requestedPackageId !== currentPackageId;
+    const isPackageChange = Boolean(data.hybridUpgradeRuleId) || requestedSourcePackageId !== currentPackageId;
 
     if (isPackageChange) {
       const paymentState = await _getInvoicePaymentState(client, bubbleId, currentData.linked_payment);
@@ -2086,6 +2396,18 @@ async function updateInvoiceTransaction(client, data) {
     }
 
     // 2. Resolve Dependencies
+    let requestedPackageId = requestedSourcePackageId;
+    if (data.hybridUpgradeRuleId) {
+      const clonedPackage = await clonePackageWithHybridUpgrade(
+        client,
+        requestedSourcePackageId,
+        data.hybridUpgradeRuleId,
+        data.userId,
+        bubbleId
+      );
+      requestedPackageId = clonedPackage.package.bubble_id;
+    }
+
     const pkg = await getPackageById(client, requestedPackageId);
     if (!pkg) throw new Error(`Package not found`);
 
@@ -2686,6 +3008,9 @@ module.exports = {
   generateShareToken,
   generateInvoiceNumber,
   getPackageById,
+  getHybridUpgradeOptionsForPackage,
+  clonePackageWithHybridUpgrade,
+  attachCustomPackageToInvoice,
   getDefaultTemplate,
   getTemplateById,
   getVoucherByCode,
