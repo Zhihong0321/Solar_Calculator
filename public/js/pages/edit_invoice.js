@@ -29,6 +29,10 @@ let referralInvoiceFilterId = null;
 let inlineVoucherStep = null;
 let selectedDraftVouchers = [];
 let loadedInvoiceItems = [];
+let loadedPromotionSelections = {
+    earnNowApplied: false,
+    earthMonthApplied: false
+};
 const BALLAST_UNIT_PRICE = 120;
 const APRIL_2026_PROMO_END = new Date('2026-05-01T00:00:00');
 
@@ -134,6 +138,194 @@ function getAdditionalInvoiceItems() {
     return items;
 }
 
+function buildHybridUpgradePreviewName(baseName, targetModelCode) {
+    const trimmedBase = String(baseName || 'Package Item').trim();
+    if (!targetModelCode) return trimmedBase;
+    if (trimmedBase.toUpperCase().includes('HYBRID')) return trimmedBase;
+    return `${trimmedBase} (Hybrid ${targetModelCode})`;
+}
+
+function buildHybridUpgradePreviewDescription(baseDescription, targetInverterName, topUpAmount) {
+    const lines = String(baseDescription || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    let replaced = false;
+    const updated = lines.map((line) => {
+        if (!replaced && /inverter/i.test(line)) {
+            replaced = true;
+            return `1X ${targetInverterName}`;
+        }
+        return line;
+    });
+
+    if (!replaced && targetInverterName) {
+        updated.push(`1X ${targetInverterName}`);
+    }
+
+    if (topUpAmount > 0) {
+        updated.push(`Hybrid inverter upgrade included (RM ${topUpAmount.toFixed(2)} top-up)`);
+    }
+
+    return updated.join('\n');
+}
+
+function getHybridUpgradeContext() {
+    if (!window.currentHybridUpgradeContext) {
+        window.currentHybridUpgradeContext = {
+            packageId: null,
+            currentInverter: null,
+            rules: [],
+            selectedRuleId: ''
+        };
+    }
+    return window.currentHybridUpgradeContext;
+}
+
+function getSelectedHybridUpgradeRule() {
+    const context = getHybridUpgradeContext();
+    return context.rules.find((rule) => String(rule.bubble_id) === String(context.selectedRuleId)) || null;
+}
+
+function setHybridUpgradeSummaryLabels(rule) {
+    const currentLabel = document.getElementById('hybridUpgradeCurrentLabel');
+    const targetLabel = document.getElementById('hybridUpgradeTargetLabel');
+    const amountLabel = document.getElementById('hybridUpgradeAmountLabel');
+    const helper = document.getElementById('hybridUpgradeHelper');
+
+    if (!rule) {
+        if (currentLabel) currentLabel.textContent = 'None';
+        if (targetLabel) targetLabel.textContent = 'None';
+        if (amountLabel) amountLabel.textContent = 'RM 0.00';
+        if (helper) helper.textContent = 'Select an option to swap the inverter and add the top-up.';
+        return;
+    }
+
+    if (currentLabel) currentLabel.textContent = rule.from_model_code || rule.from_product_name_snapshot || 'Current inverter';
+    if (targetLabel) targetLabel.textContent = rule.to_model_code || rule.to_product_name_snapshot || 'Hybrid inverter';
+    if (amountLabel) amountLabel.textContent = `RM ${(parseFloat(rule.price_amount) || 0).toFixed(2)}`;
+    if (helper) {
+        helper.textContent = rule.stock_ready
+            ? 'This rule is ready to use and will be cloned into the invoice-specific package.'
+            : 'This rule is configured, but the admin side has marked it as not stock ready.';
+    }
+}
+
+function applyHybridUpgradeSelection() {
+    const context = getHybridUpgradeContext();
+    const rule = getSelectedHybridUpgradeRule();
+    const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
+    const packagePriceInput = document.getElementById('packagePrice');
+    const packageNameHidden = document.getElementById('packageName');
+    const packageNameDisplay = document.getElementById('packageNameDisplay');
+    const packagePriceDisplay = document.getElementById('packagePriceDisplay');
+    const packageDescDisplay = document.getElementById('packageDescDisplay');
+    const packageDescContainer = document.getElementById('packageDescContainer');
+
+    if (hiddenRuleInput) hiddenRuleInput.value = rule ? rule.bubble_id : '';
+
+    const basePrice = Number(window.currentBasePackagePrice) || 0;
+    const baseName = window.currentBasePackageName || packageNameHidden?.value || packageNameDisplay?.textContent || 'Package Item';
+    const baseDesc = window.currentBasePackageDescription || '';
+    const hybridTopUp = rule ? (parseFloat(rule.price_amount) || 0) : 0;
+    const totalPrice = basePrice + hybridTopUp;
+
+    if (packagePriceInput) packagePriceInput.value = totalPrice.toFixed(2);
+
+    const previewName = buildHybridUpgradePreviewName(baseName, rule?.to_model_code);
+    const previewDesc = rule
+        ? buildHybridUpgradePreviewDescription(baseDesc, rule.to_product_name_snapshot || rule.to_model_code || 'Hybrid Inverter', hybridTopUp)
+        : baseDesc;
+
+    if (packageNameHidden) packageNameHidden.value = previewName;
+    if (packageNameDisplay) packageNameDisplay.textContent = previewName;
+    if (packagePriceDisplay) packagePriceDisplay.textContent = `RM ${totalPrice.toFixed(2)}`;
+    if (packageDescDisplay) {
+        packageDescDisplay.textContent = previewDesc;
+    }
+    if (packageDescContainer) {
+        packageDescContainer.classList.toggle('hidden', !previewDesc);
+    }
+
+    const { maxPercent, maxAmount } = getManualDiscountPolicy(totalPrice);
+    window.maxDiscountAllowed = maxAmount;
+    window.maxDiscountPercentAllowed = maxPercent;
+    const maxDiscountDisplay = document.getElementById('maxDiscountDisplay');
+    const inputMaxDiscountDisplay = document.getElementById('inputMaxDiscountDisplay');
+    if (document.getElementById('maxDiscountRow')) {
+        document.getElementById('maxDiscountRow').classList.remove('hidden');
+    }
+    if (document.getElementById('inputMaxDiscountRow')) {
+        document.getElementById('inputMaxDiscountRow').classList.remove('hidden');
+    }
+    if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${maxAmount.toFixed(2)} (${maxPercent}% of package price)`;
+    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${maxAmount.toFixed(2)} (${maxPercent}% of package price)`;
+
+    setHybridUpgradeSummaryLabels(rule);
+    updateInvoicePreview();
+    updateWorkspaceStatuses();
+}
+
+function renderHybridUpgradeOptions(data) {
+    const section = document.getElementById('hybrid-upgrade-section');
+    const select = document.getElementById('hybridUpgradeSelect');
+    const context = getHybridUpgradeContext();
+
+    context.packageId = data?.packageId || null;
+    context.currentInverter = data?.currentInverter || null;
+    context.rules = Array.isArray(data?.rules) ? data.rules : [];
+    context.selectedRuleId = '';
+
+    if (!section || !select || !context.rules.length) {
+        section?.classList.add('hidden');
+        const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
+        if (hiddenRuleInput) hiddenRuleInput.value = '';
+        setHybridUpgradeSummaryLabels(null);
+        return;
+    }
+
+    section.classList.remove('hidden');
+    const options = ['<option value="">No hybrid upgrade</option>'];
+    context.rules.forEach((rule) => {
+        const topUp = (parseFloat(rule.price_amount) || 0).toFixed(2);
+        const availability = rule.stock_ready ? 'Ready' : 'Not ready';
+        const label = `${rule.from_model_code || 'Source'} -> ${rule.to_model_code || 'Target'} | RM ${topUp} | ${availability}`;
+        options.push(`<option value="${rule.bubble_id}">${label}</option>`);
+    });
+    select.innerHTML = options.join('');
+    select.value = '';
+
+    select.onchange = () => {
+        context.selectedRuleId = select.value || '';
+        applyHybridUpgradeSelection();
+    };
+
+    setHybridUpgradeSummaryLabels(null);
+    applyHybridUpgradeSelection();
+}
+
+async function loadHybridUpgradeOptions(packageId) {
+    const section = document.getElementById('hybrid-upgrade-section');
+    if (!section || !packageId) {
+        section?.classList.add('hidden');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/package/${packageId}/hybrid-upgrades`);
+        const result = await response.json();
+        if (response.ok && result.success && result.data) {
+            renderHybridUpgradeOptions(result.data);
+        } else {
+            section.classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('Failed to load hybrid upgrade options:', err);
+        section?.classList.add('hidden');
+    }
+}
+
 function isApril2026PromotionActive() {
     return new Date() < APRIL_2026_PROMO_END;
 }
@@ -166,9 +358,19 @@ function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
     const promotionsEnabled = isApril2026PromotionActive();
+    const isLoadedPromoEdit = Boolean(window.isEditMode);
 
-    const earnNowAppliedAmount = promotionsEnabled && earnNowToggle?.checked ? earnNowEligibleAmount : 0;
-    const earthMonthAppliedAmount = promotionsEnabled && earthMonthToggle?.checked ? earthMonthEligibleAmount : 0;
+    const earnNowAppliedAmount = (
+        promotionsEnabled
+            ? Boolean(earnNowToggle?.checked)
+            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.earnNowApplied)
+    ) ? earnNowEligibleAmount : 0;
+
+    const earthMonthAppliedAmount = (
+        promotionsEnabled
+            ? Boolean(earthMonthToggle?.checked)
+            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.earthMonthApplied)
+    ) ? earthMonthEligibleAmount : 0;
 
     return {
         panelQty: normalizedPanelQty,
@@ -189,20 +391,47 @@ function updatePromotionOptionsUI() {
     const earnNowHint = document.getElementById('earnNowHint');
     const earthMonthHint = document.getElementById('earthMonthBonusHint');
     const promotionsEnabled = isApril2026PromotionActive();
+    const hasPersistedPromo = Boolean(loadedPromotionSelections.earnNowApplied || loadedPromotionSelections.earthMonthApplied);
     const { panelQty, earnNowEligibleAmount, earthMonthEligibleAmount } = getAppliedPromotionAmounts();
 
     if (section) {
-        section.classList.toggle('hidden', !promotionsEnabled);
+        section.classList.toggle('hidden', !promotionsEnabled && !hasPersistedPromo);
     }
 
     if (!promotionsEnabled) {
+        const hasLoadedEarnNow = Boolean(loadedPromotionSelections.earnNowApplied);
+        const hasLoadedEarthMonth = Boolean(loadedPromotionSelections.earthMonthApplied);
+
         if (earnNowToggle) {
-            earnNowToggle.checked = false;
+            earnNowToggle.checked = hasLoadedEarnNow;
             earnNowToggle.disabled = true;
         }
         if (earthMonthToggle) {
-            earthMonthToggle.checked = false;
+            earthMonthToggle.checked = hasLoadedEarthMonth;
             earthMonthToggle.disabled = true;
+        }
+
+        if (!hasLoadedEarnNow && !hasLoadedEarthMonth) {
+            return;
+        }
+
+        if (earnNowAmountDisplay) {
+            earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
+        }
+        if (earthMonthAmountDisplay) {
+            earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
+        }
+
+        if (earnNowHint) {
+            earnNowHint.textContent = hasLoadedEarnNow
+                ? 'This rebate was already applied to the quotation and will be preserved on save.'
+                : 'Eligible for 11 to 36 solar panels only.';
+        }
+
+        if (earthMonthHint) {
+            earthMonthHint.textContent = hasLoadedEarthMonth
+                ? 'This bonus was already applied to the quotation and will be preserved on save.'
+                : 'Eligible for 11 to 36 solar panels only.';
         }
         return;
     }
@@ -241,6 +470,11 @@ function hydratePromotionSelections(items = []) {
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
     const earnNowApplied = items.some((item) => String(item?.description || '').toLowerCase().includes('earn now rebate'));
     const earthMonthApplied = items.some((item) => String(item?.description || '').toLowerCase().includes('earth month go green bonus'));
+
+    loadedPromotionSelections = {
+        earnNowApplied,
+        earthMonthApplied
+    };
 
     if (earnNowToggle) {
         earnNowToggle.checked = earnNowApplied;
@@ -1804,6 +2038,9 @@ function showPackage(pkg) {
     document.getElementById('packagePrice').value = pkg.price || 0;
     document.getElementById('packageName').value = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packageIdHidden').value = pkg.bubble_id;
+    window.currentBasePackagePrice = parseFloat(pkg.price) || 0;
+    window.currentBasePackageName = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
+    window.currentBasePackageDescription = pkg.invoice_desc || '';
     window.currentPanelQty = pkg.panel_qty || 0;
     window.currentPackageType = pkg.type || '';
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
@@ -1846,6 +2083,7 @@ function showPackage(pkg) {
         });
     }
 
+    loadHybridUpgradeOptions(pkg.bubble_id);
     updateInvoicePreview();
 }
 
@@ -1947,10 +2185,20 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         apply_sst: document.getElementById('applySST')?.checked || false,
         applyEarnNowRebate: document.getElementById('applyEarnNowRebate')?.checked || false,
         applyEarthMonthGoGreenBonus: document.getElementById('applyEarthMonthGoGreenBonus')?.checked || false,
+        hybrid_upgrade_rule_id: document.getElementById('hybridUpgradeRuleId')?.value || null,
         payment_structure: eppData.payment_structure,
         extra_items: extraItems,
         voucher_ids: getSelectedDraftVoucherIds()
     };
+
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    requestData.applyEarnNowRebate = earnNowToggle?.disabled
+        ? Boolean(loadedPromotionSelections.earnNowApplied)
+        : Boolean(earnNowToggle?.checked);
+    requestData.applyEarthMonthGoGreenBonus = earthMonthToggle?.disabled
+        ? Boolean(loadedPromotionSelections.earthMonthApplied)
+        : Boolean(earthMonthToggle?.checked);
 
 
     // Add EPP fee data if exists
