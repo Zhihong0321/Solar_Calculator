@@ -265,7 +265,55 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
   </style>
 </head>
 <body class="${isPrintLayout ? 'print-layout' : ''} font-sans text-slate-900">
-  <div class="mx-auto w-[min(1160px,calc(100vw-24px))] py-5 sm:py-6">
+  <div class="mx-auto w-[min(1400px,calc(100vw-24px))] py-4 sm:py-6">
+    <div class="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+      <aside class="space-y-4 ${isPrintLayout ? 'hidden' : ''}">
+        <section class="rounded-[24px] border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
+          <p class="text-[10px] font-black uppercase tracking-[0.28em] text-slate-400">Workspace</p>
+          <h2 class="section-title mt-2 text-2xl font-bold text-slate-950">Mini app mode</h2>
+          <p class="mt-3 text-sm leading-7 text-slate-600">Use the quick map to jump between the important sections without feeling like you are reading a long document.</p>
+        </section>
+
+        <section class="rounded-[24px] border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
+          <p class="text-[10px] font-black uppercase tracking-[0.28em] text-slate-400">Snapshot</p>
+          <div class="mt-4 grid grid-cols-1 gap-2">
+            ${quickFacts.map((fact) => `
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">${escapeHtml(fact.label)}</p>
+                <p class="mt-1 text-sm font-bold text-slate-900">${escapeHtml(fact.value)}</p>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+
+        <section class="rounded-[24px] border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
+          <p class="text-[10px] font-black uppercase tracking-[0.28em] text-slate-400">Jump To</p>
+          <div class="mt-4 space-y-2">
+            ${[
+              ['system-spec', 'System Spec Summarize'],
+              ['warranty-spec', 'Warranty Spec'],
+              ['saving-estimation', 'Saving Estimation'],
+              ['quotation', 'Quotation / invoice'],
+              ['presentation', presentationLabel],
+              ['tnc', 'TnC']
+            ].map(([id, label], index) => `
+              <a href="#${id}" class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
+                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-950 text-[11px] font-black text-white">${String(index + 1).padStart(2, '0')}</span>
+                <span class="leading-snug">${escapeHtml(label)}</span>
+              </a>
+            `).join('')}
+          </div>
+        </section>
+
+        <section class="rounded-[24px] border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
+          <p class="text-[10px] font-black uppercase tracking-[0.28em] text-slate-400">Actions</p>
+          <div class="mt-4 space-y-2">
+            <a href="${currentViewUrl}" target="_blank" rel="noopener noreferrer" class="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm font-bold text-slate-900 transition hover:bg-slate-100">Open Current View</a>
+            <button type="button" onclick="downloadPdf()" class="block w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">Download PDF</button>
+          </div>
+        </section>
+      </aside>
+      <div class="space-y-5">
     <section class="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-800 px-6 py-7 text-white shadow-[0_24px_80px_rgba(15,23,42,0.18)] sm:px-8">
       <div class="relative z-10 flex flex-col gap-6">
         <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
@@ -475,6 +523,8 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
         </div>
       </section>
     </main>
+      </div>
+    </div>
   </div>
 
   <script>
