@@ -10,5 +10,8 @@ REPO NAME : Solar Calculator v2
 - Validated bubble-ID auth patch with local smoke tests against Railway production data reads
 - Ran local auth and route smoke tests for bubble ID identity rollout readiness
 - Validated project build after bubble ID identity rollout changes
+- Documented the full user identity standardization and rollout plan for future reference
+- Preserved the Earth Month promo in the shared quotation edit flow so edit mode no longer resets the bonus to false.
+- Aligned the shared quotation edit submit path with the loaded promo state so Earth Month discounts are preserved without breaking user toggles.
 
 =====================
