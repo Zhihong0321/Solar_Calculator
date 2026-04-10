@@ -10,6 +10,7 @@ require('dotenv').config();
 // --- Core Resources ---
 const pool = require('./src/core/database/pool');
 const { requireAuth } = require('./src/core/middleware/auth');
+const { getRequestUserBubbleId, getRequestLegacyUserId } = require('./src/core/auth/userIdentity');
 
 // --- Feature Modules ---
 const Invoicing = require('./src/modules/Invoicing');
@@ -85,11 +86,14 @@ app.use('/api/v1/bug', BugReport.bugRoutes);
 app.use(express.static('public'));
 app.use('/proposal', express.static('portable-proposal'));
 app.use('/t3_html_presentation', express.static('mobile_html_output'));
+app.use('/company-logo', express.static(path.join(__dirname, 'v3-quotation-view', 'company-logo')));
 
 const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'storage');
 app.use('/uploads', express.static(storagePath));
 app.use('/seda-files', express.static(path.join(storagePath, 'seda_registration')));
 app.use('/agent-docs', express.static(path.join(storagePath, 'agent_documents')));
+
+const columnPresenceCache = new Map();
 
 function clearAuthCookies(res) {
   res.clearCookie('auth_token', { path: '/' });
@@ -104,6 +108,27 @@ function buildAbsoluteReturnTo(req, fallbackPath = '/agent/home') {
 
   const relativePath = requested.startsWith('/') ? requested : fallbackPath;
   return `${req.protocol}://${req.get('host')}${relativePath}`;
+}
+
+async function hasTableColumn(client, tableName, columnName) {
+  const cacheKey = `${tableName}.${columnName}`;
+  if (columnPresenceCache.has(cacheKey)) {
+    return columnPresenceCache.get(cacheKey);
+  }
+
+  const result = await client.query(
+    `SELECT 1
+       FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = $1
+        AND column_name = $2
+      LIMIT 1`,
+    [tableName, columnName]
+  );
+
+  const exists = result.rows.length > 0;
+  columnPresenceCache.set(cacheKey, exists);
+  return exists;
 }
 
 app.get('/', (req, res) => {
@@ -205,17 +230,46 @@ app.post('/api/agent/register', async (req, res) => {
     ]);
 
     // 2. Create Agent linked back to user
+    const agentColumns = [
+      'bubble_id',
+      'name',
+      'contact',
+      'email',
+      'address',
+      'introducer',
+      'agent_type',
+      'ic_front',
+      'ic_back',
+      'linked_user_login'
+    ];
+    const agentValues = [
+      agent_bubble_id,
+      normalizedName,
+      normalizedContact,
+      normalizedEmail,
+      normalizedAddress,
+      normalizedIntroducer,
+      normalizedAgentType,
+      icFrontUrl,
+      icBackUrl,
+      user_bubble_id
+    ];
+
+    // Some live databases have not received migration 021 yet, so we only write
+    // agent_code when the column is actually present.
+    if (await hasTableColumn(client, 'agent', 'agent_code')) {
+      agentColumns.splice(6, 0, 'agent_code');
+      agentValues.splice(6, 0, normalizedAgentCode);
+    }
+
+    const agentPlaceholders = agentValues.map((_, index) => `$${index + 1}`);
     const agentQuery = `
       INSERT INTO agent (
-        bubble_id, name, contact, email, address, introducer, agent_code, agent_type, 
-        ic_front, ic_back, linked_user_login, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+        ${agentColumns.join(', ')}, created_at, updated_at
+      ) VALUES (${agentPlaceholders.join(', ')}, NOW(), NOW())
       RETURNING *
     `;
-    const agentResult = await client.query(agentQuery, [
-      agent_bubble_id, normalizedName, normalizedContact, normalizedEmail, normalizedAddress, normalizedIntroducer, normalizedAgentCode, normalizedAgentType,
-      icFrontUrl, icBackUrl, user_bubble_id
-    ]);
+    const agentResult = await client.query(agentQuery, agentValues);
 
     await client.query('COMMIT');
     res.json({ success: true, agent: agentResult.rows[0] });
@@ -282,8 +336,8 @@ app.get('/help/new-user', requireAuth, (req, res) => {
  */
 app.get('/api/agent/profile', requireAuth, async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const bubbleId = req.user.bubbleId;
+    const userId = getRequestLegacyUserId(req);
+    const bubbleId = getRequestUserBubbleId(req);
 
     const query = `
       SELECT 
@@ -312,8 +366,8 @@ app.put('/api/agent/profile', requireAuth, async (req, res) => {
   const client = await pool.connect();
   try {
     const { name, contact, email, banker, bankin_account } = req.body;
-    const userId = req.user.userId;
-    const bubbleId = req.user.bubbleId;
+    const userId = getRequestLegacyUserId(req);
+    const bubbleId = getRequestUserBubbleId(req);
 
     // Validation: Phone must start with 0 and be 10-11 digits
     if (!/^0\d{9,10}$/.test(contact)) {
@@ -352,8 +406,8 @@ app.put('/api/agent/profile', requireAuth, async (req, res) => {
  */
 app.get('/api/agent/me', requireAuth, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user.id;
-    const bubbleId = req.user.bubbleId || req.user.bubble_id;
+    const userId = getRequestLegacyUserId(req);
+    const bubbleId = getRequestUserBubbleId(req);
 
     if (!userId) {
       console.error('[AgentMe] No userId found in req.user:', req.user);

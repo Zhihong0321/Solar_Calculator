@@ -2,28 +2,22 @@ const express = require('express');
 const emailService = require('../services/emailService');
 const { requireAuth } = require('../../../core/middleware/auth');
 const pool = require('../../../core/database/pool');
+const { resolveAuthenticatedUserRecord, resolveAgentBubbleId } = require('../../../core/auth/userIdentity');
 
 const router = express.Router();
 
 // Middleware to resolve agent_bubble_id from the authenticated user
 const resolveAgent = async (req, res, next) => {
   try {
-    const userId = req.user.userId || req.user.id;
-    const bubbleId = req.user.bubbleId || req.user.bubble_id;
+    const user = await resolveAuthenticatedUserRecord(pool, req);
+    const agentBubbleId = await resolveAgentBubbleId(pool, req);
 
-    if (!userId && !bubbleId) {
-      return res.status(401).json({ error: 'Invalid session data' });
-    }
-
-    const query = 'SELECT linked_agent_profile, access_level FROM "user" WHERE id::text = $1 OR (bubble_id = $2 AND bubble_id IS NOT NULL AND bubble_id != \'\') LIMIT 1';
-    const { rows } = await pool.query(query, [String(userId || ''), String(bubbleId || '')]);
-
-    if (rows.length === 0 || !rows[0].linked_agent_profile) {
+    if (!user || !agentBubbleId) {
       return res.status(403).json({ error: 'No agent profile linked to this user.' });
     }
 
-    req.agentBubbleId = rows[0].linked_agent_profile;
-    req.userAccessLevel = rows[0].access_level || [];
+    req.agentBubbleId = agentBubbleId;
+    req.userAccessLevel = user.access_level || [];
     next();
   } catch (err) {
     console.error('Error resolving agent:', err);

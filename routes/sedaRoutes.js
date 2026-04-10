@@ -4,7 +4,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const { Pool } = require('pg');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth } = require('../src/core/middleware/auth');
+const { resolveAgentBubbleId } = require('../src/core/auth/userIdentity');
 const sedaRepo = require('../src/modules/Invoicing/services/sedaRepo');
 const extractionService = require('../src/modules/Invoicing/services/extractionService');
 
@@ -530,22 +531,10 @@ router.post('/api/v1/seda-public/:shareToken/upload/:field', async (req, res) =>
  * Prioritizes invoices with payment and filters out completed/pending statuses
  */
 router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
-    const userId = req.user.userId || req.user.id;
     const client = await pool.connect();
 
     try {
-        // 1. Resolve Agent Profile from the 'agent' table linked to current user
-        let agentProfileId = null;
-        const userRes = await client.query(`
-            SELECT a.bubble_id 
-            FROM "user" u
-            JOIN agent a ON u.linked_agent_profile = a.bubble_id
-            WHERE u.id::text = $1 OR u.bubble_id = $1
-        `, [String(userId)]);
-
-        if (userRes.rows.length > 0) {
-            agentProfileId = userRes.rows[0].bubble_id;
-        }
+        const agentProfileId = await resolveAgentBubbleId(client, req);
 
         if (!agentProfileId) {
             return res.json({ success: true, data: [] });

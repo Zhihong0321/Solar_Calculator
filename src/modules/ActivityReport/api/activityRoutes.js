@@ -8,6 +8,7 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const activityRepo = require('../services/activityRepo');
 const customerRepo = require('../../Customer/services/customerRepo');
+const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../../core/auth/userIdentity');
 
 const router = express.Router();
 
@@ -142,12 +143,10 @@ router.get('/api/activity/config', requireAuth, (req, res) => {
 router.get('/api/activity/my-reports', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { limit, offset, startDate, endDate, activityType } = req.query;
 
     // Get agent's bubble_id from linked_agent_profile
-    client = await pool.connect();
-    // Get agent's bubble_id AND user's bubble_id to support legacy data
     client = await pool.connect();
     const agentResult = await client.query(
       `SELECT bubble_id, linked_agent_profile FROM "user" 
@@ -236,10 +235,9 @@ router.get('/api/activity/agent-reports', requireAuth, async (req, res) => {
 router.get('/api/activity/:id', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { id } = req.params;
 
-    client = await pool.connect();
     client = await pool.connect();
     const agentResult = await client.query(
       `SELECT bubble_id, linked_agent_profile FROM "user" 
@@ -281,7 +279,7 @@ router.get('/api/activity/:id', requireAuth, async (req, res) => {
 router.post('/api/activity/submit', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const {
       activityType,
       followUpSubtype,
@@ -360,7 +358,7 @@ router.post('/api/activity/submit', requireAuth, async (req, res) => {
 router.put('/api/activity/:id', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { id } = req.params;
     const {
       activityType,
@@ -432,7 +430,7 @@ router.put('/api/activity/:id', requireAuth, async (req, res) => {
 router.delete('/api/activity/:id', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { id } = req.params;
 
     client = await pool.connect();
@@ -478,7 +476,7 @@ router.delete('/api/activity/:id', requireAuth, async (req, res) => {
 router.get('/api/activity/stats/daily', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { date } = req.query;
     const targetDate = date || new Date().toISOString().split('T')[0];
 
@@ -520,7 +518,7 @@ router.get('/api/activity/stats/daily', requireAuth, async (req, res) => {
 router.get('/api/activity/stats/weekly', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId || req.user.bubbleId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { weekStart, weekEnd } = req.query;
 
     // Default to current week if not provided
@@ -572,7 +570,7 @@ router.get('/api/activity/stats/weekly', requireAuth, async (req, res) => {
 router.get('/api/activity/focus/weekly', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const fallbackActorId = req.user.userId || req.user.bubbleId;
+    const fallbackActorId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const requestedAgentId = req.query.agentId;
     const actorId = requestedAgentId || fallbackActorId;
     const { weekStart, weekEnd } = req.query;

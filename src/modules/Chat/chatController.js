@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const chatService = require('./chatService');
 const pool = require('../../core/database/pool');
+const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../core/auth/userIdentity');
 
 // --- Multer Config ---
 const storage = multer.diskStorage({
@@ -41,14 +42,21 @@ const getAbsoluteUrl = (req, filename) => {
 };
 
 // Helper to get full user profile from DB
-const getFullUser = async (userId) => {
-  const res = await pool.query('SELECT id as "userId", bubble_id as "bubbleId", access_level, email FROM "user" WHERE id = $1', [userId]);
+const getFullUser = async (userIdentity) => {
+  const res = await pool.query(
+    'SELECT id as "userId", bubble_id as "bubbleId", access_level, email FROM "user" WHERE bubble_id = $1 OR id::text = $1 LIMIT 1',
+    [String(userIdentity)]
+  );
   return res.rows[0];
 };
 
+function getRequestUserIdentity(req) {
+  return getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
+}
+
 exports.getAllThreads = async (req, res) => {
   try {
-    const user = await getFullUser(req.user.userId);
+    const user = await getFullUser(getRequestUserIdentity(req));
     if (!user) return res.status(401).json({ error: 'User not found' });
 
     const threads = await chatService.getChatThreads(user);
@@ -66,7 +74,7 @@ exports.getChatHistory = async (req, res) => {
     const { invoiceId } = req.params;
     if (!invoiceId) return res.status(400).json({ error: 'Invoice ID required' });
 
-    const user = await getFullUser(req.user.userId);
+    const user = await getFullUser(getRequestUserIdentity(req));
     if (!user) return res.status(401).json({ error: 'User not found' });
 
     const thread = await chatService.getThread(invoiceId);
@@ -94,7 +102,7 @@ exports.postMessage = async (req, res) => {
       const { invoiceId } = req.params;
       const { messageType, content, tagRole } = req.body;
       
-      const userProfile = await getFullUser(req.user.userId);
+      const userProfile = await getFullUser(getRequestUserIdentity(req));
       if (!userProfile) return res.status(401).json({ error: 'User not found' });
 
       if (!invoiceId) return res.status(400).json({ error: 'Invoice ID required' });
@@ -153,7 +161,9 @@ exports.postMessage = async (req, res) => {
 exports.acknowledgeTag = async (req, res) => {
   try {
     const { messageId } = req.params;
-    const userId = req.user.userId;
+    const userProfile = await getFullUser(getRequestUserIdentity(req));
+    if (!userProfile) return res.status(401).json({ error: 'User not found' });
+    const userId = userProfile.userId;
     
     const updated = await chatService.acknowledgeTag(messageId, userId);
     res.json({ success: true, assignment: updated });

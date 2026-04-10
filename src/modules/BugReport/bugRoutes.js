@@ -5,14 +5,21 @@ const bugController = require('./bugController');
 const bugService = require('./bugService');
 const pool = require('../../core/database/pool');
 const { requireAuth } = require('../../core/middleware/auth');
+const { getRequestUserBubbleId, getRequestLegacyUserId, resolveLegacyUserId } = require('../../core/auth/userIdentity');
 
 const adminRoles = bugService.ADMIN_ROLES.map((role) => role.toLowerCase());
 
 const requireAdmin = async (req, res, next) => {
   try {
+    const actorIdentity = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
+    const legacyUserId = await resolveLegacyUserId(pool, actorIdentity);
+    if (!legacyUserId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const userRes = await pool.query(
       'SELECT access_level FROM "user" WHERE id = $1',
-      [req.user.userId]
+      [legacyUserId]
     );
     const userLevels = (userRes.rows[0]?.access_level || []).map((role) =>
       String(role).toLowerCase().trim()

@@ -2125,8 +2125,9 @@ async function getInvoicesByUserId(client, userId, options = {}) {
       const user = userRes.rows[0];
       agentProfileId = user.linked_agent_profile || null;
 
-      ownerIds = [user.user_id];
+      ownerIds = [];
       if (user.bubble_id) ownerIds.push(user.bubble_id);
+      if (user.user_id) ownerIds.push(user.user_id);
       if (agentProfileId) ownerIds.push(agentProfileId);
 
       ownerIds = [...new Set(ownerIds.filter(Boolean).map(String))];
@@ -2913,17 +2914,34 @@ async function deleteSampleInvoices(client, userId, auditContext) {
     await beginAgentAuditTransaction(client, auditContext);
 
     // 1. Find target invoices (created by user)
+    let legacyUserId = null;
     let userBubbleId = null;
+    let userAgentProfile = null;
     try {
-      const userRes = await client.query('SELECT linked_agent_profile FROM "user" WHERE id = $1', [userId]);
-      if (userRes.rows.length > 0) userBubbleId = userRes.rows[0].linked_agent_profile;
+      const userRes = await client.query(
+        `SELECT id::text AS user_id, bubble_id, linked_agent_profile
+         FROM "user"
+         WHERE id::text = $1 OR bubble_id = $1`,
+        [String(userId)]
+      );
+      if (userRes.rows.length > 0) {
+        legacyUserId = userRes.rows[0].user_id || null;
+        userBubbleId = userRes.rows[0].bubble_id || null;
+        userAgentProfile = userRes.rows[0].linked_agent_profile || null;
+      }
     } catch (e) { }
 
-    const params = [String(userId)];
-    let whereClause = `(created_by = $1::varchar`;
-    if (userBubbleId) {
+    const ownerIdentifiers = [...new Set([userBubbleId, String(userId), legacyUserId].filter(Boolean))];
+    const params = [ownerIdentifiers];
+    let whereClause = `(created_by = ANY($1::text[])`;
+    if (userAgentProfile) {
       whereClause += ` OR created_by = $2::varchar`;
-      params.push(userBubbleId);
+      params.push(userAgentProfile);
+    }
+    if (userAgentProfile) {
+      const agentParamIndex = params.length + 1;
+      whereClause += ` OR linked_agent = $${agentParamIndex}::varchar`;
+      params.push(userAgentProfile);
     }
     whereClause += `)`;
 

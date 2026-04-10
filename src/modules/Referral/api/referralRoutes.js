@@ -3,6 +3,7 @@ const path = require('path');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const referralRepo = require('../services/referralRepo');
+const { resolveAuthenticatedUserRecord } = require('../../../core/auth/userIdentity');
 
 const router = express.Router();
 
@@ -15,26 +16,6 @@ function normalizeAccessLevels(accessLevels = []) {
 function hasManagerAccess(accessLevels = []) {
   const roles = normalizeAccessLevels(accessLevels);
   return roles.includes('hr') || roles.includes('kc');
-}
-
-async function resolveAuthenticatedUser(client, req) {
-  const userId = req.user?.userId || req.user?.id;
-  const bubbleId = req.user?.bubbleId || req.user?.bubble_id;
-
-  if (!userId && !bubbleId) {
-    return null;
-  }
-
-  const result = await client.query(
-    `SELECT id::text AS user_id, bubble_id, access_level, linked_agent_profile
-     FROM "user"
-     WHERE id::text = $1
-        OR (bubble_id = $2 AND bubble_id IS NOT NULL AND bubble_id != '')
-     LIMIT 1`,
-    [String(userId || ''), String(bubbleId || '')]
-  );
-
-  return result.rows[0] || null;
 }
 
 /**
@@ -54,7 +35,7 @@ router.get('/referral-leads-management', requireAuth, async (req, res) => {
   let client = null;
   try {
     client = await pool.connect();
-    const user = await resolveAuthenticatedUser(client, req);
+    const user = await resolveAuthenticatedUserRecord(client, req);
 
     if (!user || !hasManagerAccess(user.access_level)) {
       return res.status(403).send('<h1>Access Denied</h1><p>HR or KC access is required.</p>');
@@ -81,7 +62,7 @@ router.get('/api/v1/referrals/my-referrals', requireAuth, async (req, res) => {
   let client = null;
   try {
     client = await pool.connect();
-    const user = await resolveAuthenticatedUser(client, req);
+    const user = await resolveAuthenticatedUserRecord(client, req);
 
     if (!user) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -89,7 +70,7 @@ router.get('/api/v1/referrals/my-referrals', requireAuth, async (req, res) => {
 
     const referrals = await referralRepo.getReferralsByAgentId(
       client,
-      user.user_id || user.bubble_id || req.user.userId
+      user.bubble_id || user.user_id
     );
     
     res.json({ success: true, data: referrals });
@@ -109,7 +90,7 @@ router.get('/api/v1/referrals/management/leads', requireAuth, async (req, res) =
   let client = null;
   try {
     client = await pool.connect();
-    const user = await resolveAuthenticatedUser(client, req);
+    const user = await resolveAuthenticatedUserRecord(client, req);
 
     if (!user || !hasManagerAccess(user.access_level)) {
       return res.status(403).json({ success: false, error: 'HR or KC access required' });
@@ -139,7 +120,7 @@ router.get('/api/v1/referrals/management/agents', requireAuth, async (req, res) 
   let client = null;
   try {
     client = await pool.connect();
-    const user = await resolveAuthenticatedUser(client, req);
+    const user = await resolveAuthenticatedUserRecord(client, req);
 
     if (!user || !hasManagerAccess(user.access_level)) {
       return res.status(403).json({ success: false, error: 'HR or KC access required' });
@@ -253,7 +234,7 @@ router.put('/api/v1/referrals/:bubbleId/assign', requireAuth, async (req, res) =
     const { assignmentKey } = req.body;
 
     client = await pool.connect();
-    const user = await resolveAuthenticatedUser(client, req);
+    const user = await resolveAuthenticatedUserRecord(client, req);
 
     if (!user || !hasManagerAccess(user.access_level)) {
       return res.status(403).json({ success: false, error: 'HR or KC access required' });
@@ -289,7 +270,7 @@ router.put('/api/v1/referrals/:bubbleId/status', requireAuth, async (req, res) =
     const { status, linkedInvoice, dealValue } = req.body;
     
     client = await pool.connect();
-    const user = await resolveAuthenticatedUser(client, req);
+    const user = await resolveAuthenticatedUserRecord(client, req);
 
     if (!user) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -303,7 +284,7 @@ router.put('/api/v1/referrals/:bubbleId/status', requireAuth, async (req, res) =
 
     const identifiers = await referralRepo.resolveAgentIdentifiers(
       client,
-      user.user_id || user.bubble_id || req.user.userId
+      user.bubble_id || user.user_id
     );
     const currentAssignment = referral.assigned_agent || referral.linked_agent;
 

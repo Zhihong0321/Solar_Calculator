@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
+const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../../core/auth/userIdentity');
 const { aiRouter } = require('../../AIRouter/aiRouter');
 const { API_KEYS, MODEL } = require('../services/extractionService');
 
@@ -22,7 +23,7 @@ const requireAdminAccess = async (req, res, next) => {
         return next();
     }
 
-    const userId = req.user.userId || req.user.id || req.user.sub;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req) || req.user.sub;
     if (!userId) {
         return res.status(403).send('Access Denied: User identification missing.');
     }

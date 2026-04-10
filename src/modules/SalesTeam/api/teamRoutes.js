@@ -13,26 +13,18 @@ const router = express.Router();
 router.get('/sales-team-management', requireAuth, async (req, res) => {
   let client;
   try {
-    console.log('[SalesTeam] Request received');
-    console.log('[SalesTeam] req.user keys:', Object.keys(req.user || {}));
-    console.log('[SalesTeam] req.user:', JSON.stringify(req.user, null, 2));
-    
     if (!req.user) {
-      console.error('[SalesTeam] No req.user object');
       return res.status(401).send('<h1>Unauthorized</h1><p>No user session found.</p>');
     }
     
     client = await pool.connect();
-    const userId = req.user?.userId || req.user?.bubbleId || req.user?.id || req.user?.bubble_id;
-    console.log('[SalesTeam] Extracted userId:', userId);
+    const userId = req.user?.bubbleId || req.user?.bubble_id || req.user?.userId || req.user?.id;
     
     if (!userId) {
-      console.error('[SalesTeam] No userId found. req.user:', req.user);
       return res.status(401).send('<h1>Unauthorized</h1><p>Invalid session data.</p>');
     }
     
     const hasAccess = await teamRepo.hasHRAccess(userId, client);
-    console.log('[SalesTeam] hasAccess:', hasAccess);
     
     if (!hasAccess) {
       return res.status(403).send('<h1>Access Denied - HR only</h1>');
@@ -53,7 +45,7 @@ router.get('/api/teams', requireAuth, async (req, res) => {
   let client;
   try {
     client = await pool.connect();
-    const userId = req.user?.userId || req.user?.bubbleId || req.user?.id;
+    const userId = req.user?.bubbleId || req.user?.bubble_id || req.user?.userId || req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -76,7 +68,7 @@ router.post('/api/teams/assign', requireAuth, async (req, res) => {
   let client;
   try {
     client = await pool.connect();
-    const userId = req.user?.userId || req.user?.bubbleId || req.user?.id;
+    const userId = req.user?.bubbleId || req.user?.bubble_id || req.user?.userId || req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -100,7 +92,7 @@ router.post('/api/teams/remove', requireAuth, async (req, res) => {
   let client;
   try {
     client = await pool.connect();
-    const userId = req.user?.userId || req.user?.bubbleId || req.user?.id;
+    const userId = req.user?.bubbleId || req.user?.bubble_id || req.user?.userId || req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }

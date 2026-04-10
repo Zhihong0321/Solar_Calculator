@@ -1,6 +1,7 @@
+const { getCanonicalUserIdentity } = require('../../../core/auth/userIdentity');
+
 function getAuthenticatedUserId(req) {
-    const userId = req?.user?.userId ?? req?.user?.id ?? null;
-    return userId ? String(userId) : null;
+    return getCanonicalUserIdentity(req);
 }
 
 module.exports = {

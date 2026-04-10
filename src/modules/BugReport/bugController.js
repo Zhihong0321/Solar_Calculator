@@ -4,6 +4,7 @@ const fs = require('fs');
 const bugService = require('./bugService');
 const pool = require('../../core/database/pool');
 const { aiRouter } = require('../AIRouter/aiRouter');
+const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../core/auth/userIdentity');
 
 // --- Multer Config ---
 const storage = multer.diskStorage({
@@ -40,10 +41,17 @@ const getAbsoluteUrl = (req, filename) => {
   return `${protocol}://${host}/uploads/bug_uploads/${filename}`;
 };
 
-const getFullUser = async (userId) => {
-  const res = await pool.query('SELECT id as "userId", name, access_level, email FROM "user" WHERE id = $1', [userId]);
+const getFullUser = async (userIdentity) => {
+  const res = await pool.query(
+    'SELECT id as "userId", bubble_id as "bubbleId", name, access_level, email FROM "user" WHERE bubble_id = $1 OR id::text = $1 LIMIT 1',
+    [String(userIdentity)]
+  );
   return res.rows[0];
 };
+
+function getRequestUserIdentity(req) {
+  return getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
+}
 
 const SYSTEM_PROMPT = `You are a helpful IT Support Agent. 
 Your goal is to assist users in reporting system bugs. 
@@ -53,7 +61,7 @@ Keep your responses very concise and friendly. Format your replies simply using 
 
 exports.getAllThreads = async (req, res) => {
   try {
-    const user = await getFullUser(req.user.userId);
+    const user = await getFullUser(getRequestUserIdentity(req));
     if (!user) return res.status(401).json({ error: 'User not found' });
 
     const threads = await bugService.getAllBugThreads(user);
@@ -66,7 +74,7 @@ exports.getAllThreads = async (req, res) => {
 
 exports.getMyChatHistory = async (req, res) => {
   try {
-    const user = await getFullUser(req.user.userId);
+    const user = await getFullUser(getRequestUserIdentity(req));
     if (!user) return res.status(401).json({ error: 'User not found' });
 
     const thread = await bugService.getThread(user.userId);
@@ -89,7 +97,7 @@ exports.getMyChatHistory = async (req, res) => {
 exports.getAdminChatHistory = async (req, res) => {
     try {
       const { threadId } = req.params;
-      const user = await getFullUser(req.user.userId);
+      const user = await getFullUser(getRequestUserIdentity(req));
       if (!user) return res.status(401).json({ error: 'User not found' });
   
       const hasAdminAccess = user.access_level && user.access_level.some(role => bugService.ADMIN_ROLES.includes(role));
@@ -114,11 +122,10 @@ exports.postMessage = async (req, res) => {
       const { messageType, content } = req.body;
       const isAdminReplyStr = req.body.isAdminReply;
       const isAdminReply = typeof isAdminReplyStr === 'string' ? isAdminReplyStr === 'true' : !!isAdminReplyStr;
-      
-      const threadId = req.params.threadId || (await bugService.getThread(req.user.userId)).id;
 
-      const userProfile = await getFullUser(req.user.userId);
+      const userProfile = await getFullUser(getRequestUserIdentity(req));
       if (!userProfile) return res.status(401).json({ error: 'User not found' });
+      const threadId = req.params.threadId || (await bugService.getThread(userProfile.userId)).id;
 
       // Always use the primary integer ID as sender_id for consistency
       const senderId = String(userProfile.userId);

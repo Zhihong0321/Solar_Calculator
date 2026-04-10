@@ -2,8 +2,21 @@ const express = require('express');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const jwt = require('jsonwebtoken');
+const { getCanonicalUserIdentity } = require('../../../core/auth/userIdentity');
 
 const router = express.Router();
+
+function sanitizeUserForClient(user = {}) {
+    return {
+        bubbleId: user.bubbleId || user.bubble_id || null,
+        bubble_id: user.bubble_id || user.bubbleId || null,
+        linked_agent_profile: user.linked_agent_profile || null,
+        email: user.email || null,
+        access_level: user.access_level || [],
+        name: user.name || null,
+        contact: user.contact || null
+    };
+}
 
 /**
  * Debug Passkey Middleware
@@ -23,7 +36,7 @@ const requireDebugPasskey = (req, res, next) => {
 router.get('/api/user/me', requireAuth, async (req, res) => {
     let client = null;
     try {
-        const userId = req.user.userId || req.user.id;
+        const userIdentity = getCanonicalUserIdentity(req);
         client = await pool.connect();
         
         const query = `
@@ -33,24 +46,25 @@ router.get('/api/user/me', requireAuth, async (req, res) => {
             WHERE u.id::text = $1 OR u.bubble_id = $1
             LIMIT 1
         `;
-        const result = await client.query(query, [String(userId)]);
+        const result = await client.query(query, [String(userIdentity)]);
         
         const dbUser = result.rows[0] || {};
+        const safeUser = sanitizeUserForClient({
+            ...req.user,
+            name: dbUser.name || req.user.name,
+            contact: dbUser.contact || req.user.contact,
+            email: dbUser.email || req.user.email
+        });
 
         res.json({
             success: true,
-            user: {
-                ...req.user,
-                name: dbUser.name || req.user.name,
-                contact: dbUser.contact || req.user.contact,
-                email: dbUser.email || req.user.email
-            }
+            user: safeUser
         });
     } catch (err) {
         console.error('Error in /api/user/me:', err);
         res.json({
             success: true,
-            user: req.user
+            user: sanitizeUserForClient(req.user)
         });
     } finally {
         if (client) client.release();

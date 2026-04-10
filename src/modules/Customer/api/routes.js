@@ -9,8 +9,10 @@ const { requireAuth } = require('../../../core/middleware/auth');
 const fs = require('fs');
 const https = require('https');
 const customerRepo = require('../services/customerRepo');
+const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../../core/auth/userIdentity');
 
 const router = express.Router();
+const WHATSAPP_API_DISABLED = process.env.WHATSAPP_API_DISABLED !== 'false';
 const WHATSAPP_API_BASE_URL = process.env.WHATSAPP_API_URL || 'https://whatsapp-api-server-production-c15f.up.railway.app';
 const WHATSAPP_API_CHECK_TIMEOUT_MS = Number(process.env.WHATSAPP_API_TIMEOUT_MS || 10000);
 
@@ -45,6 +47,16 @@ router.post('/api/customers/check-whatsapp', requireAuth, async (req, res) => {
     const { phone } = req.body;
     if (!phone) {
       return res.status(400).json({ success: false, error: 'Phone number is required' });
+    }
+
+    if (WHATSAPP_API_DISABLED) {
+      return res.json({
+        success: false,
+        disabled: true,
+        isWhatsAppUser: false,
+        ready: false,
+        error: 'WhatsApp integration temporarily disabled'
+      });
     }
 
     const externalApiUrl = new URL('/api/check-user', WHATSAPP_API_BASE_URL).toString();
@@ -130,6 +142,14 @@ router.post('/api/customers/whatsapp-photo', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Photo URL and phone required' });
     }
 
+    if (WHATSAPP_API_DISABLED) {
+      return res.json({
+        success: false,
+        disabled: true,
+        error: 'WhatsApp integration temporarily disabled'
+      });
+    }
+
     const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH
       ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'customer_profiles')
       : path.resolve(__dirname, '../../../../storage/customer_profiles');
@@ -175,8 +195,12 @@ router.post('/api/customers/whatsapp-photo', requireAuth, async (req, res) => {
 router.get('/api/customers', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { limit, offset, search } = req.query;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     client = await pool.connect();
     const result = await customerRepo.getCustomersByUserId(client, userId, { limit, offset, search });
@@ -196,8 +220,12 @@ router.get('/api/customers', requireAuth, async (req, res) => {
 router.post('/api/customers', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { name, phone, email, address, city, state, postcode, profilePicture, leadSource, remark } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     if (!name) {
       return res.status(400).json({ success: false, error: 'Name is required' });
@@ -235,9 +263,13 @@ router.post('/api/customers', requireAuth, async (req, res) => {
 router.put('/api/customers/:id', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { id } = req.params;
     const { name, phone, email, address, city, state, postcode, profilePicture, leadSource, remark } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     client = await pool.connect();
     const customer = await customerRepo.updateCustomer(client, id, {
@@ -267,8 +299,12 @@ router.put('/api/customers/:id', requireAuth, async (req, res) => {
 router.delete('/api/customers/:id', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { id } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     client = await pool.connect();
     await customerRepo.deleteCustomer(client, id, userId);
@@ -292,8 +328,12 @@ router.delete('/api/customers/:id', requireAuth, async (req, res) => {
 router.get('/api/customers/:id/history', requireAuth, async (req, res) => {
   let client = null;
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
     const { id } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
 
     client = await pool.connect();
     const history = await customerRepo.getCustomerHistory(client, id, userId);

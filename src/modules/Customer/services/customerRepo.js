@@ -4,22 +4,44 @@
  */
 const crypto = require('crypto');
 
+async function resolveCustomerOwnerIdentifiers(client, ownerKey) {
+  const normalizedOwnerKey = String(ownerKey);
+  const ownerIdentifiers = new Set([normalizedOwnerKey]);
+
+  const userResult = await client.query(
+    `SELECT id::text AS user_id, bubble_id
+     FROM "user"
+     WHERE bubble_id = $1 OR id::text = $1
+     LIMIT 1`,
+    [normalizedOwnerKey]
+  );
+
+  if (userResult.rows.length > 0) {
+    const user = userResult.rows[0];
+    if (user.user_id) ownerIdentifiers.add(String(user.user_id));
+    if (user.bubble_id) ownerIdentifiers.add(String(user.bubble_id));
+  }
+
+  return Array.from(ownerIdentifiers);
+}
+
 /**
- * Get customers by User ID (created_by)
+ * Get customers by owner identity (created_by)
  * @param {object} client - Database client
- * @param {string} userId - User ID
+ * @param {string} ownerKey - User bubble_id (preferred) or legacy user id
  * @param {object} options - { limit, offset, search }
  */
-async function getCustomersByUserId(client, userId, options = {}) {
+async function getCustomersByUserId(client, ownerKey, options = {}) {
   const limit = parseInt(options.limit) || 100;
   const offset = parseInt(options.offset) || 0;
   const search = options.search ? `%${options.search}%` : null;
+  const ownerIdentifiers = await resolveCustomerOwnerIdentifiers(client, ownerKey);
 
   let query = `
     SELECT * FROM customer 
-    WHERE created_by = $1
+    WHERE created_by = ANY($1::text[])
   `;
-  const params = [String(userId)];
+  const params = [ownerIdentifiers];
 
   if (search) {
     query += ` AND (name ILIKE $2 OR phone ILIKE $2 OR email ILIKE $2)`;
@@ -32,8 +54,8 @@ async function getCustomersByUserId(client, userId, options = {}) {
   const result = await client.query(query, params);
 
   // Count total
-  let countQuery = `SELECT COUNT(*) as total FROM customer WHERE created_by = $1`;
-  const countParams = [String(userId)];
+  let countQuery = `SELECT COUNT(*) as total FROM customer WHERE created_by = ANY($1::text[])`;
+  const countParams = [ownerIdentifiers];
   if (search) {
     countQuery += ` AND (name ILIKE $2 OR phone ILIKE $2 OR email ILIKE $2)`;
     countParams.push(search);
@@ -91,6 +113,7 @@ async function createCustomer(client, data) {
  */
 async function updateCustomer(client, id, data) {
   const { name, phone, email, address, city, state, postcode, userId, profilePicture, leadSource, remark } = data;
+  const ownerIdentifiers = await resolveCustomerOwnerIdentifiers(client, userId);
 
   const result = await client.query(
     `UPDATE customer 
@@ -106,9 +129,9 @@ async function updateCustomer(client, id, data) {
          remark = COALESCE($12, remark),
          updated_at = NOW(),
          updated_by = $8
-     WHERE id = $9 AND created_by = $8
+     WHERE id = $9 AND created_by = ANY($13::text[])
      RETURNING *`,
-    [name, phone, email, address, city, state, postcode, String(userId), id, profilePicture, leadSource, remark]
+    [name, phone, email, address, city, state, postcode, String(userId), id, profilePicture, leadSource, remark, ownerIdentifiers]
   );
 
   return result.rows.length > 0 ? result.rows[0] : null;
@@ -121,9 +144,10 @@ async function updateCustomer(client, id, data) {
  */
 async function deleteCustomer(client, id, userId) {
   try {
+    const ownerIdentifiers = await resolveCustomerOwnerIdentifiers(client, userId);
     const result = await client.query(
-      `DELETE FROM customer WHERE id = $1 AND created_by = $2 RETURNING id`,
-      [id, String(userId)]
+      `DELETE FROM customer WHERE id = $1 AND created_by = ANY($2::text[]) RETURNING id`,
+      [id, ownerIdentifiers]
     );
     return result.rows.length > 0;
   } catch (err) {
@@ -142,10 +166,11 @@ async function deleteCustomer(client, id, userId) {
  * @param {string} userId - User ID who owns the customer
  */
 async function getCustomerHistory(client, id, userId) {
+  const ownerIdentifiers = await resolveCustomerOwnerIdentifiers(client, userId);
   // First verify ownership of the customer
   const ownershipCheck = await client.query(
-    'SELECT id FROM customer WHERE id = $1 AND created_by = $2',
-    [id, String(userId)]
+    'SELECT id FROM customer WHERE id = $1 AND created_by = ANY($2::text[])',
+    [id, ownerIdentifiers]
   );
 
   if (ownershipCheck.rows.length === 0) {

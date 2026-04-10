@@ -10,7 +10,6 @@ async function getTeamsWithMembers(client = pool) {
   // Simple: get all users
   const result = await client.query(`
     SELECT 
-      u.id,
       u.bubble_id,
       u.email,
       u.access_level,
@@ -25,12 +24,16 @@ async function getTeamsWithMembers(client = pool) {
   const unassigned = [];
 
   result.rows.forEach(user => {
+    const normalizedUser = {
+      ...user,
+      id: user.bubble_id
+    };
     const teamTag = (user.access_level || []).find(t => t && t.startsWith('team-'));
     if (teamTag) {
       if (!teams[teamTag]) teams[teamTag] = [];
-      teams[teamTag].push(user);
+      teams[teamTag].push(normalizedUser);
     } else {
-      unassigned.push(user);
+      unassigned.push(normalizedUser);
     }
   });
 
