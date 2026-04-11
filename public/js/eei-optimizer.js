@@ -112,6 +112,7 @@ function updateFutureResultSummary() {
   const eeiBenefit = document.getElementById('futureEeiBenefit');
   const exportSaving = document.getElementById('futureExportSaving');
   const billAfterSolar = document.getElementById('futureBillAfterSolar');
+  const morningOffset = document.getElementById('futureMorningOffset');
   const scenarioRow = getFutureScenarioRow();
 
   if (!scenarioRow) {
@@ -133,6 +134,9 @@ function updateFutureResultSummary() {
     if (billAfterSolar) {
       billAfterSolar.textContent = '-';
     }
+    if (morningOffset) {
+      morningOffset.textContent = '-';
+    }
     return;
   }
 
@@ -153,6 +157,9 @@ function updateFutureResultSummary() {
   }
   if (billAfterSolar) {
     billAfterSolar.textContent = formatMoneyCell(scenarioRow.billAfterSolarAmount ?? scenarioRow.billAfterSolar);
+  }
+  if (morningOffset) {
+    morningOffset.textContent = `${formatKwh(scenarioRow.morningOffsetKwh)} kWh`;
   }
 }
 

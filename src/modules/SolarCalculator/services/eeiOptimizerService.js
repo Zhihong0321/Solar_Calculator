@@ -59,9 +59,8 @@ const lookupPackageByPanelQty = async (client, panelQty, panelWattage) => {
     WHERE p.active = true
       AND (p.special IS FALSE OR p.special IS NULL)
       AND p.type = 'Residential'
-      AND p.panel_qty = $1
       AND pr.solar_output_rating = $2
-    ORDER BY p.price ASC
+    ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC
     LIMIT 1
   `;
 
