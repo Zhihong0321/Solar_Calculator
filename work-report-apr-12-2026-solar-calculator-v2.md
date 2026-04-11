@@ -9,5 +9,6 @@ REPO NAME : solar calculator v2
 - Removed the top-level panel quantity slider from the EEI system pick section
 - Expanded the EEI savings chart height and relaxed the y-axis bounds for better readability
 - Updated the EEI optimizer export logic to cap export by post-offset usage and treat excess as donated energy
+- Clarified the EEI report note to explain that positive red EEI adjustment reduces total saving
 
 =====================

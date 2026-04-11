@@ -585,8 +585,8 @@ function renderReport(data) {
   }
   if (savingsFormulaNote) {
     savingsFormulaNote.textContent = state.futureUsagePercent === 100
-      ? 'Total saving = bill reduction + export saving + actual EEI benefited.'
-      : `Future mode formula stays the same: bill reduction + export saving + actual EEI benefited = total saving at ${state.futureUsagePercent}% usage.`;
+      ? 'Total saving = bill reduction + export saving + actual EEI benefited. If EEI adjustment is positive and shown in red, it adds back to the bill and reduces total saving.'
+      : `Future mode formula stays the same: bill reduction + export saving + actual EEI benefited = total saving at ${state.futureUsagePercent}% usage. If EEI adjustment is positive and shown in red, it adds back to the bill and reduces total saving.`;
   }
   if (systemChoiceChip) {
     systemChoiceChip.textContent = `System pick: ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels`;
