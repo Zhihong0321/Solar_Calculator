@@ -53,6 +53,15 @@ function formatSignedMoneyCell(value) {
   return `${sign}RM ${formatCurrency(numeric)}`;
 }
 
+function formatSavingEquation(row) {
+  const billReduction = Number(row.billReductionSaving ?? row.billReduction ?? 0);
+  const exportSaving = Number(row.exportEarning ?? 0);
+  const eeiBenefit = Number(row.actualEeiBenefited ?? row.eeiSaving ?? row.eeiImpact ?? 0);
+  const totalSaving = Number(row.totalSavingAchieved ?? (billReduction + exportSaving + eeiBenefit));
+
+  return `${formatMoneyCell(billReduction)} + ${formatMoneyCell(exportSaving)} + ${formatMoneyCell(eeiBenefit)} = ${formatMoneyCell(totalSaving)}`;
+}
+
 function formatPanelRange(startPanelQty, endPanelQty) {
   if (!Number.isFinite(startPanelQty) || !Number.isFinite(endPanelQty)) {
     return '-';
@@ -488,6 +497,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
               <span class="font-black text-rose-600">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
               ${isSelected ? '<span class="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white">picked</span>' : ''}
             </div>
+            <p class="text-[10px] font-medium text-slate-500 leading-tight">${formatSavingEquation(row)}</p>
             <div>
               <button type="button" data-simulate-future-panel="${row.panelQty}" class="rounded-full bg-slate-950 px-2.5 py-0.5 text-[10px] font-semibold text-white hover:bg-slate-800">
                 Simulate Future
@@ -516,6 +526,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
             <span class="font-black text-rose-600">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
             ${isSelected ? '<span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-white">picked</span>' : ''}
           </div>
+          <p class="mt-1 text-[10px] font-medium text-slate-500 leading-tight">${formatSavingEquation(row)}</p>
           <div class="mt-2">
             <button type="button" data-simulate-future-panel="${row.panelQty}" class="rounded-full bg-slate-950 px-2.5 py-0.5 text-[10px] font-semibold text-white hover:bg-slate-800">
               Simulate Future
@@ -560,6 +571,7 @@ function renderReport(data) {
   const sweepRows = Array.isArray(data?.panelSweep) ? data.panelSweep : [];
   const reportRangeBadge = document.getElementById('reportRangeBadge');
   const reportLead = document.getElementById('reportLead');
+  const savingsFormulaNote = document.getElementById('savingsFormulaNote');
   const systemChoiceChip = document.getElementById('systemChoiceChip');
   const comparisonChip = document.getElementById('comparisonChip');
   const billChip = document.getElementById('billChip');
@@ -585,6 +597,11 @@ function renderReport(data) {
     reportLead.textContent = state.futureUsagePercent === 100
       ? `The chart shows bill reduction + actual EEI benefited + export saving = total saving. Each row shows bill after solar with EEI untouched, then the EEI adjustment separately.`
       : `Future mode is active at ${state.futureUsagePercent}% of current usage. The chart still compares bill reduction + actual EEI benefited + export saving for the same panel sweep.`;
+  }
+  if (savingsFormulaNote) {
+    savingsFormulaNote.textContent = state.futureUsagePercent === 100
+      ? 'Total saving = bill reduction + export saving + actual EEI benefited.'
+      : `Future mode formula stays the same: bill reduction + export saving + actual EEI benefited = total saving at ${state.futureUsagePercent}% usage.`;
   }
   if (systemChoiceChip) {
     systemChoiceChip.textContent = `System pick: ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels`;
