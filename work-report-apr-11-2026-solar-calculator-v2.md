@@ -15,5 +15,6 @@ REPO NAME : Solar Calculator v2
 - Removed the mobile EEI dock and added package price plus savings to each comparison row
 - Added a savings comparison line chart to the EEI optimizer and included package price in each panel comparison row
 - Enhanced the EEI optimizer with a future usage simulator, stronger total-saving chart styling, and live same-system recalculation
+- Changed the EEI future simulator to launch from each panel row instead of one global button
 
 =====================

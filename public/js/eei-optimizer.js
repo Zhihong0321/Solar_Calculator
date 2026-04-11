@@ -7,7 +7,9 @@ const state = {
   savingsChart: null,
   baseUsageKwh: null,
   futureUsagePercent: 100,
-  futureSimulationOpen: false
+  futureSimulationOpen: false,
+  futureTargetPanelQty: null,
+  futureBasePanelQty: null
 };
 
 function formatCurrency(value) {
@@ -43,6 +45,12 @@ function setStatus(text, tone = 'neutral') {
 
 function formatMoneyCell(value) {
   return `RM ${formatCurrency(value)}`;
+}
+
+function formatSignedMoneyCell(value) {
+  const numeric = Number(value || 0);
+  const sign = numeric > 0 ? '+' : '';
+  return `${sign}RM ${formatCurrency(numeric)}`;
 }
 
 function formatPanelRange(startPanelQty, endPanelQty) {
@@ -84,11 +92,25 @@ function getFutureUsageOverride() {
   return Number(((state.baseUsageKwh * state.futureUsagePercent) / 100).toFixed(2));
 }
 
+function getFuturePanelQty() {
+  return Math.max(1, parseInt(state.futureTargetPanelQty ?? state.currentPanelQty, 10) || 1);
+}
+
+function getFutureBasePanelQty() {
+  return Math.max(1, parseInt(state.futureBasePanelQty ?? state.currentPanelQty, 10) || 1);
+}
+
 function updateFutureUsageSummary() {
   const currentUsage = document.getElementById('futureCurrentUsage');
   const projectedUsage = document.getElementById('futureProjectedUsage');
   const percentValue = document.getElementById('futureUsagePercentValue');
-  const futureButton = document.getElementById('futureSimButton');
+  const futureModalTitle = document.getElementById('futureModalTitle');
+  const basePanelQty = document.getElementById('futureBasePanelQty');
+  const projectedPanelQty = document.getElementById('futureProjectedPanelQty');
+  const panelQtyValue = document.getElementById('futurePanelQtyValue');
+  const panelQtySlider = document.getElementById('futurePanelQtySlider');
+  const panelQtyMinLabel = document.getElementById('futurePanelQtyMinLabel');
+  const panelQtyMaxLabel = document.getElementById('futurePanelQtyMaxLabel');
 
   const baseUsage = Number(state.baseUsageKwh || state.latestPayload?.original?.usageKwh || 0);
   const projected = getFutureUsageOverride() ?? baseUsage;
@@ -96,6 +118,8 @@ function updateFutureUsageSummary() {
   const deltaLabel = delta === 0
     ? 'Current'
     : `${delta > 0 ? '+' : ''}${delta}%`;
+  const basePanels = getFutureBasePanelQty();
+  const projectedPanels = getFuturePanelQty();
 
   if (currentUsage) {
     currentUsage.textContent = `${formatKwh(baseUsage)} kWh`;
@@ -106,32 +130,55 @@ function updateFutureUsageSummary() {
   if (percentValue) {
     percentValue.textContent = delta === 0 ? '100% (Current)' : `${state.futureUsagePercent}% (${deltaLabel})`;
   }
-  if (futureButton) {
-    futureButton.disabled = !(baseUsage > 0);
-    futureButton.className = `rounded-full px-3 py-1.5 font-semibold border transition-colors ${
-      state.futureUsagePercent === 100
-        ? 'bg-slate-950 text-white border-slate-950 hover:bg-slate-800'
-        : 'bg-rose-600 text-white border-rose-600 hover:bg-rose-500'
-    }`;
-    futureButton.textContent = state.futureUsagePercent === 100
-      ? 'Simulate Future'
-      : `Future ${state.futureUsagePercent}%`;
+  if (futureModalTitle) {
+    futureModalTitle.textContent = `Change usage for ${projectedPanels} panels`;
+  }
+  if (basePanelQty) {
+    basePanelQty.textContent = `${basePanels} panels`;
+  }
+  if (projectedPanelQty) {
+    projectedPanelQty.textContent = `${projectedPanels} panels`;
+  }
+  if (panelQtyValue) {
+    panelQtyValue.textContent = projectedPanels === basePanels
+      ? `${projectedPanels} panels (Base)`
+      : `${projectedPanels} panels (+${projectedPanels - basePanels})`;
+  }
+  if (panelQtySlider) {
+    panelQtySlider.min = String(basePanels);
+    panelQtySlider.max = String(basePanels + 10);
+    panelQtySlider.value = String(projectedPanels);
+  }
+  if (panelQtyMinLabel) {
+    panelQtyMinLabel.textContent = `${basePanels}`;
+  }
+  if (panelQtyMaxLabel) {
+    panelQtyMaxLabel.textContent = `${basePanels + 10}`;
   }
 }
 
-function openFutureModal() {
+function openFutureModal(panelQty) {
   if (!(state.baseUsageKwh > 0)) {
     return;
   }
 
+  const safeBasePanelQty = Math.max(1, parseInt(panelQty, 10) || state.currentPanelQty || 1);
+  state.futureBasePanelQty = safeBasePanelQty;
+  state.futureTargetPanelQty = safeBasePanelQty;
   const modal = document.getElementById('futureSimModal');
-  const slider = document.getElementById('futureUsageSlider');
+  const usageSlider = document.getElementById('futureUsageSlider');
+  const panelQtySlider = document.getElementById('futurePanelQtySlider');
   if (modal) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
   }
-  if (slider) {
-    slider.value = String(state.futureUsagePercent);
+  if (usageSlider) {
+    usageSlider.value = String(state.futureUsagePercent);
+  }
+  if (panelQtySlider) {
+    panelQtySlider.min = String(safeBasePanelQty);
+    panelQtySlider.max = String(safeBasePanelQty + 10);
+    panelQtySlider.value = String(safeBasePanelQty);
   }
   state.futureSimulationOpen = true;
   updateFutureUsageSummary();
@@ -164,18 +211,27 @@ function renderSavingsChart(rows) {
     ? rows.map((row) => Number(row.billReductionSaving ?? row.billReduction ?? 0))
     : [];
   const eeiSeries = Array.isArray(rows)
-    ? rows.map((row) => Number(row.eeiSaving ?? row.eeiImpact ?? 0))
+    ? rows.map((row) => Number(row.actualEeiBenefited ?? row.eeiSaving ?? row.eeiImpact ?? 0))
+    : [];
+  const exportSeries = Array.isArray(rows)
+    ? rows.map((row) => Number(row.exportEarning ?? 0))
     : [];
   const totalSeries = Array.isArray(rows)
-    ? rows.map((row) => Number(row.totalSavingAchieved ?? ((row.billReductionSaving ?? row.billReduction ?? 0) + (row.eeiSaving ?? row.eeiImpact ?? 0))))
+    ? rows.map((row) => Number(
+      row.totalSavingAchieved
+      ?? ((row.billReductionSaving ?? row.billReduction ?? 0)
+        + (row.actualEeiBenefited ?? row.eeiSaving ?? row.eeiImpact ?? 0)
+        + (row.exportEarning ?? 0))
+    ))
     : [];
-  const bounds = getChartBounds([billReductionSeries, eeiSeries, totalSeries]);
+  const bounds = getChartBounds([billReductionSeries, eeiSeries, exportSeries, totalSeries]);
 
   if (state.savingsChart) {
     state.savingsChart.data.labels = labels;
     state.savingsChart.data.datasets[0].data = billReductionSeries;
     state.savingsChart.data.datasets[1].data = eeiSeries;
-    state.savingsChart.data.datasets[2].data = totalSeries;
+    state.savingsChart.data.datasets[2].data = exportSeries;
+    state.savingsChart.data.datasets[3].data = totalSeries;
     state.savingsChart.options.scales.y.min = bounds.min;
     state.savingsChart.options.scales.y.max = bounds.max;
     state.savingsChart.update();
@@ -198,10 +254,20 @@ function renderSavingsChart(rows) {
           tension: 0.25
         },
         {
-          label: 'EEI saving',
+          label: 'Actual EEI benefited',
           data: eeiSeries,
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.12)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          tension: 0.25
+        },
+        {
+          label: 'Export saving',
+          data: exportSeries,
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.12)',
           borderWidth: 2,
           pointRadius: 3,
           pointHoverRadius: 5,
@@ -329,7 +395,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
   if (!Array.isArray(rows) || rows.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="compact-cell text-slate-500">No panel sweep data available.</td>
+        <td colspan="7" class="compact-cell text-slate-500">No panel sweep data available.</td>
       </tr>
     `;
     if (mobileList) {
@@ -357,13 +423,19 @@ function renderPanelSweep(rows, selectedPanelQty) {
               <span class="font-black text-rose-600">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
               ${isSelected ? '<span class="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white">picked</span>' : ''}
             </div>
+            <div>
+              <button type="button" data-simulate-future-panel="${row.panelQty}" class="rounded-full border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">
+                Simulate Future
+              </button>
+            </div>
           </div>
         </td>
         <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatKwh(row.morningOffsetKwh)}</td>
         <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.packagePrice)}</td>
-        <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.billAfterSolarEei ?? row.billAfterSolar)}</td>
+        <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.billAfterSolarAmount ?? row.billAfterSolar)}</td>
+        <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.eeiAfterSolarAmount)}</td>
+        <td class="compact-cell border-b border-slate-100 text-right font-medium ${Number(row.eeiAfterAdjustmentAmount || 0) <= 0 ? 'text-emerald-700' : 'text-rose-600'}">${formatSignedMoneyCell(row.eeiAfterAdjustmentAmount)}</td>
         <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.exportEarning)}</td>
-        <td class="compact-cell border-b border-slate-100 text-right font-medium ${Number(row.actualEei || 0) > 0 ? 'text-slate-900' : 'text-rose-600'}">${formatMoneyCell(row.actualEei)}</td>
       </tr>
     `;
   }).join('');
@@ -379,6 +451,11 @@ function renderPanelSweep(rows, selectedPanelQty) {
             <span class="font-black text-rose-600">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
             ${isSelected ? '<span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-white">picked</span>' : ''}
           </div>
+          <div class="mt-2">
+            <button type="button" data-simulate-future-panel="${row.panelQty}" class="rounded-full border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-white">
+              Simulate Future
+            </button>
+          </div>
           <div class="mt-2 grid grid-cols-2 gap-x-2.5 gap-y-2 text-[11px] leading-tight">
             <div class="rounded-xl bg-white/70 px-2.5 py-2">
               <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Morning offset</p>
@@ -390,15 +467,19 @@ function renderPanelSweep(rows, selectedPanelQty) {
             </div>
             <div class="rounded-xl bg-white/70 px-2.5 py-2">
               <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Bill after solar</p>
-              <p class="mt-1 font-bold text-slate-950">${formatMoneyCell(row.billAfterSolarEei ?? row.billAfterSolar)}</p>
+              <p class="mt-1 font-bold text-slate-950">${formatMoneyCell(row.billAfterSolarAmount ?? row.billAfterSolar)}</p>
             </div>
             <div class="rounded-xl bg-white/70 px-2.5 py-2">
-              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Export income</p>
-              <p class="mt-1 font-bold text-slate-950">${formatMoneyCell(row.exportEarning)}</p>
+              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">EEI after solar</p>
+              <p class="mt-1 font-bold text-slate-950">${formatMoneyCell(row.eeiAfterSolarAmount)}</p>
             </div>
-            <div class="rounded-xl bg-white/70 px-2.5 py-2 col-span-2">
-              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Actual EEI</p>
-              <p class="mt-1 font-bold ${Number(row.actualEei || 0) > 0 ? 'text-slate-950' : 'text-rose-600'}">${formatMoneyCell(row.actualEei)}</p>
+            <div class="rounded-xl bg-white/70 px-2.5 py-2">
+              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">EEI adjustment</p>
+              <p class="mt-1 font-bold ${Number(row.eeiAfterAdjustmentAmount || 0) <= 0 ? 'text-emerald-700' : 'text-rose-600'}">${formatSignedMoneyCell(row.eeiAfterAdjustmentAmount)}</p>
+            </div>
+            <div class="rounded-xl bg-white/70 px-2.5 py-2">
+              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Export saving</p>
+              <p class="mt-1 font-bold text-slate-950">${formatMoneyCell(row.exportEarning)}</p>
             </div>
           </div>
         </article>
@@ -437,8 +518,8 @@ function renderReport(data) {
   }
   if (reportLead) {
     reportLead.textContent = state.futureUsagePercent === 100
-      ? `The chart shows bill reduction saving + EEI saving = total saving. The system picked ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels, and the rows below compare the trade-off from ${report.comparisonStartPanelQty || '-'} to ${report.comparisonEndPanelQty || '-'}.`
-      : `Future mode is active at ${state.futureUsagePercent}% of current usage. The chart still compares bill reduction saving + EEI saving = total saving for the same panel sweep.`;
+      ? `The chart shows bill reduction + actual EEI benefited + export saving = total saving. Each row shows bill after solar with EEI untouched, then the EEI adjustment separately.`
+      : `Future mode is active at ${state.futureUsagePercent}% of current usage. The chart still compares bill reduction + actual EEI benefited + export saving for the same panel sweep.`;
   }
   if (systemChoiceChip) {
     systemChoiceChip.textContent = `System pick: ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels`;
@@ -536,17 +617,18 @@ function scheduleRecalculate(panelQty) {
 function scheduleFutureSimulation(percentValue) {
   clearTimeout(state.debounceTimer);
   state.debounceTimer = setTimeout(() => {
-    recalculate(state.currentPanelQty);
+    recalculate(getFuturePanelQty());
   }, 120);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('eeiForm');
   const slider = document.getElementById('panelQtySlider');
-  const futureButton = document.getElementById('futureSimButton');
   const futureSlider = document.getElementById('futureUsageSlider');
+  const futurePanelQtySlider = document.getElementById('futurePanelQtySlider');
   const futureResetButton = document.getElementById('futureResetButton');
   const modal = document.getElementById('futureSimModal');
+  const panelSweepCard = document.getElementById('panelSweepCard');
   const closeTargets = document.querySelectorAll('[data-close-future-modal="true"]');
 
   if (form) {
@@ -567,15 +649,20 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (futureButton) {
-    futureButton.addEventListener('click', () => {
-      openFutureModal();
-    });
-  }
-
   if (futureSlider) {
     futureSlider.addEventListener('input', (event) => {
       state.futureUsagePercent = Math.max(80, Math.min(160, parseInt(event.target.value, 10) || 100));
+      updateFutureUsageSummary();
+      if (state.latestPayload) {
+        scheduleFutureSimulation(state.futureUsagePercent);
+      }
+    });
+  }
+
+  if (futurePanelQtySlider) {
+    futurePanelQtySlider.addEventListener('input', (event) => {
+      const basePanels = getFutureBasePanelQty();
+      state.futureTargetPanelQty = Math.max(basePanels, Math.min(basePanels + 10, parseInt(event.target.value, 10) || basePanels));
       updateFutureUsageSummary();
       if (state.latestPayload) {
         scheduleFutureSimulation(state.futureUsagePercent);
@@ -589,9 +676,13 @@ window.addEventListener('DOMContentLoaded', () => {
       if (futureSlider) {
         futureSlider.value = '100';
       }
+      state.futureTargetPanelQty = getFutureBasePanelQty();
+      if (futurePanelQtySlider) {
+        futurePanelQtySlider.value = String(state.futureTargetPanelQty);
+      }
       updateFutureUsageSummary();
       if (state.latestPayload) {
-        await recalculate(state.currentPanelQty);
+        await recalculate(getFuturePanelQty());
       }
     });
   }
@@ -607,6 +698,20 @@ window.addEventListener('DOMContentLoaded', () => {
       if (event.target instanceof HTMLElement && event.target.dataset.closeFutureModal === 'true') {
         closeFutureModal();
       }
+    });
+  }
+
+  if (panelSweepCard) {
+    panelSweepCard.addEventListener('click', (event) => {
+      const trigger = event.target instanceof HTMLElement
+        ? event.target.closest('[data-simulate-future-panel]')
+        : null;
+      if (!trigger) {
+        return;
+      }
+
+      const panelQty = parseInt(trigger.getAttribute('data-simulate-future-panel') || '', 10);
+      openFutureModal(panelQty);
     });
   }
 

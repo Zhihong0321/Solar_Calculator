@@ -145,9 +145,11 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
   const originalBill = context.originalBill;
   const billAfterSolarAmount = billAfterSolarAmountBreakdown?.total ?? originalBill;
   const billAfterSolarEei = billAfterSolarEeiBreakdown?.total ?? billAfterSolarAmount;
+  const eeiAfterSolar = parseNumber(billAfterSolarAmountBreakdown?.eei, context.originalEei);
+  const eeiAfterAdjustment = actualEei - eeiAfterSolar;
   const billReduction = Math.max(0, originalBill - billAfterSolarAmount);
-  const eeiImpact = billAfterSolarAmount - billAfterSolarEei;
-  const totalSavingAchieved = Math.max(0, billReduction + eeiImpact);
+  const eeiImpact = Math.max(0, eeiAfterSolar - actualEei);
+  const totalSavingAchieved = Math.max(0, billReduction + eeiImpact + exportEarning);
   const packageRow = await lookupPackageByPanelQty(packageClient, safePanelQty, context.panelType);
 
   return {
@@ -158,6 +160,8 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
     billAfterSolar: roundMoney(billAfterSolarAmount),
     billAfterSolarAmount: roundMoney(billAfterSolarAmount),
     billAfterSolarEei: roundMoney(billAfterSolarEei),
+    eeiAfterSolarAmount: roundMoney(eeiAfterSolar),
+    eeiAfterAdjustmentAmount: roundMoney(eeiAfterAdjustment),
     exportEarning: roundMoney(exportEarning),
     actualEei: roundMoney(actualEei),
     actualEeiAfterDeductExport: roundMoney(actualEei),
@@ -170,6 +174,7 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
     billReductionSaving: roundMoney(billReduction),
     eeiImpact: roundMoney(eeiImpact),
     eeiSaving: roundMoney(eeiImpact),
+    actualEeiBenefited: roundMoney(eeiImpact),
     totalSavingAchieved: roundMoney(totalSavingAchieved)
   };
 };
