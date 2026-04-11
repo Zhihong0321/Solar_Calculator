@@ -8,5 +8,8 @@ REPO NAME : Solar Calculator v2
 - Verified the tariff database contains domestic rows below 500 kWh
 - Built the EEI Optimizer page, API, and tariff-based slider simulation
 - Optimized the EEI Optimizer for mobile-first use with a sticky bottom dock and tighter stacked layout
+- Pulled the latest updates from GitHub into the current branch
+- Updated the EEI optimizer report card to render the missing panel quantity and generation fields
+- Reworked the EEI optimizer into a compact panel sweep report with 6-to-12 panel comparison rows
 
 =====================

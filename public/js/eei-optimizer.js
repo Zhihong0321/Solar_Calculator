@@ -42,6 +42,18 @@ function setStatus(text, tone = 'neutral') {
   }
 }
 
+function formatMoneyCell(value) {
+  return `RM ${formatCurrency(value)}`;
+}
+
+function formatPanelRange(startPanelQty, endPanelQty) {
+  if (!Number.isFinite(startPanelQty) || !Number.isFinite(endPanelQty)) {
+    return '-';
+  }
+
+  return `${startPanelQty} to ${endPanelQty} panels`;
+}
+
 async function fetchOptimizer(params) {
   const query = new URLSearchParams(params);
   const response = await fetch(`/api/eei-optimizer/calculate?${query.toString()}`);
@@ -72,17 +84,7 @@ function syncSuggestion(data) {
 
   const suggestedQty = document.getElementById('suggestedQty');
   if (suggestedQty) {
-    suggestedQty.textContent = String(suggestedMaxPanelQty);
-  }
-
-  const suggestedMaxCopy = document.getElementById('suggestedMaxCopy');
-  if (suggestedMaxCopy) {
-    suggestedMaxCopy.textContent = String(suggestedMaxPanelQty);
-  }
-
-  const panelQtyHint = document.getElementById('panelQtyHint');
-  if (panelQtyHint) {
-    panelQtyHint.textContent = `Slider starts at ${state.currentPanelQty} and can test up to ${sliderMax}.`;
+    suggestedQty.textContent = String(state.currentPanelQty);
   }
 
   const mobileDockQty = document.getElementById('mobileDockQty');
@@ -91,54 +93,86 @@ function syncSuggestion(data) {
   }
 }
 
+function renderPanelSweep(rows, selectedPanelQty) {
+  const tbody = document.getElementById('panelSweepBody');
+  if (!tbody) {
+    return;
+  }
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="compact-cell text-slate-500">No panel sweep data available.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = rows.map((row) => {
+    const isSelected = Number(row.panelQty) === Number(selectedPanelQty);
+    const rowClass = isSelected
+      ? 'bg-emerald-50/80'
+      : 'bg-white';
+    return `
+      <tr class="${rowClass}">
+        <td class="compact-cell border-b border-slate-100 text-left font-semibold text-slate-950">
+          <div class="flex items-center gap-2">
+            <span>${row.panelQty}</span>
+            ${isSelected ? '<span class="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white">picked</span>' : ''}
+          </div>
+        </td>
+        <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatKwh(row.morningOffsetKwh)}</td>
+        <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.billAfterSolarEei ?? row.billAfterSolar)}</td>
+        <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.exportEarning)}</td>
+        <td class="compact-cell border-b border-slate-100 text-right font-medium ${Number(row.actualEei || 0) > 0 ? 'text-slate-900' : 'text-rose-600'}">${formatMoneyCell(row.actualEei)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
 function renderReport(data) {
+  const original = data?.original || {};
   const report = data?.report || {};
   const solar = data?.solar || {};
-  const original = data?.original || {};
-
-  const originalBill = document.getElementById('originalBill');
-  const originalEei = document.getElementById('originalEei');
-  const billAfterSolarAmount = document.getElementById('billAfterSolarAmount');
-  const billAfterSolarAmountHint = document.getElementById('billAfterSolarAmountHint');
-  const billAfterSolarEei = document.getElementById('billAfterSolarEei');
-  const billAfterSolarEeiHint = document.getElementById('billAfterSolarEeiHint');
-  const totalExportKwhHint = document.getElementById('totalExportKwhHint');
-  const exportEarning = document.getElementById('exportEarning');
-  const actualEeiAfterDeductExport = document.getElementById('actualEeiAfterDeductExport');
-  const netImportHint = document.getElementById('netImportHint');
-  const currentPanelQtyValue = document.getElementById('currentPanelQtyValue');
-  const solarGenerationValue = document.getElementById('solarGenerationValue');
-  const morningOffsetValue = document.getElementById('morningOffsetValue');
+  const sweepRows = Array.isArray(data?.panelSweep) ? data.panelSweep : [];
+  const reportRangeBadge = document.getElementById('reportRangeBadge');
+  const reportLead = document.getElementById('reportLead');
+  const systemChoiceChip = document.getElementById('systemChoiceChip');
+  const comparisonChip = document.getElementById('comparisonChip');
+  const billChip = document.getElementById('billChip');
   const eeiStatusValue = document.getElementById('eeiStatusValue');
   const netImportValue = document.getElementById('netImportValue');
   const sliderValue = document.getElementById('sliderValue');
   const mobileDockNetImport = document.getElementById('mobileDockNetImport');
   const mobileDockEei = document.getElementById('mobileDockEei');
 
-  if (originalBill) originalBill.textContent = `RM ${formatCurrency(report.originalBill ?? original.billAmount)}`;
-  if (originalEei) originalEei.textContent = `Original EEI: RM ${formatCurrency(report.originalEei ?? original.eei)}`;
-  if (billAfterSolarAmount) billAfterSolarAmount.textContent = `RM ${formatCurrency(report.billAfterSolarAmount)}`;
-  if (billAfterSolarAmountHint) billAfterSolarAmountHint.textContent = `Before EEI recheck, panel qty ${solar.panelQty}`;
-  if (billAfterSolarEei) billAfterSolarEei.textContent = `RM ${formatCurrency(report.billAfterSolarEei)}`;
-  if (billAfterSolarEeiHint) billAfterSolarEeiHint.textContent = `EEI re-evaluated at net import`;
-  if (totalExportKwhHint) totalExportKwhHint.textContent = `${formatKwh(report.totalExportKwh)} kWh exported`;
-  if (exportEarning) exportEarning.textContent = `RM ${formatCurrency(report.exportEarning)}`;
-  if (actualEeiAfterDeductExport) actualEeiAfterDeductExport.textContent = `RM ${formatCurrency(report.actualEeiAfterDeductExport)}`;
-  if (netImportHint) netImportHint.textContent = `${formatKwh(report.netImportKwh)} kWh net import after export`;
-  if (currentPanelQtyValue) currentPanelQtyValue.textContent = String(solar.panelQty || state.currentPanelQty);
-  if (solarGenerationValue) solarGenerationValue.textContent = `${formatKwh(solar.solarGenerationKwh)} kWh`;
-  if (morningOffsetValue) morningOffsetValue.textContent = `${formatKwh(solar.morningOffsetKwh)} kWh`;
   if (eeiStatusValue) {
     eeiStatusValue.textContent = Number(report.netImportKwh || 0) > 0 ? 'Still Active' : 'Stopped';
-    eeiStatusValue.className = `mt-2 text-2xl font-bold ${Number(report.netImportKwh || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+    eeiStatusValue.className = `mt-1.5 text-xl font-bold ${Number(report.netImportKwh || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`;
   }
   if (netImportValue) {
     netImportValue.textContent = `${formatKwh(report.netImportKwh)} kWh`;
-    netImportValue.className = `mt-2 text-2xl font-bold ${Number(report.netImportKwh || 0) > 0 ? 'text-slate-950' : 'text-rose-600'}`;
+    netImportValue.className = `mt-1.5 text-xl font-bold ${Number(report.netImportKwh || 0) > 0 ? 'text-slate-950' : 'text-rose-600'}`;
   }
   if (sliderValue) {
     sliderValue.textContent = `Qty ${solar.panelQty || state.currentPanelQty}`;
   }
+  if (reportRangeBadge) {
+    reportRangeBadge.textContent = formatPanelRange(report.comparisonStartPanelQty, report.comparisonEndPanelQty);
+  }
+  if (reportLead) {
+    reportLead.textContent = `The system picked ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels. Compare the rows below to see the trade-off from ${report.comparisonStartPanelQty || '-'} to ${report.comparisonEndPanelQty || '-'}.`;
+  }
+  if (systemChoiceChip) {
+    systemChoiceChip.textContent = `System pick: ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels`;
+  }
+  if (comparisonChip) {
+    comparisonChip.textContent = `Compare: ${formatPanelRange(report.comparisonStartPanelQty, report.comparisonEndPanelQty)}`;
+  }
+  if (billChip) {
+    billChip.textContent = `Original bill: ${formatMoneyCell(report.originalBill ?? original.billAmount)}`;
+  }
+  renderPanelSweep(sweepRows, report.selectedPanelQty || solar.panelQty || state.currentPanelQty);
   if (mobileDockNetImport) {
     mobileDockNetImport.textContent = `${formatKwh(report.netImportKwh)} kWh`;
   }

@@ -100,6 +100,67 @@ const calculateSuggestedMaxPanelQty = (usageKwh, panelRating, sunPeakHour) => {
   return Math.max(0, Math.ceil(safeUsageKwh / perPanelGeneration) - 1);
 };
 
+const buildPanelScenario = async (tariffClient, context, panelQty) => {
+  const safePanelQty = Math.max(1, parseInt(panelQty, 10) || 1);
+  const monthlySolarGeneration = safePanelQty * context.monthlySolarGenerationPerPanel;
+  const morningOffsetKwh = monthlySolarGeneration * (context.morningOffsetPercent / 100);
+  const totalExportKwh = Math.max(0, monthlySolarGeneration - morningOffsetKwh);
+  const importAfterSolarKwh = Math.max(0, context.originalUsageKwh - morningOffsetKwh);
+  const netImportKwh = Math.max(0, importAfterSolarKwh - totalExportKwh);
+  const importAfterSolarLookupKwh = Math.max(0, Math.floor(importAfterSolarKwh));
+  const netImportLookupKwh = Math.max(0, Math.floor(netImportKwh));
+
+  const importTariff = await lookupTariffByUsage(tariffClient, importAfterSolarLookupKwh);
+  const netImportTariff = netImportKwh > 0
+    ? await lookupTariffByUsage(tariffClient, netImportLookupKwh)
+    : null;
+
+  const actualEei = resolveActualEeiValue(netImportTariff, netImportKwh);
+  const exportRate = importAfterSolarKwh > 1500 ? HIGH_USAGE_EXPORT_RATE : DEFAULT_EXPORT_RATE;
+  const exportEarning = totalExportKwh * exportRate;
+  const billAfterSolarAmountBreakdown = buildBreakdown(importTariff, context.originalEei);
+  const billAfterSolarEeiBreakdown = buildBreakdown(importTariff, actualEei);
+  const originalBill = context.originalBill;
+  const billAfterSolarAmount = billAfterSolarAmountBreakdown?.total ?? originalBill;
+  const billAfterSolarEei = billAfterSolarEeiBreakdown?.total ?? billAfterSolarAmount;
+  const billReduction = Math.max(0, originalBill - billAfterSolarAmount);
+  const eeiImpact = billAfterSolarAmount - billAfterSolarEei;
+
+  return {
+    panelQty: safePanelQty,
+    morningOffsetKwh: roundMoney(morningOffsetKwh),
+    billAfterSolar: roundMoney(billAfterSolarAmount),
+    billAfterSolarAmount: roundMoney(billAfterSolarAmount),
+    billAfterSolarEei: roundMoney(billAfterSolarEei),
+    exportEarning: roundMoney(exportEarning),
+    actualEei: roundMoney(actualEei),
+    actualEeiAfterDeductExport: roundMoney(actualEei),
+    netImportKwh: roundMoney(netImportKwh),
+    totalExportKwh: roundMoney(totalExportKwh),
+    solarGenerationKwh: roundMoney(monthlySolarGeneration),
+    importAfterSolarKwh: roundMoney(importAfterSolarKwh),
+    exportRate: roundMoney(exportRate),
+    billReduction: roundMoney(billReduction),
+    eeiImpact: roundMoney(eeiImpact)
+  };
+};
+
+const buildPanelSweep = async (tariffClient, context, selectedPanelQty) => {
+  const startPanelQty = Math.max(1, selectedPanelQty - 4);
+  const endPanelQty = Math.max(startPanelQty, selectedPanelQty + 2);
+  const rows = [];
+
+  for (let panelQty = startPanelQty; panelQty <= endPanelQty; panelQty += 1) {
+    rows.push(await buildPanelScenario(tariffClient, context, panelQty));
+  }
+
+  return {
+    rows,
+    startPanelQty,
+    endPanelQty
+  };
+};
+
 async function calculateEeiOptimizer(tariffPool, params) {
   const amount = parseNumber(params.amount);
   const sunPeakHour = parseNumber(params.sunPeakHour, DEFAULT_SUN_PEAK_HOUR);
@@ -145,32 +206,17 @@ async function calculateEeiOptimizer(tariffPool, params) {
       : (suggestedMaxPanelQty > 0 ? suggestedMaxPanelQty : 1);
     const safePanels = Math.max(1, actualPanels);
 
-    const monthlySolarGeneration = safePanels * monthlySolarGenerationPerPanel;
-    const morningOffsetKwh = monthlySolarGeneration * (morningOffsetPercent / 100);
-    const totalExportKwh = Math.max(0, monthlySolarGeneration - morningOffsetKwh);
-    const importAfterSolarKwh = Math.max(0, originalUsageKwh - morningOffsetKwh);
-    const netImportKwh = Math.max(0, importAfterSolarKwh - totalExportKwh);
-    const importAfterSolarLookupKwh = Math.max(0, Math.floor(importAfterSolarKwh));
-    const netImportLookupKwh = Math.max(0, Math.floor(netImportKwh));
-
-    const importTariff = await lookupTariffByUsage(tariffClient, importAfterSolarLookupKwh);
-    const netImportTariff = netImportKwh > 0
-      ? await lookupTariffByUsage(tariffClient, netImportLookupKwh)
-      : null;
-
-    const actualEei = resolveActualEeiValue(netImportTariff, netImportKwh);
-    const exportRate = importAfterSolarKwh > 1500 ? HIGH_USAGE_EXPORT_RATE : DEFAULT_EXPORT_RATE;
-    const exportEarning = totalExportKwh * exportRate;
-
     const originalBreakdown = buildBreakdown(originalTariff);
-    const billAfterSolarAmountBreakdown = buildBreakdown(importTariff, originalEei);
-    const billAfterSolarEeiBreakdown = buildBreakdown(importTariff, actualEei);
-
     const originalBill = originalBreakdown?.total ?? amount;
-    const billAfterSolarAmount = billAfterSolarAmountBreakdown?.total ?? originalBill;
-    const billAfterSolarEei = billAfterSolarEeiBreakdown?.total ?? billAfterSolarAmount;
-    const originalBillReduction = Math.max(0, originalBill - billAfterSolarAmount);
-    const eeiImpact = billAfterSolarAmount - billAfterSolarEei;
+    const selectedScenarioContext = {
+      originalUsageKwh,
+      originalEei,
+      originalBill,
+      monthlySolarGenerationPerPanel,
+      morningOffsetPercent
+    };
+    const selectedScenario = await buildPanelScenario(tariffClient, selectedScenarioContext, safePanels);
+    const sweep = await buildPanelSweep(tariffClient, selectedScenarioContext, safePanels);
 
     return {
       config: {
@@ -182,7 +228,9 @@ async function calculateEeiOptimizer(tariffPool, params) {
       suggestion: {
         suggestedMaxPanelQty,
         suggestedPanelQty: safePanels,
-        sliderMax: Math.max(20, suggestedMaxPanelQty * 2, safePanels + 10)
+        sliderMax: Math.max(20, suggestedMaxPanelQty * 2, safePanels + 10),
+        comparisonStartPanelQty: sweep.startPanelQty,
+        comparisonEndPanelQty: sweep.endPanelQty
       },
       original: {
         billAmount: roundMoney(originalBill),
@@ -191,33 +239,26 @@ async function calculateEeiOptimizer(tariffPool, params) {
         breakdown: originalBreakdown
       },
       solar: {
-        panelQty: safePanels,
-        solarGenerationKwh: roundMoney(monthlySolarGeneration),
-        morningOffsetKwh: roundMoney(morningOffsetKwh),
-        importAfterSolarKwh: roundMoney(importAfterSolarKwh),
-        netImportKwh: roundMoney(netImportKwh),
-        exportKwh: roundMoney(totalExportKwh),
-        exportRate: roundMoney(exportRate),
-        exportEarning: roundMoney(exportEarning),
-        billAfterSolarAmount: roundMoney(billAfterSolarAmount),
-        billAfterSolarEei: roundMoney(billAfterSolarEei),
-        actualEei: roundMoney(actualEei),
-        billReduction: roundMoney(originalBillReduction),
-        eeiImpact: roundMoney(eeiImpact),
-        billAfterSolarAmountBreakdown: billAfterSolarAmountBreakdown,
-        billAfterSolarEeiBreakdown: billAfterSolarEeiBreakdown,
-        actualEeiTariff: netImportTariff
+        ...selectedScenario,
+        billAfterSolarAmount: selectedScenario.billAfterSolarAmount,
+        billAfterSolarAmountBreakdown: null,
+        billAfterSolarEeiBreakdown: null,
+        actualEeiTariff: null
       },
       report: {
         originalBill: roundMoney(originalBill),
         originalEei: roundMoney(originalEei),
-        billAfterSolarAmount: roundMoney(billAfterSolarAmount),
-        billAfterSolarEei: roundMoney(billAfterSolarEei),
-        totalExportKwh: roundMoney(totalExportKwh),
-        exportEarning: roundMoney(exportEarning),
-        actualEeiAfterDeductExport: roundMoney(actualEei),
-        netImportKwh: roundMoney(netImportKwh)
-      }
+        selectedPanelQty: safePanels,
+        comparisonStartPanelQty: sweep.startPanelQty,
+        comparisonEndPanelQty: sweep.endPanelQty,
+        billAfterSolarAmount: selectedScenario.billAfterSolarAmount,
+        billAfterSolarEei: selectedScenario.billAfterSolarEei,
+        totalExportKwh: selectedScenario.totalExportKwh,
+        exportEarning: selectedScenario.exportEarning,
+        actualEeiAfterDeductExport: selectedScenario.actualEeiAfterDeductExport,
+        netImportKwh: selectedScenario.netImportKwh
+      },
+      panelSweep: sweep.rows
     };
   } finally {
     tariffClient.release();
