@@ -287,6 +287,10 @@ app.get('/domestic', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic.html'));
 });
 
+app.get('/eei-optimizer', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'eei-optimizer.html'));
+});
+
 app.get('/non-domestic', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'non-domestic.html'));
 });

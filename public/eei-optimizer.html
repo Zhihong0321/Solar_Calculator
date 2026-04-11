@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EEI Optimizer - Energy Efficient Incentive Optimizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/tailwind.css">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        body {
+            background:
+                radial-gradient(circle at top left, rgba(15, 23, 42, 0.08), transparent 28%),
+                linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+            color: #0f172a;
+        }
+        input, select {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #cbd5e1;
+            border-radius: 0;
+            outline: none;
+        }
+        input:focus, select:focus {
+            border-bottom-color: #0f172a;
+        }
+        input[type="range"] {
+            height: 2.5rem;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1.35rem;
+            height: 1.35rem;
+            border-radius: 9999px;
+            background: #059669;
+            border: 3px solid #ecfdf5;
+            box-shadow: 0 6px 16px rgba(5, 150, 105, 0.28);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 1.35rem;
+            height: 1.35rem;
+            border-radius: 9999px;
+            background: #059669;
+            border: 3px solid #ecfdf5;
+            box-shadow: 0 6px 16px rgba(5, 150, 105, 0.28);
+        }
+        button, a {
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-900 overflow-x-hidden pb-32 md:pb-0">
+    <header class="bg-slate-950 text-white py-5 md:py-8">
+        <div class="mx-auto w-full max-w-4xl px-4 md:px-6">
+            <div class="flex flex-col gap-4">
+                <div>
+                    <p class="text-[10px] md:text-xs uppercase tracking-[0.35em] text-emerald-300 font-semibold">EEI Optimizer</p>
+                    <h1 class="mt-2 text-2xl md:text-4xl font-extrabold tracking-tight leading-tight">Energy Efficient Incentive Optimizer</h1>
+                    <p class="mt-2 max-w-2xl text-sm md:text-base text-slate-300 leading-relaxed">
+                        Test how far panel quantity can go before net import reaches zero and EEI entitlement ends.
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-3">
+                    <a href="/domestic" class="border border-white/20 px-4 py-2 text-[10px] md:text-xs uppercase tracking-wide font-semibold hover:bg-white hover:text-slate-950 transition-colors">
+                        Back to Solar Calculator
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="mx-auto w-full max-w-4xl px-4 py-5 md:px-6 md:py-10 space-y-5 md:space-y-8">
+        <section class="grid gap-4">
+            <div class="rounded-3xl border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)] p-5 md:p-6">
+                <div class="flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">01_INPUTS</p>
+                        <h2 class="mt-1 text-lg font-bold">Simulation Setup</h2>
+                    </div>
+                    <div id="statusChip" class="rounded-full bg-slate-100 px-3 py-1 text-[10px] uppercase tracking-wide font-semibold text-slate-600">
+                        Ready
+                    </div>
+                </div>
+
+                <form id="eeiForm" class="mt-6 grid gap-4 md:grid-cols-2">
+                    <div class="space-y-2">
+                        <label for="billAmount" class="block text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Original Bill (RM)</label>
+                        <input id="billAmount" type="number" min="0" step="0.01" value="300" class="w-full py-3 text-lg font-semibold">
+                    </div>
+                    <div class="space-y-2">
+                        <label for="morningOffsetPercent" class="block text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Morning Offset (%)</label>
+                        <input id="morningOffsetPercent" type="number" min="1" max="100" step="1" value="30" class="w-full py-3 text-lg font-semibold">
+                    </div>
+                    <div class="space-y-2">
+                        <label for="panelRating" class="block text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Panel Rating (W)</label>
+                        <input id="panelRating" type="number" min="1" step="1" value="650" class="w-full py-3 text-lg font-semibold">
+                    </div>
+                    <div class="space-y-2">
+                        <label for="sunPeakHour" class="block text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Sun Peak Hour</label>
+                        <input id="sunPeakHour" type="number" min="3" max="4.5" step="0.1" value="3.4" class="w-full py-3 text-lg font-semibold">
+                    </div>
+                    <div class="md:col-span-2 flex flex-col gap-3 pt-2">
+                        <button type="submit" class="w-full rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-bold uppercase tracking-[0.2em] text-white shadow-lg shadow-slate-950/15 hover:bg-slate-800 transition-colors">
+                            Start Simulation
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-[0_18px_60px_rgba(16,185,129,0.10)] p-5 md:p-6">
+            <div class="flex items-center justify-between gap-4 border-b border-emerald-200 pb-4">
+                <div>
+                    <p class="text-[10px] uppercase tracking-[0.3em] text-emerald-700 font-semibold">02_SUGGESTION</p>
+                    <h2 class="mt-1 text-lg font-bold text-slate-950">Max Panel Quantity</h2>
+                </div>
+                <div id="suggestedQty" class="text-4xl font-black tracking-tight text-emerald-700">-</div>
+            </div>
+
+            <div class="mt-6 space-y-4">
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">
+                        <span>Panel Quantity Slider</span>
+                        <span id="sliderValue">-</span>
+                    </div>
+                    <input id="panelQtySlider" type="range" min="1" max="20" value="1" class="w-full accent-emerald-600">
+                </div>
+                <div class="grid gap-3 grid-cols-2">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4">
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Net Import</p>
+                        <p id="netImportValue" class="mt-2 text-2xl font-bold">-</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4">
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">EEI Status</p>
+                        <p id="eeiStatusValue" class="mt-2 text-2xl font-bold">-</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid gap-5">
+            <article class="rounded-3xl border border-slate-200 bg-white p-5 md:p-6 shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+                <div class="flex items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">03_REPORT</p>
+                        <h2 class="mt-1 text-lg font-bold">EEI Optimizer Report Card</h2>
+                    </div>
+                    <div class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Live</div>
+                </div>
+
+                <div id="reportCard" class="mt-6 grid gap-4">
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Original Bill</p>
+                        <p id="originalBill" class="mt-2 text-2xl font-bold">-</p>
+                        <p id="originalEei" class="mt-1 text-sm text-slate-500">-</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Bill After Solar Amount</p>
+                        <p id="billAfterSolarAmount" class="mt-2 text-2xl font-bold">-</p>
+                        <p id="billAfterSolarAmountHint" class="mt-1 text-sm text-slate-500">-</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Bill After Solar EEI</p>
+                        <p id="billAfterSolarEei" class="mt-2 text-2xl font-bold">-</p>
+                        <p id="billAfterSolarEeiHint" class="mt-1 text-sm text-slate-500">-</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Export Income</p>
+                        <p id="exportEarning" class="mt-2 text-2xl font-bold">-</p>
+                        <p id="totalExportKwhHint" class="mt-1 text-sm text-slate-500">-</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Actual EEI After Deduct Export</p>
+                        <p id="actualEeiAfterDeductExport" class="mt-2 text-2xl font-bold">-</p>
+                        <p id="netImportHint" class="mt-1 text-sm text-slate-500">-</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Suggested Max Panel Qty</p>
+                        <p id="suggestedMaxCopy" class="mt-2 text-2xl font-bold">-</p>
+                        <p id="panelQtyHint" class="mt-1 text-sm text-slate-500">-</p>
+                    </div>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <div class="fixed inset-x-0 bottom-0 z-50 md:hidden border-t border-slate-200 bg-white/96 backdrop-blur px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
+        <div class="mx-auto grid max-w-4xl gap-3">
+            <div class="flex items-center justify-between gap-4 text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">
+                <span id="mobileDockStatus">Ready</span>
+                <span id="mobileDockQty">Qty -</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-[9px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Net Import</p>
+                    <p id="mobileDockNetImport" class="mt-1 text-lg font-bold">-</p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-[9px] uppercase tracking-[0.3em] text-slate-500 font-semibold">EEI</p>
+                    <p id="mobileDockEei" class="mt-1 text-lg font-bold">-</p>
+                </div>
+            </div>
+            <button type="button" onclick="document.getElementById('eeiForm').requestSubmit()" class="w-full rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-bold uppercase tracking-[0.2em] text-white shadow-lg shadow-emerald-600/20 active:scale-[0.99]">
+                Start / Update
+            </button>
+        </div>
+    </div>
+
+    <script src="/js/eei-optimizer.js"></script>
+</body>
+</html>

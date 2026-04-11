@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../../../core/database/pool');
 const tariffPool = require('../../../core/database/tariffPool');
 const { findClosestTariff, calculateSolarSavings } = require('../services/solarCalculatorService');
+const { calculateEeiOptimizer } = require('../services/eeiOptimizerService');
 const { buildBillCycleModes } = require('../services/billCycleModeService');
 
 const router = express.Router();
@@ -276,6 +277,23 @@ router.get('/api/solar-calculation', async (req, res) => {
     ];
     const status = validationMessages.includes(err.message) ? 400 : 500;
     res.status(status).json({ error: 'Failed to calculate solar savings', details: err.message });
+  }
+});
+
+// API endpoint for EEI Optimizer calculation
+router.get('/api/eei-optimizer/calculate', async (req, res) => {
+  try {
+    const result = await calculateEeiOptimizer(tariffPool, req.query);
+    res.json(result);
+  } catch (err) {
+    const validationMessages = [
+      'Invalid bill amount',
+      'Sun Peak Hour must be between 3.0 and 4.5',
+      'Morning Offset must be between 1% and 100%',
+      'Panel Rating must be greater than 0'
+    ];
+    const status = validationMessages.includes(err.message) ? 400 : 500;
+    res.status(status).json({ error: 'Failed to calculate EEI optimizer', details: err.message });
   }
 });
 
