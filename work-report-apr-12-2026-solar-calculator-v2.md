@@ -12,5 +12,6 @@ REPO NAME : solar calculator v2
 - Clarified the EEI report note to explain that positive red EEI adjustment reduces total saving
 - Compared the EEI optimizer and original domestic calculator outputs for 300 kWh at 10 panels and identified the formula mismatch
 - Compared the EEI optimizer and original domestic calculator outputs for RM300 at 10 panels and confirmed they still diverge
+- Compared the EEI optimizer and original domestic calculator outputs for RM300 at 11 panels and confirmed they still diverge
 
 =====================
