@@ -13,5 +13,6 @@ REPO NAME : solar calculator v2
 - Compared the EEI optimizer and original domestic calculator outputs for 300 kWh at 10 panels and identified the formula mismatch
 - Compared the EEI optimizer and original domestic calculator outputs for RM300 at 10 panels and confirmed they still diverge
 - Compared the EEI optimizer and original domestic calculator outputs for RM300 at 11 panels and confirmed they still diverge
+- Aligned the EEI optimizer EEI benefit math with the original calculator and allowed signed EEI impact in the chart and popup
 
 =====================

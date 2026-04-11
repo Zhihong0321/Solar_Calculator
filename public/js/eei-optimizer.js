@@ -56,8 +56,10 @@ function formatSavingEquation(row) {
   const exportSaving = Number(row.exportEarning ?? 0);
   const eeiBenefit = Number(row.actualEeiBenefited ?? row.eeiSaving ?? row.eeiImpact ?? 0);
   const totalSaving = Number(row.totalSavingAchieved ?? (billReduction + exportSaving + eeiBenefit));
+  const eeiOperator = eeiBenefit < 0 ? '-' : '+';
+  const eeiMagnitude = Math.abs(eeiBenefit);
 
-  return `${formatMoneyCell(billReduction)} + ${formatMoneyCell(exportSaving)} + ${formatMoneyCell(eeiBenefit)} = ${formatMoneyCell(totalSaving)}`;
+  return `${formatMoneyCell(billReduction)} + ${formatMoneyCell(exportSaving)} ${eeiOperator} RM ${formatCurrency(eeiMagnitude)} = ${formatMoneyCell(totalSaving)}`;
 }
 
 function formatPanelRange(startPanelQty, endPanelQty) {
@@ -79,14 +81,14 @@ function getChartBounds(seriesGroups) {
   if (minValue === maxValue) {
     const padding = Math.max(18, Math.abs(minValue) * 0.22 || 18);
     return {
-      min: Math.max(0, minValue - padding),
+      min: minValue - padding,
       max: maxValue + padding
     };
   }
 
   const padding = Math.max(14, (maxValue - minValue) * 0.22);
   return {
-    min: Math.max(0, minValue - padding),
+    min: minValue - padding,
     max: maxValue + padding
   };
 }
@@ -157,7 +159,9 @@ function updateFutureResultSummary() {
     billReduction.textContent = formatMoneyCell(scenarioRow.billReductionSaving ?? scenarioRow.billReduction);
   }
   if (eeiBenefit) {
-    eeiBenefit.textContent = formatMoneyCell(scenarioRow.actualEeiBenefited ?? scenarioRow.eeiSaving ?? scenarioRow.eeiImpact);
+    const eeiValue = Number(scenarioRow.actualEeiBenefited ?? scenarioRow.eeiSaving ?? scenarioRow.eeiImpact);
+    eeiBenefit.textContent = formatSignedMoneyCell(eeiValue);
+    eeiBenefit.className = `mt-1 font-bold ${eeiValue >= 0 ? 'text-emerald-700' : 'text-rose-600'}`;
   }
   if (exportSaving) {
     exportSaving.textContent = formatMoneyCell(scenarioRow.exportEarning);

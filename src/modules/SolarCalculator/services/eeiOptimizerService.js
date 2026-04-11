@@ -149,7 +149,7 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
   const eeiAfterSolar = parseNumber(billAfterSolarAmountBreakdown?.eei, context.originalEei);
   const eeiAfterAdjustment = actualEei - eeiAfterSolar;
   const billReduction = Math.max(0, originalBill - billAfterSolarAmount);
-  const eeiImpact = Math.max(0, eeiAfterSolar - actualEei);
+  const eeiImpact = eeiAfterSolar - actualEei;
   const totalSavingAchieved = Math.max(0, billReduction + eeiImpact + exportEarning);
   const packageRow = await lookupPackageByPanelQty(packageClient, safePanelQty, context.panelType);
 
