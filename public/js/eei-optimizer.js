@@ -1,6 +1,4 @@
 const state = {
-  suggestedMaxPanelQty: 1,
-  sliderMax: 20,
   currentPanelQty: 1,
   latestPayload: null,
   debounceTimer: null,
@@ -437,19 +435,9 @@ async function fetchOptimizer(params) {
 
 function syncSuggestion(data) {
   const suggestedMaxPanelQty = Number(data?.suggestion?.suggestedMaxPanelQty || 0);
-  const sliderMax = Number(data?.suggestion?.sliderMax || 20);
   const startPanelQty = Number(data?.suggestion?.suggestedPanelQty || (suggestedMaxPanelQty > 0 ? suggestedMaxPanelQty : 1));
 
-  state.suggestedMaxPanelQty = suggestedMaxPanelQty;
-  state.sliderMax = sliderMax;
   state.currentPanelQty = Math.max(1, startPanelQty);
-
-  const slider = document.getElementById('panelQtySlider');
-  if (slider) {
-    slider.min = '1';
-    slider.max = String(sliderMax);
-    slider.value = String(state.currentPanelQty);
-  }
 
   const suggestedQty = document.getElementById('suggestedQty');
   if (suggestedQty) {
@@ -577,7 +565,6 @@ function renderReport(data) {
   const billChip = document.getElementById('billChip');
   const eeiStatusValue = document.getElementById('eeiStatusValue');
   const netImportValue = document.getElementById('netImportValue');
-  const sliderValue = document.getElementById('sliderValue');
 
   if (eeiStatusValue) {
     eeiStatusValue.textContent = Number(report.netImportKwh || 0) > 0 ? 'Still Active' : 'Stopped';
@@ -586,9 +573,6 @@ function renderReport(data) {
   if (netImportValue) {
     netImportValue.textContent = `${formatKwh(report.netImportKwh)} kWh`;
     netImportValue.className = `mt-1.5 text-xl font-bold ${Number(report.netImportKwh || 0) > 0 ? 'text-slate-950' : 'text-rose-600'}`;
-  }
-  if (sliderValue) {
-    sliderValue.textContent = `Qty ${solar.panelQty || state.currentPanelQty}`;
   }
   if (reportRangeBadge) {
     reportRangeBadge.textContent = formatPanelRange(report.comparisonStartPanelQty, report.comparisonEndPanelQty);
@@ -705,7 +689,6 @@ function scheduleFutureSimulation(percentValue) {
 
 window.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('eeiForm');
-  const slider = document.getElementById('panelQtySlider');
   const futureSlider = document.getElementById('futureUsageSlider');
   const futurePanelQtySlider = document.getElementById('futurePanelQtySlider');
   const futureResetButton = document.getElementById('futureResetButton');
@@ -715,20 +698,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   if (form) {
     form.addEventListener('submit', startSimulation);
-  }
-
-  if (slider) {
-    slider.addEventListener('input', (event) => {
-      const nextQty = Math.max(1, parseInt(event.target.value, 10) || 1);
-      state.currentPanelQty = nextQty;
-      const sliderValue = document.getElementById('sliderValue');
-      if (sliderValue) {
-        sliderValue.textContent = `Qty ${nextQty}`;
-      }
-      if (state.latestPayload) {
-        scheduleRecalculate(nextQty);
-      }
-    });
   }
 
   if (futureSlider) {
