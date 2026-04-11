@@ -47,6 +47,28 @@ const lookupTariffByUsage = async (client, usageValue) => {
   return fallbackResult.rows[0] || null;
 };
 
+const lookupPackageByPanelQty = async (client, panelQty, panelWattage) => {
+  const safePanelQty = Math.max(1, parseInt(panelQty, 10) || 1);
+  const safePanelWattage = Math.max(1, parseInt(panelWattage, 10) || DEFAULT_PANEL_RATING);
+
+  const query = `
+    SELECT p.id, p.bubble_id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
+           pr.id AS product_id, pr.bubble_id AS product_bubble_id, pr.solar_output_rating
+    FROM package p
+    JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
+    WHERE p.active = true
+      AND (p.special IS FALSE OR p.special IS NULL)
+      AND p.type = 'Residential'
+      AND p.panel_qty = $1
+      AND pr.solar_output_rating = $2
+    ORDER BY p.price ASC
+    LIMIT 1
+  `;
+
+  const result = await client.query(query, [safePanelQty, safePanelWattage]);
+  return result.rows[0] || null;
+};
+
 const buildBreakdown = (tariffRow, overrideEei = undefined) => {
   if (!tariffRow) {
     return null;
@@ -100,7 +122,7 @@ const calculateSuggestedMaxPanelQty = (usageKwh, panelRating, sunPeakHour) => {
   return Math.max(0, Math.ceil(safeUsageKwh / perPanelGeneration) - 1);
 };
 
-const buildPanelScenario = async (tariffClient, context, panelQty) => {
+const buildPanelScenario = async (tariffClient, packageClient, context, panelQty) => {
   const safePanelQty = Math.max(1, parseInt(panelQty, 10) || 1);
   const monthlySolarGeneration = safePanelQty * context.monthlySolarGenerationPerPanel;
   const morningOffsetKwh = monthlySolarGeneration * (context.morningOffsetPercent / 100);
@@ -125,9 +147,13 @@ const buildPanelScenario = async (tariffClient, context, panelQty) => {
   const billAfterSolarEei = billAfterSolarEeiBreakdown?.total ?? billAfterSolarAmount;
   const billReduction = Math.max(0, originalBill - billAfterSolarAmount);
   const eeiImpact = billAfterSolarAmount - billAfterSolarEei;
+  const totalSavingAchieved = Math.max(0, billReduction + eeiImpact);
+  const packageRow = await lookupPackageByPanelQty(packageClient, safePanelQty, context.panelType);
 
   return {
     panelQty: safePanelQty,
+    packageName: packageRow?.package_name || null,
+    packagePrice: roundMoney(packageRow?.price ?? null),
     morningOffsetKwh: roundMoney(morningOffsetKwh),
     billAfterSolar: roundMoney(billAfterSolarAmount),
     billAfterSolarAmount: roundMoney(billAfterSolarAmount),
@@ -141,17 +167,20 @@ const buildPanelScenario = async (tariffClient, context, panelQty) => {
     importAfterSolarKwh: roundMoney(importAfterSolarKwh),
     exportRate: roundMoney(exportRate),
     billReduction: roundMoney(billReduction),
-    eeiImpact: roundMoney(eeiImpact)
+    billReductionSaving: roundMoney(billReduction),
+    eeiImpact: roundMoney(eeiImpact),
+    eeiSaving: roundMoney(eeiImpact),
+    totalSavingAchieved: roundMoney(totalSavingAchieved)
   };
 };
 
-const buildPanelSweep = async (tariffClient, context, selectedPanelQty) => {
+const buildPanelSweep = async (tariffClient, packageClient, context, selectedPanelQty) => {
   const startPanelQty = Math.max(1, selectedPanelQty - 4);
   const endPanelQty = Math.max(startPanelQty, selectedPanelQty + 2);
   const rows = [];
 
   for (let panelQty = startPanelQty; panelQty <= endPanelQty; panelQty += 1) {
-    rows.push(await buildPanelScenario(tariffClient, context, panelQty));
+    rows.push(await buildPanelScenario(tariffClient, packageClient, context, panelQty));
   }
 
   return {
@@ -161,7 +190,7 @@ const buildPanelSweep = async (tariffClient, context, selectedPanelQty) => {
   };
 };
 
-async function calculateEeiOptimizer(tariffPool, params) {
+async function calculateEeiOptimizer(mainPool, tariffPool, params) {
   const amount = parseNumber(params.amount);
   const sunPeakHour = parseNumber(params.sunPeakHour, DEFAULT_SUN_PEAK_HOUR);
   const morningOffsetPercent = parseNumber(params.morningOffsetPercent ?? params.morningUsage, DEFAULT_MORNING_OFFSET_PERCENT);
@@ -190,8 +219,10 @@ async function calculateEeiOptimizer(tariffPool, params) {
   }
 
   const tariffClient = await tariffPool.connect();
+  let packageClient = null;
 
   try {
+    packageClient = await mainPool.connect();
     const originalTariff = await findClosestTariff(tariffClient, amount, historicalAfaRate);
     if (!originalTariff) {
       throw new Error('No tariff data found');
@@ -213,12 +244,13 @@ async function calculateEeiOptimizer(tariffPool, params) {
       originalEei,
       originalBill,
       monthlySolarGenerationPerPanel,
-      morningOffsetPercent
+      morningOffsetPercent,
+      panelType
     };
-    const selectedScenario = await buildPanelScenario(tariffClient, selectedScenarioContext, safePanels);
-    const sweep = await buildPanelSweep(tariffClient, selectedScenarioContext, safePanels);
+    const selectedScenario = await buildPanelScenario(tariffClient, packageClient, selectedScenarioContext, safePanels);
+    const sweep = await buildPanelSweep(tariffClient, packageClient, selectedScenarioContext, safePanels);
 
-    return {
+  return {
       config: {
         amount,
         sunPeakHour,
@@ -262,6 +294,9 @@ async function calculateEeiOptimizer(tariffPool, params) {
     };
   } finally {
     tariffClient.release();
+    if (packageClient) {
+      packageClient.release();
+    }
   }
 }
 

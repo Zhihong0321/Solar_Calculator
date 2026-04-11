@@ -3,7 +3,8 @@ const state = {
   sliderMax: 20,
   currentPanelQty: 1,
   latestPayload: null,
-  debounceTimer: null
+  debounceTimer: null,
+  savingsChart: null
 };
 
 function formatCurrency(value) {
@@ -35,11 +36,6 @@ function setStatus(text, tone = 'neutral') {
 
   statusChip.className = `rounded-full px-3 py-1 text-[10px] uppercase tracking-wide font-semibold ${classes[tone] || classes.neutral}`;
   statusChip.textContent = text;
-
-  const mobileDockStatus = document.getElementById('mobileDockStatus');
-  if (mobileDockStatus) {
-    mobileDockStatus.textContent = text;
-  }
 }
 
 function formatMoneyCell(value) {
@@ -52,6 +48,139 @@ function formatPanelRange(startPanelQty, endPanelQty) {
   }
 
   return `${startPanelQty} to ${endPanelQty} panels`;
+}
+
+function destroySavingsChart() {
+  if (state.savingsChart) {
+    state.savingsChart.destroy();
+    state.savingsChart = null;
+  }
+}
+
+function renderSavingsChart(rows) {
+  const canvas = document.getElementById('eeiSavingsChart');
+  if (!canvas || !window.Chart) {
+    return;
+  }
+
+  const labels = Array.isArray(rows) ? rows.map((row) => `${row.panelQty}`) : [];
+  const billReductionSeries = Array.isArray(rows)
+    ? rows.map((row) => Number(row.billReductionSaving ?? row.billReduction ?? 0))
+    : [];
+  const eeiSeries = Array.isArray(rows)
+    ? rows.map((row) => Number(row.eeiSaving ?? row.eeiImpact ?? 0))
+    : [];
+  const totalSeries = Array.isArray(rows)
+    ? rows.map((row) => Number(row.totalSavingAchieved ?? ((row.billReductionSaving ?? row.billReduction ?? 0) + (row.eeiSaving ?? row.eeiImpact ?? 0))))
+    : [];
+
+  if (state.savingsChart) {
+    state.savingsChart.data.labels = labels;
+    state.savingsChart.data.datasets[0].data = billReductionSeries;
+    state.savingsChart.data.datasets[1].data = eeiSeries;
+    state.savingsChart.data.datasets[2].data = totalSeries;
+    state.savingsChart.update();
+    return;
+  }
+
+  state.savingsChart = new window.Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Bill reduction saving',
+          data: billReductionSeries,
+          borderColor: '#0f172a',
+          backgroundColor: 'rgba(15, 23, 42, 0.08)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          tension: 0.25
+        },
+        {
+          label: 'EEI saving',
+          data: eeiSeries,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.12)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          tension: 0.25
+        },
+        {
+          label: 'Total saving',
+          data: totalSeries,
+          borderColor: '#065f46',
+          backgroundColor: 'rgba(6, 95, 70, 0.12)',
+          borderWidth: 3,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.25
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            boxWidth: 10,
+            usePointStyle: true,
+            pointStyle: 'line',
+            padding: 14,
+            color: '#334155',
+            font: {
+              size: 10,
+              weight: '600'
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              return `${context.dataset.label}: RM ${formatCurrency(context.parsed.y)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            color: '#64748b',
+            font: {
+              size: 10,
+              weight: '600'
+            }
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(148, 163, 184, 0.18)'
+          },
+          ticks: {
+            color: '#64748b',
+            font: {
+              size: 10
+            },
+            callback(value) {
+              return `RM ${formatCurrency(value)}`;
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 async function fetchOptimizer(params) {
@@ -86,11 +215,6 @@ function syncSuggestion(data) {
   if (suggestedQty) {
     suggestedQty.textContent = String(state.currentPanelQty);
   }
-
-  const mobileDockQty = document.getElementById('mobileDockQty');
-  if (mobileDockQty) {
-    mobileDockQty.textContent = `Qty ${state.currentPanelQty}`;
-  }
 }
 
 function renderPanelSweep(rows, selectedPanelQty) {
@@ -103,7 +227,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
   if (!Array.isArray(rows) || rows.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" class="compact-cell text-slate-500">No panel sweep data available.</td>
+        <td colspan="7" class="compact-cell text-slate-500">No panel sweep data available.</td>
       </tr>
     `;
     if (mobileList) {
@@ -124,12 +248,17 @@ function renderPanelSweep(rows, selectedPanelQty) {
     return `
       <tr class="${rowClass}">
         <td class="compact-cell border-b border-slate-100 text-left font-semibold text-slate-950">
-          <div class="flex items-center gap-2">
-            <span>${row.panelQty}</span>
-            ${isSelected ? '<span class="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white">picked</span>' : ''}
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-1.5">
+              <span>${row.panelQty} panels</span>
+              <span class="text-slate-400">|</span>
+              <span class="font-bold text-emerald-700">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
+              ${isSelected ? '<span class="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white">picked</span>' : ''}
+            </div>
           </div>
         </td>
         <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatKwh(row.morningOffsetKwh)}</td>
+        <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.packagePrice)}</td>
         <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.billAfterSolarEei ?? row.billAfterSolar)}</td>
         <td class="compact-cell border-b border-slate-100 text-right font-medium text-slate-700">${formatMoneyCell(row.exportEarning)}</td>
         <td class="compact-cell border-b border-slate-100 text-right font-medium ${Number(row.actualEei || 0) > 0 ? 'text-slate-900' : 'text-rose-600'}">${formatMoneyCell(row.actualEei)}</td>
@@ -142,17 +271,20 @@ function renderPanelSweep(rows, selectedPanelQty) {
       const isSelected = Number(row.panelQty) === Number(selectedPanelQty);
       return `
         <article class="rounded-2xl border ${isSelected ? 'border-emerald-300 bg-emerald-50/70' : 'border-slate-200 bg-slate-50'} px-3 py-2.5 shadow-sm">
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-              <span class="text-base font-extrabold text-slate-950">${row.panelQty} panels</span>
-              ${isSelected ? '<span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-white">picked</span>' : ''}
-            </div>
-            <span class="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-500">row</span>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-base font-extrabold text-slate-950">${row.panelQty} panels</span>
+            <span class="text-slate-400">|</span>
+            <span class="font-bold text-emerald-700">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
+            ${isSelected ? '<span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-white">picked</span>' : ''}
           </div>
-          <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px] leading-tight">
+          <div class="mt-2 grid grid-cols-2 gap-x-2.5 gap-y-2 text-[11px] leading-tight">
             <div class="rounded-xl bg-white/70 px-2.5 py-2">
               <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Morning offset</p>
               <p class="mt-1 font-bold text-slate-950">${formatKwh(row.morningOffsetKwh)} kWh</p>
+            </div>
+            <div class="rounded-xl bg-white/70 px-2.5 py-2">
+              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Package price</p>
+              <p class="mt-1 font-bold text-slate-950">${formatMoneyCell(row.packagePrice)}</p>
             </div>
             <div class="rounded-xl bg-white/70 px-2.5 py-2">
               <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Bill after solar</p>
@@ -162,7 +294,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
               <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Export income</p>
               <p class="mt-1 font-bold text-slate-950">${formatMoneyCell(row.exportEarning)}</p>
             </div>
-            <div class="rounded-xl bg-white/70 px-2.5 py-2">
+            <div class="rounded-xl bg-white/70 px-2.5 py-2 col-span-2">
               <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Actual EEI</p>
               <p class="mt-1 font-bold ${Number(row.actualEei || 0) > 0 ? 'text-slate-950' : 'text-rose-600'}">${formatMoneyCell(row.actualEei)}</p>
             </div>
@@ -186,8 +318,6 @@ function renderReport(data) {
   const eeiStatusValue = document.getElementById('eeiStatusValue');
   const netImportValue = document.getElementById('netImportValue');
   const sliderValue = document.getElementById('sliderValue');
-  const mobileDockNetImport = document.getElementById('mobileDockNetImport');
-  const mobileDockEei = document.getElementById('mobileDockEei');
 
   if (eeiStatusValue) {
     eeiStatusValue.textContent = Number(report.netImportKwh || 0) > 0 ? 'Still Active' : 'Stopped';
@@ -204,7 +334,7 @@ function renderReport(data) {
     reportRangeBadge.textContent = formatPanelRange(report.comparisonStartPanelQty, report.comparisonEndPanelQty);
   }
   if (reportLead) {
-    reportLead.textContent = `The system picked ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels. Compare the rows below to see the trade-off from ${report.comparisonStartPanelQty || '-'} to ${report.comparisonEndPanelQty || '-'}.`;
+    reportLead.textContent = `The chart shows bill reduction saving + EEI saving = total saving. The system picked ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels, and the rows below compare the trade-off from ${report.comparisonStartPanelQty || '-'} to ${report.comparisonEndPanelQty || '-'}.`;
   }
   if (systemChoiceChip) {
     systemChoiceChip.textContent = `System pick: ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels`;
@@ -215,16 +345,8 @@ function renderReport(data) {
   if (billChip) {
     billChip.textContent = `Original bill: ${formatMoneyCell(report.originalBill ?? original.billAmount)}`;
   }
-    renderPanelSweep(sweepRows, report.selectedPanelQty || solar.panelQty || state.currentPanelQty);
-  if (mobileDockNetImport) {
-    mobileDockNetImport.textContent = `${formatKwh(report.netImportKwh)} kWh`;
-  }
-  if (mobileDockEei) {
-    mobileDockEei.textContent = Number(report.netImportKwh || 0) > 0
-      ? `RM ${formatCurrency(report.actualEeiAfterDeductExport)}`
-      : 'RM 0.00';
-    mobileDockEei.className = `mt-1 text-lg font-bold ${Number(report.netImportKwh || 0) > 0 ? 'text-slate-950' : 'text-rose-600'}`;
-  }
+  renderSavingsChart(sweepRows);
+  renderPanelSweep(sweepRows, report.selectedPanelQty || solar.panelQty || state.currentPanelQty);
 
   state.latestPayload = data;
 }
@@ -241,7 +363,7 @@ async function recalculate(panelQty) {
 
   setStatus('Calculating', 'loading');
 
-    try {
+  try {
     const data = await fetchOptimizer({
       amount,
       morningOffsetPercent,

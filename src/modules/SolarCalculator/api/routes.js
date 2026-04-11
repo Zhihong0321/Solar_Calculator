@@ -283,7 +283,7 @@ router.get('/api/solar-calculation', async (req, res) => {
 // API endpoint for EEI Optimizer calculation
 router.get('/api/eei-optimizer/calculate', async (req, res) => {
   try {
-    const result = await calculateEeiOptimizer(tariffPool, req.query);
+    const result = await calculateEeiOptimizer(pool, tariffPool, req.query);
     res.json(result);
   } catch (err) {
     const validationMessages = [
