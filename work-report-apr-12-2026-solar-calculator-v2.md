@@ -16,5 +16,6 @@ REPO NAME : solar calculator v2
 - Aligned the EEI optimizer EEI benefit math with the original calculator and allowed signed EEI impact in the chart and popup
 - Updated the EEI optimizer to derive actual EEI from net import tariff after removing the import tariff EEI first
 - Validated that actual EEI now matches between the original calculator and EEI optimizer across multiple domestic scenarios
+- Compared the latest RM300 11-panel savings outputs between the original domestic calculator and the EEI optimizer
 
 =====================
