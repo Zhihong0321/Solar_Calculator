@@ -3,5 +3,6 @@ REPO NAME : solar calculator v2
 
 - Updated the EEI optimizer rows and chart to separate EEI adjustment and include export in total saving
 - Added panel quantity control to each EEI future simulation popup
+- Improved the EEI future simulation popup with live saving results and tighter chart scaling
 
 =====================

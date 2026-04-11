@@ -70,14 +70,14 @@ function getChartBounds(seriesGroups) {
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
   if (minValue === maxValue) {
-    const padding = Math.max(10, Math.abs(minValue) * 0.25 || 10);
+    const padding = Math.max(6, Math.abs(minValue) * 0.1 || 6);
     return {
       min: Math.max(0, minValue - padding),
       max: maxValue + padding
     };
   }
 
-  const padding = Math.max(10, (maxValue - minValue) * 0.2);
+  const padding = Math.max(4, (maxValue - minValue) * 0.08);
   return {
     min: Math.max(0, minValue - padding),
     max: maxValue + padding
@@ -98,6 +98,62 @@ function getFuturePanelQty() {
 
 function getFutureBasePanelQty() {
   return Math.max(1, parseInt(state.futureBasePanelQty ?? state.currentPanelQty, 10) || 1);
+}
+
+function getFutureScenarioRow() {
+  const rows = Array.isArray(state.latestPayload?.panelSweep) ? state.latestPayload.panelSweep : [];
+  return rows.find((row) => Number(row.panelQty) === Number(getFuturePanelQty())) || null;
+}
+
+function updateFutureResultSummary() {
+  const resultTitle = document.getElementById('futureResultTitle');
+  const totalSaving = document.getElementById('futureTotalSaving');
+  const billReduction = document.getElementById('futureBillReduction');
+  const eeiBenefit = document.getElementById('futureEeiBenefit');
+  const exportSaving = document.getElementById('futureExportSaving');
+  const billAfterSolar = document.getElementById('futureBillAfterSolar');
+  const scenarioRow = getFutureScenarioRow();
+
+  if (!scenarioRow) {
+    if (resultTitle) {
+      resultTitle.textContent = 'Run a simulation to see this row result';
+    }
+    if (totalSaving) {
+      totalSaving.textContent = '-';
+    }
+    if (billReduction) {
+      billReduction.textContent = '-';
+    }
+    if (eeiBenefit) {
+      eeiBenefit.textContent = '-';
+    }
+    if (exportSaving) {
+      exportSaving.textContent = '-';
+    }
+    if (billAfterSolar) {
+      billAfterSolar.textContent = '-';
+    }
+    return;
+  }
+
+  if (resultTitle) {
+    resultTitle.textContent = `${scenarioRow.panelQty} panels at ${state.futureUsagePercent}% usage`;
+  }
+  if (totalSaving) {
+    totalSaving.textContent = formatMoneyCell(scenarioRow.totalSavingAchieved);
+  }
+  if (billReduction) {
+    billReduction.textContent = formatMoneyCell(scenarioRow.billReductionSaving ?? scenarioRow.billReduction);
+  }
+  if (eeiBenefit) {
+    eeiBenefit.textContent = formatMoneyCell(scenarioRow.actualEeiBenefited ?? scenarioRow.eeiSaving ?? scenarioRow.eeiImpact);
+  }
+  if (exportSaving) {
+    exportSaving.textContent = formatMoneyCell(scenarioRow.exportEarning);
+  }
+  if (billAfterSolar) {
+    billAfterSolar.textContent = formatMoneyCell(scenarioRow.billAfterSolarAmount ?? scenarioRow.billAfterSolar);
+  }
 }
 
 function updateFutureUsageSummary() {
@@ -155,6 +211,8 @@ function updateFutureUsageSummary() {
   if (panelQtyMaxLabel) {
     panelQtyMaxLabel.textContent = `${basePanels + 10}`;
   }
+
+  updateFutureResultSummary();
 }
 
 function openFutureModal(panelQty) {
@@ -424,7 +482,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
               ${isSelected ? '<span class="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white">picked</span>' : ''}
             </div>
             <div>
-              <button type="button" data-simulate-future-panel="${row.panelQty}" class="rounded-full border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">
+              <button type="button" data-simulate-future-panel="${row.panelQty}" class="rounded-full bg-slate-950 px-2.5 py-0.5 text-[10px] font-semibold text-white hover:bg-slate-800">
                 Simulate Future
               </button>
             </div>
@@ -452,7 +510,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
             ${isSelected ? '<span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-white">picked</span>' : ''}
           </div>
           <div class="mt-2">
-            <button type="button" data-simulate-future-panel="${row.panelQty}" class="rounded-full border border-slate-200 px-2.5 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-white">
+            <button type="button" data-simulate-future-panel="${row.panelQty}" class="rounded-full bg-slate-950 px-2.5 py-0.5 text-[10px] font-semibold text-white hover:bg-slate-800">
               Simulate Future
             </button>
           </div>
