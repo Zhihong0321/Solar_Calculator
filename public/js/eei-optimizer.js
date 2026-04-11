@@ -95,6 +95,7 @@ function syncSuggestion(data) {
 
 function renderPanelSweep(rows, selectedPanelQty) {
   const tbody = document.getElementById('panelSweepBody');
+  const mobileList = document.getElementById('panelSweepMobile');
   if (!tbody) {
     return;
   }
@@ -105,6 +106,13 @@ function renderPanelSweep(rows, selectedPanelQty) {
         <td colspan="5" class="compact-cell text-slate-500">No panel sweep data available.</td>
       </tr>
     `;
+    if (mobileList) {
+      mobileList.innerHTML = `
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+          No panel sweep data available.
+        </div>
+      `;
+    }
     return;
   }
 
@@ -128,6 +136,41 @@ function renderPanelSweep(rows, selectedPanelQty) {
       </tr>
     `;
   }).join('');
+
+  if (mobileList) {
+    mobileList.innerHTML = rows.map((row) => {
+      const isSelected = Number(row.panelQty) === Number(selectedPanelQty);
+      return `
+        <article class="rounded-2xl border ${isSelected ? 'border-emerald-300 bg-emerald-50/70' : 'border-slate-200 bg-slate-50'} px-3 py-2.5 shadow-sm">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-base font-extrabold text-slate-950">${row.panelQty} panels</span>
+              ${isSelected ? '<span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-white">picked</span>' : ''}
+            </div>
+            <span class="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-500">row</span>
+          </div>
+          <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-[11px] leading-tight">
+            <div class="rounded-xl bg-white/70 px-2.5 py-2">
+              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Morning offset</p>
+              <p class="mt-1 font-bold text-slate-950">${formatKwh(row.morningOffsetKwh)} kWh</p>
+            </div>
+            <div class="rounded-xl bg-white/70 px-2.5 py-2">
+              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Bill after solar</p>
+              <p class="mt-1 font-bold text-slate-950">${formatMoneyCell(row.billAfterSolarEei ?? row.billAfterSolar)}</p>
+            </div>
+            <div class="rounded-xl bg-white/70 px-2.5 py-2">
+              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Export income</p>
+              <p class="mt-1 font-bold text-slate-950">${formatMoneyCell(row.exportEarning)}</p>
+            </div>
+            <div class="rounded-xl bg-white/70 px-2.5 py-2">
+              <p class="text-[9px] uppercase tracking-[0.25em] text-slate-500 font-semibold">Actual EEI</p>
+              <p class="mt-1 font-bold ${Number(row.actualEei || 0) > 0 ? 'text-slate-950' : 'text-rose-600'}">${formatMoneyCell(row.actualEei)}</p>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
 }
 
 function renderReport(data) {
@@ -172,7 +215,7 @@ function renderReport(data) {
   if (billChip) {
     billChip.textContent = `Original bill: ${formatMoneyCell(report.originalBill ?? original.billAmount)}`;
   }
-  renderPanelSweep(sweepRows, report.selectedPanelQty || solar.panelQty || state.currentPanelQty);
+    renderPanelSweep(sweepRows, report.selectedPanelQty || solar.panelQty || state.currentPanelQty);
   if (mobileDockNetImport) {
     mobileDockNetImport.textContent = `${formatKwh(report.netImportKwh)} kWh`;
   }
@@ -198,7 +241,7 @@ async function recalculate(panelQty) {
 
   setStatus('Calculating', 'loading');
 
-  try {
+    try {
     const data = await fetchOptimizer({
       amount,
       morningOffsetPercent,
@@ -210,7 +253,7 @@ async function recalculate(panelQty) {
     renderReport(data);
     setStatus('Ready', 'success');
     if (window.matchMedia('(max-width: 767px)').matches) {
-      document.getElementById('reportCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('panelSweepCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   } catch (err) {
     console.error(err);
@@ -239,7 +282,7 @@ async function startSimulation(event) {
     renderReport(data);
     setStatus('Ready', 'success');
     if (window.matchMedia('(max-width: 767px)').matches) {
-      document.getElementById('reportCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('panelSweepCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   } catch (err) {
     console.error(err);

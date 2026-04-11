@@ -11,5 +11,6 @@ REPO NAME : Solar Calculator v2
 - Pulled the latest updates from GitHub into the current branch
 - Updated the EEI optimizer report card to render the missing panel quantity and generation fields
 - Reworked the EEI optimizer into a compact panel sweep report with 6-to-12 panel comparison rows
+- Rebuilt the EEI optimizer report so mobile uses compact panel cards instead of an overflowing table
 
 =====================
