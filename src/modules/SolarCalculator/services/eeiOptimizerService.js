@@ -141,12 +141,17 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
   const actualEei = resolveActualEeiValue(netImportTariff, netImportKwh);
   const exportRate = importAfterSolarKwh > 1500 ? HIGH_USAGE_EXPORT_RATE : DEFAULT_EXPORT_RATE;
   const exportEarning = totalExportKwh * exportRate;
-  const billAfterSolarAmountBreakdown = buildBreakdown(importTariff, context.originalEei);
+  const billAfterSolarAmountBreakdown = buildBreakdown(importTariff);
+  const billAfterSolarWithoutEeiBreakdown = buildBreakdown(importTariff, 0);
   const billAfterSolarEeiBreakdown = buildBreakdown(importTariff, actualEei);
   const originalBill = context.originalBill;
   const billAfterSolarAmount = billAfterSolarAmountBreakdown?.total ?? originalBill;
-  const billAfterSolarEei = billAfterSolarEeiBreakdown?.total ?? billAfterSolarAmount;
-  const eeiAfterSolar = parseNumber(billAfterSolarAmountBreakdown?.eei, context.originalEei);
+  const billAfterSolarWithoutEei = billAfterSolarWithoutEeiBreakdown?.total ?? billAfterSolarAmount;
+  const billAfterSolarEei = billAfterSolarEeiBreakdown?.total ?? billAfterSolarWithoutEei;
+  const eeiAfterSolar = parseNumber(
+    billAfterSolarAmountBreakdown?.eei,
+    importTariff?.energy_efficiency_incentive ?? importTariff?.eei ?? 0
+  );
   const eeiAfterAdjustment = actualEei - eeiAfterSolar;
   const billReduction = Math.max(0, originalBill - billAfterSolarAmount);
   const eeiImpact = eeiAfterSolar - actualEei;
@@ -160,6 +165,7 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
     morningOffsetKwh: roundMoney(morningOffsetKwh),
     billAfterSolar: roundMoney(billAfterSolarAmount),
     billAfterSolarAmount: roundMoney(billAfterSolarAmount),
+    billAfterSolarWithoutEei: roundMoney(billAfterSolarWithoutEei),
     billAfterSolarEei: roundMoney(billAfterSolarEei),
     eeiAfterSolarAmount: roundMoney(eeiAfterSolar),
     eeiAfterAdjustmentAmount: roundMoney(eeiAfterAdjustment),
