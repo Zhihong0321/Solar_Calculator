@@ -77,14 +77,14 @@ function getChartBounds(seriesGroups) {
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
   if (minValue === maxValue) {
-    const padding = Math.max(6, Math.abs(minValue) * 0.1 || 6);
+    const padding = Math.max(18, Math.abs(minValue) * 0.22 || 18);
     return {
       min: Math.max(0, minValue - padding),
       max: maxValue + padding
     };
   }
 
-  const padding = Math.max(4, (maxValue - minValue) * 0.08);
+  const padding = Math.max(14, (maxValue - minValue) * 0.22);
   return {
     min: Math.max(0, minValue - padding),
     max: maxValue + padding
@@ -403,6 +403,7 @@ function renderSavingsChart(rows) {
         y: {
           min: bounds.min,
           max: bounds.max,
+          grace: '18%',
           grid: {
             color: 'rgba(148, 163, 184, 0.18)'
           },
