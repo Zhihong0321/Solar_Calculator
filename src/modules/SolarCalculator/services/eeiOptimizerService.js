@@ -196,6 +196,7 @@ async function calculateEeiOptimizer(mainPool, tariffPool, params) {
   const morningOffsetPercent = parseNumber(params.morningOffsetPercent ?? params.morningUsage, DEFAULT_MORNING_OFFSET_PERCENT);
   const panelType = parseNumber(params.panelType, DEFAULT_PANEL_RATING);
   const historicalAfaRate = parseNumber(params.historicalAfaRate, 0);
+  const usageKwhOverride = parseNumber(params.usageKwhOverride, 0);
 
   let requestedPanelQty = null;
   if (params.panelQty !== undefined && params.panelQty !== null && String(params.panelQty).trim() !== '') {
@@ -205,7 +206,7 @@ async function calculateEeiOptimizer(mainPool, tariffPool, params) {
     }
   }
 
-  if (!amount || amount <= 0) {
+  if ((!amount || amount <= 0) && !(usageKwhOverride > 0)) {
     throw new Error('Invalid bill amount');
   }
   if (!sunPeakHour || sunPeakHour < 3.0 || sunPeakHour > 4.5) {
@@ -223,12 +224,16 @@ async function calculateEeiOptimizer(mainPool, tariffPool, params) {
 
   try {
     packageClient = await mainPool.connect();
-    const originalTariff = await findClosestTariff(tariffClient, amount, historicalAfaRate);
+    const originalTariff = usageKwhOverride > 0
+      ? await lookupTariffByUsage(tariffClient, usageKwhOverride)
+      : await findClosestTariff(tariffClient, amount, historicalAfaRate);
     if (!originalTariff) {
       throw new Error('No tariff data found');
     }
 
-    const originalUsageKwh = parseNumber(originalTariff.usage_kwh);
+    const originalUsageKwh = usageKwhOverride > 0
+      ? usageKwhOverride
+      : parseNumber(originalTariff.usage_kwh);
     const originalEei = parseNumber(originalTariff.energy_efficiency_incentive ?? originalTariff.eei);
     const monthlySolarGenerationPerPanel = (panelType * sunPeakHour * 30) / 1000;
     const suggestedMaxPanelQty = calculateSuggestedMaxPanelQty(originalUsageKwh, panelType, sunPeakHour);
@@ -250,12 +255,17 @@ async function calculateEeiOptimizer(mainPool, tariffPool, params) {
     const selectedScenario = await buildPanelScenario(tariffClient, packageClient, selectedScenarioContext, safePanels);
     const sweep = await buildPanelSweep(tariffClient, packageClient, selectedScenarioContext, safePanels);
 
-  return {
+    const usageDeltaPercent = originalUsageKwh > 0
+      ? ((originalUsageKwh - parseNumber(originalTariff.usage_kwh)) / originalUsageKwh) * 100
+      : 0;
+
+    return {
       config: {
         amount,
         sunPeakHour,
         morningOffsetPercent,
-        panelType
+        panelType,
+        usageKwhOverride: usageKwhOverride > 0 ? roundMoney(usageKwhOverride) : null
       },
       suggestion: {
         suggestedMaxPanelQty,
@@ -268,7 +278,9 @@ async function calculateEeiOptimizer(mainPool, tariffPool, params) {
         billAmount: roundMoney(originalBill),
         usageKwh: roundMoney(originalUsageKwh),
         eei: roundMoney(originalEei),
-        breakdown: originalBreakdown
+        breakdown: originalBreakdown,
+        matchedUsageKwh: roundMoney(originalTariff.usage_kwh),
+        isUsageOverride: usageKwhOverride > 0
       },
       solar: {
         ...selectedScenario,
@@ -288,7 +300,8 @@ async function calculateEeiOptimizer(mainPool, tariffPool, params) {
         totalExportKwh: selectedScenario.totalExportKwh,
         exportEarning: selectedScenario.exportEarning,
         actualEeiAfterDeductExport: selectedScenario.actualEeiAfterDeductExport,
-        netImportKwh: selectedScenario.netImportKwh
+        netImportKwh: selectedScenario.netImportKwh,
+        usageDeltaPercent: roundMoney(usageDeltaPercent)
       },
       panelSweep: sweep.rows
     };

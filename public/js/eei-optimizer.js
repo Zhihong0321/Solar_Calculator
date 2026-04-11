@@ -4,7 +4,10 @@ const state = {
   currentPanelQty: 1,
   latestPayload: null,
   debounceTimer: null,
-  savingsChart: null
+  savingsChart: null,
+  baseUsageKwh: null,
+  futureUsagePercent: 100,
+  futureSimulationOpen: false
 };
 
 function formatCurrency(value) {
@@ -50,6 +53,99 @@ function formatPanelRange(startPanelQty, endPanelQty) {
   return `${startPanelQty} to ${endPanelQty} panels`;
 }
 
+function getChartBounds(seriesGroups) {
+  const values = seriesGroups.flat().filter((value) => Number.isFinite(value));
+  if (!values.length) {
+    return { min: 0, max: 100 };
+  }
+
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  if (minValue === maxValue) {
+    const padding = Math.max(10, Math.abs(minValue) * 0.25 || 10);
+    return {
+      min: Math.max(0, minValue - padding),
+      max: maxValue + padding
+    };
+  }
+
+  const padding = Math.max(10, (maxValue - minValue) * 0.2);
+  return {
+    min: Math.max(0, minValue - padding),
+    max: maxValue + padding
+  };
+}
+
+function getFutureUsageOverride() {
+  if (!(state.baseUsageKwh > 0) || Number(state.futureUsagePercent) === 100) {
+    return null;
+  }
+
+  return Number(((state.baseUsageKwh * state.futureUsagePercent) / 100).toFixed(2));
+}
+
+function updateFutureUsageSummary() {
+  const currentUsage = document.getElementById('futureCurrentUsage');
+  const projectedUsage = document.getElementById('futureProjectedUsage');
+  const percentValue = document.getElementById('futureUsagePercentValue');
+  const futureButton = document.getElementById('futureSimButton');
+
+  const baseUsage = Number(state.baseUsageKwh || state.latestPayload?.original?.usageKwh || 0);
+  const projected = getFutureUsageOverride() ?? baseUsage;
+  const delta = Math.round(Number(state.futureUsagePercent || 100) - 100);
+  const deltaLabel = delta === 0
+    ? 'Current'
+    : `${delta > 0 ? '+' : ''}${delta}%`;
+
+  if (currentUsage) {
+    currentUsage.textContent = `${formatKwh(baseUsage)} kWh`;
+  }
+  if (projectedUsage) {
+    projectedUsage.textContent = `${formatKwh(projected)} kWh`;
+  }
+  if (percentValue) {
+    percentValue.textContent = delta === 0 ? '100% (Current)' : `${state.futureUsagePercent}% (${deltaLabel})`;
+  }
+  if (futureButton) {
+    futureButton.disabled = !(baseUsage > 0);
+    futureButton.className = `rounded-full px-3 py-1.5 font-semibold border transition-colors ${
+      state.futureUsagePercent === 100
+        ? 'bg-slate-950 text-white border-slate-950 hover:bg-slate-800'
+        : 'bg-rose-600 text-white border-rose-600 hover:bg-rose-500'
+    }`;
+    futureButton.textContent = state.futureUsagePercent === 100
+      ? 'Simulate Future'
+      : `Future ${state.futureUsagePercent}%`;
+  }
+}
+
+function openFutureModal() {
+  if (!(state.baseUsageKwh > 0)) {
+    return;
+  }
+
+  const modal = document.getElementById('futureSimModal');
+  const slider = document.getElementById('futureUsageSlider');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+  if (slider) {
+    slider.value = String(state.futureUsagePercent);
+  }
+  state.futureSimulationOpen = true;
+  updateFutureUsageSummary();
+}
+
+function closeFutureModal() {
+  const modal = document.getElementById('futureSimModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+  state.futureSimulationOpen = false;
+}
+
 function destroySavingsChart() {
   if (state.savingsChart) {
     state.savingsChart.destroy();
@@ -73,12 +169,15 @@ function renderSavingsChart(rows) {
   const totalSeries = Array.isArray(rows)
     ? rows.map((row) => Number(row.totalSavingAchieved ?? ((row.billReductionSaving ?? row.billReduction ?? 0) + (row.eeiSaving ?? row.eeiImpact ?? 0))))
     : [];
+  const bounds = getChartBounds([billReductionSeries, eeiSeries, totalSeries]);
 
   if (state.savingsChart) {
     state.savingsChart.data.labels = labels;
     state.savingsChart.data.datasets[0].data = billReductionSeries;
     state.savingsChart.data.datasets[1].data = eeiSeries;
     state.savingsChart.data.datasets[2].data = totalSeries;
+    state.savingsChart.options.scales.y.min = bounds.min;
+    state.savingsChart.options.scales.y.max = bounds.max;
     state.savingsChart.update();
     return;
   }
@@ -111,10 +210,10 @@ function renderSavingsChart(rows) {
         {
           label: 'Total saving',
           data: totalSeries,
-          borderColor: '#065f46',
-          backgroundColor: 'rgba(6, 95, 70, 0.12)',
-          borderWidth: 3,
-          pointRadius: 4,
+          borderColor: '#dc2626',
+          backgroundColor: 'rgba(220, 38, 38, 0.14)',
+          borderWidth: 4,
+          pointRadius: 4.5,
           pointHoverRadius: 6,
           tension: 0.25
         }
@@ -164,7 +263,8 @@ function renderSavingsChart(rows) {
           }
         },
         y: {
-          beginAtZero: true,
+          min: bounds.min,
+          max: bounds.max,
           grid: {
             color: 'rgba(148, 163, 184, 0.18)'
           },
@@ -215,6 +315,8 @@ function syncSuggestion(data) {
   if (suggestedQty) {
     suggestedQty.textContent = String(state.currentPanelQty);
   }
+
+  updateFutureUsageSummary();
 }
 
 function renderPanelSweep(rows, selectedPanelQty) {
@@ -227,7 +329,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
   if (!Array.isArray(rows) || rows.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="compact-cell text-slate-500">No panel sweep data available.</td>
+        <td colspan="6" class="compact-cell text-slate-500">No panel sweep data available.</td>
       </tr>
     `;
     if (mobileList) {
@@ -252,7 +354,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
             <div class="flex items-center gap-1.5">
               <span>${row.panelQty} panels</span>
               <span class="text-slate-400">|</span>
-              <span class="font-bold text-emerald-700">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
+              <span class="font-black text-rose-600">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
               ${isSelected ? '<span class="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white">picked</span>' : ''}
             </div>
           </div>
@@ -274,7 +376,7 @@ function renderPanelSweep(rows, selectedPanelQty) {
           <div class="flex flex-wrap items-center gap-1.5">
             <span class="text-base font-extrabold text-slate-950">${row.panelQty} panels</span>
             <span class="text-slate-400">|</span>
-            <span class="font-bold text-emerald-700">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
+            <span class="font-black text-rose-600">${formatMoneyCell(row.totalSavingAchieved)} total saving</span>
             ${isSelected ? '<span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-white">picked</span>' : ''}
           </div>
           <div class="mt-2 grid grid-cols-2 gap-x-2.5 gap-y-2 text-[11px] leading-tight">
@@ -334,21 +436,74 @@ function renderReport(data) {
     reportRangeBadge.textContent = formatPanelRange(report.comparisonStartPanelQty, report.comparisonEndPanelQty);
   }
   if (reportLead) {
-    reportLead.textContent = `The chart shows bill reduction saving + EEI saving = total saving. The system picked ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels, and the rows below compare the trade-off from ${report.comparisonStartPanelQty || '-'} to ${report.comparisonEndPanelQty || '-'}.`;
+    reportLead.textContent = state.futureUsagePercent === 100
+      ? `The chart shows bill reduction saving + EEI saving = total saving. The system picked ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels, and the rows below compare the trade-off from ${report.comparisonStartPanelQty || '-'} to ${report.comparisonEndPanelQty || '-'}.`
+      : `Future mode is active at ${state.futureUsagePercent}% of current usage. The chart still compares bill reduction saving + EEI saving = total saving for the same panel sweep.`;
   }
   if (systemChoiceChip) {
     systemChoiceChip.textContent = `System pick: ${report.selectedPanelQty || solar.panelQty || state.currentPanelQty} panels`;
   }
   if (comparisonChip) {
-    comparisonChip.textContent = `Compare: ${formatPanelRange(report.comparisonStartPanelQty, report.comparisonEndPanelQty)}`;
+    comparisonChip.textContent = state.futureUsagePercent === 100
+      ? `Compare: ${formatPanelRange(report.comparisonStartPanelQty, report.comparisonEndPanelQty)}`
+      : `Future usage: ${state.futureUsagePercent}%`;
   }
   if (billChip) {
     billChip.textContent = `Original bill: ${formatMoneyCell(report.originalBill ?? original.billAmount)}`;
   }
+  updateFutureUsageSummary();
   renderSavingsChart(sweepRows);
   renderPanelSweep(sweepRows, report.selectedPanelQty || solar.panelQty || state.currentPanelQty);
 
   state.latestPayload = data;
+}
+
+function buildOptimizerParams(panelQty, usageKwhOverride = null) {
+  const amount = document.getElementById('billAmount')?.value;
+  const morningOffsetPercent = document.getElementById('morningOffsetPercent')?.value;
+  const panelRating = document.getElementById('panelRating')?.value;
+  const sunPeakHour = document.getElementById('sunPeakHour')?.value;
+
+  const params = {
+    amount,
+    morningOffsetPercent,
+    panelType: panelRating,
+    sunPeakHour
+  };
+
+  if (panelQty !== undefined && panelQty !== null) {
+    params.panelQty = panelQty;
+  }
+  if (usageKwhOverride !== undefined && usageKwhOverride !== null) {
+    params.usageKwhOverride = usageKwhOverride;
+  }
+
+  return params;
+}
+
+async function runSimulation(params, options = {}) {
+  const { resetFutureBase = false, scrollToReport = false } = options;
+  setStatus('Calculating', 'loading');
+
+  try {
+    const data = await fetchOptimizer(params);
+    if (resetFutureBase) {
+      state.baseUsageKwh = Number(data?.original?.usageKwh || 0);
+      state.futureUsagePercent = 100;
+      updateFutureUsageSummary();
+    }
+    syncSuggestion(data);
+    renderReport(data);
+    setStatus('Ready', 'success');
+    if (scrollToReport && window.matchMedia('(max-width: 767px)').matches) {
+      document.getElementById('panelSweepCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    return data;
+  } catch (err) {
+    console.error(err);
+    setStatus('Error', 'error');
+    return null;
+  }
 }
 
 async function recalculate(panelQty) {
@@ -356,60 +511,19 @@ async function recalculate(panelQty) {
     return;
   }
 
-  const amount = document.getElementById('billAmount')?.value;
-  const morningOffsetPercent = document.getElementById('morningOffsetPercent')?.value;
-  const panelRating = document.getElementById('panelRating')?.value;
-  const sunPeakHour = document.getElementById('sunPeakHour')?.value;
-
-  setStatus('Calculating', 'loading');
-
-  try {
-    const data = await fetchOptimizer({
-      amount,
-      morningOffsetPercent,
-      panelType: panelRating,
-      sunPeakHour,
-      panelQty
-    });
-    syncSuggestion(data);
-    renderReport(data);
-    setStatus('Ready', 'success');
-    if (window.matchMedia('(max-width: 767px)').matches) {
-      document.getElementById('panelSweepCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  } catch (err) {
-    console.error(err);
-    setStatus('Error', 'error');
-  }
+  const usageKwhOverride = getFutureUsageOverride();
+  await runSimulation(buildOptimizerParams(panelQty, usageKwhOverride), {
+    scrollToReport: !state.futureSimulationOpen
+  });
 }
 
 async function startSimulation(event) {
   event.preventDefault();
-
-  const amount = document.getElementById('billAmount')?.value;
-  const morningOffsetPercent = document.getElementById('morningOffsetPercent')?.value;
-  const panelRating = document.getElementById('panelRating')?.value;
-  const sunPeakHour = document.getElementById('sunPeakHour')?.value;
-
-  setStatus('Calculating', 'loading');
-
-  try {
-    const data = await fetchOptimizer({
-      amount,
-      morningOffsetPercent,
-      panelType: panelRating,
-      sunPeakHour
-    });
-    syncSuggestion(data);
-    renderReport(data);
-    setStatus('Ready', 'success');
-    if (window.matchMedia('(max-width: 767px)').matches) {
-      document.getElementById('panelSweepCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  } catch (err) {
-    console.error(err);
-    setStatus('Error', 'error');
-  }
+  closeFutureModal();
+  await runSimulation(buildOptimizerParams(null, null), {
+    resetFutureBase: true,
+    scrollToReport: true
+  });
 }
 
 function scheduleRecalculate(panelQty) {
@@ -419,9 +533,21 @@ function scheduleRecalculate(panelQty) {
   }, 120);
 }
 
+function scheduleFutureSimulation(percentValue) {
+  clearTimeout(state.debounceTimer);
+  state.debounceTimer = setTimeout(() => {
+    recalculate(state.currentPanelQty);
+  }, 120);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('eeiForm');
   const slider = document.getElementById('panelQtySlider');
+  const futureButton = document.getElementById('futureSimButton');
+  const futureSlider = document.getElementById('futureUsageSlider');
+  const futureResetButton = document.getElementById('futureResetButton');
+  const modal = document.getElementById('futureSimModal');
+  const closeTargets = document.querySelectorAll('[data-close-future-modal="true"]');
 
   if (form) {
     form.addEventListener('submit', startSimulation);
@@ -440,4 +566,49 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  if (futureButton) {
+    futureButton.addEventListener('click', () => {
+      openFutureModal();
+    });
+  }
+
+  if (futureSlider) {
+    futureSlider.addEventListener('input', (event) => {
+      state.futureUsagePercent = Math.max(80, Math.min(160, parseInt(event.target.value, 10) || 100));
+      updateFutureUsageSummary();
+      if (state.latestPayload) {
+        scheduleFutureSimulation(state.futureUsagePercent);
+      }
+    });
+  }
+
+  if (futureResetButton) {
+    futureResetButton.addEventListener('click', async () => {
+      state.futureUsagePercent = 100;
+      if (futureSlider) {
+        futureSlider.value = '100';
+      }
+      updateFutureUsageSummary();
+      if (state.latestPayload) {
+        await recalculate(state.currentPanelQty);
+      }
+    });
+  }
+
+  closeTargets.forEach((target) => {
+    target.addEventListener('click', () => {
+      closeFutureModal();
+    });
+  });
+
+  if (modal) {
+    modal.addEventListener('click', (event) => {
+      if (event.target instanceof HTMLElement && event.target.dataset.closeFutureModal === 'true') {
+        closeFutureModal();
+      }
+    });
+  }
+
+  updateFutureUsageSummary();
 });
