@@ -125,8 +125,10 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
   const safePanelQty = Math.max(1, parseInt(panelQty, 10) || 1);
   const monthlySolarGeneration = safePanelQty * context.monthlySolarGenerationPerPanel;
   const morningOffsetKwh = monthlySolarGeneration * (context.morningOffsetPercent / 100);
-  const totalExportKwh = Math.max(0, monthlySolarGeneration - morningOffsetKwh);
   const importAfterSolarKwh = Math.max(0, context.originalUsageKwh - morningOffsetKwh);
+  const potentialExportKwh = Math.max(0, monthlySolarGeneration - morningOffsetKwh);
+  const totalExportKwh = Math.min(potentialExportKwh, importAfterSolarKwh);
+  const donatedKwh = Math.max(0, potentialExportKwh - totalExportKwh);
   const netImportKwh = Math.max(0, importAfterSolarKwh - totalExportKwh);
   const importAfterSolarLookupKwh = Math.max(0, Math.floor(importAfterSolarKwh));
   const netImportLookupKwh = Math.max(0, Math.floor(netImportKwh));
@@ -166,6 +168,7 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
     actualEeiAfterDeductExport: roundMoney(actualEei),
     netImportKwh: roundMoney(netImportKwh),
     totalExportKwh: roundMoney(totalExportKwh),
+    donatedKwh: roundMoney(donatedKwh),
     solarGenerationKwh: roundMoney(monthlySolarGeneration),
     importAfterSolarKwh: roundMoney(importAfterSolarKwh),
     exportRate: roundMoney(exportRate),
