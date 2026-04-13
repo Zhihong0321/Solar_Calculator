@@ -531,7 +531,7 @@ class SolarCalculator {
         const monthlySolarGeneration = dailySolarGeneration * 30;
 
         // 5. Consumption Split
-        const morningUsageKwh = (monthlyUsageKwh * morningUsage) / 100;
+        const morningUsageKwh = (monthlySolarGeneration * morningUsage) / 100;
         const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
 
         // 6. Battery Math (Hard Caps)

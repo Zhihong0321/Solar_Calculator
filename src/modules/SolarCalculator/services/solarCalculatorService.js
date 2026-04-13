@@ -303,8 +303,8 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const sedaLimit = systemPhaseVal === 1 ? 5 : 15;
     const requiresSedaFee = systemSizeKwp > sedaLimit;
 
-    // Calculate morning usage split
-    const morningUsageKwh = (monthlyUsageKwh * morningPercent) / 100;
+    // Morning offset is now based on total solar generation.
+    const morningUsageKwh = (monthlySolarGeneration * morningPercent) / 100;
     const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
 
     // --- Battery Logic ---
