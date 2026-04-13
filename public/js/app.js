@@ -1,6 +1,7 @@
 // State Management
 let latestSolarParams = null;
 let latestSolarData = null;
+let latestFutureUsageData = null;
 let originalSolarData = null; // Baseline for price comparison (the very first recommendation)
 let currentHistoricalAfaRate = 0;
 let invoiceBaseUrl = 'https://quote.atap.solar/create-invoice';
@@ -17,6 +18,9 @@ let db = {
 
 // Debounce timer for spontaneous updates (slider/knob changes)
 let _spontaneousDebounceTimer = null;
+let _futureUsageDebounceTimer = null;
+let _futureUsageRequestSeq = 0;
+let futureUsageBlocks = Array(6).fill(false);
 
 // Charts
 const chartInstances = {
@@ -41,6 +45,22 @@ const SHORT_BILL_CYCLE_SST_RATE = 0.08;
 function normalizeBatterySize(value) {
     const numeric = Number(value);
     return ALLOWED_BATTERY_SIZES.includes(numeric) ? numeric : 0;
+}
+
+function getResidentialPanelQuantityGate(data) {
+    const recommendedPanels = Math.max(1, Math.floor(toFiniteNumber(data?.recommendedPanels, data?.actualPanels || 1)));
+
+    return {
+        recommendedPanels,
+        min: Math.max(1, recommendedPanels - 2),
+        max: recommendedPanels + 20
+    };
+}
+
+function clampResidentialPanelQuantity(value, data) {
+    const gate = getResidentialPanelQuantityGate(data);
+    const numeric = Math.floor(toFiniteNumber(value, gate.recommendedPanels));
+    return Math.max(gate.min, Math.min(gate.max, numeric));
 }
 
 function getBatterySizeStepIndex(value) {
@@ -77,6 +97,22 @@ function buildUsagePattern(dailyUsageKwh, dayUsagePercent) {
 function toFiniteNumber(value, fallback = 0) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function resetFutureUsageSimulation() {
+    futureUsageBlocks = Array(6).fill(false);
+    latestFutureUsageData = null;
+    _futureUsageRequestSeq += 1;
+    clearTimeout(_futureUsageDebounceTimer);
+    _futureUsageDebounceTimer = null;
+}
+
+function getFutureUsageBoostKwh() {
+    return futureUsageBlocks.reduce((sum, active) => sum + (active ? 1 : 0), 0) * 200;
+}
+
+function getProjectedFutureUsageKwh(baseUsageKwh = 0) {
+    return Math.max(0, toFiniteNumber(baseUsageKwh) + getFutureUsageBoostKwh());
 }
 
 function normalizeBillCycleMode(mode) {
@@ -864,6 +900,7 @@ document.getElementById('billForm').addEventListener('submit', async function (e
         // Reset solar results so stale data is cleared
         latestSolarParams = null;
         latestSolarData = null;
+        resetFutureUsageSimulation();
         const existing = document.getElementById('solarResultsCard');
         if (existing) existing.remove();
         const floatingBar = document.getElementById('floatingPanelBar');
@@ -987,10 +1024,141 @@ async function runAndDisplay() {
 
 async function requestPanelUpdate(newCount) {
     if (!latestSolarParams) return;
-    latestSolarParams.overridePanels = newCount;
+    latestSolarParams.overridePanels = clampResidentialPanelQuantity(newCount, latestSolarData);
     // Debounce panel +/- button rapid clicks
     clearTimeout(_spontaneousDebounceTimer);
     _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 150);
+}
+
+function scheduleFutureUsageSimulation() {
+    clearTimeout(_futureUsageDebounceTimer);
+    _futureUsageDebounceTimer = setTimeout(() => updateFutureUsageSimulation(), 150);
+}
+
+function renderFutureUsageResultCard(baseData, futureData, projectedUsageKwh, boostKwh) {
+    const currentSavings = toFiniteNumber(latestSolarData?.monthlySavings);
+    const futureSavings = toFiniteNumber(futureData?.monthlySavings);
+    const savingsDelta = futureSavings - currentSavings;
+    const currentPanels = latestSolarData?.actualPanels ?? baseData?.actualPanels ?? 0;
+    const batterySize = normalizeBatterySize(latestSolarParams?.batterySize ?? baseData?.config?.batterySize ?? 0);
+
+    return `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+            <div class="bg-black text-white p-4 md:p-5 space-y-3">
+                <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide opacity-70">Projected_Future_Usage</div>
+                <div class="flex items-baseline justify-between gap-4">
+                    <span class="text-[10px] md:text-xs uppercase tracking-wide opacity-60">Selected_Bump</span>
+                    <span class="text-xl md:text-2xl font-bold">${boostKwh > 0 ? `+${boostKwh.toLocaleString('en-MY')} kWh` : '0 kWh'}</span>
+                </div>
+                <div class="flex items-baseline justify-between gap-4">
+                    <span class="text-[10px] md:text-xs uppercase tracking-wide opacity-60">Projected_Usage</span>
+                    <span class="text-lg md:text-xl font-bold">${projectedUsageKwh.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} kWh</span>
+                </div>
+                <div class="text-[10px] md:text-xs uppercase tracking-wide opacity-60 pt-2 border-t border-white/15">
+                    Current system stays fixed at ${currentPanels} panels and ${batterySize} kWh battery.
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 md:gap-4">
+                <div class="border border-divider p-3 md:p-4 bg-white">
+                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold mb-1">Current_Savings</div>
+                    <div class="text-lg md:text-2xl font-bold">RM ${formatCurrency(currentSavings)}</div>
+                </div>
+                <div class="border border-divider p-3 md:p-4 bg-white">
+                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold mb-1">Future_Savings</div>
+                    <div class="text-lg md:text-2xl font-bold text-emerald-600">RM ${formatCurrency(futureSavings)}</div>
+                </div>
+                <div class="border border-divider p-3 md:p-4 bg-white">
+                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold mb-1">Savings_Change</div>
+                    <div class="text-lg md:text-2xl font-bold ${savingsDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${savingsDelta >= 0 ? '+' : '-'}RM ${formatCurrency(Math.abs(savingsDelta))}</div>
+                </div>
+                <div class="border border-divider p-3 md:p-4 bg-white">
+                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold mb-1">Future_Payback</div>
+                    <div class="text-lg md:text-2xl font-bold">${futureData?.paybackPeriod ?? 'N/A'} yr</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderFutureUsageSimulationSection(baseData) {
+    const section = document.getElementById('futureUsageSimulationSection');
+    if (!section) return;
+
+    const baseUsageKwh = toFiniteNumber(baseData?.details?.monthlyUsageKwh, 0);
+    const boostKwh = getFutureUsageBoostKwh();
+    const projectedUsageKwh = getProjectedFutureUsageKwh(baseUsageKwh);
+
+    section.innerHTML = `
+        <div class="space-y-6 md:space-y-8">
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                    <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-2 md:mb-3 tier-2 border-b-2 border-fact inline-block pb-1">09_FUTURE_USAGE_STRESS_TEST</h2>
+                    <p class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold max-w-2xl">Toggle the 200 kWh blocks to simulate future household growth while keeping the current panels and battery fixed.</p>
+                </div>
+                <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold text-right">
+                    <div>Selected_Blocks: ${futureUsageBlocks.filter(Boolean).length} / 6</div>
+                    <div>Usage_Bump: +${boostKwh.toLocaleString('en-MY')} kWh</div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                ${futureUsageBlocks.map((active, index) => `
+                    <button
+                        type="button"
+                        onclick="toggleFutureUsageBlock(${index})"
+                        class="min-w-[92px] border-2 px-3 py-2 text-left text-[10px] md:text-xs font-bold uppercase tracking-wide transition-colors ${active ? 'border-black bg-black text-white' : 'border-divider bg-white hover:bg-black hover:text-white'}"
+                    >
+                        <span class="block opacity-70">Block ${index + 1}</span>
+                        <span class="block text-sm md:text-base leading-tight">+200 kWh</span>
+                    </button>
+                `).join('')}
+            </div>
+
+            <div id="futureUsageSimulationResult" class="border-t border-divider pt-6 md:pt-8">
+                ${boostKwh > 0
+                    ? `<div class="py-8 text-center text-[10px] md:text-xs font-bold uppercase tracking-widest animate-pulse tier-3">Recomputing_future_usage...</div>`
+                    : `<div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">No future usage blocks selected yet. Toggle one or more blocks to recalculate with the current system fixed.</div>`
+                }
+            </div>
+        </div>
+    `;
+}
+
+async function updateFutureUsageSimulation() {
+    const resultEl = document.getElementById('futureUsageSimulationResult');
+    if (!resultEl || !latestSolarData || !latestSolarParams) return;
+
+    const boostKwh = getFutureUsageBoostKwh();
+    const baseUsageKwh = toFiniteNumber(latestSolarData.details?.monthlyUsageKwh, 0);
+    const projectedUsageKwh = getProjectedFutureUsageKwh(baseUsageKwh);
+
+    if (boostKwh <= 0) {
+        latestFutureUsageData = null;
+        resultEl.innerHTML = `<div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">No future usage blocks selected yet. Toggle one or more blocks to recalculate with the current system fixed.</div>`;
+        return;
+    }
+
+    const requestSeq = ++_futureUsageRequestSeq;
+    resultEl.innerHTML = `<div class="py-8 text-center text-[10px] md:text-xs font-bold uppercase tracking-widest animate-pulse tier-3">Recomputing_future_usage...</div>`;
+
+    try {
+        const futureParams = collectLiveSolarParams({
+            batterySize: latestSolarParams.batterySize || 0,
+            overridePanels: latestSolarData.actualPanels,
+            futureUsageKwh: projectedUsageKwh,
+            skipResidentialPanelGate: true
+        });
+        const result = await fetchSolarCalculation(futureParams);
+        if (requestSeq !== _futureUsageRequestSeq) return;
+
+        latestFutureUsageData = result;
+        resultEl.innerHTML = renderFutureUsageResultCard(latestSolarData, result, projectedUsageKwh, boostKwh);
+    } catch (err) {
+        if (requestSeq !== _futureUsageRequestSeq) return;
+        console.error('[Future Usage Simulation] Error:', err);
+        resultEl.innerHTML = `<div class="py-6 text-center text-[10px] md:text-xs font-bold uppercase text-rose-600 border border-rose-300 p-4">[ Future Usage Error: ${err.message} ]</div>`;
+    }
 }
 
 window.adjustBatterySize = function (delta) {
@@ -1016,15 +1184,31 @@ window.setBillCycleMode = function (mode) {
     }
 };
 
+window.toggleFutureUsageBlock = function (index) {
+    if (!Number.isInteger(index) || index < 0 || index >= futureUsageBlocks.length) return;
+    futureUsageBlocks[index] = !futureUsageBlocks[index];
+    if (latestSolarData) {
+        renderFutureUsageSimulationSection(latestSolarData);
+        scheduleFutureUsageSimulation();
+    }
+};
+
 window.adjustPanelCount = function (delta) {
     if (!latestSolarData) return;
-    requestPanelUpdate(Math.max(1, latestSolarData.actualPanels + delta));
+    const gate = getResidentialPanelQuantityGate(latestSolarData);
+    requestPanelUpdate(clampResidentialPanelQuantity(latestSolarData.actualPanels + delta, gate));
 };
 
 window.commitPanelInputChange = function (event) {
-    const val = parseInt(event.target.value);
-    if (!val || val < 1) { event.target.value = latestSolarData.actualPanels; return; }
-    requestPanelUpdate(val);
+    const val = parseInt(event.target.value, 10);
+    if (Number.isNaN(val)) {
+        event.target.value = latestSolarData.actualPanels;
+        return;
+    }
+
+    const clamped = clampResidentialPanelQuantity(val, latestSolarData);
+    event.target.value = clamped;
+    requestPanelUpdate(clamped);
 };
 
 window.syncAndTrigger = function (id, value) {
@@ -1381,10 +1565,14 @@ function displaySolarCalculation(data) {
                     </div>
                 </section>
             ` : `<div class="text-center pt-4"><button onclick="setBatterySize(16)" class="text-[10px] md:text-xs uppercase tracking-wide underline font-semibold tier-3 hover:tier-1">[+] Simulate_Battery_Storage_16kWh</button></div>`}
+
+            <section id="futureUsageSimulationSection" class="pt-8 md:pt-10 border-t border-divider"></section>
         </div>
     `;
 
     renderFloatingPanelModulation(data);
+    renderFutureUsageSimulationSection(data);
+    scheduleFutureUsageSimulation();
     // Scroll handled in calculateSolarSavings
     if (data.charts) createCharts(data.charts);
 }
@@ -1398,6 +1586,9 @@ function renderFloatingPanelModulation(data) {
         document.body.appendChild(bar);
     }
     const delta = originalSolarData ? parseFloat(data.selectedPackage?.price || 0) - parseFloat(originalSolarData.selectedPackage?.price || 0) : 0;
+    const panelGate = getResidentialPanelQuantityGate(data);
+    const panelMinReached = data.actualPanels <= panelGate.min;
+    const panelMaxReached = data.actualPanels >= panelGate.max;
 
     // Minimalist "Pill" Design
     bar.innerHTML = `
@@ -1431,12 +1622,13 @@ function renderFloatingPanelModulation(data) {
             <div class="flex items-center gap-1">
                 <div class="flex flex-col items-end leading-none">
                     <span class="text-[8px] md:text-[9px] font-semibold uppercase tracking-wide tier-3">Panel</span>
+                    <span class="text-[8px] md:text-[9px] font-semibold uppercase tracking-wide tier-3">Gate ${panelGate.min}-${panelGate.max}</span>
                     ${Math.abs(delta) > 1 ? `<span class="text-[8px] md:text-[9px] font-bold ${delta > 0 ? 'text-rose-600' : 'text-emerald-600'}">${delta > 0 ? '+' : '-'}RM${Math.round(Math.abs(delta)).toLocaleString('en-MY')}</span>` : ''}
                 </div>
                 <div class="flex items-center bg-white border border-fact">
-                    <button onclick="adjustPanelCount(-1)" class="w-5 h-5 md:w-6 md:h-6 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">-</button>
-                    <input type="number" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-7 md:w-8 text-center font-bold text-[10px] md:text-xs border-none bg-transparent outline-none p-0 appearance-none leading-none">
-                    <button onclick="adjustPanelCount(1)" class="w-5 h-5 md:w-6 md:h-6 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center">+</button>
+                    <button onclick="adjustPanelCount(-1)" ${panelMinReached ? 'disabled' : ''} class="w-5 h-5 md:w-6 md:h-6 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed">-</button>
+                    <input type="number" min="${panelGate.min}" max="${panelGate.max}" step="1" value="${data.actualPanels}" onchange="commitPanelInputChange(event)" class="w-7 md:w-8 text-center font-bold text-[10px] md:text-xs border-none bg-transparent outline-none p-0 appearance-none leading-none">
+                    <button onclick="adjustPanelCount(1)" ${panelMaxReached ? 'disabled' : ''} class="w-5 h-5 md:w-6 md:h-6 hover:bg-black hover:text-white transition-colors text-[10px] md:text-xs font-bold flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed">+</button>
                 </div>
             </div>
 

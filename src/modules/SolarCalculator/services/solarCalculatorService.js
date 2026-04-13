@@ -98,6 +98,17 @@ const resolveActualEeiValue = (tariffRow, eeiTariffRow, actualUsageKwh) => {
   );
 };
 
+const getResidentialPanelQuantityGate = (recommendedPanels) => {
+  const safeRecommendedPanels = Math.max(1, Math.floor(parseCurrencyValue(recommendedPanels, 1)));
+
+  return {
+    min: Math.max(1, safeRecommendedPanels - 2),
+    max: safeRecommendedPanels + 20
+  };
+};
+
+const clampPanelQuantity = (value, min, max) => Math.max(min, Math.min(max, value));
+
 const buildBillBreakdown = (tariffRow, afaRate, options = {}) => {
   if (!tariffRow) {
     return null;
@@ -201,7 +212,10 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     historicalAfaRate: historicalAfaRateRaw,
     batterySize,
     systemPhase,
-    overridePanels
+    overridePanels,
+    futureUsageKwh,
+    usageKwhOverride,
+    skipResidentialPanelGate
   } = params;
 
   // Validate inputs
@@ -219,6 +233,10 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   const historicalAfaRate = parseFloat(historicalAfaRateRaw) || 0;
   const batterySizeVal = parseFloat(batterySize) || 0;
   const systemPhaseVal = parseInt(systemPhase) || 3;
+  const futureUsageKwhRaw = futureUsageKwh ?? usageKwhOverride;
+  const futureUsageKwhVal = parseFloat(futureUsageKwhRaw);
+  const hasFutureUsageOverride = Number.isFinite(futureUsageKwhVal) && futureUsageKwhVal > 0;
+  const bypassPanelGate = skipResidentialPanelGate === true || skipResidentialPanelGate === 'true';
 
   let overridePanelsVal = null;
   if (overridePanels !== undefined) {
@@ -238,18 +256,27 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   const mainClient = await mainPool.connect();
 
   try {
-    const tariff = await findClosestTariff(tariffClient, billAmount, historicalAfaRate);
+    const tariff = hasFutureUsageOverride
+      ? await lookupTariffByUsage(tariffClient, futureUsageKwhVal)
+      : await findClosestTariff(tariffClient, billAmount, historicalAfaRate);
 
     if (!tariff) {
       throw new Error('No tariff data found for calculation');
     }
 
-    const monthlyUsageKwh = tariff.usage_kwh || 0;
+    const monthlyUsageKwh = hasFutureUsageOverride
+      ? futureUsageKwhVal
+      : (tariff.usage_kwh || 0);
 
     // NEW PANEL RECOMMENDATION FORMULA
     const recommendedPanelsRaw = Math.floor(monthlyUsageKwh / peakHour / 30 / 0.62);
     const recommendedPanels = Math.max(1, recommendedPanelsRaw);
-    const actualPanelQty = overridePanelsVal !== null ? overridePanelsVal : recommendedPanels;
+    const panelQuantityGate = getResidentialPanelQuantityGate(recommendedPanels);
+    const actualPanelQty = overridePanelsVal !== null
+      ? (bypassPanelGate
+        ? overridePanelsVal
+        : clampPanelQuantity(overridePanelsVal, panelQuantityGate.min, panelQuantityGate.max))
+      : recommendedPanels;
 
     // Search for Residential package within filtered product pool
     let packageResult = { rows: [] };
@@ -524,6 +551,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
       actualPanels: actualPanelQty,
       panelAdjustment: actualPanelQty - recommendedPanels,
       overrideApplied: overridePanelsVal !== null,
+      panelQuantityGate,
       packageSearchQty: actualPanelQty,
       selectedPackage: selectedPackage ? {
         packageName: selectedPackage.package_name,
@@ -549,6 +577,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
       paybackPeriod: paybackPeriod,
       details: {
         monthlyUsageKwh: monthlyUsageKwh,
+        futureUsageKwh: hasFutureUsageOverride ? futureUsageKwhVal : null,
         monthlySolarGeneration: monthlySolarGeneration.toFixed(2),
         morningUsageKwh: morningUsageKwh.toFixed(2),
         morningSaving: morningSaving.toFixed(2),
