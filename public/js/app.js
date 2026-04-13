@@ -1041,40 +1041,83 @@ function renderFutureUsageResultCard(baseData, futureData, projectedUsageKwh, bo
     const savingsDelta = futureSavings - currentSavings;
     const currentPanels = latestSolarData?.actualPanels ?? baseData?.actualPanels ?? 0;
     const batterySize = normalizeBatterySize(latestSolarParams?.batterySize ?? baseData?.config?.batterySize ?? 0);
+    const futureBillBefore = toFiniteNumber(futureData?.billComparison?.before?.billAmount, futureData?.details?.billBefore);
+    const futureBillAfter = toFiniteNumber(futureData?.billComparison?.after?.billAmount, futureData?.details?.billAfter);
+    const futureMorningOffsetKwh = toFiniteNumber(futureData?.details?.morningUsageKwh);
+    const futureMorningSaving = toFiniteNumber(futureData?.details?.morningSaving);
+    const futureExportSaving = toFiniteNumber(futureData?.details?.exportSaving);
+    const futureActualEei = toFiniteNumber(futureData?.details?.actualEei);
+    const futureActualEeiSaving = toFiniteNumber(futureData?.details?.actualEeiSaving);
+    const futureMonthlyUsage = toFiniteNumber(futureData?.details?.monthlyUsageKwh, projectedUsageKwh);
 
     return `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+        <div class="space-y-5 md:space-y-6">
             <div class="bg-black text-white p-4 md:p-5 space-y-3">
-                <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide opacity-70">Projected_Future_Usage</div>
-                <div class="flex items-baseline justify-between gap-4">
-                    <span class="text-[10px] md:text-xs uppercase tracking-wide opacity-60">Selected_Bump</span>
-                    <span class="text-xl md:text-2xl font-bold">${boostKwh > 0 ? `+${boostKwh.toLocaleString('en-MY')} kWh` : '0 kWh'}</span>
-                </div>
-                <div class="flex items-baseline justify-between gap-4">
-                    <span class="text-[10px] md:text-xs uppercase tracking-wide opacity-60">Projected_Usage</span>
-                    <span class="text-lg md:text-xl font-bold">${projectedUsageKwh.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} kWh</span>
-                </div>
-                <div class="text-[10px] md:text-xs uppercase tracking-wide opacity-60 pt-2 border-t border-white/15">
-                    Current system stays fixed at ${currentPanels} panels and ${batterySize} kWh battery.
+                <div class="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                        <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide opacity-70">Projected_Future_Usage</div>
+                        <div class="text-[10px] md:text-xs uppercase tracking-wide opacity-60 mt-1">Current system stays fixed at ${currentPanels} panels and ${batterySize} kWh battery.</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[10px] md:text-xs uppercase tracking-wide opacity-60">Selected_Bump</div>
+                        <div class="text-xl md:text-2xl font-bold">${boostKwh > 0 ? `+${boostKwh.toLocaleString('en-MY')} kWh` : '0 kWh'}</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3 md:gap-4">
-                <div class="border border-divider p-3 md:p-4 bg-white">
-                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold mb-1">Current_Savings</div>
-                    <div class="text-lg md:text-2xl font-bold">RM ${formatCurrency(currentSavings)}</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                <div class="border-2 border-fact bg-white p-4 md:p-5 space-y-3">
+                    <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide tier-3">Usage_Shift</div>
+                    <div class="grid grid-cols-2 gap-3 md:gap-4">
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">Base Usage</div>
+                            <div class="text-lg md:text-xl font-bold">${toFiniteNumber(baseData?.details?.monthlyUsageKwh, 0).toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} kWh</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">Future Usage</div>
+                            <div class="text-lg md:text-xl font-bold">${futureMonthlyUsage.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} kWh</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">Morning Offset</div>
+                            <div class="text-lg md:text-xl font-bold">${futureMorningOffsetKwh.toLocaleString('en-MY', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kWh</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">Morning Saving</div>
+                            <div class="text-lg md:text-xl font-bold text-emerald-600">RM ${formatCurrency(futureMorningSaving)}</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="border border-divider p-3 md:p-4 bg-white">
-                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold mb-1">Future_Savings</div>
-                    <div class="text-lg md:text-2xl font-bold text-emerald-600">RM ${formatCurrency(futureSavings)}</div>
-                </div>
-                <div class="border border-divider p-3 md:p-4 bg-white">
-                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold mb-1">Savings_Change</div>
-                    <div class="text-lg md:text-2xl font-bold ${savingsDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${savingsDelta >= 0 ? '+' : '-'}RM ${formatCurrency(Math.abs(savingsDelta))}</div>
-                </div>
-                <div class="border border-divider p-3 md:p-4 bg-white">
-                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold mb-1">Future_Payback</div>
-                    <div class="text-lg md:text-2xl font-bold">${futureData?.paybackPeriod ?? 'N/A'} yr</div>
+                <div class="border-2 border-fact bg-white p-4 md:p-5 space-y-3">
+                    <div class="text-[10px] md:text-xs font-bold uppercase tracking-wide tier-3">Bill_Impact</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">New Bill</div>
+                            <div class="text-lg md:text-xl font-bold">RM ${formatCurrency(futureBillBefore)}</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">Bill After Solar</div>
+                            <div class="text-lg md:text-xl font-bold text-emerald-600">RM ${formatCurrency(futureBillAfter)}</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">Export Saving</div>
+                            <div class="text-lg md:text-xl font-bold text-emerald-600">RM ${formatCurrency(futureExportSaving)}</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">Actual EEI</div>
+                            <div class="text-lg md:text-xl font-bold">RM ${formatCurrency(futureActualEei)}</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">EEI Saving</div>
+                            <div class="text-lg md:text-xl font-bold text-emerald-600">RM ${formatCurrency(futureActualEeiSaving)}</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold mb-1">Savings Change</div>
+                            <div class="text-lg md:text-xl font-bold ${savingsDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${savingsDelta >= 0 ? '+' : '-'}RM ${formatCurrency(Math.abs(savingsDelta))}</div>
+                        </div>
+                    </div>
+                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold pt-2 border-t border-divider">
+                        Future Payback: ${futureData?.paybackPeriod ?? 'N/A'} yr
+                    </div>
                 </div>
             </div>
         </div>
