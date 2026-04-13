@@ -10,5 +10,6 @@ REPO NAME : Solar Calculator v2
 - Made the future usage forecast more descriptive with new bill, bill after solar, morning offset, export saving, and actual EEI.
 - Adjusted the single-phase panel quantity gate so the minimum can floor at 10 panels or lower when the recommendation is below that.
 - Built the app after the residential panel gate update.
+- Fixed the residential panel clamp so the single-phase gate minimum matches the displayed 10-panel floor.
 
 =====================

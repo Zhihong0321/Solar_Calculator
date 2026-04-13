@@ -60,7 +60,13 @@ function getResidentialPanelQuantityGate(data) {
 }
 
 function clampResidentialPanelQuantity(value, data) {
-    const gate = getResidentialPanelQuantityGate(data);
+    const gate = data && Number.isFinite(Number(data.min)) && Number.isFinite(Number(data.max)) && !data.config
+        ? {
+            recommendedPanels: Math.max(1, Math.floor(toFiniteNumber(data.recommendedPanels, data.max))),
+            min: Math.max(1, Math.floor(toFiniteNumber(data.min, 1))),
+            max: Math.max(1, Math.floor(toFiniteNumber(data.max, 1)))
+        }
+        : getResidentialPanelQuantityGate(data);
     const numeric = Math.floor(toFiniteNumber(value, gate.recommendedPanels));
     return Math.max(gate.min, Math.min(gate.max, numeric));
 }
