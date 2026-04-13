@@ -49,10 +49,12 @@ function normalizeBatterySize(value) {
 
 function getResidentialPanelQuantityGate(data) {
     const recommendedPanels = Math.max(1, Math.floor(toFiniteNumber(data?.recommendedPanels, data?.actualPanels || 1)));
+    const systemPhase = parseInt(data?.config?.systemPhase, 10) || 3;
+    const baseMin = Math.max(1, recommendedPanels - 2);
 
     return {
         recommendedPanels,
-        min: Math.max(1, recommendedPanels - 2),
+        min: systemPhase === 1 ? Math.min(baseMin, 10) : baseMin,
         max: recommendedPanels + 20
     };
 }

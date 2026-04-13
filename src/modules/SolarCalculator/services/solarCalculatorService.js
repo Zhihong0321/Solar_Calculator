@@ -98,11 +98,12 @@ const resolveActualEeiValue = (tariffRow, eeiTariffRow, actualUsageKwh) => {
   );
 };
 
-const getResidentialPanelQuantityGate = (recommendedPanels) => {
+const getResidentialPanelQuantityGate = (recommendedPanels, systemPhase = 3) => {
   const safeRecommendedPanels = Math.max(1, Math.floor(parseCurrencyValue(recommendedPanels, 1)));
+  const baseMin = Math.max(1, safeRecommendedPanels - 2);
 
   return {
-    min: Math.max(1, safeRecommendedPanels - 2),
+    min: systemPhase === 1 ? Math.min(baseMin, 10) : baseMin,
     max: safeRecommendedPanels + 20
   };
 };
@@ -271,7 +272,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     // NEW PANEL RECOMMENDATION FORMULA
     const recommendedPanelsRaw = Math.floor(monthlyUsageKwh / peakHour / 30 / 0.62);
     const recommendedPanels = Math.max(1, recommendedPanelsRaw);
-    const panelQuantityGate = getResidentialPanelQuantityGate(recommendedPanels);
+    const panelQuantityGate = getResidentialPanelQuantityGate(recommendedPanels, systemPhaseVal);
     const actualPanelQty = overridePanelsVal !== null
       ? (bypassPanelGate
         ? overridePanelsVal

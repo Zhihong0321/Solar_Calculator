@@ -8,5 +8,7 @@ REPO NAME : Solar Calculator v2
 - Built the app and committed the future usage simulation update.
 - Expanded the future usage simulation summary to show new bill, bill after solar, morning offset, export saving, and actual EEI.
 - Made the future usage forecast more descriptive with new bill, bill after solar, morning offset, export saving, and actual EEI.
+- Adjusted the single-phase panel quantity gate so the minimum can floor at 10 panels or lower when the recommendation is below that.
+- Built the app after the residential panel gate update.
 
 =====================
