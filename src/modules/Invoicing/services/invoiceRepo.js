@@ -1947,6 +1947,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
       [createdItemIds, invoiceId]
     );
   }
+
+  return { packageItemBubbleId };
 }
 
 /**
@@ -1977,6 +1979,7 @@ async function createInvoiceOnTheFly(client, data) {
     }
 
     if (data.hybridUpgradeRuleId) {
+      const originalPackageId = data.packageId;
       const clonedPackage = await clonePackageWithHybridUpgrade(
         client,
         data.packageId,
@@ -1985,6 +1988,12 @@ async function createInvoiceOnTheFly(client, data) {
       );
       data.packageId = clonedPackage.package.bubble_id;
       data.createdCustomPackageId = clonedPackage.package.bubble_id;
+      data._hybridAudit = {
+        originalPackageId,
+        newPackageId: clonedPackage.package.bubble_id,
+        upgradeRuleId: data.hybridUpgradeRuleId,
+        upgradePriceAmount: clonedPackage.selectedRule.price_amount
+      };
     }
 
     // 1. Fetch Dependencies (Package, Customer, Template)
@@ -2009,7 +2018,31 @@ async function createInvoiceOnTheFly(client, data) {
     }
 
     // 5. Create Line Items
-    await _createLineItems(client, invoice.bubble_id, data, financials, deps, voucherInfo);
+    const { packageItemBubbleId } = await _createLineItems(client, invoice.bubble_id, data, financials, deps, voucherInfo);
+
+    // 5.5 Audit hybrid upgrade application
+    if (data._hybridAudit && packageItemBubbleId) {
+      const auditTableExists = await hasTable(client, 'hybrid_inverter_upgrade_application');
+      if (auditTableExists) {
+        const auditBubbleId = `hiua_${crypto.randomBytes(10).toString('hex')}`;
+        await client.query(
+          `INSERT INTO hybrid_inverter_upgrade_application
+           (bubble_id, invoice_item_bubble_id, invoice_bubble_id, original_package_bubble_id,
+            new_package_bubble_id, upgrade_rule_bubble_id, upgrade_price_amount, applied_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            auditBubbleId,
+            packageItemBubbleId,
+            invoice.bubble_id,
+            data._hybridAudit.originalPackageId,
+            data._hybridAudit.newPackageId,
+            data._hybridAudit.upgradeRuleId,
+            data._hybridAudit.upgradePriceAmount,
+            String(data.userId)
+          ]
+        );
+      }
+    }
 
     await _syncReferralInvoiceLink(client, invoice.bubble_id, data.linkedReferral || null);
 
