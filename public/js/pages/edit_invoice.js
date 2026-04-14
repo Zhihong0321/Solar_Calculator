@@ -404,7 +404,14 @@ async function loadHybridUpgradeOptions(packageId) {
     }
 
     if (!packageId) {
-        section.classList.add('hidden');
+        setHybridUpgradeStaticState({
+            optionLabel: 'No package selected yet',
+            helperText: 'Select a package first to check hybrid upgrade availability.',
+            currentLabelText: 'Waiting for package',
+            targetLabelText: 'Unavailable',
+            amountLabelText: 'RM 0.00',
+            disabled: true
+        });
         return;
     }
 
