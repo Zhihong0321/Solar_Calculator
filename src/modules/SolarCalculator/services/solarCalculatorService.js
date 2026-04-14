@@ -658,7 +658,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
           },
           miniReport: {
             monthlySolarSentToChargeBatteryKwh: batteryFlow.nonOffsetSolarKwh.toFixed(2),
-            monthlyBatteryStoredAndDischargedKwh: batteryFlow.monthlyStoredKwh.toFixed(2),
+            monthlyBatteryStoredAndDischargedKwh: batteryFlow.monthlyBatteryStoredKwh.toFixed(2),
             newBillAfterSolarBattery: afterBill !== null ? afterBill.toFixed(2) : null,
             newExportKwh: exportKwh.toFixed(2),
             newActualEei: actualEei.toFixed(2)
