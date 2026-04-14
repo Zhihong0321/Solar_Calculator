@@ -3080,5 +3080,6 @@ module.exports = {
   getInvoiceHistory,
   getInvoiceActionById,
   deleteSampleInvoices,
-  verifyOwnership
+  verifyOwnership,
+  hasTable
 };
