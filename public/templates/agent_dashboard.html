@@ -119,6 +119,50 @@
       padding-left: 1rem;
     }
 
+    .notification-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 1.5rem;
+      background: linear-gradient(120deg, #7f1d1d, #dc2626, #ef4444, #991b1b);
+      background-size: 300% 300%;
+      animation: notificationGradient 8s ease infinite;
+      box-shadow: 0 18px 40px -18px rgba(220, 38, 38, 0.6);
+    }
+
+    .notification-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top right, rgba(255, 255, 255, 0.28), transparent 32%),
+        radial-gradient(circle at bottom left, rgba(255, 255, 255, 0.14), transparent 28%);
+      pointer-events: none;
+    }
+
+    .notification-card::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: 1.45rem;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      pointer-events: none;
+    }
+
+    .notification-card__content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .notification-count {
+      text-shadow: 0 6px 18px rgba(127, 29, 29, 0.35);
+    }
+
+    @keyframes notificationGradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
     @media (max-width: 768px) {
       .mobile-bottom-nav {
         padding-bottom: env(safe-area-inset-bottom);
@@ -265,34 +309,38 @@
         </button>
       </section>
 
-      <!-- Stats Bar -->
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-6 w-full">
-        <div class="stat-item">
-          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            Invoices Issued
-          </p>
-          <h3 class="text-2xl font-black text-slate-900">--</h3>
-          <p class="text-[9px] text-slate-400 font-bold mt-0.5 uppercase">
-            This Month
-          </p>
-        </div>
-        <div class="stat-item">
-          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            Active Leads
-          </p>
-          <h3 class="text-2xl font-black text-slate-900">--</h3>
-          <p class="text-[9px] text-slate-400 font-bold mt-0.5 uppercase">
-            Total
-          </p>
-        </div>
-        <div class="stat-item">
-          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            Avg Response
-          </p>
-          <h3 class="text-2xl font-black text-slate-900">--</h3>
-          <p class="text-[9px] text-slate-400 font-bold mt-0.5 uppercase">
-            Mins
-          </p>
+      <!-- Notification -->
+      <div class="notification-card w-full">
+        <div class="notification-card__content flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black uppercase tracking-[0.3em] text-white/70">
+              Notification
+            </p>
+            <div class="mt-2 flex flex-wrap items-end gap-3">
+              <h3 id="pendingLeadCount" class="notification-count text-4xl font-black tracking-tight text-white sm:text-5xl" aria-live="polite">
+                --
+              </h3>
+              <span class="rounded-full border border-white/20 bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-white/90">
+                Pending Leads
+              </span>
+            </div>
+            <p id="pendingLeadMessage" class="mt-2 text-sm font-semibold text-white/85">
+              Pending leads waiting your action
+            </p>
+          </div>
+          <div class="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white shadow-[0_10px_24px_rgba(127,29,29,0.25)] backdrop-blur-sm">
+            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15">
+              <i class="fa-solid fa-bell text-xl"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-[0.24em] text-white/70">
+                Action Needed
+              </p>
+              <p class="text-sm font-bold text-white">
+                Review your waiting referral leads
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -583,6 +631,36 @@
   </main>
 
   <script>
+    async function fetchPendingLeadNotification() {
+      const countElement = document.getElementById("pendingLeadCount");
+      const messageElement = document.getElementById("pendingLeadMessage");
+
+      try {
+        const response = await fetch("/api/v1/referrals/my-referrals", { credentials: "same-origin" });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Failed to load referral notifications");
+        }
+
+        const referrals = Array.isArray(result.data) ? result.data : [];
+        const pendingCount = referrals.filter((referral) => {
+          return String(referral?.status || "").trim().toLowerCase() === "pending";
+        }).length;
+
+        if (countElement) countElement.textContent = String(pendingCount);
+        if (messageElement) {
+          messageElement.textContent = pendingCount === 1
+            ? "1 pending lead waiting your action"
+            : `${pendingCount} pending leads waiting your action`;
+        }
+      } catch (error) {
+        console.error("Error fetching pending lead notification:", error);
+        if (countElement) countElement.textContent = "--";
+        if (messageElement) messageElement.textContent = "Unable to load referral notifications";
+      }
+    }
+
     async function fetchAgentData() {
       try {
         const response = await fetch("/api/agent/me");
@@ -648,6 +726,8 @@
           const img = document.getElementById(id);
           if (img) img.src = avatarUrl;
         });
+
+        await fetchPendingLeadNotification();
       } catch (error) {
         console.error("Error fetching agent data:", error);
       }

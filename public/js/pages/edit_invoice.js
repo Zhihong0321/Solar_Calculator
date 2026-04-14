@@ -516,10 +516,7 @@ function escapeHtml(value) {
 }
 
 function getVisibleReferralLeads() {
-    return assignedReferralLeads.filter((referral) => {
-        if (!referral?.linked_invoice) return true;
-        return referral.linked_invoice === referralInvoiceFilterId;
-    });
+    return assignedReferralLeads;
 }
 
 function formatReferralOptionLabel(referral) {
