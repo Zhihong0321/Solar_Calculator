@@ -7,7 +7,18 @@
  * Performance Note: Uses atomic updates for invoice number generation to prevent race conditions.
  */
 const crypto = require('crypto');
-const { beginAgentAuditTransaction } = require('./agentAuditContext');
+let beginAgentAuditTransaction = async (client) => {
+  await client.query('BEGIN');
+};
+
+try {
+  ({ beginAgentAuditTransaction } = require('./agentAuditContext'));
+} catch (err) {
+  if (err?.code !== 'MODULE_NOT_FOUND') {
+    throw err;
+  }
+  console.warn('[InvoiceRepo] agentAuditContext unavailable, using basic transaction fallback.');
+}
 const tablePresenceCache = new Map();
 
 // Tiered manual discount policy based on package price

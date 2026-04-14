@@ -6,5 +6,6 @@ REPO NAME : Solar Calculator v2
 - Kept hybrid upgrade UI visible in create invoice and added disabled-state messaging instead of hiding it
 - Applied the same always-visible hybrid upgrade UI behavior to edit invoice flow
 - Made hybrid upgrade UI always visible and greyed out instead of hidden in create and edit invoice flows
+- Added hybrid upgrade fallback to package details endpoint so invoice pages can load upgrade options even when the dedicated hybrid route fails
 
 =====================

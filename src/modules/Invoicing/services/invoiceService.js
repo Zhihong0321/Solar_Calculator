@@ -4,7 +4,23 @@
  */
 const invoiceRepo = require('./invoiceRepo');
 const sedaService = require('./sedaService');
-const { resolveAgentAuditContext } = require('./agentAuditContext');
+let resolveAgentAuditContext = async (client, authUser = {}) => ({
+  userPhone: String(authUser?.contact || authUser?.phone || authUser?.mobile_number || authUser?.userPhone || 'system').trim() || 'system',
+  userId: String(authUser?.userId || authUser?.id || authUser?.bubbleId || authUser?.bubble_id || authUser?.sub || '').trim() || null,
+  userName: String(authUser?.name || authUser?.displayName || authUser?.email || 'system').trim() || 'system',
+  userRole: Array.isArray(authUser?.access_level) ? authUser.access_level.join(', ') : String(authUser?.role || '').trim() || null,
+  sourceApp: 'agent-os',
+  applicationName: 'agent-os'
+});
+
+try {
+  ({ resolveAgentAuditContext } = require('./agentAuditContext'));
+} catch (err) {
+  if (err?.code !== 'MODULE_NOT_FOUND') {
+    throw err;
+  }
+  console.warn('[InvoiceService] agentAuditContext unavailable, using basic audit fallback.');
+}
 
 /**
  * Parse discount_given string into discount_fixed and discount_percent
@@ -202,6 +218,9 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
         invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
     }
+    if (invoiceRequestPayload.hybrid_upgrade_rule_id !== undefined && invoiceRequestPayload.hybridUpgradeRuleId === undefined) {
+        invoiceRequestPayload.hybridUpgradeRuleId = invoiceRequestPayload.hybrid_upgrade_rule_id;
+    }
 
     // 1. Validation Layer Layer
     const validation = validateInvoiceData(invoiceRequestPayload);
@@ -287,6 +306,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
+      hybridUpgradeRuleId: invoiceRequestPayload.hybridUpgradeRuleId || null,
       extraItems: invoiceRequestPayload.extraItems || [],
       followUpDate: followUpDate
     };
@@ -414,6 +434,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
         invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
     }
+    if (invoiceRequestPayload.hybrid_upgrade_rule_id !== undefined && invoiceRequestPayload.hybridUpgradeRuleId === undefined) {
+        invoiceRequestPayload.hybridUpgradeRuleId = invoiceRequestPayload.hybrid_upgrade_rule_id;
+    }
 
     // 1. Validation Layer (Same as createInvoice but packageId is optional as we fetch from original)
     // We relax packageId check here as it comes from original invoice
@@ -488,6 +511,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
+      hybridUpgradeRuleId: invoiceRequestPayload.hybridUpgradeRuleId || null,
       extraItems: invoiceRequestPayload.extraItems || [],
       followUpDate: followUpDate
     };
