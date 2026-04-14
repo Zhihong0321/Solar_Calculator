@@ -562,4 +562,209 @@ router.put('/api/v1/invoice-office/:bubbleId/follow-up', requireAuth, async (req
     }
 });
 
+/**
+ * GET /api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade-options
+ * Detect available hybrid upgrade options for a package invoice item.
+ */
+router.get('/api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade-options', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        const { bubbleId, itemId } = req.params;
+        const userId = getAuthenticatedUserId(req);
+        client = await pool.connect();
+
+        const access = await getInvoiceAccess(client, bubbleId, userId);
+        if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        if (!access.isOwner) return res.status(403).json({ success: false, error: 'Access denied' });
+
+        // Load the invoice item
+        const itemRes = await client.query(
+            `SELECT bubble_id, linked_package, is_a_package FROM invoice_item WHERE bubble_id = $1 AND linked_invoice = $2 LIMIT 1`,
+            [itemId, bubbleId]
+        );
+        if (itemRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice item not found' });
+
+        const item = itemRes.rows[0];
+        if (!item.is_a_package || !item.linked_package) {
+            return res.json({ success: true, data: { already_upgraded: false, upgrade_options: [] } });
+        }
+
+        // Check if already upgraded
+        const auditTableExists = await invoiceRepo.hasTable(client, 'hybrid_inverter_upgrade_application');
+        if (auditTableExists) {
+            const auditRes = await client.query(
+                `SELECT * FROM hybrid_inverter_upgrade_application WHERE invoice_item_bubble_id = $1 LIMIT 1`,
+                [itemId]
+            );
+            if (auditRes.rows.length > 0) {
+                const app = auditRes.rows[0];
+                return res.json({
+                    success: true,
+                    data: {
+                        already_upgraded: true,
+                        application: {
+                            original_package_bubble_id: app.original_package_bubble_id,
+                            new_package_bubble_id: app.new_package_bubble_id,
+                            upgrade_rule_bubble_id: app.upgrade_rule_bubble_id,
+                            upgrade_price_amount: parseFloat(app.upgrade_price_amount),
+                            applied_at: app.applied_at
+                        },
+                        upgrade_options: []
+                    }
+                });
+            }
+        }
+
+        // Fetch package details for price/name
+        const pkgRes = await client.query(
+            `SELECT bubble_id, package_name, price FROM package WHERE bubble_id = $1 LIMIT 1`,
+            [item.linked_package]
+        );
+        const pkg = pkgRes.rows[0] || {};
+
+        // Get upgrade options for the linked package
+        const options = await invoiceRepo.getHybridUpgradeOptionsForPackage(client, item.linked_package);
+        const originalPrice = parseFloat(pkg.price) || 0;
+
+        const upgrade_options = (options.rules || []).map(rule => ({
+            rule_bubble_id: rule.bubble_id,
+            phase_scope: rule.phase_scope,
+            from_model_code: rule.from_model_code,
+            from_product_name_snapshot: rule.from_product_name_snapshot,
+            to_model_code: rule.to_model_code,
+            to_product_name_snapshot: rule.to_product_name_snapshot,
+            price_amount: parseFloat(rule.price_amount) || 0,
+            new_total_price: originalPrice + (parseFloat(rule.price_amount) || 0),
+            stock_ready: rule.stock_ready
+        }));
+
+        res.json({
+            success: true,
+            data: {
+                already_upgraded: false,
+                already_hybrid: options.packageAlreadyHybrid || false,
+                original_package: {
+                    bubble_id: item.linked_package,
+                    package_name: pkg.package_name || null,
+                    price: originalPrice,
+                    current_inverter: options.currentInverter || null
+                },
+                upgrade_options
+            }
+        });
+    } catch (err) {
+        console.error('[hybrid-upgrade-options]', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * POST /api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade
+ * Apply a hybrid inverter upgrade to a package invoice item.
+ */
+router.post('/api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        const { bubbleId, itemId } = req.params;
+        const { upgrade_rule_bubble_id } = req.body;
+        const userId = getAuthenticatedUserId(req);
+
+        if (!upgrade_rule_bubble_id) {
+            return res.status(400).json({ success: false, error: 'upgrade_rule_bubble_id is required' });
+        }
+
+        client = await pool.connect();
+
+        const access = await getInvoiceAccess(client, bubbleId, userId);
+        if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        if (!access.isOwner) return res.status(403).json({ success: false, error: 'Access denied' });
+
+        // Load the invoice item
+        const itemRes = await client.query(
+            `SELECT bubble_id, linked_package, is_a_package FROM invoice_item WHERE bubble_id = $1 AND linked_invoice = $2 LIMIT 1`,
+            [itemId, bubbleId]
+        );
+        if (itemRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice item not found' });
+
+        const item = itemRes.rows[0];
+        if (!item.is_a_package || !item.linked_package) {
+            return res.status(400).json({ success: false, error: 'Invoice item is not a package item' });
+        }
+
+        // Guard: already upgraded?
+        const auditTableExists = await invoiceRepo.hasTable(client, 'hybrid_inverter_upgrade_application');
+        if (auditTableExists) {
+            const auditRes = await client.query(
+                `SELECT id FROM hybrid_inverter_upgrade_application WHERE invoice_item_bubble_id = $1 LIMIT 1`,
+                [itemId]
+            );
+            if (auditRes.rows.length > 0) {
+                return res.status(409).json({ success: false, error: 'This invoice item has already been upgraded to hybrid.' });
+            }
+        }
+
+        await client.query('BEGIN');
+
+        // Clone the package with the hybrid upgrade
+        const cloned = await invoiceRepo.clonePackageWithHybridUpgrade(
+            client,
+            item.linked_package,
+            upgrade_rule_bubble_id,
+            userId,
+            bubbleId
+        );
+
+        const newPackageId = cloned.package.bubble_id;
+        const selectedRule = cloned.selectedRule;
+
+        // Update invoice_item.linked_package → new package
+        await client.query(
+            `UPDATE invoice_item SET linked_package = $1, updated_at = NOW() WHERE bubble_id = $2`,
+            [newPackageId, itemId]
+        );
+
+        // Update invoice.linked_package → new package (keeps invoice header in sync)
+        await client.query(
+            `UPDATE invoice SET linked_package = $1, updated_at = NOW() WHERE bubble_id = $2`,
+            [newPackageId, bubbleId]
+        );
+
+        // Attach custom package to invoice
+        await invoiceRepo.attachCustomPackageToInvoice(client, newPackageId, bubbleId);
+
+        // Insert audit row
+        if (auditTableExists) {
+            const auditBubbleId = `hiua_${crypto.randomBytes(10).toString('hex')}`;
+            await client.query(
+                `INSERT INTO hybrid_inverter_upgrade_application
+                 (bubble_id, invoice_item_bubble_id, invoice_bubble_id, original_package_bubble_id,
+                  new_package_bubble_id, upgrade_rule_bubble_id, upgrade_price_amount, applied_by)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [
+                    auditBubbleId,
+                    itemId,
+                    bubbleId,
+                    item.linked_package,
+                    newPackageId,
+                    upgrade_rule_bubble_id,
+                    selectedRule.price_amount,
+                    String(userId)
+                ]
+            );
+        }
+
+        await client.query('COMMIT');
+
+        res.json({ success: true, data: { new_package_bubble_id: newPackageId } });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
+        console.error('[hybrid-upgrade-apply]', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 module.exports = router;
