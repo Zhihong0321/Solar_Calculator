@@ -277,6 +277,25 @@ function renderHybridUpgradeOptions(data) {
     context.rules = Array.isArray(data?.rules) ? data.rules : [];
     context.selectedRuleId = '';
 
+    // Already hybrid — show read-only badge, hide controls
+    if (data?.packageAlreadyHybrid) {
+        if (section) {
+            section.classList.remove('hidden');
+            const inner = section.querySelector('.rounded-2xl');
+            if (inner) {
+                inner.innerHTML = `
+                    <p class="text-xs font-bold uppercase tracking-[0.22em] text-cyan-700">Hybrid Upgrade</p>
+                    <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-cyan-100 px-4 py-2 text-sm font-semibold text-cyan-800">
+                        <svg class="h-4 w-4 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        This package already uses a hybrid inverter — no upgrade needed.
+                    </div>`;
+            }
+        }
+        const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
+        if (hiddenRuleInput) hiddenRuleInput.value = '';
+        return;
+    }
+
     if (!section || !select || !context.rules.length) {
         section?.classList.add('hidden');
         const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
@@ -289,8 +308,7 @@ function renderHybridUpgradeOptions(data) {
     const options = ['<option value="">No hybrid upgrade</option>'];
     context.rules.forEach((rule) => {
         const topUp = (parseFloat(rule.price_amount) || 0).toFixed(2);
-        const availability = rule.stock_ready ? 'Ready' : 'Not ready';
-        const label = `${rule.from_model_code || 'Source'} -> ${rule.to_model_code || 'Target'} | RM ${topUp} | ${availability}`;
+        const label = `${rule.from_model_code || 'Source'} → ${rule.to_model_code || 'Target'} | +RM ${topUp}${rule.stock_ready ? '' : ' ⚠ Stock not ready'}`;
         options.push(`<option value="${rule.bubble_id}">${label}</option>`);
     });
     select.innerHTML = options.join('');
@@ -299,10 +317,32 @@ function renderHybridUpgradeOptions(data) {
     select.onchange = () => {
         context.selectedRuleId = select.value || '';
         applyHybridUpgradeSelection();
+        renderStockReadyWarning();
     };
 
     setHybridUpgradeSummaryLabels(null);
     applyHybridUpgradeSelection();
+    renderStockReadyWarning();
+}
+
+function renderStockReadyWarning() {
+    const rule = getSelectedHybridUpgradeRule();
+    const helper = document.getElementById('hybridUpgradeHelper');
+    let warning = document.getElementById('hybridStockWarning');
+
+    if (!warning) {
+        warning = document.createElement('p');
+        warning.id = 'hybridStockWarning';
+        warning.className = 'mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800';
+        helper?.parentNode?.insertBefore(warning, helper.nextSibling);
+    }
+
+    if (rule && !rule.stock_ready) {
+        warning.textContent = '⚠ Stock not ready — you can still proceed, but confirm availability with admin before committing.';
+        warning.classList.remove('hidden');
+    } else {
+        warning.classList.add('hidden');
+    }
 }
 
 async function loadHybridUpgradeOptions(packageId) {
