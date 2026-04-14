@@ -221,6 +221,29 @@ async function fetchOfficeItems(client, invoiceBubbleId, itemIds) {
     return itemsRes.rows;
 }
 
+async function fetchHybridUpgradeApplications(client, itemIds) {
+    const hasAuditTable = await invoiceRepo.hasTable(client, 'hybrid_inverter_upgrade_application');
+    if (!hasAuditTable || !Array.isArray(itemIds) || itemIds.length === 0) {
+        return new Map();
+    }
+
+    const appRes = await client.query(
+        `SELECT
+            invoice_item_bubble_id,
+            original_package_bubble_id,
+            new_package_bubble_id,
+            upgrade_rule_bubble_id,
+            upgrade_price_amount,
+            applied_by,
+            applied_at
+         FROM hybrid_inverter_upgrade_application
+         WHERE invoice_item_bubble_id = ANY($1::text[])`,
+        [itemIds]
+    );
+
+    return new Map(appRes.rows.map((row) => [row.invoice_item_bubble_id, row]));
+}
+
 async function fetchOfficePaidAmount(client, invoiceBubbleId, paymentIds) {
     const paidRes = await client.query(
         `SELECT COALESCE(SUM(amount), 0) as paid_amount
@@ -318,18 +341,28 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
         const invoiceBubbleId = invoice.bubble_id;
         const itemIds = Array.isArray(invoice.linked_invoice_item) ? invoice.linked_invoice_item : [];
         const paymentIds = Array.isArray(invoice.linked_payment) ? invoice.linked_payment : [];
-        const [items, paidAmount] = await Promise.all([
+        const [items, paidAmount, hybridUpgradeApplications] = await Promise.all([
             fetchOfficeItems(client, invoiceBubbleId, itemIds),
-            fetchOfficePaidAmount(client, invoiceBubbleId, paymentIds)
+            fetchOfficePaidAmount(client, invoiceBubbleId, paymentIds),
+            fetchHybridUpgradeApplications(client, itemIds)
         ]);
 
         invoice.paid_amount = paidAmount;
+        const annotatedItems = items.map((item) => {
+            const hybridUpgradeApplication = hybridUpgradeApplications.get(item.bubble_id);
+            if (!hybridUpgradeApplication) return item;
+
+            return {
+                ...item,
+                hybrid_upgrade_application: hybridUpgradeApplication
+            };
+        });
 
         res.json({
             success: true,
             data: {
                 invoice,
-                items
+                items: annotatedItems
             }
         });
     } catch (err) {
@@ -622,7 +655,9 @@ router.get('/api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade-option
 
         // Load the invoice item
         const itemRes = await client.query(
-            `SELECT bubble_id, linked_package, is_a_package FROM invoice_item WHERE bubble_id = $1 AND linked_invoice = $2 LIMIT 1`,
+            `SELECT bubble_id, linked_package, is_a_package, unit_price, amount, description
+             FROM invoice_item
+             WHERE bubble_id = $1 AND linked_invoice = $2 LIMIT 1`,
             [itemId, bubbleId]
         );
         if (itemRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice item not found' });
@@ -724,9 +759,49 @@ router.post('/api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade', req
         if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
         if (!access.isOwner) return res.status(403).json({ success: false, error: 'Access denied' });
 
+        const invoiceRes = await client.query(
+            `SELECT total_amount, paid_amount, linked_payment, linked_invoice_item
+             FROM invoice
+             WHERE bubble_id = $1
+             LIMIT 1`,
+            [bubbleId]
+        );
+        const invoiceRow = invoiceRes.rows[0] || null;
+        const linkedPaymentIds = Array.isArray(invoiceRow?.linked_payment) ? invoiceRow.linked_payment : [];
+        const paymentStateRes = await client.query(
+            `SELECT
+                EXISTS(
+                    SELECT 1
+                    FROM payment p
+                    WHERE p.linked_invoice = $1
+                       OR p.bubble_id = ANY($2::text[])
+                ) AS has_verified_payment,
+                EXISTS(
+                    SELECT 1
+                    FROM submitted_payment sp
+                    WHERE sp.linked_invoice = $1
+                ) AS has_submitted_payment`,
+            [bubbleId, linkedPaymentIds]
+        );
+        const paymentState = paymentStateRes.rows[0] || {};
+        const hasLegacyPaidAmount = (parseFloat(invoiceRow?.paid_amount) || 0) > 0;
+        const hasAnyPayment = Boolean(
+            paymentState.has_verified_payment
+            || paymentState.has_submitted_payment
+            || hasLegacyPaidAmount
+        );
+        if (hasAnyPayment) {
+            return res.status(400).json({
+                success: false,
+                error: 'Package cannot be upgraded because this invoice already has payment records.'
+            });
+        }
+
         // Load the invoice item
         const itemRes = await client.query(
-            `SELECT bubble_id, linked_package, is_a_package FROM invoice_item WHERE bubble_id = $1 AND linked_invoice = $2 LIMIT 1`,
+            `SELECT bubble_id, linked_package, is_a_package
+             FROM invoice_item
+             WHERE bubble_id = $1 AND linked_invoice = $2 LIMIT 1`,
             [itemId, bubbleId]
         );
         if (itemRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Invoice item not found' });
@@ -761,6 +836,15 @@ router.post('/api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade', req
 
         const newPackageId = cloned.package.bubble_id;
         const selectedRule = cloned.selectedRule;
+        const upgradeAmount = parseFloat(selectedRule.price_amount) || 0;
+
+        const sortRes = await client.query(
+            `SELECT COALESCE(MAX(sort), 0) AS max_sort
+             FROM invoice_item
+             WHERE linked_invoice = $1`,
+            [bubbleId]
+        );
+        const nextSort = (parseInt(sortRes.rows[0]?.max_sort, 10) || 0) + 1;
 
         // Update invoice_item.linked_package → new package
         await client.query(
@@ -772,6 +856,32 @@ router.post('/api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade', req
         await client.query(
             `UPDATE invoice SET linked_package = $1, updated_at = NOW() WHERE bubble_id = $2`,
             [newPackageId, bubbleId]
+        );
+
+        const upgradeItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+        const upgradeDescription = `Hybrid inverter upgrade top-up${selectedRule.to_product_name_snapshot ? ` (${selectedRule.to_product_name_snapshot})` : ''}`;
+        await client.query(
+            `INSERT INTO invoice_item
+             (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package, linked_package)
+             VALUES ($1, $2, $3, 1, $4, $5, 'hybrid_upgrade', $6, NOW(), NOW(), FALSE, NULL)`,
+            [
+                upgradeItemBubbleId,
+                bubbleId,
+                upgradeDescription,
+                upgradeAmount,
+                upgradeAmount,
+                nextSort
+            ]
+        );
+
+        await client.query(
+            `UPDATE invoice
+             SET total_amount = COALESCE(total_amount, 0) + $1,
+                 balance_due = (COALESCE(total_amount, 0) + $1) - COALESCE(paid_amount, 0),
+                 linked_invoice_item = array_append(COALESCE(linked_invoice_item, ARRAY[]::text[]), $2),
+                 updated_at = NOW()
+             WHERE bubble_id = $3`,
+            [upgradeAmount, upgradeItemBubbleId, bubbleId]
         );
 
         // Attach custom package to invoice
@@ -800,7 +910,14 @@ router.post('/api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade', req
 
         await client.query('COMMIT');
 
-        res.json({ success: true, data: { new_package_bubble_id: newPackageId } });
+        res.json({
+            success: true,
+            data: {
+                new_package_bubble_id: newPackageId,
+                upgrade_item_bubble_id: upgradeItemBubbleId,
+                upgrade_price_amount: upgradeAmount
+            }
+        });
     } catch (err) {
         if (client) await client.query('ROLLBACK').catch(() => {});
         console.error('[hybrid-upgrade-apply]', err);

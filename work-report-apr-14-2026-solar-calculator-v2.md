@@ -29,5 +29,8 @@ REPO NAME : Solar Calculator v2
 - Fixed the solar battery summary to read the correct battery data fields in the ROI matrix
 - Kept assigned referral leads visible in the invoice edit flow
 - Replaced the home dashboard stats block with a pending referral notification card
+- Fixed hybrid invoice upgrade totals and upgraded-item badge
+- Adjusted hybrid upgrade to preserve invoice look while swapping the custom package
+- Adjusted hybrid upgrade to update invoice total with a new line item
 
 =====================

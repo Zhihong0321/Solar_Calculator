@@ -1112,12 +1112,24 @@
                     // Hybrid upgrade button/badge for package items
                     let hybridCell = '';
                     if (item.is_a_package && item.bubble_id) {
-                        hybridCell = `<span id="hybrid-state-${item.bubble_id}" class="inline-block ml-2">
-                            <button onclick="openHybridUpgradeModal('${item.bubble_id}')"
-                                class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-cyan-300 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors">
-                                Upgrade to Hybrid
-                            </button>
-                        </span>`;
+                        const hybridApp = item.hybrid_upgrade_application;
+                        if (hybridApp) {
+                            const appliedAt = hybridApp.applied_at ? formatDate(hybridApp.applied_at) : '-';
+                            const topUp = parseFloat(hybridApp.upgrade_price_amount || 0).toFixed(2);
+                            hybridCell = `<span id="hybrid-state-${item.bubble_id}" class="inline-flex ml-2 align-middle">
+                                <span class="inline-flex flex-col rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-700">
+                                    <span>Hybrid Upgraded</span>
+                                    <span class="normal-case font-semibold tracking-normal">Applied ${appliedAt} · Top-up RM ${topUp}</span>
+                                </span>
+                            </span>`;
+                        } else {
+                            hybridCell = `<span id="hybrid-state-${item.bubble_id}" class="inline-block ml-2">
+                                <button onclick="openHybridUpgradeModal('${item.bubble_id}')"
+                                    class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-cyan-300 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors">
+                                    Upgrade to Hybrid
+                                </button>
+                            </span>`;
+                        }
                     }
 
                     return `

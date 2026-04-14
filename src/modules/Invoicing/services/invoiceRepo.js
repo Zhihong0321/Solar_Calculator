@@ -484,9 +484,7 @@ async function clonePackageWithHybridUpgrade(client, sourcePackageId, ruleBubble
 
   const sourcePackage = sourceRes.rows[0];
   const customPackageId = `pkg_${crypto.randomBytes(10).toString('hex')}`;
-  const customPrice = (parseFloat(sourcePackage.price) || 0) + (parseFloat(selectedRule.price_amount) || 0);
   const rootPackageId = sourcePackage.root_package_bubble_id || sourcePackage.source_package_bubble_id || sourcePackage.bubble_id;
-  const targetInverterName = selectedRule.to_product_name_snapshot || selectedRule.to_model_code || 'Hybrid Inverter';
 
   const insertValues = [];
   const columnNames = [];
@@ -502,11 +500,11 @@ async function clonePackageWithHybridUpgrade(client, sourcePackageId, ruleBubble
   if (packageColumns.has('special')) pushColumn('special', sourcePackage.special);
   if (packageColumns.has('panel_qty')) pushColumn('panel_qty', sourcePackage.panel_qty);
   if (packageColumns.has('created_date')) pushColumn('created_date', sourcePackage.created_date);
-  if (packageColumns.has('price')) pushColumn('price', customPrice);
-  if (packageColumns.has('invoice_desc')) pushColumn('invoice_desc', buildHybridUpgradePackageDescription(sourcePackage.invoice_desc, targetInverterName, selectedRule.price_amount));
+  if (packageColumns.has('price')) pushColumn('price', sourcePackage.price);
+  if (packageColumns.has('invoice_desc')) pushColumn('invoice_desc', sourcePackage.invoice_desc);
   if (packageColumns.has('linked_package_item')) pushColumn('linked_package_item', sourcePackage.linked_package_item);
   if (packageColumns.has('created_by')) pushColumn('created_by', String(userId || sourcePackage.created_by || 'system'));
-  if (packageColumns.has('package_name')) pushColumn('package_name', buildHybridUpgradePackageName(sourcePackage.package_name, selectedRule.to_model_code));
+  if (packageColumns.has('package_name')) pushColumn('package_name', sourcePackage.package_name);
   if (packageColumns.has('panel')) pushColumn('panel', sourcePackage.panel);
   if (packageColumns.has('type')) pushColumn('type', sourcePackage.type);
   if (packageColumns.has('max_discount')) pushColumn('max_discount', sourcePackage.max_discount);
