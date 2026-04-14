@@ -5,6 +5,31 @@
  */
 
 const ALLOWED_BATTERY_SIZES = new Set([0, 16, 32, 48]);
+const BATTERY_CHARGING_EFFICIENCY = 0.95;
+
+const calculateBatteryFlow = ({
+  monthlySolarGeneration,
+  morningUsageKwh,
+  batterySizeVal
+}) => {
+  const nonOffsetSolarKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+  const dailyNonOffsetSolarKwh = nonOffsetSolarKwh / 30;
+  const dailyChargeAvailableKwh = dailyNonOffsetSolarKwh * BATTERY_CHARGING_EFFICIENCY;
+  const dailyBatteryStoredKwh = Math.min(dailyChargeAvailableKwh, batterySizeVal);
+  const monthlyBatteryStoredKwh = dailyBatteryStoredKwh * 30;
+  const dailyExcessExportKwh = Math.max(0, dailyChargeAvailableKwh - batterySizeVal);
+  const monthlyExcessExportKwh = dailyExcessExportKwh * 30;
+
+  return {
+    nonOffsetSolarKwh,
+    dailyNonOffsetSolarKwh,
+    dailyChargeAvailableKwh,
+    dailyBatteryStoredKwh,
+    monthlyBatteryStoredKwh,
+    dailyExcessExportKwh,
+    monthlyExcessExportKwh
+  };
+};
 
 // Helper function to find the closest tariff based on adjusted total (bill + afa)
 const findClosestTariff = async (client, targetAmount, afaRate) => {
@@ -336,11 +361,16 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
 
     // --- Battery Logic ---
-    const dailyExcessSolar = Math.max(0, monthlySolarGeneration - morningUsageKwh) / 30;
+    const batteryFlow = calculateBatteryFlow({
+      monthlySolarGeneration,
+      morningUsageKwh,
+      batterySizeVal
+    });
+    const dailyNonOffsetSolarKwh = batteryFlow.dailyNonOffsetSolarKwh;
     const dailyNightUsage = Math.max(0, monthlyUsageKwh - morningUsageKwh) / 30;
     const dailyBatteryCap = batterySizeVal;
-    const dailyMaxDischarge = Math.min(dailyExcessSolar, dailyNightUsage, dailyBatteryCap);
-    const monthlyMaxDischarge = dailyMaxDischarge * 30;
+    const dailyMaxDischarge = batteryFlow.dailyBatteryStoredKwh;
+    const monthlyMaxDischarge = batteryFlow.monthlyBatteryStoredKwh;
 
     // --- Baseline Logic (No Battery) ---
     const netUsageBaseline = Math.max(0, monthlyUsageKwh - morningSelfConsumption);
@@ -610,12 +640,28 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         savingsBreakdown: savingsBreakdown,
         battery: {
           size: batterySizeVal,
+          efficiency: BATTERY_CHARGING_EFFICIENCY,
+          nonOffsetSolarKwh: batteryFlow.nonOffsetSolarKwh.toFixed(2),
+          dailyNonOffsetSolarKwh: batteryFlow.dailyNonOffsetSolarKwh.toFixed(2),
+          dailyChargeAvailableKwh: batteryFlow.dailyChargeAvailableKwh.toFixed(2),
+          dailyStoredKwh: batteryFlow.dailyBatteryStoredKwh.toFixed(2),
+          monthlyStoredKwh: batteryFlow.monthlyBatteryStoredKwh.toFixed(2),
+          dailyExcessExportKwh: batteryFlow.dailyExcessExportKwh.toFixed(2),
+          monthlyExcessExportKwh: batteryFlow.monthlyExcessExportKwh.toFixed(2),
           dailyDischarge: dailyMaxDischarge.toFixed(2),
           monthlyDischarge: monthlyMaxDischarge.toFixed(2),
           caps: {
-            excessSolar: dailyExcessSolar.toFixed(2),
+            nonOffsetSolar: dailyNonOffsetSolarKwh.toFixed(2),
+            chargeAvailable: batteryFlow.dailyChargeAvailableKwh.toFixed(2),
             nightUsage: dailyNightUsage.toFixed(2),
             batterySize: dailyBatteryCap.toFixed(2)
+          },
+          miniReport: {
+            monthlySolarSentToChargeBatteryKwh: batteryFlow.nonOffsetSolarKwh.toFixed(2),
+            monthlyBatteryStoredAndDischargedKwh: batteryFlow.monthlyStoredKwh.toFixed(2),
+            newBillAfterSolarBattery: afterBill !== null ? afterBill.toFixed(2) : null,
+            newExportKwh: exportKwh.toFixed(2),
+            newActualEei: actualEei.toFixed(2)
           },
           baseline: {
             billReduction: billReductionBaseline.toFixed(2),

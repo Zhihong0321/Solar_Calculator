@@ -41,6 +41,27 @@ const NIGHT_USAGE_WEIGHTS = [
 
 const ALLOWED_BATTERY_SIZES = [0, 16, 32, 48];
 const SHORT_BILL_CYCLE_SST_RATE = 0.08;
+const BATTERY_CHARGING_EFFICIENCY = 0.95;
+
+function calculateBatteryFlow({ monthlySolarGeneration, morningUsageKwh, batterySizeVal }) {
+    const nonOffsetSolarKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+    const dailyNonOffsetSolarKwh = nonOffsetSolarKwh / 30;
+    const dailyChargeAvailableKwh = dailyNonOffsetSolarKwh * BATTERY_CHARGING_EFFICIENCY;
+    const dailyBatteryStoredKwh = Math.min(dailyChargeAvailableKwh, batterySizeVal);
+    const monthlyBatteryStoredKwh = dailyBatteryStoredKwh * 30;
+    const dailyExcessExportKwh = Math.max(0, dailyChargeAvailableKwh - batterySizeVal);
+    const monthlyExcessExportKwh = dailyExcessExportKwh * 30;
+
+    return {
+        nonOffsetSolarKwh,
+        dailyNonOffsetSolarKwh,
+        dailyChargeAvailableKwh,
+        dailyBatteryStoredKwh,
+        monthlyBatteryStoredKwh,
+        dailyExcessExportKwh,
+        monthlyExcessExportKwh
+    };
+}
 
 function normalizeBatterySize(value) {
     const numeric = Number(value);
@@ -579,10 +600,13 @@ class SolarCalculator {
         const morningSelfConsumption = Math.min(monthlySolarGeneration, morningUsageKwh);
 
         // 6. Battery Math (Hard Caps)
-        const dailyExcessSolar = Math.max(0, monthlySolarGeneration - morningUsageKwh) / 30;
-        const dailyNightUsage = Math.max(0, monthlyUsageKwh - morningUsageKwh) / 30;
-        const dailyMaxDischarge = Math.min(dailyExcessSolar, dailyNightUsage, batterySize);
-        const monthlyMaxDischarge = dailyMaxDischarge * 30;
+        const batteryFlow = calculateBatteryFlow({
+            monthlySolarGeneration,
+            morningUsageKwh,
+            batterySizeVal: batterySize
+        });
+        const dailyMaxDischarge = batteryFlow.dailyBatteryStoredKwh;
+        const monthlyMaxDischarge = batteryFlow.monthlyBatteryStoredKwh;
 
         // 7. Energy Flows
         // Baseline
@@ -744,6 +768,23 @@ class SolarCalculator {
                             ]
                         }
                     }
+                },
+                batteryFlow: {
+                    efficiency: BATTERY_CHARGING_EFFICIENCY,
+                    nonOffsetSolarKwh: batteryFlow.nonOffsetSolarKwh.toFixed(2),
+                    dailyNonOffsetSolarKwh: batteryFlow.dailyNonOffsetSolarKwh.toFixed(2),
+                    dailyChargeAvailableKwh: batteryFlow.dailyChargeAvailableKwh.toFixed(2),
+                    dailyStoredKwh: batteryFlow.dailyBatteryStoredKwh.toFixed(2),
+                    monthlyStoredKwh: batteryFlow.monthlyBatteryStoredKwh.toFixed(2),
+                    dailyExcessExportKwh: batteryFlow.dailyExcessExportKwh.toFixed(2),
+                    monthlyExcessExportKwh: batteryFlow.monthlyExcessExportKwh.toFixed(2)
+                },
+                miniReport: {
+                    monthlySolarSentToChargeBatteryKwh: batteryFlow.nonOffsetSolarKwh.toFixed(2),
+                    monthlyBatteryStoredAndDischargedKwh: batteryFlow.monthlyStoredKwh.toFixed(2),
+                    newBillAfterSolarBattery: afterBreakdown.total !== null ? afterBreakdown.total.toFixed(2) : null,
+                    newExportKwh: exportKwh.toFixed(2),
+                    newActualEei: actualEei.toFixed(2)
                 }
             },
             billBreakdownComparison: {
@@ -1450,6 +1491,13 @@ function displaySolarCalculation(data) {
 
     const ds = data.details;
     const b = ds.battery.baseline;
+    const batteryMiniReport = ds.battery.miniReport || ds.miniReport || {
+        monthlySolarSentToChargeBatteryKwh: ds.batteryFlow?.nonOffsetSolarKwh || 0,
+        monthlyBatteryStoredAndDischargedKwh: ds.batteryFlow?.monthlyStoredKwh || 0,
+        newBillAfterSolarBattery: ds.billAfter || 0,
+        newExportKwh: ds.exportKwh || 0,
+        newActualEei: ds.actualEei || 0
+    };
     const billCycleModes = buildBillCycleMetrics(data);
     const activeBillCycleMode = normalizeBillCycleMode(selectedBillCycleMode);
     const cycleMetrics = billCycleModes[activeBillCycleMode] || billCycleModes.fullMonth;
@@ -1598,7 +1646,7 @@ function displaySolarCalculation(data) {
             ${normalizeBatterySize(data.config.batterySize) > 0 ? `
                 <section class="pt-8 md:pt-10 border-t border-divider">
                     <h2 class="text-xs md:text-sm font-bold uppercase tracking-wide mb-6 md:mb-8 tier-2 border-b-2 border-fact inline-block pb-1">08_BATTERY_STORAGE</h2>
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 lg:gap-10 items-start">
                         <div class="space-y-3">
                             <div class="flex flex-wrap gap-2">
                                 ${ALLOWED_BATTERY_SIZES.map((size) => `
@@ -1612,7 +1660,28 @@ function displaySolarCalculation(data) {
                             </div>
                             <p class="text-[10px] md:text-xs uppercase tier-3 font-semibold">Battery limited to 16 kWh modules, max 3 units.</p>
                         </div>
-                        <div><p class="text-[10px] md:text-xs uppercase tier-3 font-semibold">Value_Add</p><p class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${formatCurrency(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings))} / mo</p></div>
+                        <div class="space-y-2 text-sm md:text-base min-w-[240px]">
+                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Non_Offset_Solar</span><span class="font-bold">${formatCurrency(parseFloat(data.details.batteryFlow?.nonOffsetSolarKwh || 0))} kWh/mo</span></div>
+                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Daily Non_Offset_Solar</span><span class="font-bold">${formatCurrency(parseFloat(data.details.batteryFlow?.dailyNonOffsetSolarKwh || 0))} kWh/day</span></div>
+                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Battery_Stored</span><span class="font-bold">${formatCurrency(parseFloat(data.details.batteryFlow?.monthlyStoredKwh || 0))} kWh/mo</span></div>
+                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Excess_Export</span><span class="font-bold">${formatCurrency(parseFloat(data.details.batteryFlow?.monthlyExcessExportKwh || 0))} kWh/mo</span></div>
+                            <div class="mt-4 p-3 border border-divider bg-white/70 rounded-sm space-y-2">
+                                <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Mini Battery Report</div>
+                                <div class="space-y-1 text-[10px] md:text-xs">
+                                    <div class="flex justify-between gap-4"><span>Monthly Solar sent to charge battery</span><span class="font-bold">${formatQuantity(batteryMiniReport.monthlySolarSentToChargeBatteryKwh)} kWh/mo</span></div>
+                                    <div class="flex justify-between gap-4"><span>Monthly Battery stored and discharged</span><span class="font-bold">${formatQuantity(batteryMiniReport.monthlyBatteryStoredAndDischargedKwh)} kWh/mo</span></div>
+                                    <div class="flex justify-between gap-4"><span>New Bill After Solar+Battery</span><span class="font-bold">RM ${formatCurrency(batteryMiniReport.newBillAfterSolarBattery)}</span></div>
+                                    <div class="flex justify-between gap-4"><span>New Export</span><span class="font-bold">${formatQuantity(batteryMiniReport.newExportKwh)} kWh/mo</span></div>
+                                    <div class="flex justify-between gap-4"><span>New Actual EEI</span><span class="font-bold">RM ${formatCurrency(batteryMiniReport.newActualEei)}</span></div>
+                                </div>
+                                <p class="text-[9px] md:text-[10px] opacity-70">Battery charging uses 95% efficiency before export is calculated.</p>
+                            </div>
+                            <div class="flex justify-between gap-4 pt-2 border-t border-divider">
+                                <span class="uppercase tracking-wide tier-3 font-semibold">Value_Add</span>
+                                <span class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${formatCurrency(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings))} / mo</span>
+                            </div>
+                            <p class="text-[10px] md:text-xs opacity-70">Stored energy uses 95% charging efficiency before export is calculated.</p>
+                        </div>
                     </div>
                 </section>
             ` : `<div class="text-center pt-4"><button onclick="setBatterySize(16)" class="text-[10px] md:text-xs uppercase tracking-wide underline font-semibold tier-3 hover:tier-1">[+] Simulate_Battery_Storage_16kWh</button></div>`}
@@ -1690,6 +1759,7 @@ function renderFloatingPanelModulation(data) {
 // --- Utils & Charts ---
 
 function formatCurrency(v) { return Number(v || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function formatQuantity(v, d = 2) { return Number(v || 0).toLocaleString('en-MY', { minimumFractionDigits: d, maximumFractionDigits: d }); }
 function formatPercentage(v, d = 1) { return Number(v || 0).toFixed(d); }
 function showNotification(m, t = 'info') {
     const n = document.createElement('div');
