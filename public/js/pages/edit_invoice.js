@@ -415,6 +415,12 @@ async function loadHybridUpgradeOptions(packageId) {
         return;
     }
 
+    const currentPackageData = window.currentPackageHybridUpgradeData;
+    if (currentPackageData && String(currentPackageData.packageId || '') === String(packageId)) {
+        renderHybridUpgradeOptions(currentPackageData);
+        return;
+    }
+
     setHybridUpgradeStaticState({
         optionLabel: 'Checking hybrid upgrade options...',
         helperText: 'Checking inverter link and matching hybrid upgrade rules for this package.',
@@ -426,21 +432,35 @@ async function loadHybridUpgradeOptions(packageId) {
 
     try {
         const response = await fetch(`/api/package/${packageId}/hybrid-upgrades`);
-        const result = await response.json();
-        if (response.ok && result.success && result.data) {
+        const raw = await response.text();
+        let result = null;
+        try {
+            result = JSON.parse(raw);
+        } catch (parseErr) {
+            result = null;
+        }
+
+        if (response.ok && result?.success && result.data) {
+            window.currentPackageHybridUpgradeData = result.data;
             renderHybridUpgradeOptions(result.data);
         } else {
-            setHybridUpgradeStaticState({
-                optionLabel: 'Hybrid upgrade unavailable',
-                helperText: result?.error || 'Unable to load hybrid upgrade options for this package right now.',
-                currentLabelText: 'Unavailable',
-                targetLabelText: 'Unavailable',
-                amountLabelText: 'RM 0.00',
-                disabled: true
-            });
+            throw new Error(result?.error || `Hybrid route returned status ${response.status}`);
         }
     } catch (err) {
         console.error('Failed to load hybrid upgrade options:', err);
+        try {
+            const fallbackResponse = await fetch(`/api/package/${packageId}`);
+            const fallbackResult = await fallbackResponse.json();
+            const fallbackData = fallbackResult?.package?.hybrid_upgrade_data || null;
+            if (fallbackResponse.ok && fallbackResult?.success && fallbackData) {
+                window.currentPackageHybridUpgradeData = fallbackData;
+                renderHybridUpgradeOptions(fallbackData);
+                return;
+            }
+        } catch (fallbackErr) {
+            console.error('Failed to load fallback hybrid data from package details:', fallbackErr);
+        }
+
         setHybridUpgradeStaticState({
             optionLabel: 'Hybrid upgrade unavailable',
             helperText: 'Failed to load hybrid upgrade options. Please refresh and try again.',
@@ -2164,6 +2184,7 @@ function showPackage(pkg) {
     window.currentBasePackagePrice = parseFloat(pkg.price) || 0;
     window.currentBasePackageName = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     window.currentBasePackageDescription = pkg.invoice_desc || '';
+    window.currentPackageHybridUpgradeData = pkg.hybrid_upgrade_data || null;
     window.currentPanelQty = pkg.panel_qty || 0;
     window.currentPackageType = pkg.type || '';
     setBallastQty(document.getElementById('ballastQty')?.value || 0);

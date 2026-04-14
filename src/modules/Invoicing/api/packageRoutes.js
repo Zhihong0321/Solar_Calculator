@@ -17,9 +17,19 @@ router.get('/api/package/:id', async (req, res) => {
     try {
       const pkg = await invoiceRepo.getPackageById(client, id);
       if (pkg) {
+        let hybridUpgradeData = null;
+        try {
+          hybridUpgradeData = await invoiceRepo.getHybridUpgradeOptionsForPackage(client, id);
+        } catch (hybridErr) {
+          console.warn('Failed to enrich package details with hybrid upgrade data:', hybridErr.message);
+        }
+
         res.json({
           success: true,
-          package: pkg
+          package: {
+            ...pkg,
+            hybrid_upgrade_data: hybridUpgradeData
+          }
         });
       } else {
         res.status(404).json({
@@ -36,6 +46,33 @@ router.get('/api/package/:id', async (req, res) => {
       success: false,
       error: err.message
     });
+  }
+});
+
+/**
+ * GET /api/package/:id/hybrid-upgrades
+ * Get matching hybrid inverter upgrade rules for a package.
+ */
+router.get('/api/package/:id/hybrid-upgrades', requireAuth, async (req, res) => {
+  let client = null;
+
+  try {
+    const { id } = req.params;
+    client = await pool.connect();
+    const data = await invoiceRepo.getHybridUpgradeOptionsForPackage(client, id);
+
+    res.json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    console.error('Error fetching hybrid upgrade options:', err);
+    res.status(500).json({
+      success: false,
+      error: err.message || 'Failed to fetch hybrid upgrade options'
+    });
+  } finally {
+    if (client) client.release();
   }
 });
 
