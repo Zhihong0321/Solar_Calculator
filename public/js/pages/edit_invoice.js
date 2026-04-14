@@ -212,6 +212,39 @@ function setHybridUpgradeSummaryLabels(rule) {
     }
 }
 
+function setHybridUpgradeStaticState({
+    optionLabel = 'No hybrid upgrade available',
+    helperText = 'Hybrid upgrade is unavailable for this package.',
+    currentLabelText = 'None',
+    targetLabelText = 'None',
+    amountLabelText = 'RM 0.00',
+    disabled = true
+} = {}) {
+    const section = document.getElementById('hybrid-upgrade-section');
+    const select = document.getElementById('hybridUpgradeSelect');
+    const helper = document.getElementById('hybridUpgradeHelper');
+    const currentLabel = document.getElementById('hybridUpgradeCurrentLabel');
+    const targetLabel = document.getElementById('hybridUpgradeTargetLabel');
+    const amountLabel = document.getElementById('hybridUpgradeAmountLabel');
+    const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
+
+    if (!section || !select) return;
+
+    section.classList.remove('hidden');
+    select.innerHTML = `<option value="">${optionLabel}</option>`;
+    select.value = '';
+    select.disabled = disabled;
+    select.onchange = null;
+
+    if (helper) helper.textContent = helperText;
+    if (currentLabel) currentLabel.textContent = currentLabelText;
+    if (targetLabel) targetLabel.textContent = targetLabelText;
+    if (amountLabel) amountLabel.textContent = amountLabelText;
+    if (hiddenRuleInput) hiddenRuleInput.value = '';
+
+    renderStockReadyWarning();
+}
+
 function applyHybridUpgradeSelection() {
     const context = getHybridUpgradeContext();
     const rule = getSelectedHybridUpgradeRule();
@@ -277,34 +310,52 @@ function renderHybridUpgradeOptions(data) {
     context.rules = Array.isArray(data?.rules) ? data.rules : [];
     context.selectedRuleId = '';
 
-    // Already hybrid — show read-only badge, hide controls
-    if (data?.packageAlreadyHybrid) {
-        if (section) {
-            section.classList.remove('hidden');
-            const inner = section.querySelector('.rounded-2xl');
-            if (inner) {
-                inner.innerHTML = `
-                    <p class="text-xs font-bold uppercase tracking-[0.22em] text-cyan-700">Hybrid Upgrade</p>
-                    <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-cyan-100 px-4 py-2 text-sm font-semibold text-cyan-800">
-                        <svg class="h-4 w-4 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        This package already uses a hybrid inverter — no upgrade needed.
-                    </div>`;
-            }
-        }
-        const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
-        if (hiddenRuleInput) hiddenRuleInput.value = '';
-        return;
-    }
-
-    if (!section || !select || !context.rules.length) {
-        section?.classList.add('hidden');
-        const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
-        if (hiddenRuleInput) hiddenRuleInput.value = '';
-        setHybridUpgradeSummaryLabels(null);
+    if (!section || !select) {
         return;
     }
 
     section.classList.remove('hidden');
+
+    // Already hybrid — keep the section visible but read-only
+    if (data?.packageAlreadyHybrid) {
+        setHybridUpgradeStaticState({
+            optionLabel: 'Already using hybrid inverter',
+            helperText: 'This package already uses a hybrid inverter, so no upgrade is needed.',
+            currentLabelText: data?.currentInverter?.model_code || data?.currentInverter?.name || 'Hybrid inverter',
+            targetLabelText: 'Already hybrid',
+            amountLabelText: 'RM 0.00',
+            disabled: true
+        });
+        applyHybridUpgradeSelection();
+        return;
+    }
+
+    if (!data?.currentInverter) {
+        setHybridUpgradeStaticState({
+            optionLabel: 'No inverter found',
+            helperText: 'No inverter_1 value was found for this package, so hybrid upgrade is unavailable.',
+            currentLabelText: 'No inverter linked',
+            targetLabelText: 'Unavailable',
+            amountLabelText: 'RM 0.00',
+            disabled: true
+        });
+        applyHybridUpgradeSelection();
+        return;
+    }
+
+    if (!context.rules.length) {
+        setHybridUpgradeStaticState({
+            optionLabel: 'No upgrade rule configured',
+            helperText: 'This package has an inverter, but no matching hybrid upgrade rule is configured yet.',
+            currentLabelText: data.currentInverter.model_code || data.currentInverter.name || 'Current inverter',
+            targetLabelText: 'No matching rule',
+            amountLabelText: 'RM 0.00',
+            disabled: true
+        });
+        applyHybridUpgradeSelection();
+        return;
+    }
+
     const options = ['<option value="">No hybrid upgrade</option>'];
     context.rules.forEach((rule) => {
         const topUp = (parseFloat(rule.price_amount) || 0).toFixed(2);
@@ -313,6 +364,7 @@ function renderHybridUpgradeOptions(data) {
     });
     select.innerHTML = options.join('');
     select.value = '';
+    select.disabled = false;
 
     select.onchange = () => {
         context.selectedRuleId = select.value || '';
@@ -347,10 +399,23 @@ function renderStockReadyWarning() {
 
 async function loadHybridUpgradeOptions(packageId) {
     const section = document.getElementById('hybrid-upgrade-section');
-    if (!section || !packageId) {
-        section?.classList.add('hidden');
+    if (!section) {
         return;
     }
+
+    if (!packageId) {
+        section.classList.add('hidden');
+        return;
+    }
+
+    setHybridUpgradeStaticState({
+        optionLabel: 'Checking hybrid upgrade options...',
+        helperText: 'Checking inverter link and matching hybrid upgrade rules for this package.',
+        currentLabelText: 'Loading...',
+        targetLabelText: 'Loading...',
+        amountLabelText: 'RM 0.00',
+        disabled: true
+    });
 
     try {
         const response = await fetch(`/api/package/${packageId}/hybrid-upgrades`);
@@ -358,11 +423,25 @@ async function loadHybridUpgradeOptions(packageId) {
         if (response.ok && result.success && result.data) {
             renderHybridUpgradeOptions(result.data);
         } else {
-            section.classList.add('hidden');
+            setHybridUpgradeStaticState({
+                optionLabel: 'Hybrid upgrade unavailable',
+                helperText: result?.error || 'Unable to load hybrid upgrade options for this package right now.',
+                currentLabelText: 'Unavailable',
+                targetLabelText: 'Unavailable',
+                amountLabelText: 'RM 0.00',
+                disabled: true
+            });
         }
     } catch (err) {
         console.error('Failed to load hybrid upgrade options:', err);
-        section?.classList.add('hidden');
+        setHybridUpgradeStaticState({
+            optionLabel: 'Hybrid upgrade unavailable',
+            helperText: 'Failed to load hybrid upgrade options. Please refresh and try again.',
+            currentLabelText: 'Unavailable',
+            targetLabelText: 'Unavailable',
+            amountLabelText: 'RM 0.00',
+            disabled: true
+        });
     }
 }
 
