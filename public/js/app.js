@@ -1661,10 +1661,10 @@ function displaySolarCalculation(data) {
                             <p class="text-[10px] md:text-xs uppercase tier-3 font-semibold">Battery limited to 16 kWh modules, max 3 units.</p>
                         </div>
                         <div class="space-y-2 text-sm md:text-base min-w-[240px]">
-                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Non_Offset_Solar</span><span class="font-bold">${formatCurrency(parseFloat(data.details.batteryFlow?.nonOffsetSolarKwh || 0))} kWh/mo</span></div>
-                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Daily Non_Offset_Solar</span><span class="font-bold">${formatCurrency(parseFloat(data.details.batteryFlow?.dailyNonOffsetSolarKwh || 0))} kWh/day</span></div>
-                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Battery_Stored</span><span class="font-bold">${formatCurrency(parseFloat(data.details.batteryFlow?.monthlyStoredKwh || 0))} kWh/mo</span></div>
-                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Excess_Export</span><span class="font-bold">${formatCurrency(parseFloat(data.details.batteryFlow?.monthlyExcessExportKwh || 0))} kWh/mo</span></div>
+                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Non_Offset_Solar</span><span class="font-bold">${formatCurrency(parseFloat(data.details.battery?.nonOffsetSolarKwh || 0))} kWh/mo</span></div>
+                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Daily Non_Offset_Solar</span><span class="font-bold">${formatCurrency(parseFloat(data.details.battery?.dailyNonOffsetSolarKwh || 0))} kWh/day</span></div>
+                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Battery_Stored</span><span class="font-bold">${formatCurrency(parseFloat(data.details.battery?.monthlyStoredKwh || 0))} kWh/mo</span></div>
+                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Excess_Export</span><span class="font-bold">${formatCurrency(parseFloat(data.details.battery?.monthlyExcessExportKwh || 0))} kWh/mo</span></div>
                             <div class="mt-4 p-3 border border-divider bg-white/70 rounded-sm space-y-2">
                                 <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Mini Battery Report</div>
                                 <div class="space-y-1 text-[10px] md:text-xs">

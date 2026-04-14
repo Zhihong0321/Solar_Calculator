@@ -26,5 +26,8 @@ REPO NAME : Solar Calculator v2
 - Made the System Spec page full width to match the quotation layout.
 - Expanded the System Spec cards to full width on the live V3 template.
 - Fixed the solar calculator ROI matrix battery mini-report to use the correct monthly battery storage field
+- Fixed the solar battery summary to read the correct battery data fields in the ROI matrix
+- Kept assigned referral leads visible in the invoice edit flow
+- Replaced the home dashboard stats block with a pending referral notification card
 
 =====================
