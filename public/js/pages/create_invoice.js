@@ -204,11 +204,7 @@ function setHybridUpgradeSummaryLabels(rule) {
     if (currentLabel) currentLabel.textContent = rule.from_model_code || rule.from_product_name_snapshot || 'Current inverter';
     if (targetLabel) targetLabel.textContent = rule.to_model_code || rule.to_product_name_snapshot || 'Hybrid inverter';
     if (amountLabel) amountLabel.textContent = `RM ${(parseFloat(rule.price_amount) || 0).toFixed(2)}`;
-    if (helper) {
-        helper.textContent = rule.stock_ready
-            ? 'This rule is ready to use and will be cloned into the invoice-specific package.'
-            : 'This rule is configured, but the admin side has marked it as not stock ready.';
-    }
+    if (helper) helper.textContent = 'This rule will be cloned into the invoice-specific package.';
 }
 
 function setHybridUpgradeStaticState({
@@ -358,7 +354,7 @@ function renderHybridUpgradeOptions(data) {
     const options = ['<option value="">No hybrid upgrade</option>'];
     context.rules.forEach((rule) => {
         const topUp = (parseFloat(rule.price_amount) || 0).toFixed(2);
-        const label = `${rule.from_model_code || 'Source'} → ${rule.to_model_code || 'Target'} | +RM ${topUp}${rule.stock_ready ? '' : ' ⚠ Stock not ready'}`;
+        const label = `${rule.from_model_code || 'Source'} → ${rule.to_model_code || 'Target'} | +RM ${topUp}`;
         options.push(`<option value="${rule.bubble_id}">${label}</option>`);
     });
     select.innerHTML = options.join('');
@@ -377,8 +373,6 @@ function renderHybridUpgradeOptions(data) {
 }
 
 function renderStockReadyWarning() {
-    const context = getHybridUpgradeContext();
-    const rule = getSelectedHybridUpgradeRule();
     const helper = document.getElementById('hybridUpgradeHelper');
     let warning = document.getElementById('hybridStockWarning');
 
@@ -389,12 +383,7 @@ function renderStockReadyWarning() {
         helper?.parentNode?.insertBefore(warning, helper.nextSibling);
     }
 
-    if (rule && !rule.stock_ready) {
-        warning.textContent = '⚠ Stock not ready — you can still proceed, but confirm availability with admin before committing.';
-        warning.classList.remove('hidden');
-    } else {
-        warning.classList.add('hidden');
-    }
+    warning.classList.add('hidden');
 }
 
 async function loadHybridUpgradeOptions(packageId) {
