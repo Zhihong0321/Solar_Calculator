@@ -27,6 +27,10 @@ const MICRO_INVERTER_MODELS = [
     { id: 'mi_s4', name: 'SAJ M4-1.8K S4 Micro Inverter', price: 1000, originalPrice: 1500 }
 ];
 const BALLAST_UNIT_PRICE = 120;
+let loadedPromotionSelections = {
+    earnNowApplied: false,
+    earthMonthApplied: false
+};
 
 // Read micro inverter qty inputs and return items with qty > 0
 function getMicroInverterItems() {
@@ -133,8 +137,252 @@ function getAdditionalInvoiceItems() {
     return items;
 }
 
+function buildHybridUpgradePreviewName(baseName, targetModelCode) {
+    const trimmedBase = String(baseName || 'Package Item').trim();
+    if (!targetModelCode) return trimmedBase;
+    if (trimmedBase.toUpperCase().includes('HYBRID')) return trimmedBase;
+    return `${trimmedBase} (Hybrid ${targetModelCode})`;
+}
+
+function buildHybridUpgradePreviewDescription(baseDescription, targetInverterName, topUpAmount) {
+    const lines = String(baseDescription || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    let replaced = false;
+    const updated = lines.map((line) => {
+        if (!replaced && /inverter/i.test(line)) {
+            replaced = true;
+            return `1X ${targetInverterName}`;
+        }
+        return line;
+    });
+
+    if (!replaced && targetInverterName) {
+        updated.push(`1X ${targetInverterName}`);
+    }
+
+    if (topUpAmount > 0) {
+        updated.push(`Hybrid inverter upgrade included (RM ${topUpAmount.toFixed(2)} top-up)`);
+    }
+
+    return updated.join('\n');
+}
+
+function getHybridUpgradeContext() {
+    if (!window.currentHybridUpgradeContext) {
+        window.currentHybridUpgradeContext = {
+            packageId: null,
+            currentInverter: null,
+            rules: [],
+            selectedRuleId: ''
+        };
+    }
+    return window.currentHybridUpgradeContext;
+}
+
+function getSelectedHybridUpgradeRule() {
+    const context = getHybridUpgradeContext();
+    return context.rules.find((rule) => String(rule.bubble_id) === String(context.selectedRuleId)) || null;
+}
+
+function setHybridUpgradeSummaryLabels(rule) {
+    const currentLabel = document.getElementById('hybridUpgradeCurrentLabel');
+    const targetLabel = document.getElementById('hybridUpgradeTargetLabel');
+    const amountLabel = document.getElementById('hybridUpgradeAmountLabel');
+    const helper = document.getElementById('hybridUpgradeHelper');
+
+    if (!rule) {
+        if (currentLabel) currentLabel.textContent = 'None';
+        if (targetLabel) targetLabel.textContent = 'None';
+        if (amountLabel) amountLabel.textContent = 'RM 0.00';
+        if (helper) helper.textContent = 'Select an option to swap the inverter and add the top-up.';
+        return;
+    }
+
+    if (currentLabel) currentLabel.textContent = rule.from_model_code || rule.from_product_name_snapshot || 'Current inverter';
+    if (targetLabel) targetLabel.textContent = rule.to_model_code || rule.to_product_name_snapshot || 'Hybrid inverter';
+    if (amountLabel) amountLabel.textContent = `RM ${(parseFloat(rule.price_amount) || 0).toFixed(2)}`;
+    if (helper) {
+        helper.textContent = rule.stock_ready
+            ? 'This rule is ready to use and will be cloned into the invoice-specific package.'
+            : 'This rule is configured, but the admin side has marked it as not stock ready.';
+    }
+}
+
+function applyHybridUpgradeSelection() {
+    const context = getHybridUpgradeContext();
+    const rule = getSelectedHybridUpgradeRule();
+    const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
+    const packagePriceInput = document.getElementById('packagePrice');
+    const packageNameHidden = document.getElementById('packageName');
+    const packageNameDisplay = document.getElementById('packageNameDisplay');
+    const packagePriceDisplay = document.getElementById('packagePriceDisplay');
+    const packageDescDisplay = document.getElementById('packageDescDisplay');
+    const packageDescContainer = document.getElementById('packageDescContainer');
+
+    if (hiddenRuleInput) hiddenRuleInput.value = rule ? rule.bubble_id : '';
+
+    const basePrice = Number(window.currentBasePackagePrice) || 0;
+    const baseName = window.currentBasePackageName || packageNameHidden?.value || packageNameDisplay?.textContent || 'Package Item';
+    const baseDesc = window.currentBasePackageDescription || '';
+    const hybridTopUp = rule ? (parseFloat(rule.price_amount) || 0) : 0;
+    const totalPrice = basePrice + hybridTopUp;
+
+    if (packagePriceInput) packagePriceInput.value = totalPrice.toFixed(2);
+
+    const previewName = buildHybridUpgradePreviewName(baseName, rule?.to_model_code);
+    const previewDesc = rule
+        ? buildHybridUpgradePreviewDescription(baseDesc, rule.to_product_name_snapshot || rule.to_model_code || 'Hybrid Inverter', hybridTopUp)
+        : baseDesc;
+
+    if (packageNameHidden) packageNameHidden.value = previewName;
+    if (packageNameDisplay) packageNameDisplay.textContent = previewName;
+    if (packagePriceDisplay) packagePriceDisplay.textContent = `RM ${totalPrice.toFixed(2)}`;
+    if (packageDescDisplay) {
+        packageDescDisplay.textContent = previewDesc;
+    }
+    if (packageDescContainer) {
+        packageDescContainer.classList.toggle('hidden', !previewDesc);
+    }
+
+    const { maxPercent, maxAmount } = getManualDiscountPolicy(totalPrice);
+    window.maxDiscountAllowed = maxAmount;
+    window.maxDiscountPercentAllowed = maxPercent;
+    const maxDiscountDisplay = document.getElementById('maxDiscountDisplay');
+    const inputMaxDiscountDisplay = document.getElementById('inputMaxDiscountDisplay');
+    if (document.getElementById('maxDiscountRow')) {
+        document.getElementById('maxDiscountRow').classList.remove('hidden');
+    }
+    if (document.getElementById('inputMaxDiscountRow')) {
+        document.getElementById('inputMaxDiscountRow').classList.remove('hidden');
+    }
+    if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${maxAmount.toFixed(2)} (${maxPercent}% of package price)`;
+    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${maxAmount.toFixed(2)} (${maxPercent}% of package price)`;
+
+    setHybridUpgradeSummaryLabels(rule);
+    updateInvoicePreview();
+    updateWorkspaceStatuses();
+}
+
+function renderHybridUpgradeOptions(data) {
+    const section = document.getElementById('hybrid-upgrade-section');
+    const select = document.getElementById('hybridUpgradeSelect');
+    const context = getHybridUpgradeContext();
+
+    context.packageId = data?.packageId || null;
+    context.currentInverter = data?.currentInverter || null;
+    context.rules = Array.isArray(data?.rules) ? data.rules : [];
+    context.selectedRuleId = '';
+
+    // Already hybrid — show read-only badge, hide controls
+    if (data?.packageAlreadyHybrid) {
+        if (section) {
+            section.classList.remove('hidden');
+            const inner = section.querySelector('.rounded-2xl');
+            if (inner) {
+                inner.innerHTML = `
+                    <p class="text-xs font-bold uppercase tracking-[0.22em] text-cyan-700">Hybrid Upgrade</p>
+                    <div class="mt-3 inline-flex items-center gap-2 rounded-full bg-cyan-100 px-4 py-2 text-sm font-semibold text-cyan-800">
+                        <svg class="h-4 w-4 text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        This package already uses a hybrid inverter — no upgrade needed.
+                    </div>`;
+            }
+        }
+        const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
+        if (hiddenRuleInput) hiddenRuleInput.value = '';
+        return;
+    }
+
+    if (!section || !select || !context.rules.length) {
+        section?.classList.add('hidden');
+        const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
+        if (hiddenRuleInput) hiddenRuleInput.value = '';
+        setHybridUpgradeSummaryLabels(null);
+        return;
+    }
+
+    section.classList.remove('hidden');
+    const options = ['<option value="">No hybrid upgrade</option>'];
+    context.rules.forEach((rule) => {
+        const topUp = (parseFloat(rule.price_amount) || 0).toFixed(2);
+        const label = `${rule.from_model_code || 'Source'} → ${rule.to_model_code || 'Target'} | +RM ${topUp}${rule.stock_ready ? '' : ' ⚠ Stock not ready'}`;
+        options.push(`<option value="${rule.bubble_id}">${label}</option>`);
+    });
+    select.innerHTML = options.join('');
+    select.value = '';
+
+    select.onchange = () => {
+        context.selectedRuleId = select.value || '';
+        applyHybridUpgradeSelection();
+        renderStockReadyWarning();
+    };
+
+    setHybridUpgradeSummaryLabels(null);
+    applyHybridUpgradeSelection();
+    renderStockReadyWarning();
+}
+
+function renderStockReadyWarning() {
+    const context = getHybridUpgradeContext();
+    const rule = getSelectedHybridUpgradeRule();
+    const helper = document.getElementById('hybridUpgradeHelper');
+    let warning = document.getElementById('hybridStockWarning');
+
+    if (!warning) {
+        warning = document.createElement('p');
+        warning.id = 'hybridStockWarning';
+        warning.className = 'mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800';
+        helper?.parentNode?.insertBefore(warning, helper.nextSibling);
+    }
+
+    if (rule && !rule.stock_ready) {
+        warning.textContent = '⚠ Stock not ready — you can still proceed, but confirm availability with admin before committing.';
+        warning.classList.remove('hidden');
+    } else {
+        warning.classList.add('hidden');
+    }
+}
+
+async function loadHybridUpgradeOptions(packageId) {
+    const section = document.getElementById('hybrid-upgrade-section');
+    if (!section || !packageId) {
+        section?.classList.add('hidden');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/package/${packageId}/hybrid-upgrades`);
+        const result = await response.json();
+        if (response.ok && result.success && result.data) {
+            renderHybridUpgradeOptions(result.data);
+        } else {
+            section.classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('Failed to load hybrid upgrade options:', err);
+        section?.classList.add('hidden');
+    }
+}
+
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
-const MANUAL_DISCOUNT_MAX_PERCENT = 7; // SYSTEM-WIDE: Max manual discount = 7% of package price (VOUCHERS EXCLUDED)
+const MANUAL_DISCOUNT_POLICY = [
+    { minPrice: 40000, maxPercent: 7 },
+    { minPrice: 30000, maxPercent: 6 },
+    { minPrice: 18000, maxPercent: 5 }
+];
+
+function getManualDiscountPolicy(packagePrice) {
+    const normalizedPrice = parseFloat(packagePrice) || 0;
+    const matchedTier = MANUAL_DISCOUNT_POLICY.find(tier => normalizedPrice >= tier.minPrice);
+    const maxPercent = matchedTier ? matchedTier.maxPercent : 0;
+
+    return {
+        maxPercent,
+        maxAmount: normalizedPrice * (maxPercent / 100)
+    };
+}
 
 // Calculate total negative amount from all extra items (manual + micro inverters)
 function getExtraItemsNegativeTotal() {
@@ -147,8 +395,10 @@ function getExtraItemsNegativeTotal() {
 
 const BANKS = Object.keys(EPP_RATES);
 let paymentMethodCounter = 0;
-let availableVouchers = [];
-let selectedVouchers = [];
+let assignedReferralLeads = [];
+let referralInvoiceFilterId = null;
+let inlineVoucherStep = null;
+let selectedDraftVouchers = [];
 
 // Dynamic Additional Items State
 let manualItems = [];
@@ -240,133 +490,112 @@ function toggleFollowUpSection() {
     }
 }
 
-// Fetch available vouchers - only active, non-deleted vouchers for agent use
-async function fetchVouchers() {
-    try {
-        const response = await fetch('/api/vouchers?status=active');
-        const result = await response.json();
-
-        if (result.success) {
-            availableVouchers = result.vouchers;
-            populateVoucherSelect();
-        }
-    } catch (err) {
-        console.error('Error fetching vouchers:', err);
-    }
+function getVisibleReferralLeads() {
+    return assignedReferralLeads.filter((referral) => {
+        if (!referral?.linked_invoice) return true;
+        return referral.linked_invoice === referralInvoiceFilterId;
+    });
 }
 
-// Populate voucher dropdown
-function populateVoucherSelect() {
-    const select = document.getElementById('voucherSelectDropdown');
+function formatReferralOptionLabel(referral) {
+    const parts = [
+        referral.name || 'Unnamed lead',
+        referral.mobile_number || 'No phone',
+        referral.status || 'Pending'
+    ];
+    return parts.join(' | ');
+}
+
+function renderAssignedReferralOptions(selectedReferralId = '') {
+    const select = document.getElementById('assignedReferralSelect');
     if (!select) return;
 
-    // Keep first option
-    select.innerHTML = '<option value="">-- Select a Voucher --</option>';
-
-    // availableVouchers already contains only active, non-deleted vouchers (filtered server-side)
-    availableVouchers.forEach(v => {
-        const option = document.createElement('option');
-        option.value = v.voucher_code;
-        let text = v.title || v.voucher_code;
-        if (v.discount_amount) text += ` (RM ${v.discount_amount})`;
-        if (v.discount_percent) text += ` (${v.discount_percent}%)`;
-        option.textContent = text;
-        select.appendChild(option);
+    const options = ['<option value="">Manual customer entry</option>'];
+    getVisibleReferralLeads().forEach((referral) => {
+        const selected = String(selectedReferralId || '') === String(referral.bubble_id) ? 'selected' : '';
+        options.push(
+            `<option value="${referral.bubble_id}" ${selected}>${formatReferralOptionLabel(referral)}</option>`
+        );
     });
+
+    select.innerHTML = options.join('');
+    select.value = selectedReferralId || '';
+    document.getElementById('linkedReferral').value = selectedReferralId || '';
 }
 
-// Get currently previewed voucher (in dropdown)
-function getPreviewVoucher() {
-    const select = document.getElementById('voucherSelectDropdown');
-    if (!select || !select.value) return null;
-    return availableVouchers.find(v => v.voucher_code === select.value) || null;
-}
+function applyAssignedReferralSelection(referralId, { autofill = true } = {}) {
+    const normalizedId = referralId || '';
+    const hiddenInput = document.getElementById('linkedReferral');
+    if (hiddenInput) hiddenInput.value = normalizedId;
 
-// Add voucher to selection
-function addVoucher() {
-    const voucher = getPreviewVoucher();
-    if (!voucher) return;
+    const select = document.getElementById('assignedReferralSelect');
+    if (select && select.value !== normalizedId) {
+        select.value = normalizedId;
+    }
 
-    // Check if already added
-    if (selectedVouchers.find(v => v.voucher_code === voucher.voucher_code)) {
-        alert('This voucher is already added.');
+    const referral = getVisibleReferralLeads().find((item) => item.bubble_id === normalizedId);
+    if (!referral || !autofill) {
         return;
     }
 
-    // Check conflicts (simple logic for now: if user selects one, it just adds. 
-    // If explicit "auto_cancel" logic is needed, it goes here. 
-    // For now, we assume user knows what they are doing or backend validates)
+    const customerName = document.getElementById('customerName');
+    const customerPhone = document.getElementById('customerPhone');
+    const customerAddress = document.getElementById('customerAddress');
+    const leadSource = document.getElementById('customerLeadSource');
+    const remark = document.getElementById('customerRemark');
 
-    selectedVouchers.push(voucher);
-    renderSelectedVouchers();
-    updateInvoicePreview();
-
-    // Reset dropdown
-    const select = document.getElementById('voucherSelectDropdown');
-    if (select) select.value = "";
-    updateVoucherInfo();
-}
-
-// Remove voucher from selection
-function removeVoucher(code) {
-    selectedVouchers = selectedVouchers.filter(v => v.voucher_code !== code);
-    renderSelectedVouchers();
-    updateInvoicePreview();
-}
-
-// Render selected vouchers list
-function renderSelectedVouchers() {
-    const container = document.getElementById('selectedVouchersContainer');
-    const list = document.getElementById('selectedVouchersList');
-    if (!container || !list) return;
-
-    if (selectedVouchers.length === 0) {
-        container.classList.add('hidden');
-        return;
+    if (customerName) customerName.value = referral.name || '';
+    if (customerPhone) customerPhone.value = referral.mobile_number || '';
+    if (customerAddress) customerAddress.value = referral.address || referral.lead_address || '';
+    if (leadSource) leadSource.value = 'referral';
+    if (remark && !remark.value.trim()) {
+        remark.value = `Assigned referral lead selected: ${referral.name || referral.bubble_id}`;
     }
 
-    container.classList.remove('hidden');
-    list.innerHTML = '';
-
-    selectedVouchers.forEach(v => {
-        const item = document.createElement('div');
-        item.className = 'flex justify-between items-center bg-white p-2 rounded border border-green-200 shadow-sm';
-
-        let valText = '';
-        if (v.discount_amount) valText = `RM ${v.discount_amount}`;
-        else if (v.discount_percent) valText = `${v.discount_percent}%`;
-
-        item.innerHTML = `
-                    <div class="flex-1">
-                        <div class="text-sm font-semibold text-gray-900">${v.title || v.voucher_code}</div>
-                        <div class="text-xs text-gray-600">${v.invoice_description || ''}</div>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm font-bold text-green-600">${valText}</span>
-                        <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="removeVoucher('${v.voucher_code}')" title="Remove">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
-                    </div>
-                `;
-        list.appendChild(item);
-    });
+    toggleFollowUpSection();
 }
 
-// Update voucher info display (dropdown preview)
-function updateVoucherInfo() {
-    const voucher = getPreviewVoucher();
-    const infoDiv = document.getElementById('voucherInfo');
-    const titleEl = document.getElementById('voucherTitle');
-    const descEl = document.getElementById('voucherDesc');
-    const termsEl = document.getElementById('voucherTerms');
+function setHiddenFieldValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = value === null || value === undefined ? '' : String(value);
+}
 
-    if (voucher) {
-        infoDiv.classList.remove('hidden');
-        titleEl.textContent = voucher.title || voucher.voucher_code;
-        descEl.textContent = voucher.invoice_description || '';
-        termsEl.textContent = voucher.terms_conditions || '';
-    } else {
-        infoDiv.classList.add('hidden');
+function applySolarSavingsParams(urlParams) {
+    if (urlParams.has('customer_average_tnb')) {
+        setHiddenFieldValue('customerAverageTnb', urlParams.get('customer_average_tnb'));
+    }
+    if (urlParams.has('estimated_saving')) {
+        setHiddenFieldValue('estimatedSaving', urlParams.get('estimated_saving'));
+    }
+    if (urlParams.has('estimated_new_bill_amount')) {
+        setHiddenFieldValue('estimatedNewBillAmount', urlParams.get('estimated_new_bill_amount'));
+    }
+    if (urlParams.has('solar_sun_peak_hour')) {
+        setHiddenFieldValue('solarSunPeakHour', urlParams.get('solar_sun_peak_hour'));
+    }
+    if (urlParams.has('solar_morning_usage_percent')) {
+        setHiddenFieldValue('solarMorningUsagePercent', urlParams.get('solar_morning_usage_percent'));
+    }
+}
+
+async function fetchAssignedReferralLeads(selectedReferralId = '', { autofillSelection = false } = {}) {
+    try {
+        const response = await fetch('/api/v1/referrals/my-referrals', { credentials: 'same-origin' });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to load assigned referral leads');
+        }
+
+        assignedReferralLeads = Array.isArray(result.data) ? result.data : [];
+        renderAssignedReferralOptions(selectedReferralId);
+
+        if (selectedReferralId) {
+            applyAssignedReferralSelection(selectedReferralId, { autofill: autofillSelection });
+        }
+    } catch (error) {
+        console.error('Error loading assigned referral leads:', error);
     }
 }
 
@@ -396,53 +625,148 @@ function parseDiscount(discountStr) {
     return { fixed: discountFixed, percent: discountPercent };
 }
 
-// Utility for CNY 2026 Promo
-function getCNY2026PromoDiscount(panelQty) {
-    const now = new Date();
-    const expiry = new Date('2026-04-01T00:00:00');
-    if (now >= expiry) return 0;
+const APRIL_2026_PROMO_END = new Date('2026-05-01T00:00:00');
 
-    const qty = parseInt(panelQty) || 0;
-    if (qty >= 12 && qty <= 18) return 1000;
+function isApril2026PromotionActive() {
+    return new Date() < APRIL_2026_PROMO_END;
+}
+
+function getEarnNowRebateAmount(panelQty) {
+    if (!isApril2026PromotionActive()) return 0;
+
+    const qty = parseInt(panelQty, 10) || 0;
+    if (qty >= 11 && qty <= 18) return 1000;
     if (qty >= 19 && qty <= 25) return 1500;
     if (qty >= 26 && qty <= 30) return 2000;
-    if (qty >= 31) return 2500;
+    if (qty >= 31 && qty <= 36) return 2500;
     return 0;
 }
 
-// Utility for Holiday Boost 2026 Promo
-function getHolidayBoostDiscount(panelQty) {
-    const now = new Date();
-    const expiry = new Date('2026-04-01T00:00:00'); // Valid until end of Mar 31
-    if (now >= expiry) return 0;
+function getEarthMonthGoGreenBonusAmount(panelQty) {
+    if (!isApril2026PromotionActive()) return 0;
 
-    const qty = parseInt(panelQty) || 0;
-    if (qty >= 12 && qty <= 17) return 600;
+    const qty = parseInt(panelQty, 10) || 0;
+    if (qty >= 11 && qty <= 17) return 600;
     if (qty >= 18 && qty <= 24) return 1200;
     if (qty >= 25 && qty <= 36) return 1500;
     return 0;
 }
 
-// Function to update Promo Banners based on date
-function updatePromoBanners() {
-    const now = new Date();
-    const cnyExpiry = new Date('2026-04-01T00:00:00');
-    const holidayExpiry = new Date('2026-04-01T00:00:00');
+function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
+    const normalizedPanelQty = parseInt(panelQty, 10) || 0;
+    const earnNowEligibleAmount = getEarnNowRebateAmount(normalizedPanelQty);
+    const earthMonthEligibleAmount = getEarthMonthGoGreenBonusAmount(normalizedPanelQty);
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const promotionsEnabled = isApril2026PromotionActive();
+    const isLoadedPromoEdit = Boolean(window.isEditMode);
 
-    const holidayBanner = document.getElementById('holidayPromoBanner');
-    const cnyBanner = document.getElementById('cnyPromoBanner');
+    const earnNowAppliedAmount = (
+        promotionsEnabled
+            ? Boolean(earnNowToggle?.checked)
+            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.earnNowApplied)
+    ) ? earnNowEligibleAmount : 0;
 
-    // Show banners if they haven't expired
-    if (now < cnyExpiry) {
-        if (cnyBanner) cnyBanner.classList.remove('hidden');
-    } else {
-        if (cnyBanner) cnyBanner.classList.add('hidden');
+    const earthMonthAppliedAmount = (
+        promotionsEnabled
+            ? Boolean(earthMonthToggle?.checked)
+            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.earthMonthApplied)
+    ) ? earthMonthEligibleAmount : 0;
+
+    return {
+        panelQty: normalizedPanelQty,
+        earnNowEligibleAmount,
+        earthMonthEligibleAmount,
+        earnNowAppliedAmount,
+        earthMonthAppliedAmount,
+        totalAppliedAmount: earnNowAppliedAmount + earthMonthAppliedAmount
+    };
+}
+
+function updatePromotionOptionsUI() {
+    const section = document.getElementById('promotionOptionsSection');
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const earnNowAmountDisplay = document.getElementById('earnNowAmountDisplay');
+    const earthMonthAmountDisplay = document.getElementById('earthMonthBonusAmountDisplay');
+    const earnNowHint = document.getElementById('earnNowHint');
+    const earthMonthHint = document.getElementById('earthMonthBonusHint');
+    const promotionsEnabled = isApril2026PromotionActive();
+    const hasPersistedPromo = Boolean(loadedPromotionSelections.earnNowApplied || loadedPromotionSelections.earthMonthApplied);
+    const { panelQty, earnNowEligibleAmount, earthMonthEligibleAmount } = getAppliedPromotionAmounts();
+
+    if (section) {
+        section.classList.toggle('hidden', !promotionsEnabled && !hasPersistedPromo);
     }
 
-    if (now < holidayExpiry) {
-        if (holidayBanner) holidayBanner.classList.remove('hidden');
-    } else {
-        if (holidayBanner) holidayBanner.classList.add('hidden');
+    if (!promotionsEnabled) {
+        const hasLoadedEarnNow = Boolean(loadedPromotionSelections.earnNowApplied);
+        const hasLoadedEarthMonth = Boolean(loadedPromotionSelections.earthMonthApplied);
+
+        if (earnNowToggle) {
+            earnNowToggle.checked = hasLoadedEarnNow;
+            earnNowToggle.disabled = true;
+        }
+        if (earthMonthToggle) {
+            earthMonthToggle.checked = hasLoadedEarthMonth;
+            earthMonthToggle.disabled = true;
+        }
+
+        if (!hasLoadedEarnNow && !hasLoadedEarthMonth) {
+            return;
+        }
+
+        if (earnNowAmountDisplay) {
+            earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
+        }
+        if (earthMonthAmountDisplay) {
+            earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
+        }
+
+        if (earnNowHint) {
+            earnNowHint.textContent = hasLoadedEarnNow
+                ? 'This rebate was already applied to the quotation and will be preserved on save.'
+                : 'Eligible for 11 to 36 solar panels only.';
+        }
+
+        if (earthMonthHint) {
+            earthMonthHint.textContent = hasLoadedEarthMonth
+                ? 'This bonus was already applied to the quotation and will be preserved on save.'
+                : 'Eligible for 11 to 36 solar panels only.';
+        }
+        return;
+    }
+
+    if (earnNowAmountDisplay) {
+        earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
+    }
+    if (earthMonthAmountDisplay) {
+        earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
+    }
+
+    if (earnNowToggle) {
+        earnNowToggle.disabled = earnNowEligibleAmount <= 0;
+        if (earnNowToggle.disabled) earnNowToggle.checked = false;
+    }
+    if (earthMonthToggle) {
+        earthMonthToggle.disabled = earthMonthEligibleAmount <= 0;
+        if (earthMonthToggle.disabled) earthMonthToggle.checked = false;
+    }
+
+    if (earnNowHint) {
+        if (earnNowEligibleAmount > 0) {
+            earnNowHint.textContent = `${panelQty} panels detected. Toggle to apply this rebate.`;
+        } else {
+            earnNowHint.textContent = 'Eligible for 11 to 36 solar panels only.';
+        }
+    }
+
+    if (earthMonthHint) {
+        if (earthMonthEligibleAmount > 0) {
+            earthMonthHint.textContent = `${panelQty} panels detected. Toggle to apply this bonus.`;
+        } else {
+            earthMonthHint.textContent = 'Eligible for 11 to 36 solar panels only.';
+        }
     }
 }
 
@@ -583,22 +907,10 @@ function updatePaymentMethodInfo(index) {
     const amountType = amountTypeSelect?.value;
     const amountValue = parseFloat(amountValueInput?.value || 0);
 
-    // Calculate package price after discount and voucher
+    // Calculate package price after discount
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     const discountInput = document.getElementById('discountGiven')?.value || '';
     const discount = parseDiscount(discountInput);
-
-    // Calculate total voucher amount
-    let totalVoucherAmount = 0;
-    selectedVouchers.forEach(voucher => {
-        let amount = 0;
-        if (voucher.discount_amount) {
-            amount = parseFloat(voucher.discount_amount);
-        } else if (voucher.discount_percent) {
-            amount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
-        }
-        totalVoucherAmount += amount;
-    });
 
     // Calculate extra items total
     const extraItemsTotal = getAdditionalInvoiceItems()
@@ -607,13 +919,10 @@ function updatePaymentMethodInfo(index) {
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
     if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
-    subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
 
-    const cnyPromoDiscount = getCNY2026PromoDiscount(window.currentPanelQty);
-    subtotalAfterDiscount -= cnyPromoDiscount;
-
-    const holidayBoostDiscount = getHolidayBoostDiscount(window.currentPanelQty);
-    subtotalAfterDiscount -= holidayBoostDiscount;
+    const promotionAmounts = getAppliedPromotionAmounts();
+    subtotalAfterDiscount -= promotionAmounts.totalAppliedAmount;
+    subtotalAfterDiscount -= getSelectedDraftVoucherTotal(packagePrice);
 
     if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 
@@ -645,22 +954,10 @@ function updatePaymentMethodInfo(index) {
 
 // Calculate all EPP fees and create description
 function calculateAllEPPFees() {
-    // Calculate package price after discount and voucher
+    // Calculate package price after discount
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     const discountInput = document.getElementById('discountGiven')?.value || '';
     const discount = parseDiscount(discountInput);
-
-    // Calculate total voucher amount
-    let totalVoucherAmount = 0;
-    selectedVouchers.forEach(voucher => {
-        let amount = 0;
-        if (voucher.discount_amount) {
-            amount = parseFloat(voucher.discount_amount);
-        } else if (voucher.discount_percent) {
-            amount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
-        }
-        totalVoucherAmount += amount;
-    });
 
     // Calculate extra items total
     const extraItemsTotal = getAdditionalInvoiceItems()
@@ -669,15 +966,10 @@ function calculateAllEPPFees() {
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
     if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
     if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
-    subtotalAfterDiscount -= totalVoucherAmount; // Deduct vouchers
 
-    // Apply CNY 2026 Promo
-    const cnyPromoDiscount = getCNY2026PromoDiscount(window.currentPanelQty);
-    subtotalAfterDiscount -= cnyPromoDiscount;
-
-    // Apply Holiday Boost 2026 Promo
-    const holidayBoostDiscount = getHolidayBoostDiscount(window.currentPanelQty);
-    subtotalAfterDiscount -= holidayBoostDiscount;
+    const promotionAmounts = getAppliedPromotionAmounts();
+    subtotalAfterDiscount -= promotionAmounts.totalAppliedAmount;
+    subtotalAfterDiscount -= getSelectedDraftVoucherTotal(packagePrice);
 
     if (subtotalAfterDiscount < 0) subtotalAfterDiscount = 0;
 
@@ -851,6 +1143,7 @@ function updateInvoicePreview() {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     const discountInput = document.getElementById('discountGiven')?.value || '';
     const discount = parseDiscount(discountInput);
+    updatePromotionOptionsUI();
 
     const itemsList = document.getElementById('quotationItemsList');
     if (!itemsList) return;
@@ -871,38 +1164,35 @@ function updateInvoicePreview() {
             `;
     itemsList.appendChild(packageItem);
 
-    // Add CNY 2026 Promo Item (Auto-Applied)
-    const cnyPromoDiscount = getCNY2026PromoDiscount(window.currentPanelQty);
-    if (cnyPromoDiscount > 0) {
-        const promoItem = document.createElement('div');
-        promoItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-        promoItem.innerHTML = `
+    const promotionAmounts = getAppliedPromotionAmounts();
+
+    if (promotionAmounts.earnNowAppliedAmount > 0) {
+        const earnNowItem = document.createElement('div');
+        earnNowItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        earnNowItem.innerHTML = `
                     <div class="flex-1">
-                        <div class="font-medium text-orange-600">CNY 2026 Promo Reward</div>
-                        <div class="text-[10px] text-orange-400 font-bold uppercase tracking-tight">Auto-Applied Reward (Panel Qty: ${window.currentPanelQty})</div>
+                        <div class="font-medium text-amber-600">Earn Now Rebate</div>
+                        <div class="text-[10px] text-amber-500 font-bold uppercase tracking-tight">Agent-selected rebate (Panel Qty: ${promotionAmounts.panelQty})</div>
                     </div>
-                    <div class="font-semibold text-orange-600">-RM ${cnyPromoDiscount.toFixed(2)}</div>
+                    <div class="font-semibold text-amber-600">-RM ${promotionAmounts.earnNowAppliedAmount.toFixed(2)}</div>
                 `;
-        itemsList.appendChild(promoItem);
-        // We deduct this after subtotal initialization
+        itemsList.appendChild(earnNowItem);
     }
 
-    // Calculate subtotal (starting with package price)
-    const holidayBoostDiscount = getHolidayBoostDiscount(window.currentPanelQty);
-    if (holidayBoostDiscount > 0) {
-        const holidayItem = document.createElement('div');
-        holidayItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-        holidayItem.innerHTML = `
+    if (promotionAmounts.earthMonthAppliedAmount > 0) {
+        const earthMonthItem = document.createElement('div');
+        earthMonthItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        earthMonthItem.innerHTML = `
                     <div class="flex-1">
-                        <div class="font-medium text-emerald-600">Holiday Boost Reward</div>
-                        <div class="text-[10px] text-emerald-400 font-bold uppercase tracking-tight">Auto-Applied Reward (Panel Qty: ${window.currentPanelQty})</div>
+                        <div class="font-medium text-emerald-600">Earth Month Go Green Bonus</div>
+                        <div class="text-[10px] text-emerald-500 font-bold uppercase tracking-tight">Agent-selected bonus (Panel Qty: ${promotionAmounts.panelQty})</div>
                     </div>
-                    <div class="font-semibold text-emerald-600">-RM ${holidayBoostDiscount.toFixed(2)}</div>
+                    <div class="font-semibold text-emerald-600">-RM ${promotionAmounts.earthMonthAppliedAmount.toFixed(2)}</div>
                 `;
-        itemsList.appendChild(holidayItem);
+        itemsList.appendChild(earthMonthItem);
     }
 
-    let subtotal = packagePrice - cnyPromoDiscount - holidayBoostDiscount;
+    let subtotal = packagePrice - promotionAmounts.totalAppliedAmount;
 
     // Add Extra Items
     getAdditionalInvoiceItems().forEach(item => {
@@ -968,10 +1258,27 @@ function updateInvoicePreview() {
         subtotal -= percentAmount;
     }
 
-    // Validation for Max Discount
+    const voucherRows = buildDraftVoucherRows(packagePrice);
+    voucherRows.forEach((voucher) => {
+        const voucherItem = document.createElement('div');
+        voucherItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        voucherItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-amber-700">${voucher.title}</div>
+                        <div class="text-sm text-amber-600">${voucher.code || 'Voucher'} • ${voucher.label}</div>
+                    </div>
+                    <div class="font-semibold text-amber-700">-RM ${voucher.amount.toFixed(2)}</div>
+                `;
+        itemsList.appendChild(voucherItem);
+        subtotal -= voucher.amount;
+    });
+
+    // Validation for tiered manual discount limit
     const totalDiscountValue = (discount.fixed || 0) + (packagePrice * (discount.percent || 0) / 100);
     const discountInputField = document.getElementById('discountGiven');
-    if (window.maxDiscountAllowed > 0 && totalDiscountValue > window.maxDiscountAllowed) {
+    const maxDiscountAllowed = Number(window.maxDiscountAllowed) || 0;
+    const allowedDiscountPercent = window.maxDiscountPercentAllowed || 0;
+    if (totalDiscountValue > (maxDiscountAllowed + 0.01)) {
         window._maxDiscountExceeded = true;
         if (discountInputField) {
             discountInputField.classList.add('border-red-500', 'bg-red-50');
@@ -980,7 +1287,7 @@ function updateInvoicePreview() {
         const warningMsg = document.createElement('div');
         warningMsg.className = 'text-xs text-red-600 font-bold mt-1';
         warningMsg.id = 'discountLimitWarning';
-        warningMsg.textContent = `⚠️ Exceeds max allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)}`;
+        warningMsg.textContent = `⚠️ Exceeds max allowed discount of RM ${maxDiscountAllowed.toFixed(2)} (${allowedDiscountPercent}% of package price)`;
 
         // Remove existing warning if any
         const existingWarning = document.getElementById('discountLimitWarning');
@@ -996,29 +1303,6 @@ function updateInvoicePreview() {
         const existingWarning = document.getElementById('discountLimitWarning');
         if (existingWarning) existingWarning.remove();
     }
-
-    // Add Voucher Items
-    selectedVouchers.forEach(voucher => {
-        let voucherAmount = 0;
-        if (voucher.discount_amount) {
-            voucherAmount = parseFloat(voucher.discount_amount);
-        } else if (voucher.discount_percent) {
-            voucherAmount = packagePrice * (parseFloat(voucher.discount_percent) / 100);
-        }
-
-        if (voucherAmount > 0) {
-            const voucherItem = document.createElement('div');
-            voucherItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-            voucherItem.innerHTML = `
-                        <div class="flex-1">
-                            <div class="font-medium text-green-600">${voucher.title || 'Voucher'} (${voucher.voucher_code})</div>
-                        </div>
-                        <div class="font-semibold text-green-600">-RM ${voucherAmount.toFixed(2)}</div>
-                    `;
-            itemsList.appendChild(voucherItem);
-            subtotal -= voucherAmount;
-        }
-    });
 
     const trueSubtotal = subtotal;
     if (trueSubtotal <= 0) {
@@ -1109,6 +1393,7 @@ function updateInvoicePreview() {
         sstAmountElement.textContent = `RM ${sstAmount.toFixed(2)}`;
     }
     document.getElementById('totalAmount').textContent = `RM ${totalAmount.toFixed(2)}`;
+    updateWorkspaceStatuses();
 }
 
 function hideAllUI() {
@@ -1133,9 +1418,224 @@ function pageLog(msg, color = 'gray-400') {
     console.log(`[PageLog] ${msg}`);
 }
 
+function setSectionStatus(sectionId, label, tone = 'neutral') {
+    const toneClasses = {
+        neutral: 'text-slate-500',
+        ready: 'text-emerald-600',
+        warning: 'text-amber-600',
+        error: 'text-red-600',
+        optional: 'text-slate-500'
+    };
+
+    document.querySelectorAll(`[data-status-for="${sectionId}"]`).forEach((el) => {
+        el.textContent = label;
+        el.classList.remove('text-slate-500', 'text-emerald-600', 'text-amber-600', 'text-red-600');
+        el.classList.add(toneClasses[tone] || toneClasses.neutral);
+    });
+}
+
+function scrollToWorkspaceSection(sectionId) {
+    const target = document.getElementById(sectionId);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function refreshActiveWorkspaceSection() {
+    const sections = Array.from(document.querySelectorAll('[data-section]'));
+    if (!sections.length) return;
+
+    let activeId = sections[0].id;
+    const threshold = window.innerHeight * 0.3;
+
+    sections.forEach((section) => {
+        const rect = section.getBoundingClientRect();
+        if (rect.top <= threshold && rect.bottom >= threshold / 2) {
+            activeId = section.id;
+        }
+    });
+
+    document.querySelectorAll('.workspace-nav-item').forEach((button) => {
+        const isActive = button.dataset.target === activeId;
+        button.classList.toggle('border-slate-900', isActive);
+        button.classList.toggle('bg-slate-900', isActive);
+        button.classList.toggle('text-white', isActive);
+        if (isActive) {
+            button.querySelectorAll('span').forEach((span) => {
+                span.classList.add('text-white');
+            });
+        } else {
+            button.classList.remove('text-white');
+            button.querySelectorAll('span').forEach((span) => {
+                span.classList.remove('text-white');
+            });
+        }
+    });
+}
+
+function updateWorkspaceStatuses() {
+    const packageReady = Boolean(document.getElementById('packageIdHidden')?.value);
+    setSectionStatus('package-summary', packageReady ? 'Ready' : 'Pending', packageReady ? 'ready' : 'warning');
+
+    const customerName = document.getElementById('customerName')?.value?.trim();
+    const leadSource = document.getElementById('customerLeadSource')?.value?.trim();
+    const remark = document.getElementById('customerRemark')?.value?.trim();
+    const customerReady = !customerName || (leadSource && remark);
+    setSectionStatus('customer-lead', customerReady ? 'Ready' : 'Needs attention', customerReady ? 'ready' : 'error');
+
+    const pricingHealthy = !window._extraItemsDiscountExceeded && !window._maxDiscountExceeded && !window._subtotalIsZeroOrNegative;
+    setSectionStatus('price-controls', pricingHealthy ? 'Ready' : 'Needs attention', pricingHealthy ? 'ready' : 'error');
+
+    const paymentRows = document.querySelectorAll('#paymentMethodsContainer > *').length;
+    setSectionStatus('payment-setup', paymentRows > 0 ? 'Ready' : 'Pending', paymentRows > 0 ? 'ready' : 'warning');
+
+    const voucherRootVisible = !document.getElementById('voucherStepRoot')?.classList.contains('hidden');
+    const voucherLabel = !packageReady
+        ? 'Select package first'
+        : selectedDraftVouchers.length > 0
+            ? `${selectedDraftVouchers.length} selected`
+            : voucherRootVisible
+                ? 'Optional'
+                : 'Loading';
+    const voucherTone = !packageReady
+        ? 'warning'
+        : selectedDraftVouchers.length > 0
+            ? 'ready'
+            : voucherRootVisible
+                ? 'optional'
+                : 'warning';
+    setSectionStatus('voucher-selection', voucherLabel, voucherTone);
+
+    const reviewReady = packageReady && customerReady && pricingHealthy;
+    setSectionStatus('final-review', reviewReady ? 'Ready' : 'Pending', reviewReady ? 'ready' : 'warning');
+
+    refreshActiveWorkspaceSection();
+}
+
+function initWorkspaceShell() {
+    document.querySelectorAll('.workspace-nav-item').forEach((button) => {
+        button.addEventListener('click', () => {
+            const mobilePanel = document.getElementById('mobileSectionPanel');
+            mobilePanel?.classList.add('hidden');
+            scrollToWorkspaceSection(button.dataset.target);
+        });
+    });
+
+    const mobileToggle = document.getElementById('mobileSectionToggle');
+    const mobileClose = document.getElementById('mobileSectionClose');
+    const mobilePanel = document.getElementById('mobileSectionPanel');
+    mobileToggle?.addEventListener('click', () => mobilePanel?.classList.remove('hidden'));
+    mobileClose?.addEventListener('click', () => mobilePanel?.classList.add('hidden'));
+    mobilePanel?.addEventListener('click', (event) => {
+        if (event.target === mobilePanel) mobilePanel.classList.add('hidden');
+    });
+
+    window.addEventListener('scroll', refreshActiveWorkspaceSection, { passive: true });
+    updateWorkspaceStatuses();
+}
+
+function getSelectedDraftVoucherIds() {
+    return selectedDraftVouchers
+        .map((voucher) => String(voucher?.id || voucher?.bubble_id || ''))
+        .filter(Boolean);
+}
+
+function getSelectedDraftVoucherTotal(packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0)) {
+    return selectedDraftVouchers.reduce((sum, voucher) => {
+        const fixedAmount = parseFloat(voucher?.discountAmount || 0) || 0;
+        const percentAmount = (parseFloat(voucher?.discountPercent || 0) || 0) > 0
+            ? packagePrice * ((parseFloat(voucher.discountPercent) || 0) / 100)
+            : 0;
+        return sum + fixedAmount + percentAmount;
+    }, 0);
+}
+
+function buildDraftVoucherRows(packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0)) {
+    return selectedDraftVouchers
+        .map((voucher) => {
+            const fixedAmount = parseFloat(voucher?.discountAmount || 0) || 0;
+            const percentValue = parseFloat(voucher?.discountPercent || 0) || 0;
+            const amount = fixedAmount > 0 ? fixedAmount : packagePrice * (percentValue / 100);
+            if (amount <= 0) return null;
+            return {
+                id: String(voucher?.id || voucher?.bubble_id || ''),
+                title: voucher?.title || voucher?.code || 'Voucher',
+                code: voucher?.code || '',
+                amount,
+                label: fixedAmount > 0 ? `RM ${fixedAmount.toFixed(2)}` : `${percentValue}%`
+            };
+        })
+        .filter(Boolean);
+}
+
+async function fetchVoucherPreviewData(packageId) {
+    const response = await fetch(`/api/v1/vouchers/preview?package_id=${encodeURIComponent(packageId)}`, {
+        credentials: 'same-origin'
+    });
+    const json = await response.json();
+    if (!response.ok) {
+        throw new Error(json?.error || 'Failed to load voucher preview.');
+    }
+    return json?.data || {};
+}
+
+async function loadDraftVoucherStepForPackage(packageId, { scrollToSection = false } = {}) {
+    const hint = document.getElementById('voucherInlineHint');
+    const root = document.getElementById('voucherStepRoot');
+    if (!root || !window.InvoiceVoucherStep) return;
+    if (!packageId) {
+        selectedDraftVouchers = [];
+        root.classList.add('hidden');
+        if (hint) {
+            hint.textContent = 'Select a package to load available vouchers.';
+            hint.classList.remove('hidden');
+        }
+        updateInvoicePreview();
+        updateWorkspaceStatuses();
+        return;
+    }
+
+    if (!inlineVoucherStep) {
+        inlineVoucherStep = window.InvoiceVoucherStep.create(root, {
+            title: 'Voucher Selection',
+            subtitle: 'Select vouchers before saving so the final quotation total stays clear on one screen.',
+            showHeader: false,
+            embedded: true,
+            showFooter: false,
+            onChange: ({ selectedVouchers = [] }) => {
+                selectedDraftVouchers = selectedVouchers;
+                updateInvoicePreview();
+                updateWorkspaceStatuses();
+            }
+        });
+    }
+
+    try {
+        const payload = await fetchVoucherPreviewData(packageId);
+        hint?.classList.add('hidden');
+        root.classList.remove('hidden');
+        await inlineVoucherStep.loadPayload(payload, {
+            selectedIds: getSelectedDraftVoucherIds()
+        });
+        updateWorkspaceStatuses();
+        if (scrollToSection) {
+            scrollToWorkspaceSection('voucher-selection');
+        }
+    } catch (error) {
+        root.classList.add('hidden');
+        selectedDraftVouchers = [];
+        if (hint) {
+            hint.textContent = error.message || 'Unable to load vouchers for this package.';
+            hint.classList.remove('hidden');
+        }
+        updateInvoicePreview();
+        updateWorkspaceStatuses();
+    }
+}
+
 // Initialize preview on page load
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('DOM Content Loaded - Initializing Creation Page');
+    initWorkspaceShell();
 
     // Initialize CustomerManager for inline mode
     CustomerManager.initInline({
@@ -1158,15 +1658,19 @@ document.addEventListener('DOMContentLoaded', async function () {
     // 2. Fetch User Profile (non-blocking for UI)
     fetchUserProfile();
 
-    // 2a. Update Promo Banners based on date
-    updatePromoBanners();
-
     // 3. Parse URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const packageId = urlParams.get('linked_package') || urlParams.get('package_id');
     const panelQty = urlParams.get('panel_qty');
     const panelRating = urlParams.get('panel_rating');
+    const packageType = urlParams.get('package_type') || urlParams.get('type');
     const editInvoiceId = urlParams.get('edit_invoice_id') || urlParams.get('id');
+    const selectedReferralFromUrl = urlParams.get('linked_referral') || '';
+    referralInvoiceFilterId = editInvoiceId || null;
+
+    await fetchAssignedReferralLeads(selectedReferralFromUrl, {
+        autofillSelection: Boolean(selectedReferralFromUrl)
+    });
 
     if (packageId) {
         if (detectedPackageIdEl) detectedPackageIdEl.textContent = packageId;
@@ -1214,6 +1718,12 @@ document.addEventListener('DOMContentLoaded', async function () {
                 if (inv.customer_name_snapshot) document.getElementById('customerName').value = inv.customer_name_snapshot;
                 if (inv.customer_phone_snapshot) document.getElementById('customerPhone').value = inv.customer_phone_snapshot;
                 if (inv.customer_address_snapshot) document.getElementById('customerAddress').value = inv.customer_address_snapshot;
+                setHiddenFieldValue('customerAverageTnb', inv.customer_average_tnb);
+                setHiddenFieldValue('estimatedSaving', inv.estimated_saving);
+                setHiddenFieldValue('estimatedNewBillAmount', inv.estimated_new_bill_amount);
+                setHiddenFieldValue('solarSunPeakHour', inv.solar_sun_peak_hour);
+                setHiddenFieldValue('solarMorningUsagePercent', inv.solar_morning_usage_percent);
+                if (inv.linked_referral) applyAssignedReferralSelection(inv.linked_referral, { autofill: false });
 
                 let discountVal = '';
                 if (inv.discount_fixed > 0) discountVal += inv.discount_fixed;
@@ -1223,7 +1733,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 if (inv.sst_amount > 0) document.getElementById('applySST').checked = true;
                 window.currentAgentMarkup = inv.agent_markup || 0;
 
-                if (inv.items) {
+    if (inv.items) {
                     let ballastQty = 0;
                     inv.items.forEach(item => {
                         const type = (item.item_type || '').toLowerCase();
@@ -1242,17 +1752,17 @@ document.addEventListener('DOMContentLoaded', async function () {
                     setBallastQty(ballastQty);
                 }
 
-                await fetchVouchers();
-                if (inv.voucher_code) {
-                    const codes = inv.voucher_code.split(',').map(s => s.trim());
-                    codes.forEach(code => {
-                        const v = availableVouchers.find(av => av.voucher_code === code);
-                        if (v && !selectedVouchers.find(sv => sv.voucher_code === v.voucher_code)) {
-                            selectedVouchers.push(v);
-                        }
-                    });
-                    renderSelectedVouchers();
-                }
+                const earnNowApplied = inv.items.some((item) => String(item?.description || '').toLowerCase().includes('earn now rebate'));
+                const earthMonthApplied = inv.items.some((item) => String(item?.description || '').toLowerCase().includes('earth month go green bonus'));
+                loadedPromotionSelections = {
+                    earnNowApplied,
+                    earthMonthApplied
+                };
+                const earnNowToggle = document.getElementById('applyEarnNowRebate');
+                const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+                if (earnNowToggle) earnNowToggle.checked = earnNowApplied;
+                if (earthMonthToggle) earthMonthToggle.checked = earthMonthApplied;
+
                 // Clear loading warning if everything is okay
                 document.getElementById('warningMessage').classList.add('hidden');
             } else {
@@ -1266,7 +1776,6 @@ document.addEventListener('DOMContentLoaded', async function () {
             await fetchPackageDetails(packageId);
             pageLog('Package details loaded successfully.');
             addPaymentMethodRow();
-            await fetchVouchers();
             // Clear loading warning
             document.getElementById('warningMessage').classList.add('hidden');
         }
@@ -1276,7 +1785,12 @@ document.addEventListener('DOMContentLoaded', async function () {
             showWarning('🔍 Searching for the best solar package for you...');
 
             const ratingInt = parseInt(panelRating.replace(/\D/g, ''));
-            const lookupRes = await fetch(`/readonly/package/lookup?panelQty=${panelQty}&panelType=${ratingInt}`);
+            const lookupParams = new URLSearchParams({
+                panelQty,
+                panelType: String(ratingInt)
+            });
+            if (packageType) lookupParams.set('type', packageType);
+            const lookupRes = await fetch(`/readonly/package/lookup?${lookupParams.toString()}`);
             const lookupData = await lookupRes.json();
 
             if (lookupData.packages && lookupData.packages.length > 0) {
@@ -1288,14 +1802,12 @@ document.addEventListener('DOMContentLoaded', async function () {
                 throw new Error(`No package found matching ${panelQty} panels @ ${panelRating}`);
             }
             addPaymentMethodRow();
-            await fetchVouchers();
         }
         // BRANCH D: Browse Mode
         else {
             pageLog('No parameters found, prompting user to browse.');
             document.getElementById('packageIdForm').classList.remove('hidden');
             addPaymentMethodRow();
-            await fetchVouchers();
         }
     } catch (err) {
         pageLog(`FATAL ERROR: ${err.message}`, 'red-400');
@@ -1312,19 +1824,28 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (urlParams.get('customer_address')) document.getElementById('customerAddress').value = urlParams.get('customer_address');
     if (urlParams.get('discount_given')) document.getElementById('discountGiven').value = urlParams.get('discount_given');
     if (urlParams.get('apply_sst') === 'true') document.getElementById('applySST').checked = true;
+    applySolarSavingsParams(urlParams);
+    if (selectedReferralFromUrl) applyAssignedReferralSelection(selectedReferralFromUrl, { autofill: true });
 
     // Setup listeners
     const addManualItemBtn = document.getElementById('addManualItemBtn');
     if (addManualItemBtn) addManualItemBtn.addEventListener('click', () => addManualItem());
 
-    const voucherSelect = document.getElementById('voucherSelectDropdown');
-    if (voucherSelect) voucherSelect.addEventListener('change', () => updateVoucherInfo());
-
-    const addVoucherBtn = document.getElementById('addVoucherBtn');
-    if (addVoucherBtn) addVoucherBtn.addEventListener('click', addVoucher);
+    const assignedReferralSelect = document.getElementById('assignedReferralSelect');
+    if (assignedReferralSelect) {
+        assignedReferralSelect.addEventListener('change', (event) => {
+            applyAssignedReferralSelection(event.target.value, { autofill: true });
+        });
+    }
 
     const sstToggle = document.getElementById('applySST');
     if (sstToggle) sstToggle.addEventListener('change', updateInvoicePreview);
+
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    if (earnNowToggle) earnNowToggle.addEventListener('change', updateInvoicePreview);
+
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    if (earthMonthToggle) earthMonthToggle.addEventListener('change', updateInvoicePreview);
 
     const discountInput = document.getElementById('discountGiven');
     if (discountInput) {
@@ -1357,7 +1878,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (addBtn) addBtn.addEventListener('click', addPaymentMethodRow);
 
     updateBallastLimitText();
+    updatePromotionOptionsUI();
     updateInvoicePreview();
+    updateWorkspaceStatuses();
 });
 
 async function fetchUserProfile() {
@@ -1434,15 +1957,7 @@ function showPackage(pkg) {
     const packageInfo = document.getElementById('quotationFormContainer');
     packageInfo.classList.remove('hidden');
 
-    // Show/Hide Residential Header
-    const resHeader = document.getElementById('residentialHeader');
-    if (resHeader) {
-        if ((pkg.type || '').toUpperCase() === 'RESIDENTIAL') {
-            resHeader.classList.remove('hidden');
-        } else {
-            resHeader.classList.add('hidden');
-        }
-    }
+    updatePackageTypeHeader(pkg.type);
 
     document.getElementById('packageNameDisplay').textContent = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packagePriceDisplay').textContent = `RM ${(parseFloat(pkg.price) || 0).toFixed(2)}`;
@@ -1450,14 +1965,21 @@ function showPackage(pkg) {
     document.getElementById('packagePrice').value = pkg.price || 0;
     document.getElementById('packageName').value = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     document.getElementById('packageIdHidden').value = pkg.bubble_id;
+    window.currentBasePackagePrice = parseFloat(pkg.price) || 0;
+    window.currentBasePackageName = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
+    window.currentBasePackageDescription = pkg.invoice_desc || '';
+    selectedDraftVouchers = [];
 
-    // Store panel quantity for CNY promo
+    // Store panel quantity for promotion detection
     window.currentPanelQty = pkg.panel_qty || 0;
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
+    updatePromotionOptionsUI();
 
-    // Handle Max Discount — SYSTEM-WIDE: 7% of package price (vouchers excluded)
+    // Handle tiered max discount policy
     const pkgPriceForLimit = parseFloat(pkg.price) || 0;
-    window.maxDiscountAllowed = pkgPriceForLimit * (MANUAL_DISCOUNT_MAX_PERCENT / 100);
+    const { maxPercent, maxAmount } = getManualDiscountPolicy(pkgPriceForLimit);
+    window.maxDiscountAllowed = maxAmount;
+    window.maxDiscountPercentAllowed = maxPercent;
     const maxDiscountRow = document.getElementById('maxDiscountRow');
     const maxDiscountDisplay = document.getElementById('maxDiscountDisplay');
 
@@ -1467,10 +1989,10 @@ function showPackage(pkg) {
 
     // Always show — limit is unconditional
     if (maxDiscountRow) maxDiscountRow.classList.remove('hidden');
-    if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)} (${MANUAL_DISCOUNT_MAX_PERCENT}% of package price)`;
+    if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)} (${maxPercent}% of package price)`;
 
     if (inputMaxDiscountRow) inputMaxDiscountRow.classList.remove('hidden');
-    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${window.maxDiscountAllowed.toFixed(2)} (${MANUAL_DISCOUNT_MAX_PERCENT}% of package price — vouchers excluded)`;
+    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${window.maxDiscountAllowed.toFixed(2)} (${maxPercent}% of package price)`;
 
     if (pkg.invoice_desc) {
         const descContainer = document.getElementById('packageDescContainer');
@@ -1486,6 +2008,10 @@ function showPackage(pkg) {
     if (urlParams.get('customer_phone')) {
         document.getElementById('customerPhone').value = urlParams.get('customer_phone');
     }
+
+    loadDraftVoucherStepForPackage(pkg.bubble_id).catch((error) => {
+        console.error('Unable to load voucher preview:', error);
+    });
     if (urlParams.get('customer_address')) {
         document.getElementById('customerAddress').value = urlParams.get('customer_address');
     }
@@ -1498,20 +2024,77 @@ function showPackage(pkg) {
     if (urlParams.get('template_id')) {
         document.getElementById('templateIdHidden').value = urlParams.get('template_id');
     }
+    applySolarSavingsParams(urlParams);
 
+    loadHybridUpgradeOptions(pkg.bubble_id);
     updateInvoicePreview();
+}
+
+function normalizePackageTypeHeader(rawType) {
+    const value = String(rawType || '').trim().toLowerCase();
+    if (!value) return null;
+
+    if (value === 'residential' || value === 'resi') {
+        return {
+            label: 'RESIDENTIAL',
+            classes: ['bg-emerald-950']
+        };
+    }
+
+    if (
+        value === 'commercial'
+        || value === 'non-resi'
+        || value === 'non_resi'
+        || value === 'non residential'
+        || value === 'non-residential'
+    ) {
+        return {
+            label: 'COMMERCIAL',
+            classes: ['bg-slate-900']
+        };
+    }
+
+    return null;
+}
+
+function updatePackageTypeHeader(rawType) {
+    const header = document.getElementById('packageTypeHeader');
+    const label = document.getElementById('packageTypeHeaderText');
+    if (!header || !label) return;
+
+    const config = normalizePackageTypeHeader(rawType);
+    header.classList.remove('bg-emerald-950', 'bg-slate-900');
+
+    if (!config) {
+        header.classList.add('hidden');
+        label.textContent = '';
+        return;
+    }
+
+    label.textContent = config.label;
+    header.classList.add(...config.classes);
+    header.classList.remove('hidden');
 }
 
 function showError(message) {
     const errorDiv = document.getElementById('errorMessage');
     errorDiv.classList.remove('hidden');
     document.getElementById('errorText').textContent = message;
+    updateWorkspaceStatuses();
 }
 
 function showWarning(message) {
     const warningDiv = document.getElementById('warningMessage');
     warningDiv.classList.remove('hidden');
     document.getElementById('warningText').textContent = message;
+    updateWorkspaceStatuses();
+}
+
+function resolveCreateFlowNextUrl(result) {
+    if (result?.invoice_link) return result.invoice_link;
+    if (result?.data?.shareToken) return `/view/${result.data.shareToken}`;
+    if (result?.data?.bubbleId) return `/invoice-office?id=${result.data.bubbleId}`;
+    return '/my-invoice';
 }
 
 // Handle form submission
@@ -1540,7 +2123,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         Swal.fire({
             icon: 'error',
             title: 'Max Discount Exceeded',
-            text: `The discount entered exceeds the maximum allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)}.`
+            text: `The discount entered exceeds the maximum allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)} (${window.maxDiscountPercentAllowed || 0}% of package price).`
         });
         return;
     }
@@ -1549,7 +2132,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         Swal.fire({
             icon: 'error',
             title: 'Invalid Total Amount',
-            text: 'The total amount cannot be zero or negative after applying discounts and vouchers. Please adjust the discounts.'
+            text: 'The total amount cannot be zero or negative after applying discounts. Please adjust the discounts.'
         });
         return;
     }
@@ -1585,6 +2168,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
 
     // Calculate EPP fees
     const eppData = calculateAllEPPFees();
+    const promotionAmounts = getAppliedPromotionAmounts();
 
     // Prepare extra items (Manual Items + Micro Inverters)
     const extraItems = getAdditionalInvoiceItems().map(item => ({
@@ -1594,41 +2178,55 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         total_price: item.qty * item.unit_price
     }));
 
-    // Prepare request data
-    const requestData = {
-        linked_package: data.linked_package,
-        template_id: data.template_id || null,
-        customer_name: data.customer_name || null,
-        customer_phone: data.customer_phone || null,
-        customer_address: data.customer_address || null,
-        profilePicture: document.getElementById('profilePicture').value || null,
-        lead_source: document.getElementById('customerLeadSource')?.value || null,
-        remark: document.getElementById('customerRemark')?.value || null,
-        discount_given: data.discount_given || null,
-        voucher_codes: selectedVouchers.map(v => v.voucher_code),
-        apply_sst: document.getElementById('applySST')?.checked || false,
-        payment_structure: eppData.payment_structure,
-        extra_items: extraItems,
-        followUpDays: data.follow_up_days || null
-    };
-
-
-    // Add EPP fee data if exists
-    if (eppData.total_fee > 0 && eppData.description) {
-        requestData.epp_fee_amount = eppData.total_fee;
-        requestData.epp_fee_description = eppData.description;
-    }
-
-    // Handle Edit Mode vs Create Mode
-    let endpoint = '/api/v1/invoices/on-the-fly';
-    if (window.isEditMode && window.editInvoiceId) {
-        endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;
-        // Preserve markup
-        requestData.agent_markup = window.currentAgentMarkup || 0;
-    }
-
-    // Call the API
     try {
+        // Prepare request data
+        const requestData = {
+            linked_package: data.linked_package,
+            template_id: data.template_id || null,
+            linked_referral: data.linked_referral || null,
+            customer_name: data.customer_name || null,
+            customer_phone: data.customer_phone || null,
+            customer_address: data.customer_address || null,
+            profilePicture: document.getElementById('profilePicture').value || null,
+            lead_source: document.getElementById('customerLeadSource')?.value || null,
+            remark: document.getElementById('customerRemark')?.value || null,
+            customer_average_tnb: document.getElementById('customerAverageTnb')?.value || null,
+            estimated_saving: document.getElementById('estimatedSaving')?.value || null,
+            estimated_new_bill_amount: document.getElementById('estimatedNewBillAmount')?.value || null,
+            solar_sun_peak_hour: document.getElementById('solarSunPeakHour')?.value || null,
+            solar_morning_usage_percent: document.getElementById('solarMorningUsagePercent')?.value || null,
+            discount_given: data.discount_given || null,
+            apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,
+            apply_earth_month_go_green_bonus: promotionAmounts.earthMonthAppliedAmount > 0,
+            apply_sst: document.getElementById('applySST')?.checked || false,
+            hybrid_upgrade_rule_id: document.getElementById('hybridUpgradeRuleId')?.value || null,
+            payment_structure: eppData.payment_structure,
+            extra_items: extraItems,
+            voucher_ids: getSelectedDraftVoucherIds(),
+            followUpDays: data.follow_up_days || null
+        };
+
+        // Add EPP fee data if exists
+        if (eppData.total_fee > 0 && eppData.description) {
+            requestData.epp_fee_amount = eppData.total_fee;
+            requestData.epp_fee_description = eppData.description;
+        }
+
+        // Handle Edit Mode vs Create Mode
+        let endpoint = '/api/v1/invoices/on-the-fly';
+        if (window.isEditMode && window.editInvoiceId) {
+            endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;
+            // Preserve markup
+            requestData.agent_markup = window.currentAgentMarkup || 0;
+            requestData.apply_earn_now_rebate = document.getElementById('applyEarnNowRebate')?.disabled
+                ? Boolean(loadedPromotionSelections.earnNowApplied)
+                : Boolean(document.getElementById('applyEarnNowRebate')?.checked);
+            requestData.apply_earth_month_go_green_bonus = document.getElementById('applyEarthMonthGoGreenBonus')?.disabled
+                ? Boolean(loadedPromotionSelections.earthMonthApplied)
+                : Boolean(document.getElementById('applyEarthMonthGoGreenBonus')?.checked);
+        }
+
+        // Call the API
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -1640,14 +2238,13 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         const result = await response.json();
 
         if (response.ok && result.success) {
-            window.location.href = result.invoice_link;
+            window.location.href = resolveCreateFlowNextUrl(result);
         } else {
             alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
         }
     } catch (error) {
         alert('Error: ' + error.message);
+    } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
     }
