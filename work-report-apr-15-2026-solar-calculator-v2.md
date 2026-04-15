@@ -9,5 +9,10 @@ REPO NAME : Solar Calculator v2
 - Added hybrid upgrade fallback to package details endpoint so invoice pages can load upgrade options even when the dedicated hybrid route fails
 - Added safe audit-context fallbacks so the invoicing app can boot even if agentAuditContext is missing in deployment
 - Patched production hybrid upgrade rules to use 3P target snapshots and added the missing 3P R5 10KW to H2 10KW mapping
+- Removed stock-ready wording and warnings from hybrid upgrade UI flows
+- Fixed invoice creation referral lead dropdown to keep assigned leads selectable when linked_invoice stores a customer id.
+- Fixed residential proposal view to show calculator-matched solar savings.
+- Verified proposal savings rendering matches saved residential calculator values and leaves commercial proposals unchanged.
+- Verified create-invoice keeps latest solar savings values from calculator through URL handoff, hidden fields, request payload, and invoice persistence.
 
 =====================

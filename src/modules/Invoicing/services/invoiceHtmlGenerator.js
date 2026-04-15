@@ -931,6 +931,62 @@ function generateProposalHtml(invoice, options = {}) {
 
   let html = fs.readFileSync(proposalTemplatePath, 'utf8');
   const templateData = invoice.template || {};
+  const normalizedPackageType = normalizeInvoicePackageType(
+    invoice.package_type,
+    invoice.type,
+    invoice.package_name
+  );
+  const normalizedEstimate = normalizeSolarEstimateFields({
+    customerAverageTnb: invoice.customer_average_tnb,
+    estimatedSaving: invoice.estimated_saving,
+    estimatedNewBillAmount: invoice.estimated_new_bill_amount
+  });
+  const beforeSolarBill = Number(normalizedEstimate.beforeSolarBill);
+  const estimatedMonthlySaving = Number(normalizedEstimate.estimatedSaving);
+  const afterSolarBill = Number(normalizedEstimate.estimatedNewBillAmount);
+  const hasSolarSavingsSection = normalizedPackageType !== 'commercial'
+    && [beforeSolarBill, afterSolarBill, estimatedMonthlySaving]
+      .every((value) => Number.isFinite(value));
+  const solarSavingsSectionHtml = hasSolarSavingsSection ? `
+            <section class="mb-6">
+                <div class="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-4 shadow-sm">
+                    <div class="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                            <p class="label-text mb-1">Estimated Solar Saving</p>
+                            <p class="text-base font-bold text-slate-900">Your solar estimate at a glance</p>
+                        </div>
+                        <div class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
+                            Monthly Estimate
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
+                        <div class="rounded-xl border border-slate-200 bg-white p-3 min-h-[132px] flex flex-col">
+                            <div class="min-h-[42px] mb-3 flex items-start">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 leading-[1.45]">Your Average TNB Bill<br>Before Solar</p>
+                            </div>
+                            <p class="text-xl font-bold text-slate-900 leading-none mt-auto">RM ${beforeSolarBill.toFixed(2)}</p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-white p-3 min-h-[132px] flex flex-col">
+                            <div class="min-h-[42px] mb-3 flex items-start">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 leading-[1.45]">New Bill After Solar<br>After Export Earning</p>
+                            </div>
+                            <p class="text-xl font-bold text-slate-900 leading-none mt-auto">RM ${afterSolarBill.toFixed(2)}</p>
+                        </div>
+                        <div class="rounded-xl border border-emerald-200 bg-emerald-600 p-3 min-h-[132px] flex flex-col">
+                            <div class="min-h-[42px] mb-3 flex items-start">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-100 leading-[1.45]">Your Estimated Monthly Total Saving</p>
+                            </div>
+                            <p class="text-xl font-bold text-white leading-none mt-auto">RM ${estimatedMonthlySaving.toFixed(2)}</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                        <p class="text-[11px] leading-relaxed text-amber-900">
+                            Note: Solar saving estimation may vary after final installation. Actual performance can be affected by roof shape and angle, shading, weather conditions, and site-specific installation factors. This estimate assumes a flat roof surface for calculation.
+                        </p>
+                    </div>
+                </div>
+            </section>
+  ` : '';
 
   // Replaces placeholders in the HTML
   const replacements = {
@@ -955,7 +1011,8 @@ function generateProposalHtml(invoice, options = {}) {
     '{{BANK_ACCOUNT}}': templateData.bank_account_no || '',
     '{{BANK_ACCOUNT_NAME}}': templateData.bank_account_name || '',
     '{{CREATED_BY}}': invoice.created_by_user_name || 'System',
-    '{{TERMS_AND_CONDITIONS}}': (templateData.terms_and_conditions || '').replace(/\n/g, '<br>')
+    '{{TERMS_AND_CONDITIONS}}': (templateData.terms_and_conditions || '').replace(/\n/g, '<br>'),
+    '{{SOLAR_SAVINGS_SECTION}}': solarSavingsSectionHtml
   };
 
   // Generate Items HTML
