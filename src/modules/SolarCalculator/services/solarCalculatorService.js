@@ -123,6 +123,8 @@ const resolveActualEeiValue = (tariffRow, eeiTariffRow, actualUsageKwh) => {
   );
 };
 
+const getResidentialPackagePhasePrefix = (systemPhase = 3) => (systemPhase === 1 ? '[1P]' : '[3P]');
+
 const getResidentialPanelQuantityGate = (recommendedPanels, systemPhase = 3) => {
   const safeRecommendedPanels = Math.max(1, Math.floor(parseCurrencyValue(recommendedPanels, 1)));
   const baseMin = Math.max(1, safeRecommendedPanels - 2);
@@ -259,6 +261,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   const historicalAfaRate = parseFloat(historicalAfaRateRaw) || 0;
   const batterySizeVal = parseFloat(batterySize) || 0;
   const systemPhaseVal = parseInt(systemPhase) || 3;
+  const packagePhasePrefix = getResidentialPackagePhasePrefix(systemPhaseVal);
   const futureUsageKwhRaw = futureUsageKwh ?? usageKwhOverride;
   const futureUsageKwhVal = parseFloat(futureUsageKwhRaw);
   const hasFutureUsageOverride = Number.isFinite(futureUsageKwhVal) && futureUsageKwhVal > 0;
@@ -319,10 +322,11 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
               AND (p.special IS FALSE OR p.special IS NULL)
               AND p.type = $2
               AND pr.bubble_id = $3
+              AND p.package_name ILIKE $4
             ORDER BY p.price ASC
             LIMIT 1
           `;
-      packageResult = await mainClient.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId]);
+      packageResult = await mainClient.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId, `${packagePhasePrefix}%`]);
     } else {
       const packageByWattQuery = `
             SELECT p.*
@@ -336,10 +340,11 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
               AND (p.special IS FALSE OR p.special IS NULL)
               AND p.type = $2
               AND pr.solar_output_rating = $3
+              AND p.package_name ILIKE $4
             ORDER BY p.price ASC
             LIMIT 1
           `;
-      packageResult = await mainClient.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage]);
+      packageResult = await mainClient.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage, `${packagePhasePrefix}%`]);
     }
 
     let selectedPackage = null;

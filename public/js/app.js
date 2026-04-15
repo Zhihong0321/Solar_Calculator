@@ -43,6 +43,10 @@ const ALLOWED_BATTERY_SIZES = [0, 16, 32, 48];
 const SHORT_BILL_CYCLE_SST_RATE = 0.08;
 const BATTERY_CHARGING_EFFICIENCY = 0.95;
 
+function getResidentialPackagePhasePrefix(systemPhase = 3) {
+    return parseInt(systemPhase, 10) === 1 ? '[1P]' : '[3P]';
+}
+
 function calculateBatteryFlow({ monthlySolarGeneration, morningUsageKwh, batterySizeVal }) {
     const nonOffsetSolarKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
     const dailyNonOffsetSolarKwh = nonOffsetSolarKwh / 30;
@@ -587,7 +591,9 @@ class SolarCalculator {
                 p.active === true &&
                 (p.special === false || p.special === null) &&
                 p.type === 'Residential' &&
-                p.solar_output_rating === panelType
+                p.solar_output_rating === panelType &&
+                typeof p.package_name === 'string' &&
+                p.package_name.toUpperCase().startsWith(getResidentialPackagePhasePrefix(systemPhase))
             )
             .sort((a, b) => Math.abs(a.panel_qty - actualPanelQty) - Math.abs(b.panel_qty - actualPanelQty) || a.price - b.price)[0] || null;
 

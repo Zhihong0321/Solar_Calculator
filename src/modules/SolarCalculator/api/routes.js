@@ -7,6 +7,13 @@ const { buildBillCycleModes } = require('../services/billCycleModeService');
 
 const router = express.Router();
 
+const getResidentialPackagePhasePrefix = (systemPhase) => {
+  const parsedPhase = parseInt(systemPhase, 10);
+  if (parsedPhase === 1) return '[1P]';
+  if (parsedPhase === 3) return '[3P]';
+  return null;
+};
+
 // API endpoint to serve environment configuration to frontend
 router.get('/api/config', (req, res) => {
   const protocol = req.protocol;
@@ -89,9 +96,13 @@ router.get('/readonly/package/lookup', async (req, res) => {
     const qtyRaw = req.query.panelQty;
     const bubbleIdRaw = req.query.panelBubbleId || null;
     const requestedType = String(req.query.type || '').trim();
+    const requestedPhase = req.query.systemPhase;
     const resolvedPackageType = requestedType === 'Tariff B&D Low Voltage' || requestedType.toLowerCase() === 'commercial'
       ? 'Tariff B&D Low Voltage'
       : 'Residential';
+    const residentialPhasePrefix = resolvedPackageType === 'Residential'
+      ? getResidentialPackagePhasePrefix(requestedPhase)
+      : null;
     if (!qtyRaw) return res.status(400).json({ error: 'panelQty is required' });
     const qty = parseInt(qtyRaw, 10);
     client = await pool.connect();
@@ -103,8 +114,11 @@ router.get('/readonly/package/lookup', async (req, res) => {
         FROM package p
         JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
         WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = $3 AND pr.bubble_id = $2
+          ${residentialPhasePrefix ? 'AND p.package_name ILIKE $4' : ''}
         ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10`;
-      result = await client.query(queryByBubble, [qty, bubbleIdRaw, resolvedPackageType]);
+      result = residentialPhasePrefix
+        ? await client.query(queryByBubble, [qty, bubbleIdRaw, resolvedPackageType, `${residentialPhasePrefix}%`])
+        : await client.query(queryByBubble, [qty, bubbleIdRaw, resolvedPackageType]);
     } else {
       const queryByWatt = `
         SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
@@ -112,16 +126,20 @@ router.get('/readonly/package/lookup', async (req, res) => {
         FROM package p
         JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
         WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = $3 AND pr.solar_output_rating = $2
+          ${residentialPhasePrefix ? 'AND p.package_name ILIKE $4' : ''}
         ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10`;
       const wattRaw = req.query.panelType;
       const watt = wattRaw ? parseInt(wattRaw, 10) : null;
-      result = await client.query(queryByWatt, [qty, watt, resolvedPackageType]);
+      result = residentialPhasePrefix
+        ? await client.query(queryByWatt, [qty, watt, resolvedPackageType, `${residentialPhasePrefix}%`])
+        : await client.query(queryByWatt, [qty, watt, resolvedPackageType]);
     }
     return res.json({
       searchParams: {
         panelQty: qty,
         panelBubbleId: bubbleIdRaw,
-        type: resolvedPackageType
+        type: resolvedPackageType,
+        systemPhase: requestedPhase ? parseInt(requestedPhase, 10) || null : null
       },
       count: result.rowCount,
       packages: result.rows
