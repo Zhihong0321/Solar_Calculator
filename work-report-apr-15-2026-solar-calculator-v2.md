@@ -14,5 +14,6 @@ REPO NAME : Solar Calculator v2
 - Fixed residential proposal view to show calculator-matched solar savings.
 - Verified proposal savings rendering matches saved residential calculator values and leaves commercial proposals unchanged.
 - Verified create-invoice keeps latest solar savings values from calculator through URL handoff, hidden fields, request payload, and invoice persistence.
+- Built and pushed the residential proposal savings display fix.
 
 =====================
