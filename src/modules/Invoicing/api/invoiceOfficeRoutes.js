@@ -196,7 +196,7 @@ async function fetchOfficeInvoice(client, bubbleId) {
             pkg.package_name as package_name
          FROM invoice i
          LEFT JOIN customer c ON i.linked_customer = c.customer_id
-         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
+         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text
     `;
 
     let invoiceRes = await client.query(
@@ -230,7 +230,7 @@ async function fetchOfficeItems(client, invoiceBubbleId, itemIds) {
             ii.linked_package as product_id,
             COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
          FROM invoice_item ii
-         LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
+         LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id OR ii.linked_package = pkg.id::text
          WHERE ii.linked_invoice = $1 
             OR ii.bubble_id = ANY($2::text[])
          ORDER BY ii.sort ASC, ii.created_at ASC`,

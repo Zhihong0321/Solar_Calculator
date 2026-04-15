@@ -419,7 +419,7 @@ async function getWeeklyFocus(client, agentIdentifiers, startDate, endDate, curr
          i.status
        FROM invoice i
        LEFT JOIN customer c ON c.customer_id = i.linked_customer
-       LEFT JOIN package pkg ON pkg.bubble_id = i.linked_package
+       LEFT JOIN package pkg ON pkg.bubble_id = i.linked_package OR pkg.id::text = i.linked_package
        WHERE i.is_latest = true
          AND (i.status IS NULL OR i.status != 'deleted')
          AND (i.linked_agent = ANY($1) OR i.created_by = ANY($1))

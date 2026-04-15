@@ -723,7 +723,7 @@ class SolarCalculator {
             recommendedPanels, actualPanels: actualPanelQty,
             panelAdjustment: actualPanelQty - recommendedPanels,
             overrideApplied: overridePanels !== null,
-            selectedPackage: selectedPackage ? { packageName: selectedPackage.package_name, price: selectedPackage.price, panelWattage: panelType, linked_package: selectedPackage.bubble_id } : null,
+            selectedPackage: selectedPackage ? { packageName: selectedPackage.package_name, price: selectedPackage.price, panelWattage: panelType, linked_package: selectedPackage.bubble_id || String(selectedPackage.id || '') } : null,
             solarConfig: `${actualPanelQty} x ${panelType}W panels (${systemSizeKwp.toFixed(1)} kW system)`,
             systemSizeKwp: systemSizeKwp.toFixed(1),
             requiresSedaFee: requiresSedaFee,

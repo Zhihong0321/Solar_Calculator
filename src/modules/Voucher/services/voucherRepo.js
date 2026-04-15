@@ -555,7 +555,7 @@ async function _getInvoiceVoucherContext(client, invoiceId) {
             COALESCE(p.panel_qty, 0) AS panel_qty,
             COALESCE(p.type, i.package_type, '') AS package_type
          FROM invoice i
-         LEFT JOIN package p ON p.bubble_id = i.linked_package
+         LEFT JOIN package p ON p.bubble_id = i.linked_package OR p.id::text = i.linked_package
          WHERE i.bubble_id = $1
          LIMIT 1`,
         [invoiceId]

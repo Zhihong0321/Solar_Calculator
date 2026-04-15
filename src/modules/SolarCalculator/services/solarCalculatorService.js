@@ -311,37 +311,35 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     let packageResult = { rows: [] };
     if (selectedPanelBubbleId) {
       const packageByBubbleQuery = `
-            SELECT p.*
+            SELECT p.*, COALESCE(p.bubble_id, p.id::text) AS resolved_package_id
             FROM package p
             JOIN product pr ON (
               CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
               OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
             )
-            WHERE p.panel_qty = $1
-              AND p.active = true
+            WHERE p.active = true
               AND (p.special IS FALSE OR p.special IS NULL)
               AND p.type = $2
               AND pr.bubble_id = $3
               AND p.package_name ILIKE $4
-            ORDER BY p.price ASC
+            ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC
             LIMIT 1
           `;
       packageResult = await mainClient.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId, `${packagePhasePrefix}%`]);
     } else {
       const packageByWattQuery = `
-            SELECT p.*
+            SELECT p.*, COALESCE(p.bubble_id, p.id::text) AS resolved_package_id
             FROM package p
             JOIN product pr ON (
               CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
               OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
             )
-            WHERE p.panel_qty = $1
-              AND p.active = true
+            WHERE p.active = true
               AND (p.special IS FALSE OR p.special IS NULL)
               AND p.type = $2
               AND pr.solar_output_rating = $3
               AND p.package_name ILIKE $4
-            ORDER BY p.price ASC
+            ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC
             LIMIT 1
           `;
       packageResult = await mainClient.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage, `${packagePhasePrefix}%`]);
@@ -599,7 +597,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         special: selectedPackage.special,
         invoiceDesc: selectedPackage.invoice_desc,
         id: selectedPackage.id,
-        linked_package: selectedPackage.bubble_id  // used by generateInvoiceLink()
+        linked_package: selectedPackage.resolved_package_id || selectedPackage.bubble_id || String(selectedPackage.id)  // used by generateInvoiceLink()
       } : null,
       solarConfig: `${actualPanelQty} x ${panelWattage}W panels (${systemSizeKwp.toFixed(1)} kW system)`,
       systemSizeKwp: systemSizeKwp.toFixed(1),

@@ -215,7 +215,7 @@ async function _fetchWarrantyInfo(client, packageId) {
     const pkgRes = await client.query(
       `SELECT panel, inverter_1, inverter_2, inverter_3, inverter_4, linked_package_item 
        FROM package 
-       WHERE bubble_id = $1`,
+       WHERE bubble_id = $1 OR id::text = $1`,
       [packageId]
     );
 
@@ -274,9 +274,10 @@ async function _fetchWarrantyInfo(client, packageId) {
 async function getPackageById(client, packageId) {
   try {
     const result = await client.query(
-      `SELECT bubble_id, package_name as name, price, panel, panel_qty, invoice_desc, type, max_discount
+      `SELECT COALESCE(bubble_id, id::text) AS bubble_id, id, package_name as name, price, panel, panel_qty, invoice_desc, type, max_discount
        FROM package
-       WHERE bubble_id = $1`,
+       WHERE bubble_id = $1 OR id::text = $1
+       LIMIT 1`,
       [packageId]
     );
 
@@ -382,7 +383,8 @@ async function getHybridUpgradeOptionsForPackage(client, packageId) {
   const packageColumns = await getTableColumns(client, 'package');
   const packageRes = await client.query(
     `SELECT
-        p.bubble_id,
+        COALESCE(p.bubble_id, p.id::text) AS bubble_id,
+        p.id,
         p.package_name,
         p.price,
         p.invoice_desc,
@@ -398,7 +400,7 @@ async function getHybridUpgradeOptionsForPackage(client, packageId) {
      LEFT JOIN product pr
        ON CAST(p.inverter_1 AS TEXT) = CAST(pr.bubble_id AS TEXT)
        OR CAST(p.inverter_1 AS TEXT) = CAST(pr.id AS TEXT)
-     WHERE p.bubble_id = $1
+     WHERE p.bubble_id = $1 OR p.id::text = $1
      LIMIT 1`,
     [packageId]
   );
@@ -1164,7 +1166,7 @@ async function _getInvoiceVoucherStepSummary(client, invoiceId) {
         pkg.type AS package_type
      FROM invoice i
      LEFT JOIN customer c ON i.linked_customer = c.customer_id
-     LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
+     LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text
      WHERE i.bubble_id = $1
      LIMIT 1`,
     [invoiceId]
@@ -1391,12 +1393,12 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         c.lead_source as lead_source,
         c.remark as remark,
         ${referralFieldSelect}
-        pkg.package_name as package_name,
-        pkg.type as package_type
+       pkg.package_name as package_name,
+       pkg.type as package_type
        FROM invoice i 
        LEFT JOIN customer c ON i.linked_customer = c.customer_id
        ${referralJoin}
-       LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
+       LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text
        WHERE (i.bubble_id = $1 OR i.id::text = $1)`,
       [bubbleId]
     );
@@ -1421,7 +1423,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         ii.linked_package as product_id,
         COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
        FROM invoice_item ii
-       LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id
+       LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id OR ii.linked_package = pkg.id::text
        WHERE ii.linked_invoice = $1 
           OR ii.bubble_id = ANY($2::text[])
        ORDER BY ii.sort ASC, ii.created_at ASC`,
@@ -1489,7 +1491,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
                CAST(p.inverter_1 AS TEXT) = CAST(inverter_product.id AS TEXT)
                OR CAST(p.inverter_1 AS TEXT) = CAST(inverter_product.bubble_id AS TEXT)
              )
-             WHERE p.bubble_id = $1`,
+             WHERE p.bubble_id = $1 OR p.id::text = $1`,
             [invoice.linked_package]
           );
           if (packageResult.rows.length > 0) {
@@ -2252,7 +2254,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
 
         FROM invoice i
         LEFT JOIN customer c ON i.linked_customer = c.customer_id
-        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id
+        LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text
         ${referralJoin}
         WHERE (
             i.created_by = ANY($1::text[])

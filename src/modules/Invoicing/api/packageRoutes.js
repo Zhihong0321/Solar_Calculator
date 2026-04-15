@@ -107,7 +107,8 @@ router.get('/api/packages/search', requireAuth, async (req, res) => {
 
     const result = await client.query(
       `SELECT
-          p.bubble_id,
+          COALESCE(p.bubble_id, p.id::text) AS bubble_id,
+          p.id,
           p.package_name,
           p.price,
           p.panel_qty,

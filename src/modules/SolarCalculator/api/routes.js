@@ -109,7 +109,7 @@ router.get('/readonly/package/lookup', async (req, res) => {
     let result;
     if (bubbleIdRaw) {
       const queryByBubble = `
-        SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
+        SELECT p.id, COALESCE(p.bubble_id, p.id::text) AS bubble_id, p.package_name, p.package_name AS name, p.invoice_desc, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
                pr.id as product_id, pr.bubble_id, pr.solar_output_rating
         FROM package p
         JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
@@ -121,7 +121,7 @@ router.get('/readonly/package/lookup', async (req, res) => {
         : await client.query(queryByBubble, [qty, bubbleIdRaw, resolvedPackageType]);
     } else {
       const queryByWatt = `
-        SELECT p.id, p.package_name, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
+        SELECT p.id, COALESCE(p.bubble_id, p.id::text) AS bubble_id, p.package_name, p.package_name AS name, p.invoice_desc, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
                pr.id as product_id, pr.bubble_id, pr.solar_output_rating
         FROM package p
         JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
