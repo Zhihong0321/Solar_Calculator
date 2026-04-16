@@ -8,5 +8,6 @@ REPO NAME : Solar Calculator v2
 - Verified live DB contains active 1-phase hybrid residential packages and compared them against 3-phase hybrid catalog ranges
 - Simplified package lookup to one filtered best-match path and fixed 1-phase hybrid phase/inverter handoff
 - Applied the package lookup handoff fix to the domestic-mobile calculator quotation flow
+- Restored the missing /domestic-mobile route after the mobile calculator file was added
 
 =====================

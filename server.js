@@ -84,6 +84,9 @@ app.use('/api/v1/bug', BugReport.bugRoutes);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
+app.get('/domestic-mobile', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'domestic-mobile.html'));
+});
 app.use('/proposal', express.static('portable-proposal'));
 app.use('/t3_html_presentation', express.static('mobile_html_output'));
 app.use('/company-logo', express.static(path.join(__dirname, 'v3-quotation-view', 'company-logo')));
