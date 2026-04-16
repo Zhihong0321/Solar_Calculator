@@ -1717,13 +1717,13 @@ function renderDetailedCard(data) {
                     })}
                 </div>
                 <div style="display:flex; flex-direction:column; gap:8px; font-size:12px;">
-                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_solarToBat')}</span><span style="font-weight:700;">${fmt(ds.battery?.nonOffsetSolarKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_solarToBat')}</span><span style="font-weight:700;">${fmt(ds.battery?.monthlySolarToBatteryInputKwh||0, 1)} kWh/mo</span></div>
                     <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_usableCapacity')}</span><span style="font-weight:700;">${fmt(ds.battery?.usableCapacityKwh||0, 1)} kWh/day</span></div>
                     <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_batStored')}</span><span style="font-weight:700;">${fmt(ds.battery?.monthlyStoredKwh||0, 1)} kWh/mo</span></div>
                     <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_excessExport')}</span><span style="font-weight:700;">${fmt(ds.battery?.monthlyExcessExportKwh||0, 1)} kWh/mo</span></div>
                     <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border);"><span style="font-weight:600;">${t('lbl_valueAdd')}</span><span style="font-weight:900; color:var(--green-text);">+RM ${fmt(parseFloat(ds.battery?.valueAddMonthly ?? (parseFloat(data.monthlySavings) - parseFloat(b.totalSavings||data.monthlySavings))))}/mo</span></div>
                 </div>
-                <p style="font-size:10px; color:var(--ink-3); margin-top:8px;">${t('lbl_batEffNote', batteryLossPercent, batteryDodPercent)}</p>
+                <p style="font-size:10px; color:var(--ink-3); margin-top:8px;">${t('lbl_batEffNote', batteryLossPercent, batteryDodPercent, ((Math.max(0, ds.battery?.chargeEfficiency || 0)) * 100).toFixed(1), ((Math.max(0, ds.battery?.dischargeEfficiency || 0)) * 100).toFixed(1))}</p>
             </div>
             ` : `<p style="font-size:12px; color:var(--ink-3); margin-top:8px;">${t('lbl_battery')} — ${t('lbl_batteryNone')}</p>`}
         </div>
@@ -2081,7 +2081,7 @@ const TRANSLATIONS = {
     lbl_sajBattery: "SAJ's Battery",
     lbl_batteryLossHelp: 'Loss reduces the battery energy available to offset the bill.',
     lbl_batteryDodHelp: 'DoD reserves part of the nominal battery capacity and leaves the rest usable.',
-    lbl_batEffNote: 'Battery calculation uses {0}% loss and keeps {1}% reserved as DoD.',
+    lbl_batEffNote: 'Battery uses {2}% charge efficiency and {3}% discharge efficiency from a {0}% round-trip loss, with {1}% reserved as DoD.',
     lbl_futureTest: 'Future Usage Stress Test',
     lbl_futureDesc: 'Toggle +200 kWh blocks to simulate future household growth with the current system fixed.',
     lbl_block: 'Block',
@@ -2176,7 +2176,7 @@ const TRANSLATIONS = {
     lbl_sajBattery: 'SAJ 电池',
     lbl_batteryLossHelp: '损耗会减少可用于抵扣电费的电池能量。',
     lbl_batteryDodHelp: 'DoD 会保留一部分额定容量，只有其余部分可用。',
-    lbl_batEffNote: '储能计算采用 {0}% 损耗，并保留 {1}% 作为 DoD。',
+    lbl_batEffNote: '储能计算把 {0}% 往返损耗平均分配到充电与放电，充电效率 {2}%，放电效率 {3}%，并保留 {1}% 作为 DoD。',
     lbl_futureTest: '未来用电压力测试',
     lbl_futureDesc: '点击 +200 度 区块，模拟未来家庭用电增长对现有系统的影响。',
     lbl_block: '区块',
