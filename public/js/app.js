@@ -1393,6 +1393,8 @@ window.generateInvoiceLink = async function () {
     // Optional: Panel Info (for reference)
     if (latestSolarData.actualPanels) params.set('panel_qty', latestSolarData.actualPanels);
     if (latestSolarData.config.panelType) params.set('panel_rating', `${latestSolarData.config.panelType}W`);
+    if (latestSolarData.config?.systemPhase) params.set('system_phase', latestSolarData.config.systemPhase);
+    if (latestSolarData.config?.inverterType) params.set('inverter_type', latestSolarData.config.inverterType);
 
     const billCycleModes = buildBillCycleMetrics(latestSolarData);
     const selectedCycleMetrics = billCycleModes[normalizeBillCycleMode(selectedBillCycleMode)] || billCycleModes.fullMonth;

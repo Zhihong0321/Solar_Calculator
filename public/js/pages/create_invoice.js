@@ -587,8 +587,15 @@ function toggleFollowUpSection() {
 
 function getVisibleReferralLeads() {
     return assignedReferralLeads.filter((referral) => {
-        if (!referral?.linked_invoice) return true;
-        return referral.linked_invoice === referralInvoiceFilterId;
+        const linkedInvoice = String(referral?.linked_invoice || '').trim();
+        if (!linkedInvoice) return true;
+        if (linkedInvoice === referralInvoiceFilterId) return true;
+
+        // Some older referral rows store a customer id (for example `cust_...`)
+        // in linked_invoice. Those should still stay selectable in invoice creation.
+        if (linkedInvoice.startsWith('cust_')) return true;
+
+        return false;
     });
 }
 
@@ -1759,6 +1766,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     const panelQty = urlParams.get('panel_qty');
     const panelRating = urlParams.get('panel_rating');
     const packageType = urlParams.get('package_type') || urlParams.get('type');
+    const systemPhase = urlParams.get('system_phase') || urlParams.get('systemPhase');
+    const inverterType = urlParams.get('inverter_type') || urlParams.get('inverterType');
     const editInvoiceId = urlParams.get('edit_invoice_id') || urlParams.get('id');
     const selectedReferralFromUrl = urlParams.get('linked_referral') || '';
     referralInvoiceFilterId = editInvoiceId || null;
@@ -1885,11 +1894,13 @@ document.addEventListener('DOMContentLoaded', async function () {
                 panelType: String(ratingInt)
             });
             if (packageType) lookupParams.set('type', packageType);
+            if (systemPhase) lookupParams.set('systemPhase', systemPhase);
+            if (inverterType) lookupParams.set('inverterType', inverterType);
             const lookupRes = await fetch(`/readonly/package/lookup?${lookupParams.toString()}`);
             const lookupData = await lookupRes.json();
 
-            if (lookupData.packages && lookupData.packages.length > 0) {
-                const pkg = lookupData.packages[0];
+            if (lookupData.package || (lookupData.packages && lookupData.packages.length > 0)) {
+                const pkg = lookupData.package || lookupData.packages[0];
                 pageLog(`Lookup found: ${pkg.package_name} (${pkg.bubble_id})`);
                 await showPackage(pkg);
                 document.getElementById('warningMessage').classList.add('hidden');

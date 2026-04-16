@@ -1,0 +1,2172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Eternalgy Solar Calculator - Mobile Optimised ROI Analysis for Residential Solar in Malaysia">
+    <title>Solar ROI · Eternalgy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg: #F8F8F6;
+            --surface: #FFFFFF;
+            --ink: #1A1A1A;
+            --ink-2: #4A4A4A;
+            --ink-3: #9A9A9A;
+            --ink-4: #C4C4C4;
+            --green: #16A34A;
+            --green-bg: #F0FDF4;
+            --green-text: #15803D;
+            --red: #DC2626;
+            --border: #EBEBEB;
+            --border-mid: #D8D8D8;
+            --step-inactive: #DEDEDE;
+            --radius-sm: 10px;
+            --accent: #1A1A1A;
+            /* Legacy compat */
+            --ink-3-compat: #9A9A9A;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            min-height: 100dvh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        /* ── HEADER ── */
+        .app-header {
+            background: #1A1A1A;
+            border-bottom: none;
+            padding: 14px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .app-header .brand { display: flex; align-items: center; gap: 10px; }
+        .app-header img { height: 20px; }
+        .app-header .version-tag {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--ink-3);
+            margin-top: 1px;
+        }
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 3s infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* ── PROGRESS RAIL ── */
+        .progress-rail {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .progress-rail::-webkit-scrollbar { display: none; }
+        .step-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            min-width: 44px;
+        }
+        .step-circle {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            border: 1.5px solid var(--step-inactive);
+            color: var(--ink-4);
+            font-size: 10px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s ease;
+            flex-shrink: 0;
+        }
+        .step-circle.active { border-color: var(--ink); color: var(--ink); }
+        .step-circle.done { border-color: var(--green); background: var(--green); color: white; }
+        .step-circle.done::after { content: '✓'; font-size: 11px; }
+        .step-circle.done span { display: none; }
+        .step-label { font-size: 9px; font-weight: 400; color: var(--ink-4); white-space: nowrap; }
+        .step-label.active { color: var(--ink); font-weight: 500; }
+        .step-label.done { color: var(--green); }
+        .step-connector {
+            flex: 1; height: 1px;
+            background: var(--border);
+            min-width: 14px;
+            margin-bottom: 16px;
+            transition: background 0.3s ease;
+        }
+        .step-connector.done { background: var(--green); }
+
+        /* ── SCROLL AREA ── */
+        .scroll-area { padding: 0 0 120px; width: 100%; }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            overflow: hidden;
+            margin-bottom: 8px;
+            transition: opacity 0.3s ease;
+        }
+        .card.locked { opacity: 0.35; pointer-events: none; }
+        .card.collapsed .card-body { display: none; }
+
+        .card-header {
+            padding: 20px 20px 16px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .card-header-left { display: flex; align-items: center; gap: 14px; }
+        .card-step-badge {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            border: 1.5px solid var(--border-mid);
+            color: var(--ink-3);
+            font-size: 11px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.25s;
+        }
+        .card-step-badge.done { border-color: var(--green); background: var(--green); color: white; }
+        .card-step-badge.done::after { content: '✓'; font-size: 12px; }
+        .card-step-badge.done span { display: none; }
+        .card-label { font-size: 11px; font-weight: 400; color: var(--ink-3); }
+        .card-title { font-size: 16px; font-weight: 600; line-height: 1.25; margin-top: 2px; color: var(--ink); }
+        .card-summary { font-size: 13px; font-weight: 500; color: var(--green-text); text-align: right; flex-shrink: 0; }
+        .card-divider { height: 1px; background: var(--border); }
+        .card-body { padding: 20px; }
+        .card-body.no-pad { padding: 0; }
+
+        /* ── FIELDS & INPUTS ── */
+        .field-group { display: flex; flex-direction: column; gap: 20px; }
+        .field { display: flex; flex-direction: column; gap: 7px; }
+        .field label { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+
+        .input-shell {
+            background: transparent;
+            border: none;
+            border-bottom: 1.5px solid var(--border-mid);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 2px;
+            transition: border-color 0.2s;
+        }
+        .input-shell:focus-within { border-bottom-color: var(--ink); }
+        .input-shell .prefix { font-size: 15px; font-weight: 400; color: var(--ink-3); flex-shrink: 0; }
+        .input-shell input,
+        .input-shell select {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--ink);
+            padding: 8px 0;
+            min-width: 0;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .input-shell select { font-size: 16px; cursor: pointer; }
+        .input-shell input[type=number]::-webkit-inner-spin-button,
+        .input-shell input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+        .input-shell input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+        .select-shell {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            position: relative;
+            transition: border-color 0.2s;
+        }
+        .select-shell:focus-within { border-color: var(--ink-3); }
+        .select-shell select {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--ink);
+            padding: 12px 36px 12px 12px;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .select-shell::after {
+            content: '›';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%) rotate(90deg);
+            font-size: 16px;
+            color: var(--ink-4);
+            pointer-events: none;
+            font-weight: 300;
+        }
+
+        /* ── SEGMENTED CONTROL ── */
+        .segmented {
+            display: flex;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 3px; gap: 3px;
+        }
+        .seg-btn {
+            flex: 1;
+            padding: 9px 8px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink-3);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .seg-btn.active {
+            background: var(--surface);
+            color: var(--ink);
+            font-weight: 600;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+
+        /* ── STEPPER ── */
+        .stepper {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            background: var(--surface);
+        }
+        .stepper-btn {
+            width: 48px; height: 48px;
+            border: none;
+            background: transparent;
+            font-size: 20px;
+            font-weight: 300;
+            color: var(--ink-2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+            flex-shrink: 0;
+        }
+        .stepper-btn:active { background: var(--bg); }
+        .stepper-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+        .stepper-value {
+            flex: 1;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            padding: 12px 4px;
+        }
+        .stepper-value input {
+            width: 100%;
+            text-align: center;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--ink);
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+        .stepper-value input::-webkit-inner-spin-button,
+        .stepper-value input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+        /* ── BUTTONS ── */
+        .btn-primary {
+            width: 100%;
+            padding: 15px;
+            background: var(--ink);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: opacity 0.15s, transform 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-primary:active { opacity: 0.8; transform: scale(0.99); }
+        .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+        /* ── LEDGER ROWS ── */
+        .ledger-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 11px 0;
+            border-bottom: 1px solid var(--border);
+            gap: 12px;
+        }
+        .ledger-row:last-child { border-bottom: none; }
+        .ledger-label { font-size: 14px; font-weight: 400; color: var(--ink-2); }
+        .ledger-value { font-size: 14px; font-weight: 500; text-align: right; flex-shrink: 0; color: var(--ink); }
+        .ledger-total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 16px 0 0;
+            margin-top: 6px;
+            border-top: 1px solid var(--border-mid);
+        }
+        .ledger-total-label { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+        .ledger-total-value { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); }
+        .usage-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #FEFCE8;
+            border: 1px solid #FDE68A;
+            border-radius: 6px;
+            padding: 7px 11px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #92400E;
+            margin-top: 14px;
+        }
+
+        /* ── ROI HERO ── */
+        .roi-hero {
+            background: var(--ink);
+            color: white;
+            padding: 28px 20px 24px;
+            margin-bottom: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .roi-hero-label { font-size: 11px; font-weight: 400; opacity: 0.5; letter-spacing: 0.04em; }
+        .roi-hero-saving {
+            font-size: 52px;
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            margin: 6px 0 4px;
+            color: #4ade80;
+        }
+        .roi-hero-sub { font-size: 12px; opacity: 0.45; font-weight: 400; }
+        .roi-meta {
+            display: flex;
+            gap: 1px;
+            margin-top: 20px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .roi-meta-item { flex: 1; padding: 14px 10px; text-align: center; }
+        .roi-meta-item + .roi-meta-item { border-left: 1px solid rgba(255,255,255,0.08); }
+        .roi-meta-num { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+        .roi-meta-label { font-size: 9px; font-weight: 400; opacity: 0.45; margin-top: 3px; letter-spacing: 0.04em; }
+
+        /* ── SAVINGS 3-COL ── */
+        .savings-breakdown {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1px;
+            background: var(--border);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .savings-item { background: var(--surface); padding: 16px 10px; text-align: center; }
+        .savings-item-num { font-size: 15px; font-weight: 600; color: var(--green-text); }
+        .savings-item-label { font-size: 10px; font-weight: 400; color: var(--ink-3); margin-top: 3px; }
+
+        /* ── LEDGER TABLE ── */
+        .ledger-table-header {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 1fr;
+            gap: 8px;
+            padding: 9px 16px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+        }
+        .lthr { font-size: 10px; font-weight: 500; color: var(--ink-4); text-align: right; }
+        .lthr:first-child { text-align: left; }
+        .ledger-table-row {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 1fr;
+            gap: 8px;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            align-items: center;
+        }
+        .ledger-table-row:last-child { border-bottom: none; }
+        .ltc { font-size: 12px; font-weight: 400; color: var(--ink-2); text-align: right; }
+        .ltc:first-child { font-weight: 500; color: var(--ink); text-align: left; }
+        .ltc.green { color: var(--green-text); font-weight: 500; }
+        .ltc.red { color: var(--red); font-weight: 500; }
+
+        /* ── EPP ── */
+        .epp-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; padding: 5px 0; }
+        .epp-label { color: var(--ink-3); font-weight: 400; }
+        .epp-val { font-weight: 500; color: var(--ink); }
+
+        /* ── BATTERY BTNS ── */
+        .battery-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        .battery-btn {
+            flex: 1;
+            min-width: 60px;
+            padding: 11px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink-3);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+        }
+        .battery-btn.active { border-color: var(--ink); background: var(--ink); color: white; }
+
+        /* ── FUTURE BLOCKS ── */
+        .future-blocks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .future-block {
+            padding: 13px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            text-align: center;
+            cursor: pointer;
+            background: var(--surface);
+            transition: all 0.15s;
+        }
+        .future-block.active { border-color: var(--ink); background: var(--ink); color: white; }
+        .future-block-label { font-size: 9px; font-weight: 400; color: var(--ink-3); display: block; }
+        .future-block.active .future-block-label { color: rgba(255,255,255,0.6); }
+        .future-block-kwh { font-size: 15px; font-weight: 600; margin-top: 2px; display: block; }
+
+        /* ── ADVANCED TOGGLE ── */
+        .advanced-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 400;
+            color: var(--ink-3);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-family: 'Inter', sans-serif;
+        }
+        .advanced-toggle .chevron { transition: transform 0.2s; font-size: 14px; color: var(--ink-4); }
+        .advanced-toggle.open .chevron { transform: rotate(180deg); }
+        .advanced-content { display: none; }
+        .advanced-content.open { display: block; }
+
+        /* ── CYCLE TOGGLE ── */
+        .cycle-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 400;
+            color: rgba(255,255,255,0.4);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .cycle-btn.active { background: rgba(255,255,255,0.12); color: white; font-weight: 500; }
+
+        /* ── SEDA WARNING ── */
+        .seda-warning {
+            background: rgba(254,243,199,0.12);
+            border: 1px solid rgba(217,119,6,0.4);
+            border-radius: 8px;
+            padding: 11px 13px;
+            margin-top: 14px;
+        }
+        .seda-warning-title { font-size: 11px; font-weight: 600; color: #FDE68A; margin-bottom: 3px; }
+        .seda-warning-text { font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+
+        /* ── QUOTATION CTA ── */
+        .quotation-cta { background: var(--ink); padding: 28px 20px; text-align: center; color: white; }
+        .quotation-cta h3 { font-size: 16px; font-weight: 600; }
+        .quotation-cta p { font-size: 13px; opacity: 0.4; margin-top: 5px; font-weight: 400; }
+        .btn-quotation {
+            width: 100%;
+            padding: 15px;
+            background: #4ade80;
+            color: #052e16;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 18px;
+            transition: opacity 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-quotation:active { opacity: 0.8; }
+
+        /* ── LOADING ── */
+        .loading-spinner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 44px;
+            gap: 12px;
+        }
+        .spinner {
+            width: 24px; height: 24px;
+            border: 2px solid var(--border);
+            border-top-color: var(--ink-3);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 12px; font-weight: 400; color: var(--ink-4); }
+
+        /* ── TOAST ── */
+        .toast-container {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+            z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+            pointer-events: none; max-width: calc(100vw - 32px);
+        }
+        .toast {
+            background: rgba(26,26,26,0.92);
+            color: white;
+            padding: 11px 18px;
+            border-radius: 99px;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            backdrop-filter: blur(8px);
+            animation: toastIn 0.25s ease, toastOut 0.25s ease 2.75s forwards;
+        }
+        .toast.error { background: rgba(220,38,38,0.9); }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+        /* ── QUICK ADJUST BAR ── */
+        .quick-adjust {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(255,255,255,0.96);
+            border-top: 1px solid var(--border);
+            padding: 10px 16px 24px;
+            padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+            z-index: 9999;
+            display: none;
+            backdrop-filter: blur(12px);
+        }
+        .quick-adjust.visible { display: block; }
+        .quick-adjust-title { font-size: 10px; font-weight: 400; color: var(--ink-4); margin-bottom: 10px; text-align: center; }
+        .quick-adjust-row { display: flex; gap: 10px; align-items: center; }
+        .qa-item { flex: 1; }
+        .qa-label { font-size: 9px; font-weight: 400; color: var(--ink-4); text-align: center; margin-bottom: 5px; }
+        .qa-control {
+            display: flex; align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 8px; overflow: hidden;
+            background: var(--surface);
+        }
+        .qa-btn {
+            width: 34px; height: 34px; border: none; background: transparent;
+            font-size: 16px; font-weight: 300; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--ink-2); flex-shrink: 0;
+        }
+        .qa-btn:active { background: var(--bg); }
+        .qa-val {
+            flex: 1; text-align: center; font-size: 12px; font-weight: 600;
+            border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+            padding: 9px 2px; color: var(--ink);
+        }
+
+        /* ── CONFIDENCE ── */
+        .confidence-bar-wrap { margin-top: 20px; }
+        .confidence-label-row { display: flex; justify-content: space-between; font-size: 11px; font-weight: 400; margin-bottom: 7px; opacity: 0.5; }
+        .confidence-bar { height: 3px; background: rgba(255,255,255,0.12); border-radius: 99px; overflow: hidden; }
+        .confidence-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+        .confidence-fill.high { background: #4ade80; }
+        .confidence-fill.mid { background: #fbbf24; }
+        .confidence-fill.low { background: #f87171; }
+
+        /* ── MISC ── */
+        .section-gap { height: 8px; }
+        .info-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 500; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 4px 10px; color: var(--ink-2); }
+
+
+        /* ── DESCRIPTION CARDS ── */
+        .desc-card {
+            background: #1A1A1A;
+            color: rgba(255,255,255,0.7);
+            padding: 14px 20px;
+            font-size: 13px;
+            line-height: 1.65;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            transition: opacity 0.25s ease, max-height 0.3s ease;
+        }
+        .desc-card em {
+            color: rgba(255,255,255,0.45);
+            font-style: normal;
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .desc-card p { margin: 0; }
+        .desc-card p + p { margin-top: 6px; font-size: 12px; opacity: 0.6; }
+        .hints-hidden .desc-card { display: none; }
+        /* Hints toggle pill in header */
+        .hints-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 6px;
+            color: rgba(255,255,255,0.55);
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 5px 9px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .hints-btn.active { color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.45); }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 360px) {
+            .roi-hero-saving { font-size: 42px; }
+            .ledger-table-row { grid-template-columns: 1.2fr 1fr 1fr 1fr; gap: 4px; }
+            .ltc { font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+    <div class="brand">
+        <img src="logo.png" alt="Eternalgy">
+        <div>
+            <div class="version-tag" data-i18n="appSubtitle">Solar ROI · v2 Mobile</div>
+        </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <button id="hintToggleBtn" class="hints-btn active" onclick="toggleHints()" title="Toggle description cards">💡</button>
+        <button id="langToggleBtn" onclick="toggleLang()" style="background:transparent; border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:rgba(255,255,255,0.7); font-family:'Inter',sans-serif; font-size:11px; font-weight:500; padding:5px 10px; cursor:pointer; letter-spacing:0.03em; transition:all 0.2s;">EN</button>
+        <div class="status-dot" id="statusDot" title="Server Status"></div>
+    </div>
+</header>
+
+<!-- PROGRESS RAIL -->
+<div class="progress-rail" id="progressRail" aria-label="Calculation steps">
+    <div class="step-node">
+        <div class="step-circle active" id="stepCircle1"><span>1</span></div>
+        <div class="step-label active" id="stepLabel1" data-i18n="step_bill">Bill</div>
+    </div>
+    <div class="step-connector" id="stepConn1"></div>
+    <div class="step-node">
+        <div class="step-circle" id="stepCircle2"><span>2</span></div>
+        <div class="step-label" id="stepLabel2" data-i18n="step_review">Review</div>
+    </div>
+    <div class="step-connector" id="stepConn2"></div>
+    <div class="step-node">
+        <div class="step-circle" id="stepCircle3"><span>3</span></div>
+        <div class="step-label" id="stepLabel3" data-i18n="step_setup">Setup</div>
+    </div>
+    <div class="step-connector" id="stepConn3"></div>
+    <div class="step-node">
+        <div class="step-circle" id="stepCircle4"><span>4</span></div>
+        <div class="step-label" id="stepLabel4" data-i18n="step_roi">ROI</div>
+    </div>
+    <div class="step-connector" id="stepConn4"></div>
+    <div class="step-node">
+        <div class="step-circle" id="stepCircle5"><span>5</span></div>
+        <div class="step-label" id="stepLabel5" data-i18n="step_details">Details</div>
+    </div>
+</div>
+
+<!-- SCROLL AREA -->
+<div class="scroll-area">
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- CARD 1: BILL INTAKE                -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="card" id="card1">
+        <div class="card-header">
+            <div class="card-header-left">
+                <div class="card-step-badge" id="badge1"><span>1</span></div>
+                <div>
+                    <div class="card-label" data-i18n="step1_label">Step 1</div>
+                    <div class="card-title" data-i18n="step1_title">Your TNB Bill</div>
+                </div>
+            </div>
+            <div class="card-summary" id="billSummary"></div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="card-body">
+            <div class="field-group">
+
+                <div class="field">
+                    <label for="billAmount" data-i18n="lbl_billAmount">Monthly TNB Bill (RM)</label>
+                    <div class="input-shell">
+                        <span class="prefix">RM</span>
+                        <input type="number" id="billAmount" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="historicalAfaRate" data-i18n="lbl_afaPeriod">AFA Period</label>
+                    <div class="select-shell">
+                        <select id="historicalAfaRate">
+                            <option value="0.0000">JUL 2025 (0.00 sen)</option>
+                            <option value="-0.0145">AUG 2025 (-1.45 sen)</option>
+                            <option value="-0.0110">SEP 2025 (-1.10 sen)</option>
+                            <option value="-0.0650">OCT 2025 (-6.50 sen)</option>
+                            <option value="-0.0891">NOV 2025 (-8.91 sen)</option>
+                            <option value="-0.0642">DEC 2025 (-6.42 sen)</option>
+                            <option value="-0.0499">JAN 2026 (-4.99 sen)</option>
+                            <option value="-0.0509">FEB 2026 (-5.09 sen)</option>
+                            <option value="-0.0215">MAR 2026 (-2.15 sen)</option>
+                            <option value="-0.0047">APR 2026 (-0.47 sen)</option>
+                            <option value="-0.0039">MAY 2026 (-0.39 sen)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="lbl_phase">Electrical Phase</label>
+                    <div class="segmented" id="phaseSegmented">
+                        <button class="seg-btn active" data-phase="3" onclick="selectPhase(3)" data-i18n="phase_3">3 Phase</button>
+                        <button class="seg-btn" data-phase="1" onclick="selectPhase(1)" data-i18n="phase_1">1 Phase</button>
+                    </div>
+                    <input type="hidden" id="systemPhase" value="3">
+                </div>
+
+                <div class="field">
+                    <label data-i18n="lbl_inverter">Inverter Type</label>
+                    <div class="segmented" id="inverterSegmented">
+                        <button class="seg-btn active" data-inv="string" onclick="selectInverter('string')" data-i18n="inv_string">String</button>
+                        <button class="seg-btn" data-inv="hybrid" onclick="selectInverter('hybrid')" data-i18n="inv_hybrid">Hybrid</button>
+                    </div>
+                    <input type="hidden" id="inverterType" value="string">
+                </div>
+
+                <button class="btn-primary" id="billAnalyseBtn" onclick="handleBillAnalysis()">
+                    <span data-i18n="btn_analyseBill">Analyse Bill</span>
+                    <span>→</span>
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- CARD 2: BILL ANALYSIS LEDGER       -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="card locked" id="card2">
+        <div class="card-header">
+            <div class="card-header-left">
+                <div class="card-step-badge" id="badge2"><span>2</span></div>
+                <div>
+                    <div class="card-label" data-i18n="step2_label">Step 2</div>
+                    <div class="card-title" data-i18n="step2_title">Bill Breakdown</div>
+                </div>
+            </div>
+            <div class="card-summary" id="billBreakdownSummary"></div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="card-body no-pad" id="billBreakdownBody">
+            <div class="loading-spinner">
+                <div style="font-size:12px; color: var(--ink-3); text-align:center;">Complete Step 1 to see your bill breakdown</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- CARD 3: MODELING PARAMS            -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="card locked" id="card3">
+        <div class="card-header">
+            <div class="card-header-left">
+                <div class="card-step-badge" id="badge3"><span>3</span></div>
+                <div>
+                    <div class="card-label" data-i18n="step3_label">Step 3</div>
+                    <div class="card-title" data-i18n="step3_title">Solar Setup</div>
+                </div>
+            </div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="card-divider" id="card3DescDivider"></div>
+        <div class="desc-card" data-i18n-inner="desc_setup" id="descCard3">
+            <em data-i18n="desc_hint_label">Guide</em>
+            <p data-i18n="desc_setup"></p>
+        </div>
+        <div class="card-body" id="modelingParamsBody">
+            <div class="field-group">
+
+                <div class="field">
+                    <label data-i18n="lbl_sunPeak">Sun Peak Hours</label>
+                    <div class="stepper">
+                        <button class="stepper-btn" onclick="adjustField('sunPeakHour', -0.1, 3.0, 4.5)">−</button>
+                        <div class="stepper-value">
+                            <input type="number" id="sunPeakHour" value="3.4" step="0.1" min="3.0" max="4.5"
+                                oninput="debouncedLiveUpdate()" inputmode="decimal">
+                        </div>
+                        <button class="stepper-btn" onclick="adjustField('sunPeakHour', +0.1, 3.0, 4.5)">+</button>
+                    </div>
+                    <p style="font-size:11px; color:var(--ink-3); margin-top:4px;"><span data-i18n="hint_sunPeak">Malaysia standard: 3.4h. Higher = more optimistic.</span></p>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="lbl_dayUsage">Daytime Usage Share (%)</label>
+                    <div class="stepper">
+                        <button class="stepper-btn" onclick="adjustField('morningUsage', -5, 1, 100)">−</button>
+                        <div class="stepper-value">
+                            <input type="number" id="morningUsage" value="30" step="5" min="1" max="100"
+                                oninput="debouncedLiveUpdate()" inputmode="decimal">
+                        </div>
+                        <button class="stepper-btn" onclick="adjustField('morningUsage', +5, 1, 100)">+</button>
+                    </div>
+                    <p style="font-size:11px; color:var(--ink-3); margin-top:4px;"><span data-i18n="hint_dayUsage">% of your usage that happens during solar production hours.</span></p>
+                </div>
+
+                <button class="advanced-toggle" id="advToggle" onclick="toggleAdvanced()">
+                    <span data-i18n="lbl_advanced">Advanced Settings</span>
+                    <span class="chevron">▾</span>
+                </button>
+
+                <div class="advanced-content" id="advContent">
+                    <div class="field-group">
+
+                        <div class="field">
+                            <label data-i18n="lbl_panelRating">Panel Rating (W)</label>
+                            <div class="input-shell">
+                                <input type="number" id="panelRating" value="650" step="1" min="450" max="850"
+                                    oninput="debouncedLiveUpdate()" inputmode="numeric">
+                                <span class="prefix" style="font-size:14px; opacity:0.7;">W</span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label data-i18n="lbl_afaProjection">AFA Projection (RM/kWh)</label>
+                            <div class="input-shell">
+                                <input type="number" id="afaRate" value="0.0000" step="0.0001"
+                                    oninput="debouncedLiveUpdate()" inputmode="decimal">
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label data-i18n="lbl_exportRate">Export Rate (RM/kWh)</label>
+                            <div class="input-shell">
+                                <input type="number" id="smpPrice" value="0.2703" step="0.0001" min="0.19" max="0.2703"
+                                    oninput="debouncedLiveUpdate()" inputmode="decimal">
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label data-i18n="lbl_discount">Discount Protocol</label>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                <div>
+                                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:6px;" data-i18n="lbl_discPct">Percentage (%)</div>
+                                    <div class="input-shell" style="padding: 0 10px;">
+                                        <input type="number" id="percentDiscount" value="0" step="0.01" min="0" max="100"
+                                            oninput="debouncedLiveUpdate()" inputmode="decimal" style="font-size:15px; padding:12px 0;">
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:6px;" data-i18n="lbl_discFixed">Fixed (RM)</div>
+                                    <div class="input-shell" style="padding: 0 10px;">
+                                        <input type="number" id="fixedDiscount" value="0" step="0.01" min="0"
+                                            oninput="debouncedLiveUpdate()" inputmode="decimal" style="font-size:15px; padding:12px 0;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <button class="btn-primary" id="roiBtn" onclick="handleROIGenerate()">
+                    <span data-i18n="btn_generateROI">Generate ROI Matrix</span>
+                    <span>→</span>
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- CARD 4: ROI RESULT                 -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="card locked" id="card4">
+        <div class="card-header">
+            <div class="card-header-left">
+                <div class="card-step-badge" id="badge4"><span>4</span></div>
+                <div>
+                    <div class="card-label" data-i18n="step4_label">Step 4</div>
+                    <div class="card-title" data-i18n="step4_title">ROI Summary</div>
+                </div>
+            </div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="card-body" id="roiResultBody">
+            <div class="loading-spinner">
+                <div style="font-size:12px; color: var(--ink-3); text-align:center;" data-i18n="ph_step3">Complete Step 3 to see your ROI</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════ -->
+    <!-- CARD 5: DETAILED ANALYSIS          -->
+    <!-- ═══════════════════════════════════ -->
+    <div class="card locked" id="card5">
+        <div class="card-header">
+            <div class="card-header-left">
+                <div class="card-step-badge" id="badge5"><span>5</span></div>
+                <div>
+                    <div class="card-label" data-i18n="step5_label">Step 5</div>
+                    <div class="card-title" data-i18n="step5_title">Detailed Analysis</div>
+                </div>
+            </div>
+        </div>
+        <div class="card-divider"></div>
+        <div class="card-body" id="detailedBody">
+            <div class="loading-spinner">
+                <div style="font-size:12px; color: var(--ink-3); text-align:center;" data-i18n="ph_step4">Complete Step 4 first</div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /scroll-area -->
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- QUICK ADJUST BAR (appears after ROI is generated) -->
+<div class="quick-adjust" id="quickAdjustBar">
+    <div class="quick-adjust-title" data-i18n="qa_title">Quick Adjust · Results update live</div>
+    <div class="quick-adjust-row">
+        <div class="qa-item">
+            <div class="qa-label" data-i18n="qa_sun">☀ Sun Peak</div>
+            <div class="qa-control">
+                <button class="qa-btn" onclick="qAdjust('sunPeakHour', -0.1, 3.0, 4.5)">−</button>
+                <div class="qa-val" id="qaSun">3.4h</div>
+                <button class="qa-btn" onclick="qAdjust('sunPeakHour', +0.1, 3.0, 4.5)">+</button>
+            </div>
+        </div>
+        <div class="qa-item">
+            <div class="qa-label" data-i18n="qa_day">🌤 Day Usage</div>
+            <div class="qa-control">
+                <button class="qa-btn" onclick="qAdjust('morningUsage', -5, 1, 100)">−</button>
+                <div class="qa-val" id="qaDay">30%</div>
+                <button class="qa-btn" onclick="qAdjust('morningUsage', +5, 1, 100)">+</button>
+            </div>
+        </div>
+        <div class="qa-item">
+            <div class="qa-label" data-i18n="qa_panels">🔲 Panels</div>
+            <div class="qa-control">
+                <button class="qa-btn" id="qaPanelMinus" onclick="qAdjustPanels(-1)">−</button>
+                <div class="qa-val" id="qaPanels">—</div>
+                <button class="qa-btn" id="qaPanelPlus" onclick="qAdjustPanels(+1)">+</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- HIDDEN FIELDS (for API compat.) -->
+<input type="hidden" id="afaRateHidden" value="0">
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let currentTariffData = null;
+let currentHistoricalAfaRate = 0;
+let latestSolarParams = null;
+let latestSolarData = null;
+let originalSolarData = null;
+let selectedBillCycleMode = 'fullMonth';
+let futureUsageBlocks = Array(6).fill(false);
+let _liveDebounce = null;
+let _futureDebounce = null;
+let invoiceBaseUrl = '/create-invoice';
+
+const ALLOWED_BATTERY_SIZES = [0, 16, 32, 48];
+const EPP_RATES = {
+    "Maybank":      { 6:2.50, 12:3.50, 24:5.50, 36:6.00, 48:8.00, 60:10.00 },
+    "Public Bank":  { 6:2.50, 12:3.50, 18:4.00, 24:5.50, 36:6.00, 48:8.00, 60:10.00 },
+    "Hong Leong":   { 12:3.50, 24:5.50, 36:6.00, 48:8.00, 60:10.00 },
+    "CIMB":         { 6:2.50, 12:3.50 },
+    "UOB":          { 6:2.50, 12:3.50, 24:5.50, 48:8.50, 68:11.50 },
+    "OCBC":         { 6:4.00, 12:5.00, 18:6.00, 24:7.00, 36:8.00, 48:9.00 }
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.onload = async function() {
+    applyI18n();
+    applyHintsState();
+    checkHealth();
+    try {
+        const r = await fetch('/api/config');
+        if (r.ok) { const c = await r.json(); if (c.invoiceBaseUrl) invoiceBaseUrl = c.invoiceBaseUrl; }
+    } catch(e) {}
+};
+
+async function checkHealth() {
+    const dot = document.getElementById('statusDot');
+    try {
+        const r = await fetch('/api/health');
+        dot.style.background = r.ok ? '#4ade80' : '#f87171';
+    } catch { dot.style.background = '#f87171'; }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// UTILITY
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const fmt = (v, d=2) => Number(v||0).toLocaleString('en-MY', {minimumFractionDigits:d, maximumFractionDigits:d});
+const toN = (v, fb=0) => { const n=Number(v); return isFinite(n)?n:fb; };
+const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+
+function toast(msg, type='info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast${type==='error'?' error':''}`;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3100);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STEP NAVIGATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function setStep(step) {
+    // Steps 1–5
+    for (let i = 1; i <= 5; i++) {
+        const circle = document.getElementById(`stepCircle${i}`);
+        const label = document.getElementById(`stepLabel${i}`);
+        if (i < step) {
+            circle.className = 'step-circle done';
+            label.className = 'step-label done';
+        } else if (i === step) {
+            circle.className = 'step-circle active';
+            label.className = 'step-label active';
+        } else {
+            circle.className = 'step-circle';
+            label.className = 'step-label';
+        }
+        if (i <= 4) {
+            const conn = document.getElementById(`stepConn${i}`);
+            conn.className = i < step ? 'step-connector done' : 'step-connector';
+        }
+    }
+}
+
+function unlockCard(id, doneStep) {
+    const card = document.getElementById(id);
+    card.classList.remove('locked');
+    // Mark badge as done
+    const badge = document.getElementById(`badge${doneStep}`);
+    if (badge) { badge.className = 'card-step-badge done'; badge.querySelector('span').style.display='none'; }
+}
+
+function scrollToCard(id) {
+    const card = document.getElementById(id);
+    if (!card) return;
+    setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SEGMENTED CONTROLS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function selectPhase(phase) {
+    document.getElementById('systemPhase').value = phase;
+    document.querySelectorAll('#phaseSegmented .seg-btn').forEach(b => {
+        b.className = 'seg-btn' + (parseInt(b.dataset.phase) === phase ? ' active' : '');
+    });
+    debouncedLiveUpdate();
+}
+
+function selectInverter(type) {
+    document.getElementById('inverterType').value = type;
+    document.querySelectorAll('#inverterSegmented .seg-btn').forEach(b => {
+        b.className = 'seg-btn' + (b.dataset.inv === type ? ' active' : '');
+    });
+    debouncedLiveUpdate();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADVANCED TOGGLE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function toggleAdvanced() {
+    const btn = document.getElementById('advToggle');
+    const content = document.getElementById('advContent');
+    btn.classList.toggle('open');
+    content.classList.toggle('open');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STEPPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function adjustField(id, delta, min, max) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const step = id === 'sunPeakHour' ? 1 : 1;
+    let v = parseFloat(el.value) + delta;
+    v = Math.round(v * 10) / 10;
+    v = clamp(v, min, max);
+    el.value = v;
+    debouncedLiveUpdate();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STEP 1 → BILL ANALYSIS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function handleBillAnalysis() {
+    const billAmount = parseFloat(document.getElementById('billAmount').value);
+    const afaRate = parseFloat(document.getElementById('historicalAfaRate').value) || 0;
+
+    if (!billAmount || billAmount <= 0) {
+        return toast(t('err_invalidBill'), 'error');
+    }
+
+    const btn = document.getElementById('billAnalyseBtn');
+    btn.disabled = true;
+    btn.innerHTML = `<span>${t('analysing')}</span>`;
+
+    // Show loading in card 2
+    document.getElementById('card2').classList.remove('locked');
+    document.getElementById('billBreakdownBody').innerHTML = `<div class="loading-spinner"><div class="spinner"></div><div class="loading-text">${t('loading_tnb')}</div></div>`;
+    scrollToCard('card2');
+
+    try {
+        const url = `/api/calculate-bill?amount=${encodeURIComponent(billAmount)}&afaRate=${encodeURIComponent(afaRate)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error((await res.json().catch(()=>({}))).error || `Error ${res.status}`);
+        const data = await res.json();
+        if (!data.tariff) throw new Error('No matching tariff found');
+
+        currentTariffData = data.tariff;
+        currentHistoricalAfaRate = afaRate;
+
+        const mapped = {
+            usage_kwh: parseFloat(data.tariff.usage_kwh),
+            usage_normal: parseFloat(data.tariff.energy_charge ?? data.tariff.usage_normal ?? 0),
+            network: parseFloat(data.tariff.network_charge ?? data.tariff.network ?? 0),
+            capacity: parseFloat(data.tariff.capacity_charge ?? data.tariff.capacity ?? 0),
+            retail: parseFloat(data.tariff.retail_charge ?? data.tariff.retail ?? 0),
+            eei: parseFloat(data.tariff.energy_efficiency_incentive ?? data.tariff.eei ?? 0),
+            sst_normal: parseFloat(data.tariff.sst_tax ?? data.tariff.sst_normal ?? 0),
+            kwtbb_normal: parseFloat(data.tariff.kwtbb_fund ?? data.tariff.kwtbb_normal ?? 0),
+            bill_total_normal: parseFloat(data.tariff.total_bill ?? data.tariff.bill_total_normal ?? 0),
+            fuel_adjustment: parseFloat(data.tariff.fuel_adjustment ?? 0)
+        };
+
+        // Reset downstream
+        latestSolarParams = null;
+        latestSolarData = null;
+        originalSolarData = null;
+        futureUsageBlocks = Array(6).fill(false);
+
+        renderBillBreakdown(mapped, afaRate);
+        setStep(2);
+        unlockCard('card2', 1);
+        unlockCard('card3', null);
+        document.getElementById('card4').classList.add('locked');
+        document.getElementById('card5').classList.add('locked');
+        const qaBar = document.getElementById('quickAdjustBar'); if (qaBar) qaBar.style.display = 'none';
+
+        // Summary on card 1
+        const afaCharge = mapped.usage_kwh * afaRate;
+        const total = mapped.bill_total_normal + afaCharge;
+        document.getElementById('billSummary').textContent = `RM ${fmt(billAmount)}`;
+        document.getElementById(`badge1`).className = 'card-step-badge done';
+        document.getElementById(`badge1`).innerHTML = '';
+
+
+    } catch (err) {
+        document.getElementById('billBreakdownBody').innerHTML = `<div class="loading-spinner"><div style="font-size:13px; color:#7F1D1D; font-weight:700;">${err.message}</div></div>`;
+        document.getElementById('card2').classList.add('locked');
+        toast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>${t('btn_analyseBill')}</span><span>→</span>`;
+    }
+}
+
+function renderBillBreakdown(tariff, afaRate) {
+    const afaCharge = tariff.usage_kwh * afaRate;
+    const total = tariff.bill_total_normal + afaCharge;
+
+    const rows = [
+        { label: t('bill_energy'), value: tariff.usage_normal },
+        { label: t('bill_network'), value: tariff.network },
+        { label: t('bill_capacity'), value: tariff.capacity },
+        { label: t('bill_retail'), value: tariff.retail },
+        { label: t('bill_eei'), value: tariff.eei, note: tariff.eei < 0 ? t('bill_eei_sub') : '' },
+        { label: t('bill_sst'), value: tariff.sst_normal },
+        { label: t('bill_kwtbb'), value: tariff.kwtbb_normal },
+        { label: t('bill_afa'), value: afaCharge, green: afaCharge < 0 },
+    ];
+
+    document.getElementById('billBreakdownBody').innerHTML = `
+        ${descCard('desc_billBreakdown')}
+        <div style="padding: 0 20px;">
+            ${rows.map(r => `
+                <div class="ledger-row">
+                    <span class="ledger-label">${r.label}${r.note ? ` <span style="font-size:10px; color:var(--green-text)">(${r.note})</span>` : ''}</span>
+                    <span class="ledger-value${r.green ? ' ' : ''}" style="${r.green ? 'color:var(--green-text)' : ''}">${fmt(r.value)}</span>
+                </div>
+            `).join('')}
+            <div class="ledger-total-row">
+                <span class="ledger-total-label">${t('lbl_totalMatched')}</span>
+                <span class="ledger-total-value">RM ${fmt(total)}</span>
+            </div>
+            <div class="usage-badge" style="margin-bottom:20px;">
+                <span>⚡</span>
+                <span>${t('lbl_derivedUsage')} ${tariff.usage_kwh} ${t('lbl_kwhMo')}</span>
+            </div>
+        </div>
+        <div style="padding: 0 20px 20px; text-align:right;">
+            <span style="font-size:11px; color:var(--ink-3);">${t('lbl_matchedTolerance')}</span>
+        </div>
+    `;
+
+    document.getElementById('billBreakdownSummary').textContent = `${tariff.usage_kwh} kWh`;
+    document.getElementById('card3').classList.remove('locked');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STEP 3 → ROI GENERATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function handleROIGenerate() {
+    if (!currentTariffData) return toast(t('err_needBill'), 'error');
+
+    const btn = document.getElementById('roiBtn');
+    btn.disabled = true;
+    btn.innerHTML = `<span>${t('computing')}</span>`;
+
+    const params = collectParams({ batterySize: 0, overridePanels: '' });
+    latestSolarParams = params;
+
+    // Show card4
+    document.getElementById('card4').classList.remove('locked');
+    document.getElementById('roiResultBody').innerHTML = `<div class="loading-spinner"><div class="spinner"></div><div class="loading-text">${t('loading_roi')}</div></div>`;
+    setStep(4);
+
+    try {
+        const result = await fetchSolar(params);
+        latestSolarData = result;
+        originalSolarData = JSON.parse(JSON.stringify(result));
+
+        // Unlock cards + show bar immediately — before renders, so they can't block it
+        setStep(4);
+        unlockCard('card4', 3);
+        unlockCard('card5', null);
+        document.getElementById('badge3').className = 'card-step-badge done';
+        document.getElementById('badge3').innerHTML = '';
+        showQuickAdjustBar(result);
+
+        // Render each section independently so one failure doesn't hide the bar
+        try { renderROICard(result); } catch(e) { console.error('ROI render:', e); }
+        try { renderDetailedCard(result); } catch(e) { console.error('Detail render:', e); }
+
+        scrollToCard('card4');
+
+    } catch (err) {
+        document.getElementById('roiResultBody').innerHTML = `<div class="loading-spinner"><div style="font-size:13px; color:#7F1D1D; font-weight:700;">${err.message}</div></div>`;
+        toast(err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span>${t('btn_generateROI')}</span><span>→</span>`;
+    }
+}
+
+async function fetchSolar(params) {
+    const url = `/api/solar-calculation?${new URLSearchParams(params)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error((await res.json().catch(()=>({}))).error || `Error ${res.status}`);
+    return res.json();
+}
+
+function collectParams(overrides={}) {
+    return {
+        amount: parseFloat(document.getElementById('billAmount').value),
+        sunPeakHour: parseFloat(document.getElementById('sunPeakHour').value),
+        morningUsage: parseFloat(document.getElementById('morningUsage').value),
+        panelType: parseInt(document.getElementById('panelRating').value, 10) || 650,
+        smpPrice: parseFloat(document.getElementById('smpPrice').value) || 0.2703,
+        afaRate: parseFloat(document.getElementById('afaRate').value) || 0,
+        historicalAfaRate: currentHistoricalAfaRate,
+        percentDiscount: parseFloat(document.getElementById('percentDiscount')?.value) || 0,
+        fixedDiscount: parseFloat(document.getElementById('fixedDiscount')?.value) || 0,
+        systemPhase: parseInt(document.getElementById('systemPhase').value, 10) || 3,
+        inverterType: document.getElementById('inverterType').value || 'string',
+        batterySize: 0,
+        overridePanels: '',
+        ...overrides
+    };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BILL CYCLE HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const SHORT_BILL_CYCLE_SST_RATE = 0.08;
+
+function buildBillCycleMetrics(data) {
+    if (data?.billCycleModes?.fullMonth && data?.billCycleModes?.under28Days) return data.billCycleModes;
+    const ds = data?.details || {};
+    const afterBD = data?.billBreakdownComparison?.after || ds?.billBreakdown?.after || null;
+    const beforeBD = data?.billBreakdownComparison?.before || ds?.billBreakdown?.before || null;
+    const billBefore = toN(ds.billBefore, toN(beforeBD?.total));
+    const fullBillAfter = toN(ds.billAfter, toN(afterBD?.total));
+    const actualEeiSaving = toN(ds.actualEeiSaving, toN(data?.savingsBreakdown?.eeiSaving));
+    const exportSaving = toN(ds.exportSaving);
+    const fullBillReduction = toN(ds.billReduction, toN(data?.savingsBreakdown?.billReduction));
+    const fullTotalSavings = toN(data?.monthlySavings);
+    const fullPayableAfterSolar = Number.isFinite(Number(ds.estimatedPayableAfterSolar)) ? toN(ds.estimatedPayableAfterSolar) : Math.max(0, fullBillAfter - exportSaving);
+    const currentSst = toN(afterBD?.sst);
+    const shortCycleSstBase = toN(afterBD?.usage) + toN(afterBD?.network) + toN(afterBD?.capacity);
+    const recalculatedSst = shortCycleSstBase * SHORT_BILL_CYCLE_SST_RATE;
+    const under28BillAfter = Math.max(0, fullBillAfter - currentSst + recalculatedSst);
+    const under28GrossBillReduction = Math.max(0, billBefore - under28BillAfter);
+    const under28BillReduction = Math.max(0, under28GrossBillReduction - actualEeiSaving);
+    const under28TotalSavings = under28BillReduction + actualEeiSaving + exportSaving;
+    const under28PayableAfterSolar = Math.max(0, under28BillAfter - exportSaving);
+    return {
+        fullMonth: { key:'fullMonth', label:'Full Month', billAfter:fullBillAfter, billReduction:fullBillReduction, totalSavings:fullTotalSavings, payableAfterSolar:fullPayableAfterSolar, currentSst, recalculatedSst:currentSst, shortCycleSstBase },
+        under28Days: { key:'under28Days', label:'<28 Days', billAfter:under28BillAfter, billReduction:under28BillReduction, totalSavings:under28TotalSavings, payableAfterSolar:under28PayableAfterSolar, currentSst, recalculatedSst, shortCycleSstBase }
+    };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER ROI CARD (Step 4)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderROICard(data) {
+    const ds = data.details;
+    const cycles = buildBillCycleMetrics(data);
+    const active = selectedBillCycleMode === 'under28Days' ? cycles.under28Days : cycles.fullMonth;
+    const conf = parseFloat(data.confidenceLevel);
+
+    const roiPct = data.finalSystemCost && data.monthlySavings
+        ? ((data.monthlySavings * 12) / data.finalSystemCost * 100).toFixed(1)
+        : 'N/A';
+
+    document.getElementById('roiResultBody').innerHTML = `
+        <!-- Bill Cycle Toggle -->
+        <div style="background:var(--ink); padding:12px 20px 0;">
+            <div style="display:flex; background:rgba(255,255,255,0.1); border-radius:8px; padding:3px; gap:3px;">
+                <button class="cycle-btn${selectedBillCycleMode==='fullMonth'?' active':''}" onclick="setBillCycle('fullMonth')">${t('lbl_fullMonth')}</button>
+                <button class="cycle-btn${selectedBillCycleMode==='under28Days'?' active':''}" onclick="setBillCycle('under28Days')">${t('lbl_under28')}</button>
+            </div>
+        </div>
+
+        ${descCard('desc_roi', 'desc_roi_sub')}
+        <!-- Hero Savings -->
+        <div class="roi-hero">
+            <div class="roi-hero-label">${t('lbl_monthlySavings')}</div>
+            <div class="roi-hero-saving">RM ${fmt(active.totalSavings)}</div>
+            <div class="roi-hero-sub">(${active.label} Bill Cycle)</div>
+
+            <div style="margin-top:16px; height:1px; background:rgba(255,255,255,0.15);"></div>
+
+            <div class="roi-meta" style="margin-top:14px;">
+                <div class="roi-meta-item">
+                    <div class="roi-meta-num">${data.paybackPeriod}<span style="font-size:14px; font-weight:500;">yr</span></div>
+                    <div class="roi-meta-label">${t('lbl_payback')}</div>
+                </div>
+                <div class="roi-meta-item">
+                    <div class="roi-meta-num">${roiPct !== 'N/A' ? roiPct+'%' : 'N/A'}</div>
+                    <div class="roi-meta-label">${t('lbl_annualRoi')}</div>
+                </div>
+                <div class="roi-meta-item">
+                    <div class="roi-meta-num" style="font-size:16px;">RM ${fmt(data.finalSystemCost)}</div>
+                    <div class="roi-meta-label">${t('lbl_netCost')}</div>
+                </div>
+            </div>
+
+            <!-- Confidence -->
+            <div class="confidence-bar-wrap">
+                <div class="confidence-label-row">
+                    <span style="font-size:10px; font-weight:500; opacity:0.5;">${t('lbl_confidence')}</span>
+                    <span style="font-size:14px; font-weight:800;">${conf}%</span>
+                </div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill ${conf >= 75 ? 'high' : conf >= 50 ? 'mid' : 'low'}" style="width:${conf}%"></div>
+                </div>
+            </div>
+
+            ${data.requiresSedaFee ? `
+            <div class="seda-warning" style="background:rgba(254,243,199,0.15); border-color:rgba(217,119,6,0.6); margin-top:12px;">
+                <div class="seda-warning-title" style="color:#FDE68A;">${t('lbl_sedaFee')}</div>
+                <div class="seda-warning-text" style="color:rgba(255,255,255,0.6); font-size:11px;">${t("lbl_sedaDesc")} ${data.config.systemPhase == 1 ? 5.01 : 15.01}kW (${data.config.systemPhase}${t("lbl_phase_txt")})</div>
+            </div>
+            ` : ''}
+        </div>
+
+        <!-- System Info -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:8px;">
+            <div style="background:var(--surface); padding:16px 20px;">
+                <div style="font-size:10px; font-weight:500; color:var(--ink-3); margin-bottom:6px;">${t('lbl_systemSize')}</div>
+                <div style="font-size:22px; font-weight:900; letter-spacing:-0.02em;">${data.systemSizeKwp} <span style="font-size:14px; font-weight:500;">kWp</span></div>
+                <div style="font-size:11px; color:var(--ink-3); margin-top:4px;">${data.actualPanels} × ${data.config.panelType}W panels</div>
+            </div>
+            <div style="background:var(--surface); padding:16px 20px;">
+                <div style="font-size:10px; font-weight:500; color:var(--ink-3); margin-bottom:6px;">${t('lbl_newBill')}</div>
+                <div style="font-size:22px; font-weight:900; letter-spacing:-0.02em;">RM ${fmt(active.payableAfterSolar)}</div>
+                <div style="font-size:11px; color:var(--ink-3); margin-top:4px;">${t('lbl_was')} ${fmt(ds.billBefore)}</div>
+            </div>
+        </div>
+
+        <!-- Savings Breakdown -->
+        <div class="savings-breakdown">
+            <div class="savings-item">
+                <div class="savings-item-num">RM ${fmt(active.billReduction)}</div>
+                <div class="savings-item-label">${t('lbl_billReduction')}</div>
+            </div>
+            <div class="savings-item">
+                <div class="savings-item-num">RM ${fmt(ds.actualEeiSaving)}</div>
+                <div class="savings-item-label">${t('lbl_eeiSaving')}</div>
+            </div>
+            <div class="savings-item">
+                <div class="savings-item-num">RM ${fmt(ds.exportSaving)}</div>
+                <div class="savings-item-label">${t('lbl_exportCredit')}</div>
+            </div>
+        </div>
+
+        <!-- Package -->
+        ${data.selectedPackage ? `
+        <div style="background:var(--ink); color:white; border-top:1px solid rgba(255,255,255,0.1); padding:16px 20px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <div>
+                <div style="font-size:9px; font-weight:500; opacity:0.5; margin-bottom:3px;">${t('lbl_matchedPackage')}</div>
+                <div style="font-size:14px; font-weight:700;">${data.selectedPackage.packageName}</div>
+            </div>
+            <div style="text-align:right; flex-shrink:0;">
+                <div style="font-size:18px; font-weight:900;">RM ${fmt(data.finalSystemCost)}</div>
+                ${data.totalDiscountAmount > 0 ? `<div style="font-size:10px; opacity:0.6; color:#4ade80;">-RM ${fmt(data.totalDiscountAmount)}</div>` : ''}
+            </div>
+        </div>
+        ` : ''}
+
+        <!-- EPP Calculator -->
+        <div style="background:var(--bg); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:16px 20px; margin-bottom:8px;">
+            <div style="font-size:11px; font-weight:500; color:var(--ink-3); margin-bottom:12px;">${t('lbl_epp')}</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                <div>
+                    <div style="font-size:10px; font-weight:500; color:var(--ink-3); margin-bottom:5px;">${t('lbl_bank')}</div>
+                    <div class="select-shell" style="border-width:1.5px;">
+                        <select id="eppBank" onchange="updateEPP()">
+                            ${Object.keys(EPP_RATES).map(b => `<option value="${b}">${b}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:10px; font-weight:500; color:var(--ink-3); margin-bottom:5px;">${t('lbl_tenure')}</div>
+                    <div class="select-shell" style="border-width:1.5px;">
+                        <select id="eppTenure" onchange="updateEPP()"></select>
+                    </div>
+                </div>
+            </div>
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+                    <span style="font-size:12px; color:var(--ink-3);">${t('lbl_monthlyPayment')}</span>
+                    <span id="eppResult" style="font-size:22px; font-weight:900;">RM 0.00</span>
+                </div>
+                <div id="eppDetails" style="font-size:11px; display:flex; flex-direction:column; gap:3px;"></div>
+            </div>
+            <div id="eppNote" style="font-size:10px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:6px; padding:8px 10px; margin-top:8px; color:#92400E;"></div>
+        </div>
+
+        <!-- Quotation CTA -->
+        <div class="quotation-cta">
+            <div style="font-size:16px; font-weight:600;">${t('lbl_readySolar')}</div>
+            <p>${t('lbl_quotationSub')}</p>
+            <button class="btn-quotation" onclick="handleGenerateQuotation()">
+                <span>📋</span>
+                ${t('btn_createQuotation')}
+            </button>
+        </div>
+    `;
+
+    // Init EPP after render
+    setTimeout(() => updateEPP(), 0);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BILL CYCLE TOGGLE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function setBillCycle(mode) {
+    selectedBillCycleMode = mode;
+    if (latestSolarData) renderROICard(latestSolarData);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EPP CALCULATOR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function updateEPP() {
+    const bankEl = document.getElementById('eppBank');
+    const tenureEl = document.getElementById('eppTenure');
+    if (!bankEl || !tenureEl || !latestSolarData?.finalSystemCost) return;
+
+    const bank = bankEl.value;
+    const rates = EPP_RATES[bank] || {};
+    const tenures = Object.keys(rates).sort((a,b) => parseInt(a)-parseInt(b));
+    const curTenure = tenureEl.value;
+    tenureEl.innerHTML = tenures.map(tn => `<option value="${tn}">${tn} ${t('lbl_months')}</option>`).join('');
+    if (tenures.includes(curTenure)) tenureEl.value = curTenure;
+    else tenureEl.value = tenures[tenures.length - 1];
+
+    const tenure = parseInt(tenureEl.value);
+    const rate = rates[tenure] || 0;
+    const fullPrice = parseFloat(latestSolarData.finalSystemCost);
+    const downpayment = fullPrice * 0.05;
+    const financed = fullPrice * 0.95;
+    const monthly = (financed * (1 + rate/100)) / tenure;
+    const feeAmt = financed * (rate/100);
+
+    const resEl = document.getElementById('eppResult');
+    const detEl = document.getElementById('eppDetails');
+    const noteEl = document.getElementById('eppNote');
+    if (resEl) resEl.textContent = `RM ${fmt(monthly)}`;
+    if (detEl) detEl.innerHTML = `
+        <div class="epp-row"><span class="epp-label">${t('lbl_systemPrice')}</span><span class="epp-val">RM ${fmt(fullPrice)}</span></div>
+        <div class="epp-row" style="color:var(--red);"><span class="epp-label">${t('lbl_downpayment')}</span><span class="epp-val">-RM ${fmt(downpayment)}</span></div>
+        <div class="epp-row" style="border-top:1px solid var(--border); padding-top:5px; margin-top:3px;"><span class="epp-label">${t('lbl_financed')}</span><span class="epp-val" style="font-weight:600;">RM ${fmt(financed)}</span></div>
+        <div class="epp-row"><span class="epp-label">${t('lbl_eppInterest')} (${rate}%)</span><span class="epp-val" style="color:#6B21A8;">RM ${fmt(feeAmt)}</span></div>
+    `;
+    if (noteEl) noteEl.innerHTML = `<strong>${t('lbl_eppImportant')}</strong> ${t('lbl_eppNote', fmt(downpayment), rate)}`;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER DETAILED CARD (Step 5)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderDetailedCard(data) {
+    const ds = data.details;
+    const b = ds.battery?.baseline || {};
+    const battItems = data.billBreakdownComparison?.items || [];
+    const battSize = normalizeBattery(data.config.batterySize);
+
+    document.getElementById('detailedBody').innerHTML = `
+        ${descCard('desc_detailed')}
+        <!-- Savings Ledger -->
+        <div style="margin-bottom:24px;">
+            <div style="font-size:13px; font-weight:600; color:var(--ink); margin-bottom:10px;">${t('lbl_billComponents')}</div>
+            <div class="ledger-table-header">
+                <div class="lthr" style="text-align:left;">${t('th_item')}</div>
+                <div class="lthr">${t('th_before')}</div>
+                <div class="lthr">${t('th_after')}</div>
+                <div class="lthr">${t('th_saved')}</div>
+            </div>
+            ${battItems.map(i => `
+                <div class="ledger-table-row">
+                    <div class="ltc">${i.label}</div>
+                    <div class="ltc">${fmt(i.before)}</div>
+                    <div class="ltc">${fmt(i.after)}</div>
+                    <div class="ltc ${i.delta >= 0 ? 'green' : 'red'}">${i.delta >= 0 ? '-' : '+'}${fmt(Math.abs(i.delta))}</div>
+                </div>
+            `).join('')}
+        </div>
+
+        <!-- Energy Flows -->
+        <div style="margin-bottom:24px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
+            ${descCard('desc_energyFlows')}
+        <div style="font-size:13px; font-weight:600; margin-bottom:12px; padding-top:4px;">${t('lbl_energyFlows')}</div>
+            <div class="field-group" style="gap:8px;">
+                ${[
+                    [t('lbl_monthlyUsage'), `${fmt(ds.monthlyUsageKwh, 0)} kWh`],
+                    [t('lbl_solarGen'), `${fmt(ds.monthlySolarGeneration, 1)} kWh`],
+                    [t('lbl_netGrid'), `${fmt(ds.netUsageKwh, 1)} kWh`],
+                    [t('lbl_exportFit'), `${fmt(ds.exportKwh, 1)} kWh @ RM${parseFloat(ds.effectiveExportRate).toFixed(4)}`],
+                    [t('lbl_backupGen'), `${fmt(ds.backupGenerationKwh, 1)} kWh`],
+                    ...(parseFloat(ds.donatedKwh) > 0 ? [[t('lbl_donated'), `${fmt(ds.donatedKwh, 1)} kWh`]] : []),
+                ].map(([l, v]) => `
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:13px; padding:5px 0; border-bottom:1px solid var(--border);">
+                        <span style="color:var(--ink-2);">${l}</span>
+                        <span style="font-weight:700;">${v}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <!-- Battery Storage -->
+        <div style="margin-bottom:24px;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:6px;">${t('lbl_battery')}</div>
+        ${descCard('desc_battery')}
+            <div class="battery-btns">
+                ${ALLOWED_BATTERY_SIZES.map(s => `
+                    <button class="battery-btn${battSize === s ? ' active' : ''}" onclick="selectBattery(${s})">
+                        ${s === 0 ? t('lbl_batteryNone') : s + ' kWh'}
+                    </button>
+                `).join('')}
+            </div>
+            ${battSize > 0 ? `
+            <div style="margin-top:12px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                <div style="display:flex; flex-direction:column; gap:8px; font-size:12px;">
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_solarToBat')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.nonOffsetSolarKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_batStored')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyStoredKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_excessExport')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyExcessExportKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border);"><span style="font-weight:600;">${t('lbl_valueAdd')}</span><span style="font-weight:900; color:var(--green-text);">+RM ${fmt(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings||data.monthlySavings))}/mo</span></div>
+                </div>
+                <p style="font-size:10px; color:var(--ink-3); margin-top:8px;">${t('lbl_batEffNote')}</p>
+            </div>
+            ` : `<p style="font-size:12px; color:var(--ink-3); margin-top:8px;">${t('lbl_battery')} — ${t('lbl_batteryNone')}</p>`}
+        </div>
+
+        <!-- Future Usage Stress Test -->
+        <div style="margin-bottom:12px;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:4px;">${t('lbl_futureTest')}</div>
+        ${descCard('desc_futureTest')}
+            <p style="font-size:11px; color:var(--ink-3); margin-bottom:12px;">${t('lbl_futureDesc')}</p>
+            <div class="future-blocks">
+                ${futureUsageBlocks.map((active, i) => `
+                    <div class="future-block${active?' active':''}" onclick="toggleFutureBlock(${i})">
+                        <span class="future-block-label">${t('lbl_block')} ${i+1}</span>
+                        <span class="future-block-kwh">+200</span>
+                        <span style="font-size:9px; opacity:0.7; display:block; margin-top:1px;">kWh</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div id="futureResult" style="margin-top:14px;"></div>
+        </div>
+    `;
+
+    document.getElementById('card5').classList.remove('locked');
+    document.getElementById('badge4').className = 'card-step-badge done';
+    document.getElementById('badge4').innerHTML = '';
+    setStep(5);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BATTERY SELECTION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function normalizeBattery(v) {
+    const n = Number(v);
+    return ALLOWED_BATTERY_SIZES.includes(n) ? n : 0;
+}
+
+function selectBattery(size) {
+    if (!latestSolarParams) return;
+    latestSolarParams.batterySize = size;
+    debouncedLiveUpdate();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FUTURE USAGE BLOCKS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function toggleFutureBlock(i) {
+    futureUsageBlocks[i] = !futureUsageBlocks[i];
+    if (latestSolarData) {
+        renderDetailedCard(latestSolarData);
+        debouncedFutureUpdate();
+    }
+}
+
+function debouncedFutureUpdate() {
+    clearTimeout(_futureDebounce);
+    _futureDebounce = setTimeout(() => runFutureUpdate(), 200);
+}
+
+async function runFutureUpdate() {
+    const resultEl = document.getElementById('futureResult');
+    if (!resultEl || !latestSolarData || !latestSolarParams) return;
+    const boostKwh = futureUsageBlocks.filter(Boolean).length * 200;
+    if (boostKwh <= 0) { resultEl.innerHTML = ''; return; }
+
+    resultEl.innerHTML = `<div class="loading-spinner" style="padding:20px;"><div class="spinner"></div><div class="loading-text">Recomputing...</div></div>`;
+    try {
+        const baseUsage = toN(latestSolarData.details?.monthlyUsageKwh, 0);
+        const projected = baseUsage + boostKwh;
+        const params = collectParams({
+            batterySize: latestSolarParams.batterySize || 0,
+            overridePanels: latestSolarData.actualPanels,
+            futureUsageKwh: projected,
+            skipResidentialPanelGate: true
+        });
+        const result = await fetchSolar(params);
+        const savedDelta = toN(result.monthlySavings) - toN(latestSolarData.monthlySavings);
+        resultEl.innerHTML = `
+            <div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                <div style="font-size:11px; font-weight:500; color:var(--ink-3); margin-bottom:8px;">${t('lbl_futureProjection', boostKwh)}</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
+                        <div style="font-size:10px; color:var(--ink-3); font-weight:500; margin-bottom:4px;">${t('lbl_futureBill')}</div>
+                        <div style="font-size:18px; font-weight:900;">RM ${fmt(result.details?.billBefore)}</div>
+                    </div>
+                    <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
+                        <div style="font-size:10px; color:var(--ink-3); font-weight:500; margin-bottom:4px;">${t('lbl_afterSolar')}</div>
+                        <div style="font-size:18px; font-weight:900; color:var(--green-text);">RM ${fmt(result.details?.billAfter)}</div>
+                    </div>
+                    <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
+                        <div style="font-size:10px; color:var(--ink-3); font-weight:500; margin-bottom:4px;">${t('lbl_newSavings')}</div>
+                        <div style="font-size:18px; font-weight:900; color:var(--green-text);">RM ${fmt(result.monthlySavings)}</div>
+                    </div>
+                    <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
+                        <div style="font-size:10px; color:var(--ink-3); font-weight:500; margin-bottom:4px;">${t('lbl_savingsChange')}</div>
+                        <div style="font-size:18px; font-weight:900; color:${savedDelta >= 0 ? 'var(--green-text)' : 'var(--red)'};">${savedDelta >= 0 ? '+' : ''}RM ${fmt(Math.abs(savedDelta))}</div>
+                    </div>
+                </div>
+                <div style="font-size:11px; color:var(--ink-3); margin-top:8px;">${t('lbl_panelNote', latestSolarData.actualPanels, result.paybackPeriod)}</div>
+            </div>
+        `;
+    } catch(err) {
+        resultEl.innerHTML = `<div style="font-size:12px; color:var(--red);">${err.message}</div>`;
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LIVE UPDATE (spontaneous re-calculation)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function debouncedLiveUpdate() {
+    if (!latestSolarParams && !latestSolarData) return; // don't fire before first ROI
+    clearTimeout(_liveDebounce);
+    _liveDebounce = setTimeout(() => runLiveUpdate(), 250);
+}
+
+async function runLiveUpdate() {
+    if (!currentTariffData) return;
+    try {
+        const params = collectParams({
+            batterySize: latestSolarParams?.batterySize || 0,
+            overridePanels: latestSolarParams?.overridePanels || ''
+        });
+        latestSolarParams = params;
+        const result = await fetchSolar(params);
+        latestSolarData = result;
+        renderROICard(result);
+        renderDetailedCard(result);
+        updateQuickBar(result);
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// QUICK ADJUST BAR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function showQuickAdjustBar(data) {
+    const bar = document.getElementById('quickAdjustBar');
+    if (bar) { bar.setAttribute("style", "display: block !important; position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important;"); }
+    updateQuickBar(data);
+    console.log('QuickAdjustBar shown, panels:', data?.actualPanels);
+}
+
+function updateQuickBar(data) {
+    const sun = document.getElementById('sunPeakHour');
+    const day = document.getElementById('morningUsage');
+    if (sun) document.getElementById('qaSun').textContent = parseFloat(sun.value).toFixed(1) + 'h';
+    if (day) document.getElementById('qaDay').textContent = day.value + '%';
+    document.getElementById('qaPanels').textContent = data?.actualPanels ?? '—';
+
+    // Panel gates
+    if (data) {
+        const rec = Math.max(1, Math.floor(toN(data.recommendedPanels, data.actualPanels || 1)));
+        const sp = parseInt(data.config?.systemPhase, 10) || 3;
+        const baseMin = Math.max(1, rec - 2);
+        const minP = sp === 1 ? Math.min(baseMin, 10) : baseMin;
+        const maxP = rec + 20;
+        document.getElementById('qaPanelMinus').disabled = data.actualPanels <= minP;
+        document.getElementById('qaPanelPlus').disabled = data.actualPanels >= maxP;
+    }
+}
+
+function qAdjust(id, delta, min, max) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let v = parseFloat(el.value) + delta;
+    v = Math.round(v * 10) / 10;
+    v = clamp(v, min, max);
+    el.value = v;
+    const qEl = id === 'sunPeakHour' ? 'qaSun' : 'qaDay';
+    document.getElementById(qEl).textContent = id === 'sunPeakHour' ? v.toFixed(1) + 'h' : v + '%';
+    clearTimeout(_liveDebounce);
+    _liveDebounce = setTimeout(() => runLiveUpdate(), 250);
+}
+
+function qAdjustPanels(delta) {
+    if (!latestSolarData) return;
+    const rec = Math.max(1, Math.floor(toN(latestSolarData.recommendedPanels, latestSolarData.actualPanels || 1)));
+    const sp = parseInt(latestSolarData.config?.systemPhase, 10) || 3;
+    const baseMin = Math.max(1, rec - 2);
+    const minP = sp === 1 ? Math.min(baseMin, 10) : baseMin;
+    const maxP = rec + 20;
+    const newCount = clamp(latestSolarData.actualPanels + delta, minP, maxP);
+    if (!latestSolarParams) return;
+    latestSolarParams.overridePanels = newCount;
+    clearTimeout(_liveDebounce);
+    _liveDebounce = setTimeout(() => runLiveUpdate(), 150);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// QUOTATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function handleGenerateQuotation() {
+    if (!currentTariffData || !latestSolarData) { toast(t('err_needROI'), 'error'); return; }
+    if (!latestSolarData.selectedPackage?.linked_package) { toast(t('err_noPackage'), 'error'); return; }
+
+    const params = new URLSearchParams();
+    params.set('linked_package', latestSolarData.selectedPackage.linked_package);
+    if (latestSolarParams?.percentDiscount > 0 || latestSolarParams?.fixedDiscount > 0) {
+        let d = '';
+        if (latestSolarParams.fixedDiscount > 0) d += latestSolarParams.fixedDiscount;
+        if (latestSolarParams.percentDiscount > 0) { if (d) d += ' '; d += latestSolarParams.percentDiscount + '%'; }
+        if (d) params.set('discount_given', d);
+    }
+    params.set('customer_name', 'Sample Quotation');
+    if (latestSolarData.actualPanels) params.set('panel_qty', latestSolarData.actualPanels);
+    if (latestSolarData.config?.panelType) params.set('panel_rating', latestSolarData.config.panelType + 'W');
+    if (latestSolarData.config?.systemPhase) params.set('system_phase', latestSolarData.config.systemPhase);
+    if (latestSolarData.config?.inverterType) params.set('inverter_type', latestSolarData.config.inverterType);
+    const cycles = buildBillCycleMetrics(latestSolarData);
+    const active = cycles[selectedBillCycleMode] || cycles.fullMonth;
+    if (latestSolarData.details?.billBefore) params.set('customer_average_tnb', latestSolarData.details.billBefore);
+    if (active?.totalSavings != null) params.set('estimated_saving', active.totalSavings.toFixed(2));
+    if (active?.payableAfterSolar != null) params.set('estimated_new_bill_amount', active.payableAfterSolar.toFixed(2));
+    if (latestSolarData.config?.sunPeakHour != null) params.set('solar_sun_peak_hour', latestSolarData.config.sunPeakHour);
+    if (latestSolarData.config?.morningUsage != null) params.set('solar_morning_usage_percent', latestSolarData.config.morningUsage);
+
+    window.location.assign(`${invoiceBaseUrl}?${params.toString()}`);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// NAVIGATION LINKS (passive)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// (Desktop version accessible via /domestic)
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// I18N — EN / ZH
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _lang = localStorage.getItem('solar_lang') || 'en';
+let _hintsVisible = localStorage.getItem('solar_hints') !== 'off';
+
+function descCard(mainKey, subKey) {
+    if (!_hintsVisible) return '';
+    const sub = subKey ? `<p>${t(subKey)}</p>` : '';
+    return `<div class="desc-card"><em>${t('desc_hint_label')}</em><p>${t(mainKey)}</p>${sub}</div>`;
+}
+
+function toggleHints() {
+    _hintsVisible = !_hintsVisible;
+    localStorage.setItem('solar_hints', _hintsVisible ? 'on' : 'off');
+    applyHintsState();
+    // Re-render dynamic cards if they exist
+    if (latestSolarData) { renderROICard(latestSolarData); renderDetailedCard(latestSolarData); }
+    if (currentTariffData) {
+        const el = document.getElementById('billBreakdownBody');
+        if (el && el.querySelector('.desc-card, .ledger-row')) {
+            // re-render bill breakdown
+            const afaCharge = (currentTariffData.usage_kwh||0) * currentHistoricalAfaRate;
+            renderBillBreakdown({
+                usage_kwh: parseFloat(currentTariffData.usage_kwh),
+                usage_normal: parseFloat(currentTariffData.energy_charge ?? currentTariffData.usage_normal ?? 0),
+                network: parseFloat(currentTariffData.network_charge ?? currentTariffData.network ?? 0),
+                capacity: parseFloat(currentTariffData.capacity_charge ?? currentTariffData.capacity ?? 0),
+                retail: parseFloat(currentTariffData.retail_charge ?? currentTariffData.retail ?? 0),
+                eei: parseFloat(currentTariffData.energy_efficiency_incentive ?? currentTariffData.eei ?? 0),
+                sst_normal: parseFloat(currentTariffData.sst_tax ?? currentTariffData.sst_normal ?? 0),
+                kwtbb_normal: parseFloat(currentTariffData.kwtbb_fund ?? currentTariffData.kwtbb_normal ?? 0),
+                bill_total_normal: parseFloat(currentTariffData.total_bill ?? currentTariffData.bill_total_normal ?? 0),
+                fuel_adjustment: parseFloat(currentTariffData.fuel_adjustment ?? 0)
+            }, currentHistoricalAfaRate);
+        }
+    }
+}
+
+function applyHintsState() {
+    const btn = document.getElementById('hintToggleBtn');
+    // Static desc-cards in HTML
+    document.querySelectorAll('.desc-card[data-i18n-inner]').forEach(el => {
+        el.style.display = _hintsVisible ? '' : 'none';
+    });
+    const dividers = document.querySelectorAll('#card3DescDivider');
+    dividers.forEach(el => el.style.display = _hintsVisible ? '' : 'none');
+    if (btn) btn.className = _hintsVisible ? 'hints-btn active' : 'hints-btn';
+}
+
+const TRANSLATIONS = {
+  en: {
+    appSubtitle: 'Solar ROI · v2 Mobile',
+    step_bill: 'Bill', step_review: 'Review', step_setup: 'Setup', step_roi: 'ROI', step_details: 'Details',
+    step1_label: 'Step 1', step1_title: 'Your TNB Bill',
+    step2_label: 'Step 2', step2_title: 'Bill Breakdown',
+    step3_label: 'Step 3', step3_title: 'Solar Setup',
+    step4_label: 'Step 4', step4_title: 'ROI Summary',
+    step5_label: 'Step 5', step5_title: 'Detailed Analysis',
+    lbl_billAmount: 'Monthly TNB Bill (RM)',
+    lbl_afaPeriod: 'AFA Period',
+    lbl_phase: 'Electrical Phase',
+    phase_3: '3 Phase', phase_1: '1 Phase',
+    lbl_inverter: 'Inverter Type',
+    inv_string: 'String', inv_hybrid: 'Hybrid',
+    btn_analyseBill: 'Analyse Bill',
+    lbl_sunPeak: 'Sun Peak Hours',
+    hint_sunPeak: 'Malaysia standard: 3.4h. Higher = more optimistic.',
+    lbl_dayUsage: 'Daytime Usage Share (%)',
+    hint_dayUsage: '% of your usage that happens during solar production hours.',
+    lbl_advanced: 'Advanced Settings',
+    lbl_panelRating: 'Panel Rating (W)',
+    lbl_afaProjection: 'AFA Projection (RM/kWh)',
+    lbl_exportRate: 'Export Rate (RM/kWh)',
+    lbl_discount: 'Discount Protocol',
+    lbl_discPct: 'Percentage (%)', lbl_discFixed: 'Fixed (RM)',
+    btn_generateROI: 'Generate ROI Matrix',
+    ph_step3: 'Complete Step 3 to see your ROI',
+    ph_step4: 'Complete Step 4 first',
+    qa_title: 'Quick Adjust · Results update live',
+    qa_sun: '☀ Sun Peak', qa_day: '🌤 Day Usage', qa_panels: '🔲 Panels',
+    // Dynamic strings
+    analysing: 'Analysing...', computing: 'Computing ROI...',
+    err_invalidBill: 'Please enter a valid bill amount',
+    err_needBill: 'Complete bill analysis first',
+    err_noPackage: 'No valid package matched',
+    err_needROI: 'Complete the ROI analysis first',
+    loading_tnb: 'Querying TNB database',
+    loading_roi: 'Computing ROI Matrix',
+    lbl_fullMonth: 'Full Month', lbl_under28: '<28 Days',
+    lbl_monthlySavings: 'Monthly Savings',
+    lbl_payback: 'Payback', lbl_annualRoi: 'Annual ROI', lbl_netCost: 'Net Cost',
+    lbl_confidence: 'Confidence Level',
+    lbl_sedaFee: '⚠ SEDA Fee Required',
+    lbl_sedaDesc: 'RM 1,000 oversize registration fee for systems ≥',
+    lbl_phase_txt: '-phase',
+    lbl_systemSize: 'System Size', lbl_newBill: 'New Bill', lbl_was: 'was RM',
+    lbl_billReduction: 'Bill Reduction', lbl_eeiSaving: 'EEI Saving', lbl_exportCredit: 'Export Credit',
+    lbl_matchedPackage: 'Matched Package',
+    lbl_epp: 'Monthly Instalment (EPP)',
+    lbl_bank: 'Bank', lbl_tenure: 'Tenure', lbl_monthlyPayment: 'Monthly Payment',
+    lbl_eppImportant: 'IMPORTANT:',
+    lbl_eppNote: '1st 5% downpayment (RM {0}) via Cash/Credit Card. EPP interest {1}% applies to remaining 95%.',
+    lbl_readySolar: 'Ready to go Solar?',
+    lbl_quotationSub: 'Generate a full quotation link for your customer',
+    btn_createQuotation: '📋 Create Quotation Link',
+    lbl_billComponents: 'Bill Component Breakdown',
+    th_item: 'Item', th_before: 'Before', th_after: 'After', th_saved: 'Saved',
+    lbl_energyFlows: 'Energy Flows',
+    lbl_monthlyUsage: 'Monthly Usage', lbl_solarGen: 'Solar Generation',
+    lbl_netGrid: 'Net Grid Import', lbl_exportFit: 'Export (FiT)',
+    lbl_backupGen: 'Backup Gen', lbl_donated: 'Donated to Grid',
+    lbl_battery: 'Battery Storage', lbl_batteryNone: 'None',
+    lbl_solarToBat: 'Solar to Battery', lbl_batStored: 'Battery Stored',
+    lbl_excessExport: 'Excess Export', lbl_valueAdd: 'Value Add',
+    lbl_batEffNote: '95% charging efficiency before export calculation.',
+    lbl_futureTest: 'Future Usage Stress Test',
+    lbl_futureDesc: 'Toggle +200 kWh blocks to simulate future household growth with the current system fixed.',
+    lbl_block: 'Block',
+    lbl_futureProjection: 'Future Projection (+{0} kWh/mo)',
+    lbl_futureBill: 'FUTURE BILL', lbl_afterSolar: 'AFTER SOLAR',
+    lbl_newSavings: 'NEW SAVINGS', lbl_savingsChange: 'SAVINGS CHANGE',
+    lbl_panelNote: 'System stays at {0} panels · Payback: {1} yr',
+    lbl_matchedTolerance: 'Matched ±0.01% tolerance',
+    lbl_derivedUsage: 'Derived Usage:',
+    lbl_totalMatched: 'Total Matched',
+    bill_energy: 'Energy Usage', bill_network: 'Network Charge', bill_capacity: 'Capacity Fee',
+    bill_retail: 'Retail Charge', bill_eei: 'EEI', bill_eei_sub: 'subsidy',
+    bill_sst: 'SST', bill_kwtbb: 'KWTBB Fund', bill_afa: 'AFA Adjustment',
+    lbl_kwhMo: 'kWh/mo', lbl_months: 'Months',
+    lbl_systemPrice: 'System Price', lbl_downpayment: 'Downpayment (5%)',
+    lbl_financed: 'Financed (95%)', lbl_eppInterest: 'EPP Interest',
+    // ── Description cards
+    desc_hint_label: 'Guide',
+    desc_billBreakdown: 'This is your TNB bill breakdown before solar installation.',
+    desc_setup: 'Enter the usage environment details for this customer.',
+    desc_roi: 'We compare bill-to-bill for the most accurate solar savings report.',
+    desc_roi_sub: 'The system simulates monthly solar output and daytime self-consumption to calculate your new bill after solar — then compares it against the original for a precise savings figure.',
+    desc_detailed: 'A side-by-side comparison of your TNB bill before and after solar installation.',
+    desc_energyFlows: 'Solar energy generation and distribution breakdown.',
+    desc_battery: 'Compare how adding battery storage affects your total monthly savings.',
+    desc_futureTest: 'Estimate how future increases in electricity usage will impact your solar savings.',
+  },
+  zh: {
+    appSubtitle: '太阳能回报 · v2',
+    step_bill: '账单', step_review: '明细', step_setup: '设置', step_roi: '回报', step_details: '详情',
+    step1_label: '第一步', step1_title: '您的 TNB 电费',
+    step2_label: '第二步', step2_title: '账单明细',
+    step3_label: '第三步', step3_title: '太阳能设置',
+    step4_label: '第四步', step4_title: '投资回报摘要',
+    step5_label: '第五步', step5_title: '详细分析',
+    lbl_billAmount: '每月 TNB 电费 (RM)',
+    lbl_afaPeriod: 'AFA 期间',
+    lbl_phase: '电相',
+    phase_3: '三相', phase_1: '单相',
+    lbl_inverter: '逆变器类型',
+    inv_string: '串联式', inv_hybrid: '混合式',
+    btn_analyseBill: '分析账单',
+    lbl_sunPeak: '日照峰值时数',
+    hint_sunPeak: '马来西亚标准：3.4小时。数值越高越乐观。',
+    lbl_dayUsage: '白天用电比例 (%)',
+    hint_dayUsage: '在太阳能发电时段内的用电比例。',
+    lbl_advanced: '高级设置',
+    lbl_panelRating: '太阳能板功率 (W)',
+    lbl_afaProjection: 'AFA 预测 (RM/kWh)',
+    lbl_exportRate: '出口电价 (RM/kWh)',
+    lbl_discount: '折扣方案',
+    lbl_discPct: '百分比 (%)', lbl_discFixed: '固定折扣 (RM)',
+    btn_generateROI: '生成投资回报矩阵',
+    ph_step3: '完成第三步以查看投资回报',
+    ph_step4: '请先完成第四步',
+    qa_title: '快速调整 · 结果实时更新',
+    qa_sun: '☀ 日照峰值', qa_day: '🌤 白天用电', qa_panels: '🔲 板数',
+    analysing: '分析中...', computing: '计算中...',
+    err_invalidBill: '请输入有效的电费金额',
+    err_needBill: '请先完成账单分析',
+    err_noPackage: '未找到匹配配套',
+    err_needROI: '请先完成投资回报分析',
+    loading_tnb: '查询 TNB 数据库',
+    loading_roi: '计算投资回报矩阵',
+    lbl_fullMonth: '整月', lbl_under28: '不足28天',
+    lbl_monthlySavings: '每月节省',
+    lbl_payback: '回本期', lbl_annualRoi: '年回报率', lbl_netCost: '净费用',
+    lbl_confidence: '置信度',
+    lbl_sedaFee: '⚠ 需缴纳 SEDA 注册费',
+    lbl_sedaDesc: 'RM 1,000 超规格注册费，适用于 ≥',
+    lbl_phase_txt: '相系统',
+    lbl_systemSize: '系统规模', lbl_newBill: '新电费', lbl_was: '原 RM',
+    lbl_billReduction: '账单减少', lbl_eeiSaving: 'EEI 节省', lbl_exportCredit: '出口电费',
+    lbl_matchedPackage: '推荐配套',
+    lbl_epp: '每月分期付款 (EPP)',
+    lbl_bank: '银行', lbl_tenure: '期限', lbl_monthlyPayment: '每月还款',
+    lbl_eppImportant: '重要：',
+    lbl_eppNote: '首付5% (RM {0}) 须以现金/信用卡支付。余额95%适用 EPP 利率 {1}%。',
+    lbl_readySolar: '准备好安装太阳能了吗？',
+    lbl_quotationSub: '为客户生成完整报价链接',
+    btn_createQuotation: '📋 创建报价链接',
+    lbl_billComponents: '账单组件明细',
+    th_item: '项目', th_before: '安装前', th_after: '安装后', th_saved: '节省',
+    lbl_energyFlows: '电量流向',
+    lbl_monthlyUsage: '月用电量', lbl_solarGen: '太阳能发电量',
+    lbl_netGrid: '净从电网进口', lbl_exportFit: '输出 (FiT)',
+    lbl_backupGen: '备用发电', lbl_donated: '捐赠至电网',
+    lbl_battery: '储能系统', lbl_batteryNone: '无',
+    lbl_solarToBat: '充入储能', lbl_batStored: '储能总量', lbl_excessExport: '剩余输出',
+    lbl_valueAdd: '增值', lbl_batEffNote: '储能效率95%（计算出口前）。',
+    lbl_futureTest: '未来用电压力测试',
+    lbl_futureDesc: '点击 +200 度 区块，模拟未来家庭用电增长对现有系统的影响。',
+    lbl_block: '区块',
+    lbl_futureProjection: '未来预测 (+{0} 度/月)',
+    lbl_futureBill: '未来电费', lbl_afterSolar: '安装后电费',
+    lbl_newSavings: '新节省金额', lbl_savingsChange: '节省变化',
+    lbl_panelNote: '系统固定 {0} 块板 · 回本期：{1} 年',
+    lbl_matchedTolerance: '匹配精度 ±0.01%',
+    lbl_derivedUsage: '推算用电量：',
+    lbl_totalMatched: '总计匹配',
+    bill_energy: '电费', bill_network: '网络费', bill_capacity: '容量费',
+    bill_retail: '零售费', bill_eei: 'EEI 节能奖励', bill_eei_sub: '补贴',
+    bill_sst: 'SST 销售税', bill_kwtbb: 'KWTBB 基金', bill_afa: 'AFA 调整',
+    lbl_kwhMo: '度/月', lbl_months: '个月',
+    lbl_systemPrice: '系统价格', lbl_downpayment: '首付 (5%)',
+    lbl_financed: '融资金额 (95%)', lbl_eppInterest: 'EPP 利息',
+    // ── Description cards
+    desc_hint_label: '说明',
+    desc_billBreakdown: '这是安装太阳能前的电费单明细。',
+    desc_setup: '请提供用户使用环境的各项数据。',
+    desc_roi: '我们将以电费单对比电费单的方式，得出最准确的太阳能节省报告。',
+    desc_roi_sub: '系统模拟每月产能及白天自用预测，算出安装太阳能后的新电费单，与原电费单对比，即可得到精准节省数据。',
+    desc_detailed: '这是安装前后的电费单对比。',
+    desc_energyFlows: '太阳能产能流向报告。',
+    desc_battery: '可以计算电池使用对节省的对比影响。',
+    desc_futureTest: '可进一步预估未来用电量增加后，对节省的影响。',
+  }
+};
+
+function t(key, ...args) {
+    let str = (TRANSLATIONS[_lang] || TRANSLATIONS.en)[key] || TRANSLATIONS.en[key] || key;
+    args.forEach((a, i) => { str = str.replace(`{${i}}`, a); });
+    return str;
+}
+
+function applyI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const val = t(key);
+        // Preserve child elements (like chevron spans) for buttons
+        if (el.children.length === 0) { el.textContent = val; }
+        else if (el.tagName === 'BUTTON' || el.tagName === 'LABEL') { el.textContent = val; }
+        else { el.textContent = val; }
+    });
+    // Re-render dynamic content if already computed
+    if (latestSolarData) { renderROICard(latestSolarData); renderDetailedCard(latestSolarData); }
+    // Update quick-adjust title
+    const q = document.getElementById('quickAdjustBar');
+    // Update lang button
+    document.getElementById('langToggleBtn').textContent = _lang === 'en' ? '中文' : 'EN';
+    // Update hint spans (mixed content)
+    document.querySelectorAll('[data-i18n="hint_sunPeak"]').forEach(el => el.textContent = t('hint_sunPeak'));
+    document.querySelectorAll('[data-i18n="hint_dayUsage"]').forEach(el => el.textContent = t('hint_dayUsage'));
+    // Update static desc-card content
+    document.querySelectorAll('[data-i18n-inner]').forEach(el => {
+        const key = el.getAttribute('data-i18n-inner');
+        const pEls = el.querySelectorAll('p');
+        if (pEls[0]) pEls[0].textContent = t(key);
+    });
+    applyHintsState();
+}
+
+function toggleLang() {
+    _lang = _lang === 'en' ? 'zh' : 'en';
+    localStorage.setItem('solar_lang', _lang);
+    applyI18n();
+}
+
+// ── Navigation links comment end
+
+</script>
+
+</body>
+</html>

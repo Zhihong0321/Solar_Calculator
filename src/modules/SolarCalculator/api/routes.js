@@ -40,6 +40,98 @@ const buildResidentialPackageInverterFilterSql = (paramIndex) => `
   )
 `;
 
+const resolveLookupPackageType = (requestedType = '') => {
+  const normalizedType = String(requestedType || '').trim().toLowerCase();
+  return normalizedType === 'tariff b&d low voltage' || normalizedType === 'commercial'
+    ? 'Tariff B&D Low Voltage'
+    : 'Residential';
+};
+
+const buildPackageLookupFilters = ({
+  params,
+  resolvedPackageType,
+  residentialPhasePrefix,
+  residentialInverterType,
+  panelBubbleId,
+  panelWattage
+}) => {
+  let sql = `
+    SELECT p.id, COALESCE(p.bubble_id, p.id::text) AS bubble_id, p.package_name, p.package_name AS name, p.invoice_desc,
+           p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
+           pr.id as product_id, pr.bubble_id, pr.solar_output_rating
+    FROM package p
+    JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
+    WHERE p.active = true
+      AND (p.special IS FALSE OR p.special IS NULL)
+      AND p.type = $2
+  `;
+
+  if (panelBubbleId) {
+    params.push(panelBubbleId);
+    sql += ` AND pr.bubble_id = $${params.length}`;
+  } else {
+    params.push(panelWattage);
+    sql += ` AND pr.solar_output_rating = $${params.length}`;
+  }
+
+  if (resolvedPackageType === 'Residential' && residentialPhasePrefix) {
+    params.push(`${residentialPhasePrefix}%`);
+    sql += ` AND p.package_name ILIKE $${params.length}`;
+  }
+
+  if (resolvedPackageType === 'Residential' && residentialInverterType) {
+    params.push(residentialInverterType);
+    sql += buildResidentialPackageInverterFilterSql(params.length);
+  }
+
+  sql += `
+    ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC
+    LIMIT 1
+  `;
+
+  return sql;
+};
+
+async function lookupBestPackage(client, {
+  panelQty,
+  panelBubbleId = null,
+  panelType = null,
+  type = 'Residential',
+  systemPhase = null,
+  inverterType = null
+}) {
+  const resolvedPackageType = resolveLookupPackageType(type);
+  const residentialPhasePrefix = resolvedPackageType === 'Residential'
+    ? getResidentialPackagePhasePrefix(systemPhase)
+    : null;
+  const residentialInverterType = resolvedPackageType === 'Residential' && inverterType !== undefined && inverterType !== null && inverterType !== ''
+    ? normalizeResidentialInverterType(inverterType)
+    : null;
+
+  const qty = parseInt(panelQty, 10);
+  if (!Number.isFinite(qty) || qty <= 0) {
+    throw new Error('panelQty is required');
+  }
+
+  const params = [qty, resolvedPackageType];
+  const sql = buildPackageLookupFilters({
+    params,
+    resolvedPackageType,
+    residentialPhasePrefix,
+    residentialInverterType,
+    panelBubbleId: panelBubbleId || null,
+    panelWattage: panelType !== null && panelType !== undefined ? parseInt(panelType, 10) : null
+  });
+
+  const result = await client.query(sql, params);
+  return {
+    resolvedPackageType,
+    residentialInverterType,
+    systemPhase: systemPhase ? parseInt(systemPhase, 10) || null : null,
+    package: result.rows[0] || null
+  };
+}
+
 // API endpoint to serve environment configuration to frontend
 router.get('/api/config', (req, res) => {
   const protocol = req.protocol;
@@ -119,84 +211,31 @@ router.get('/api/package-info', async (req, res) => {
 router.get('/readonly/package/lookup', async (req, res) => {
   let client;
   try {
-    const qtyRaw = req.query.panelQty;
-    const bubbleIdRaw = req.query.panelBubbleId || null;
-    const requestedType = String(req.query.type || '').trim();
-    const requestedPhase = req.query.systemPhase;
-    const resolvedPackageType = requestedType === 'Tariff B&D Low Voltage' || requestedType.toLowerCase() === 'commercial'
-      ? 'Tariff B&D Low Voltage'
-      : 'Residential';
-    const residentialPhasePrefix = resolvedPackageType === 'Residential'
-      ? getResidentialPackagePhasePrefix(requestedPhase)
-      : null;
-    const residentialInverterType = resolvedPackageType === 'Residential' && req.query.inverterType !== undefined
-      ? normalizeResidentialInverterType(req.query.inverterType)
-      : null;
-    if (!qtyRaw) return res.status(400).json({ error: 'panelQty is required' });
-    const qty = parseInt(qtyRaw, 10);
     client = await pool.connect();
-    let result;
-    if (bubbleIdRaw) {
-      const bubbleQueryParams = [qty, bubbleIdRaw, resolvedPackageType];
-      let bubbleFilters = '';
-      if (residentialPhasePrefix) {
-        bubbleQueryParams.push(`${residentialPhasePrefix}%`);
-        bubbleFilters += ` AND p.package_name ILIKE $${bubbleQueryParams.length}`;
-      }
-      if (residentialInverterType) {
-        bubbleQueryParams.push(residentialInverterType);
-        bubbleFilters += buildResidentialPackageInverterFilterSql(bubbleQueryParams.length);
-      }
-      const queryByBubble = `
-        SELECT p.id, COALESCE(p.bubble_id, p.id::text) AS bubble_id, p.package_name, p.package_name AS name, p.invoice_desc, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
-               pr.id as product_id, pr.bubble_id, pr.solar_output_rating
-        FROM package p
-        JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
-        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = $3 AND pr.bubble_id = $2
-          ${bubbleFilters}
-        ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10`;
-      result = await client.query(queryByBubble, bubbleQueryParams);
-    } else {
-      const wattQueryParams = [qty];
-      const queryByWatt = `
-        SELECT p.id, COALESCE(p.bubble_id, p.id::text) AS bubble_id, p.package_name, p.package_name AS name, p.invoice_desc, p.panel_qty, p.price, p.panel, p.type, p.active, p.special,
-               pr.id as product_id, pr.bubble_id, pr.solar_output_rating
-        FROM package p
-        JOIN product pr ON (CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT) OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT))
-        WHERE p.active = true AND (p.special IS FALSE OR p.special IS NULL) AND p.type = $3 AND pr.solar_output_rating = $2
-        ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10`;
-      const wattRaw = req.query.panelType;
-      const watt = wattRaw ? parseInt(wattRaw, 10) : null;
-      wattQueryParams.push(watt, resolvedPackageType);
-      let wattFilters = '';
-      if (residentialPhasePrefix) {
-        wattQueryParams.push(`${residentialPhasePrefix}%`);
-        wattFilters += ` AND p.package_name ILIKE $${wattQueryParams.length}`;
-      }
-      if (residentialInverterType) {
-        wattQueryParams.push(residentialInverterType);
-        wattFilters += buildResidentialPackageInverterFilterSql(wattQueryParams.length);
-      }
-      const finalQueryByWatt = queryByWatt.replace(
-        'ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10',
-        `${wattFilters}
-        ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC LIMIT 10`
-      );
-      result = await client.query(finalQueryByWatt, wattQueryParams);
-    }
+    const lookup = await lookupBestPackage(client, {
+      panelQty: req.query.panelQty,
+      panelBubbleId: req.query.panelBubbleId || null,
+      panelType: req.query.panelType,
+      type: req.query.type,
+      systemPhase: req.query.systemPhase,
+      inverterType: req.query.inverterType
+    });
+
     return res.json({
       searchParams: {
-        panelQty: qty,
-        panelBubbleId: bubbleIdRaw,
-        type: resolvedPackageType,
-        systemPhase: requestedPhase ? parseInt(requestedPhase, 10) || null : null,
-        inverterType: residentialInverterType
+        panelQty: parseInt(req.query.panelQty, 10),
+        panelBubbleId: req.query.panelBubbleId || null,
+        type: lookup.resolvedPackageType,
+        systemPhase: lookup.systemPhase,
+        inverterType: lookup.residentialInverterType
       },
-      count: result.rowCount,
-      packages: result.rows
+      count: lookup.package ? 1 : 0,
+      package: lookup.package,
+      packages: lookup.package ? [lookup.package] : []
     });
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to lookup packages', details: err.message });
+    const statusCode = err.message === 'panelQty is required' ? 400 : 500;
+    return res.status(statusCode).json({ error: 'Failed to lookup packages', details: err.message });
   } finally {
     if (client) client.release();
   }
