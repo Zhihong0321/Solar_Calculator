@@ -4,6 +4,8 @@
  * tariff lookups, and system sizing.
  */
 
+const { lookupBestPackage, normalizeResidentialInverterType } = require('./packageLookupService');
+
 const ALLOWED_BATTERY_SIZES = new Set([0, 16, 32, 48]);
 const BATTERY_CHARGING_EFFICIENCY = 0.95;
 
@@ -122,33 +124,6 @@ const resolveActualEeiValue = (tariffRow, eeiTariffRow, actualUsageKwh) => {
       ?? tariffRow?.eei
   );
 };
-
-const getResidentialPackagePhasePrefix = (systemPhase = 3) => (systemPhase === 1 ? '[1P]' : '[3P]');
-const RESIDENTIAL_PACKAGE_TEXT_SQL = `LOWER(CONCAT_WS(' ', COALESCE(p.package_name, ''), COALESCE(p.invoice_desc, '')))`;
-
-const normalizeResidentialInverterType = (value = 'string') => (
-  String(value || '').trim().toLowerCase() === 'hybrid' ? 'hybrid' : 'string'
-);
-
-const buildResidentialPackageInverterFilterSql = (paramIndex) => `
-  AND (
-    $${paramIndex}::text IS NULL
-    OR (
-      $${paramIndex}::text = 'hybrid'
-      AND (
-        ${RESIDENTIAL_PACKAGE_TEXT_SQL} LIKE '%hybrid%'
-        OR ${RESIDENTIAL_PACKAGE_TEXT_SQL} LIKE '%hybird%'
-      )
-    )
-    OR (
-      $${paramIndex}::text = 'string'
-      AND NOT (
-        ${RESIDENTIAL_PACKAGE_TEXT_SQL} LIKE '%hybrid%'
-        OR ${RESIDENTIAL_PACKAGE_TEXT_SQL} LIKE '%hybird%'
-      )
-    )
-  )
-`;
 
 const getResidentialPanelQuantityGate = (recommendedPanels, systemPhase = 3) => {
   const safeRecommendedPanels = Math.max(1, Math.floor(parseCurrencyValue(recommendedPanels, 1)));
@@ -287,7 +262,6 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   const historicalAfaRate = parseFloat(historicalAfaRateRaw) || 0;
   const batterySizeVal = parseFloat(batterySize) || 0;
   const systemPhaseVal = parseInt(systemPhase) || 3;
-  const packagePhasePrefix = getResidentialPackagePhasePrefix(systemPhaseVal);
   const inverterTypeVal = normalizeResidentialInverterType(inverterType);
   const futureUsageKwhRaw = futureUsageKwh ?? usageKwhOverride;
   const futureUsageKwhVal = parseFloat(futureUsageKwhRaw);
@@ -334,50 +308,15 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         : clampPanelQuantity(overridePanelsVal, panelQuantityGate.min, panelQuantityGate.max))
       : recommendedPanels;
 
-    // Search for Residential package within filtered product pool
-    let packageResult = { rows: [] };
-    if (selectedPanelBubbleId) {
-      const packageByBubbleQuery = `
-            SELECT p.*, COALESCE(p.bubble_id, p.id::text) AS resolved_package_id
-            FROM package p
-            JOIN product pr ON (
-              CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-              OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-            )
-            WHERE p.active = true
-              AND (p.special IS FALSE OR p.special IS NULL)
-              AND p.type = $2
-              AND pr.bubble_id = $3
-              AND p.package_name ILIKE $4
-              ${buildResidentialPackageInverterFilterSql(5)}
-            ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC
-            LIMIT 1
-          `;
-      packageResult = await mainClient.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId, `${packagePhasePrefix}%`, inverterTypeVal]);
-    } else {
-      const packageByWattQuery = `
-            SELECT p.*, COALESCE(p.bubble_id, p.id::text) AS resolved_package_id
-            FROM package p
-            JOIN product pr ON (
-              CAST(p.panel AS TEXT) = CAST(pr.id AS TEXT)
-              OR CAST(p.panel AS TEXT) = CAST(pr.bubble_id AS TEXT)
-            )
-            WHERE p.active = true
-              AND (p.special IS FALSE OR p.special IS NULL)
-              AND p.type = $2
-              AND pr.solar_output_rating = $3
-              AND p.package_name ILIKE $4
-              ${buildResidentialPackageInverterFilterSql(5)}
-            ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC
-            LIMIT 1
-          `;
-      packageResult = await mainClient.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage, `${packagePhasePrefix}%`, inverterTypeVal]);
-    }
-
-    let selectedPackage = null;
-    if (packageResult.rows.length > 0) {
-      selectedPackage = packageResult.rows[0];
-    }
+    const packageLookup = await lookupBestPackage(mainClient, {
+      panelQty: actualPanelQty,
+      panelBubbleId: selectedPanelBubbleId,
+      panelType: panelWattage,
+      type: 'Residential',
+      systemPhase: systemPhaseVal,
+      inverterType: inverterTypeVal
+    });
+    const selectedPackage = packageLookup.package;
 
     // Calculate solar generation
     const panelWatts = panelWattage;
