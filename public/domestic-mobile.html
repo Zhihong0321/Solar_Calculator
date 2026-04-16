@@ -1194,6 +1194,7 @@ async function handleBillAnalysis() {
     // Show loading in card 2
     document.getElementById('card2').classList.remove('locked');
     document.getElementById('billBreakdownBody').innerHTML = `<div class="loading-spinner"><div class="spinner"></div><div class="loading-text">${t('loading_tnb')}</div></div>`;
+    scrollToCard('card2');
 
     try {
         const url = `/api/calculate-bill?amount=${encodeURIComponent(billAmount)}&afaRate=${encodeURIComponent(afaRate)}`;
@@ -1239,7 +1240,6 @@ async function handleBillAnalysis() {
         document.getElementById(`badge1`).className = 'card-step-badge done';
         document.getElementById(`badge1`).innerHTML = '';
 
-        scrollToCard('card2');
 
     } catch (err) {
         document.getElementById('billBreakdownBody').innerHTML = `<div class="loading-spinner"><div style="font-size:13px; color:#7F1D1D; font-weight:700;">${err.message}</div></div>`;
@@ -1290,9 +1290,7 @@ function renderBillBreakdown(tariff, afaRate) {
     `;
 
     document.getElementById('billBreakdownSummary').textContent = `${tariff.usage_kwh} kWh`;
-    // Auto-scroll prompt card 3
     document.getElementById('card3').classList.remove('locked');
-    setTimeout(() => scrollToCard('card3'), 300);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2015,6 +2013,16 @@ const TRANSLATIONS = {
     lbl_kwhMo: 'kWh/mo', lbl_months: 'Months',
     lbl_systemPrice: 'System Price', lbl_downpayment: 'Downpayment (5%)',
     lbl_financed: 'Financed (95%)', lbl_eppInterest: 'EPP Interest',
+    // ── Description cards
+    desc_hint_label: 'Guide',
+    desc_billBreakdown: 'This is your TNB bill breakdown before solar installation.',
+    desc_setup: 'Enter the usage environment details for this customer.',
+    desc_roi: 'We compare bill-to-bill for the most accurate solar savings report.',
+    desc_roi_sub: 'The system simulates monthly solar output and daytime self-consumption to calculate your new bill after solar — then compares it against the original for a precise savings figure.',
+    desc_detailed: 'A side-by-side comparison of your TNB bill before and after solar installation.',
+    desc_energyFlows: 'Solar energy generation and distribution breakdown.',
+    desc_battery: 'Compare how adding battery storage affects your total monthly savings.',
+    desc_futureTest: 'Estimate how future increases in electricity usage will impact your solar savings.',
   },
   zh: {
     appSubtitle: '太阳能回报 · v2',
