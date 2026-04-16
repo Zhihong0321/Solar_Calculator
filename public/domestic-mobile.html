@@ -661,37 +661,40 @@
     <div class="brand">
         <img src="logo.png" alt="Eternalgy">
         <div>
-            <div class="version-tag">Solar ROI · v2 Mobile</div>
+            <div class="version-tag" data-i18n="appSubtitle">Solar ROI · v2 Mobile</div>
         </div>
     </div>
-    <div class="status-dot" id="statusDot" title="Server Status"></div>
+    <div style="display:flex; align-items:center; gap:12px;">
+        <button id="langToggleBtn" onclick="toggleLang()" style="background:transparent; border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:rgba(255,255,255,0.7); font-family:'Inter',sans-serif; font-size:11px; font-weight:500; padding:5px 10px; cursor:pointer; letter-spacing:0.03em; transition:all 0.2s;">EN</button>
+        <div class="status-dot" id="statusDot" title="Server Status"></div>
+    </div>
 </header>
 
 <!-- PROGRESS RAIL -->
 <div class="progress-rail" id="progressRail" aria-label="Calculation steps">
     <div class="step-node">
         <div class="step-circle active" id="stepCircle1"><span>1</span></div>
-        <div class="step-label active" id="stepLabel1">Bill</div>
+        <div class="step-label active" id="stepLabel1" data-i18n="step_bill">Bill</div>
     </div>
     <div class="step-connector" id="stepConn1"></div>
     <div class="step-node">
         <div class="step-circle" id="stepCircle2"><span>2</span></div>
-        <div class="step-label" id="stepLabel2">Review</div>
+        <div class="step-label" id="stepLabel2" data-i18n="step_review">Review</div>
     </div>
     <div class="step-connector" id="stepConn2"></div>
     <div class="step-node">
         <div class="step-circle" id="stepCircle3"><span>3</span></div>
-        <div class="step-label" id="stepLabel3">Setup</div>
+        <div class="step-label" id="stepLabel3" data-i18n="step_setup">Setup</div>
     </div>
     <div class="step-connector" id="stepConn3"></div>
     <div class="step-node">
         <div class="step-circle" id="stepCircle4"><span>4</span></div>
-        <div class="step-label" id="stepLabel4">ROI</div>
+        <div class="step-label" id="stepLabel4" data-i18n="step_roi">ROI</div>
     </div>
     <div class="step-connector" id="stepConn4"></div>
     <div class="step-node">
         <div class="step-circle" id="stepCircle5"><span>5</span></div>
-        <div class="step-label" id="stepLabel5">Details</div>
+        <div class="step-label" id="stepLabel5" data-i18n="step_details">Details</div>
     </div>
 </div>
 
@@ -706,8 +709,8 @@
             <div class="card-header-left">
                 <div class="card-step-badge" id="badge1"><span>1</span></div>
                 <div>
-                    <div class="card-label">Step 1</div>
-                    <div class="card-title">Your TNB Bill</div>
+                    <div class="card-label" data-i18n="step1_label">Step 1</div>
+                    <div class="card-title" data-i18n="step1_title">Your TNB Bill</div>
                 </div>
             </div>
             <div class="card-summary" id="billSummary"></div>
@@ -717,7 +720,7 @@
             <div class="field-group">
 
                 <div class="field">
-                    <label for="billAmount">Monthly TNB Bill (RM)</label>
+                    <label for="billAmount" data-i18n="lbl_billAmount">Monthly TNB Bill (RM)</label>
                     <div class="input-shell">
                         <span class="prefix">RM</span>
                         <input type="number" id="billAmount" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
@@ -725,7 +728,7 @@
                 </div>
 
                 <div class="field">
-                    <label for="historicalAfaRate">AFA Period</label>
+                    <label for="historicalAfaRate" data-i18n="lbl_afaPeriod">AFA Period</label>
                     <div class="select-shell">
                         <select id="historicalAfaRate">
                             <option value="0.0000">JUL 2025 (0.00 sen)</option>
@@ -744,25 +747,25 @@
                 </div>
 
                 <div class="field">
-                    <label>Electrical Phase</label>
+                    <label data-i18n="lbl_phase">Electrical Phase</label>
                     <div class="segmented" id="phaseSegmented">
-                        <button class="seg-btn active" data-phase="3" onclick="selectPhase(3)">3 Phase</button>
-                        <button class="seg-btn" data-phase="1" onclick="selectPhase(1)">1 Phase</button>
+                        <button class="seg-btn active" data-phase="3" onclick="selectPhase(3)" data-i18n="phase_3">3 Phase</button>
+                        <button class="seg-btn" data-phase="1" onclick="selectPhase(1)" data-i18n="phase_1">1 Phase</button>
                     </div>
                     <input type="hidden" id="systemPhase" value="3">
                 </div>
 
                 <div class="field">
-                    <label>Inverter Type</label>
+                    <label data-i18n="lbl_inverter">Inverter Type</label>
                     <div class="segmented" id="inverterSegmented">
-                        <button class="seg-btn active" data-inv="string" onclick="selectInverter('string')">String</button>
-                        <button class="seg-btn" data-inv="hybrid" onclick="selectInverter('hybrid')">Hybrid</button>
+                        <button class="seg-btn active" data-inv="string" onclick="selectInverter('string')" data-i18n="inv_string">String</button>
+                        <button class="seg-btn" data-inv="hybrid" onclick="selectInverter('hybrid')" data-i18n="inv_hybrid">Hybrid</button>
                     </div>
                     <input type="hidden" id="inverterType" value="string">
                 </div>
 
                 <button class="btn-primary" id="billAnalyseBtn" onclick="handleBillAnalysis()">
-                    <span>Analyse Bill</span>
+                    <span data-i18n="btn_analyseBill">Analyse Bill</span>
                     <span>→</span>
                 </button>
 
@@ -778,8 +781,8 @@
             <div class="card-header-left">
                 <div class="card-step-badge" id="badge2"><span>2</span></div>
                 <div>
-                    <div class="card-label">Step 2</div>
-                    <div class="card-title">Bill Breakdown</div>
+                    <div class="card-label" data-i18n="step2_label">Step 2</div>
+                    <div class="card-title" data-i18n="step2_title">Bill Breakdown</div>
                 </div>
             </div>
             <div class="card-summary" id="billBreakdownSummary"></div>
@@ -800,8 +803,8 @@
             <div class="card-header-left">
                 <div class="card-step-badge" id="badge3"><span>3</span></div>
                 <div>
-                    <div class="card-label">Step 3</div>
-                    <div class="card-title">Solar Setup</div>
+                    <div class="card-label" data-i18n="step3_label">Step 3</div>
+                    <div class="card-title" data-i18n="step3_title">Solar Setup</div>
                 </div>
             </div>
         </div>
@@ -810,7 +813,7 @@
             <div class="field-group">
 
                 <div class="field">
-                    <label>Sun Peak Hours</label>
+                    <label data-i18n="lbl_sunPeak">Sun Peak Hours</label>
                     <div class="stepper">
                         <button class="stepper-btn" onclick="adjustField('sunPeakHour', -0.1, 3.0, 4.5)">−</button>
                         <div class="stepper-value">
@@ -819,11 +822,11 @@
                         </div>
                         <button class="stepper-btn" onclick="adjustField('sunPeakHour', +0.1, 3.0, 4.5)">+</button>
                     </div>
-                    <p style="font-size:11px; color:var(--ink-3); margin-top:4px;">Malaysia standard: 3.4h. Higher = more optimistic.</p>
+                    <p style="font-size:11px; color:var(--ink-3); margin-top:4px;"><span data-i18n="hint_sunPeak">Malaysia standard: 3.4h. Higher = more optimistic.</span></p>
                 </div>
 
                 <div class="field">
-                    <label>Daytime Usage Share (%)</label>
+                    <label data-i18n="lbl_dayUsage">Daytime Usage Share (%)</label>
                     <div class="stepper">
                         <button class="stepper-btn" onclick="adjustField('morningUsage', -5, 1, 100)">−</button>
                         <div class="stepper-value">
@@ -832,11 +835,11 @@
                         </div>
                         <button class="stepper-btn" onclick="adjustField('morningUsage', +5, 1, 100)">+</button>
                     </div>
-                    <p style="font-size:11px; color:var(--ink-3); margin-top:4px;">% of your usage that happens during solar production hours.</p>
+                    <p style="font-size:11px; color:var(--ink-3); margin-top:4px;"><span data-i18n="hint_dayUsage">% of your usage that happens during solar production hours.</span></p>
                 </div>
 
                 <button class="advanced-toggle" id="advToggle" onclick="toggleAdvanced()">
-                    <span>Advanced Settings</span>
+                    <span data-i18n="lbl_advanced">Advanced Settings</span>
                     <span class="chevron">▾</span>
                 </button>
 
@@ -844,7 +847,7 @@
                     <div class="field-group">
 
                         <div class="field">
-                            <label>Panel Rating (W)</label>
+                            <label data-i18n="lbl_panelRating">Panel Rating (W)</label>
                             <div class="input-shell">
                                 <input type="number" id="panelRating" value="650" step="1" min="450" max="850"
                                     oninput="debouncedLiveUpdate()" inputmode="numeric">
@@ -853,7 +856,7 @@
                         </div>
 
                         <div class="field">
-                            <label>AFA Projection (RM/kWh)</label>
+                            <label data-i18n="lbl_afaProjection">AFA Projection (RM/kWh)</label>
                             <div class="input-shell">
                                 <input type="number" id="afaRate" value="0.0000" step="0.0001"
                                     oninput="debouncedLiveUpdate()" inputmode="decimal">
@@ -861,7 +864,7 @@
                         </div>
 
                         <div class="field">
-                            <label>Export Rate (RM/kWh)</label>
+                            <label data-i18n="lbl_exportRate">Export Rate (RM/kWh)</label>
                             <div class="input-shell">
                                 <input type="number" id="smpPrice" value="0.2703" step="0.0001" min="0.19" max="0.2703"
                                     oninput="debouncedLiveUpdate()" inputmode="decimal">
@@ -869,17 +872,17 @@
                         </div>
 
                         <div class="field">
-                            <label>Discount Protocol</label>
+                            <label data-i18n="lbl_discount">Discount Protocol</label>
                             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                                 <div>
-                                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:6px;">Percentage (%)</div>
+                                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:6px;" data-i18n="lbl_discPct">Percentage (%)</div>
                                     <div class="input-shell" style="padding: 0 10px;">
                                         <input type="number" id="percentDiscount" value="0" step="0.01" min="0" max="100"
                                             oninput="debouncedLiveUpdate()" inputmode="decimal" style="font-size:15px; padding:12px 0;">
                                     </div>
                                 </div>
                                 <div>
-                                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:6px;">Fixed (RM)</div>
+                                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:6px;" data-i18n="lbl_discFixed">Fixed (RM)</div>
                                     <div class="input-shell" style="padding: 0 10px;">
                                         <input type="number" id="fixedDiscount" value="0" step="0.01" min="0"
                                             oninput="debouncedLiveUpdate()" inputmode="decimal" style="font-size:15px; padding:12px 0;">
@@ -892,7 +895,7 @@
                 </div>
 
                 <button class="btn-primary" id="roiBtn" onclick="handleROIGenerate()">
-                    <span>Generate ROI Matrix</span>
+                    <span data-i18n="btn_generateROI">Generate ROI Matrix</span>
                     <span>→</span>
                 </button>
 
@@ -908,15 +911,15 @@
             <div class="card-header-left">
                 <div class="card-step-badge" id="badge4"><span>4</span></div>
                 <div>
-                    <div class="card-label">Step 4</div>
-                    <div class="card-title">ROI Summary</div>
+                    <div class="card-label" data-i18n="step4_label">Step 4</div>
+                    <div class="card-title" data-i18n="step4_title">ROI Summary</div>
                 </div>
             </div>
         </div>
         <div class="card-divider"></div>
         <div class="card-body" id="roiResultBody">
             <div class="loading-spinner">
-                <div style="font-size:12px; color: var(--ink-3); text-align:center;">Complete Step 3 to see your ROI</div>
+                <div style="font-size:12px; color: var(--ink-3); text-align:center;" data-i18n="ph_step3">Complete Step 3 to see your ROI</div>
             </div>
         </div>
     </div>
@@ -929,15 +932,15 @@
             <div class="card-header-left">
                 <div class="card-step-badge" id="badge5"><span>5</span></div>
                 <div>
-                    <div class="card-label">Step 5</div>
-                    <div class="card-title">Detailed Analysis</div>
+                    <div class="card-label" data-i18n="step5_label">Step 5</div>
+                    <div class="card-title" data-i18n="step5_title">Detailed Analysis</div>
                 </div>
             </div>
         </div>
         <div class="card-divider"></div>
         <div class="card-body" id="detailedBody">
             <div class="loading-spinner">
-                <div style="font-size:12px; color: var(--ink-3); text-align:center;">Complete Step 4 first</div>
+                <div style="font-size:12px; color: var(--ink-3); text-align:center;" data-i18n="ph_step4">Complete Step 4 first</div>
             </div>
         </div>
     </div>
@@ -949,10 +952,10 @@
 
 <!-- QUICK ADJUST BAR (appears after ROI is generated) -->
 <div class="quick-adjust" id="quickAdjustBar">
-    <div class="quick-adjust-title">Quick Adjust · Results update live</div>
+    <div class="quick-adjust-title" data-i18n="qa_title">Quick Adjust · Results update live</div>
     <div class="quick-adjust-row">
         <div class="qa-item">
-            <div class="qa-label">☀ Sun Peak</div>
+            <div class="qa-label" data-i18n="qa_sun">☀ Sun Peak</div>
             <div class="qa-control">
                 <button class="qa-btn" onclick="qAdjust('sunPeakHour', -0.1, 3.0, 4.5)">−</button>
                 <div class="qa-val" id="qaSun">3.4h</div>
@@ -960,7 +963,7 @@
             </div>
         </div>
         <div class="qa-item">
-            <div class="qa-label">🌤 Day Usage</div>
+            <div class="qa-label" data-i18n="qa_day">🌤 Day Usage</div>
             <div class="qa-control">
                 <button class="qa-btn" onclick="qAdjust('morningUsage', -5, 1, 100)">−</button>
                 <div class="qa-val" id="qaDay">30%</div>
@@ -968,7 +971,7 @@
             </div>
         </div>
         <div class="qa-item">
-            <div class="qa-label">🔲 Panels</div>
+            <div class="qa-label" data-i18n="qa_panels">🔲 Panels</div>
             <div class="qa-control">
                 <button class="qa-btn" id="qaPanelMinus" onclick="qAdjustPanels(-1)">−</button>
                 <div class="qa-val" id="qaPanels">—</div>
@@ -1010,6 +1013,7 @@ const EPP_RATES = {
 // INIT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 window.onload = async function() {
+    applyI18n();
     checkHealth();
     try {
         const r = await fetch('/api/config');
@@ -1131,16 +1135,16 @@ async function handleBillAnalysis() {
     const afaRate = parseFloat(document.getElementById('historicalAfaRate').value) || 0;
 
     if (!billAmount || billAmount <= 0) {
-        return toast('Please enter a valid bill amount', 'error');
+        return toast(t('err_invalidBill'), 'error');
     }
 
     const btn = document.getElementById('billAnalyseBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span>Analysing...</span>';
+    btn.innerHTML = `<span>${t('analysing')}</span>`;
 
     // Show loading in card 2
     document.getElementById('card2').classList.remove('locked');
-    document.getElementById('billBreakdownBody').innerHTML = `<div class="loading-spinner"><div class="spinner"></div><div class="loading-text">Querying TNB database</div></div>`;
+    document.getElementById('billBreakdownBody').innerHTML = `<div class="loading-spinner"><div class="spinner"></div><div class="loading-text">${t('loading_tnb')}</div></div>`;
 
     try {
         const url = `/api/calculate-bill?amount=${encodeURIComponent(billAmount)}&afaRate=${encodeURIComponent(afaRate)}`;
@@ -1194,7 +1198,7 @@ async function handleBillAnalysis() {
         toast(err.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span>Analyse Bill</span><span>→</span>';
+        btn.innerHTML = `<span>${t('btn_analyseBill')}</span><span>→</span>`;
     }
 }
 
@@ -1203,14 +1207,14 @@ function renderBillBreakdown(tariff, afaRate) {
     const total = tariff.bill_total_normal + afaCharge;
 
     const rows = [
-        { label: 'Energy Usage', value: tariff.usage_normal },
-        { label: 'Network Charge', value: tariff.network },
-        { label: 'Capacity Fee', value: tariff.capacity },
-        { label: 'Retail Charge', value: tariff.retail },
-        { label: 'EEI', value: tariff.eei, note: tariff.eei < 0 ? 'subsidy' : '' },
-        { label: 'SST', value: tariff.sst_normal },
-        { label: 'KWTBB Fund', value: tariff.kwtbb_normal },
-        { label: 'AFA Adjustment', value: afaCharge, green: afaCharge < 0 },
+        { label: t('bill_energy'), value: tariff.usage_normal },
+        { label: t('bill_network'), value: tariff.network },
+        { label: t('bill_capacity'), value: tariff.capacity },
+        { label: t('bill_retail'), value: tariff.retail },
+        { label: t('bill_eei'), value: tariff.eei, note: tariff.eei < 0 ? t('bill_eei_sub') : '' },
+        { label: t('bill_sst'), value: tariff.sst_normal },
+        { label: t('bill_kwtbb'), value: tariff.kwtbb_normal },
+        { label: t('bill_afa'), value: afaCharge, green: afaCharge < 0 },
     ];
 
     document.getElementById('billBreakdownBody').innerHTML = `
@@ -1222,16 +1226,16 @@ function renderBillBreakdown(tariff, afaRate) {
                 </div>
             `).join('')}
             <div class="ledger-total-row">
-                <span class="ledger-total-label">Total Matched</span>
+                <span class="ledger-total-label">${t('lbl_totalMatched')}</span>
                 <span class="ledger-total-value">RM ${fmt(total)}</span>
             </div>
             <div class="usage-badge" style="margin-bottom:20px;">
                 <span>⚡</span>
-                <span>Derived Usage: ${tariff.usage_kwh} kWh/mo</span>
+                <span>${t('lbl_derivedUsage')} ${tariff.usage_kwh} ${t('lbl_kwhMo')}</span>
             </div>
         </div>
         <div style="padding: 0 20px 20px; text-align:right;">
-            <span style="font-size:11px; color:var(--ink-3);">Matched ±0.01% tolerance</span>
+            <span style="font-size:11px; color:var(--ink-3);">${t('lbl_matchedTolerance')}</span>
         </div>
     `;
 
@@ -1245,18 +1249,18 @@ function renderBillBreakdown(tariff, afaRate) {
 // STEP 3 → ROI GENERATE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function handleROIGenerate() {
-    if (!currentTariffData) return toast('Complete bill analysis first', 'error');
+    if (!currentTariffData) return toast(t('err_needBill'), 'error');
 
     const btn = document.getElementById('roiBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span>Computing ROI...</span>';
+    btn.innerHTML = `<span>${t('computing')}</span>`;
 
     const params = collectParams({ batterySize: 0, overridePanels: '' });
     latestSolarParams = params;
 
     // Show card4
     document.getElementById('card4').classList.remove('locked');
-    document.getElementById('roiResultBody').innerHTML = `<div class="loading-spinner"><div class="spinner"></div><div class="loading-text">Computing ROI Matrix</div></div>`;
+    document.getElementById('roiResultBody').innerHTML = `<div class="loading-spinner"><div class="spinner"></div><div class="loading-text">${t('loading_roi')}</div></div>`;
     setStep(4);
 
     try {
@@ -1279,7 +1283,7 @@ async function handleROIGenerate() {
         toast(err.message, 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span>Generate ROI Matrix</span><span>→</span>';
+        btn.innerHTML = `<span>${t('btn_generateROI')}</span><span>→</span>`;
     }
 }
 
@@ -1357,14 +1361,14 @@ function renderROICard(data) {
         <!-- Bill Cycle Toggle -->
         <div style="background:var(--ink); padding:12px 20px 0;">
             <div style="display:flex; background:rgba(255,255,255,0.1); border-radius:8px; padding:3px; gap:3px;">
-                <button class="cycle-btn${selectedBillCycleMode==='fullMonth'?' active':''}" onclick="setBillCycle('fullMonth')">Full Month</button>
-                <button class="cycle-btn${selectedBillCycleMode==='under28Days'?' active':''}" onclick="setBillCycle('under28Days')">&lt;28 Days</button>
+                <button class="cycle-btn${selectedBillCycleMode==='fullMonth'?' active':''}" onclick="setBillCycle('fullMonth')">${t('lbl_fullMonth')}</button>
+                <button class="cycle-btn${selectedBillCycleMode==='under28Days'?' active':''}" onclick="setBillCycle('under28Days')">${t('lbl_under28')}</button>
             </div>
         </div>
 
         <!-- Hero Savings -->
         <div class="roi-hero">
-            <div class="roi-hero-label">Monthly Savings</div>
+            <div class="roi-hero-label">${t('lbl_monthlySavings')}</div>
             <div class="roi-hero-saving">RM ${fmt(active.totalSavings)}</div>
             <div class="roi-hero-sub">(${active.label} Bill Cycle)</div>
 
@@ -1373,22 +1377,22 @@ function renderROICard(data) {
             <div class="roi-meta" style="margin-top:14px;">
                 <div class="roi-meta-item">
                     <div class="roi-meta-num">${data.paybackPeriod}<span style="font-size:14px; font-weight:500;">yr</span></div>
-                    <div class="roi-meta-label">Payback</div>
+                    <div class="roi-meta-label">${t('lbl_payback')}</div>
                 </div>
                 <div class="roi-meta-item">
                     <div class="roi-meta-num">${roiPct !== 'N/A' ? roiPct+'%' : 'N/A'}</div>
-                    <div class="roi-meta-label">Annual ROI</div>
+                    <div class="roi-meta-label">${t('lbl_annualRoi')}</div>
                 </div>
                 <div class="roi-meta-item">
                     <div class="roi-meta-num" style="font-size:16px;">RM ${fmt(data.finalSystemCost)}</div>
-                    <div class="roi-meta-label">Net Cost</div>
+                    <div class="roi-meta-label">${t('lbl_netCost')}</div>
                 </div>
             </div>
 
             <!-- Confidence -->
             <div class="confidence-bar-wrap">
                 <div class="confidence-label-row">
-                    <span style="opacity:0.7; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Confidence Level</span>
+                    <span style="font-size:10px; font-weight:500; opacity:0.5;">${t('lbl_confidence')}</span>
                     <span style="font-size:14px; font-weight:800;">${conf}%</span>
                 </div>
                 <div class="confidence-bar">
@@ -1398,8 +1402,8 @@ function renderROICard(data) {
 
             ${data.requiresSedaFee ? `
             <div class="seda-warning" style="background:rgba(254,243,199,0.15); border-color:rgba(217,119,6,0.6); margin-top:12px;">
-                <div class="seda-warning-title" style="color:#FDE68A;">⚠ SEDA Fee Required</div>
-                <div class="seda-warning-text" style="color:rgba(255,255,255,0.75); font-size:11px;">RM 1,000 oversize registration fee for systems ≥ ${data.config.systemPhase == 1 ? 5.01 : 15.01}kW (${data.config.systemPhase}-phase)</div>
+                <div class="seda-warning-title" style="color:#FDE68A;">${t('lbl_sedaFee')}</div>
+                <div class="seda-warning-text" style="color:rgba(255,255,255,0.6); font-size:11px;">${t(\'lbl_sedaDesc\')} ${data.config.systemPhase == 1 ? 5.01 : 15.01}kW (${data.config.systemPhase}${t(\'lbl_phase_txt\')})</div>
             </div>
             ` : ''}
         </div>
@@ -1407,14 +1411,14 @@ function renderROICard(data) {
         <!-- System Info -->
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:8px;">
             <div style="background:var(--surface); padding:16px 20px;">
-                <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-3); margin-bottom:6px;">System Size</div>
+                <div style="font-size:10px; font-weight:500; color:var(--ink-3); margin-bottom:6px;">${t('lbl_systemSize')}</div>
                 <div style="font-size:22px; font-weight:900; letter-spacing:-0.02em;">${data.systemSizeKwp} <span style="font-size:14px; font-weight:500;">kWp</span></div>
                 <div style="font-size:11px; color:var(--ink-3); margin-top:4px;">${data.actualPanels} × ${data.config.panelType}W panels</div>
             </div>
             <div style="background:var(--surface); padding:16px 20px;">
-                <div style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-3); margin-bottom:6px;">New Bill</div>
+                <div style="font-size:10px; font-weight:500; color:var(--ink-3); margin-bottom:6px;">${t('lbl_newBill')}</div>
                 <div style="font-size:22px; font-weight:900; letter-spacing:-0.02em;">RM ${fmt(active.payableAfterSolar)}</div>
-                <div style="font-size:11px; color:var(--ink-3); margin-top:4px;">was RM ${fmt(ds.billBefore)}</div>
+                <div style="font-size:11px; color:var(--ink-3); margin-top:4px;">${t('lbl_was')} ${fmt(ds.billBefore)}</div>
             </div>
         </div>
 
@@ -1422,15 +1426,15 @@ function renderROICard(data) {
         <div class="savings-breakdown">
             <div class="savings-item">
                 <div class="savings-item-num">RM ${fmt(active.billReduction)}</div>
-                <div class="savings-item-label">Bill Reduction</div>
+                <div class="savings-item-label">${t('lbl_billReduction')}</div>
             </div>
             <div class="savings-item">
                 <div class="savings-item-num">RM ${fmt(ds.actualEeiSaving)}</div>
-                <div class="savings-item-label">EEI Saving</div>
+                <div class="savings-item-label">${t('lbl_eeiSaving')}</div>
             </div>
             <div class="savings-item">
                 <div class="savings-item-num">RM ${fmt(ds.exportSaving)}</div>
-                <div class="savings-item-label">Export Credit</div>
+                <div class="savings-item-label">${t('lbl_exportCredit')}</div>
             </div>
         </div>
 
@@ -1438,7 +1442,7 @@ function renderROICard(data) {
         ${data.selectedPackage ? `
         <div style="background:var(--ink); color:white; border-top:1px solid rgba(255,255,255,0.1); padding:16px 20px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
             <div>
-                <div style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; opacity:0.6; margin-bottom:3px;">Matched Package</div>
+                <div style="font-size:9px; font-weight:500; opacity:0.5; margin-bottom:3px;">${t('lbl_matchedPackage')}</div>
                 <div style="font-size:14px; font-weight:700;">${data.selectedPackage.packageName}</div>
             </div>
             <div style="text-align:right; flex-shrink:0;">
@@ -1450,10 +1454,10 @@ function renderROICard(data) {
 
         <!-- EPP Calculator -->
         <div style="background:var(--bg); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:16px 20px; margin-bottom:8px;">
-            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-3); margin-bottom:12px;">Monthly Instalment (EPP)</div>
+            <div style="font-size:11px; font-weight:500; color:var(--ink-3); margin-bottom:12px;">${t('lbl_epp')}</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
                 <div>
-                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:5px;">Bank</div>
+                    <div style="font-size:10px; font-weight:500; color:var(--ink-3); margin-bottom:5px;">${t('lbl_bank')}</div>
                     <div class="select-shell" style="border-width:1.5px;">
                         <select id="eppBank" onchange="updateEPP()">
                             ${Object.keys(EPP_RATES).map(b => `<option value="${b}">${b}</option>`).join('')}
@@ -1461,7 +1465,7 @@ function renderROICard(data) {
                     </div>
                 </div>
                 <div>
-                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:5px;">Tenure</div>
+                    <div style="font-size:10px; font-weight:500; color:var(--ink-3); margin-bottom:5px;">${t('lbl_tenure')}</div>
                     <div class="select-shell" style="border-width:1.5px;">
                         <select id="eppTenure" onchange="updateEPP()"></select>
                     </div>
@@ -1469,7 +1473,7 @@ function renderROICard(data) {
             </div>
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border);">
-                    <span style="font-size:12px; color:var(--ink-3);">Monthly Payment</span>
+                    <span style="font-size:12px; color:var(--ink-3);">${t('lbl_monthlyPayment')}</span>
                     <span id="eppResult" style="font-size:22px; font-weight:900;">RM 0.00</span>
                 </div>
                 <div id="eppDetails" style="font-size:11px; display:flex; flex-direction:column; gap:3px;"></div>
@@ -1479,11 +1483,11 @@ function renderROICard(data) {
 
         <!-- Quotation CTA -->
         <div class="quotation-cta">
-            <div style="font-size:16px; font-weight:800;">Ready to go Solar?</div>
-            <p>Generate a full quotation link for your customer</p>
+            <div style="font-size:16px; font-weight:600;">${t('lbl_readySolar')}</div>
+            <p>${t('lbl_quotationSub')}</p>
             <button class="btn-quotation" onclick="handleGenerateQuotation()">
                 <span>📋</span>
-                <span>Create Quotation Link</span>
+                ${t('btn_createQuotation')}
             </button>
         </div>
     `;
@@ -1512,7 +1516,7 @@ function updateEPP() {
     const rates = EPP_RATES[bank] || {};
     const tenures = Object.keys(rates).sort((a,b) => parseInt(a)-parseInt(b));
     const curTenure = tenureEl.value;
-    tenureEl.innerHTML = tenures.map(t => `<option value="${t}">${t} Months</option>`).join('');
+    tenureEl.innerHTML = tenures.map(tn => `<option value="${tn}">${tn} ${t('lbl_months')}</option>`).join('');
     if (tenures.includes(curTenure)) tenureEl.value = curTenure;
     else tenureEl.value = tenures[tenures.length - 1];
 
@@ -1529,12 +1533,12 @@ function updateEPP() {
     const noteEl = document.getElementById('eppNote');
     if (resEl) resEl.textContent = `RM ${fmt(monthly)}`;
     if (detEl) detEl.innerHTML = `
-        <div class="epp-row"><span class="epp-label">System Price</span><span class="epp-val">RM ${fmt(fullPrice)}</span></div>
-        <div class="epp-row" style="color:var(--red);"><span class="epp-label">Downpayment (5%)</span><span class="epp-val">-RM ${fmt(downpayment)}</span></div>
-        <div class="epp-row" style="border-top:1px solid var(--border); padding-top:5px; margin-top:3px;"><span class="epp-label">Financed (95%)</span><span class="epp-val" style="font-weight:700;">RM ${fmt(financed)}</span></div>
-        <div class="epp-row"><span class="epp-label">EPP Interest (${rate}%)</span><span class="epp-val" style="color:#6B21A8;">RM ${fmt(feeAmt)}</span></div>
+        <div class="epp-row"><span class="epp-label">${t('lbl_systemPrice')}</span><span class="epp-val">RM ${fmt(fullPrice)}</span></div>
+        <div class="epp-row" style="color:var(--red);"><span class="epp-label">${t('lbl_downpayment')}</span><span class="epp-val">-RM ${fmt(downpayment)}</span></div>
+        <div class="epp-row" style="border-top:1px solid var(--border); padding-top:5px; margin-top:3px;"><span class="epp-label">${t('lbl_financed')}</span><span class="epp-val" style="font-weight:600;">RM ${fmt(financed)}</span></div>
+        <div class="epp-row"><span class="epp-label">${t('lbl_eppInterest')} (${rate}%)</span><span class="epp-val" style="color:#6B21A8;">RM ${fmt(feeAmt)}</span></div>
     `;
-    if (noteEl) noteEl.innerHTML = `<strong>IMPORTANT:</strong> 1st 5% downpayment (RM ${fmt(downpayment)}) via Cash/Credit Card. EPP interest ${rate}% applies to remaining 95%.`;
+    if (noteEl) noteEl.innerHTML = `<strong>${t('lbl_eppImportant')}</strong> ${t('lbl_eppNote', fmt(downpayment), rate)}`;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1549,12 +1553,12 @@ function renderDetailedCard(data) {
     document.getElementById('detailedBody').innerHTML = `
         <!-- Savings Ledger -->
         <div style="margin-bottom:24px;">
-            <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink); margin-bottom:10px;">Bill Component Breakdown</div>
+            <div style="font-size:13px; font-weight:600; color:var(--ink); margin-bottom:10px;">${t('lbl_billComponents')}</div>
             <div class="ledger-table-header">
-                <div class="lthr" style="text-align:left;">Item</div>
-                <div class="lthr">Before</div>
-                <div class="lthr">After</div>
-                <div class="lthr">Saved</div>
+                <div class="lthr" style="text-align:left;">${t('th_item')}</div>
+                <div class="lthr">${t('th_before')}</div>
+                <div class="lthr">${t('th_after')}</div>
+                <div class="lthr">${t('th_saved')}</div>
             </div>
             ${battItems.map(i => `
                 <div class="ledger-table-row">
@@ -1568,15 +1572,15 @@ function renderDetailedCard(data) {
 
         <!-- Energy Flows -->
         <div style="margin-bottom:24px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
-            <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:12px;">Energy Flows</div>
+            <div style="font-size:13px; font-weight:600; margin-bottom:12px;">${t('lbl_energyFlows')}</div>
             <div class="field-group" style="gap:8px;">
                 ${[
-                    ['Monthly Usage', `${fmt(ds.monthlyUsageKwh, 0)} kWh`],
-                    ['Solar Generation', `${fmt(ds.monthlySolarGeneration, 1)} kWh`],
-                    ['Net Grid Import', `${fmt(ds.netUsageKwh, 1)} kWh`],
-                    ['Export (FiT)', `${fmt(ds.exportKwh, 1)} kWh @ RM${parseFloat(ds.effectiveExportRate).toFixed(4)}`],
-                    ['Backup Gen', `${fmt(ds.backupGenerationKwh, 1)} kWh`],
-                    ...(parseFloat(ds.donatedKwh) > 0 ? [['Donated to Grid', `${fmt(ds.donatedKwh, 1)} kWh`]] : []),
+                    [t('lbl_monthlyUsage'), `${fmt(ds.monthlyUsageKwh, 0)} kWh`],
+                    [t('lbl_solarGen'), `${fmt(ds.monthlySolarGeneration, 1)} kWh`],
+                    [t('lbl_netGrid'), `${fmt(ds.netUsageKwh, 1)} kWh`],
+                    [t('lbl_exportFit'), `${fmt(ds.exportKwh, 1)} kWh @ RM${parseFloat(ds.effectiveExportRate).toFixed(4)}`],
+                    [t('lbl_backupGen'), `${fmt(ds.backupGenerationKwh, 1)} kWh`],
+                    ...(parseFloat(ds.donatedKwh) > 0 ? [[t('lbl_donated'), `${fmt(ds.donatedKwh, 1)} kWh`]] : []),
                 ].map(([l, v]) => `
                     <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:13px; padding:5px 0; border-bottom:1px solid var(--border);">
                         <span style="color:var(--ink-2);">${l}</span>
@@ -1588,35 +1592,35 @@ function renderDetailedCard(data) {
 
         <!-- Battery Storage -->
         <div style="margin-bottom:24px;">
-            <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px;">Battery Storage</div>
+            <div style="font-size:13px; font-weight:600; margin-bottom:10px;">${t('lbl_battery')}</div>
             <div class="battery-btns">
                 ${ALLOWED_BATTERY_SIZES.map(s => `
                     <button class="battery-btn${battSize === s ? ' active' : ''}" onclick="selectBattery(${s})">
-                        ${s === 0 ? 'None' : s + ' kWh'}
+                        ${s === 0 ? t('lbl_batteryNone') : s + ' kWh'}
                     </button>
                 `).join('')}
             </div>
             ${battSize > 0 ? `
             <div style="margin-top:12px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
                 <div style="display:flex; flex-direction:column; gap:8px; font-size:12px;">
-                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">Solar to Battery</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.nonOffsetSolarKwh||0, 1)} kWh/mo</span></div>
-                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">Battery Stored</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyStoredKwh||0, 1)} kWh/mo</span></div>
-                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">Excess Export</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyExcessExportKwh||0, 1)} kWh/mo</span></div>
-                    <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border);"><span style="font-weight:700;">Value Add</span><span style="font-weight:900; color:var(--green-text);">+RM ${fmt(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings||data.monthlySavings))}/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_solarToBat')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.nonOffsetSolarKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_batStored')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyStoredKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_excessExport')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyExcessExportKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border);"><span style="font-weight:600;">${t('lbl_valueAdd')}</span><span style="font-weight:900; color:var(--green-text);">+RM ${fmt(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings||data.monthlySavings))}/mo</span></div>
                 </div>
-                <p style="font-size:10px; color:var(--ink-3); margin-top:8px;">95% charging efficiency before export calculation.</p>
+                <p style="font-size:10px; color:var(--ink-3); margin-top:8px;">${t('lbl_batEffNote')}</p>
             </div>
-            ` : `<p style="font-size:12px; color:var(--ink-3); margin-top:8px;">Select a battery size above to simulate battery storage impact.</p>`}
+            ` : `<p style="font-size:12px; color:var(--ink-3); margin-top:8px;">${t('lbl_battery')} — ${t('lbl_batteryNone')}</p>`}
         </div>
 
         <!-- Future Usage Stress Test -->
         <div style="margin-bottom:12px;">
-            <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Future Usage Stress Test</div>
-            <p style="font-size:11px; color:var(--ink-3); margin-bottom:12px;">Toggle +200 kWh blocks to simulate future household growth with the current system fixed.</p>
+            <div style="font-size:13px; font-weight:600; margin-bottom:4px;">${t('lbl_futureTest')}</div>
+            <p style="font-size:11px; color:var(--ink-3); margin-bottom:12px;">${t('lbl_futureDesc')}</p>
             <div class="future-blocks">
                 ${futureUsageBlocks.map((active, i) => `
                     <div class="future-block${active?' active':''}" onclick="toggleFutureBlock(${i})">
-                        <span class="future-block-label">Block ${i+1}</span>
+                        <span class="future-block-label">${t('lbl_block')} ${i+1}</span>
                         <span class="future-block-kwh">+200</span>
                         <span style="font-size:9px; opacity:0.7; display:block; margin-top:1px;">kWh</span>
                     </div>
@@ -1682,26 +1686,26 @@ async function runFutureUpdate() {
         const savedDelta = toN(result.monthlySavings) - toN(latestSolarData.monthlySavings);
         resultEl.innerHTML = `
             <div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
-                <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-3); margin-bottom:8px;">Future Projection (+${boostKwh} kWh/mo)</div>
+                <div style="font-size:11px; font-weight:500; color:var(--ink-3); margin-bottom:8px;">${t('lbl_futureProjection', boostKwh)}</div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                     <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
-                        <div style="font-size:10px; color:var(--ink-3); font-weight:700; margin-bottom:4px;">FUTURE BILL</div>
+                        <div style="font-size:10px; color:var(--ink-3); font-weight:500; margin-bottom:4px;">${t('lbl_futureBill')}</div>
                         <div style="font-size:18px; font-weight:900;">RM ${fmt(result.details?.billBefore)}</div>
                     </div>
                     <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
-                        <div style="font-size:10px; color:var(--ink-3); font-weight:700; margin-bottom:4px;">AFTER SOLAR</div>
+                        <div style="font-size:10px; color:var(--ink-3); font-weight:500; margin-bottom:4px;">${t('lbl_afterSolar')}</div>
                         <div style="font-size:18px; font-weight:900; color:var(--green-text);">RM ${fmt(result.details?.billAfter)}</div>
                     </div>
                     <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
-                        <div style="font-size:10px; color:var(--ink-3); font-weight:700; margin-bottom:4px;">NEW SAVINGS</div>
+                        <div style="font-size:10px; color:var(--ink-3); font-weight:500; margin-bottom:4px;">${t('lbl_newSavings')}</div>
                         <div style="font-size:18px; font-weight:900; color:var(--green-text);">RM ${fmt(result.monthlySavings)}</div>
                     </div>
                     <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; text-align:center;">
-                        <div style="font-size:10px; color:var(--ink-3); font-weight:700; margin-bottom:4px;">SAVINGS CHANGE</div>
+                        <div style="font-size:10px; color:var(--ink-3); font-weight:500; margin-bottom:4px;">${t('lbl_savingsChange')}</div>
                         <div style="font-size:18px; font-weight:900; color:${savedDelta >= 0 ? 'var(--green-text)' : 'var(--red)'};">${savedDelta >= 0 ? '+' : ''}RM ${fmt(Math.abs(savedDelta))}</div>
                     </div>
                 </div>
-                <div style="font-size:11px; color:var(--ink-3); margin-top:8px;">System stays at ${latestSolarData.actualPanels} panels · Payback: ${result.paybackPeriod} yr</div>
+                <div style="font-size:11px; color:var(--ink-3); margin-top:8px;">${t('lbl_panelNote', latestSolarData.actualPanels, result.paybackPeriod)}</div>
             </div>
         `;
     } catch(err) {
@@ -1794,8 +1798,8 @@ function qAdjustPanels(delta) {
 // QUOTATION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function handleGenerateQuotation() {
-    if (!currentTariffData || !latestSolarData) { toast('Complete the ROI analysis first', 'error'); return; }
-    if (!latestSolarData.selectedPackage?.linked_package) { toast('No valid package matched', 'error'); return; }
+    if (!currentTariffData || !latestSolarData) { toast(t('err_needROI'), 'error'); return; }
+    if (!latestSolarData.selectedPackage?.linked_package) { toast(t('err_noPackage'), 'error'); return; }
 
     const params = new URLSearchParams();
     params.set('linked_package', latestSolarData.selectedPackage.linked_package);
@@ -1823,6 +1827,211 @@ async function handleGenerateQuotation() {
 // NAVIGATION LINKS (passive)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // (Desktop version accessible via /domestic)
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// I18N — EN / ZH
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _lang = localStorage.getItem('solar_lang') || 'en';
+
+const TRANSLATIONS = {
+  en: {
+    appSubtitle: 'Solar ROI · v2 Mobile',
+    step_bill: 'Bill', step_review: 'Review', step_setup: 'Setup', step_roi: 'ROI', step_details: 'Details',
+    step1_label: 'Step 1', step1_title: 'Your TNB Bill',
+    step2_label: 'Step 2', step2_title: 'Bill Breakdown',
+    step3_label: 'Step 3', step3_title: 'Solar Setup',
+    step4_label: 'Step 4', step4_title: 'ROI Summary',
+    step5_label: 'Step 5', step5_title: 'Detailed Analysis',
+    lbl_billAmount: 'Monthly TNB Bill (RM)',
+    lbl_afaPeriod: 'AFA Period',
+    lbl_phase: 'Electrical Phase',
+    phase_3: '3 Phase', phase_1: '1 Phase',
+    lbl_inverter: 'Inverter Type',
+    inv_string: 'String', inv_hybrid: 'Hybrid',
+    btn_analyseBill: 'Analyse Bill',
+    lbl_sunPeak: 'Sun Peak Hours',
+    hint_sunPeak: 'Malaysia standard: 3.4h. Higher = more optimistic.',
+    lbl_dayUsage: 'Daytime Usage Share (%)',
+    hint_dayUsage: '% of your usage that happens during solar production hours.',
+    lbl_advanced: 'Advanced Settings',
+    lbl_panelRating: 'Panel Rating (W)',
+    lbl_afaProjection: 'AFA Projection (RM/kWh)',
+    lbl_exportRate: 'Export Rate (RM/kWh)',
+    lbl_discount: 'Discount Protocol',
+    lbl_discPct: 'Percentage (%)', lbl_discFixed: 'Fixed (RM)',
+    btn_generateROI: 'Generate ROI Matrix',
+    ph_step3: 'Complete Step 3 to see your ROI',
+    ph_step4: 'Complete Step 4 first',
+    qa_title: 'Quick Adjust · Results update live',
+    qa_sun: '☀ Sun Peak', qa_day: '🌤 Day Usage', qa_panels: '🔲 Panels',
+    // Dynamic strings
+    analysing: 'Analysing...', computing: 'Computing ROI...',
+    err_invalidBill: 'Please enter a valid bill amount',
+    err_needBill: 'Complete bill analysis first',
+    err_noPackage: 'No valid package matched',
+    err_needROI: 'Complete the ROI analysis first',
+    loading_tnb: 'Querying TNB database',
+    loading_roi: 'Computing ROI Matrix',
+    lbl_fullMonth: 'Full Month', lbl_under28: '<28 Days',
+    lbl_monthlySavings: 'Monthly Savings',
+    lbl_payback: 'Payback', lbl_annualRoi: 'Annual ROI', lbl_netCost: 'Net Cost',
+    lbl_confidence: 'Confidence Level',
+    lbl_sedaFee: '⚠ SEDA Fee Required',
+    lbl_sedaDesc: 'RM 1,000 oversize registration fee for systems ≥',
+    lbl_phase_txt: '-phase',
+    lbl_systemSize: 'System Size', lbl_newBill: 'New Bill', lbl_was: 'was RM',
+    lbl_billReduction: 'Bill Reduction', lbl_eeiSaving: 'EEI Saving', lbl_exportCredit: 'Export Credit',
+    lbl_matchedPackage: 'Matched Package',
+    lbl_epp: 'Monthly Instalment (EPP)',
+    lbl_bank: 'Bank', lbl_tenure: 'Tenure', lbl_monthlyPayment: 'Monthly Payment',
+    lbl_eppImportant: 'IMPORTANT:',
+    lbl_eppNote: '1st 5% downpayment (RM {0}) via Cash/Credit Card. EPP interest {1}% applies to remaining 95%.',
+    lbl_readySolar: 'Ready to go Solar?',
+    lbl_quotationSub: 'Generate a full quotation link for your customer',
+    btn_createQuotation: '📋 Create Quotation Link',
+    lbl_billComponents: 'Bill Component Breakdown',
+    th_item: 'Item', th_before: 'Before', th_after: 'After', th_saved: 'Saved',
+    lbl_energyFlows: 'Energy Flows',
+    lbl_monthlyUsage: 'Monthly Usage', lbl_solarGen: 'Solar Generation',
+    lbl_netGrid: 'Net Grid Import', lbl_exportFit: 'Export (FiT)',
+    lbl_backupGen: 'Backup Gen', lbl_donated: 'Donated to Grid',
+    lbl_battery: 'Battery Storage', lbl_batteryNone: 'None',
+    lbl_solarToBat: 'Solar to Battery', lbl_batStored: 'Battery Stored',
+    lbl_excessExport: 'Excess Export', lbl_valueAdd: 'Value Add',
+    lbl_batEffNote: '95% charging efficiency before export calculation.',
+    lbl_futureTest: 'Future Usage Stress Test',
+    lbl_futureDesc: 'Toggle +200 kWh blocks to simulate future household growth with the current system fixed.',
+    lbl_block: 'Block',
+    lbl_futureProjection: 'Future Projection (+{0} kWh/mo)',
+    lbl_futureBill: 'FUTURE BILL', lbl_afterSolar: 'AFTER SOLAR',
+    lbl_newSavings: 'NEW SAVINGS', lbl_savingsChange: 'SAVINGS CHANGE',
+    lbl_panelNote: 'System stays at {0} panels · Payback: {1} yr',
+    lbl_matchedTolerance: 'Matched ±0.01% tolerance',
+    lbl_derivedUsage: 'Derived Usage:',
+    lbl_totalMatched: 'Total Matched',
+    bill_energy: 'Energy Usage', bill_network: 'Network Charge', bill_capacity: 'Capacity Fee',
+    bill_retail: 'Retail Charge', bill_eei: 'EEI', bill_eei_sub: 'subsidy',
+    bill_sst: 'SST', bill_kwtbb: 'KWTBB Fund', bill_afa: 'AFA Adjustment',
+    lbl_kwhMo: 'kWh/mo', lbl_months: 'Months',
+    lbl_systemPrice: 'System Price', lbl_downpayment: 'Downpayment (5%)',
+    lbl_financed: 'Financed (95%)', lbl_eppInterest: 'EPP Interest',
+  },
+  zh: {
+    appSubtitle: '太阳能回报 · v2',
+    step_bill: '账单', step_review: '明细', step_setup: '设置', step_roi: '回报', step_details: '详情',
+    step1_label: '第一步', step1_title: '您的 TNB 电费',
+    step2_label: '第二步', step2_title: '账单明细',
+    step3_label: '第三步', step3_title: '太阳能设置',
+    step4_label: '第四步', step4_title: '投资回报摘要',
+    step5_label: '第五步', step5_title: '详细分析',
+    lbl_billAmount: '每月 TNB 电费 (RM)',
+    lbl_afaPeriod: 'AFA 期间',
+    lbl_phase: '电相',
+    phase_3: '三相', phase_1: '单相',
+    lbl_inverter: '逆变器类型',
+    inv_string: '串联式', inv_hybrid: '混合式',
+    btn_analyseBill: '分析账单',
+    lbl_sunPeak: '日照峰值时数',
+    hint_sunPeak: '马来西亚标准：3.4小时。数值越高越乐观。',
+    lbl_dayUsage: '白天用电比例 (%)',
+    hint_dayUsage: '在太阳能发电时段内的用电比例。',
+    lbl_advanced: '高级设置',
+    lbl_panelRating: '太阳能板功率 (W)',
+    lbl_afaProjection: 'AFA 预测 (RM/kWh)',
+    lbl_exportRate: '出口电价 (RM/kWh)',
+    lbl_discount: '折扣方案',
+    lbl_discPct: '百分比 (%)', lbl_discFixed: '固定折扣 (RM)',
+    btn_generateROI: '生成投资回报矩阵',
+    ph_step3: '完成第三步以查看投资回报',
+    ph_step4: '请先完成第四步',
+    qa_title: '快速调整 · 结果实时更新',
+    qa_sun: '☀ 日照峰值', qa_day: '🌤 白天用电', qa_panels: '🔲 板数',
+    analysing: '分析中...', computing: '计算中...',
+    err_invalidBill: '请输入有效的电费金额',
+    err_needBill: '请先完成账单分析',
+    err_noPackage: '未找到匹配配套',
+    err_needROI: '请先完成投资回报分析',
+    loading_tnb: '查询 TNB 数据库',
+    loading_roi: '计算投资回报矩阵',
+    lbl_fullMonth: '整月', lbl_under28: '不足28天',
+    lbl_monthlySavings: '每月节省',
+    lbl_payback: '回本期', lbl_annualRoi: '年回报率', lbl_netCost: '净费用',
+    lbl_confidence: '置信度',
+    lbl_sedaFee: '⚠ 需缴纳 SEDA 注册费',
+    lbl_sedaDesc: 'RM 1,000 超规格注册费，适用于 ≥',
+    lbl_phase_txt: '相系统',
+    lbl_systemSize: '系统规模', lbl_newBill: '新电费', lbl_was: '原 RM',
+    lbl_billReduction: '账单减少', lbl_eeiSaving: 'EEI 节省', lbl_exportCredit: '出口电费',
+    lbl_matchedPackage: '推荐配套',
+    lbl_epp: '每月分期付款 (EPP)',
+    lbl_bank: '银行', lbl_tenure: '期限', lbl_monthlyPayment: '每月还款',
+    lbl_eppImportant: '重要：',
+    lbl_eppNote: '首付5% (RM {0}) 须以现金/信用卡支付。余额95%适用 EPP 利率 {1}%。',
+    lbl_readySolar: '准备好安装太阳能了吗？',
+    lbl_quotationSub: '为客户生成完整报价链接',
+    btn_createQuotation: '📋 创建报价链接',
+    lbl_billComponents: '账单组件明细',
+    th_item: '项目', th_before: '安装前', th_after: '安装后', th_saved: '节省',
+    lbl_energyFlows: '电量流向',
+    lbl_monthlyUsage: '月用电量', lbl_solarGen: '太阳能发电量',
+    lbl_netGrid: '净从电网进口', lbl_exportFit: '输出 (FiT)',
+    lbl_backupGen: '备用发电', lbl_donated: '捐赠至电网',
+    lbl_battery: '储能系统', lbl_batteryNone: '无',
+    lbl_solarToBat: '充入储能', lbl_batStored: '储能总量', lbl_excessExport: '剩余输出',
+    lbl_valueAdd: '增值', lbl_batEffNote: '储能效率95%（计算出口前）。',
+    lbl_futureTest: '未来用电压力测试',
+    lbl_futureDesc: '点击 +200 度 区块，模拟未来家庭用电增长对现有系统的影响。',
+    lbl_block: '区块',
+    lbl_futureProjection: '未来预测 (+{0} 度/月)',
+    lbl_futureBill: '未来电费', lbl_afterSolar: '安装后电费',
+    lbl_newSavings: '新节省金额', lbl_savingsChange: '节省变化',
+    lbl_panelNote: '系统固定 {0} 块板 · 回本期：{1} 年',
+    lbl_matchedTolerance: '匹配精度 ±0.01%',
+    lbl_derivedUsage: '推算用电量：',
+    lbl_totalMatched: '总计匹配',
+    bill_energy: '电费', bill_network: '网络费', bill_capacity: '容量费',
+    bill_retail: '零售费', bill_eei: 'EEI 节能奖励', bill_eei_sub: '补贴',
+    bill_sst: 'SST 销售税', bill_kwtbb: 'KWTBB 基金', bill_afa: 'AFA 调整',
+    lbl_kwhMo: '度/月', lbl_months: '个月',
+    lbl_systemPrice: '系统价格', lbl_downpayment: '首付 (5%)',
+    lbl_financed: '融资金额 (95%)', lbl_eppInterest: 'EPP 利息',
+  }
+};
+
+function t(key, ...args) {
+    let str = (TRANSLATIONS[_lang] || TRANSLATIONS.en)[key] || TRANSLATIONS.en[key] || key;
+    args.forEach((a, i) => { str = str.replace(`{${i}}`, a); });
+    return str;
+}
+
+function applyI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const val = t(key);
+        // Preserve child elements (like chevron spans) for buttons
+        if (el.children.length === 0) { el.textContent = val; }
+        else if (el.tagName === 'BUTTON' || el.tagName === 'LABEL') { el.textContent = val; }
+        else { el.textContent = val; }
+    });
+    // Re-render dynamic content if already computed
+    if (latestSolarData) { renderROICard(latestSolarData); renderDetailedCard(latestSolarData); }
+    // Update quick-adjust title
+    const q = document.getElementById('quickAdjustBar');
+    // Update lang button
+    document.getElementById('langToggleBtn').textContent = _lang === 'en' ? '中文' : 'EN';
+    // Update hint spans (mixed content)
+    document.querySelectorAll('[data-i18n="hint_sunPeak"]').forEach(el => el.textContent = t('hint_sunPeak'));
+    document.querySelectorAll('[data-i18n="hint_dayUsage"]').forEach(el => el.textContent = t('hint_dayUsage'));
+}
+
+function toggleLang() {
+    _lang = _lang === 'en' ? 'zh' : 'en';
+    localStorage.setItem('solar_lang', _lang);
+    applyI18n();
+}
+
+// ── Navigation links comment end
+
 </script>
 
 </body>
