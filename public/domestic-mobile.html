@@ -605,7 +605,8 @@
             background: rgba(255,255,255,0.96);
             border-top: 1px solid var(--border);
             padding: 10px 16px 24px;
-            z-index: 200;
+            padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+            z-index: 9999;
             display: none;
             backdrop-filter: blur(12px);
         }
@@ -1231,7 +1232,7 @@ async function handleBillAnalysis() {
         unlockCard('card3', null);
         document.getElementById('card4').classList.add('locked');
         document.getElementById('card5').classList.add('locked');
-        document.getElementById('quickAdjustBar').classList.remove('visible');
+        const qaBar = document.getElementById('quickAdjustBar'); if (qaBar) qaBar.style.display = 'none';
 
         // Summary on card 1
         const afaCharge = mapped.usage_kwh * afaRate;
@@ -1801,8 +1802,10 @@ async function runLiveUpdate() {
 // QUICK ADJUST BAR
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function showQuickAdjustBar(data) {
-    document.getElementById('quickAdjustBar').classList.add('visible');
+    const bar = document.getElementById('quickAdjustBar');
+    if (bar) { bar.setAttribute("style", "display: block !important; position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important;"); }
     updateQuickBar(data);
+    console.log('QuickAdjustBar shown, panels:', data?.actualPanels);
 }
 
 function updateQuickBar(data) {
