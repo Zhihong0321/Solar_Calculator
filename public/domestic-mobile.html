@@ -1717,10 +1717,10 @@ function renderDetailedCard(data) {
                     })}
                 </div>
                 <div style="display:flex; flex-direction:column; gap:8px; font-size:12px;">
-                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_solarToBat')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.nonOffsetSolarKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_solarToBat')}</span><span style="font-weight:700;">${fmt(ds.battery?.nonOffsetSolarKwh||0, 1)} kWh/mo</span></div>
                     <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_usableCapacity')}</span><span style="font-weight:700;">${fmt(ds.battery?.usableCapacityKwh||0, 1)} kWh/day</span></div>
-                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_batStored')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyStoredKwh||0, 1)} kWh/mo</span></div>
-                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_excessExport')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyExcessExportKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_batStored')}</span><span style="font-weight:700;">${fmt(ds.battery?.monthlyStoredKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_excessExport')}</span><span style="font-weight:700;">${fmt(ds.battery?.monthlyExcessExportKwh||0, 1)} kWh/mo</span></div>
                     <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border);"><span style="font-weight:600;">${t('lbl_valueAdd')}</span><span style="font-weight:900; color:var(--green-text);">+RM ${fmt(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings||data.monthlySavings))}/mo</span></div>
                 </div>
                 <p style="font-size:10px; color:var(--ink-3); margin-top:8px;">${t('lbl_batEffNote', batteryLossPercent, batteryDodPercent)}</p>

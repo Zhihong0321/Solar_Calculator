@@ -1606,8 +1606,8 @@ function displaySolarCalculation(data) {
     const ds = data.details;
     const b = ds.battery.baseline;
     const batteryMiniReport = ds.battery.miniReport || ds.miniReport || {
-        monthlySolarSentToChargeBatteryKwh: ds.batteryFlow?.nonOffsetSolarKwh || 0,
-        monthlyBatteryStoredAndDischargedKwh: ds.batteryFlow?.monthlyStoredKwh || 0,
+        monthlySolarSentToChargeBatteryKwh: ds.battery?.nonOffsetSolarKwh || 0,
+        monthlyBatteryStoredAndDischargedKwh: ds.battery?.monthlyStoredKwh || 0,
         newBillAfterSolarBattery: ds.billAfter || 0,
         newExportKwh: ds.exportKwh || 0,
         newActualEei: ds.actualEei || 0
