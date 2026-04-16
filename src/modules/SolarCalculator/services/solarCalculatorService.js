@@ -124,6 +124,31 @@ const resolveActualEeiValue = (tariffRow, eeiTariffRow, actualUsageKwh) => {
 };
 
 const getResidentialPackagePhasePrefix = (systemPhase = 3) => (systemPhase === 1 ? '[1P]' : '[3P]');
+const RESIDENTIAL_PACKAGE_TEXT_SQL = `LOWER(CONCAT_WS(' ', COALESCE(p.package_name, ''), COALESCE(p.invoice_desc, '')))`;
+
+const normalizeResidentialInverterType = (value = 'string') => (
+  String(value || '').trim().toLowerCase() === 'hybrid' ? 'hybrid' : 'string'
+);
+
+const buildResidentialPackageInverterFilterSql = (paramIndex) => `
+  AND (
+    $${paramIndex}::text IS NULL
+    OR (
+      $${paramIndex}::text = 'hybrid'
+      AND (
+        ${RESIDENTIAL_PACKAGE_TEXT_SQL} LIKE '%hybrid%'
+        OR ${RESIDENTIAL_PACKAGE_TEXT_SQL} LIKE '%hybird%'
+      )
+    )
+    OR (
+      $${paramIndex}::text = 'string'
+      AND NOT (
+        ${RESIDENTIAL_PACKAGE_TEXT_SQL} LIKE '%hybrid%'
+        OR ${RESIDENTIAL_PACKAGE_TEXT_SQL} LIKE '%hybird%'
+      )
+    )
+  )
+`;
 
 const getResidentialPanelQuantityGate = (recommendedPanels, systemPhase = 3) => {
   const safeRecommendedPanels = Math.max(1, Math.floor(parseCurrencyValue(recommendedPanels, 1)));
@@ -240,6 +265,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     historicalAfaRate: historicalAfaRateRaw,
     batterySize,
     systemPhase,
+    inverterType,
     overridePanels,
     futureUsageKwh,
     usageKwhOverride,
@@ -262,6 +288,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   const batterySizeVal = parseFloat(batterySize) || 0;
   const systemPhaseVal = parseInt(systemPhase) || 3;
   const packagePhasePrefix = getResidentialPackagePhasePrefix(systemPhaseVal);
+  const inverterTypeVal = normalizeResidentialInverterType(inverterType);
   const futureUsageKwhRaw = futureUsageKwh ?? usageKwhOverride;
   const futureUsageKwhVal = parseFloat(futureUsageKwhRaw);
   const hasFutureUsageOverride = Number.isFinite(futureUsageKwhVal) && futureUsageKwhVal > 0;
@@ -322,10 +349,11 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
               AND p.type = $2
               AND pr.bubble_id = $3
               AND p.package_name ILIKE $4
+              ${buildResidentialPackageInverterFilterSql(5)}
             ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC
             LIMIT 1
           `;
-      packageResult = await mainClient.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId, `${packagePhasePrefix}%`]);
+      packageResult = await mainClient.query(packageByBubbleQuery, [actualPanelQty, 'Residential', selectedPanelBubbleId, `${packagePhasePrefix}%`, inverterTypeVal]);
     } else {
       const packageByWattQuery = `
             SELECT p.*, COALESCE(p.bubble_id, p.id::text) AS resolved_package_id
@@ -339,10 +367,11 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
               AND p.type = $2
               AND pr.solar_output_rating = $3
               AND p.package_name ILIKE $4
+              ${buildResidentialPackageInverterFilterSql(5)}
             ORDER BY ABS(p.panel_qty - $1) ASC, p.price ASC
             LIMIT 1
           `;
-      packageResult = await mainClient.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage, `${packagePhasePrefix}%`]);
+      packageResult = await mainClient.query(packageByWattQuery, [actualPanelQty, 'Residential', panelWattage, `${packagePhasePrefix}%`, inverterTypeVal]);
     }
 
     let selectedPackage = null;
@@ -578,7 +607,8 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         smpPrice: smp,
         afaRate: afaRate,
         batterySize: batterySizeVal,
-        systemPhase: systemPhaseVal
+        systemPhase: systemPhaseVal,
+        inverterType: inverterTypeVal
       },
       confidenceLevel: confidenceLevel.toFixed(1),
       recommendedPanels: recommendedPanels,

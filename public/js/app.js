@@ -47,6 +47,24 @@ function getResidentialPackagePhasePrefix(systemPhase = 3) {
     return parseInt(systemPhase, 10) === 1 ? '[1P]' : '[3P]';
 }
 
+function normalizeResidentialInverterType(value = 'string') {
+    return String(value || '').trim().toLowerCase() === 'hybrid' ? 'hybrid' : 'string';
+}
+
+function buildResidentialPackageText(pkg = {}) {
+    return `${pkg?.package_name || ''} ${pkg?.invoice_desc || ''}`.trim().toLowerCase();
+}
+
+function isHybridResidentialPackage(pkg = {}) {
+    return /(hybrid|hybird)/i.test(buildResidentialPackageText(pkg));
+}
+
+function matchesResidentialInverterType(pkg, inverterType = 'string') {
+    const normalizedType = normalizeResidentialInverterType(inverterType);
+    const hybridPackage = isHybridResidentialPackage(pkg);
+    return normalizedType === 'hybrid' ? hybridPackage : !hybridPackage;
+}
+
 function calculateBatteryFlow({ monthlySolarGeneration, morningUsageKwh, batterySizeVal }) {
     const nonOffsetSolarKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
     const dailyNonOffsetSolarKwh = nonOffsetSolarKwh / 30;
@@ -566,7 +584,8 @@ class SolarCalculator {
             amount, sunPeakHour, morningUsage, panelType,
             smpPrice, afaRate, historicalAfaRate,
             percentDiscount, fixedDiscount, batterySize, overridePanels,
-            systemPhase = 3
+            systemPhase = 3,
+            inverterType = 'string'
         } = params;
 
         // 1. Initial Tariff
@@ -593,7 +612,8 @@ class SolarCalculator {
                 p.type === 'Residential' &&
                 p.solar_output_rating === panelType &&
                 typeof p.package_name === 'string' &&
-                p.package_name.toUpperCase().startsWith(getResidentialPackagePhasePrefix(systemPhase))
+                p.package_name.toUpperCase().startsWith(getResidentialPackagePhasePrefix(systemPhase)) &&
+                matchesResidentialInverterType(p, inverterType)
             )
             .sort((a, b) => Math.abs(a.panel_qty - actualPanelQty) - Math.abs(b.panel_qty - actualPanelQty) || a.price - b.price)[0] || null;
 
@@ -1023,6 +1043,7 @@ function collectLiveSolarParams(overrides = {}) {
         batterySize: normalizeBatterySize(latestSolarParams?.batterySize || 0),
         overridePanels: resolvedOverridePanels,
         systemPhase: parseInt(document.getElementById('systemPhase').value, 10) || 3,
+        inverterType: normalizeResidentialInverterType(document.getElementById('inverterType')?.value || latestSolarParams?.inverterType || 'string'),
         ...overrides
     };
 }
@@ -1048,6 +1069,7 @@ window.triggerSpontaneousUpdate = function (source) {
     latestSolarParams.percentDiscount = parseFloat(document.getElementById('percentDiscount')?.value) || 0;
     latestSolarParams.fixedDiscount = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
     latestSolarParams.systemPhase = parseInt(document.getElementById('systemPhase')?.value) || 3;
+    latestSolarParams.inverterType = normalizeResidentialInverterType(document.getElementById('inverterType')?.value || latestSolarParams.inverterType || 'string');
 
     // If panel rating changed, reset panel override so server recalculates from scratch
     if (panelRatingChanged) {
