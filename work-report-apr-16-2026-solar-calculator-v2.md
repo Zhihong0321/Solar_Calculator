@@ -10,5 +10,6 @@ REPO NAME : Solar Calculator v2
 - Applied the package lookup handoff fix to the domestic-mobile calculator quotation flow
 - Restored the missing /domestic-mobile route after the mobile calculator file was added
 - Unified domestic and domestic-mobile package selection onto one shared residential lookup helper used by solar calculation and readonly lookup.
+- Added battery loss and DoD controls to domestic and domestic-mobile calculators and applied the new factors in shared battery savings calculations.
 
 =====================

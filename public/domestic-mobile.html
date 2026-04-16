@@ -1049,6 +1049,8 @@ let _futureDebounce = null;
 let invoiceBaseUrl = '/create-invoice';
 
 const ALLOWED_BATTERY_SIZES = [0, 16, 32, 48];
+const DEFAULT_BATTERY_LOSS_PERCENT = 0;
+const DEFAULT_BATTERY_DOD_PERCENT = 5;
 const EPP_RATES = {
     "Maybank":      { 6:2.50, 12:3.50, 24:5.50, 36:6.00, 48:8.00, 60:10.00 },
     "Public Bank":  { 6:2.50, 12:3.50, 18:4.00, 24:5.50, 36:6.00, 48:8.00, 60:10.00 },
@@ -1085,6 +1087,12 @@ async function checkHealth() {
 const fmt = (v, d=2) => Number(v||0).toLocaleString('en-MY', {minimumFractionDigits:d, maximumFractionDigits:d});
 const toN = (v, fb=0) => { const n=Number(v); return isFinite(n)?n:fb; };
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+const clampPercent = (v, min, max, fb) => {
+    const n = Number(v);
+    return isFinite(n) ? Math.min(max, Math.max(min, n)) : fb;
+};
+const normalizeBatteryLossPercent = (v) => clampPercent(v, 0, 20, DEFAULT_BATTERY_LOSS_PERCENT);
+const normalizeBatteryDodPercent = (v) => clampPercent(v, 0, 10, DEFAULT_BATTERY_DOD_PERCENT);
 
 function toast(msg, type='info') {
     const c = document.getElementById('toastContainer');
@@ -1348,6 +1356,8 @@ async function fetchSolar(params) {
 }
 
 function collectParams(overrides={}) {
+    const batteryLossInput = document.getElementById('batteryLossPercent');
+    const batteryDodInput = document.getElementById('batteryDodPercent');
     return {
         amount: parseFloat(document.getElementById('billAmount').value),
         sunPeakHour: parseFloat(document.getElementById('sunPeakHour').value),
@@ -1360,6 +1370,8 @@ function collectParams(overrides={}) {
         fixedDiscount: parseFloat(document.getElementById('fixedDiscount')?.value) || 0,
         systemPhase: parseInt(document.getElementById('systemPhase').value, 10) || 3,
         inverterType: document.getElementById('inverterType').value || 'string',
+        batteryLossPercent: normalizeBatteryLossPercent(batteryLossInput?.value ?? latestSolarParams?.batteryLossPercent),
+        batteryDodPercent: normalizeBatteryDodPercent(batteryDodInput?.value ?? latestSolarParams?.batteryDodPercent),
         batterySize: 0,
         overridePanels: '',
         ...overrides
@@ -1395,6 +1407,27 @@ function buildBillCycleMetrics(data) {
         fullMonth: { key:'fullMonth', label:'Full Month', billAfter:fullBillAfter, billReduction:fullBillReduction, totalSavings:fullTotalSavings, payableAfterSolar:fullPayableAfterSolar, currentSst, recalculatedSst:currentSst, shortCycleSstBase },
         under28Days: { key:'under28Days', label:'<28 Days', billAfter:under28BillAfter, billReduction:under28BillReduction, totalSavings:under28TotalSavings, payableAfterSolar:under28PayableAfterSolar, currentSst, recalculatedSst, shortCycleSstBase }
     };
+}
+
+function buildBatterySliderControl({ id, label, value, min, max, sajValue, onInput, helper }) {
+    const markerPercent = ((sajValue - min) / (max - min)) * 100;
+    return `
+        <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                <span style="font-size:10px; font-weight:600; color:var(--ink-2);">${label}</span>
+                <span style="font-size:14px; font-weight:800;">${value}%</span>
+            </div>
+            <input type="range" id="${id}" min="${min}" max="${max}" step="1" value="${value}" oninput="${onInput}(this.value)" style="width:100%; accent-color:var(--ink);">
+            <div style="position:relative; padding-top:14px;">
+                <span style="position:absolute; top:0; left:${markerPercent}%; transform:translateX(-50%); font-size:9px; font-weight:700; color:var(--ink-3); white-space:nowrap;">${t('lbl_sajBattery')}</span>
+                <div style="display:flex; justify-content:space-between; font-size:9px; color:var(--ink-3);">
+                    <span>${min}%</span>
+                    <span>${max}%</span>
+                </div>
+            </div>
+            <p style="font-size:10px; color:var(--ink-3); margin:0;">${helper}</p>
+        </div>
+    `;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1603,6 +1636,8 @@ function renderDetailedCard(data) {
     const b = ds.battery?.baseline || {};
     const battItems = data.billBreakdownComparison?.items || [];
     const battSize = normalizeBattery(data.config.batterySize);
+    const batteryLossPercent = normalizeBatteryLossPercent(data.config?.batteryLossPercent ?? latestSolarParams?.batteryLossPercent);
+    const batteryDodPercent = normalizeBatteryDodPercent(data.config?.batteryDodPercent ?? latestSolarParams?.batteryDodPercent);
 
     document.getElementById('detailedBody').innerHTML = `
         ${descCard('desc_detailed')}
@@ -1659,13 +1694,36 @@ function renderDetailedCard(data) {
             </div>
             ${battSize > 0 ? `
             <div style="margin-top:12px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+                <div style="display:grid; grid-template-columns:1fr; gap:12px; margin-bottom:14px;">
+                    ${buildBatterySliderControl({
+                        id: 'batteryLossPercent',
+                        label: t('lbl_batteryLoss'),
+                        value: batteryLossPercent,
+                        min: 0,
+                        max: 20,
+                        sajValue: 8,
+                        onInput: 'setBatteryLossPercent',
+                        helper: t('lbl_batteryLossHelp')
+                    })}
+                    ${buildBatterySliderControl({
+                        id: 'batteryDodPercent',
+                        label: t('lbl_batteryDod'),
+                        value: batteryDodPercent,
+                        min: 0,
+                        max: 10,
+                        sajValue: 5,
+                        onInput: 'setBatteryDodPercent',
+                        helper: t('lbl_batteryDodHelp')
+                    })}
+                </div>
                 <div style="display:flex; flex-direction:column; gap:8px; font-size:12px;">
                     <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_solarToBat')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.nonOffsetSolarKwh||0, 1)} kWh/mo</span></div>
+                    <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_usableCapacity')}</span><span style="font-weight:700;">${fmt(ds.battery?.usableCapacityKwh||0, 1)} kWh/day</span></div>
                     <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_batStored')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyStoredKwh||0, 1)} kWh/mo</span></div>
                     <div style="display:flex; justify-content:space-between;"><span style="color:var(--ink-2);">${t('lbl_excessExport')}</span><span style="font-weight:700;">${fmt(ds.batteryFlow?.monthlyExcessExportKwh||0, 1)} kWh/mo</span></div>
                     <div style="display:flex; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border);"><span style="font-weight:600;">${t('lbl_valueAdd')}</span><span style="font-weight:900; color:var(--green-text);">+RM ${fmt(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings||data.monthlySavings))}/mo</span></div>
                 </div>
-                <p style="font-size:10px; color:var(--ink-3); margin-top:8px;">${t('lbl_batEffNote')}</p>
+                <p style="font-size:10px; color:var(--ink-3); margin-top:8px;">${t('lbl_batEffNote', batteryLossPercent, batteryDodPercent)}</p>
             </div>
             ` : `<p style="font-size:12px; color:var(--ink-3); margin-top:8px;">${t('lbl_battery')} — ${t('lbl_batteryNone')}</p>`}
         </div>
@@ -1705,6 +1763,18 @@ function normalizeBattery(v) {
 function selectBattery(size) {
     if (!latestSolarParams) return;
     latestSolarParams.batterySize = size;
+    debouncedLiveUpdate();
+}
+
+function setBatteryLossPercent(value) {
+    if (!latestSolarParams) return;
+    latestSolarParams.batteryLossPercent = normalizeBatteryLossPercent(value);
+    debouncedLiveUpdate();
+}
+
+function setBatteryDodPercent(value) {
+    if (!latestSolarParams) return;
+    latestSolarParams.batteryDodPercent = normalizeBatteryDodPercent(value);
     debouncedLiveUpdate();
 }
 
@@ -2005,7 +2075,13 @@ const TRANSLATIONS = {
     lbl_battery: 'Battery Storage', lbl_batteryNone: 'None',
     lbl_solarToBat: 'Solar to Battery', lbl_batStored: 'Battery Stored',
     lbl_excessExport: 'Excess Export', lbl_valueAdd: 'Value Add',
-    lbl_batEffNote: '95% charging efficiency before export calculation.',
+    lbl_usableCapacity: 'Usable Capacity',
+    lbl_batteryLoss: 'Charge / Discharge Loss',
+    lbl_batteryDod: 'Depth of Discharge (DoD)',
+    lbl_sajBattery: "SAJ's Battery",
+    lbl_batteryLossHelp: 'Loss reduces the battery energy available to offset the bill.',
+    lbl_batteryDodHelp: 'DoD reserves part of the nominal battery capacity and leaves the rest usable.',
+    lbl_batEffNote: 'Battery calculation uses {0}% loss and keeps {1}% reserved as DoD.',
     lbl_futureTest: 'Future Usage Stress Test',
     lbl_futureDesc: 'Toggle +200 kWh blocks to simulate future household growth with the current system fixed.',
     lbl_block: 'Block',
@@ -2095,7 +2171,12 @@ const TRANSLATIONS = {
     lbl_backupGen: '备用发电', lbl_donated: '捐赠至电网',
     lbl_battery: '储能系统', lbl_batteryNone: '无',
     lbl_solarToBat: '充入储能', lbl_batStored: '储能总量', lbl_excessExport: '剩余输出',
-    lbl_valueAdd: '增值', lbl_batEffNote: '储能效率95%（计算出口前）。',
+    lbl_valueAdd: '增值', lbl_usableCapacity: '可用容量',
+    lbl_batteryLoss: '充放电损耗', lbl_batteryDod: '放电深度 (DoD)',
+    lbl_sajBattery: 'SAJ 电池',
+    lbl_batteryLossHelp: '损耗会减少可用于抵扣电费的电池能量。',
+    lbl_batteryDodHelp: 'DoD 会保留一部分额定容量，只有其余部分可用。',
+    lbl_batEffNote: '储能计算采用 {0}% 损耗，并保留 {1}% 作为 DoD。',
     lbl_futureTest: '未来用电压力测试',
     lbl_futureDesc: '点击 +200 度 区块，模拟未来家庭用电增长对现有系统的影响。',
     lbl_block: '区块',

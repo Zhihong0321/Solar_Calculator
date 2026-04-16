@@ -41,7 +41,8 @@ const NIGHT_USAGE_WEIGHTS = [
 
 const ALLOWED_BATTERY_SIZES = [0, 16, 32, 48];
 const SHORT_BILL_CYCLE_SST_RATE = 0.08;
-const BATTERY_CHARGING_EFFICIENCY = 0.95;
+const DEFAULT_BATTERY_LOSS_PERCENT = 0;
+const DEFAULT_BATTERY_DOD_PERCENT = 5;
 
 function getResidentialPackagePhasePrefix(systemPhase = 3) {
     return parseInt(systemPhase, 10) === 1 ? '[1P]' : '[3P]';
@@ -65,18 +66,44 @@ function matchesResidentialInverterType(pkg, inverterType = 'string') {
     return normalizedType === 'hybrid' ? hybridPackage : !hybridPackage;
 }
 
-function calculateBatteryFlow({ monthlySolarGeneration, morningUsageKwh, batterySizeVal }) {
+function clampPercent(value, min, max, fallback) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.min(max, Math.max(min, numeric));
+}
+
+function normalizeBatteryLossPercent(value) {
+    return clampPercent(value, 0, 20, DEFAULT_BATTERY_LOSS_PERCENT);
+}
+
+function normalizeBatteryDodPercent(value) {
+    return clampPercent(value, 0, 10, DEFAULT_BATTERY_DOD_PERCENT);
+}
+
+function calculateBatteryFlow({
+    monthlySolarGeneration,
+    morningUsageKwh,
+    batterySizeVal,
+    batteryLossPercent = DEFAULT_BATTERY_LOSS_PERCENT,
+    batteryDodPercent = DEFAULT_BATTERY_DOD_PERCENT
+}) {
     const nonOffsetSolarKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
     const dailyNonOffsetSolarKwh = nonOffsetSolarKwh / 30;
-    const dailyChargeAvailableKwh = dailyNonOffsetSolarKwh * BATTERY_CHARGING_EFFICIENCY;
-    const dailyBatteryStoredKwh = Math.min(dailyChargeAvailableKwh, batterySizeVal);
+    const throughputEfficiency = Math.max(0, 1 - (batteryLossPercent / 100));
+    const usableBatteryCapacityKwh = Math.max(0, batterySizeVal * (1 - (batteryDodPercent / 100)));
+    const dailyChargeAvailableKwh = dailyNonOffsetSolarKwh * throughputEfficiency;
+    const dailyBatteryStoredKwh = Math.min(dailyChargeAvailableKwh, usableBatteryCapacityKwh);
     const monthlyBatteryStoredKwh = dailyBatteryStoredKwh * 30;
-    const dailyExcessExportKwh = Math.max(0, dailyChargeAvailableKwh - batterySizeVal);
+    const dailyExcessExportKwh = Math.max(0, dailyChargeAvailableKwh - usableBatteryCapacityKwh);
     const monthlyExcessExportKwh = dailyExcessExportKwh * 30;
 
     return {
         nonOffsetSolarKwh,
         dailyNonOffsetSolarKwh,
+        throughputEfficiency,
+        batteryLossPercent,
+        batteryDodPercent,
+        usableBatteryCapacityKwh,
         dailyChargeAvailableKwh,
         dailyBatteryStoredKwh,
         monthlyBatteryStoredKwh,
@@ -584,6 +611,8 @@ class SolarCalculator {
             amount, sunPeakHour, morningUsage, panelType,
             smpPrice, afaRate, historicalAfaRate,
             percentDiscount, fixedDiscount, batterySize, overridePanels,
+            batteryLossPercent = DEFAULT_BATTERY_LOSS_PERCENT,
+            batteryDodPercent = DEFAULT_BATTERY_DOD_PERCENT,
             systemPhase = 3,
             inverterType = 'string'
         } = params;
@@ -629,7 +658,9 @@ class SolarCalculator {
         const batteryFlow = calculateBatteryFlow({
             monthlySolarGeneration,
             morningUsageKwh,
-            batterySizeVal: batterySize
+            batterySizeVal: batterySize,
+            batteryLossPercent: normalizeBatteryLossPercent(batteryLossPercent),
+            batteryDodPercent: normalizeBatteryDodPercent(batteryDodPercent)
         });
         const dailyMaxDischarge = batteryFlow.dailyBatteryStoredKwh;
         const monthlyMaxDischarge = batteryFlow.monthlyBatteryStoredKwh;
@@ -796,7 +827,10 @@ class SolarCalculator {
                     }
                 },
                 batteryFlow: {
-                    efficiency: BATTERY_CHARGING_EFFICIENCY,
+                    efficiency: batteryFlow.throughputEfficiency,
+                    lossPercent: normalizeBatteryLossPercent(batteryLossPercent),
+                    dodPercent: normalizeBatteryDodPercent(batteryDodPercent),
+                    usableCapacityKwh: batteryFlow.usableBatteryCapacityKwh.toFixed(2),
                     nonOffsetSolarKwh: batteryFlow.nonOffsetSolarKwh.toFixed(2),
                     dailyNonOffsetSolarKwh: batteryFlow.dailyNonOffsetSolarKwh.toFixed(2),
                     dailyChargeAvailableKwh: batteryFlow.dailyChargeAvailableKwh.toFixed(2),
@@ -1024,6 +1058,8 @@ window.calculateSolarSavings = async function () {
 function collectLiveSolarParams(overrides = {}) {
     const panelRatingInput = document.getElementById('panelRating');
     const panelCountInput = document.querySelector('#floatingPanelBar input[type="number"]');
+    const batteryLossInput = document.getElementById('batteryLossPercent');
+    const batteryDodInput = document.getElementById('batteryDodPercent');
     const livePanelOverride = panelCountInput ? parseInt(panelCountInput.value, 10) : NaN;
     const fallbackOverride = latestSolarParams?.overridePanels;
     const resolvedOverridePanels = Number.isFinite(livePanelOverride) && livePanelOverride >= 1
@@ -1041,6 +1077,8 @@ function collectLiveSolarParams(overrides = {}) {
         percentDiscount: parseFloat(document.getElementById('percentDiscount')?.value) || 0,
         fixedDiscount: parseFloat(document.getElementById('fixedDiscount')?.value) || 0,
         batterySize: normalizeBatterySize(latestSolarParams?.batterySize || 0),
+        batteryLossPercent: normalizeBatteryLossPercent(batteryLossInput?.value ?? latestSolarParams?.batteryLossPercent),
+        batteryDodPercent: normalizeBatteryDodPercent(batteryDodInput?.value ?? latestSolarParams?.batteryDodPercent),
         overridePanels: resolvedOverridePanels,
         systemPhase: parseInt(document.getElementById('systemPhase').value, 10) || 3,
         inverterType: normalizeResidentialInverterType(document.getElementById('inverterType')?.value || latestSolarParams?.inverterType || 'string'),
@@ -1070,6 +1108,8 @@ window.triggerSpontaneousUpdate = function (source) {
     latestSolarParams.fixedDiscount = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
     latestSolarParams.systemPhase = parseInt(document.getElementById('systemPhase')?.value) || 3;
     latestSolarParams.inverterType = normalizeResidentialInverterType(document.getElementById('inverterType')?.value || latestSolarParams.inverterType || 'string');
+    latestSolarParams.batteryLossPercent = normalizeBatteryLossPercent(document.getElementById('batteryLossPercent')?.value ?? latestSolarParams.batteryLossPercent);
+    latestSolarParams.batteryDodPercent = normalizeBatteryDodPercent(document.getElementById('batteryDodPercent')?.value ?? latestSolarParams.batteryDodPercent);
 
     // If panel rating changed, reset panel override so server recalculates from scratch
     if (panelRatingChanged) {
@@ -1297,6 +1337,20 @@ window.setBatterySize = function (size) {
     _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 150);
 };
 
+window.setBatteryLossPercent = function (value) {
+    if (!latestSolarParams) return;
+    latestSolarParams.batteryLossPercent = normalizeBatteryLossPercent(value);
+    clearTimeout(_spontaneousDebounceTimer);
+    _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 150);
+};
+
+window.setBatteryDodPercent = function (value) {
+    if (!latestSolarParams) return;
+    latestSolarParams.batteryDodPercent = normalizeBatteryDodPercent(value);
+    clearTimeout(_spontaneousDebounceTimer);
+    _spontaneousDebounceTimer = setTimeout(() => runAndDisplay(), 150);
+};
+
 window.setBillCycleMode = function (mode) {
     selectedBillCycleMode = normalizeBillCycleMode(mode);
     if (latestSolarData) {
@@ -1503,6 +1557,36 @@ function renderInput(id, label, type, val, step, min, max) {
     `;
 }
 
+function buildBatteryTuningControl({ id, label, value, min, max, sajValue, onInput, helper }) {
+    const markerPercent = ((sajValue - min) / (max - min)) * 100;
+    return `
+        <div class="space-y-2">
+            <div class="flex items-center justify-between gap-4">
+                <span class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">${label}</span>
+                <span class="text-sm md:text-base font-bold">${value}%</span>
+            </div>
+            <input
+                type="range"
+                id="${id}"
+                min="${min}"
+                max="${max}"
+                step="1"
+                value="${value}"
+                oninput="${onInput}(this.value)"
+                class="w-full accent-black"
+            >
+            <div class="relative pt-4">
+                <span class="absolute top-0 -translate-x-1/2 text-[9px] md:text-[10px] font-semibold tier-3" style="left:${markerPercent}%;">SAJ's Battery</span>
+                <div class="flex justify-between text-[9px] md:text-[10px] uppercase tracking-wide tier-3">
+                    <span>${min}%</span>
+                    <span>${max}%</span>
+                </div>
+            </div>
+            <p class="text-[9px] md:text-[10px] opacity-70">${helper}</p>
+        </div>
+    `;
+}
+
 function displaySolarCalculation(data) {
     const resultsDiv = document.getElementById('calculatorResults');
     let solarDiv = document.getElementById('solarResultsCard');
@@ -1528,6 +1612,8 @@ function displaySolarCalculation(data) {
         newExportKwh: ds.exportKwh || 0,
         newActualEei: ds.actualEei || 0
     };
+    const batteryLossPercent = normalizeBatteryLossPercent(data.config?.batteryLossPercent ?? latestSolarParams?.batteryLossPercent);
+    const batteryDodPercent = normalizeBatteryDodPercent(data.config?.batteryDodPercent ?? latestSolarParams?.batteryDodPercent);
     const billCycleModes = buildBillCycleMetrics(data);
     const activeBillCycleMode = normalizeBillCycleMode(selectedBillCycleMode);
     const cycleMetrics = billCycleModes[activeBillCycleMode] || billCycleModes.fullMonth;
@@ -1689,10 +1775,33 @@ function displaySolarCalculation(data) {
                                 `).join('')}
                             </div>
                             <p class="text-[10px] md:text-xs uppercase tier-3 font-semibold">Battery limited to 16 kWh modules, max 3 units.</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                ${buildBatteryTuningControl({
+                                    id: 'batteryLossPercent',
+                                    label: 'Charge_Discharge_Loss',
+                                    value: batteryLossPercent,
+                                    min: 0,
+                                    max: 20,
+                                    sajValue: 8,
+                                    onInput: 'setBatteryLossPercent',
+                                    helper: 'Loss reduces the usable battery energy before savings are calculated.'
+                                })}
+                                ${buildBatteryTuningControl({
+                                    id: 'batteryDodPercent',
+                                    label: 'Depth_of_Discharge_(DoD)',
+                                    value: batteryDodPercent,
+                                    min: 0,
+                                    max: 10,
+                                    sajValue: 5,
+                                    onInput: 'setBatteryDodPercent',
+                                    helper: 'DoD reserves part of the nominal battery size, so only the remaining capacity can be used.'
+                                })}
+                            </div>
                         </div>
                         <div class="space-y-2 text-sm md:text-base min-w-[240px]">
                             <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Non_Offset_Solar</span><span class="font-bold">${formatCurrency(parseFloat(data.details.battery?.nonOffsetSolarKwh || 0))} kWh/mo</span></div>
                             <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Daily Non_Offset_Solar</span><span class="font-bold">${formatCurrency(parseFloat(data.details.battery?.dailyNonOffsetSolarKwh || 0))} kWh/day</span></div>
+                            <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Usable_Capacity</span><span class="font-bold">${formatCurrency(parseFloat(data.details.battery?.usableCapacityKwh || 0))} kWh/day</span></div>
                             <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Battery_Stored</span><span class="font-bold">${formatCurrency(parseFloat(data.details.battery?.monthlyStoredKwh || 0))} kWh/mo</span></div>
                             <div class="flex justify-between gap-4"><span class="uppercase tracking-wide tier-3">Excess_Export</span><span class="font-bold">${formatCurrency(parseFloat(data.details.battery?.monthlyExcessExportKwh || 0))} kWh/mo</span></div>
                             <div class="mt-4 p-3 border border-divider bg-white/70 rounded-sm space-y-2">
@@ -1704,13 +1813,13 @@ function displaySolarCalculation(data) {
                                     <div class="flex justify-between gap-4"><span>New Export</span><span class="font-bold">${formatQuantity(batteryMiniReport.newExportKwh)} kWh/mo</span></div>
                                     <div class="flex justify-between gap-4"><span>New Actual EEI</span><span class="font-bold">RM ${formatCurrency(batteryMiniReport.newActualEei)}</span></div>
                                 </div>
-                                <p class="text-[9px] md:text-[10px] opacity-70">Battery charging uses 95% efficiency before export is calculated.</p>
+                                <p class="text-[9px] md:text-[10px] opacity-70">Battery throughput keeps ${(Math.max(0, 1 - (batteryLossPercent / 100)) * 100).toFixed(0)}% efficiency after a ${batteryLossPercent}% loss setting.</p>
                             </div>
                             <div class="flex justify-between gap-4 pt-2 border-t border-divider">
                                 <span class="uppercase tracking-wide tier-3 font-semibold">Value_Add</span>
                                 <span class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${formatCurrency(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings))} / mo</span>
                             </div>
-                            <p class="text-[10px] md:text-xs opacity-70">Stored energy uses 95% charging efficiency before export is calculated.</p>
+                            <p class="text-[10px] md:text-xs opacity-70">This simulation applies ${batteryLossPercent}% charge/discharge loss and keeps ${batteryDodPercent}% of the battery reserved as DoD.</p>
                         </div>
                     </div>
                 </section>

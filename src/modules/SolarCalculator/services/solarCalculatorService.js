@@ -7,24 +7,41 @@
 const { lookupBestPackage, normalizeResidentialInverterType } = require('./packageLookupService');
 
 const ALLOWED_BATTERY_SIZES = new Set([0, 16, 32, 48]);
-const BATTERY_CHARGING_EFFICIENCY = 0.95;
+const DEFAULT_BATTERY_LOSS_PERCENT = 0;
+const DEFAULT_BATTERY_DOD_PERCENT = 5;
+
+const clampPercent = (value, min, max, fallback) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, numeric));
+};
 
 const calculateBatteryFlow = ({
   monthlySolarGeneration,
   morningUsageKwh,
-  batterySizeVal
+  batterySizeVal,
+  batteryLossPercent = DEFAULT_BATTERY_LOSS_PERCENT,
+  batteryDodPercent = DEFAULT_BATTERY_DOD_PERCENT
 }) => {
   const nonOffsetSolarKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
   const dailyNonOffsetSolarKwh = nonOffsetSolarKwh / 30;
-  const dailyChargeAvailableKwh = dailyNonOffsetSolarKwh * BATTERY_CHARGING_EFFICIENCY;
-  const dailyBatteryStoredKwh = Math.min(dailyChargeAvailableKwh, batterySizeVal);
+  const throughputEfficiency = Math.max(0, 1 - (batteryLossPercent / 100));
+  const usableBatteryCapacityKwh = Math.max(0, batterySizeVal * (1 - (batteryDodPercent / 100)));
+  const dailyChargeAvailableKwh = dailyNonOffsetSolarKwh * throughputEfficiency;
+  const dailyBatteryStoredKwh = Math.min(dailyChargeAvailableKwh, usableBatteryCapacityKwh);
   const monthlyBatteryStoredKwh = dailyBatteryStoredKwh * 30;
-  const dailyExcessExportKwh = Math.max(0, dailyChargeAvailableKwh - batterySizeVal);
+  const dailyExcessExportKwh = Math.max(0, dailyChargeAvailableKwh - usableBatteryCapacityKwh);
   const monthlyExcessExportKwh = dailyExcessExportKwh * 30;
 
   return {
     nonOffsetSolarKwh,
     dailyNonOffsetSolarKwh,
+    throughputEfficiency,
+    batteryLossPercent,
+    batteryDodPercent,
+    usableBatteryCapacityKwh,
     dailyChargeAvailableKwh,
     dailyBatteryStoredKwh,
     monthlyBatteryStoredKwh,
@@ -239,6 +256,8 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     afaRate: afaRateRaw,
     historicalAfaRate: historicalAfaRateRaw,
     batterySize,
+    batteryLossPercent,
+    batteryDodPercent,
     systemPhase,
     inverterType,
     overridePanels,
@@ -261,6 +280,8 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   const afaRate = parseFloat(afaRateRaw) || 0;
   const historicalAfaRate = parseFloat(historicalAfaRateRaw) || 0;
   const batterySizeVal = parseFloat(batterySize) || 0;
+  const batteryLossPercentVal = clampPercent(batteryLossPercent, 0, 20, DEFAULT_BATTERY_LOSS_PERCENT);
+  const batteryDodPercentVal = clampPercent(batteryDodPercent, 0, 10, DEFAULT_BATTERY_DOD_PERCENT);
   const systemPhaseVal = parseInt(systemPhase) || 3;
   const inverterTypeVal = normalizeResidentialInverterType(inverterType);
   const futureUsageKwhRaw = futureUsageKwh ?? usageKwhOverride;
@@ -335,11 +356,14 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const batteryFlow = calculateBatteryFlow({
       monthlySolarGeneration,
       morningUsageKwh,
-      batterySizeVal
+      batterySizeVal,
+      batteryLossPercent: batteryLossPercentVal,
+      batteryDodPercent: batteryDodPercentVal
     });
     const dailyNonOffsetSolarKwh = batteryFlow.dailyNonOffsetSolarKwh;
     const dailyNightUsage = Math.max(0, monthlyUsageKwh - morningUsageKwh) / 30;
     const dailyBatteryCap = batterySizeVal;
+    const dailyUsableBatteryCap = batteryFlow.usableBatteryCapacityKwh;
     const dailyMaxDischarge = batteryFlow.dailyBatteryStoredKwh;
     const monthlyMaxDischarge = batteryFlow.monthlyBatteryStoredKwh;
 
@@ -546,6 +570,8 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         smpPrice: smp,
         afaRate: afaRate,
         batterySize: batterySizeVal,
+        batteryLossPercent: batteryLossPercentVal,
+        batteryDodPercent: batteryDodPercentVal,
         systemPhase: systemPhaseVal,
         inverterType: inverterTypeVal
       },
@@ -612,7 +638,10 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         savingsBreakdown: savingsBreakdown,
         battery: {
           size: batterySizeVal,
-          efficiency: BATTERY_CHARGING_EFFICIENCY,
+          efficiency: batteryFlow.throughputEfficiency,
+          lossPercent: batteryLossPercentVal,
+          dodPercent: batteryDodPercentVal,
+          usableCapacityKwh: dailyUsableBatteryCap.toFixed(2),
           nonOffsetSolarKwh: batteryFlow.nonOffsetSolarKwh.toFixed(2),
           dailyNonOffsetSolarKwh: batteryFlow.dailyNonOffsetSolarKwh.toFixed(2),
           dailyChargeAvailableKwh: batteryFlow.dailyChargeAvailableKwh.toFixed(2),
@@ -626,7 +655,8 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
             nonOffsetSolar: dailyNonOffsetSolarKwh.toFixed(2),
             chargeAvailable: batteryFlow.dailyChargeAvailableKwh.toFixed(2),
             nightUsage: dailyNightUsage.toFixed(2),
-            batterySize: dailyBatteryCap.toFixed(2)
+            batterySize: dailyBatteryCap.toFixed(2),
+            usableBatterySize: dailyUsableBatteryCap.toFixed(2)
           },
           miniReport: {
             monthlySolarSentToChargeBatteryKwh: batteryFlow.nonOffsetSolarKwh.toFixed(2),
