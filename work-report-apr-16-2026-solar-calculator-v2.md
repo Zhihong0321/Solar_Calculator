@@ -12,5 +12,6 @@ REPO NAME : Solar Calculator v2
 - Unified domestic and domestic-mobile package selection onto one shared residential lookup helper used by solar calculation and readonly lookup.
 - Added battery loss and DoD controls to domestic and domestic-mobile calculators and applied the new factors in shared battery savings calculations.
 - Fixed battery metric bindings in domestic and domestic-mobile calculators so Solar to Battery and stored/export values read the shared battery response fields instead of stale zero-value paths.
+- Made battery value-add in domestic and domestic-mobile calculators respond continuously to battery loss and DoD by adding a dedicated shared battery value metric instead of relying on flat stepped bill delta.
 
 =====================

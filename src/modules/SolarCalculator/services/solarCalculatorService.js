@@ -466,6 +466,13 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
 
     const totalMonthlySavings = billReduction + actualEeiSaving + exportSaving;
     const totalMonthlySavingsBaseline = billReductionBaseline + actualEeiSavingBaseline + exportSavingBaseline;
+    const batteryValueFromStoredEnergy = monthlyMaxDischarge * (morningUsageRate + afaRate);
+    const batteryExportOpportunityCost = Math.max(0, exportSavingBaselineRaw - exportSavingRaw);
+    const batteryEeiValueAdd = actualEeiSaving - actualEeiSavingBaseline;
+    const batteryValueAddMonthly = Math.max(
+      0,
+      batteryValueFromStoredEnergy - batteryExportOpportunityCost + batteryEeiValueAdd
+    );
 
     const usageReduction = monthlyUsageKwh - (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh);
     const afaSaving = usageReduction * afaRate;
@@ -665,6 +672,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
             newExportKwh: exportKwh.toFixed(2),
             newActualEei: actualEei.toFixed(2)
           },
+          valueAddMonthly: batteryValueAddMonthly.toFixed(2),
           baseline: {
             billReduction: billReductionBaseline.toFixed(2),
             eeiSaving: actualEeiSavingBaseline.toFixed(2),

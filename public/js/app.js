@@ -1817,7 +1817,7 @@ function displaySolarCalculation(data) {
                             </div>
                             <div class="flex justify-between gap-4 pt-2 border-t border-divider">
                                 <span class="uppercase tracking-wide tier-3 font-semibold">Value_Add</span>
-                                <span class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${formatCurrency(parseFloat(data.monthlySavings) - parseFloat(b.totalSavings))} / mo</span>
+                                <span class="text-xl md:text-2xl font-bold text-emerald-600">+RM ${formatCurrency(parseFloat(data.details.battery?.valueAddMonthly ?? (parseFloat(data.monthlySavings) - parseFloat(b.totalSavings))))} / mo</span>
                             </div>
                             <p class="text-[10px] md:text-xs opacity-70">This simulation applies ${batteryLossPercent}% charge/discharge loss and keeps ${batteryDodPercent}% of the battery reserved as DoD.</p>
                         </div>
