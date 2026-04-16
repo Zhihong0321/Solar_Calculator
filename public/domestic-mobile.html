@@ -47,8 +47,8 @@
 
         /* ── HEADER ── */
         .app-header {
-            background: #fff;
-            border-bottom: 1px solid var(--border);
+            background: #1A1A1A;
+            border-bottom: none;
             padding: 14px 20px;
             position: sticky;
             top: 0;
@@ -1403,7 +1403,7 @@ function renderROICard(data) {
             ${data.requiresSedaFee ? `
             <div class="seda-warning" style="background:rgba(254,243,199,0.15); border-color:rgba(217,119,6,0.6); margin-top:12px;">
                 <div class="seda-warning-title" style="color:#FDE68A;">${t('lbl_sedaFee')}</div>
-                <div class="seda-warning-text" style="color:rgba(255,255,255,0.6); font-size:11px;">${t(\'lbl_sedaDesc\')} ${data.config.systemPhase == 1 ? 5.01 : 15.01}kW (${data.config.systemPhase}${t(\'lbl_phase_txt\')})</div>
+                <div class="seda-warning-text" style="color:rgba(255,255,255,0.6); font-size:11px;">${t("lbl_sedaDesc")} ${data.config.systemPhase == 1 ? 5.01 : 15.01}kW (${data.config.systemPhase}${t("lbl_phase_txt")})</div>
             </div>
             ` : ''}
         </div>
