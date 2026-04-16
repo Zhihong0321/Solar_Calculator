@@ -1316,14 +1316,18 @@ async function handleROIGenerate() {
         latestSolarData = result;
         originalSolarData = JSON.parse(JSON.stringify(result));
 
-        renderROICard(result);
-        renderDetailedCard(result);
+        // Unlock cards + show bar immediately — before renders, so they can't block it
         setStep(4);
         unlockCard('card4', 3);
         unlockCard('card5', null);
         document.getElementById('badge3').className = 'card-step-badge done';
         document.getElementById('badge3').innerHTML = '';
         showQuickAdjustBar(result);
+
+        // Render each section independently so one failure doesn't hide the bar
+        try { renderROICard(result); } catch(e) { console.error('ROI render:', e); }
+        try { renderDetailedCard(result); } catch(e) { console.error('Detail render:', e); }
+
         scrollToCard('card4');
 
     } catch (err) {
