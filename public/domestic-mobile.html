@@ -646,6 +646,48 @@
         .section-gap { height: 8px; }
         .info-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 500; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 4px 10px; color: var(--ink-2); }
 
+
+        /* ── DESCRIPTION CARDS ── */
+        .desc-card {
+            background: #1A1A1A;
+            color: rgba(255,255,255,0.7);
+            padding: 14px 20px;
+            font-size: 13px;
+            line-height: 1.65;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            transition: opacity 0.25s ease, max-height 0.3s ease;
+        }
+        .desc-card em {
+            color: rgba(255,255,255,0.45);
+            font-style: normal;
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .desc-card p { margin: 0; }
+        .desc-card p + p { margin-top: 6px; font-size: 12px; opacity: 0.6; }
+        .hints-hidden .desc-card { display: none; }
+        /* Hints toggle pill in header */
+        .hints-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 6px;
+            color: rgba(255,255,255,0.55);
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 5px 9px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .hints-btn.active { color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.45); }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 360px) {
             .roi-hero-saving { font-size: 42px; }
@@ -664,7 +706,8 @@
             <div class="version-tag" data-i18n="appSubtitle">Solar ROI · v2 Mobile</div>
         </div>
     </div>
-    <div style="display:flex; align-items:center; gap:12px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+        <button id="hintToggleBtn" class="hints-btn active" onclick="toggleHints()" title="Toggle description cards">💡</button>
         <button id="langToggleBtn" onclick="toggleLang()" style="background:transparent; border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:rgba(255,255,255,0.7); font-family:'Inter',sans-serif; font-size:11px; font-weight:500; padding:5px 10px; cursor:pointer; letter-spacing:0.03em; transition:all 0.2s;">EN</button>
         <div class="status-dot" id="statusDot" title="Server Status"></div>
     </div>
@@ -809,6 +852,11 @@
             </div>
         </div>
         <div class="card-divider"></div>
+        <div class="card-divider" id="card3DescDivider"></div>
+        <div class="desc-card" data-i18n-inner="desc_setup" id="descCard3">
+            <em data-i18n="desc_hint_label">Guide</em>
+            <p data-i18n="desc_setup"></p>
+        </div>
         <div class="card-body" id="modelingParamsBody">
             <div class="field-group">
 
@@ -1014,6 +1062,7 @@ const EPP_RATES = {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 window.onload = async function() {
     applyI18n();
+    applyHintsState();
     checkHealth();
     try {
         const r = await fetch('/api/config');
@@ -1218,6 +1267,7 @@ function renderBillBreakdown(tariff, afaRate) {
     ];
 
     document.getElementById('billBreakdownBody').innerHTML = `
+        ${descCard('desc_billBreakdown')}
         <div style="padding: 0 20px;">
             ${rows.map(r => `
                 <div class="ledger-row">
@@ -1366,6 +1416,7 @@ function renderROICard(data) {
             </div>
         </div>
 
+        ${descCard('desc_roi', 'desc_roi_sub')}
         <!-- Hero Savings -->
         <div class="roi-hero">
             <div class="roi-hero-label">${t('lbl_monthlySavings')}</div>
@@ -1551,6 +1602,7 @@ function renderDetailedCard(data) {
     const battSize = normalizeBattery(data.config.batterySize);
 
     document.getElementById('detailedBody').innerHTML = `
+        ${descCard('desc_detailed')}
         <!-- Savings Ledger -->
         <div style="margin-bottom:24px;">
             <div style="font-size:13px; font-weight:600; color:var(--ink); margin-bottom:10px;">${t('lbl_billComponents')}</div>
@@ -1572,7 +1624,8 @@ function renderDetailedCard(data) {
 
         <!-- Energy Flows -->
         <div style="margin-bottom:24px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:16px;">
-            <div style="font-size:13px; font-weight:600; margin-bottom:12px;">${t('lbl_energyFlows')}</div>
+            ${descCard('desc_energyFlows')}
+        <div style="font-size:13px; font-weight:600; margin-bottom:12px; padding-top:4px;">${t('lbl_energyFlows')}</div>
             <div class="field-group" style="gap:8px;">
                 ${[
                     [t('lbl_monthlyUsage'), `${fmt(ds.monthlyUsageKwh, 0)} kWh`],
@@ -1592,7 +1645,8 @@ function renderDetailedCard(data) {
 
         <!-- Battery Storage -->
         <div style="margin-bottom:24px;">
-            <div style="font-size:13px; font-weight:600; margin-bottom:10px;">${t('lbl_battery')}</div>
+            <div style="font-size:13px; font-weight:600; margin-bottom:6px;">${t('lbl_battery')}</div>
+        ${descCard('desc_battery')}
             <div class="battery-btns">
                 ${ALLOWED_BATTERY_SIZES.map(s => `
                     <button class="battery-btn${battSize === s ? ' active' : ''}" onclick="selectBattery(${s})">
@@ -1616,6 +1670,7 @@ function renderDetailedCard(data) {
         <!-- Future Usage Stress Test -->
         <div style="margin-bottom:12px;">
             <div style="font-size:13px; font-weight:600; margin-bottom:4px;">${t('lbl_futureTest')}</div>
+        ${descCard('desc_futureTest')}
             <p style="font-size:11px; color:var(--ink-3); margin-bottom:12px;">${t('lbl_futureDesc')}</p>
             <div class="future-blocks">
                 ${futureUsageBlocks.map((active, i) => `
@@ -1832,6 +1887,51 @@ async function handleGenerateQuotation() {
 // I18N — EN / ZH
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 let _lang = localStorage.getItem('solar_lang') || 'en';
+let _hintsVisible = localStorage.getItem('solar_hints') !== 'off';
+
+function descCard(mainKey, subKey) {
+    if (!_hintsVisible) return '';
+    const sub = subKey ? `<p>${t(subKey)}</p>` : '';
+    return `<div class="desc-card"><em>${t('desc_hint_label')}</em><p>${t(mainKey)}</p>${sub}</div>`;
+}
+
+function toggleHints() {
+    _hintsVisible = !_hintsVisible;
+    localStorage.setItem('solar_hints', _hintsVisible ? 'on' : 'off');
+    applyHintsState();
+    // Re-render dynamic cards if they exist
+    if (latestSolarData) { renderROICard(latestSolarData); renderDetailedCard(latestSolarData); }
+    if (currentTariffData) {
+        const el = document.getElementById('billBreakdownBody');
+        if (el && el.querySelector('.desc-card, .ledger-row')) {
+            // re-render bill breakdown
+            const afaCharge = (currentTariffData.usage_kwh||0) * currentHistoricalAfaRate;
+            renderBillBreakdown({
+                usage_kwh: parseFloat(currentTariffData.usage_kwh),
+                usage_normal: parseFloat(currentTariffData.energy_charge ?? currentTariffData.usage_normal ?? 0),
+                network: parseFloat(currentTariffData.network_charge ?? currentTariffData.network ?? 0),
+                capacity: parseFloat(currentTariffData.capacity_charge ?? currentTariffData.capacity ?? 0),
+                retail: parseFloat(currentTariffData.retail_charge ?? currentTariffData.retail ?? 0),
+                eei: parseFloat(currentTariffData.energy_efficiency_incentive ?? currentTariffData.eei ?? 0),
+                sst_normal: parseFloat(currentTariffData.sst_tax ?? currentTariffData.sst_normal ?? 0),
+                kwtbb_normal: parseFloat(currentTariffData.kwtbb_fund ?? currentTariffData.kwtbb_normal ?? 0),
+                bill_total_normal: parseFloat(currentTariffData.total_bill ?? currentTariffData.bill_total_normal ?? 0),
+                fuel_adjustment: parseFloat(currentTariffData.fuel_adjustment ?? 0)
+            }, currentHistoricalAfaRate);
+        }
+    }
+}
+
+function applyHintsState() {
+    const btn = document.getElementById('hintToggleBtn');
+    // Static desc-cards in HTML
+    document.querySelectorAll('.desc-card[data-i18n-inner]').forEach(el => {
+        el.style.display = _hintsVisible ? '' : 'none';
+    });
+    const dividers = document.querySelectorAll('#card3DescDivider');
+    dividers.forEach(el => el.style.display = _hintsVisible ? '' : 'none');
+    if (btn) btn.className = _hintsVisible ? 'hints-btn active' : 'hints-btn';
+}
 
 const TRANSLATIONS = {
   en: {
@@ -1995,6 +2095,16 @@ const TRANSLATIONS = {
     lbl_kwhMo: '度/月', lbl_months: '个月',
     lbl_systemPrice: '系统价格', lbl_downpayment: '首付 (5%)',
     lbl_financed: '融资金额 (95%)', lbl_eppInterest: 'EPP 利息',
+    // ── Description cards
+    desc_hint_label: '说明',
+    desc_billBreakdown: '这是安装太阳能前的电费单明细。',
+    desc_setup: '请提供用户使用环境的各项数据。',
+    desc_roi: '我们将以电费单对比电费单的方式，得出最准确的太阳能节省报告。',
+    desc_roi_sub: '系统模拟每月产能及白天自用预测，算出安装太阳能后的新电费单，与原电费单对比，即可得到精准节省数据。',
+    desc_detailed: '这是安装前后的电费单对比。',
+    desc_energyFlows: '太阳能产能流向报告。',
+    desc_battery: '可以计算电池使用对节省的对比影响。',
+    desc_futureTest: '可进一步预估未来用电量增加后，对节省的影响。',
   }
 };
 
@@ -2022,6 +2132,13 @@ function applyI18n() {
     // Update hint spans (mixed content)
     document.querySelectorAll('[data-i18n="hint_sunPeak"]').forEach(el => el.textContent = t('hint_sunPeak'));
     document.querySelectorAll('[data-i18n="hint_dayUsage"]').forEach(el => el.textContent = t('hint_dayUsage'));
+    // Update static desc-card content
+    document.querySelectorAll('[data-i18n-inner]').forEach(el => {
+        const key = el.getAttribute('data-i18n-inner');
+        const pEls = el.querySelectorAll('p');
+        if (pEls[0]) pEls[0].textContent = t(key);
+    });
+    applyHintsState();
 }
 
 function toggleLang() {
