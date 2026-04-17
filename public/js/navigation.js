@@ -355,6 +355,17 @@
             icon: 'external'
         },
         {
+            pageKey: 'external-tnb-bill-library',
+            path: 'https://drive.google.com/drive/folders/1G1FvzF2nE564fplLxqrG7JbvE1UfJXEX?usp=sharing',
+            title: 'TNB BILL LIBRARY',
+            routeType: 'external',
+            rootTab: TOOLS_ROOT_KEY,
+            toolGroup: 'External',
+            toolLabel: 'TNB BILL LIBRARY',
+            toolDescription: 'Shared customer bill reference folder',
+            icon: 'external'
+        },
+        {
             pageKey: 'external-ai-progress',
             path: 'https://ai2026-production.up.railway.app/',
             title: 'AI Progress',
