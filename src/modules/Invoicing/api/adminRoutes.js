@@ -213,22 +213,27 @@ router.post('/api/admin/health/ai-keys', requireAuth, requireAdminAccess, async 
     let uniapiStatus = 'unknown';
     let uniapiError = null;
 
-    try {
-        await aiRouter.chatCompletion({
-            messages: [testMessage]
-        });
+    if (!aiRouter.isUniapiWorkflowEnabled()) {
+        uniapiStatus = 'disabled';
+        uniapiError = 'UniAPI workflow is temporarily disabled';
+    } else {
+        try {
+            await aiRouter.chatCompletion({
+                messages: [testMessage]
+            });
 
-        uniapiStatus = 'healthy';
-    } catch (err) {
-        uniapiStatus = 'error';
-        uniapiError = err.message;
+            uniapiStatus = 'healthy';
+        } catch (err) {
+            uniapiStatus = 'error';
+            uniapiError = err.message;
+        }
     }
 
     results.push({
         key: 'UniAPI Key',
         provider: 'uniapi',
         status: uniapiStatus,
-        statusCode: uniapiStatus === 'healthy' ? 200 : 500,
+        statusCode: uniapiStatus === 'healthy' ? 200 : (uniapiStatus === 'disabled' ? 503 : 500),
         latency: `${Date.now() - uniapiStart}ms`,
         error: uniapiError
     });

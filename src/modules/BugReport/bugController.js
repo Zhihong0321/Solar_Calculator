@@ -157,6 +157,19 @@ exports.postMessage = async (req, res) => {
 
       // Avoid triggering AI if it's an IT admin replying
       if (!isAdminReply) {
+          if (!aiRouter.isUniapiWorkflowEnabled()) {
+              try {
+                  await bugService.addSystemMessage(
+                      threadId,
+                      'Bug report logged. AI assistance is temporarily unavailable, but your report has been saved.'
+                  );
+              } catch (fallbackErr) {
+                  console.warn('[BugReport] Failed to add disabled AI notice:', fallbackErr.message);
+              }
+
+              return res.json({ success: true, message: savedMessage });
+          }
+
           // Trigger AI Agent using history
           const allMsgs = await bugService.getMessages(threadId);
           const aiMessagesContext = [

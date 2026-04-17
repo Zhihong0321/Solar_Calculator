@@ -723,8 +723,9 @@ router.post('/api/v1/seda/extract-tnb', async (req, res) => {
         const { mimeType, buffer } = fileCheck;
 
         const result = await extractionService.verifyTnbBill(buffer, mimeType);
+        const aiDisabled = result?.workflow_status === 'disabled';
 
-        if (sedaId) {
+        if (sedaId && !aiDisabled) {
             const statusText = result.tnb_account ? 'EXTRACTED' : 'FAILED EXTRACTION';
             const logEntry = `\n[${new Date().toISOString().split('T')[0]}] TNB BILL upload = ${statusText} (Account: ${result.tnb_account || 'N/A'}, State: ${result.state || 'N/A'})`;
 
@@ -738,7 +739,12 @@ router.post('/api/v1/seda/extract-tnb', async (req, res) => {
             );
         }
 
-        res.json({ success: true, data: result });
+        res.json({
+            success: true,
+            disabled: aiDisabled,
+            data: result,
+            message: aiDisabled ? 'TNB extraction skipped because UniAPI workflow is disabled.' : undefined
+        });
     } catch (err) {
         console.error('[SEDA Route] TNB Extraction Error:', err);
         res.status(500).json({ success: false, error: err.message });
@@ -765,8 +771,9 @@ router.post('/api/v1/seda/extract-mykad', async (req, res) => {
         const { mimeType, buffer } = fileCheck;
 
         const result = await extractionService.verifyMykad(buffer, mimeType);
+        const aiDisabled = result?.workflow_status === 'disabled';
 
-        if (sedaId) {
+        if (sedaId && !aiDisabled) {
             const statusText = result.quality_ok ? 'PASSED CHECK' : 'QUALITY WARNING';
             const logEntry = `\n[${new Date().toISOString().split('T')[0]}] MYKAD Upload = ${statusText} (Name: ${result.customer_name})`;
 
@@ -792,7 +799,12 @@ router.post('/api/v1/seda/extract-mykad', async (req, res) => {
             }
         }
 
-        res.json({ success: true, data: result });
+        res.json({
+            success: true,
+            disabled: aiDisabled,
+            data: result,
+            message: aiDisabled ? 'MyKad extraction skipped because UniAPI workflow is disabled.' : undefined
+        });
     } catch (err) {
         console.error('[SEDA Route] MyKad Extraction Error:', err);
         res.status(500).json({ success: false, error: err.message });
@@ -819,8 +831,9 @@ router.post('/api/v1/seda/verify-meter', async (req, res) => {
         const { mimeType, buffer } = fileCheck;
 
         const result = await extractionService.verifyTnbMeter(buffer, mimeType);
+        const aiDisabled = result?.workflow_status === 'disabled';
 
-        if (sedaId) {
+        if (sedaId && !aiDisabled) {
             const statusText = result.is_clear ? 'PASSED CHECK' : 'BLURRY/UNCLEAR';
             const logEntry = `\n[${new Date().toISOString().split('T')[0]}] TNB METER photo = ${statusText} (${result.remark})`;
 
@@ -832,7 +845,12 @@ router.post('/api/v1/seda/verify-meter', async (req, res) => {
             );
         }
 
-        res.json({ success: true, data: result });
+        res.json({
+            success: true,
+            disabled: aiDisabled,
+            data: result,
+            message: aiDisabled ? 'Meter verification skipped because UniAPI workflow is disabled.' : undefined
+        });
     } catch (err) {
         console.error('[SEDA Route] Meter Verification Error:', err);
         res.status(500).json({ success: false, error: err.message });
@@ -859,8 +877,9 @@ router.post('/api/v1/seda/verify-ownership', async (req, res) => {
         const { mimeType, buffer } = fileCheck;
 
         const result = await extractionService.verifyOwnership(buffer, mimeType, context || { name: 'Unknown', address: 'Unknown' });
+        const aiDisabled = result?.workflow_status === 'disabled';
 
-        if (sedaId) {
+        if (sedaId && !aiDisabled) {
             const statusText = (result.name_match && result.address_match) ? 'PASSED CHECK' : 'MATCH FAILED';
             const logEntry = `\n[${new Date().toISOString().split('T')[0]}] OWNERSHIP Doc = ${statusText} (Owner: ${result.owner_name})`;
 
@@ -873,7 +892,12 @@ router.post('/api/v1/seda/verify-ownership', async (req, res) => {
             );
         }
 
-        res.json({ success: true, data: result });
+        res.json({
+            success: true,
+            disabled: aiDisabled,
+            data: result,
+            message: aiDisabled ? 'Ownership verification skipped because UniAPI workflow is disabled.' : undefined
+        });
     } catch (err) {
         console.error('[SEDA Route] Ownership Verification Error:', err);
         res.status(500).json({ success: false, error: err.message });

@@ -1316,6 +1316,18 @@ Thank you!`;
                 });
                 const json = await parseApiResponse(res);
                 stopLoading();
+                if (json.disabled || json.workflow_status === 'disabled') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'AI Scan Skipped',
+                        text: json.message || 'The document is uploaded, but AI extraction is temporarily disabled.',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 4500
+                    });
+                    return;
+                }
                 if (json.success || json.data) renderInlineResults(input, type, json);
             } catch (err) {
                 stopLoading();
@@ -1376,6 +1388,25 @@ Thank you!`;
                 });
                 const json = await parseApiResponse(res);
                 stopLoading();
+                if (json.disabled || json.workflow_status === 'disabled') {
+                    setTnb1Status({
+                        uploadTone: 'success',
+                        uploadText: 'Uploaded',
+                        extractTone: 'warning',
+                        extractText: 'Paused',
+                        message: json.message || 'Upload is saved. AI extraction is temporarily disabled.'
+                    });
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'AI Scan Paused',
+                        text: json.message || 'The document is uploaded, but extraction is temporarily disabled.',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 4500
+                    });
+                    return;
+                }
                 setTnb1Status({
                     uploadTone: 'success',
                     uploadText: 'Uploaded',
@@ -1432,6 +1463,18 @@ Thank you!`;
                 });
                 const json = await parseApiResponse(res);
                 stopLoading();
+                if (json.disabled || json.workflow_status === 'disabled') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'AI Verification Skipped',
+                        text: json.message || 'The document is uploaded, but AI verification is temporarily disabled.',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 4500
+                    });
+                    return;
+                }
                 if (json.success) {
                     Swal.fire({
                         icon: 'success',

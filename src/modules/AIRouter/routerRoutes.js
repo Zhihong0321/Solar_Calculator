@@ -86,7 +86,7 @@ router.post('/chat', async (req, res) => {
         
     } catch (err) {
         console.error('[AI Router API] Error:', err.message);
-        res.status(500).json({
+        res.status(err.statusCode || 500).json({
             error: 'AI request failed',
             message: err.message
         });
@@ -163,6 +163,7 @@ router.post('/reset', (req, res) => {
  */
 router.get('/health', (req, res) => {
     const stats = aiRouter.getStats();
+    const uniapiEnabled = aiRouter.isUniapiWorkflowEnabled();
     res.json({
         status: 'ok',
         date: stats.date,
@@ -171,7 +172,8 @@ router.get('/health', (req, res) => {
             totalCalls: stats.google.total
         },
         uniapi: {
-            configured: true,
+            configured: uniapiEnabled,
+            status: uniapiEnabled ? 'enabled' : 'disabled',
             totalCalls: stats.uniapi.total
         }
     });

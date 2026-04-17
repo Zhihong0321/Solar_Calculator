@@ -23,6 +23,19 @@
 
 const { aiRouter } = require('../../AIRouter/aiRouter');
 
+function isUniapiWorkflowEnabled() {
+    return typeof aiRouter.isUniapiWorkflowEnabled === 'function' && aiRouter.isUniapiWorkflowEnabled();
+}
+
+function buildDisabledResult(taskName, fallback) {
+    console.warn(`[ExtractionService] ${taskName} skipped because UniAPI workflow is disabled.`);
+    return {
+        ...fallback,
+        workflow_status: 'disabled',
+        workflow_message: 'UniAPI workflow is temporarily disabled'
+    };
+}
+
 /**
  * Helper: Extract JSON from AI response text
  * Handles markdown code blocks and trims whitespace
@@ -104,6 +117,10 @@ CRITICAL RULES:
  */
 async function callAI(prompt, fileBuffer, mimeType, taskName) {
     try {
+        if (!isUniapiWorkflowEnabled()) {
+            throw new Error('UniAPI workflow is temporarily disabled');
+        }
+
         let content;
 
         // Build message content (text-only or multimodal)
@@ -150,6 +167,15 @@ async function callAI(prompt, fileBuffer, mimeType, taskName) {
  * @returns {string} result.quality_remark - Quality description
  */
 async function verifyMykad(fileBuffer, mimeType = 'image/jpeg') {
+    if (!isUniapiWorkflowEnabled()) {
+        return buildDisabledResult('Verify MyKad', {
+            customer_name: null,
+            mykad_id: null,
+            quality_ok: false,
+            quality_remark: 'UniAPI workflow is temporarily disabled'
+        });
+    }
+
     const prompt = `TASK: Extract information from Malaysian MyKad (ID Card).
 
 EXTRACT THESE EXACT FIELDS:
@@ -180,6 +206,15 @@ STRICT OUTPUT FORMAT - RETURN ONLY THIS JSON:
  * @returns {string} result.tnb_account - 12-digit account number
  */
 async function verifyTnbBill(fileBuffer, mimeType = 'application/pdf') {
+    if (!isUniapiWorkflowEnabled()) {
+        return buildDisabledResult('Verify TNB Bill', {
+            customer_name: null,
+            address: null,
+            state: null,
+            tnb_account: null
+        });
+    }
+
     const prompt = `TASK: Extract information from TNB (Tenaga Nasional Berhad) electricity bill.
 
 EXTRACT THESE EXACT 4 FIELDS ONLY:
@@ -206,6 +241,14 @@ STRICT OUTPUT FORMAT - RETURN ONLY THIS JSON:
  * @returns {string} result.remark - Status description
  */
 async function verifyTnbMeter(fileBuffer, mimeType = 'image/jpeg') {
+    if (!isUniapiWorkflowEnabled()) {
+        return buildDisabledResult('Verify TNB Meter', {
+            is_tnb_meter: false,
+            is_clear: false,
+            remark: 'UniAPI workflow is temporarily disabled'
+        });
+    }
+
     const prompt = `TASK: Verify if this photo shows a TNB electricity meter.
 
 EXTRACT THESE EXACT FIELDS:
@@ -236,6 +279,16 @@ STRICT OUTPUT FORMAT - RETURN ONLY THIS JSON:
  * @returns {string} result.remark - Summary of findings
  */
 async function verifyOwnership(fileBuffer, mimeType = 'application/pdf', context) {
+    if (!isUniapiWorkflowEnabled()) {
+        return buildDisabledResult('Verify Ownership', {
+            owner_name: null,
+            property_address: null,
+            name_match: false,
+            address_match: false,
+            remark: 'UniAPI workflow is temporarily disabled'
+        });
+    }
+
     const prompt = `TASK: Verify property ownership document against applicant info.
 
 APPLICANT CONTEXT:
