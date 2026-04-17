@@ -91,6 +91,8 @@
             align-items: center;
             gap: 5px;
             min-width: 44px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
         }
         .step-circle {
             width: 24px; height: 24px;
@@ -695,6 +697,27 @@
             .ledger-table-row { grid-template-columns: 1.2fr 1fr 1fr 1fr; gap: 4px; }
             .ltc { font-size: 11px; }
         }
+
+        /* ── FIELD HINT ── */
+        .field-hint { font-size: 11px; color: var(--ink-3); margin-top: 5px; line-height: 1.45; }
+
+        /* ── LOCKED CARD INDICATOR ── */
+        .card.locked { opacity: 0.42; pointer-events: none; position: relative; }
+        .card.locked .card-header { position: relative; }
+        .card.locked .card-body.no-pad .loading-spinner { padding: 32px 20px; }
+        .card.locked .card-body.no-pad .loading-spinner div {
+            font-size: 13px;
+            color: var(--ink-2);
+            font-weight: 500;
+        }
+
+        /* ── LIVE DOT (Quick Adjust bar) ── */
+        .live-badge { display: inline-flex; align-items: center; gap: 5px; }
+        .live-dot { width: 5px; height: 5px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; flex-shrink: 0; }
+
+        /* ── DISCOUNT STRIP ── */
+        .discount-strip { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 14px 10px; }
+        .discount-strip-label { font-size: 10px; font-weight: 600; color: var(--ink-3); margin-bottom: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -708,7 +731,7 @@
         </div>
     </div>
     <div style="display:flex; align-items:center; gap:10px;">
-        <button id="hintToggleBtn" class="hints-btn active" onclick="toggleHints()" title="Toggle description cards">💡</button>
+        <button id="hintToggleBtn" class="hints-btn active" onclick="toggleHints()" title="Toggle description cards">💡 <span style="font-size:10px; letter-spacing:0.02em;">Tips</span></button>
         <button id="langToggleBtn" onclick="toggleLang()" style="background:transparent; border:1px solid rgba(255,255,255,0.2); border-radius:6px; color:rgba(255,255,255,0.7); font-family:'Inter',sans-serif; font-size:11px; font-weight:500; padding:5px 10px; cursor:pointer; letter-spacing:0.03em; transition:all 0.2s;">EN / 中文</button>
         <div class="status-dot" id="statusDot" title="Server Status"></div>
     </div>
@@ -716,27 +739,27 @@
 
 <!-- PROGRESS RAIL -->
 <div class="progress-rail" id="progressRail" aria-label="Calculation steps">
-    <div class="step-node">
+    <div class="step-node" onclick="scrollToCard('card1')">
         <div class="step-circle active" id="stepCircle1"><span>1</span></div>
         <div class="step-label active" id="stepLabel1" data-i18n="step_bill">Bill</div>
     </div>
     <div class="step-connector" id="stepConn1"></div>
-    <div class="step-node">
+    <div class="step-node" onclick="scrollToCard('card2')">
         <div class="step-circle" id="stepCircle2"><span>2</span></div>
         <div class="step-label" id="stepLabel2" data-i18n="step_review">Review</div>
     </div>
     <div class="step-connector" id="stepConn2"></div>
-    <div class="step-node">
+    <div class="step-node" onclick="scrollToCard('card3')">
         <div class="step-circle" id="stepCircle3"><span>3</span></div>
         <div class="step-label" id="stepLabel3" data-i18n="step_setup">Setup</div>
     </div>
     <div class="step-connector" id="stepConn3"></div>
-    <div class="step-node">
+    <div class="step-node" onclick="scrollToCard('card4')">
         <div class="step-circle" id="stepCircle4"><span>4</span></div>
         <div class="step-label" id="stepLabel4" data-i18n="step_roi">ROI</div>
     </div>
     <div class="step-connector" id="stepConn4"></div>
-    <div class="step-node">
+    <div class="step-node" onclick="scrollToCard('card5')">
         <div class="step-circle" id="stepCircle5"><span>5</span></div>
         <div class="step-label" id="stepLabel5" data-i18n="step_details">Details</div>
     </div>
@@ -767,7 +790,7 @@
                     <label for="billAmount" data-i18n="lbl_billAmount">Monthly TNB Bill (RM)</label>
                     <div class="input-shell">
                         <span class="prefix">RM</span>
-                        <input type="number" id="billAmount" step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+                        <input type="number" id="billAmount" step="0.01" min="0" placeholder="250" inputmode="decimal" autofocus>
                     </div>
                 </div>
 
@@ -784,10 +807,11 @@
                             <option value="-0.0499">JAN 2026 (-4.99 sen)</option>
                             <option value="-0.0509">FEB 2026 (-5.09 sen)</option>
                             <option value="-0.0215">MAR 2026 (-2.15 sen)</option>
-                            <option value="-0.0047">APR 2026 (-0.47 sen)</option>
+                            <option value="-0.0047" selected>APR 2026 (-0.47 sen)</option>
                             <option value="-0.0039">MAY 2026 (-0.39 sen)</option>
                         </select>
                     </div>
+                    <p class="field-hint">Select the month your TNB bill was issued — this adjusts the fuel surcharge (AFA) in the calculation.</p>
                 </div>
 
                 <div class="field">
@@ -834,7 +858,7 @@
         <div class="card-divider"></div>
         <div class="card-body no-pad" id="billBreakdownBody">
             <div class="loading-spinner">
-                <div style="font-size:12px; color: var(--ink-3); text-align:center;">Complete Step 1 to see your bill breakdown</div>
+                <div style="font-size:13px; color: var(--ink-2); text-align:center; font-weight:500;">👆 Complete Step 1 first</div>
             </div>
         </div>
     </div>
@@ -887,6 +911,27 @@
                     <p style="font-size:11px; color:var(--ink-3); margin-top:4px;"><span data-i18n="hint_dayUsage">% of your usage that happens during solar production hours.</span></p>
                 </div>
 
+                <!-- Discount Protocol — promoted for quick access -->
+                <div class="discount-strip">
+                    <div class="discount-strip-label" data-i18n="lbl_discount">Discount Protocol</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div>
+                            <div style="font-size:10px; font-weight:600; color:var(--ink-3); margin-bottom:6px;" data-i18n="lbl_discPct">Percentage (%)</div>
+                            <div class="input-shell" style="padding: 0 8px;">
+                                <input type="number" id="percentDiscount" value="0" step="0.01" min="0" max="100"
+                                    oninput="debouncedLiveUpdate()" inputmode="decimal" style="font-size:16px; padding:10px 0;">
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size:10px; font-weight:600; color:var(--ink-3); margin-bottom:6px;" data-i18n="lbl_discFixed">Fixed (RM)</div>
+                            <div class="input-shell" style="padding: 0 8px;">
+                                <input type="number" id="fixedDiscount" value="0" step="0.01" min="0"
+                                    oninput="debouncedLiveUpdate()" inputmode="decimal" style="font-size:16px; padding:10px 0;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <button class="advanced-toggle" id="advToggle" onclick="toggleAdvanced()">
                     <span data-i18n="lbl_advanced">Advanced Settings</span>
                     <span class="chevron">▾</span>
@@ -920,26 +965,6 @@
                             </div>
                         </div>
 
-                        <div class="field">
-                            <label data-i18n="lbl_discount">Discount Protocol</label>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                                <div>
-                                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:6px;" data-i18n="lbl_discPct">Percentage (%)</div>
-                                    <div class="input-shell" style="padding: 0 10px;">
-                                        <input type="number" id="percentDiscount" value="0" step="0.01" min="0" max="100"
-                                            oninput="debouncedLiveUpdate()" inputmode="decimal" style="font-size:15px; padding:12px 0;">
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style="font-size:10px; font-weight:700; color:var(--ink-3); margin-bottom:6px;" data-i18n="lbl_discFixed">Fixed (RM)</div>
-                                    <div class="input-shell" style="padding: 0 10px;">
-                                        <input type="number" id="fixedDiscount" value="0" step="0.01" min="0"
-                                            oninput="debouncedLiveUpdate()" inputmode="decimal" style="font-size:15px; padding:12px 0;">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
 
@@ -968,7 +993,7 @@
         <div class="card-divider"></div>
         <div class="card-body" id="roiResultBody">
             <div class="loading-spinner">
-                <div style="font-size:12px; color: var(--ink-3); text-align:center;" data-i18n="ph_step3">Complete Step 3 to see your ROI</div>
+                <div style="font-size:13px; color: var(--ink-2); text-align:center; font-weight:500;">👆 Complete Step 3 first</div>
             </div>
         </div>
     </div>
@@ -989,7 +1014,7 @@
         <div class="card-divider"></div>
         <div class="card-body" id="detailedBody">
             <div class="loading-spinner">
-                <div style="font-size:12px; color: var(--ink-3); text-align:center;" data-i18n="ph_step4">Complete Step 4 first</div>
+                <div style="font-size:13px; color: var(--ink-2); text-align:center; font-weight:500;">👆 Complete Step 4 first</div>
             </div>
         </div>
     </div>
@@ -1001,10 +1026,10 @@
 
 <!-- QUICK ADJUST BAR (appears after ROI is generated) -->
 <div class="quick-adjust" id="quickAdjustBar">
-    <div class="quick-adjust-title" data-i18n="qa_title">Quick Adjust · Results update live</div>
+    <div class="quick-adjust-title" data-i18n="qa_title"><span class="live-badge"><span class="live-dot"></span>Quick Adjust — Results update live</span></div>
     <div class="quick-adjust-row">
         <div class="qa-item">
-            <div class="qa-label" data-i18n="qa_sun">☀ Sun Peak</div>
+            <div class="qa-label" data-i18n="qa_sun">☀ Sunlight Hours</div>
             <div class="qa-control">
                 <button class="qa-btn" onclick="qAdjust('sunPeakHour', -0.1, 3.0, 4.5)">−</button>
                 <div class="qa-val" id="qaSun">3.4h</div>
@@ -1012,7 +1037,7 @@
             </div>
         </div>
         <div class="qa-item">
-            <div class="qa-label" data-i18n="qa_day">🌤 Day Usage</div>
+            <div class="qa-label" data-i18n="qa_day">🏠 Home During Day</div>
             <div class="qa-control">
                 <button class="qa-btn" onclick="qAdjust('morningUsage', -5, 1, 100)">−</button>
                 <div class="qa-val" id="qaDay">30%</div>
@@ -1060,6 +1085,12 @@ const EPP_RATES = {
     "CIMB":         { 6:2.50, 12:3.50 },
     "UOB":          { 6:2.50, 12:3.50, 24:5.50, 48:8.50, 68:11.50 },
     "OCBC":         { 6:4.00, 12:5.00, 18:6.00, 24:7.00, 36:8.00, 48:9.00 }
+};
+
+// Future Usage Block — contextual appliance names (EN / ZH)
+const FUTURE_BLOCK_APPLIANCES = {
+    en: ['Aircond', 'EV Charge', 'Hot Water', 'Laundry', 'Dryer', 'Night AC'],
+    zh: ['空调', '电动车', '热水', '洗衣', '烘干', '夜间空调']
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1242,8 +1273,8 @@ async function handleBillAnalysis() {
         originalSolarData = null;
         selectedBillCycleMode = 'fullMonth';
         futureUsageBlocks = Array(6).fill(false);
-        document.getElementById('roiResultBody').innerHTML = `<div class="loading-spinner"><div style="font-size:12px; color: var(--ink-3); text-align:center;" data-i18n="ph_step3">${t('ph_step3')}</div></div>`;
-        document.getElementById('detailedBody').innerHTML = `<div class="loading-spinner"><div style="font-size:12px; color: var(--ink-3); text-align:center;" data-i18n="ph_step4">${t('ph_step4')}</div></div>`;
+        document.getElementById('roiResultBody').innerHTML = `<div class="loading-spinner"><div style="font-size:13px; color: var(--ink-2); text-align:center; font-weight:500;">👆 Complete Step 3 first</div></div>`;
+        document.getElementById('detailedBody').innerHTML = `<div class="loading-spinner"><div style="font-size:13px; color: var(--ink-2); text-align:center; font-weight:500;">👆 Complete Step 4 first</div></div>`;
 
         renderBillBreakdown(mapped, afaRate);
         setStep(2);
@@ -1472,7 +1503,18 @@ function renderROICard(data) {
             <div class="roi-hero-saving">RM ${fmt(active.totalSavings)}</div>
             <div class="roi-hero-sub">(${active.label} Bill Cycle)</div>
 
-            <div style="margin-top:16px; height:1px; background:rgba(255,255,255,0.15);"></div>
+            <!-- Confidence -->
+            <div class="confidence-bar-wrap" style="margin-top:20px;">
+                <div class="confidence-label-row">
+                    <span style="font-size:10px; font-weight:500; opacity:0.5;">${t('lbl_confidence')}</span>
+                    <span style="font-size:14px; font-weight:800;">${conf}%</span>
+                </div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill ${conf >= 75 ? 'high' : conf >= 50 ? 'mid' : 'low'}" style="width:${conf}%"></div>
+                </div>
+            </div>
+
+            <div style="margin-top:18px; height:1px; background:rgba(255,255,255,0.15);"></div>
 
             <div class="roi-meta" style="margin-top:14px;">
                 <div class="roi-meta-item">
@@ -1489,23 +1531,24 @@ function renderROICard(data) {
                 </div>
             </div>
 
-            <!-- Confidence -->
-            <div class="confidence-bar-wrap">
-                <div class="confidence-label-row">
-                    <span style="font-size:10px; font-weight:500; opacity:0.5;">${t('lbl_confidence')}</span>
-                    <span style="font-size:14px; font-weight:800;">${conf}%</span>
-                </div>
-                <div class="confidence-bar">
-                    <div class="confidence-fill ${conf >= 75 ? 'high' : conf >= 50 ? 'mid' : 'low'}" style="width:${conf}%"></div>
-                </div>
-            </div>
-
             ${data.requiresSedaFee ? `
             <div class="seda-warning" style="background:rgba(254,243,199,0.15); border-color:rgba(217,119,6,0.6); margin-top:12px;">
                 <div class="seda-warning-title" style="color:#FDE68A;">${t('lbl_sedaFee')}</div>
                 <div class="seda-warning-text" style="color:rgba(255,255,255,0.6); font-size:11px;">${t("lbl_sedaDesc")} ${data.config.systemPhase == 1 ? 5.01 : 15.01}kW (${data.config.systemPhase}${t("lbl_phase_txt")})</div>
             </div>
             ` : ''}
+
+            <!-- 25-Year Payback Projection Chart -->
+            <div style="margin-top:18px;">
+                <div style="font-size:9px; font-weight:500; letter-spacing:0.06em; opacity:0.4; text-transform:uppercase; margin-bottom:8px;">25-Year Savings Projection</div>
+                <div style="height:80px; position:relative;">
+                    <canvas id="paybackChart"></canvas>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:7px;">
+                    <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:13px;height:2px;background:#4ade80;border-radius:99px;"></span><span style="font-size:9px;opacity:0.4;">Cumulative Savings</span></span>
+                    <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:13px;height:0;border-top:1.5px dashed rgba(255,255,255,0.25);"></span><span style="font-size:9px;opacity:0.4;">System Cost</span></span>
+                </div>
+            </div>
         </div>
 
         <!-- System Info -->
@@ -1554,7 +1597,8 @@ function renderROICard(data) {
 
         <!-- EPP Calculator -->
         <div style="background:var(--bg); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:16px 20px; margin-bottom:8px;">
-            <div style="font-size:11px; font-weight:500; color:var(--ink-3); margin-bottom:12px;">${t('lbl_epp')}</div>
+            <div style="font-size:13px; font-weight:600; color:var(--ink); margin-bottom:4px;">💳 Can you afford it?</div>
+            <div style="font-size:11px; font-weight:400; color:var(--ink-3); margin-bottom:14px;">Compare monthly instalment vs monthly savings</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
                 <div>
                     <div style="font-size:10px; font-weight:500; color:var(--ink-3); margin-bottom:5px;">${t('lbl_bank')}</div>
@@ -1571,14 +1615,21 @@ function renderROICard(data) {
                     </div>
                 </div>
             </div>
-            <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px;">
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border);">
                     <span style="font-size:12px; color:var(--ink-3);">${t('lbl_monthlyPayment')}</span>
                     <span id="eppResult" style="font-size:22px; font-weight:900;">RM 0.00</span>
                 </div>
                 <div id="eppDetails" style="font-size:11px; display:flex; flex-direction:column; gap:3px;"></div>
             </div>
-            <div id="eppNote" style="font-size:10px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:6px; padding:8px 10px; margin-top:8px; color:#92400E;"></div>
+            <div style="background:var(--green-bg); border:1px solid #BBF7D0; border-radius:8px; padding:10px 12px; display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <div style="font-size:20px;">💰</div>
+                <div style="flex:1;">
+                    <div style="font-size:10px; font-weight:500; color:var(--green-text); margin-bottom:2px;">Your Monthly Savings</div>
+                    <div style="font-size:18px; font-weight:900; color:var(--green-text);">RM ${fmt(active.totalSavings)}</div>
+                </div>
+            </div>
+            <div id="eppNote" style="font-size:10px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:6px; padding:8px 10px; color:#92400E;"></div>
         </div>
 
         <!-- Quotation CTA -->
@@ -1592,8 +1643,40 @@ function renderROICard(data) {
         </div>
     `;
 
-    // Init EPP after render
-    setTimeout(() => updateEPP(), 0);
+    // Capture chart values before async timeout
+    const _cSav = active.totalSavings;
+    const _cCost = parseFloat(data.finalSystemCost) || 0;
+
+    // Init EPP + payback chart after DOM settles
+    setTimeout(() => {
+        updateEPP();
+        const ctx = document.getElementById('paybackChart');
+        if (ctx && _cCost > 0) {
+            if (window._paybackChart) { try { window._paybackChart.destroy(); } catch(e) {} }
+            const annualSav = (_cSav || 0) * 12;
+            const yrs = Array.from({length: 26}, (_, y) => y);
+            window._paybackChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: yrs.map(y => y % 5 === 0 ? (y === 0 ? 'Now' : y + 'y') : ''),
+                    datasets: [
+                        { data: yrs.map(y => Math.round(y * annualSav)), borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.09)', fill: true, tension: 0.45, pointRadius: 0, borderWidth: 2 },
+                        { data: yrs.map(() => Math.round(_cCost)), borderColor: 'rgba(255,255,255,0.2)', borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 550, easing: 'easeOutQuart' },
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.28)', font: { size: 8, family: 'Inter' }, maxRotation: 0 } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false }, ticks: { color: 'rgba(255,255,255,0.28)', font: { size: 8, family: 'Inter' }, callback: v => 'RM' + (v >= 1000 ? Math.round(v / 1000) + 'k' : v) }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+    }, 0);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1747,13 +1830,10 @@ function renderDetailedCard(data) {
         ${descCard('desc_futureTest')}
             <p style="font-size:11px; color:var(--ink-3); margin-bottom:12px;">${t('lbl_futureDesc')}</p>
             <div class="future-blocks">
-                ${futureUsageBlocks.map((active, i) => `
-                    <div class="future-block${active?' active':''}" onclick="toggleFutureBlock(${i})">
-                        <span class="future-block-label">${t('lbl_block')} ${i+1}</span>
-                        <span class="future-block-kwh">+200</span>
-                        <span style="font-size:9px; opacity:0.7; display:block; margin-top:1px;">kWh</span>
-                    </div>
-                `).join('')}
+                ${futureUsageBlocks.map((isOn, i) => {
+                    const aLabel = (FUTURE_BLOCK_APPLIANCES[_lang] || FUTURE_BLOCK_APPLIANCES.en)[i] || (t('lbl_block') + ' ' + (i+1));
+                    return `<div class="future-block${isOn?' active':''}" onclick="toggleFutureBlock(${i})"><span class="future-block-label">${aLabel}</span><span class="future-block-kwh">+200</span><span style="font-size:9px;opacity:0.65;display:block;margin-top:2px;">kWh</span></div>`;
+                }).join('')}
             </div>
             <div id="futureResult" style="margin-top:14px;"></div>
         </div>
@@ -2060,7 +2140,7 @@ const TRANSLATIONS = {
     ph_step3: 'Complete Step 3 to see your ROI',
     ph_step4: 'Complete Step 4 first',
     qa_title: 'Quick Adjust · Results update live',
-    qa_sun: '☀ Sun Peak', qa_day: '🌤 Day Usage', qa_panels: '🔲 Panels',
+    qa_sun: '☀ Sunlight Hours', qa_day: '🏠 Home During Day', qa_panels: '🔲 Panels',
     // Dynamic strings
     analysing: 'Analysing...', computing: 'Computing ROI...',
     err_invalidBill: 'Please enter a valid bill amount',
@@ -2158,7 +2238,7 @@ const TRANSLATIONS = {
     ph_step3: '完成第三步以查看投资回报',
     ph_step4: '请先完成第四步',
     qa_title: '快速调整 · 结果实时更新',
-    qa_sun: '☀ 日照峰值', qa_day: '🌤 白天用电', qa_panels: '🔲 板数',
+    qa_sun: '☀ 日照时数', qa_day: '🏠 白天在家', qa_panels: '🔲 板数',
     analysing: '分析中...', computing: '计算中...',
     err_invalidBill: '请输入有效的电费金额',
     err_needBill: '请先完成账单分析',
