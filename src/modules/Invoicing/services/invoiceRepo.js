@@ -209,42 +209,49 @@ async function generateInvoiceNumber(client) {
  * Fetch warranty info for a package
  * @private
  */
-async function _fetchWarrantyInfo(client, packageId) {
+async function _fetchWarrantyInfo(client, packageId, invoiceItems = []) {
   try {
-    // 1. Get Package Details
-    const pkgRes = await client.query(
-      `SELECT panel, inverter_1, inverter_2, inverter_3, inverter_4, linked_package_item 
-       FROM package 
-       WHERE bubble_id = $1 OR id::text = $1`,
-      [packageId]
-    );
-
-    if (pkgRes.rows.length === 0) return [];
-    const pkg = pkgRes.rows[0];
-
-    // 2. Collect Product IDs
     const productIds = [];
-    if (pkg.panel) productIds.push(pkg.panel);
-    if (pkg.inverter_1) productIds.push(pkg.inverter_1);
-    if (pkg.inverter_2) productIds.push(pkg.inverter_2);
-    if (pkg.inverter_3) productIds.push(pkg.inverter_3);
-    if (pkg.inverter_4) productIds.push(pkg.inverter_4);
 
-    // 3. Check Package Items for more products
-    const linkedItems = pkg.linked_package_item;
-    if (Array.isArray(linkedItems) && linkedItems.length > 0) {
-      const itemsRes = await client.query(
-        `SELECT product FROM package_item WHERE bubble_id = ANY($1::text[])`,
-        [linkedItems]
+    // 1. Collect product IDs from the main package when one exists.
+    if (packageId) {
+      const pkgRes = await client.query(
+        `SELECT panel, inverter_1, inverter_2, inverter_3, inverter_4, linked_package_item 
+         FROM package 
+         WHERE bubble_id = $1 OR id::text = $1`,
+        [packageId]
       );
-      itemsRes.rows.forEach(item => {
-        if (item.product) productIds.push(item.product);
+
+      if (pkgRes.rows.length > 0) {
+        const pkg = pkgRes.rows[0];
+        if (pkg.panel) productIds.push(pkg.panel);
+        if (pkg.inverter_1) productIds.push(pkg.inverter_1);
+        if (pkg.inverter_2) productIds.push(pkg.inverter_2);
+        if (pkg.inverter_3) productIds.push(pkg.inverter_3);
+        if (pkg.inverter_4) productIds.push(pkg.inverter_4);
+
+        const linkedItems = pkg.linked_package_item;
+        if (Array.isArray(linkedItems) && linkedItems.length > 0) {
+          const itemsRes = await client.query(
+            `SELECT product FROM package_item WHERE bubble_id = ANY($1::text[])`,
+            [linkedItems]
+          );
+          itemsRes.rows.forEach(item => {
+            if (item.product) productIds.push(item.product);
+          });
+        }
+      }
+    }
+
+    // 2. Collect directly linked product items such as batteries/accessories.
+    if (Array.isArray(invoiceItems) && invoiceItems.length > 0) {
+      invoiceItems.forEach((item) => {
+        if (item?.linked_product) productIds.push(item.linked_product);
       });
     }
 
     if (productIds.length === 0) return [];
 
-    // 4. Fetch Product Warranties
     const uniqueIds = [...new Set(productIds)];
     const productsRes = await client.query(
       `SELECT name, product_warranty_desc, warranty_name 
@@ -1420,10 +1427,13 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         ii.sort as sort_order,
         ii.created_at,
         ii.is_a_package,
-        ii.linked_package as product_id,
-        COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
+        ii.linked_package,
+        ii.linked_product,
+        COALESCE(ii.linked_product, ii.linked_package) as product_id,
+        COALESCE(pr.name, pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
        FROM invoice_item ii
        LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id OR ii.linked_package = pkg.id::text
+       LEFT JOIN product pr ON ii.linked_product = pr.bubble_id OR ii.linked_product = pr.id::text
        WHERE ii.linked_invoice = $1 
           OR ii.bubble_id = ANY($2::text[])
        ORDER BY ii.sort ASC, ii.created_at ASC`,
@@ -1583,18 +1593,16 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     );
 
     // Query 7: Fetch Warranty Info from Package
-    if (invoice.linked_package) {
-      parallelQueries.push(
-        _fetchWarrantyInfo(client, invoice.linked_package)
-          .then(warranties => {
-            invoice.warranties = warranties;
-          })
-          .catch(err => {
-            console.warn('Failed to fetch warranties:', err);
-            invoice.warranties = [];
-          })
-      );
-    }
+    parallelQueries.push(
+      _fetchWarrantyInfo(client, invoice.linked_package, invoice.items)
+        .then(warranties => {
+          invoice.warranties = warranties;
+        })
+        .catch(err => {
+          console.warn('Failed to fetch warranties:', err);
+          invoice.warranties = [];
+        })
+    );
 
     // Wait for all parallel queries to complete
     await Promise.all([...parallelQueries, getTemplatePromise]);
@@ -1799,10 +1807,11 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     let extraItemSortOrder = 50;
     for (const item of data.extraItems) {
       const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+      const linkedProductId = item.linked_product || item.linkedProduct || null;
       await client.query(
         `INSERT INTO invoice_item
-             (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
+             (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package, linked_product)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9, $10)`,
         [
           itemBubbleId,
           invoiceId,
@@ -1812,7 +1821,8 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
           item.total_price || 0,
           'extra',
           extraItemSortOrder++,
-          false
+          false,
+          linkedProductId
         ]
       );
       createdItemIds.push(itemBubbleId);

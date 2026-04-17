@@ -227,10 +227,13 @@ async function fetchOfficeItems(client, invoiceBubbleId, itemIds) {
             ii.sort as sort_order,
             ii.created_at,
             ii.is_a_package,
-            ii.linked_package as product_id,
-            COALESCE(pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
+            ii.linked_package,
+            ii.linked_product,
+            COALESCE(ii.linked_product, ii.linked_package) as product_id,
+            COALESCE(pr.name, pkg.package_name, INITCAP(REPLACE(ii.inv_item_type, '_', ' ')), 'Item') as product_name
          FROM invoice_item ii
          LEFT JOIN package pkg ON ii.linked_package = pkg.bubble_id OR ii.linked_package = pkg.id::text
+         LEFT JOIN product pr ON ii.linked_product = pr.bubble_id OR ii.linked_product = pr.id::text
          WHERE ii.linked_invoice = $1 
             OR ii.bubble_id = ANY($2::text[])
          ORDER BY ii.sort ASC, ii.created_at ASC`,

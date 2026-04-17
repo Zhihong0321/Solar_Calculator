@@ -1491,6 +1491,8 @@ window.generateInvoiceLink = async function () {
     if (latestSolarData.config.panelType) params.set('panel_rating', `${latestSolarData.config.panelType}W`);
     if (latestSolarData.config?.systemPhase) params.set('system_phase', latestSolarData.config.systemPhase);
     if (latestSolarData.config?.inverterType) params.set('inverter_type', latestSolarData.config.inverterType);
+    const selectedBatterySize = normalizeBatterySize(latestSolarData.config?.batterySize || latestSolarParams?.batterySize || 0);
+    if (selectedBatterySize > 0) params.set('battery_size', selectedBatterySize);
 
     const billCycleModes = buildBillCycleMetrics(latestSolarData);
     const selectedCycleMetrics = billCycleModes[normalizeBillCycleMode(selectedBillCycleMode)] || billCycleModes.fullMonth;

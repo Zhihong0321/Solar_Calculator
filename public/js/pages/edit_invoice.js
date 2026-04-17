@@ -126,6 +126,7 @@ function getAdditionalInvoiceItems() {
                 qty: qty,
                 unit_price: unitPrice,
                 total_price: qty * unitPrice,
+                linked_product: item.linked_product || null,
                 item_kind: 'manual'
             };
         });
@@ -138,84 +139,7 @@ function getAdditionalInvoiceItems() {
     return items;
 }
 
-function buildHybridUpgradePreviewName(baseName, targetModelCode) {
-    const trimmedBase = String(baseName || 'Package Item').trim();
-    if (!targetModelCode) return trimmedBase;
-    if (trimmedBase.toUpperCase().includes('HYBRID')) return trimmedBase;
-    return `${trimmedBase} (Hybrid ${targetModelCode})`;
-}
-
-function buildHybridUpgradePreviewDescription(baseDescription, targetInverterName, topUpAmount) {
-    const lines = String(baseDescription || '')
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-
-    let replaced = false;
-    const updated = lines.map((line) => {
-        if (!replaced && /inverter/i.test(line)) {
-            replaced = true;
-            return `1X ${targetInverterName}`;
-        }
-        return line;
-    });
-
-    if (!replaced && targetInverterName) {
-        updated.push(`1X ${targetInverterName}`);
-    }
-
-    if (topUpAmount > 0) {
-        updated.push(`Hybrid inverter upgrade included (RM ${topUpAmount.toFixed(2)} top-up)`);
-    }
-
-    return updated.join('\n');
-}
-
-function getHybridUpgradeContext() {
-    if (!window.currentHybridUpgradeContext) {
-        window.currentHybridUpgradeContext = {
-            packageId: null,
-            currentInverter: null,
-            rules: [],
-            selectedRuleId: ''
-        };
-    }
-    return window.currentHybridUpgradeContext;
-}
-
-function getSelectedHybridUpgradeRule() {
-    const context = getHybridUpgradeContext();
-    return context.rules.find((rule) => String(rule.bubble_id) === String(context.selectedRuleId)) || null;
-}
-
-function setHybridUpgradeSummaryLabels(rule) {
-    const currentLabel = document.getElementById('hybridUpgradeCurrentLabel');
-    const targetLabel = document.getElementById('hybridUpgradeTargetLabel');
-    const amountLabel = document.getElementById('hybridUpgradeAmountLabel');
-    const helper = document.getElementById('hybridUpgradeHelper');
-
-    if (!rule) {
-        if (currentLabel) currentLabel.textContent = 'None';
-        if (targetLabel) targetLabel.textContent = 'None';
-        if (amountLabel) amountLabel.textContent = 'RM 0.00';
-        if (helper) helper.textContent = 'Select an option to swap the inverter and add the top-up.';
-        return;
-    }
-
-    if (currentLabel) currentLabel.textContent = rule.from_model_code || rule.from_product_name_snapshot || 'Current inverter';
-    if (targetLabel) targetLabel.textContent = rule.to_model_code || rule.to_product_name_snapshot || 'Hybrid inverter';
-    if (amountLabel) amountLabel.textContent = `RM ${(parseFloat(rule.price_amount) || 0).toFixed(2)}`;
-    if (helper) helper.textContent = 'This rule will be cloned into the invoice-specific package.';
-}
-
-function setHybridUpgradeStaticState({
-    optionLabel = 'No hybrid upgrade available',
-    helperText = 'Hybrid upgrade is unavailable for this package.',
-    currentLabelText = 'None',
-    targetLabelText = 'None',
-    amountLabelText = 'RM 0.00',
-    disabled = true
-} = {}) {
+function hideRetiredHybridUpgradeControls() {
     const section = document.getElementById('hybrid-upgrade-section');
     const select = document.getElementById('hybridUpgradeSelect');
     const helper = document.getElementById('hybridUpgradeHelper');
@@ -223,243 +147,27 @@ function setHybridUpgradeStaticState({
     const targetLabel = document.getElementById('hybridUpgradeTargetLabel');
     const amountLabel = document.getElementById('hybridUpgradeAmountLabel');
     const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
+    const warning = document.getElementById('hybridStockWarning');
 
-    if (!section || !select) return;
+    window.currentPackageHybridUpgradeData = null;
 
-    section.classList.remove('hidden');
-    select.innerHTML = `<option value="">${optionLabel}</option>`;
-    select.value = '';
-    select.disabled = disabled;
-    select.onchange = null;
-
-    if (helper) helper.textContent = helperText;
-    if (currentLabel) currentLabel.textContent = currentLabelText;
-    if (targetLabel) targetLabel.textContent = targetLabelText;
-    if (amountLabel) amountLabel.textContent = amountLabelText;
     if (hiddenRuleInput) hiddenRuleInput.value = '';
-
-    renderStockReadyWarning();
+    if (select) {
+        select.innerHTML = '<option value="">Hybrid upgrade retired</option>';
+        select.value = '';
+        select.disabled = true;
+        select.onchange = null;
+    }
+    if (helper) helper.textContent = 'Hybrid upgrade has been retired. Change package directly instead.';
+    if (currentLabel) currentLabel.textContent = 'Retired';
+    if (targetLabel) targetLabel.textContent = 'Retired';
+    if (amountLabel) amountLabel.textContent = 'RM 0.00';
+    if (warning) warning.classList.add('hidden');
+    if (section) section.classList.add('hidden');
 }
 
-function applyHybridUpgradeSelection() {
-    const context = getHybridUpgradeContext();
-    const rule = getSelectedHybridUpgradeRule();
-    const hiddenRuleInput = document.getElementById('hybridUpgradeRuleId');
-    const packagePriceInput = document.getElementById('packagePrice');
-    const packageNameHidden = document.getElementById('packageName');
-    const packageNameDisplay = document.getElementById('packageNameDisplay');
-    const packagePriceDisplay = document.getElementById('packagePriceDisplay');
-    const packageDescDisplay = document.getElementById('packageDescDisplay');
-    const packageDescContainer = document.getElementById('packageDescContainer');
-
-    if (hiddenRuleInput) hiddenRuleInput.value = rule ? rule.bubble_id : '';
-
-    const basePrice = Number(window.currentBasePackagePrice) || 0;
-    const baseName = window.currentBasePackageName || packageNameHidden?.value || packageNameDisplay?.textContent || 'Package Item';
-    const baseDesc = window.currentBasePackageDescription || '';
-    const hybridTopUp = rule ? (parseFloat(rule.price_amount) || 0) : 0;
-    const totalPrice = basePrice + hybridTopUp;
-
-    if (packagePriceInput) packagePriceInput.value = totalPrice.toFixed(2);
-
-    const previewName = buildHybridUpgradePreviewName(baseName, rule?.to_model_code);
-    const previewDesc = rule
-        ? buildHybridUpgradePreviewDescription(baseDesc, rule.to_product_name_snapshot || rule.to_model_code || 'Hybrid Inverter', hybridTopUp)
-        : baseDesc;
-
-    if (packageNameHidden) packageNameHidden.value = previewName;
-    if (packageNameDisplay) packageNameDisplay.textContent = previewName;
-    if (packagePriceDisplay) packagePriceDisplay.textContent = `RM ${totalPrice.toFixed(2)}`;
-    if (packageDescDisplay) {
-        packageDescDisplay.textContent = previewDesc;
-    }
-    if (packageDescContainer) {
-        packageDescContainer.classList.toggle('hidden', !previewDesc);
-    }
-
-    const { maxPercent, maxAmount } = getManualDiscountPolicy(totalPrice);
-    window.maxDiscountAllowed = maxAmount;
-    window.maxDiscountPercentAllowed = maxPercent;
-    const maxDiscountDisplay = document.getElementById('maxDiscountDisplay');
-    const inputMaxDiscountDisplay = document.getElementById('inputMaxDiscountDisplay');
-    if (document.getElementById('maxDiscountRow')) {
-        document.getElementById('maxDiscountRow').classList.remove('hidden');
-    }
-    if (document.getElementById('inputMaxDiscountRow')) {
-        document.getElementById('inputMaxDiscountRow').classList.remove('hidden');
-    }
-    if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${maxAmount.toFixed(2)} (${maxPercent}% of package price)`;
-    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${maxAmount.toFixed(2)} (${maxPercent}% of package price)`;
-
-    setHybridUpgradeSummaryLabels(rule);
-    updateInvoicePreview();
-    updateWorkspaceStatuses();
-}
-
-function renderHybridUpgradeOptions(data) {
-    const section = document.getElementById('hybrid-upgrade-section');
-    const select = document.getElementById('hybridUpgradeSelect');
-    const context = getHybridUpgradeContext();
-
-    context.packageId = data?.packageId || null;
-    context.currentInverter = data?.currentInverter || null;
-    context.rules = Array.isArray(data?.rules) ? data.rules : [];
-    context.selectedRuleId = '';
-
-    if (!section || !select) {
-        return;
-    }
-
-    section.classList.remove('hidden');
-
-    // Already hybrid — keep the section visible but read-only
-    if (data?.packageAlreadyHybrid) {
-        setHybridUpgradeStaticState({
-            optionLabel: 'Already using hybrid inverter',
-            helperText: 'This package already uses a hybrid inverter, so no upgrade is needed.',
-            currentLabelText: data?.currentInverter?.model_code || data?.currentInverter?.name || 'Hybrid inverter',
-            targetLabelText: 'Already hybrid',
-            amountLabelText: 'RM 0.00',
-            disabled: true
-        });
-        applyHybridUpgradeSelection();
-        return;
-    }
-
-    if (!data?.currentInverter) {
-        setHybridUpgradeStaticState({
-            optionLabel: 'No inverter found',
-            helperText: 'No inverter_1 value was found for this package, so hybrid upgrade is unavailable.',
-            currentLabelText: 'No inverter linked',
-            targetLabelText: 'Unavailable',
-            amountLabelText: 'RM 0.00',
-            disabled: true
-        });
-        applyHybridUpgradeSelection();
-        return;
-    }
-
-    if (!context.rules.length) {
-        setHybridUpgradeStaticState({
-            optionLabel: 'No upgrade rule configured',
-            helperText: 'This package has an inverter, but no matching hybrid upgrade rule is configured yet.',
-            currentLabelText: data.currentInverter.model_code || data.currentInverter.name || 'Current inverter',
-            targetLabelText: 'No matching rule',
-            amountLabelText: 'RM 0.00',
-            disabled: true
-        });
-        applyHybridUpgradeSelection();
-        return;
-    }
-
-    const options = ['<option value="">No hybrid upgrade</option>'];
-    context.rules.forEach((rule) => {
-        const topUp = (parseFloat(rule.price_amount) || 0).toFixed(2);
-        const label = `${rule.from_model_code || 'Source'} → ${rule.to_model_code || 'Target'} | +RM ${topUp}`;
-        options.push(`<option value="${rule.bubble_id}">${label}</option>`);
-    });
-    select.innerHTML = options.join('');
-    select.value = '';
-    select.disabled = false;
-
-    select.onchange = () => {
-        context.selectedRuleId = select.value || '';
-        applyHybridUpgradeSelection();
-        renderStockReadyWarning();
-    };
-
-    setHybridUpgradeSummaryLabels(null);
-    applyHybridUpgradeSelection();
-    renderStockReadyWarning();
-}
-
-function renderStockReadyWarning() {
-    const helper = document.getElementById('hybridUpgradeHelper');
-    let warning = document.getElementById('hybridStockWarning');
-
-    if (!warning) {
-        warning = document.createElement('p');
-        warning.id = 'hybridStockWarning';
-        warning.className = 'mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800';
-        helper?.parentNode?.insertBefore(warning, helper.nextSibling);
-    }
-
-    warning.classList.add('hidden');
-}
-
-async function loadHybridUpgradeOptions(packageId) {
-    const section = document.getElementById('hybrid-upgrade-section');
-    if (!section) {
-        return;
-    }
-
-    if (!packageId) {
-        setHybridUpgradeStaticState({
-            optionLabel: 'No package selected yet',
-            helperText: 'Select a package first to check hybrid upgrade availability.',
-            currentLabelText: 'Waiting for package',
-            targetLabelText: 'Unavailable',
-            amountLabelText: 'RM 0.00',
-            disabled: true
-        });
-        return;
-    }
-
-    const currentPackageData = window.currentPackageHybridUpgradeData;
-    if (currentPackageData && String(currentPackageData.packageId || '') === String(packageId)) {
-        renderHybridUpgradeOptions(currentPackageData);
-        return;
-    }
-
-    setHybridUpgradeStaticState({
-        optionLabel: 'Checking hybrid upgrade options...',
-        helperText: 'Checking inverter link and matching hybrid upgrade rules for this package.',
-        currentLabelText: 'Loading...',
-        targetLabelText: 'Loading...',
-        amountLabelText: 'RM 0.00',
-        disabled: true
-    });
-
-    try {
-        const response = await fetch(`/api/package/${packageId}/hybrid-upgrades`);
-        const raw = await response.text();
-        let result = null;
-        try {
-            result = JSON.parse(raw);
-        } catch (parseErr) {
-            result = null;
-        }
-
-        if (response.ok && result?.success && result.data) {
-            window.currentPackageHybridUpgradeData = result.data;
-            renderHybridUpgradeOptions(result.data);
-        } else {
-            throw new Error(result?.error || `Hybrid route returned status ${response.status}`);
-        }
-    } catch (err) {
-        console.error('Failed to load hybrid upgrade options:', err);
-        try {
-            const fallbackResponse = await fetch(`/api/package/${packageId}`);
-            const fallbackResult = await fallbackResponse.json();
-            const fallbackData = fallbackResult?.package?.hybrid_upgrade_data || null;
-            if (fallbackResponse.ok && fallbackResult?.success && fallbackData) {
-                window.currentPackageHybridUpgradeData = fallbackData;
-                renderHybridUpgradeOptions(fallbackData);
-                return;
-            }
-        } catch (fallbackErr) {
-            console.error('Failed to load fallback hybrid data from package details:', fallbackErr);
-        }
-
-        setHybridUpgradeStaticState({
-            optionLabel: 'Hybrid upgrade unavailable',
-            helperText: 'Failed to load hybrid upgrade options. Please refresh and try again.',
-            currentLabelText: 'Unavailable',
-            targetLabelText: 'Unavailable',
-            amountLabelText: 'RM 0.00',
-            disabled: true
-        });
-    }
+async function loadHybridUpgradeOptions() {
+    hideRetiredHybridUpgradeControls();
 }
 
 function isApril2026PromotionActive() {
@@ -728,7 +436,7 @@ async function fetchAssignedReferralLeads(selectedReferralId = '') {
 }
 
 // Add a new manual item row
-function addManualItem(data = { description: '', qty: 1, unit_price: 0 }) {
+function addManualItem(data = { description: '', qty: 1, unit_price: 0, linked_product: null }) {
     const id = 'item_' + Math.random().toString(36).substr(2, 9);
     manualItems.push({ id, ...data });
     renderManualItems();
@@ -2021,7 +1729,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                         addManualItem({
                             description: item.description,
                             qty: parseFloat(item.qty) || 1,
-                            unit_price: parseFloat(item.unit_price) || 0
+                            unit_price: parseFloat(item.unit_price) || 0,
+                            linked_product: item.linked_product || null
                         });
                     }
                 });
@@ -2174,7 +1883,7 @@ function showPackage(pkg) {
     window.currentBasePackagePrice = parseFloat(pkg.price) || 0;
     window.currentBasePackageName = pkg.name || pkg.invoice_desc || `Package ${pkg.bubble_id}`;
     window.currentBasePackageDescription = pkg.invoice_desc || '';
-    window.currentPackageHybridUpgradeData = pkg.hybrid_upgrade_data || null;
+    window.currentPackageHybridUpgradeData = null;
     window.currentPanelQty = pkg.panel_qty || 0;
     window.currentPackageType = pkg.type || '';
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
@@ -2301,7 +2010,8 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         description: item.description,
         qty: item.qty,
         unit_price: item.unit_price,
-        total_price: item.qty * item.unit_price
+        total_price: item.qty * item.unit_price,
+        linked_product: item.linked_product || null
     }));
 
     // Prepare request data
@@ -2319,7 +2029,6 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         apply_sst: document.getElementById('applySST')?.checked || false,
         applyEarnNowRebate: document.getElementById('applyEarnNowRebate')?.checked || false,
         applyEarthMonthGoGreenBonus: document.getElementById('applyEarthMonthGoGreenBonus')?.checked || false,
-        hybrid_upgrade_rule_id: document.getElementById('hybridUpgradeRuleId')?.value || null,
         payment_structure: eppData.payment_structure,
         extra_items: extraItems,
         voucher_ids: getSelectedDraftVoucherIds()
