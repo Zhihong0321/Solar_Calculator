@@ -14,6 +14,7 @@
     "test:navigation": "playwright test tests/navigation.mobile.spec.js",
     "test:invoice-office-upload": "node scripts/test_invoice_office_upload.js",
     "test:seda-upload": "node scripts/test_seda_upload.js",
+    "test:recycle-bin-fallback": "node scripts/test_recycle_bin_fallback.js",
     "seda:optimize-uploads": "node scripts/optimize_seda_uploads.js"
   },
   "dependencies": {
