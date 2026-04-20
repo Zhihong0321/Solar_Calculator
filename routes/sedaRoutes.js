@@ -54,9 +54,9 @@ const FILE_FIELDS = {
     mykad_front:    { label: 'MyKad Front',              accept: ['image/*'],                         maxMB: 20, column: 'ic_copy_front'            },
     mykad_back:     { label: 'MyKad Back',               accept: ['image/*'],                         maxMB: 20, column: 'ic_copy_back'             },
     mykad_pdf:      { label: 'MyKad PDF',                accept: ['application/pdf'],                 maxMB: 25, column: 'mykad_pdf'                },
-    tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf'],                 maxMB: 25, column: 'tnb_bill_1'               },
-    tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf'],                 maxMB: 25, column: 'tnb_bill_2'               },
-    tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf'],                 maxMB: 25, column: 'tnb_bill_3'               },
+    tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_1'               },
+    tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_2'               },
+    tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_3'               },
     property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'property_ownership_prove'  },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                         maxMB: 20, column: 'tnb_meter'                },
 };
@@ -224,7 +224,18 @@ async function readFileFromStoredUrl(url) {
     if (!diskPath) throw new Error('File not found on disk. It may have been moved or the URL is invalid.');
     const buffer = fs.readFileSync(diskPath);
     if (!buffer.length) throw new Error('File on disk is empty.');
-    const mime = url.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+    const ext = path.extname(url || '').toLowerCase();
+    const mime = {
+        '.pdf':  'application/pdf',
+        '.jpg':  'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png':  'image/png',
+        '.webp': 'image/webp',
+        '.gif':  'image/gif',
+        '.bmp':  'image/bmp',
+        '.heic': 'image/heic',
+        '.heif': 'image/heif',
+    }[ext] || 'application/octet-stream';
     return { buffer, mime };
 }
 

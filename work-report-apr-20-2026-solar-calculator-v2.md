@@ -16,6 +16,9 @@ REPO NAME : Solar Calculator v2
 - Hardened Invoice Office site assessment uploads so missing additive DB columns fail with a clear readiness error and clean up the saved file instead of misleading retryable DB-failure behavior.
 - Fixed Invoice Office delete actions to surface real recycle-bin readiness errors instead of silently failing when fake-delete storage is unavailable.
 - Updated the migration runner so npm run db:migrate applies all pending SQL migrations by default and still supports targeted migration files.
+- Reviewed seda-form upload flow against the shared file upload processor and identified the remaining page wiring blocker.
+- Updated the SEDA form to use the shared upload flow, show MyKad thumbnails after upload, and accept TNB bill image uploads.
+- Rechecked the SEDA upload changes and validated them with the repo build and SEDA upload test.
 
 =====================
 

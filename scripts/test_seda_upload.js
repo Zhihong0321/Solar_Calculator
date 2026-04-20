@@ -52,9 +52,9 @@ const FILE_FIELDS = {
     mykad_front:    { label: 'MyKad Front',              accept: ['image/*'],                    maxMB: 20 },
     mykad_back:     { label: 'MyKad Back',               accept: ['image/*'],                    maxMB: 20 },
     mykad_pdf:      { label: 'MyKad PDF',                accept: ['application/pdf'],             maxMB: 25 },
-    tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf'],             maxMB: 25 },
-    tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf'],             maxMB: 25 },
-    tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf'],             maxMB: 25 },
+    tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
+    tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
+    tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'], maxMB: 25 },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                    maxMB: 20 },
 };
@@ -174,7 +174,7 @@ async function test_all_fields_accept_correct_types() {
         { field: 'mykad_back',     buf: MINIMAL_JPG, file: 'back.jpg',  mime: 'image/jpeg'      },
         { field: 'mykad_pdf',      buf: MINIMAL_PDF, file: 'id.pdf',    mime: 'application/pdf' },
         { field: 'tnb_bill_1',     buf: MINIMAL_PDF, file: 'b1.pdf',    mime: 'application/pdf' },
-        { field: 'tnb_bill_2',     buf: MINIMAL_PDF, file: 'b2.pdf',    mime: 'application/pdf' },
+        { field: 'tnb_bill_2',     buf: MINIMAL_JPG, file: 'b2.jpg',    mime: 'image/jpeg'      },
         { field: 'tnb_bill_3',     buf: MINIMAL_PDF, file: 'b3.pdf',    mime: 'application/pdf' },
         { field: 'property_proof', buf: MINIMAL_PDF, file: 'sp.pdf',    mime: 'application/pdf' },
         { field: 'tnb_meter',      buf: MINIMAL_JPG, file: 'm.jpg',     mime: 'image/jpeg'      },
@@ -199,14 +199,12 @@ async function test_property_proof_accepts_image() {
     } catch (err) { fail(name, err.message); }
 }
 
-async function test_wrong_type_jpeg_to_pdf_field() {
-    const name = '[REJECT] JPEG sent to tnb_bill_1 (PDF-only field)';
+async function test_tnb_bill_accepts_image() {
+    const name = '[FIELD] TNB Bill Month 1 → JPEG (also accepted)';
     try {
-        const { ok, status, json } = await upload('tnb_bill_1', MINIMAL_JPG, 'wrong.jpg', 'image/jpeg');
-        if (ok)          return fail(name, 'Accepted wrong type — should have rejected');
-        if (status !== 400) return fail(name, `Expected 400, got ${status}`);
-        if (!json?.error)   return fail(name, 'No error message returned');
-        pass(name, `Rejected: "${json.error}"`);
+        const { ok, status, json } = await upload('tnb_bill_1', MINIMAL_JPG, 'bill.jpg', 'image/jpeg');
+        if (!ok || !json?.success) return fail(name, `HTTP ${status}: ${json?.error}`);
+        pass(name, 'JPEG accepted for tnb_bill_1 field');
     } catch (err) { fail(name, err.message); }
 }
 
@@ -333,7 +331,7 @@ async function main() {
         await test_content_type_not_required();
         await test_all_fields_accept_correct_types();
         await test_property_proof_accepts_image();
-        await test_wrong_type_jpeg_to_pdf_field();
+        await test_tnb_bill_accepts_image();
         await test_wrong_type_pdf_to_image_field();
         await test_unknown_field();
         await test_empty_formdata();
