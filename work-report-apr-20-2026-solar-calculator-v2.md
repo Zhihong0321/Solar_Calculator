@@ -15,6 +15,7 @@ REPO NAME : Solar Calculator v2
 - Fixed the recycle-bin rollout guard so missing additive tables no longer block Invoice Office or SEDA page loads, and added a regression test for that fallback.
 - Hardened Invoice Office site assessment uploads so missing additive DB columns fail with a clear readiness error and clean up the saved file instead of misleading retryable DB-failure behavior.
 - Fixed Invoice Office delete actions to surface real recycle-bin readiness errors instead of silently failing when fake-delete storage is unavailable.
+- Updated the migration runner so npm run db:migrate applies all pending SQL migrations by default and still supports targeted migration files.
 
 =====================
 

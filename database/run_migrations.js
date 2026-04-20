@@ -20,6 +20,20 @@ function resolveMigrationFile(input) {
   throw new Error(`Migration file not found: ${input}`);
 }
 
+function listAllMigrationFiles() {
+  return fs.readdirSync(migrationsDir)
+    .filter((name) => name.toLowerCase().endsWith('.sql'))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function resolveRequestedFiles(args) {
+  const normalized = args.map((arg) => String(arg).trim()).filter(Boolean);
+  if (normalized.length === 0 || normalized.includes('--all')) {
+    return listAllMigrationFiles();
+  }
+  return normalized.map((input) => path.basename(resolveMigrationFile(input)));
+}
+
 function createChecksum(content) {
   return crypto.createHash('sha256').update(content).digest('hex');
 }
@@ -35,12 +49,7 @@ async function ensureMigrationTable(client) {
 }
 
 async function run() {
-  const requestedFiles = process.argv.slice(2);
-
-  if (requestedFiles.length === 0) {
-    console.error('Usage: npm run db:migrate -- <migration.sql> [more-migrations.sql]');
-    process.exit(1);
-  }
+  const requestedFiles = resolveRequestedFiles(process.argv.slice(2));
 
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -50,6 +59,13 @@ async function run() {
   try {
     await client.connect();
     await ensureMigrationTable(client);
+
+    if (requestedFiles.length === 0) {
+      console.log('No migration files found.');
+      return;
+    }
+
+    console.log(`Migration mode: ${process.argv.slice(2).length === 0 || process.argv.slice(2).includes('--all') ? 'all pending migrations' : 'selected files only'}`);
 
     for (const requestedFile of requestedFiles) {
       const filePath = resolveMigrationFile(requestedFile);
