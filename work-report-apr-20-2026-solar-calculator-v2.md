@@ -7,6 +7,11 @@ REPO NAME : Solar Calculator v2
 - Added and ran a local Invoice Office upload processor test harness with no-DB HTTP coverage.
 - Added and pushed a live Invoice Office upload diagnostic page with detailed request and response logging.
 - Added SEDA route-guard regression test to verify auth, ownership, public upload access, and extraction route wiring.
+- Updated the site-wide file upload processor guide to match current SEDA and Invoice Office behavior and documented fake-delete/trash-ledger design.
+- Implemented fake delete for Invoice Office and SEDA uploads using a shared trash ledger, added deleted-file UI sections, and kept physical files on disk for later admin purge.
+- Updated the file upload processor guide with stricter fake-delete rules and explicit schema-change approval rules.
+- Updated the file upload processor guide to replace the old local trash-ledger fake-delete design with the additive recycle-bin table model.
+- Implemented recycle-bin based fake delete and restore for Invoice Office and SEDA uploads, with the new shared migration and live UI recovery actions.
 
 =====================
 

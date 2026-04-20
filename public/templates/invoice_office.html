@@ -397,6 +397,25 @@
                         <div id="roofImagesGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             <p class="col-span-full text-xs text-slate-400 italic py-4">No roof images uploaded yet.</p>
                         </div>
+                        <div id="deletedRoofImagesList" class="mt-4"></div>
+                    </div>
+                </section>
+
+                <!-- Site Assessment Images Section -->
+                <section class="section-card">
+                    <div class="section-header">
+                        <h2 class="section-title">Site Assessment Images</h2>
+                        <label class="btn-action btn-primary cursor-pointer flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Batch Upload
+                            <input type="file" multiple accept="image/*" class="hidden" onchange="uploadSiteAssessmentImages(this)">
+                        </label>
+                    </div>
+                    <div class="p-4">
+                        <div id="siteAssessmentImagesGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <p class="col-span-full text-xs text-slate-400 italic py-4">No site assessment images uploaded yet.</p>
+                        </div>
+                        <div id="deletedSiteAssessmentImagesList" class="mt-4"></div>
                     </div>
                 </section>
 
@@ -420,6 +439,7 @@
                         <div id="pvDrawingsList" class="space-y-2">
                             <p class="text-xs text-slate-400 italic">No PV system drawings uploaded yet.</p>
                         </div>
+                        <div id="deletedPvDrawingsList" class="mt-4"></div>
                     </div>
                 </section>
 
@@ -628,8 +648,9 @@
                     renderPayments([]);
                     renderItems(currentData.items || []);
                     renderSeda(null);
-                    renderRoofImages(currentData.invoice.linked_roof_image, []);
-                    renderPvSystemDrawings(currentData.invoice.pv_system_drawing);
+                    renderRoofImages(currentData.invoice.linked_roof_image, [], getDeletedUploads('roof_images'));
+                    renderSiteAssessmentImages(currentData.invoice.site_assessment_image, getDeletedUploads('site_assessment_images'));
+                    renderPvSystemDrawings(currentData.invoice.pv_system_drawing, getDeletedUploads('pv_drawings'));
                     renderEngDrawings(null);
                     renderSignature(currentData.invoice);
                     renderFollowUp(currentData.invoice.follow_up_date);
@@ -670,7 +691,9 @@
 
                 renderPayments(currentData.payments || []);
                 renderSeda(currentData.seda);
-                renderRoofImages(currentData.invoice.linked_roof_image, currentData.seda?.roof_images);
+                renderRoofImages(currentData.invoice.linked_roof_image, currentData.seda?.roof_images, getDeletedUploads('roof_images'));
+                renderSiteAssessmentImages(currentData.invoice.site_assessment_image, getDeletedUploads('site_assessment_images'));
+                renderPvSystemDrawings(currentData.invoice.pv_system_drawing, getDeletedUploads('pv_drawings'));
                 renderEngDrawings(currentData.seda);
             } catch (err) {
                 console.warn('[InvoiceOffice] Extras failed to load:', err.message);
@@ -1195,25 +1218,94 @@
             document.getElementById('sedaProgressText').textContent = `Progress: ${percent}%`;
         }
 
-        function renderRoofImages(invImages = [], sedaImages = []) {
+        function getDeletedUploads(field) {
+            return Array.isArray(currentData?.deleted_uploads)
+                ? currentData.deleted_uploads.filter(entry => entry.field === field)
+                : [];
+        }
+
+        function renderDeletedUploads(containerId, fieldKey, entries = [], emptyText) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            if (!entries.length) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-[11px] font-black uppercase tracking-[0.16em] text-amber-700">Deleted Files</h3>
+                        <span class="text-[10px] font-bold text-amber-600">${entries.length}</span>
+                    </div>
+                    <div class="mt-3 space-y-2">
+                        ${entries.map((entry, index) => `
+                            <div class="flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-white px-3 py-2">
+                                <div class="min-w-0">
+                                    <p class="text-[11px] font-bold text-slate-700 uppercase">${emptyText} #${index + 1}</p>
+                                    <p class="text-[10px] text-slate-500">Moved to deleted files on ${formatDateTime(entry.deletedAt)}</p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <a href="${entry.url}" target="_blank" class="text-[10px] font-bold text-amber-700 hover:underline uppercase">Open</a>
+                                    <button onclick="restoreInvoiceOfficeUpload('${fieldKey}', '${entry.recycleBinId}')" class="text-[10px] font-bold text-emerald-700 hover:underline uppercase">Restore</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderRoofImages(invImages = [], sedaImages = [], deletedEntries = []) {
             const container = document.getElementById('roofImagesGrid');
-            const allImages = [...(invImages || []), ...(sedaImages || [])];
-            
+            const invoiceImages = invImages || [];
+            const linkedSedaImages = sedaImages || [];
+            const allImages = [
+                ...invoiceImages.map(url => ({ url, deletable: true, source: 'Invoice Office' })),
+                ...linkedSedaImages.map(url => ({ url, deletable: false, source: 'SEDA copy' }))
+            ];
+             
             if (allImages.length > 0) {
-                container.innerHTML = allImages.map(url => `
+                container.innerHTML = allImages.map(({ url, deletable, source }) => `
                     <div class="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
                         <img src="${url}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${url}')">
-                        <button onclick="deleteRoofImage('${url}')" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        </button>
+                        <span class="absolute left-1 top-1 rounded-md bg-white/85 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600">${source}</span>
+                        ${deletable ? `
+                            <button onclick="deleteRoofImage('${url}')" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        ` : ''}
                     </div>
                 `).join('');
             } else {
                 container.innerHTML = '<p class="col-span-full text-xs text-slate-400 italic py-4">No roof images uploaded yet.</p>';
             }
+
+            renderDeletedUploads('deletedRoofImagesList', 'roof_images', deletedEntries, 'Roof file');
         }
 
-        function renderPvSystemDrawings(drawings = []) {
+        function renderSiteAssessmentImages(images = [], deletedEntries = []) {
+            const container = document.getElementById('siteAssessmentImagesGrid');
+            const allImages = images || [];
+
+            if (allImages.length > 0) {
+                container.innerHTML = allImages.map(url => `
+                    <div class="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                        <img src="${url}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${url}')">
+                        <button onclick="deleteSiteAssessmentImage('${url}')" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<p class="col-span-full text-xs text-slate-400 italic py-4">No site assessment images uploaded yet.</p>';
+            }
+
+            renderDeletedUploads('deletedSiteAssessmentImagesList', 'site_assessment_images', deletedEntries, 'Site assessment');
+        }
+
+        function renderPvSystemDrawings(drawings = [], deletedEntries = []) {
             const container = document.getElementById('pvDrawingsList');
             const allDrawings = drawings || [];
             
@@ -1237,6 +1329,8 @@
             } else {
                 container.innerHTML = '<p class="text-xs text-slate-400 italic">No PV system drawings uploaded yet.</p>';
             }
+
+            renderDeletedUploads('deletedPvDrawingsList', 'pv_drawings', deletedEntries, 'PV drawing');
         }
 
         function renderEngDrawings(seda) {
@@ -1362,6 +1456,10 @@
             const contentType = res.headers.get('content-type') || '';
             if (contentType.includes('application/json')) {
                 const json = await res.json();
+                if (res.status === 401 && json.redirect) {
+                    window.location.href = json.redirect;
+                    throw new Error('Your session has expired. Redirecting to login...');
+                }
                 if (!res.ok || !json.success) {
                     throw new Error(json.error || json.message || `Request failed (${res.status})`);
                 }
@@ -1372,14 +1470,25 @@
             throw new Error(text || `Request failed (${res.status})`);
         }
 
-        async function uploadFiles(endpoint, fieldName, files) {
-            const formData = new FormData();
-            files.forEach(file => formData.append(fieldName, file, file.name));
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                body: formData
-            });
-            return parseApiResponse(res);
+        async function uploadFiles(endpoint, files) {
+            const uploaded = [];
+            const failed = [];
+
+            for (const file of files) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file, file.name);
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    uploaded.push(await parseApiResponse(res));
+                } catch (err) {
+                    failed.push(`${file.name}: ${err.message}`);
+                }
+            }
+
+            return { uploaded, failed };
         }
 
         async function prepareRoofUploadFiles(files) {
@@ -1460,11 +1569,16 @@
                     return;
                 }
 
-                const result = await uploadFiles(`/api/v1/invoice-office/${bubbleId}/roof-images`, 'roofImages', readyFiles);
+                const result = await uploadFiles(`/api/v1/invoice-office/${bubbleId}/upload/roof_images`, readyFiles);
+                if (result.uploaded.length === 0) {
+                    summarizeIssues('Roof image upload failed.', [...issues, ...result.failed]);
+                    return;
+                }
+
                 await loadData();
 
-                if (issues.length > 0) {
-                    summarizeIssues(`${result.message || 'Roof images uploaded.'}\n\nSome files were skipped:`, issues);
+                if (issues.length > 0 || result.failed.length > 0) {
+                    summarizeIssues(`${result.uploaded.length} roof image(s) uploaded.\n\nSome files were skipped:`, [...issues, ...result.failed]);
                 }
             } catch (err) {
                 console.error('[InvoiceOffice] Roof image upload failed:', err);
@@ -1475,11 +1589,58 @@
             }
         }
 
+        async function uploadSiteAssessmentImages(input) {
+            const files = Array.from(input.files);
+            if (files.length === 0) return;
+
+            showLoadingOverlay();
+            try {
+                const { readyFiles, issues } = await prepareRoofUploadFiles(files);
+                if (readyFiles.length === 0) {
+                    summarizeIssues('Site assessment image upload skipped.', issues.length ? issues : ['No valid site assessment images selected.']);
+                    return;
+                }
+
+                const result = await uploadFiles(`/api/v1/invoice-office/${bubbleId}/upload/site_assessment_images`, readyFiles);
+                if (result.uploaded.length === 0) {
+                    summarizeIssues('Site assessment image upload failed.', [...issues, ...result.failed]);
+                    return;
+                }
+
+                await loadData();
+
+                if (issues.length > 0 || result.failed.length > 0) {
+                    summarizeIssues(`${result.uploaded.length} site assessment image(s) uploaded.\n\nSome files were skipped:`, [...issues, ...result.failed]);
+                }
+            } catch (err) {
+                console.error('[InvoiceOffice] Site assessment image upload failed:', err);
+                alert(`Upload failed: ${err.message}`);
+            } finally {
+                input.value = '';
+                hideLoadingOverlay();
+            }
+        }
+
         async function deleteRoofImage(url) {
-            if (!confirm('Permanently delete this roof image?')) return;
+            if (!confirm('Move this roof image to deleted files?')) return;
             
             try {
                 const res = await fetch(`/api/v1/invoice-office/${bubbleId}/roof-image`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                if ((await res.json()).success) {
+                    await loadData();
+                }
+            } catch (err) { alert('Delete failed'); }
+        }
+
+        async function deleteSiteAssessmentImage(url) {
+            if (!confirm('Move this site assessment image to deleted files?')) return;
+
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/site-assessment-image`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url })
@@ -1502,11 +1663,16 @@
                     return;
                 }
 
-                const result = await uploadFiles(`/api/v1/invoice-office/${bubbleId}/pv-system-drawings`, 'pvDrawings', readyFiles);
+                const result = await uploadFiles(`/api/v1/invoice-office/${bubbleId}/upload/pv_drawings`, readyFiles);
+                if (result.uploaded.length === 0) {
+                    summarizeIssues('PV drawing upload failed.', [...issues, ...result.failed]);
+                    return;
+                }
+
                 await loadData();
 
-                if (issues.length > 0) {
-                    summarizeIssues(`${result.message || 'PV drawings uploaded.'}\n\nSome files were skipped:`, issues);
+                if (issues.length > 0 || result.failed.length > 0) {
+                    summarizeIssues(`${result.uploaded.length} PV drawing(s) uploaded.\n\nSome files were skipped:`, [...issues, ...result.failed]);
                 }
             } catch (err) {
                 console.error('[InvoiceOffice] PV drawing upload failed:', err);
@@ -1518,7 +1684,7 @@
         }
 
         async function deletePvSystemDrawing(url) {
-            if (!confirm('Permanently delete this PV system drawing?')) return;
+            if (!confirm('Move this PV system drawing to deleted files?')) return;
             
             try {
                 const res = await fetch(`/api/v1/invoice-office/${bubbleId}/pv-system-drawing`, {
@@ -1530,6 +1696,26 @@
                     await loadData();
                 }
             } catch (err) { alert('Delete failed'); }
+        }
+
+        async function restoreInvoiceOfficeUpload(fieldKey, recycleBinId) {
+            if (!recycleBinId) return;
+            if (!confirm('Restore this deleted file back to the invoice?')) return;
+
+            try {
+                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/restore/${fieldKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ recycleBinId })
+                });
+                const json = await res.json();
+                if (!res.ok || !json?.success) {
+                    throw new Error(json?.error || 'Restore failed');
+                }
+                await loadData();
+            } catch (err) {
+                alert(`Restore failed: ${err.message}`);
+            }
         }
 
         function viewPaymentProof(url) {

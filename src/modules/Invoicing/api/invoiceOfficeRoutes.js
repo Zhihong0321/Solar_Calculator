@@ -1,12 +1,25 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
-const multer = require('multer');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
+const {
+    createUploader,
+    buildPublicUrl,
+    safeDelete,
+    resolvedMime,
+    fileExtension,
+    validateFilename,
+    validateSize,
+    uploadSuccess,
+    uploadError,
+    ERROR_CODES,
+    logUpload,
+    insertRecycleBinEntry,
+    listRecycleBinEntries,
+    getActiveRecycleBinEntry,
+    markRecycleBinRestored,
+} = require('../../../core/upload');
 let beginAgentAuditTransaction = async (client) => {
     await client.query('BEGIN');
 };
@@ -29,142 +42,46 @@ try {
 }
 
 const router = express.Router();
-const MAX_BATCH_FILES = 12;
-const ROOF_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-const PV_DRAWING_MAX_BYTES = 10 * 1024 * 1024;
-const FILE_EXTENSIONS = {
-    'application/pdf': '.pdf',
-    'image/jpeg': '.jpg',
-    'image/jpg': '.jpg',
-    'image/png': '.png',
-    'image/webp': '.webp',
-    'image/heic': '.heic',
-    'image/heif': '.heif',
-    'image/gif': '.gif',
-    'image/bmp': '.bmp'
+const FILE_FIELDS = {
+    roof_images: {
+        label: 'Roof Image',
+        accept: ['image/*'],
+        maxMB: 10,
+        column: 'linked_roof_image',
+        storageSubdir: 'roof_images',
+    },
+    site_assessment_images: {
+        label: 'Site Assessment Image',
+        accept: ['image/*'],
+        maxMB: 10,
+        column: 'site_assessment_image',
+        storageSubdir: 'site_assessment_images',
+    },
+    pv_drawings: {
+        label: 'PV System Drawing',
+        accept: ['application/pdf', 'image/*'],
+        maxMB: 10,
+        column: 'pv_system_drawing',
+        storageSubdir: 'pv_drawings',
+    },
 };
 
-function getStorageRoot() {
-    return process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../../../../storage');
-}
+const uploaders = {};
 
-function ensureDir(dirPath) {
-    if (!fs.existsSync(dirPath)) {
-        fs.mkdirSync(dirPath, { recursive: true });
-    }
-}
-
-function formatBytes(bytes) {
-    if (!Number.isFinite(bytes)) return '0 B';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function getAbsoluteUploadUrl(req, subDir, filename) {
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const host = req.get('host');
-    return `${protocol}://${host}/uploads/${subDir}/${filename}`;
-}
-
-function getFileExtension(file) {
-    const originalExt = path.extname(file.originalname || '');
-    if (originalExt) return originalExt.toLowerCase();
-    return FILE_EXTENSIONS[(file.mimetype || '').toLowerCase()] || '.bin';
-}
-
-function extensionLooksLikeImage(filename) {
-    return /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(filename || '');
-}
-
-function extensionLooksLikePdf(filename) {
-    return /\.pdf$/i.test(filename || '');
-}
-
-function isAllowedFile(file, { allowPdf = false } = {}) {
-    const mime = (file.mimetype || '').toLowerCase();
-    const name = file.originalname || '';
-
-    if (mime.startsWith('image/')) return true;
-    if (allowPdf && mime === 'application/pdf') return true;
-    if (!mime && extensionLooksLikeImage(name)) return true;
-    if (allowPdf && (!mime || mime === 'application/octet-stream') && extensionLooksLikePdf(name)) return true;
-    return false;
-}
-
-function createOfficeUpload({ subDir, prefix, maxBytes, allowPdf = false, fieldName }) {
-    const storage = multer.diskStorage({
-        destination(req, file, cb) {
-            const uploadDir = path.join(getStorageRoot(), subDir);
-            ensureDir(uploadDir);
-            cb(null, uploadDir);
-        },
-        filename(req, file, cb) {
-            const filename = `${prefix}_${req.params.bubbleId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${getFileExtension(file)}`;
-            cb(null, filename);
+function getUploader(fieldKey) {
+    if (uploaders[fieldKey]) return uploaders[fieldKey];
+    const rule = FILE_FIELDS[fieldKey];
+    uploaders[fieldKey] = createUploader({
+        storageSubdir: rule.storageSubdir,
+        allowedMimes: rule.accept,
+        maxFileSizeMB: rule.maxMB,
+        generateFilename: (req, file) => {
+            const ts = Date.now();
+            const rand = require('crypto').randomBytes(4).toString('hex');
+            return `${fieldKey}_${req.params.bubbleId}_${ts}_${rand}${fileExtension(file)}`;
         }
     });
-
-    return multer({
-        storage,
-        limits: { fileSize: maxBytes, files: MAX_BATCH_FILES },
-        fileFilter(req, file, cb) {
-            if (!isAllowedFile(file, { allowPdf })) {
-                return cb(new Error(allowPdf ? 'Unsupported file type. Upload image or PDF files only.' : 'Unsupported file type. Upload image files only.'));
-            }
-            cb(null, true);
-        }
-    }).array(fieldName, MAX_BATCH_FILES);
-}
-
-const uploadRoofImages = createOfficeUpload({
-    subDir: 'roof_images',
-    prefix: 'roof',
-    maxBytes: ROOF_IMAGE_MAX_BYTES,
-    fieldName: 'roofImages'
-});
-
-const uploadPvDrawings = createOfficeUpload({
-    subDir: 'pv_drawings',
-    prefix: 'pv',
-    maxBytes: PV_DRAWING_MAX_BYTES,
-    allowPdf: true,
-    fieldName: 'pvDrawings'
-});
-
-function runUpload(middleware, req, res) {
-    return new Promise((resolve, reject) => {
-        middleware(req, res, (err) => {
-            if (err) return reject(err);
-            resolve();
-        });
-    });
-}
-
-function cleanupFiles(files) {
-    files.forEach((file) => {
-        try {
-            if (file?.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        } catch (cleanupErr) {
-            console.error('[InvoiceOffice] Failed to clean up uploaded file:', cleanupErr);
-        }
-    });
-}
-
-function formatUploadError(err, maxBytes) {
-    if (err instanceof multer.MulterError) {
-        if (err.code === 'LIMIT_FILE_SIZE') {
-            return `File exceeds ${formatBytes(maxBytes)} limit.`;
-        }
-        if (err.code === 'LIMIT_FILE_COUNT') {
-            return `Too many files selected. Max ${MAX_BATCH_FILES} files per upload.`;
-        }
-        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-            return 'Unexpected upload field received.';
-        }
-        return err.message || 'Upload failed.';
-    }
-    return err?.message || 'Upload failed.';
+    return uploaders[fieldKey];
 }
 
 async function getInvoiceAccess(client, bubbleId, userId) {
@@ -180,6 +97,183 @@ async function getInvoiceAccess(client, bubbleId, userId) {
     const invoice = invCheck.rows[0];
     const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by, invoice.linked_agent);
     return { found: true, isOwner, invoice };
+}
+
+async function handleInvoiceOfficeUpload(req, res) {
+    const { bubbleId, field } = req.params;
+    const rule = FILE_FIELDS[field];
+
+    if (!rule) {
+        logUpload({ route: req.path, field, recordId: bubbleId, result: 'rejected', code: ERROR_CODES.UNKNOWN_FIELD, error: 'Unknown upload field.' });
+        return res.status(400).json(uploadError(ERROR_CODES.UNKNOWN_FIELD, {
+            field,
+            error: `"${field}" is not a valid Invoice Office upload field.`,
+        }));
+    }
+
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
+        const access = await getInvoiceAccess(client, bubbleId, userId);
+
+        if (!access.found) {
+            return res.status(404).json(uploadError(ERROR_CODES.RECORD_NOT_FOUND, {
+                field,
+                error: 'Invoice not found.',
+            }));
+        }
+
+        if (!access.isOwner) {
+            return res.status(403).json(uploadError(ERROR_CODES.FORBIDDEN, {
+                field,
+                error: 'You do not have access to this invoice.',
+            }));
+        }
+
+        const multerErr = await getUploader(field)(req, res);
+        if (multerErr) {
+            const isTooLarge = multerErr.code === 'LIMIT_FILE_SIZE';
+            const isWrongType = multerErr.code === 'WRONG_TYPE';
+            const code = isTooLarge ? ERROR_CODES.TOO_LARGE
+                : isWrongType ? ERROR_CODES.WRONG_TYPE
+                : ERROR_CODES.STORAGE_FAILED;
+            const status = isTooLarge ? 413 : isWrongType ? 400 : 500;
+            const message = isTooLarge
+                ? `${rule.label}: File too large. Maximum is ${rule.maxMB} MB.`
+                : (multerErr.message || 'Upload failed.');
+
+            logUpload({
+                route: req.path,
+                field,
+                recordId: bubbleId,
+                result: 'rejected',
+                code,
+                error: message,
+            });
+
+            return res.status(status).json(uploadError(code, { field, error: message }));
+        }
+
+        if (!req.file) {
+            logUpload({ route: req.path, field, recordId: bubbleId, result: 'rejected', code: ERROR_CODES.NO_FILE, error: 'No file received.' });
+            return res.status(400).json(uploadError(ERROR_CODES.NO_FILE, {
+                field,
+                error: `${rule.label}: No file received. Please select a file and try again.`,
+            }));
+        }
+
+        const sizeCheck = validateSize(req.file.size, rule.maxMB, rule.label);
+        if (!sizeCheck.ok) {
+            safeDelete(req.file.path);
+            logUpload({
+                route: req.path,
+                field,
+                recordId: bubbleId,
+                mime: req.file.mimetype,
+                sizeBytes: req.file.size,
+                result: 'rejected',
+                code: ERROR_CODES.TOO_LARGE,
+                error: sizeCheck.error,
+            });
+            return res.status(413).json(uploadError(ERROR_CODES.TOO_LARGE, { field, error: sizeCheck.error }));
+        }
+
+        const nameCheck = validateFilename(req.file.originalname || '');
+        if (!nameCheck.ok) {
+            safeDelete(req.file.path);
+            logUpload({
+                route: req.path,
+                field,
+                recordId: bubbleId,
+                mime: req.file.mimetype,
+                sizeBytes: req.file.size,
+                result: 'rejected',
+                code: ERROR_CODES.UNSAFE_FILENAME,
+                error: nameCheck.error,
+            });
+            return res.status(400).json(uploadError(ERROR_CODES.UNSAFE_FILENAME, {
+                field,
+                error: `${rule.label}: ${nameCheck.error}`,
+            }));
+        }
+
+        const mime = resolvedMime(req.file);
+        const fileUrl = buildPublicUrl(req, rule.storageSubdir, req.file.filename);
+
+        try {
+            await beginAgentAuditTransaction(client, auditContext);
+            await client.query(
+                `UPDATE invoice
+                 SET ${rule.column} = array_cat(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
+                     updated_at = NOW()
+                 WHERE bubble_id = $2`,
+                [[fileUrl], bubbleId]
+            );
+            await client.query('COMMIT');
+        } catch (dbErr) {
+            await client.query('ROLLBACK').catch(() => {});
+            console.error('[InvoiceOffice Upload] DB update failed — orphaned file:', req.file.path, dbErr.message);
+            logUpload({
+                route: req.path,
+                field,
+                recordId: bubbleId,
+                mime,
+                sizeBytes: req.file.size,
+                filename: req.file.filename,
+                result: 'error',
+                code: ERROR_CODES.DB_FAILED,
+                error: dbErr.message,
+            });
+            return res.status(500).json(uploadError(ERROR_CODES.DB_FAILED, {
+                field,
+                error: 'File saved but database update failed. Please try uploading again — the retry is safe.',
+            }));
+        }
+
+        logUpload({
+            route: req.path,
+            field,
+            recordId: bubbleId,
+            mime,
+            sizeBytes: req.file.size,
+            filename: req.file.filename,
+            result: 'success',
+        });
+
+        return res.json(uploadSuccess({
+            field,
+            url: fileUrl,
+            filename: req.file.filename,
+            mime,
+            size: req.file.size,
+        }));
+    } catch (err) {
+        if (req.file?.path) safeDelete(req.file.path);
+        console.error('[InvoiceOffice Upload] Unexpected error:', err);
+        logUpload({
+            route: req.path,
+            field,
+            recordId: bubbleId,
+            mime: req.file?.mimetype,
+            sizeBytes: req.file?.size,
+            filename: req.file?.filename,
+            result: 'error',
+            code: ERROR_CODES.SERVER_ERROR,
+            error: err.message,
+        });
+        return res.status(500).json(uploadError(ERROR_CODES.SERVER_ERROR, {
+            field,
+            error: 'Unexpected upload failure. Please try again.',
+        }));
+    } finally {
+        if (client) client.release();
+    }
 }
 
 async function fetchOfficeInvoice(client, bubbleId) {
@@ -324,13 +418,96 @@ async function fetchOfficeExtras(client, invoice) {
         seda = fallbackSedaRes.rows[0] || null;
     }
 
+    const deletedUploads = await listRecycleBinEntries(client, {
+        module: 'invoice-office',
+        linkedRecordType: 'invoice',
+        linkedRecordId: invoiceBubbleId
+    });
+
     return {
         payments,
         seda,
+        deleted_uploads: deletedUploads,
         invoice: {
             linked_seda_registration: seda?.bubble_id || invoice.linked_seda_registration || null
         }
     };
+}
+
+async function softDeleteInvoiceOfficeFile(client, { bubbleId, fieldKey, url, userId, auditContext }) {
+    const rule = FILE_FIELDS[fieldKey];
+    if (!rule) {
+        throw new Error(`Unknown Invoice Office field "${fieldKey}".`);
+    }
+
+    const activeRes = await client.query(`SELECT ${rule.column} AS active_urls FROM invoice WHERE bubble_id = $1`, [bubbleId]);
+    const activeUrls = Array.isArray(activeRes.rows[0]?.active_urls) ? activeRes.rows[0].active_urls : [];
+    if (!activeUrls.includes(url)) {
+        return { ok: false, status: 404, error: 'File not found on the active invoice record' };
+    }
+
+    await beginAgentAuditTransaction(client, auditContext);
+    await client.query(
+        `UPDATE invoice
+         SET ${rule.column} = array_remove(${rule.column}, $1),
+             updated_at = NOW()
+         WHERE bubble_id = $2`,
+        [url, bubbleId]
+    );
+    await insertRecycleBinEntry(client, {
+        module: 'invoice-office',
+        linkedRecordType: 'invoice',
+        linkedRecordId: bubbleId,
+        fieldKey,
+        fileUrl: url,
+        storageSubdir: rule.storageSubdir,
+        deletedBy: userId,
+        deletedByName: auditContext?.userName || null,
+        deletedByRole: auditContext?.userRole || null,
+        metadataJson: {
+            source: 'invoice-office-delete'
+        }
+    });
+    await client.query('COMMIT');
+
+    return { ok: true };
+}
+
+async function restoreInvoiceOfficeFile(client, { bubbleId, fieldKey, recycleBinId, userId, auditContext }) {
+    const rule = FILE_FIELDS[fieldKey];
+    if (!rule) {
+        return { ok: false, status: 400, error: `"${fieldKey}" is not a valid Invoice Office upload field.` };
+    }
+
+    const recycleEntry = await getActiveRecycleBinEntry(client, recycleBinId, {
+        module: 'invoice-office',
+        linkedRecordType: 'invoice',
+        linkedRecordId: bubbleId,
+        fieldKey
+    });
+
+    if (!recycleEntry) {
+        return { ok: false, status: 404, error: 'Deleted file not found in recycle bin.' };
+    }
+
+    const activeRes = await client.query(`SELECT ${rule.column} AS active_urls FROM invoice WHERE bubble_id = $1`, [bubbleId]);
+    const activeUrls = Array.isArray(activeRes.rows[0]?.active_urls) ? activeRes.rows[0].active_urls : [];
+    if (activeUrls.includes(recycleEntry.file_url)) {
+        return { ok: false, status: 409, error: 'This file is already active on the invoice.' };
+    }
+
+    await beginAgentAuditTransaction(client, auditContext);
+    await client.query(
+        `UPDATE invoice
+         SET ${rule.column} = array_cat(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
+             updated_at = NOW()
+         WHERE bubble_id = $2`,
+        [[recycleEntry.file_url], bubbleId]
+    );
+    await markRecycleBinRestored(client, recycleEntry.id, userId, auditContext?.userName || null);
+    await client.query('COMMIT');
+
+    return { ok: true, url: recycleEntry.file_url };
 }
 
 /**
@@ -380,11 +557,18 @@ router.get('/api/v1/invoice-office/:bubbleId', requireAuth, async (req, res) => 
             };
         });
 
+        const deletedUploads = await listRecycleBinEntries(client, {
+            module: 'invoice-office',
+            linkedRecordType: 'invoice',
+            linkedRecordId: invoiceBubbleId
+        });
+
         res.json({
             success: true,
             data: {
                 invoice,
-                items: annotatedItems
+                items: annotatedItems,
+                deleted_uploads: deletedUploads
             }
         });
     } catch (err) {
@@ -436,66 +620,23 @@ router.get('/api/v1/invoice-office/:bubbleId/extras', requireAuth, async (req, r
 });
 
 /**
- * POST /api/v1/invoice-office/:bubbleId/roof-images
+ * POST /api/v1/invoice-office/:bubbleId/upload/:field
+ * Shared Invoice Office upload endpoint powered by src/core/upload.
  */
-router.post('/api/v1/invoice-office/:bubbleId/roof-images', requireAuth, async (req, res) => {
-    const { bubbleId } = req.params;
-    const userId = getAuthenticatedUserId(req);
-    if (!userId) {
-        return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    let client = null;
-    try {
-        client = await pool.connect();
-        const auditContext = await resolveAgentAuditContext(client, req.user);
-
-        const access = await getInvoiceAccess(client, bubbleId, userId);
-        if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
-        if (!access.isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
-
-        await runUpload(uploadRoofImages, req, res);
-
-        const files = Array.isArray(req.files) ? req.files : [];
-        if (files.length === 0) {
-            return res.status(400).json({ success: false, error: 'No roof images received.' });
-        }
-
-        const uploadedUrls = files.map((file) => getAbsoluteUploadUrl(req, 'roof_images', file.filename));
-
-        await beginAgentAuditTransaction(client, auditContext);
-        await client.query(
-            'UPDATE invoice SET linked_roof_image = array_cat(COALESCE(linked_roof_image, ARRAY[]::text[]), $1), updated_at = NOW() WHERE bubble_id = $2',
-            [uploadedUrls, bubbleId]
-        );
-        await client.query('COMMIT');
-
-        res.json({
-            success: true,
-            uploadedCount: uploadedUrls.length,
-            urls: uploadedUrls,
-            message: `${uploadedUrls.length} roof image(s) uploaded successfully.`
-        });
-    } catch (err) {
-        console.error('Roof image upload error:', err);
-        if (client) await client.query('ROLLBACK').catch(() => {});
-        cleanupFiles(Array.isArray(req.files) ? req.files : []);
-        const status = err instanceof multer.MulterError || err?.message?.startsWith('Unsupported file type') ? 400 : 500;
-        res.status(status).json({ success: false, error: formatUploadError(err, ROOF_IMAGE_MAX_BYTES) });
-    } finally {
-        if (client) client.release();
-    }
-});
+router.post('/api/v1/invoice-office/:bubbleId/upload/:field', requireAuth, handleInvoiceOfficeUpload);
 
 /**
- * POST /api/v1/invoice-office/:bubbleId/pv-system-drawings
+ * DELETE /api/v1/invoice-office/:bubbleId/site-assessment-image
  */
-router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, async (req, res) => {
+router.delete('/api/v1/invoice-office/:bubbleId/site-assessment-image', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
+    const { url } = req.body;
     const userId = getAuthenticatedUserId(req);
     if (!userId) {
         return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
+
+    if (!url) return res.status(400).json({ success: false, error: 'URL required' });
 
     let client = null;
     try {
@@ -505,35 +646,19 @@ router.post('/api/v1/invoice-office/:bubbleId/pv-system-drawings', requireAuth, 
         const access = await getInvoiceAccess(client, bubbleId, userId);
         if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
         if (!access.isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
-
-        await runUpload(uploadPvDrawings, req, res);
-
-        const files = Array.isArray(req.files) ? req.files : [];
-        if (files.length === 0) {
-            return res.status(400).json({ success: false, error: 'No PV system drawings received.' });
-        }
-
-        const uploadedUrls = files.map((file) => getAbsoluteUploadUrl(req, 'pv_drawings', file.filename));
-
-        await beginAgentAuditTransaction(client, auditContext);
-        await client.query(
-            'UPDATE invoice SET pv_system_drawing = array_cat(COALESCE(pv_system_drawing, ARRAY[]::text[]), $1), updated_at = NOW() WHERE bubble_id = $2',
-            [uploadedUrls, bubbleId]
-        );
-        await client.query('COMMIT');
-
-        res.json({
-            success: true,
-            uploadedCount: uploadedUrls.length,
-            urls: uploadedUrls,
-            message: `${uploadedUrls.length} PV system drawing(s) uploaded successfully.`
+        const result = await softDeleteInvoiceOfficeFile(client, {
+            bubbleId,
+            fieldKey: 'site_assessment_images',
+            url,
+            userId,
+            auditContext
         });
+        if (!result.ok) return res.status(result.status).json({ success: false, error: result.error });
+
+        res.json({ success: true });
     } catch (err) {
-        console.error('PV drawing upload error:', err);
         if (client) await client.query('ROLLBACK').catch(() => {});
-        cleanupFiles(Array.isArray(req.files) ? req.files : []);
-        const status = err instanceof multer.MulterError || err?.message?.startsWith('Unsupported file type') ? 400 : 500;
-        res.status(status).json({ success: false, error: formatUploadError(err, PV_DRAWING_MAX_BYTES) });
+        res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
     }
@@ -560,13 +685,14 @@ router.delete('/api/v1/invoice-office/:bubbleId/pv-system-drawing', requireAuth,
         const access = await getInvoiceAccess(client, bubbleId, userId);
         if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
         if (!access.isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
-
-        await beginAgentAuditTransaction(client, auditContext);
-        await client.query(
-            'UPDATE invoice SET pv_system_drawing = array_remove(pv_system_drawing, $1), updated_at = NOW() WHERE bubble_id = $2',
-            [url, bubbleId]
-        );
-        await client.query('COMMIT');
+        const result = await softDeleteInvoiceOfficeFile(client, {
+            bubbleId,
+            fieldKey: 'pv_drawings',
+            url,
+            userId,
+            auditContext
+        });
+        if (!result.ok) return res.status(result.status).json({ success: false, error: result.error });
 
         res.json({ success: true });
     } catch (err) {
@@ -598,18 +724,57 @@ router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async 
         const access = await getInvoiceAccess(client, bubbleId, userId);
         if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
         if (!access.isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
-
-        await beginAgentAuditTransaction(client, auditContext);
-        await client.query(
-            'UPDATE invoice SET linked_roof_image = array_remove(linked_roof_image, $1), updated_at = NOW() WHERE bubble_id = $2',
-            [url, bubbleId]
-        );
-        await client.query('COMMIT');
+        const result = await softDeleteInvoiceOfficeFile(client, {
+            bubbleId,
+            fieldKey: 'roof_images',
+            url,
+            userId,
+            auditContext
+        });
+        if (!result.ok) return res.status(result.status).json({ success: false, error: result.error });
 
         res.json({ success: true });
     } catch (err) {
         if (client) await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+router.post('/api/v1/invoice-office/:bubbleId/restore/:field', requireAuth, async (req, res) => {
+    const { bubbleId, field } = req.params;
+    const { recycleBinId } = req.body || {};
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    if (!recycleBinId) {
+        return res.status(400).json({ success: false, error: 'recycleBinId required' });
+    }
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
+        const access = await getInvoiceAccess(client, bubbleId, userId);
+        if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        if (!access.isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
+
+        const result = await restoreInvoiceOfficeFile(client, {
+            bubbleId,
+            fieldKey: field,
+            recycleBinId,
+            userId,
+            auditContext
+        });
+        if (!result.ok) return res.status(result.status).json({ success: false, error: result.error });
+
+        return res.json({ success: true, url: result.url });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
+        return res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
     }

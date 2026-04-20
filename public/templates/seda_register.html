@@ -673,6 +673,16 @@
                 </div>
             </div>
 
+            <div id="deletedFilesSection" class="form-card hidden">
+                <h2 class="section-title">
+                    <span class="flex items-center justify-center w-6 h-6 rounded bg-amber-500 text-white text-[10px]">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </span>
+                    Deleted Files
+                </h2>
+                <div id="deletedFilesList" class="space-y-3"></div>
+            </div>
+
             <!-- Action Buttons -->
             <div class="pt-10 flex flex-col sm:flex-row justify-end gap-4">
                 <button type="button" onclick="goBackToOffice()"
@@ -687,994 +697,652 @@
     </div>
 
     <script>
-        // Determine access mode: public (shareToken) or authenticated (bubble_id)
-        const pathParts = window.location.pathname.split('/');
+        // ── Mode detection ────────────────────────────────────────────────────
+        const pathParts    = window.location.pathname.split('/');
         const isPublicMode = pathParts[1] === 'seda-public' && pathParts[2];
-        const shareToken = isPublicMode ? pathParts[2] : null;
+        const shareToken   = isPublicMode ? pathParts[2] : null;
+        const sedaId       = new URLSearchParams(window.location.search).get('id');
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const sedaId = urlParams.get('id');
-        let existingFileUrls = {};
-        let extractionInterval = null;
-        let linkedInvoiceId = null;
-        let customerPhone = null;
-        let customerName = null;
-        let isWhatsAppVerified = false;
-        const LOAD_TIMEOUT_MS = 20000;
-        const SEDA_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
-        const SEDA_PDF_MAX_BYTES = 25 * 1024 * 1024;
-        const FILE_VALIDATION_RULES = {
-            fileMyKadFront: { label: 'MyKad Front', accept: ['image/*'], maxBytes: SEDA_IMAGE_MAX_BYTES },
-            fileMyKadBack: { label: 'MyKad Back', accept: ['image/*'], maxBytes: SEDA_IMAGE_MAX_BYTES },
-            fileMyKadPdf: { label: 'MyKad PDF', accept: ['application/pdf'], maxBytes: SEDA_PDF_MAX_BYTES },
-            fileTnb1: { label: 'TNB Bill Month 1', accept: ['application/pdf'], maxBytes: SEDA_PDF_MAX_BYTES },
-            fileTnb2: { label: 'TNB Bill Month 2', accept: ['application/pdf'], maxBytes: SEDA_PDF_MAX_BYTES },
-            fileTnb3: { label: 'TNB Bill Month 3', accept: ['application/pdf'], maxBytes: SEDA_PDF_MAX_BYTES },
-            filePropertyProof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'], maxBytes: SEDA_PDF_MAX_BYTES },
-            fileTnbMeter: { label: 'TNB Meter Photo', accept: ['image/*'], maxBytes: SEDA_IMAGE_MAX_BYTES }
+        // ── State ─────────────────────────────────────────────────────────────
+        let fileUrls       = {};   // { fieldKey: url }
+        let deletedUploads = [];
+        let customerPhone  = null;
+        let customerName   = null;
+        let spinnerTimer   = null;
+
+        // ── Field config (must match server FILE_FIELDS keys) ─────────────────
+        const FIELDS = {
+            fileMyKadFront:    { key: 'mykad_front',    preview: 'previewMyKadFront',   check: 'check-mykad' },
+            fileMyKadBack:     { key: 'mykad_back',     preview: 'previewMyKadBack',    check: 'check-mykad' },
+            fileMyKadPdf:      { key: 'mykad_pdf',      preview: 'previewMyKadPdf',     check: 'check-mykad' },
+            fileTnb1:          { key: 'tnb_bill_1',     preview: 'previewTnb1',         check: 'check-tnb_bill_1', hasTnb1Panel: true },
+            fileTnb2:          { key: 'tnb_bill_2',     preview: 'previewTnb2',         check: null },
+            fileTnb3:          { key: 'tnb_bill_3',     preview: 'previewTnb3',         check: null },
+            filePropertyProof: { key: 'property_proof', preview: 'previewPropertyProof',check: 'check-property_proof' },
+            fileTnbMeter:      { key: 'tnb_meter',      preview: 'previewTnbMeter',     check: 'check-tnb_meter' },
         };
-        const FILE_FIELD_TO_INPUT_ID = {
-            mykad_front: 'fileMyKadFront',
-            mykad_back: 'fileMyKadBack',
-            mykad_pdf: 'fileMyKadPdf',
-            tnb_bill_1: 'fileTnb1',
-            tnb_bill_2: 'fileTnb2',
-            tnb_bill_3: 'fileTnb3',
-            property_proof: 'filePropertyProof',
-            tnb_meter: 'fileTnbMeter'
-        };
-        const INPUT_ID_TO_FILE_FIELD = Object.entries(FILE_FIELD_TO_INPUT_ID)
-            .reduce((acc, [field, inputId]) => {
-                acc[inputId] = field;
-                return acc;
-            }, {});
 
-        function formatBytes(bytes) {
-            if (!Number.isFinite(bytes)) return '0 B';
-            if (bytes < 1024) return `${bytes} B`;
-            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-            return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-        }
+        // ── URL builders ─────────────────────────────────────────────────────
+        function apiBase()   { return isPublicMode ? `/api/v1/seda-public/${shareToken}` : `/api/v1/seda/${sedaId}`; }
+        function uploadUrl(fieldKey) { return `${apiBase()}/upload/${fieldKey}`; }
+        function deleteUrl(fieldKey) { return `${apiBase()}/file/${fieldKey}`; }
+        function restoreUrl(fieldKey) { return `${apiBase()}/restore/${fieldKey}`; }
 
-        function isAllowedMime(mime, allowed) {
-            return allowed.some(rule => {
-                if (rule.endsWith('/*')) return mime.startsWith(rule.replace('/*', '/'));
-                return mime === rule;
-            });
-        }
-
-        function normalizeSelectedFileMime(file) {
-            const rawMime = (file?.type || '').toLowerCase();
-            if (rawMime) return rawMime;
-
-            const filename = (file?.name || '').toLowerCase();
-            if (filename.endsWith('.pdf')) return 'application/pdf';
-            return rawMime;
-        }
-
-        function validateSelectedFile(inputId, file) {
-            const rule = FILE_VALIDATION_RULES[inputId];
-            if (!rule) return { ok: true };
-            const normalizedMime = normalizeSelectedFileMime(file);
-            if (!isAllowedMime(normalizedMime, rule.accept)) {
-                return {
-                    ok: false,
-                    message: `${rule.label}: unsupported file type "${normalizedMime || 'unknown'}". Allowed: ${rule.accept.join(', ')}.`
-                };
-            }
-            if (file.size > rule.maxBytes) {
-                return {
-                    ok: false,
-                    message: `${rule.label}: file too large (${formatBytes(file.size)}). Maximum allowed is ${formatBytes(rule.maxBytes)}.`
-                };
-            }
-            return { ok: true };
-        }
-
-        function setFieldErrorByInputId(inputId, message) {
-            const input = document.getElementById(inputId);
-            if (!input) return;
-            const group = input.closest('.input-group');
-            if (!group) return;
-
-            let el = group.querySelector('.upload-error-msg');
-            if (!el) {
-                el = document.createElement('div');
-                el.className = 'upload-error-msg mt-2 text-[11px] font-semibold text-red-600';
-                group.appendChild(el);
-            }
-            el.textContent = message;
-        }
-
-        function clearFieldErrorByInputId(inputId) {
-            const input = document.getElementById(inputId);
-            if (!input) return;
-            const group = input.closest('.input-group');
-            const el = group ? group.querySelector('.upload-error-msg') : null;
-            if (el) el.remove();
-        }
-
-        function clearAllUploadErrors() {
-            document.querySelectorAll('.upload-error-msg').forEach(el => el.remove());
-        }
-
-        function applyApiFieldErrors(details = [], fallbackInputId = null) {
-            if (!Array.isArray(details) || details.length === 0) {
-                if (fallbackInputId) setFieldErrorByInputId(fallbackInputId, 'Upload failed. Please try again.');
-                return;
-            }
-
-            let mappedAny = false;
-            details.forEach((d) => {
-                const inputId = d?.field ? FILE_FIELD_TO_INPUT_ID[d.field] : fallbackInputId;
-                if (!inputId) return;
-                const msg = d?.message || d?.code || 'Upload failed.';
-                setFieldErrorByInputId(inputId, msg);
-                mappedAny = true;
-            });
-
-            if (!mappedAny && fallbackInputId) {
-                setFieldErrorByInputId(fallbackInputId, 'Upload failed. Please try again.');
-            }
-        }
-
-        function getFilenameFromUrl(url, fallback = 'document.pdf') {
-            if (!url || typeof url !== 'string') return fallback;
-            try {
-                const cleanUrl = url.split('?')[0];
-                const parts = cleanUrl.split('/');
-                return decodeURIComponent(parts[parts.length - 1] || fallback);
-            } catch (_) {
-                return fallback;
-            }
-        }
-
-        function blobToDataUrl(blob) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        }
-
-        function getUploadEndpoint(fieldKey) {
-            return isPublicMode
-                ? `/api/v1/seda-public/${shareToken}/upload/${fieldKey}`
-                : `/api/v1/seda/${sedaId}/upload/${fieldKey}`;
-        }
-
-        function renderExistingFile(url, previewId) {
-            if (!url) return;
-            const previewEl = document.getElementById(previewId);
-            if (!previewEl) return;
-
-            const inputGroup = previewEl.closest('.input-group');
-            let viewBox = inputGroup.querySelector('.existing-file-view');
-            if (!viewBox) {
-                viewBox = document.createElement('div');
-                viewBox.className = 'existing-file-view mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-[10px]';
-                inputGroup.appendChild(viewBox);
-            }
-
-            const isPdf = url.toLowerCase().endsWith('.pdf');
-            viewBox.innerHTML = `
-                <div class="flex items-center gap-2">
-                    ${isPdf
-                        ? '<div class="w-8 h-8 bg-red-100 text-red-600 rounded flex items-center justify-center font-bold text-[8px]">PDF</div>'
-                        : `<img src="${url}" class="w-8 h-8 object-cover rounded">`
-                    }
-                    <span class="text-slate-500 font-medium">Uploaded Document</span>
-                </div>
-                <a href="${url}" target="_blank" class="text-brand-blue font-bold hover:underline px-2 py-1 bg-white border border-slate-200 rounded">VIEW</a>
-            `;
-        }
-
-        async function uploadSelectedFile(input, previewId, options = {}) {
-            const file = input.files[0];
-            if (!file) return null;
-
-            const validation = validateSelectedFile(input.id, file);
-            if (!validation.ok) {
-                setFieldErrorByInputId(input.id, validation.message);
-                input.value = '';
-                throw new Error(validation.message);
-            }
-
-            const fieldKey = INPUT_ID_TO_FILE_FIELD[input.id];
-            if (!fieldKey) {
-                input.value = '';
-                throw new Error('Unknown file field.');
-            }
-            const previousUrl = existingFileUrls[fieldKey];
-
-            clearFieldErrorByInputId(input.id);
-            showPreview(file, previewId);
-
-            if (options.loadingText) startLoading(options.loadingText);
-
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-
-                const res = await fetchWithTimeout(getUploadEndpoint(fieldKey), {
-                    method: 'POST',
-                    body: formData,
-                    timeoutMs: options.timeoutMs || 120000
-                });
-                const json = await parseApiResponse(res);
-                existingFileUrls[fieldKey] = json.url;
-                renderExistingFile(json.url, previewId);
-                updateFormProgress();
-                return json.url;
-            } catch (err) {
-                setFieldErrorByInputId(input.id, err.message || 'Upload failed.');
-                if (previousUrl) {
-                    renderExistingFile(previousUrl, previewId);
-                } else {
-                    const previewEl = document.getElementById(previewId);
-                    if (previewEl) {
-                        previewEl.innerHTML = '';
-                        previewEl.style.display = 'none';
-                    }
-                }
-                throw err;
-            } finally {
-                input.value = '';
-                if (options.loadingText) stopLoading();
-                updateTnb1ExtractButton();
-                syncTnb1StatusFromStoredFile();
-            }
-        }
-
-        function updateTnb1ExtractButton() {
-            const btn = document.getElementById('btnExtractTnb1');
-            if (!btn) return;
-
-            const hasUploadedFile = !!existingFileUrls.tnb_bill_1;
-            btn.disabled = !hasUploadedFile;
-
-            if (hasUploadedFile) {
-                btn.className = 'px-3 py-2 text-[11px] font-bold rounded-lg border border-slate-900 bg-slate-900 text-white hover:bg-slate-800 transition-all';
-            } else {
-                btn.className = 'px-3 py-2 text-[11px] font-bold rounded-lg border border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed transition-all';
-            }
-        }
-
-        function setStatusBadge(el, tone, text) {
-            if (!el) return;
-            const tones = {
-                neutral: 'inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600',
-                success: 'inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700',
-                warning: 'inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700',
-                danger: 'inline-flex items-center rounded-full bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700'
-            };
-            el.className = tones[tone] || tones.neutral;
-            el.textContent = text;
-        }
-
-        function setTnb1Status({ uploadTone, uploadText, extractTone, extractText, message }) {
-            setStatusBadge(document.getElementById('tnb1UploadStatus'), uploadTone, uploadText);
-            setStatusBadge(document.getElementById('tnb1ExtractStatus'), extractTone, extractText);
-            const messageEl = document.getElementById('tnb1StatusMessage');
-            if (messageEl && message) messageEl.textContent = message;
-        }
-
-        function syncTnb1StatusFromStoredFile() {
-            const hasUploadedFile = !!existingFileUrls.tnb_bill_1;
-            if (hasUploadedFile) {
-                setTnb1Status({
-                    uploadTone: 'success',
-                    uploadText: 'Uploaded',
-                    extractTone: 'neutral',
-                    extractText: 'Not started',
-                    message: 'File upload is complete. You can save now, or run extraction separately.'
-                });
-            } else {
-                setTnb1Status({
-                    uploadTone: 'neutral',
-                    uploadText: 'Not uploaded',
-                    extractTone: 'neutral',
-                    extractText: 'Not started',
-                    message: 'Upload is separate from extraction.'
-                });
-            }
-        }
-
-        async function fetchWithTimeout(url, options = {}) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || LOAD_TIMEOUT_MS);
-
-            try {
-                return await fetch(url, {
-                    ...options,
-                    signal: controller.signal,
-                    headers: {
-                        Accept: 'application/json',
-                        ...(options.headers || {})
-                    }
-                });
-            } catch (err) {
-                if (err.name === 'AbortError') {
-                    throw new Error('The server took too long to respond. Please try again.');
-                }
-                throw err;
-            } finally {
-                clearTimeout(timeoutId);
-            }
-        }
-
-        async function parseApiResponse(res) {
-            const contentType = res.headers.get('content-type') || '';
-            let payload = null;
-            if (contentType.includes('application/json')) {
-                try {
-                    payload = await res.json();
-                } catch (_) {
-                    payload = null;
-                }
-            } else {
-                const text = (await res.text()).trim();
-                if (!res.ok) {
-                    const apiError = new Error(text || `HTTP ${res.status} ${res.statusText}`);
-                    apiError.status = res.status;
-                    throw apiError;
-                }
-                throw new Error(text || 'Unexpected non-JSON response from server.');
-            }
-            if (res.ok && payload?.success !== false) return payload || { success: true };
-
-            let detailText = '';
-            if (Array.isArray(payload?.details) && payload.details.length > 0) {
-                detailText = payload.details
-                    .map((d) => `- ${d.label || d.field || 'File'}: ${d.message || d.code || 'Validation error'}`)
-                    .join('\n');
-            }
-            const baseError = payload?.error || `HTTP ${res.status} ${res.statusText}`;
-            const msg = detailText ? `${baseError}\n\n${detailText}` : baseError;
-            const apiError = new Error(msg);
-            apiError.details = Array.isArray(payload?.details) ? payload.details : [];
-            apiError.code = payload?.code || null;
-            apiError.status = res.status;
-            throw apiError;
-        }
-
-        // --- WhatsApp Reminder Logic ---
-        async function checkWhatsAppVerification(phone) {
-            if (!phone) return false;
-            try {
-                const cleanPhone = phone.replace(/\D/g, '').replace(/^0/, '60');
-                const res = await fetch('/api/customers/check-whatsapp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: cleanPhone })
-                });
-                const data = await res.json();
-                return data.success && data.isWhatsAppUser;
-            } catch (err) {
-                console.error('WhatsApp check error:', err);
-                return false;
-            }
-        }
-
-        async function sendWhatsAppReminder() {
-            if (!customerPhone) return alert('No customer phone number found.');
-            const missing = [];
-            const checkDone = (id) => {
-                const el = document.getElementById(id);
-                return el && el.classList.contains('complete');
-            };
-
-            if (!checkDone('check-mykad')) missing.push('- MYKAD Copy (Front & Back / PDF)');
-            const missingBills = [];
-            if (!checkDone('check-tnb_bill_1')) missingBills.push('Latest');
-            if (missingBills.length > 0) missing.push(`- TNB Bills (${missingBills.join(', ')})`);
-            if (!checkDone('check-tnb_meter')) missing.push('- Photo of Home TNB Meter');
-            if (!checkDone('check-property_proof')) missing.push('- Property Ownership Proof (S&P / Geran)');
-
-            const eName = document.getElementById('emergencyName').value.trim();
-            const ePhone = document.getElementById('emergencyPhone').value.trim();
-            if (!eName || !ePhone) missing.push('- Emergency Contact Name & Phone');
-
-            if (missing.length === 0) return alert('All required documents are already uploaded!');
-
-            const cleanPhone = customerPhone.replace(/\D/g, '');
-            const finalPhone = cleanPhone.startsWith('60') ? cleanPhone : (cleanPhone.startsWith('0') ? '6' + cleanPhone : '60' + cleanPhone);
-
-            const message = `Hi ${customerName || 'Customer'},
-
-This is a friendly reminder from Eternalgy regarding your SEDA registration. We noticed that some documents are still missing:
-
-${missing.join('\n')}
-
-You can upload them directly using this secure link:
-${window.location.href}
-
-Thank you!`;
-
-            window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(message)}`, '_blank');
-        }
-
-        function getApiEndpoint() { return isPublicMode ? `/api/v1/seda-public/${shareToken}` : `/api/v1/seda/${sedaId}`; }
-
-        function goBackToOffice() {
-            console.log('[SEDA] Navigating back...');
-            if (isPublicMode) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Public View',
-                    text: 'Your progress has been saved. You can close this window.',
-                });
-                return;
-            }
-            if (typeof NavManager !== 'undefined') {
-                NavManager.goBack('/my-seda');
-            } else {
-                window.location.replace('/my-seda');
-            }
-        }
-
-        function startLoading(text = 'Processing...') {
-            const overlay = document.getElementById('loading');
-            const bar = document.getElementById('progressBar');
-            document.getElementById('loadingText').innerText = text;
-            overlay.style.display = 'flex';
-            bar.style.width = '0%';
-
-            let progress = 0;
-            clearInterval(extractionInterval);
-            extractionInterval = setInterval(() => {
-                progress += 0.4;
-                if (progress > 99) progress = 99;
-                bar.style.width = progress + '%';
+        // ── Spinner ───────────────────────────────────────────────────────────
+        function showSpinner(text = 'Processing...') {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loading').style.display = 'flex';
+            let p = 0;
+            clearInterval(spinnerTimer);
+            spinnerTimer = setInterval(() => {
+                p = Math.min(p + 0.5, 98);
+                document.getElementById('progressBar').style.width = p + '%';
             }, 100);
         }
 
-        function stopLoading() {
-            clearInterval(extractionInterval);
+        function hideSpinner() {
+            clearInterval(spinnerTimer);
             document.getElementById('progressBar').style.width = '100%';
-            setTimeout(() => { document.getElementById('loading').style.display = 'none'; }, 500);
+            setTimeout(() => { document.getElementById('loading').style.display = 'none'; }, 400);
         }
 
-        function setMyKadMode(mode) {
-            const btnImg = document.getElementById('btnModeImages');
-            const btnPdf = document.getElementById('btnModePdf');
-            const secImg = document.getElementById('sectionMyKadImages');
-            const secPdf = document.getElementById('sectionMyKadPdf');
+        // ── Preview renderer ──────────────────────────────────────────────────
+        function getFieldConfigByKey(fieldKey) {
+            return Object.values(FIELDS).find((config) => config.key === fieldKey) || null;
+        }
 
-            if (mode === 'images') {
-                btnImg.className = 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white';
-                btnPdf.className = 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
-                secImg.classList.remove('hidden');
-                secPdf.classList.add('hidden');
-            } else {
-                btnPdf.className = 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white';
-                btnImg.className = 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
-                secPdf.classList.remove('hidden');
-                secImg.classList.add('hidden');
+        function clearPreview(previewId) {
+            const el = document.getElementById(previewId);
+            if (!el) return;
+            el.innerHTML = '';
+            el.style.display = 'none';
+            const box = el.closest('.file-upload-box') || el.parentElement;
+            box?.querySelector('.upload-done-tag')?.remove();
+        }
+
+        function clearAllPreviews() {
+            Object.values(FIELDS).forEach((config) => clearPreview(config.preview));
+        }
+
+        function renderPreview(previewId, url, fieldKey) {
+            const el = document.getElementById(previewId);
+            if (!el) return;
+            const isPdf = url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('pdf');
+            el.style.display = 'block';
+
+            // Find or create the "uploaded" indicator inside the upload box
+            const box = el.closest('.file-upload-box') || el.parentElement;
+            let tag = box.querySelector('.upload-done-tag');
+            if (!tag) {
+                tag = document.createElement('div');
+                tag.className = 'upload-done-tag';
+                tag.style.cssText = 'margin-top:0.5rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.4rem 0.75rem;background:#f0fdf4;border:1px solid #dcfce7;border-radius:0.5rem;font-size:0.7rem;font-weight:700;';
+                box.appendChild(tag);
             }
+            tag.innerHTML = `
+                <span style="color:#166534;display:flex;align-items:center;gap:0.4rem;">
+                    <span style="width:6px;height:6px;background:#22c55e;border-radius:50%;display:inline-block;"></span>
+                    ${isPdf ? 'PDF Uploaded' : 'Image Uploaded'}
+                </span>
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                    <a href="${url}" target="_blank" onclick="event.stopPropagation()" style="color:#3b82f6;text-decoration:none;font-size:0.65rem;border:1px solid #dbeafe;padding:0.15rem 0.4rem;border-radius:0.25rem;background:white;">VIEW</a>
+                    ${fieldKey ? `<button type="button" onclick="event.stopPropagation(); softDeleteFile('${fieldKey}')" style="color:#b91c1c;font-size:0.65rem;border:1px solid #fecaca;padding:0.15rem 0.4rem;border-radius:0.25rem;background:white;font-weight:800;">DELETE</button>` : ''}
+                </div>
+            `;
         }
 
-        async function handleFile(input, previewId) {
-            const file = input.files[0];
+        function renderDeletedFilesSection(entries = []) {
+            const section = document.getElementById('deletedFilesSection');
+            const list = document.getElementById('deletedFilesList');
+            if (!section || !list) return;
+
+            if (!entries.length) {
+                section.classList.add('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            const labelMap = Object.values(FIELDS).reduce((acc, config) => {
+                acc[config.key] = config.key === 'tnb_bill_1'
+                    ? 'TNB Bill Month 1'
+                    : config.key === 'tnb_bill_2'
+                        ? 'TNB Bill Month 2'
+                        : config.key === 'tnb_bill_3'
+                            ? 'TNB Bill Month 3'
+                            : config.label || config.key;
+                return acc;
+            }, {});
+
+            section.classList.remove('hidden');
+            list.innerHTML = entries.map((entry, index) => `
+                <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-black uppercase tracking-[0.14em] text-amber-700">${labelMap[entry.field] || entry.field || `Deleted File ${index + 1}`}</p>
+                            <p class="mt-1 text-xs text-slate-600">Moved to deleted files on ${new Date(entry.deletedAt).toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a href="${entry.url}" target="_blank" class="shrink-0 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700">Open</a>
+                            <button type="button" onclick="restoreDeletedFile('${entry.field}', '${entry.recycleBinId}')" class="shrink-0 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700">Restore</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ── THE UPLOAD FUNCTION — this replaces all previous upload code ──────
+        //
+        //  Flow: user picks file  →  POST FormData  →  save URL  →  update UI
+        //  Nothing else. Period.
+        //
+        async function uploadFile(inputEl) {
+            const file = inputEl.files[0];
             if (!file) return;
 
-            clearFieldErrorByInputId(input.id);
+            const config = FIELDS[inputEl.id];
+            if (!config) { console.error('No FIELDS config for', inputEl.id); return; }
+
+            // Reset input immediately so same file can be re-selected if needed
+            const fileName = file.name;
+            inputEl.value = '';
+
+            // Clear any previous error on this field
+            const group = inputEl.closest('.input-group');
+            if (group) group.querySelector('.upload-err')?.remove();
+
+            showSpinner(`Uploading ${fileName}…`);
+
+            let response, json;
             try {
-                await uploadSelectedFile(input, previewId, {
-                    loadingText: 'Uploading document...',
-                    timeoutMs: 120000
+                const form = new FormData();
+                form.append('file', file);
+
+                response = await fetch(uploadUrl(config.key), {
+                    method: 'POST',
+                    body: form
+                    // ← No Content-Type header. Browser sets it with boundary automatically.
                 });
 
-                Swal.fire({
-                    icon: 'success',
-                    title: 'File Uploaded',
-                    text: `${file.name} has been uploaded successfully.`,
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 3000
+                json = await response.json().catch(() => null);
+            } catch (networkErr) {
+                hideSpinner();
+                showUploadError(group, 'Network error — check your connection and try again.');
+                return;
+            }
+
+            hideSpinner();
+
+            if (!response.ok || !json?.success) {
+                const msg = json?.error || `Upload failed (HTTP ${response.status}).`;
+                showUploadError(group, msg);
+                Swal.fire({ icon: 'error', title: 'Upload Failed', text: msg });
+                return;
+            }
+
+            // Success
+            fileUrls[config.key] = json.url;
+            renderPreview(config.preview, json.url, config.key);
+            updateChecklist();
+            syncTnb1Panel();
+
+            Swal.fire({
+                icon: 'success', title: 'Uploaded', text: `${fileName} uploaded successfully.`,
+                toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
+            });
+        }
+
+        function showUploadError(groupEl, msg) {
+            if (!groupEl) return;
+            let el = groupEl.querySelector('.upload-err');
+            if (!el) {
+                el = document.createElement('p');
+                el.className = 'upload-err';
+                el.style.cssText = 'color:#ef4444;font-size:0.7rem;font-weight:700;margin-top:0.4rem;';
+                groupEl.appendChild(el);
+            }
+            el.textContent = msg;
+        }
+
+        // ── TNB Bill 1 status panel ───────────────────────────────────────────
+        function syncTnb1Panel() {
+            const hasFile = !!fileUrls.tnb_bill_1;
+            const btn = document.getElementById('btnExtractTnb1');
+            const uploadBadge = document.getElementById('tnb1UploadStatus');
+            const msg = document.getElementById('tnb1StatusMessage');
+            if (btn) {
+                btn.disabled = !hasFile;
+                btn.className = hasFile
+                    ? 'px-3 py-2 text-[11px] font-bold rounded-lg border border-slate-900 bg-slate-900 text-white hover:bg-slate-800 transition-all'
+                    : 'px-3 py-2 text-[11px] font-bold rounded-lg border border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed transition-all';
+            }
+            if (uploadBadge) {
+                uploadBadge.className = hasFile
+                    ? 'inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700'
+                    : 'inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600';
+                uploadBadge.textContent = hasFile ? 'Uploaded ✓' : 'Not uploaded';
+            }
+            if (msg) msg.textContent = hasFile ? 'File uploaded. You can save or run extraction separately.' : 'Upload the bill first.';
+        }
+
+        // ── Checklist/progress ─────────────────────────────────────────────────
+        function updateChecklist() {
+            const items = [
+                { id: 'check-applicantName',  value: () => !!document.getElementById('applicantName')?.value.trim() },
+                { id: 'check-applicantIC',    value: () => !!document.getElementById('applicantIC')?.value.trim() },
+                { id: 'check-applicantPhone', value: () => !!document.getElementById('applicantPhone')?.value.trim() },
+                { id: 'check-installAddress', value: () => !!document.getElementById('installAddress')?.value.trim() },
+                { id: 'check-mykad',          value: () => !!(fileUrls.mykad_front || fileUrls.mykad_pdf) },
+                { id: 'check-tnb_bill_1',     value: () => !!fileUrls.tnb_bill_1 },
+                { id: 'check-property_proof', value: () => !!fileUrls.property_proof },
+                { id: 'check-tnb_meter',      value: () => !!fileUrls.tnb_meter },
+            ];
+
+            let done = 0;
+            items.forEach(item => {
+                const ok = item.value();
+                if (ok) done++;
+                const el = document.getElementById(item.id);
+                if (el) el.className = ok ? 'checklist-item complete' : 'checklist-item incomplete';
+            });
+
+            const pct = Math.round((done / items.length) * 100);
+            ['formProgress', 'overallProgress', 'mobileOverallProgress'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (id === 'formProgress') el.style.width = pct + '%';
+                else el.textContent = pct + (id === 'mobileOverallProgress' ? '% DONE' : '% COMPLETE');
+            });
+        }
+
+        // ── Load existing data ─────────────────────────────────────────────────
+        async function loadData() {
+            if (!sedaId && !shareToken) { alert('No ID provided.'); return; }
+            showSpinner('Loading...');
+            try {
+                const res  = await fetch(apiBase());
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error || 'Load failed.');
+
+                const d = json.data;
+                customerName  = d.customer_profile?.name || '';
+                customerPhone = d.customer_profile?.phone || '';
+
+                // Form fields
+                document.getElementById('statusBadge').textContent      = d.reg_status || 'DRAFT';
+                document.getElementById('applicantName').value           = d.customer_profile?.name || d.customer_name || '';
+                document.getElementById('applicantPhone').value          = d.customer_profile?.phone || d.phone || '';
+                document.getElementById('applicantEmail').value          = d.email || d.customer_profile?.email || '';
+                document.getElementById('applicantIC').value             = d.ic_no || '';
+                document.getElementById('applicantAddress').value        = [d.customer_profile?.address, d.customer_profile?.city, d.customer_profile?.state, d.customer_profile?.postcode].filter(Boolean).join(', ');
+                document.getElementById('installAddress').value          = d.installation_address || '';
+                document.getElementById('city').value                    = d.city || '';
+                document.getElementById('state').value                   = d.state || '';
+                document.getElementById('postcode').value                = d.postcode || '';
+                document.getElementById('tnbAccount').value              = d.tnb_account_no || '';
+                document.getElementById('phaseType').value               = d.phase_type || '1';
+                document.getElementById('emergencyName').value           = d.e_contact_name || '';
+                document.getElementById('emergencyRel').value            = d.e_contact_relationship || '';
+                document.getElementById('emergencyPhone').value          = d.e_contact_no || '';
+                document.getElementById('emergencyEmail').value          = d.e_email || '';
+                document.getElementById('emergencyMyKad').value          = d.e_contact_mykad || '';
+
+                deletedUploads = Array.isArray(d.deleted_uploads) ? d.deleted_uploads : [];
+
+                // Restore file URLs
+                fileUrls = {
+                    mykad_front:    d.ic_copy_front             || null,
+                    mykad_back:     d.ic_copy_back              || null,
+                    mykad_pdf:      d.mykad_pdf                 || null,
+                    tnb_bill_1:     d.tnb_bill_1                || null,
+                    tnb_bill_2:     d.tnb_bill_2                || null,
+                    tnb_bill_3:     d.tnb_bill_3                || null,
+                    property_proof: d.property_ownership_prove  || null,
+                    tnb_meter:      d.tnb_meter                 || null,
+                };
+
+                // Render existing file previews
+                clearAllPreviews();
+                Object.entries(fileUrls).forEach(([key, url]) => {
+                    if (!url) return;
+                    const cfg = getFieldConfigByKey(key);
+                    if (cfg) renderPreview(cfg.preview, url, key);
                 });
-            } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message || 'Failed to upload file.' });
-            }
-        }
+                renderDeletedFilesSection(deletedUploads);
 
-        async function handleTnb1Upload(input) {
-            await handleFile(input, 'previewTnb1');
-            if (existingFileUrls.tnb_bill_1) {
-                setTnb1Status({
-                    uploadTone: 'success',
-                    uploadText: 'Uploaded',
-                    extractTone: 'warning',
-                    extractText: 'Pending',
-                    message: 'Upload succeeded. Extraction has not run yet.'
-                });
-            } else {
-                syncTnb1StatusFromStoredFile();
-            }
-        }
+                if (d.mykad_pdf) setMyKadMode('pdf');
 
-        function showPreview(file, previewId) {
-            const previewEl = document.getElementById(previewId);
-            previewEl.style.display = 'block';
-            if (file.type.startsWith('image/')) {
-                previewEl.innerHTML = `<img src="${URL.createObjectURL(file)}" class="max-h-24 mx-auto rounded mt-2 border border-slate-200">`;
-            } else {
-                previewEl.innerHTML = `<div class="mt-2 text-blue-600 font-bold text-xs"><i class="fa-solid fa-file-pdf"></i> PDF Selected</div>`;
-            }
-        }
-
-        function parseExtractionData(json) {
-            const root = (json.success && json.data) ? json.data : json;
-            if (root.status === 'success' && root.data) return root.data;
-            if (root.text) {
-                let extracted = {};
-                const finalStep = root.text.find(s => s.step_type === 'FINAL');
-                if (finalStep?.content?.answer) {
-                    try {
-                        const parsed = JSON.parse(finalStep.content.answer);
-                        if (parsed.answer) extracted.tnb_account = (parsed.answer.match(/NO\.?\s*AKAUN\s*[:\.]?\s*(\d+)/i) || [])[1];
-                    } catch (e) { }
+                // Signature block
+                const invoice   = d.invoice_details;
+                const sigBlock  = document.getElementById('signatureBlock');
+                if (invoice && sigBlock) {
+                    sigBlock.classList.remove('hidden');
+                    const signed = invoice.customer_signature?.trim();
+                    document.getElementById('signedContent').classList.toggle('hidden', !signed);
+                    document.getElementById('unsignedContent').classList.toggle('hidden', !!signed);
+                    if (signed) {
+                        document.getElementById('sigImage').src = invoice.customer_signature;
+                    } else {
+                        const invUrl = `${window.location.origin}/view/${invoice.share_token || invoice.bubble_id}`;
+                        document.getElementById('viewInvoiceBtn').onclick  = () => window.open(invUrl, '_blank');
+                        document.getElementById('shareInvoiceBtn').onclick = () => shareInvoice(invUrl, invoice.invoice_number);
+                    }
                 }
-                return extracted;
+
+                // WhatsApp check
+                if (customerPhone) {
+                    checkWhatsApp(customerPhone).then(ok => {
+                        if (!ok) return;
+                        document.getElementById('waReminderBtn')?.classList.remove('hidden');
+                        document.getElementById('waReminderBtn-mobile')?.classList.remove('hidden');
+                    });
+                }
+
+            } catch (err) {
+                console.error('[loadData]', err);
+                Swal.fire({ icon: 'error', title: 'Load Failed', text: err.message });
+            } finally {
+                hideSpinner();
+                updateChecklist();
+                syncTnb1Panel();
             }
-            return root;
         }
 
-        function renderInlineResults(input, type, data) {
-            const container = input.closest('.input-group');
-            const existing = container.querySelector('.extracted-data-box');
-            if (existing) existing.remove();
+        // ── Save form (text fields only — files are already saved on upload) ───
+        async function saveSedaForm(e) {
+            if (e) e.preventDefault();
+            showSpinner('Saving...');
+            try {
+                const payload = {
+                    installation_address:  document.getElementById('installAddress').value,
+                    city:                  document.getElementById('city').value,
+                    state:                 document.getElementById('state').value,
+                    postcode:              document.getElementById('postcode').value,
+                    tnb_account_no:        document.getElementById('tnbAccount').value,
+                    phase_type:            document.getElementById('phaseType').value,
+                    e_contact_name:        document.getElementById('emergencyName').value,
+                    e_contact_relationship:document.getElementById('emergencyRel').value,
+                    e_contact_no:          document.getElementById('emergencyPhone').value,
+                    e_email:               document.getElementById('emergencyEmail').value,
+                    e_contact_mykad:       document.getElementById('emergencyMyKad').value,
+                    ic_no:                 document.getElementById('applicantIC').value,
+                    email:                 document.getElementById('applicantEmail').value,
+                };
+                const res  = await fetch(apiBase(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error || 'Save failed.');
+                Swal.fire({ icon: 'success', title: 'Saved', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
+                await loadData();
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Save Failed', text: err.message });
+            } finally { hideSpinner(); }
+        }
 
-            const extracted = parseExtractionData(data);
-            let itemsHtml = '';
+        // ── Extraction — server reads from disk, no re-fetch/base64 cycle ─────────
+        async function extractSelectedTnbBill() {
+            if (!fileUrls.tnb_bill_1) { Swal.fire({ icon: 'info', title: 'No File', text: 'Upload TNB Bill Month 1 first.' }); return; }
 
+            showSpinner('Scanning TNB Bill...');
+            document.getElementById('tnb1ExtractStatus').textContent = 'Processing…';
+
+            try {
+                const res  = await fetch('/api/v1/seda/extract-tnb', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sedaId, fieldKey: 'tnb_bill_1' })
+                });
+                const json = await res.json();
+                if (!json.success) throw new Error(json.error);
+                hideSpinner();
+                document.getElementById('tnb1ExtractStatus').textContent = '✓ Done';
+                document.getElementById('tnb1ExtractStatus').className = 'inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700';
+                renderExtractedData(document.getElementById('fileTnb1'), 'tnb', json.data);
+            } catch (err) {
+                hideSpinner();
+                document.getElementById('tnb1ExtractStatus').textContent = '✗ Failed';
+                document.getElementById('tnb1ExtractStatus').className = 'inline-flex items-center rounded-full bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700';
+                Swal.fire({ icon: 'error', title: 'Extraction Failed', text: err.message });
+            }
+        }
+
+        async function handleVerification(inputEl, type) {
+            if (!inputEl.files[0]) return;
+
+            // Upload first — server saves file to disk
+            await uploadFile(inputEl);
+            const fieldKey = type === 'meter' ? 'tnb_meter' : 'property_proof';
+            if (!fileUrls[fieldKey]) return;   // upload failed
+
+            // Verify — server reads from disk, no re-download needed
+            showSpinner(type === 'meter' ? 'Verifying meter...' : 'Verifying ownership...');
+            try {
+                const endpoint = type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership';
+                const ctx      = type === 'ownership'
+                    ? { name: document.getElementById('applicantName').value, address: document.getElementById('installAddress').value }
+                    : undefined;
+                const res  = await fetch(endpoint, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sedaId, context: ctx })
+                });
+                const json = await res.json();
+                hideSpinner();
+                if (json.success) Swal.fire({ icon: 'success', title: 'Verified', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+            } catch (err) {
+                hideSpinner();
+                Swal.fire({ icon: 'warning', title: 'Verification Incomplete', text: err.message });
+            }
+        }
+
+        async function handleExtraction(inputEl, type) {
+            // Upload first — server saves file to disk
+            await uploadFile(inputEl);
+            const fieldKey = type === 'tnb' ? 'tnb_bill_1' : (inputEl.id === 'fileMyKadFront' ? 'mykad_front' : 'mykad_pdf');
+            if (!fileUrls[fieldKey]) return;   // upload failed
+
+            // Extract — server reads from disk, no re-download needed
+            showSpinner(type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...');
+            try {
+                const endpoint = type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad';
+                const res  = await fetch(endpoint, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sedaId, fieldKey })
+                });
+                const json = await res.json();
+                hideSpinner();
+                if (json.success || json.data) renderExtractedData(inputEl, type, json.data || json);
+            } catch (err) {
+                hideSpinner();
+                Swal.fire({ icon: 'warning', title: 'Extraction Failed', text: err.message });
+            }
+        }
+
+        function renderExtractedData(inputEl, type, data) {
+            if (!data) return;
+            const container = inputEl.closest('.input-group');
+            container?.querySelector('.extracted-data-box')?.remove();
+
+            let html = '';
             if (type === 'tnb') {
-                if (extracted.tnb_account) itemsHtml += createItemHtml('TNB Account', extracted.tnb_account, 'tnbAccount');
-                if (extracted.customer_name) itemsHtml += createItemHtml('Name', extracted.customer_name, 'applicantName');
-                if (extracted.address) itemsHtml += createItemHtml('Address', extracted.address, 'installAddress');
+                if (data.tnb_account)   html += makeExtractItem('TNB Account', data.tnb_account, 'tnbAccount');
+                if (data.customer_name) html += makeExtractItem('Name', data.customer_name, 'applicantName');
+                if (data.address)       html += makeExtractItem('Address', data.address, 'installAddress');
             } else {
-                const name = extracted.customer_name || extracted.name;
-                if (name) itemsHtml += createItemHtml('Name', name, 'applicantName');
-                if (extracted.mykad_id) itemsHtml += createItemHtml('IC No', extracted.mykad_id, 'applicantIC');
+                const name = data.customer_name || data.name;
+                if (name)           html += makeExtractItem('Name', name, 'applicantName');
+                if (data.mykad_id)  html += makeExtractItem('IC No', data.mykad_id, 'applicantIC');
             }
 
-            if (!itemsHtml) {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Scan Complete',
-                    text: 'We scanned the document but couldn\'t automatically extract all fields. Please fill in any missing information manually.',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 5000
-                });
+            if (!html) {
+                Swal.fire({ icon: 'info', title: 'Scan Done', text: 'No data could be extracted. Fill in manually.', toast: true, position: 'top-end', showConfirmButton: false, timer: 4000 });
                 return;
             }
 
             const box = document.createElement('div');
             box.className = 'extracted-data-box';
-            box.innerHTML = `<div class="flex items-center justify-between mb-2"><h4 class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Detected Data</h4><button type="button" onclick="this.closest('.extracted-data-box').remove()" class="text-[10px] text-emerald-600 hover:underline">Dismiss</button></div><div class="space-y-1">${itemsHtml}</div>`;
-            container.appendChild(box);
-
-            Swal.fire({
-                icon: 'success',
-                title: 'Scan Successful',
-                text: 'Information detected! Review and click "Insert" below.',
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 4000
-            });
+            box.innerHTML = `<div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;"><span style="font-size:0.65rem;font-weight:800;color:#166534;text-transform:uppercase;">Detected</span><button type="button" onclick="this.closest('.extracted-data-box').remove()" style="font-size:0.65rem;color:#166534;">Dismiss</button></div><div>${html}</div>`;
+            container?.appendChild(box);
         }
 
-        function createItemHtml(label, value, targetId) {
-            const safeValue = value.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
-            return `<div class="extracted-item"><div><div class="extracted-label">${label}</div><div class="extracted-value">${value}</div></div><button type="button" class="btn-insert" onclick="insertValue('${targetId}', '${safeValue}')">Insert</button></div>`;
+        function makeExtractItem(label, value, targetId) {
+            const safe = value.replace(/'/g, '&apos;').replace(/"/g, '&quot;');
+            return `<div class="extracted-item"><div><div class="extracted-label">${label}</div><div class="extracted-value">${value}</div></div><button type="button" class="btn-insert" onclick="insertValue('${targetId}','${safe}')">Insert</button></div>`;
         }
 
         function insertValue(targetId, value) {
             const el = document.getElementById(targetId);
-            if (el) {
-                el.value = value;
-                el.classList.add('ring-2', 'ring-emerald-500');
-                setTimeout(() => el.classList.remove('ring-2', 'ring-emerald-500'), 1000);
-                el.dispatchEvent(new Event('change'));
-            }
+            if (!el) return;
+            el.value = value;
+            el.classList.add('ring-2', 'ring-emerald-500');
+            setTimeout(() => el.classList.remove('ring-2', 'ring-emerald-500'), 1000);
+            el.dispatchEvent(new Event('change'));
         }
 
-        async function handleExtraction(input, type) {
-            const file = input.files[0];
-            if (!file) return;
-
-            clearFieldErrorByInputId(input.id);
-            const previewId = input.id === 'fileTnb1' ? 'previewTnb1' : input.id === 'fileMyKadFront' ? 'previewMyKadFront' : 'previewMyKadPdf';
-            try {
-                await uploadSelectedFile(input, previewId, {
-                    loadingText: type === 'tnb' ? 'Uploading TNB Bill...' : 'Uploading MyKad...',
-                    timeoutMs: 120000
-                });
-            } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message || 'Failed to upload file.' });
-                return;
-            }
-
-            startLoading(type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...');
-            try {
-                const fieldKey = INPUT_ID_TO_FILE_FIELD[input.id];
-                const processedData = await getFileDataForExtraction(fieldKey);
-                const res = await fetchWithTimeout(type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        fileData: processedData,
-                        filename: getFilenameFromUrl(existingFileUrls[fieldKey], file.name),
-                        sedaId
-                    }),
-                    timeoutMs: 120000
-                });
-                const json = await parseApiResponse(res);
-                stopLoading();
-                if (json.success || json.data) renderInlineResults(input, type, json);
-            } catch (err) {
-                stopLoading();
-                applyApiFieldErrors(err.details, input.id);
-                Swal.fire({ icon: 'error', title: 'Extraction Failed', text: err.message });
-            }
-        }
-
-        async function getFileDataForExtraction(fieldKey) {
-            const existingUrl = existingFileUrls[fieldKey];
-            if (!existingUrl) {
-                throw new Error('Upload the document first before sending it for extraction.');
-            }
-
-            const response = await fetchWithTimeout(existingUrl, {
-                headers: { Accept: '*/*' },
-                timeoutMs: 120000
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to load the uploaded TNB Bill for extraction. Please upload it again and retry.');
-            }
-
-            const blob = await response.blob();
-            return blobToDataUrl(blob);
-        }
-
-        async function extractSelectedTnbBill() {
-            const input = document.getElementById('fileTnb1');
-            if (!input) return;
-
-            const hasUploadedFile = !!existingFileUrls.tnb_bill_1;
-            if (!hasUploadedFile) {
-                syncTnb1StatusFromStoredFile();
-                Swal.fire({ icon: 'info', title: 'No Uploaded File', text: 'Upload TNB Bill Month 1 first before sending it for extraction.' });
-                return;
-            }
-
-            clearFieldErrorByInputId(input.id);
-            setTnb1Status({
-                uploadTone: 'success',
-                uploadText: 'Uploaded',
-                extractTone: 'warning',
-                extractText: 'Processing',
-                message: 'File stays uploaded while extraction is running.'
-            });
-            startLoading('Scanning TNB Bill...');
-
-            try {
-                const processedData = await getFileDataForExtraction('tnb_bill_1');
-                const filename = getFilenameFromUrl(existingFileUrls.tnb_bill_1, 'tnb-bill-1.pdf');
-
-                const res = await fetchWithTimeout('/api/v1/seda/extract-tnb', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fileData: processedData, filename, sedaId }),
-                    timeoutMs: 120000
-                });
-                const json = await parseApiResponse(res);
-                stopLoading();
-                setTnb1Status({
-                    uploadTone: 'success',
-                    uploadText: 'Uploaded',
-                    extractTone: 'success',
-                    extractText: 'Success',
-                    message: 'Upload is still saved, and extraction completed successfully.'
-                });
-                if (json.success || json.data) renderInlineResults(input, 'tnb', json);
-            } catch (err) {
-                stopLoading();
-                applyApiFieldErrors(err.details, input.id);
-                setTnb1Status({
-                    uploadTone: 'success',
-                    uploadText: 'Uploaded',
-                    extractTone: 'danger',
-                    extractText: 'Failed',
-                    message: 'Upload is still done. Only the extraction failed, so you can retry without re-uploading.'
-                });
-                Swal.fire({ icon: 'error', title: 'Extraction Failed', text: err.message });
-            }
-        }
-
-        async function handleVerification(input, type) {
-            const file = input.files[0];
-            if (!file) return;
-
-            clearFieldErrorByInputId(input.id);
-            const previewId = type === 'meter' ? 'previewTnbMeter' : 'previewPropertyProof';
-            try {
-                await uploadSelectedFile(input, previewId, {
-                    loadingText: type === 'meter' ? 'Uploading Meter Photo...' : 'Uploading Ownership Document...',
-                    timeoutMs: 120000
-                });
-            } catch (err) {
-                Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message || 'Failed to upload file.' });
-                return;
-            }
-
-            startLoading(type === 'meter' ? 'Verifying Meter...' : 'Verifying Ownership...');
-            try {
-                const fieldKey = INPUT_ID_TO_FILE_FIELD[input.id];
-                const processedData = await getFileDataForExtraction(fieldKey);
-                const payload = {
-                    fileData: processedData,
-                    filename: getFilenameFromUrl(existingFileUrls[fieldKey], file.name),
-                    sedaId
-                };
-                if (type === 'ownership') payload.context = { name: document.getElementById('applicantName').value, address: document.getElementById('installAddress').value };
-                const res = await fetchWithTimeout(type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                    timeoutMs: 120000
-                });
-                const json = await parseApiResponse(res);
-                stopLoading();
-                if (json.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Verification Complete',
-                        text: `${type === 'meter' ? 'Meter photo' : 'Ownership document'} has been verified.`,
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
-                }
-            } catch (err) {
-                stopLoading();
-                applyApiFieldErrors(err.details, input.id);
-                Swal.fire({ icon: 'error', title: 'Verification Failed', text: err.message });
-            }
+        // ── MyKad mode toggle ─────────────────────────────────────────────────
+        function setMyKadMode(mode) {
+            document.getElementById('btnModeImages').className = mode === 'images' ? 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white' : 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
+            document.getElementById('btnModePdf').className    = mode === 'pdf'    ? 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white' : 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
+            document.getElementById('sectionMyKadImages').classList.toggle('hidden', mode !== 'images');
+            document.getElementById('sectionMyKadPdf').classList.toggle('hidden',    mode !== 'pdf');
         }
 
         function copyAddress() {
-            const addr = document.getElementById('applicantAddress').value;
-            if (addr) document.getElementById('installAddress').value = addr;
+            const v = document.getElementById('applicantAddress').value;
+            if (v) document.getElementById('installAddress').value = v;
         }
 
-        async function loadData() {
-            if (!sedaId && !shareToken) return alert('No ID provided');
-            startLoading('Loading Data...');
+        // ── WhatsApp ──────────────────────────────────────────────────────────
+        async function checkWhatsApp(phone) {
             try {
-                const res = await fetchWithTimeout(getApiEndpoint());
-                const json = await parseApiResponse(res);
-                if (json.success) {
-                    const data = json.data;
-                    if (document.getElementById('statusBadge')) document.getElementById('statusBadge').textContent = data.reg_status || 'DRAFT';
-                    if (document.getElementById('adminStatusBadge')) document.getElementById('adminStatusBadge').textContent = `ADMIN: ${data.seda_status || 'PENDING'}`;
-                    customerName = data.customer_profile?.name || '';
-                    customerPhone = data.customer_profile?.phone || '';
-                    if (customerPhone) {
-                        checkWhatsAppVerification(customerPhone).then(v => {
-                            if (v) {
-                                document.getElementById('waReminderBtn')?.classList.remove('hidden');
-                                document.getElementById('waReminderBtn-mobile')?.classList.remove('hidden');
-                            }
-                        });
-                    }
+                const clean = phone.replace(/\D/g, '').replace(/^0/, '60');
+                const res   = await fetch('/api/customers/check-whatsapp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: clean }) });
+                const json  = await res.json();
+                return json.success && json.isWhatsAppUser;
+            } catch { return false; }
+        }
 
-                    document.getElementById('applicantName').value = data.customer_profile?.name || data.customer_name || '';
-                    document.getElementById('applicantPhone').value = data.customer_profile?.phone || data.phone || data.e_contact_no || '';
-                    document.getElementById('applicantEmail').value = data.email || data.customer_profile?.email || '';
-                    document.getElementById('applicantIC').value = data.ic_no || '';
-                    document.getElementById('applicantAddress').value = [data.customer_profile?.address || data.address, data.customer_profile?.city || data.city, data.customer_profile?.state || data.state, data.customer_profile?.postcode || data.postcode].filter(Boolean).join(', ');
-                    document.getElementById('installAddress').value = data.installation_address || '';
-                    document.getElementById('city').value = data.city || '';
-                    document.getElementById('state').value = data.state || '';
-                    document.getElementById('postcode').value = data.postcode || '';
-                    document.getElementById('tnbAccount').value = data.tnb_account_no || '';
-                    document.getElementById('phaseType').value = data.phase_type || '1';
-                    document.getElementById('emergencyName').value = data.e_contact_name || '';
-                    document.getElementById('emergencyRel').value = data.e_contact_relationship || '';
-                    document.getElementById('emergencyPhone').value = data.e_contact_no || '';
-                    document.getElementById('emergencyEmail').value = data.e_email || '';
-                    document.getElementById('emergencyMyKad').value = data.e_contact_mykad || '';
-                    existingFileUrls = {
-                        mykad_front: data.ic_copy_front || null,
-                        mykad_back: data.ic_copy_back || null,
-                        mykad_pdf: data.mykad_pdf || null,
-                        tnb_bill_1: data.tnb_bill_1 || null,
-                        tnb_bill_2: data.tnb_bill_2 || null,
-                        tnb_bill_3: data.tnb_bill_3 || null,
-                        property_proof: data.property_ownership_prove || null,
-                        tnb_meter: data.tnb_meter || null
-                    };
+        async function sendWhatsAppReminder() {
+            if (!customerPhone) return alert('No customer phone number.');
+            const missing = [];
+            if (!fileUrls.mykad_front && !fileUrls.mykad_pdf) missing.push('- MyKad (Front & Back or PDF)');
+            if (!fileUrls.tnb_bill_1) missing.push('- TNB Bill (Latest Month)');
+            if (!fileUrls.tnb_meter)  missing.push('- TNB Meter Photo');
+            if (!fileUrls.property_proof) missing.push('- Property Ownership Proof (S&P / Geran)');
+            const eName = document.getElementById('emergencyName').value.trim();
+            const ePhone = document.getElementById('emergencyPhone').value.trim();
+            if (!eName || !ePhone) missing.push('- Emergency Contact Name & Phone');
+            if (!missing.length) return alert('All documents are already uploaded!');
 
-                    renderExistingFile(data.ic_copy_front, 'previewMyKadFront');
-                    renderExistingFile(data.ic_copy_back, 'previewMyKadBack');
-                    renderExistingFile(data.mykad_pdf, 'previewMyKadPdf');
-                    renderExistingFile(data.tnb_bill_1, 'previewTnb1');
-                    renderExistingFile(data.tnb_bill_2, 'previewTnb2');
-                    renderExistingFile(data.tnb_bill_3, 'previewTnb3');
-                    renderExistingFile(data.property_ownership_prove, 'previewPropertyProof');
-                    renderExistingFile(data.tnb_meter, 'previewTnbMeter');
-                    if (data.mykad_pdf) setMyKadMode('pdf');
-                    updateTnb1ExtractButton();
-                    syncTnb1StatusFromStoredFile();
-
-                    // --- Handle Signature Block ---
-                    const sigBlock = document.getElementById('signatureBlock');
-                    const invoice = data.invoice_details;
-
-                    if (invoice) {
-                        sigBlock.classList.remove('hidden');
-                        const isSigned = invoice.customer_signature && invoice.customer_signature.trim() !== "";
-
-                        if (isSigned) {
-                            document.getElementById('signedContent').classList.remove('hidden');
-                            document.getElementById('unsignedContent').classList.add('hidden');
-                            document.getElementById('sigImage').src = invoice.customer_signature;
-                        } else {
-                            document.getElementById('signedContent').classList.add('hidden');
-                            document.getElementById('unsignedContent').classList.remove('hidden');
-
-                            const identifier = invoice.share_token || invoice.bubble_id;
-                            const invoiceUrl = `${window.location.origin}/view/${identifier}`;
-
-                            document.getElementById('viewInvoiceBtn').onclick = () => window.open(invoiceUrl, '_blank');
-                            document.getElementById('shareInvoiceBtn').onclick = () => shareInvoice(invoiceUrl, invoice.invoice_number);
-                        }
-                    }
-                }
-            } catch (err) { alert('Failed to load data'); } finally { stopLoading(); updateTnb1ExtractButton(); syncTnb1StatusFromStoredFile(); updateFormProgress(); }
+            const clean = customerPhone.replace(/\D/g, '');
+            const num   = clean.startsWith('60') ? clean : (clean.startsWith('0') ? '6' + clean : '60' + clean);
+            const msg   = `Hi ${customerName || 'Customer'},\n\nThis is a friendly reminder from Eternalgy regarding your SEDA registration.\n\nMissing documents:\n${missing.join('\n')}\n\nUpload here:\n${window.location.href}\n\nThank you!`;
+            window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
         async function shareInvoice(url, invNum) {
-            const shareData = {
-                title: `Quotation ${invNum}`,
-                text: `Hi, please review and sign your solar quotation here: ${invNum}`,
-                url: url
-            };
-
             try {
                 if (navigator.share) {
-                    await navigator.share(shareData);
+                    await navigator.share({ title: `Quotation ${invNum}`, url });
                 } else {
-                    // Fallback to clipboard
                     await navigator.clipboard.writeText(url);
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Link Copied',
-                        text: 'Quotation link has been copied to clipboard.',
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000
-                    });
+                    Swal.fire({ icon: 'success', title: 'Link Copied', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
                 }
+            } catch {}
+        }
+
+        function goBackToOffice() {
+            if (isPublicMode) { Swal.fire({ icon: 'info', title: 'Saved', text: 'Your progress has been saved. You can close this window.' }); return; }
+            if (typeof NavManager !== 'undefined') NavManager.goBack('/my-seda');
+            else window.location.replace('/my-seda');
+        }
+
+        async function softDeleteFile(fieldKey) {
+            const cfg = getFieldConfigByKey(fieldKey);
+            const url = fileUrls[fieldKey];
+            if (!cfg || !url) return;
+
+            const ok = await Swal.fire({
+                icon: 'warning',
+                title: 'Move To Deleted Files?',
+                text: `${cfg.label || fieldKey} will be removed from the active form and shown in Deleted Files.`,
+                showCancelButton: true,
+                confirmButtonText: 'Move',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#b45309'
+            });
+
+            if (!ok.isConfirmed) return;
+
+            showSpinner('Moving file to deleted files...');
+            try {
+                const res = await fetch(deleteUrl(fieldKey), {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const json = await res.json();
+                if (!res.ok || !json?.success) {
+                    throw new Error(json?.error || `Delete failed (HTTP ${res.status}).`);
+                }
+
+                await loadData();
+                Swal.fire({ icon: 'success', title: 'Moved', text: `${cfg.label || fieldKey} moved to Deleted Files.`, toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
             } catch (err) {
-                console.error('Share failed:', err);
+                hideSpinner();
+                Swal.fire({ icon: 'error', title: 'Delete Failed', text: err.message });
+            } finally {
+                hideSpinner();
             }
         }
 
-        function resetFileInputs() {
-            Object.values(FILE_FIELD_TO_INPUT_ID).forEach((inputId) => {
-                const input = document.getElementById(inputId);
-                if (input) input.value = '';
-                clearFieldErrorByInputId(inputId);
+        async function restoreDeletedFile(fieldKey, recycleBinId) {
+            const cfg = getFieldConfigByKey(fieldKey);
+            if (!fieldKey || !recycleBinId) return;
+
+            const ok = await Swal.fire({
+                icon: 'question',
+                title: 'Restore File?',
+                text: `${cfg?.label || fieldKey} will be restored to the active form.`,
+                showCancelButton: true,
+                confirmButtonText: 'Restore',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#047857'
             });
-        }
 
-        async function saveSedaForm(e) {
-            if (e) e.preventDefault();
-            clearAllUploadErrors();
+            if (!ok.isConfirmed) return;
 
-            startLoading('Saving Changes...');
-            const payload = {
-                installation_address: document.getElementById('installAddress').value,
-                city: document.getElementById('city').value,
-                state: document.getElementById('state').value,
-                postcode: document.getElementById('postcode').value,
-                tnb_account_no: document.getElementById('tnbAccount').value,
-                phase_type: document.getElementById('phaseType').value,
-                e_contact_name: document.getElementById('emergencyName').value,
-                e_contact_relationship: document.getElementById('emergencyRel').value,
-                e_contact_no: document.getElementById('emergencyPhone').value,
-                e_email: document.getElementById('emergencyEmail').value,
-                e_contact_mykad: document.getElementById('emergencyMyKad').value,
-                ic_no: document.getElementById('applicantIC').value,
-                email: document.getElementById('applicantEmail').value
-            };
+            showSpinner('Restoring file...');
             try {
-                const res = await fetchWithTimeout(getApiEndpoint(), {
+                const res = await fetch(restoreUrl(fieldKey), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                    timeoutMs: 60000
+                    body: JSON.stringify({ recycleBinId })
                 });
-                const json = await parseApiResponse(res);
-                if (!json.success) throw new Error(json.error || 'Save failed');
+                const json = await res.json();
+                if (!res.ok || !json?.success) {
+                    throw new Error(json?.error || `Restore failed (HTTP ${res.status}).`);
+                }
 
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Progress Saved',
-                    text: 'Your registration details have been updated successfully.',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 3000,
-                    timerProgressBar: true
-                });
-                resetFileInputs();
-                // Refresh data to show any server-side updates/filenames
                 await loadData();
+                Swal.fire({ icon: 'success', title: 'Restored', text: `${cfg?.label || fieldKey} restored successfully.`, toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
             } catch (err) {
-                applyApiFieldErrors(err.details);
-                Swal.fire({ icon: 'error', title: 'Save Failed', text: err.message });
-            } finally { stopLoading(); }
+                hideSpinner();
+                Swal.fire({ icon: 'error', title: 'Restore Failed', text: err.message });
+            } finally {
+                hideSpinner();
+            }
         }
 
-        function updateFormProgress() {
-            const items = [
-                { id: 'check-applicantName', fields: ['applicantName'] },
-                { id: 'check-applicantIC', fields: ['applicantIC'] },
-                { id: 'check-applicantPhone', fields: ['applicantPhone'] },
-                { id: 'check-installAddress', fields: ['installAddress'] },
-                { id: 'check-mykad', files: ['mykad_front', 'mykad_back', 'mykad_pdf'] },
-                { id: 'check-tnb_bill_1', files: ['tnb_bill_1'] },
-                { id: 'check-property_proof', files: ['property_proof'] },
-                { id: 'check-tnb_meter', files: ['tnb_meter'] }
-            ];
-
-            let completedCount = 0;
-            items.forEach(item => {
-                let isDone = true;
-                if (item.fields) item.fields.forEach(fid => { if (!document.getElementById(fid)?.value.trim()) isDone = false; });
-                if (item.files) {
-                    if (item.id === 'check-mykad') {
-                        const hasPdf = !!existingFileUrls.mykad_pdf || !!document.getElementById('previewMyKadPdf').closest('.input-group').querySelector('.existing-file-view');
-                        const hasFront = !!existingFileUrls.mykad_front || !!document.getElementById('previewMyKadFront').closest('.input-group').querySelector('.existing-file-view');
-                        if (!hasPdf && !hasFront) isDone = false;
-                    } else {
-                        item.files.forEach(fKey => {
-                            const previewId = fKey.startsWith('tnb_bill_') ? 'previewTnb' + fKey.split('_').pop() : fKey === 'property_proof' ? 'previewPropertyProof' : fKey === 'tnb_meter' ? 'previewTnbMeter' : '';
-                            const hasExisting = !!document.getElementById(previewId)?.closest('.input-group').querySelector('.existing-file-view');
-                            if (!existingFileUrls[fKey] && !hasExisting) isDone = false;
-                        });
-                    }
-                }
-                const headerEl = document.getElementById(item.id);
-                if (headerEl) {
-                    if (isDone) { completedCount++; headerEl.className = 'checklist-item complete'; }
-                    else { headerEl.className = 'checklist-item incomplete'; }
-                }
-            });
-
-            const percent = Math.round((completedCount / items.length) * 100);
-            if (document.getElementById('formProgress')) document.getElementById('formProgress').style.width = percent + '%';
-            if (document.getElementById('overallProgress')) document.getElementById('overallProgress').innerText = percent + '% COMPLETE';
-            if (document.getElementById('mobileOverallProgress')) document.getElementById('mobileOverallProgress').innerText = percent + '% DONE';
+        async function handleFile(inputEl) {
+            await uploadFile(inputEl);
         }
 
+        // ── Init ──────────────────────────────────────────────────────────────
         document.getElementById('sedaForm').addEventListener('submit', saveSedaForm);
-        document.querySelectorAll('input, select, textarea').forEach(el => { el.addEventListener('change', updateFormProgress); el.addEventListener('input', updateFormProgress); });
+        document.querySelectorAll('input, select, textarea').forEach(el => {
+            el.addEventListener('change', updateChecklist);
+            el.addEventListener('input', updateChecklist);
+        });
 
         loadData().catch(err => {
-            console.error('[SEDA] Init failed:', err);
-            stopLoading();
+            hideSpinner();
             Swal.fire({ icon: 'error', title: 'Load Failed', text: err.message || 'Failed to load data.' });
         });
     </script>
