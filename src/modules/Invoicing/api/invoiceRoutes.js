@@ -49,6 +49,10 @@ router.get('/invoice-office', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, '../../../../public/templates/invoice_office.html'));
 });
 
+router.get('/invoice-office-upload-test', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, '../../../../public/templates/invoice_office_upload_test.html'));
+});
+
 router.get('/my-invoice', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, '../../../../public/templates/my_invoice.html'));
 });
