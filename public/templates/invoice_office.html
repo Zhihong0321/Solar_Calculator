@@ -1630,10 +1630,12 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url })
                 });
-                if ((await res.json()).success) {
-                    await loadData();
+                const json = await res.json();
+                if (!res.ok || !json?.success) {
+                    throw new Error(json?.error || 'Delete failed');
                 }
-            } catch (err) { alert('Delete failed'); }
+                await loadData();
+            } catch (err) { alert(`Delete failed: ${err.message}`); }
         }
 
         async function deleteSiteAssessmentImage(url) {
@@ -1645,10 +1647,12 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url })
                 });
-                if ((await res.json()).success) {
-                    await loadData();
+                const json = await res.json();
+                if (!res.ok || !json?.success) {
+                    throw new Error(json?.error || 'Delete failed');
                 }
-            } catch (err) { alert('Delete failed'); }
+                await loadData();
+            } catch (err) { alert(`Delete failed: ${err.message}`); }
         }
 
         async function uploadPvSystemDrawings(input) {
@@ -1692,10 +1696,12 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url })
                 });
-                if ((await res.json()).success) {
-                    await loadData();
+                const json = await res.json();
+                if (!res.ok || !json?.success) {
+                    throw new Error(json?.error || 'Delete failed');
                 }
-            } catch (err) { alert('Delete failed'); }
+                await loadData();
+            } catch (err) { alert(`Delete failed: ${err.message}`); }
         }
 
         async function restoreInvoiceOfficeUpload(fieldKey, recycleBinId) {

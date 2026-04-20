@@ -682,7 +682,8 @@ router.delete('/api/v1/invoice-office/:bubbleId/site-assessment-image', requireA
         res.json({ success: true });
     } catch (err) {
         if (client) await client.query('ROLLBACK').catch(() => {});
-        res.status(500).json({ success: false, error: err.message });
+        const status = err?.code === 'RECYCLE_BIN_TABLE_MISSING' ? 503 : 500;
+        res.status(status).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
     }
@@ -721,7 +722,8 @@ router.delete('/api/v1/invoice-office/:bubbleId/pv-system-drawing', requireAuth,
         res.json({ success: true });
     } catch (err) {
         if (client) await client.query('ROLLBACK').catch(() => {});
-        res.status(500).json({ success: false, error: err.message });
+        const status = err?.code === 'RECYCLE_BIN_TABLE_MISSING' ? 503 : 500;
+        res.status(status).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
     }
@@ -760,7 +762,8 @@ router.delete('/api/v1/invoice-office/:bubbleId/roof-image', requireAuth, async 
         res.json({ success: true });
     } catch (err) {
         if (client) await client.query('ROLLBACK').catch(() => {});
-        res.status(500).json({ success: false, error: err.message });
+        const status = err?.code === 'RECYCLE_BIN_TABLE_MISSING' ? 503 : 500;
+        res.status(status).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
     }
@@ -798,7 +801,8 @@ router.post('/api/v1/invoice-office/:bubbleId/restore/:field', requireAuth, asyn
         return res.json({ success: true, url: result.url });
     } catch (err) {
         if (client) await client.query('ROLLBACK').catch(() => {});
-        return res.status(500).json({ success: false, error: err.message });
+        const status = err?.code === 'RECYCLE_BIN_TABLE_MISSING' ? 503 : 500;
+        return res.status(status).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
     }
