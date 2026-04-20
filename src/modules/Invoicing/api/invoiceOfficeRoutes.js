@@ -68,6 +68,12 @@ const FILE_FIELDS = {
 
 const uploaders = {};
 
+function isMissingColumnError(err, columnName) {
+    if (!err || !columnName) return false;
+    if (err.code === '42703') return true;
+    return new RegExp(`column\\s+"?${columnName}"?\\s+does not exist`, 'i').test(String(err.message || ''));
+}
+
 function getUploader(fieldKey) {
     if (uploaders[fieldKey]) return uploaders[fieldKey];
     const rule = FILE_FIELDS[fieldKey];
@@ -218,6 +224,24 @@ async function handleInvoiceOfficeUpload(req, res) {
             await client.query('COMMIT');
         } catch (dbErr) {
             await client.query('ROLLBACK').catch(() => {});
+            if (isMissingColumnError(dbErr, rule.column)) {
+                safeDelete(req.file.path);
+                logUpload({
+                    route: req.path,
+                    field,
+                    recordId: bubbleId,
+                    mime,
+                    sizeBytes: req.file.size,
+                    filename: req.file.filename,
+                    result: 'error',
+                    code: ERROR_CODES.DB_FAILED,
+                    error: dbErr.message,
+                });
+                return res.status(503).json(uploadError(ERROR_CODES.DB_FAILED, {
+                    field,
+                    error: `${rule.label} upload is not ready on this server yet. The database column "${rule.column}" is missing. Please apply the required migration first.`,
+                }));
+            }
             console.error('[InvoiceOffice Upload] DB update failed — orphaned file:', req.file.path, dbErr.message);
             logUpload({
                 route: req.path,

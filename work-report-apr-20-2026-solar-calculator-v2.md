@@ -13,6 +13,7 @@ REPO NAME : Solar Calculator v2
 - Updated the file upload processor guide to replace the old local trash-ledger fake-delete design with the additive recycle-bin table model.
 - Implemented recycle-bin based fake delete and restore for Invoice Office and SEDA uploads, with the new shared migration and live UI recovery actions.
 - Fixed the recycle-bin rollout guard so missing additive tables no longer block Invoice Office or SEDA page loads, and added a regression test for that fallback.
+- Hardened Invoice Office site assessment uploads so missing additive DB columns fail with a clear readiness error and clean up the saved file instead of misleading retryable DB-failure behavior.
 
 =====================
 
