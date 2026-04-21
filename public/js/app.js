@@ -19,6 +19,7 @@ let db = {
 // Debounce timer for spontaneous updates (slider/knob changes)
 let _spontaneousDebounceTimer = null;
 let _futureUsageDebounceTimer = null;
+let _solarRequestSeq = 0;
 let _futureUsageRequestSeq = 0;
 let futureUsageBlocks = Array(6).fill(false);
 
@@ -1049,6 +1050,9 @@ document.getElementById('billForm').addEventListener('submit', async function (e
         if (document.getElementById('afaRate')) document.getElementById('afaRate').value = afaRate.toFixed(4);
 
         // Reset solar results so stale data is cleared
+        clearTimeout(_spontaneousDebounceTimer);
+        _spontaneousDebounceTimer = null;
+        _solarRequestSeq += 1;
         latestSolarParams = null;
         latestSolarData = null;
         resetFutureUsageSimulation();
@@ -1083,7 +1087,9 @@ window.calculateSolarSavings = async function () {
     solarDiv.innerHTML = `<div class="py-16 text-center text-xs font-bold uppercase tracking-widest animate-pulse tier-3">Computing_ROI_Matrix...</div>`;
 
     try {
+        const requestSeq = ++_solarRequestSeq;
         const result = await fetchSolarCalculation(params);
+        if (requestSeq !== _solarRequestSeq) return;
         latestSolarData = result;
         displaySolarCalculation(result);
 
@@ -1167,12 +1173,14 @@ window.triggerSpontaneousUpdate = function (source) {
 async function runAndDisplay() {
     if (!latestSolarParams) return;
     try {
+        const requestSeq = ++_solarRequestSeq;
         const params = collectLiveSolarParams({
             batterySize: latestSolarParams.batterySize || 0,
             overridePanels: latestSolarParams.overridePanels
         });
         latestSolarParams = params;
         const result = await fetchSolarCalculation(params);
+        if (requestSeq !== _solarRequestSeq) return;
         latestSolarData = result;
         displaySolarCalculation(result);
     } catch (err) {
@@ -1444,6 +1452,7 @@ window.generateInvoiceLink = async function () {
     try {
         clearTimeout(_spontaneousDebounceTimer);
 
+        const requestSeq = ++_solarRequestSeq;
         const freshParams = collectLiveSolarParams({
             batterySize: latestSolarParams?.batterySize || 0,
             overridePanels: latestSolarParams?.overridePanels
@@ -1451,6 +1460,7 @@ window.generateInvoiceLink = async function () {
         latestSolarParams = freshParams;
 
         const freshResult = await fetchSolarCalculation(freshParams);
+        if (requestSeq !== _solarRequestSeq) return;
         latestSolarData = freshResult;
         displaySolarCalculation(freshResult);
     } catch (err) {

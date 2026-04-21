@@ -100,6 +100,9 @@ app.get('/v2-part-1.jpg', (req, res) => {
 app.get('/domestic-mobile', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic-mobile.html'));
 });
+app.get('/legacy-domestic', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'domestic.html'));
+});
 app.use('/proposal', express.static('portable-proposal'));
 app.use('/t3_html_presentation', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -305,7 +308,7 @@ app.post('/api/agent/register', async (req, res) => {
 });
 
 app.get('/domestic', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'domestic.html'));
+  res.sendFile(path.join(__dirname, 'public', 'domestic-mobile.html'));
 });
 
 app.get('/eei-optimizer', (req, res) => {
