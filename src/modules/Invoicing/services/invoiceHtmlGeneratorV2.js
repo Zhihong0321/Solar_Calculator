@@ -64,6 +64,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const layoutMode = String(options.layout || options.viewMode || '').toLowerCase();
     const isA4Preview = layoutMode === 'a4' || layoutMode === 'a4-preview' || layoutMode === 'print';
     const showInteractiveControls = !options.forPdf && !isA4Preview;
+    const viewerHasAuthenticatedUser = Boolean(options.viewerHasAuthenticatedUser);
     const estimateIdentifier = invoice.share_token || invoice.bubble_id || '';
     const estimatePanelQty = parseFloat(invoice.panel_qty) || 0;
     const estimatePanelRating = parseFloat(invoice.panel_rating) || 0;
@@ -413,6 +414,17 @@ body.a4-preview .terms-signature {
 
 .btn-referral { color: #10b981; border: 1px solid #10b981; }
 .btn-referral:hover { background: #10b981; color: #fff; }
+
+.btn-share {
+    color: #ffffff;
+    background: #0f2f6d;
+    border: 1px solid #0f2f6d;
+}
+.btn-share:hover {
+    background: #0a2350;
+    border-color: #0a2350;
+    color: #ffffff;
+}
 
 .btn-proposal { color: #2563eb; border: 1px solid #2563eb; }
 .btn-proposal:hover { background: #2563eb; color: #fff; }
@@ -1308,6 +1320,47 @@ body.a4-preview .terms-signature {
         window.open('/view/' + shareToken + '?layout=a4', '_blank', 'noopener');
       }
 
+      async function quickShareInvoice(identifier, invoiceNumber, documentType) {
+        const shareUrl = window.location.origin + '/view/' + identifier;
+        const shareTitle = [documentType, invoiceNumber].filter(Boolean).join(' ').trim() || 'Invoice';
+
+        try {
+          if (navigator.share) {
+            await navigator.share({
+              title: shareTitle,
+              text: shareTitle,
+              url: shareUrl
+            });
+            return;
+          }
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(shareUrl);
+            Swal.fire({
+              icon: 'success',
+              title: 'Link Copied',
+              text: 'Invoice link copied to clipboard.',
+              toast: true,
+              position: 'top-end',
+              showConfirmButton: false,
+              timer: 2500
+            });
+            return;
+          }
+
+          window.prompt('Copy this invoice link:', shareUrl);
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+
+          Swal.fire({
+            icon: 'error',
+            title: 'Share Failed',
+            text: 'Unable to share this invoice right now.',
+            confirmButtonColor: '#0f172a'
+          });
+        }
+      }
+
       const solarEstimateEndpointBase = window.location.pathname.startsWith('/view2/') ? '/view2/' : '/view/';
       const solarScenarioConfig = {
         low30: {
@@ -1995,6 +2048,11 @@ body.a4-preview .terms-signature {
                 <h1>${titleLabel}</h1>
                 ${showInteractiveControls ? `
                 <div class="invoice-actions no-print">
+                  ${(invoice.share_token || invoice.bubble_id) && viewerHasAuthenticatedUser ? `
+                  <button onclick='quickShareInvoice(${JSON.stringify(invoice.share_token || invoice.bubble_id)}, ${JSON.stringify(invoice.invoice_number || '')}, ${JSON.stringify(titleLabel)})' class="action-btn btn-share">
+                    <span>Share</span>
+                  </button>
+                  ` : ''}
                   ${invoice.share_token ? `
                   <button onclick="window.open('https://referral.atap.solar', '_blank')" class="action-btn btn-referral">
                     <span>Refer Program</span>

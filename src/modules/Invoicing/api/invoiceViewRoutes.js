@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const pool = require('../../../core/database/pool');
 const tariffPool = require('../../../core/database/tariffPool');
 const invoiceRepo = require('../services/invoiceRepo');
@@ -12,8 +13,29 @@ const externalPdfService = require('../services/externalPdfService');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
 const { getBillCycleMetrics, normalizeBillCycleMode } = require('../../SolarCalculator/services/billCycleModeService');
+const { normalizeIdentityValue } = require('../../../core/auth/userIdentity');
 
 const router = express.Router();
+
+function detectAuthenticatedViewer(req) {
+  const token = req.cookies?.auth_token;
+  if (!token) return null;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const identity = normalizeIdentityValue(
+      decoded?.bubbleId
+      || decoded?.bubble_id
+      || decoded?.userId
+      || decoded?.id
+      || decoded?.sub
+    );
+
+    return identity ? { identity } : null;
+  } catch (err) {
+    return null;
+  }
+}
 
 const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
   sunPeakHour: 3.4,
@@ -334,12 +356,16 @@ router.get('/view/:tokenOrId', async (req, res) => {
   try {
     const { tokenOrId } = req.params;
     const layout = String(req.query.layout || '').toLowerCase();
+    const authenticatedViewer = detectAuthenticatedViewer(req);
     const client = await pool.connect();
     try {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, { layout });
+        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, {
+          layout,
+          viewerHasAuthenticatedUser: Boolean(authenticatedViewer)
+        });
         res.send(html);
       } else {
         res.status(404).send('Invoice not found');
@@ -361,12 +387,16 @@ router.get('/view2/:tokenOrId', async (req, res) => {
   try {
     const { tokenOrId } = req.params;
     const layout = String(req.query.layout || '').toLowerCase();
+    const authenticatedViewer = detectAuthenticatedViewer(req);
     const client = await pool.connect();
     try {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, { layout });
+        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, {
+          layout,
+          viewerHasAuthenticatedUser: Boolean(authenticatedViewer)
+        });
         res.send(html);
       } else {
         res.status(404).send('Invoice not found');
