@@ -48,7 +48,17 @@ app.use((req, res, next) => {
 });
 
 app.use(cookieParser());
-app.use(express.json({ limit: '50mb' }));
+
+// Skip JSON body parsing for multipart/form-data requests (file uploads).
+// express.json() reads and exhausts the raw request stream. If it runs before
+// multer on a multipart upload, multer receives an empty body and req.file is
+// undefined — causing every SEDA TNB bill upload to silently fail with
+// "No file uploaded." This one-liner is the root fix for 90+ days of failures.
+app.use((req, res, next) => {
+  const ct = req.headers['content-type'] || '';
+  if (ct.startsWith('multipart/form-data')) return next();
+  return express.json({ limit: '50mb' })(req, res, next);
+});
 app.use((err, req, res, next) => {
   if (err?.type === 'entity.too.large') {
     return res.status(413).json({
@@ -84,11 +94,19 @@ app.use('/api/v1/bug', BugReport.bugRoutes);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
+app.get('/v2-part-1.jpg', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'slide-001.webp'));
+});
 app.get('/domestic-mobile', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic-mobile.html'));
 });
 app.use('/proposal', express.static('portable-proposal'));
-app.use('/t3_html_presentation', express.static('mobile_html_output'));
+app.use('/t3_html_presentation', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  return express.static('mobile_html_output')(req, res, next);
+});
 app.use('/company-logo', express.static(path.join(__dirname, 'v3-quotation-view', 'company-logo')));
 
 const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'storage');

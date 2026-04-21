@@ -15,5 +15,12 @@ REPO NAME : Solar Calculator v2
 - Verified proposal savings rendering matches saved residential calculator values and leaves commercial proposals unchanged.
 - Verified create-invoice keeps latest solar savings values from calculator through URL handoff, hidden fields, request payload, and invoice persistence.
 - Built and pushed the residential proposal savings display fix.
+- Investigated why invoice 1008371 is not visible in My-Invoice and confirmed it appears on page 2 due to date sorting.
+- Audited DB package phase data and confirmed which packages can be classified as 1P or 3P
+- Improved My-Invoice pagination so users can directly navigate to later pages and recover from invalid page states.
+- Updated residential package matching to enforce [1P] or [3P] package prefixes based on selected system phase
+- Built, tested, and pushed the My-Invoice pagination navigation fix.
+- Fixed phase-prefixed package selection and package ID handoff so prefixed residential packages can be detected and loaded in quotation flow
+- Verified 3-phase RM500 residential flow still maps to a selectable prefixed package under the current package-matching logic
 
 =====================

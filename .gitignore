@@ -54,3 +54,6 @@ temp/
 # AI Maintenance Archive
 
 _legacy/
+
+# MCP config (may contain API keys)
+.mcp.json

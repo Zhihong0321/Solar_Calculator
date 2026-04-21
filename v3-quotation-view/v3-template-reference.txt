@@ -1,0 +1,1434 @@
+<!-- Quotation Cover (Edge-to-Edge) -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#e2d8d2",
+                    "primary": "#003527",
+                    "on-tertiary": "#ffffff",
+                    "on-tertiary-container": "#ea9e93",
+                    "surface-variant": "#eae1da",
+                    "outline": "#707974",
+                    "surface-container-high": "#f0e6e0",
+                    "on-primary-fixed": "#002117",
+                    "tertiary": "#4f1f19",
+                    "primary-fixed-dim": "#95d3ba",
+                    "outline-variant": "#bfc9c3",
+                    "secondary-container": "#cce6d9",
+                    "secondary": "#4c6359",
+                    "primary-container": "#064e3b",
+                    "inverse-surface": "#342f2b",
+                    "surface-container-low": "#fcf2eb",
+                    "on-surface": "#1f1b17",
+                    "tertiary-container": "#6b342d",
+                    "on-tertiary-fixed": "#380d08",
+                    "surface-bright": "#fff8f5",
+                    "secondary-fixed": "#cfe8dc",
+                    "surface-container": "#f6ece6",
+                    "on-primary-fixed-variant": "#0b513d",
+                    "surface-tint": "#2b6954",
+                    "on-secondary-container": "#50685d",
+                    "on-secondary-fixed": "#091f18",
+                    "primary-fixed": "#b0f0d6",
+                    "on-tertiary-fixed-variant": "#6e372f",
+                    "on-primary-container": "#80bea6",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed-dim": "#ffb4a9",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed-variant": "#354b42",
+                    "tertiary-fixed": "#ffdad5",
+                    "surface-container-highest": "#eae1da",
+                    "inverse-primary": "#95d3ba",
+                    "error": "#ba1a1a",
+                    "on-surface-variant": "#404944",
+                    "inverse-on-surface": "#f9efe8",
+                    "error-container": "#ffdad6",
+                    "on-background": "#1f1b17",
+                    "on-secondary": "#ffffff",
+                    "background": "#fff8f5",
+                    "surface": "#fff8f5",
+                    "secondary-fixed-dim": "#b3ccc0",
+                    "on-primary": "#ffffff",
+                    "on-error": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .precision-grid {
+            background-image: radial-gradient(#707974 0.5px, transparent 0.5px);
+            background-size: 24px 24px;
+            opacity: 0.05;
+        }
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-[#fff8f5] dark:bg-stone-950 flex justify-between items-center w-full px-6 py-4 max-w-full sticky top-0 z-50">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#003527] dark:text-emerald-500">grid_view</span>
+<h1 class="text-xl font-black tracking-tighter text-[#003527] dark:text-emerald-400 font-['Inter']">Eternalgy</h1>
+</div>
+<nav class="hidden md:flex gap-8 items-center">
+<span class="text-[#003527] dark:text-emerald-400 font-bold font-['Inter'] tracking-tight cursor-pointer hover:bg-[#eae1da] dark:hover:bg-stone-800 transition-colors px-2 py-1 rounded">Summary</span>
+<span class="text-[#404944] dark:text-stone-400 font-['Inter'] tracking-tight cursor-pointer hover:bg-[#eae1da] dark:hover:bg-stone-800 transition-colors px-2 py-1 rounded">Technical</span>
+<span class="text-[#404944] dark:text-stone-400 font-['Inter'] tracking-tight cursor-pointer hover:bg-[#eae1da] dark:hover:bg-stone-800 transition-colors px-2 py-1 rounded">Financials</span>
+<span class="text-[#404944] dark:text-stone-400 font-['Inter'] tracking-tight cursor-pointer hover:bg-[#eae1da] dark:hover:bg-stone-800 transition-colors px-2 py-1 rounded">Approval</span>
+</nav>
+<div class="flex items-center gap-2">
+<button class="material-symbols-outlined text-[#003527] dark:text-emerald-500 p-2 hover:bg-[#eae1da] dark:hover:bg-stone-800 transition-colors rounded-full">file_download</button>
+</div>
+</header>
+<main class="flex-grow flex flex-col items-center relative overflow-hidden">
+<!-- Background Precision Grid Texture -->
+<div class="absolute inset-0 precision-grid pointer-events-none"></div>
+<!-- Hero Canvas Section: Edge to Edge -->
+<div class="w-full grid grid-cols-1 md:grid-cols-12 gap-0 relative">
+<!-- Side Accents (Asymmetric) -->
+<div class="hidden md:block md:col-span-1 border-r border-outline-variant/20 py-8">
+<div class="flex flex-col gap-12 items-center text-[10px] font-bold uppercase tracking-[0.3em] text-on-surface-variant/40 [writing-mode:vertical-lr] rotate-180">
+<span>Precision Editorial</span>
+<span>Executive Ledger v4.0</span>
+</div>
+</div>
+<!-- Content Area: No margin/shadow at edges -->
+<div class="md:col-span-11 grid grid-cols-1 md:grid-cols-2 bg-surface-container-lowest relative overflow-hidden">
+<!-- Image Section: High Quality Architectural Visual -->
+<div class="relative min-h-[400px] md:min-h-[600px] bg-surface-container-high group">
+<img alt="Modern architecture" class="absolute inset-0 w-full h-full object-cover filter contrast-125 grayscale hover:grayscale-0 transition-all duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCe6zxkDkDoOvrWoPApnTbNpWROgYsccxjdqIAcFo1an4QF__sLBW4cOA4u-WFsKlHSvDYjxBsdE0AS0CsoXz3HIAcosB7bACXZcXomITY2drC_MCZYpJk9WrTWZCwAojbEaahot4yFRpb7UY-q6PTXokEPh3jdAuX8pqXYo9ezS0e833SC_-QFtEwbrkBbFhp-po7tjjEoUNJUy45CoRec5OSz19D5zGc7vrJi62QeBVqPYk4NTb3bZ9zKbaBQ2plIrE8uzIC8Okg"/>
+<div class="absolute inset-0 bg-primary/10 mix-blend-multiply"></div>
+<!-- Floating Data Chip -->
+<div class="absolute top-6 left-6 flex items-center gap-2 bg-primary px-3 py-1.5 rounded-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-fixed-dim"></span>
+<span class="text-[10px] font-bold text-on-primary tracking-[0.15em] uppercase">Verified Asset</span>
+</div>
+</div>
+<!-- Textual Content Section: Use internal padding for balance -->
+<div class="p-8 md:p-16 flex flex-col justify-between border-l border-outline-variant/10">
+<!-- Header Group -->
+<div class="space-y-8">
+<div class="space-y-1">
+<p class="text-xs font-bold tracking-[0.4em] text-on-surface-variant uppercase">Proposal</p>
+<h2 class="text-4xl md:text-5xl font-extrabold tracking-tighter text-primary leading-none">
+                                SOLAR ENERGY<br/>QUOTATION
+                            </h2>
+</div>
+<div class="h-1 w-12 bg-primary"></div>
+<div class="space-y-6">
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60">Prepared for</label>
+<p class="text-xl font-medium tracking-tight text-on-surface">Mr. Gan Zhi Hong</p>
+</div>
+<div class="grid grid-cols-2 gap-8">
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60">Project Reference</label>
+<p class="text-sm font-semibold tracking-tight text-on-surface font-mono">INV-1008812</p>
+</div>
+<div class="space-y-1">
+<label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60">Issued Date</label>
+<p class="text-sm font-semibold tracking-tight text-on-surface">February 2026</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Group -->
+<div class="mt-20 md:mt-0 pt-12 space-y-8 border-t border-outline-variant/20">
+<div class="flex justify-between items-end">
+<div class="space-y-2">
+<label class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60">Proposed By</label>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-primary-container flex items-center justify-center rounded">
+<span class="material-symbols-outlined text-primary text-lg">solar_power</span>
+</div>
+<span class="text-lg font-black tracking-tight text-primary">Eternalgy Sdn Bhd</span>
+</div>
+</div>
+<div class="hidden sm:block">
+<span class="material-symbols-outlined text-outline-variant text-4xl">qr_code_2</span>
+</div>
+</div>
+<!-- CTA / Interaction -->
+<div class="flex gap-4">
+<button class="bg-primary text-on-primary px-6 py-3 text-xs font-bold uppercase tracking-widest rounded-sm hover:bg-primary-container transition-all flex items-center gap-2 group">
+                                View Proposal
+                                <span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+<button class="border border-outline-variant/40 text-on-surface-variant px-6 py-3 text-xs font-bold uppercase tracking-widest rounded-sm hover:bg-surface-variant transition-all">
+                                Download PDF
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Data Detail Bento Strip: Edge to Edge -->
+<div class="w-full grid grid-cols-2 md:grid-cols-4 gap-px bg-outline-variant/20 overflow-hidden border-y border-outline-variant/20">
+<div class="bg-surface-container-low p-6 flex flex-col gap-1">
+<span class="text-[9px] font-bold uppercase tracking-tighter text-on-surface-variant/50">Capacity</span>
+<span class="text-sm font-bold text-primary">12.4 kWp</span>
+</div>
+<div class="bg-surface-container-low p-6 flex flex-col gap-1">
+<span class="text-[9px] font-bold uppercase tracking-tighter text-on-surface-variant/50">Estimated ROI</span>
+<span class="text-sm font-bold text-primary">4.2 Years</span>
+</div>
+<div class="bg-surface-container-low p-6 flex flex-col gap-1">
+<span class="text-[9px] font-bold uppercase tracking-tighter text-on-surface-variant/50">Annual Savings</span>
+<span class="text-sm font-bold text-primary">RM 14,200</span>
+</div>
+<div class="bg-surface-container-low p-6 flex flex-col gap-1">
+<span class="text-[9px] font-bold uppercase tracking-tighter text-on-surface-variant/50">CO2 Offset</span>
+<span class="text-sm font-bold text-primary">8.5 Tons</span>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<footer class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-[#fff8f5]/80 backdrop-blur-md dark:bg-stone-950/80 shadow-2xl shadow-stone-900/5">
+<div class="flex flex-col items-center justify-center text-[#003527] dark:text-emerald-400 bg-[#eae1da] dark:bg-emerald-950/30 rounded-md px-3 py-1 transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Summary</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#404944] dark:text-stone-500 opacity-60 transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="solar_power">solar_power</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Technical</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#404944] dark:text-stone-500 opacity-60 transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Financials</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#404944] dark:text-stone-500 opacity-60 transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="draw">draw</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Approval</span>
+</div>
+</footer>
+<!-- FAB for focused action (Contextual) -->
+<div class="fixed bottom-24 right-8 md:bottom-8 md:right-8">
+<button class="bg-primary text-on-primary w-14 h-14 rounded-sm shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">edit_document</span>
+</button>
+</div>
+</body></html>
+
+<!-- Quotation Summary (Edge-to-Edge) -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#0b1c30",
+                    "on-secondary-fixed": "#0d1c2f",
+                    "on-error-container": "#93000a",
+                    "error-container": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "outline": "#76777d",
+                    "secondary": "#515f74",
+                    "tertiary-fixed-dim": "#b7c8e1",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "secondary-fixed-dim": "#b9c7e0",
+                    "error": "#ba1a1a",
+                    "surface-bright": "#fff8f5",
+                    "outline-variant": "#c6c6cd",
+                    "on-primary-fixed": "#131b2e",
+                    "surface-container": "#f6ece6",
+                    "on-tertiary-container": "#75859d",
+                    "on-surface": "#1f1b17",
+                    "surface-tint": "#565e74",
+                    "primary-fixed-dim": "#bec6e0",
+                    "primary-fixed": "#dae2fd",
+                    "surface-dim": "#e2d8d2",
+                    "on-background": "#1f1b17",
+                    "primary-container": "#131b2e",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#45464d",
+                    "surface-variant": "#eae1da",
+                    "on-tertiary-fixed-variant": "#38485d",
+                    "tertiary-fixed": "#d3e4fe",
+                    "on-primary": "#ffffff",
+                    "secondary-fixed": "#d5e3fd",
+                    "on-secondary-container": "#57657b",
+                    "primary": "#000000",
+                    "tertiary": "#000000",
+                    "on-primary-container": "#7c839b",
+                    "surface-container-high": "#f0e6e0",
+                    "surface-container-highest": "#eae1da",
+                    "inverse-on-surface": "#f9efe8",
+                    "secondary-container": "#d5e3fd",
+                    "on-secondary": "#ffffff",
+                    "tertiary-container": "#0b1c30",
+                    "on-secondary-fixed-variant": "#3a485c",
+                    "inverse-primary": "#bec6e0",
+                    "background": "#fff8f5",
+                    "inverse-surface": "#342f2b",
+                    "surface": "#fff8f5",
+                    "surface-container-low": "#fcf2eb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0px",
+                    "lg": "0px",
+                    "xl": "0px",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+        body {
+          min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-20 overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="bg-[#0F172A] text-white font-['Inter'] tracking-tight text-sm font-semibold uppercase rounded-none w-full top-0 sticky flex justify-between items-center px-6 h-16 w-full z-50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-on-primary-container flex items-center justify-center rounded-none overflow-hidden">
+<img alt="Executive Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuARV5C86jtL7OmrHcYRGNys8NOOhCOZdyKzygaf4AYCx8JZrguujvOr7J2s-1cc38PBK1LFIw-TPd6Bg_ZPySGZPX6s-dj5uCotorUQMxbNpF4nJhE5Kwv1atUtNVMpB6y8d8aqGUcoNH48dgmNlyIf-uazP93zG1SHL6jfqI076PFNh7ezjyzZmhNyzb4PN5YLBXbu0jYE69jzPiVkL8O61gnW23pyrUravzPy1HRgQB5cFoOTbXZA1imCir6hFBq-T_tvevfQAYY"/>
+</div>
+<span class="text-lg font-black tracking-tighter text-white">SOLAR ARCHIVE</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="hover:bg-slate-800 transition-colors p-2 active:scale-95 duration-100">
+<span class="material-symbols-outlined text-white" data-icon="settings">settings</span>
+</button>
+</div>
+</header>
+<div class="bg-[#131b2e] h-[1px] w-full"></div>
+<main class="w-full py-8">
+<!-- Hero Section: Executive Summary Metrics -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-0 mb-12">
+<div class="bg-surface-container-low p-8">
+<p class="label-sm text-secondary uppercase tracking-widest text-[0.6875rem] font-bold mb-2">Projected Savings</p>
+<p class="text-5xl font-black tracking-tighter text-primary">$142,850</p>
+<p class="text-xs text-on-surface-variant mt-2">25-Year Lifecycle Estimate</p>
+</div>
+<div class="bg-primary-container p-8">
+<p class="label-sm text-on-primary-container uppercase tracking-widest text-[0.6875rem] font-bold mb-2">System Payback</p>
+<p class="text-5xl font-black tracking-tighter text-white">4.2 <span class="text-xl">YRS</span></p>
+<p class="text-xs text-on-primary-container mt-2">Break-even Horizon</p>
+</div>
+<div class="bg-surface-container-highest p-8">
+<p class="label-sm text-secondary uppercase tracking-widest text-[0.6875rem] font-bold mb-2">System Capacity</p>
+<p class="text-5xl font-black tracking-tighter text-primary">18.4 <span class="text-xl">KW</span></p>
+<p class="text-xs text-on-surface-variant mt-2">Peak Photovoltaic Output</p>
+</div>
+</section>
+<!-- Main Ledger Content -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-0 md:gap-12">
+<!-- Left: Bill of Materials -->
+<div class="md:col-span-7">
+<h2 class="title-lg font-black tracking-tight text-primary uppercase mb-8 flex items-center gap-2 px-6">
+<span class="material-symbols-outlined" data-icon="architecture">architecture</span>
+                Technical Specifications
+            </h2>
+<div class="space-y-0">
+<!-- Component 1 -->
+<div class="bg-surface-container-low group">
+<div class="bg-surface-variant px-6 py-1">
+<span class="label-sm text-[0.6875rem] font-bold tracking-widest uppercase text-secondary">Photovoltaic Array</span>
+</div>
+<div class="p-6 flex justify-between items-start px-6">
+<div>
+<h3 class="font-bold text-lg text-primary">Jinko Tiger Neo 3 Series</h3>
+<p class="text-sm text-on-surface-variant max-w-xs mt-1">N-Type bifacial modules with 22.8% efficiency rating.</p>
+</div>
+<div class="text-right">
+<p class="font-black text-xl">46 <span class="text-xs font-normal">UNITS</span></p>
+</div>
+</div>
+</div>
+<div class="h-8"></div> <!-- Spacing instead of border -->
+<!-- Component 2 -->
+<div class="bg-surface-container-low group">
+<div class="bg-surface-variant px-6 py-1">
+<span class="label-sm text-[0.6875rem] font-bold tracking-widest uppercase text-secondary">Energy Storage</span>
+</div>
+<div class="p-6 flex justify-between items-start px-6">
+<div>
+<h3 class="font-bold text-lg text-primary">Tesla Powerwall 3</h3>
+<p class="text-sm text-on-surface-variant max-w-xs mt-1">Fully integrated solar and storage solution with backup power.</p>
+</div>
+<div class="text-right">
+<p class="font-black text-xl">2 <span class="text-xs font-normal">UNITS</span></p>
+</div>
+</div>
+</div>
+<div class="h-8"></div> <!-- Spacing instead of border -->
+<!-- Component 3 -->
+<div class="bg-surface-container-low group">
+<div class="bg-surface-variant px-6 py-1">
+<span class="label-sm text-[0.6875rem] font-bold tracking-widest uppercase text-secondary">Power Conversion</span>
+</div>
+<div class="p-6 flex justify-between items-start px-6">
+<div>
+<h3 class="font-bold text-lg text-primary">Enphase IQ8 Microinverters</h3>
+<p class="text-sm text-on-surface-variant max-w-xs mt-1">Smart-grid ready high-power microinverters.</p>
+</div>
+<div class="text-right">
+<p class="font-black text-xl">46 <span class="text-xs font-normal">UNITS</span></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Financial Ledger -->
+<div class="md:col-span-5">
+<div class="sticky top-24">
+<h2 class="title-lg font-black tracking-tight text-primary uppercase mb-8 flex items-center gap-2 px-6">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+                    Financial Overview
+                </h2>
+<div class="bg-surface-container-highest p-8 space-y-6">
+<div class="flex justify-between items-end">
+<span class="label-sm text-secondary uppercase font-bold text-[0.6875rem]">Gross Equipment Cost</span>
+<span class="font-bold text-primary">$54,200</span>
+</div>
+<div class="flex justify-between items-end">
+<span class="label-sm text-secondary uppercase font-bold text-[0.6875rem]">Installation &amp; Labor</span>
+<span class="font-bold text-primary">$12,500</span>
+</div>
+<div class="flex justify-between items-end">
+<span class="label-sm text-secondary uppercase font-bold text-[0.6875rem]">Federal ITC (30%)</span>
+<span class="font-bold text-error">-$20,010</span>
+</div>
+<div class="flex justify-between items-end">
+<span class="label-sm text-secondary uppercase font-bold text-[0.6875rem]">Local Utility Rebates</span>
+<span class="font-bold text-error">-$11,250</span>
+</div>
+<div class="pt-8 border-t border-outline-variant/30">
+<p class="label-sm text-secondary uppercase font-bold text-[0.6875rem] mb-2">Net Investment</p>
+<p class="text-5xl font-black text-primary tracking-tighter">$35,440</p>
+</div>
+<button class="w-full bg-primary-container text-white py-4 font-bold uppercase tracking-widest text-sm hover:bg-black transition-all active:scale-95">
+                        Approve Quotation
+                    </button>
+</div>
+<div class="mt-8 px-6 md:px-0">
+<div class="p-6 bg-surface-container-low flex gap-4 items-center">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="quiz">quiz</span>
+<div>
+<p class="font-bold text-primary">Need clarification?</p>
+<p class="text-xs text-on-surface-variant">Review our detailed FAQ regarding panel warranties and installation timelines.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Filtered for Quotation Context) -->
+<nav class="fixed bottom-0 left-0 w-full h-20 z-50 flex justify-around items-stretch bg-[#0F172A] text-white font-['Inter'] text-[10px] font-bold uppercase tracking-widest border-t border-slate-800 md:hidden">
+<a class="flex flex-col items-center justify-center text-white bg-[#131b2e] h-full w-full" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="request_quote">request_quote</span>
+        Quotation
+    </a>
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="architecture">architecture</span>
+        Specs
+    </a>
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="analytics">analytics</span>
+        Savings
+    </a>
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="quiz">quiz</span>
+        FAQ
+    </a>
+</nav>
+<!-- Map/Location Visualization Asymmetric Layout -->
+<section class="w-full mb-24 hidden md:block">
+<div class="grid grid-cols-12 gap-0 items-stretch h-[300px]">
+<div class="col-span-8 bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover grayscale contrast-125 opacity-80 mix-blend-multiply" data-alt="Modern residence roof with integrated sleek black solar panels at noon under clear blue sky with professional architectural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBejLL9AONTL5_mBWxs7O8b5CN1V6RnH903c9mNYV3LpquR65N-JB0VIqM1zwapennpGNP5s1JqcXeBV9GdAg6vkhaHB_39cz_RlnmrFW4tZUJ-6lreuaVLt7lwtKXjHO-jB8p1nrry9aexM49Lz6Bu939P2XdhVLo39BiCEI3q8zqAKvtaAOGtzTD8Xzt-rNOStYWTIgyH31qgIfdNDMk8coE1-CfBEogqvS_26QYWDvSvOs5pv1mOK850Kkhb2h5ySOZIgF7scYs"/>
+</div>
+<div class="col-span-4 bg-primary-container p-8 flex flex-col justify-center">
+<h4 class="text-white font-black uppercase tracking-tighter text-xl mb-4">Installation Context</h4>
+<p class="text-on-primary-container text-xs leading-relaxed uppercase tracking-widest">
+                Optimized for south-facing exposure with 0% shading interference. Projected annual generation: 24,500 kWh.
+            </p>
+<div class="mt-8 flex items-center gap-2">
+<span class="material-symbols-outlined text-white" data-icon="location_on">location_on</span>
+<span class="text-white text-xs font-bold uppercase" data-location="California">Sacramento, CA</span>
+</div>
+</div>
+</div>
+</section>
+</body></html>
+
+<!-- System Specs (Edge-to-Edge) -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SOLAR ARCHIVE | System Specifications</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#0b1c30",
+                    "on-secondary-fixed": "#0d1c2f",
+                    "on-error-container": "#93000a",
+                    "error-container": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "outline": "#76777d",
+                    "secondary": "#515f74",
+                    "tertiary-fixed-dim": "#b7c8e1",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "secondary-fixed-dim": "#b9c7e0",
+                    "error": "#ba1a1a",
+                    "surface-bright": "#fff8f5",
+                    "outline-variant": "#c6c6cd",
+                    "on-primary-fixed": "#131b2e",
+                    "surface-container": "#f6ece6",
+                    "on-tertiary-container": "#75859d",
+                    "on-surface": "#1f1b17",
+                    "surface-tint": "#565e74",
+                    "primary-fixed-dim": "#bec6e0",
+                    "primary-fixed": "#dae2fd",
+                    "surface-dim": "#e2d8d2",
+                    "on-background": "#1f1b17",
+                    "primary-container": "#131b2e",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#45464d",
+                    "surface-variant": "#eae1da",
+                    "on-tertiary-fixed-variant": "#38485d",
+                    "tertiary-fixed": "#d3e4fe",
+                    "on-primary": "#ffffff",
+                    "secondary-fixed": "#d5e3fd",
+                    "on-secondary-container": "#57657b",
+                    "primary": "#000000",
+                    "tertiary": "#000000",
+                    "on-primary-container": "#7c839b",
+                    "surface-container-high": "#f0e6e0",
+                    "surface-container-highest": "#eae1da",
+                    "inverse-on-surface": "#f9efe8",
+                    "secondary-container": "#d5e3fd",
+                    "on-secondary": "#ffffff",
+                    "tertiary-container": "#0b1c30",
+                    "on-secondary-fixed-variant": "#3a485c",
+                    "inverse-primary": "#bec6e0",
+                    "background": "#fff8f5",
+                    "inverse-surface": "#342f2b",
+                    "surface": "#fff8f5",
+                    "surface-container-low": "#fcf2eb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0rem",
+                    "lg": "0rem",
+                    "xl": "0rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(24px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#0F172A] text-white font-['Inter'] tracking-tight text-sm font-semibold uppercase rounded-none w-full top-0 sticky z-50">
+<div class="flex justify-between items-center px-6 h-16 w-full">
+<div class="flex items-center gap-4">
+<div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] overflow-hidden border border-slate-600">
+<img class="w-full h-full object-cover" data-alt="Professional executive headshot in business attire with neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoeAWj49i-lwA_fe1CXE4ixdGu4lGRzq545cOjZ7K4Q51ddi7u-TOtY5pCFTV-tIeZi7GBeVwW6oT_6E1QfK4TOAx6m-ZRyJhKVTC89Fewy0AMvP0Misx096PAfNqY2Ww431Zosrcvc8ikju3VNvHSU2RBZSWj_XbzqXyw9--fNnNkY7zpFmhTkOFIbT53x2FFMaqEIuZwW0hLiNxaeLqK5DOvXTqnKkhLj8RUjRNO-GC5LLh8XCKo2Syj6MsM-nSs1UF-DBF-V0M"/>
+</div>
+<span class="text-lg font-black tracking-tighter text-white">SOLAR ARCHIVE</span>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-slate-400 hover:bg-slate-800 transition-colors px-2 py-1" href="#">Quotation</a>
+<a class="text-white font-bold hover:bg-slate-800 transition-colors px-2 py-1" href="#">Specs</a>
+<a class="text-slate-400 hover:bg-slate-800 transition-colors px-2 py-1" href="#">Savings</a>
+<a class="text-slate-400 hover:bg-slate-800 transition-colors px-2 py-1" href="#">FAQ</a>
+</nav>
+<span class="material-symbols-outlined cursor-pointer hover:bg-slate-800 transition-colors p-2">settings</span>
+</div>
+</div>
+<div class="bg-[#131b2e] h-[1px] w-full"></div>
+</header>
+<main class="w-full py-12">
+<!-- Hero Metrics -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-0 mb-16 items-end">
+<div class="md:col-span-2 px-6">
+<p class="text-secondary font-bold text-[10px] uppercase tracking-[0.2em] mb-4">Core System Specification</p>
+<h1 class="text-[3.5rem] font-black leading-[0.9] tracking-tighter text-primary mb-2 uppercase">Jinko Tiger Neo 3</h1>
+<p class="text-secondary text-sm max-w-md font-medium">Enterprise-grade photovoltaic infrastructure utilizing IBC Monocrystalline architecture for maximum spatial efficiency.</p>
+</div>
+<div class="bg-primary-container p-8 text-white flex flex-col justify-between h-48">
+<p class="text-[10px] font-bold uppercase tracking-widest opacity-60">System Rating</p>
+<div>
+<span class="text-5xl font-black tracking-tighter">22.8%</span>
+<p class="text-xs font-medium text-on-primary-container">Conversion Efficiency</p>
+</div>
+</div>
+</section>
+<!-- Technical Ledger Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+<!-- Specs Column 1 -->
+<div class="lg:col-span-4 space-y-12">
+<div class="space-y-6 px-6">
+<div class="bg-surface-container-highest p-1 h-1 w-12"></div>
+<h3 class="text-[1.375rem] font-extrabold tracking-[-0.02em] text-primary uppercase">Module Inventory</h3>
+<div class="space-y-4">
+<div class="flex justify-between items-end pb-4 border-b border-outline-variant/15">
+<span class="text-[10px] font-bold uppercase tracking-widest text-secondary">Unit Count</span>
+<span class="text-xl font-black">32 Units</span>
+</div>
+<div class="flex justify-between items-end pb-4 border-b border-outline-variant/15">
+<span class="text-[10px] font-bold uppercase tracking-widest text-secondary">Cell Tech</span>
+<span class="text-xl font-black text-right">IBC Monocrystalline</span>
+</div>
+<div class="flex justify-between items-end pb-4 border-b border-outline-variant/15">
+<span class="text-[10px] font-bold uppercase tracking-widest text-secondary">Warranty Period</span>
+<span class="text-xl font-black">40 Years</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-8">
+<h3 class="text-[10px] font-bold uppercase tracking-widest text-secondary mb-6">Inverter Control</h3>
+<div class="flex items-center gap-6 mb-6">
+<div class="w-16 h-16 bg-white flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-primary">dynamic_form</span>
+</div>
+<div>
+<p class="text-lg font-black uppercase tracking-tight">SolarEdge</p>
+<p class="text-xs text-secondary font-medium">Smart Energy Manager</p>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">High-definition wave technology with module-level power optimization and integrated safe-DC shutdown protocols.</p>
+</div>
+</div>
+<!-- Central Visual Anchor -->
+<div class="lg:col-span-5 relative">
+<div class="aspect-[4/5] bg-surface-container-highest relative overflow-hidden group">
+<img class="w-full h-full object-cover" data-alt="High-angle cinematic shot of dark blue high-efficiency solar panels installed on a modern architectural roof" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBapEP1B8j5BZrtyXHHGfg9GSmdmIecejcdt-WkKfOP2TmkveM1HSGfIF3f2cA70UoGIiI8iBljikwpxOgUHev-TNNr4uQdXrNP5obJuwENC_nz33Y558KWg0J0_A3Mwxge1bJf76-rdld0jdEfc5YjN7SaA2TNeSdOBYWXjIwg8fQmfgfQRq9n-9PVe9aVYEG5JLMgvdNb1_thIMVG4WieBmz_NcmytSK-_ficW-LclqvKTglM_DHKrPWfJFTpkY7pUTOyZ_BPt7Q"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent flex flex-col justify-end p-8">
+<span class="text-[10px] font-bold text-white uppercase tracking-widest mb-2">Build Quality</span>
+<h4 class="text-2xl font-black text-white uppercase">Architectural Integration</h4>
+</div>
+</div>
+<!-- Floating Spec Overlay -->
+<div class="absolute -bottom-6 right-0 glass-panel p-8 w-64 shadow-2xl">
+<div class="flex items-center gap-2 mb-4">
+<span class="w-2 h-2 bg-primary"></span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Storage Matrix</span>
+</div>
+<p class="text-xl font-black mb-1 uppercase tracking-tighter">Tesla Powerwall 2</p>
+<p class="text-xs text-secondary mb-4">13.5 kWh Usable Capacity</p>
+<div class="w-full h-1 bg-surface-variant">
+<div class="w-4/5 h-full bg-primary"></div>
+</div>
+</div>
+</div>
+<!-- Specs Column 2 -->
+<div class="lg:col-span-3 space-y-12">
+<div class="space-y-8">
+<div>
+<p class="text-[10px] font-black uppercase tracking-widest text-primary mb-4 px-6">Output Log</p>
+<div class="bg-surface-container-low p-6">
+<div class="flex justify-between items-baseline mb-1">
+<span class="text-3xl font-black">14.4</span>
+<span class="text-xs font-bold uppercase">kWp</span>
+</div>
+<p class="text-[10px] font-bold text-secondary uppercase">Peak System Capacity</p>
+</div>
+</div>
+<div class="space-y-4 px-6">
+<p class="text-[10px] font-black uppercase tracking-widest text-primary">Structural Data</p>
+<ul class="text-[11px] font-medium text-on-surface-variant space-y-4">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-sm mt-0.5">check_circle</span>
+<span>Snow Load: 5400 Pa Certified</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-sm mt-0.5">check_circle</span>
+<span>Wind Load: 2400 Pa Certified</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-sm mt-0.5">check_circle</span>
+<span>Dimensions: 1722 × 1134 × 30 mm</span>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-sm mt-0.5">check_circle</span>
+<span>Weight: 22.0 kg / Panel</span>
+</li>
+</ul>
+</div>
+<div class="pt-8">
+<button class="w-full bg-primary text-white py-5 px-8 text-xs font-bold uppercase tracking-widest hover:bg-primary-container transition-colors">
+                            Generate Full Audit
+                        </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Ledger Footer Data -->
+<section class="mt-24 pt-12 border-t border-outline-variant/30 grid grid-cols-2 md:grid-cols-4 gap-8 px-6">
+<div>
+<p class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">Cell Architecture</p>
+<p class="text-sm font-black uppercase">N-Type SMBB</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">Operating Temp</p>
+<p class="text-sm font-black uppercase">-40°C ~ +85°C</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">Protection Class</p>
+<p class="text-sm font-black uppercase">IP68 Rated</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1">Efficiency Decay</p>
+<p class="text-sm font-black uppercase">0.4% Annual Max</p>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full h-20 z-50 flex justify-around items-stretch bg-[#0F172A] border-t border-slate-800">
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined">request_quote</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Quotation</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white bg-[#131b2e] h-full w-full transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">architecture</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Specs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">Savings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined">quiz</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest mt-1">FAQ</span>
+</a>
+</nav>
+</body></html>
+
+<!-- Savings Estimation (Edge-to-Edge) -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Solar Archive - Savings Estimation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#0b1c30",
+                    "on-secondary-fixed": "#0d1c2f",
+                    "on-error-container": "#93000a",
+                    "error-container": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "outline": "#76777d",
+                    "secondary": "#515f74",
+                    "tertiary-fixed-dim": "#b7c8e1",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "secondary-fixed-dim": "#b9c7e0",
+                    "error": "#ba1a1a",
+                    "surface-bright": "#fff8f5",
+                    "outline-variant": "#c6c6cd",
+                    "on-primary-fixed": "#131b2e",
+                    "surface-container": "#f6ece6",
+                    "on-tertiary-container": "#75859d",
+                    "on-surface": "#1f1b17",
+                    "surface-tint": "#565e74",
+                    "primary-fixed-dim": "#bec6e0",
+                    "primary-fixed": "#dae2fd",
+                    "surface-dim": "#e2d8d2",
+                    "on-background": "#1f1b17",
+                    "primary-container": "#131b2e",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#45464d",
+                    "surface-variant": "#eae1da",
+                    "on-tertiary-fixed-variant": "#38485d",
+                    "tertiary-fixed": "#d3e4fe",
+                    "on-primary": "#ffffff",
+                    "secondary-fixed": "#d5e3fd",
+                    "on-secondary-container": "#57657b",
+                    "primary": "#000000",
+                    "tertiary": "#000000",
+                    "on-primary-container": "#7c839b",
+                    "surface-container-high": "#f0e6e0",
+                    "surface-container-highest": "#eae1da",
+                    "inverse-on-surface": "#f9efe8",
+                    "secondary-container": "#d5e3fd",
+                    "on-secondary": "#ffffff",
+                    "tertiary-container": "#0b1c30",
+                    "on-secondary-fixed-variant": "#3a485c",
+                    "inverse-primary": "#bec6e0",
+                    "background": "#fff8f5",
+                    "inverse-surface": "#342f2b",
+                    "surface": "#fff8f5",
+                    "surface-container-low": "#fcf2eb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0px",
+                    "lg": "0px",
+                    "xl": "0px",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen pb-24">
+<!-- TopAppBar -->
+<nav class="bg-[#0F172A] dark:bg-[#000000] flex justify-between items-center px-6 h-16 w-full rounded-none top-0 sticky z-50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container text-sm">person</span>
+</div>
+<span class="text-white font-['Inter'] tracking-tight text-sm font-semibold uppercase">Executive Profile</span>
+</div>
+<div class="text-lg font-black tracking-tighter text-white">SOLAR ARCHIVE</div>
+<div class="hover:bg-slate-800 transition-colors p-2 cursor-pointer">
+<span class="material-symbols-outlined text-white">settings</span>
+</div>
+</nav>
+<div class="bg-[#131b2e] h-[1px] w-full"></div>
+<main class="w-full space-y-6">
+<!-- Executive Summary Header -->
+<header class="flex flex-col md:flex-row justify-between items-end border-b border-outline-variant/15 pb-6 px-4 md:px-8 pt-4 md:pt-8">
+<div class="w-full">
+<p class="text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-secondary mb-1">Portfolio Performance</p>
+<h1 class="text-4xl md:text-5xl font-black tracking-tighter text-primary">SAVINGS ESTIMATION</h1>
+</div>
+<div class="hidden md:block text-right">
+<p class="text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-secondary">Reference ID</p>
+<p class="font-mono text-xs text-on-surface-variant">SA-2024-QX-8821</p>
+</div>
+</header>
+<!-- Bento Grid for Core Metrics - Edge to Edge -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-0">
+<!-- Monthly Comparison Ledger -->
+<div class="md:col-span-8 bg-surface-container-low p-6 md:p-8">
+<div class="flex justify-between items-start mb-12">
+<div>
+<h2 class="text-sm font-bold uppercase tracking-widest text-primary mb-6">Monthly Bill Comparison</h2>
+<div class="flex items-baseline gap-4">
+<div class="space-y-1">
+<span class="text-[0.625rem] font-bold uppercase text-secondary">Historical Average</span>
+<div class="text-3xl font-light text-secondary line-through decoration-1">RM 520.00</div>
+</div>
+<span class="material-symbols-outlined text-primary self-center">arrow_forward</span>
+<div class="space-y-1">
+<span class="text-[0.625rem] font-bold uppercase text-primary">Projected Solar</span>
+<div class="text-6xl font-black text-primary tracking-tighter">RM 46.19</div>
+</div>
+</div>
+</div>
+<div class="text-right">
+<span class="inline-block px-3 py-1 bg-primary text-white text-[10px] font-bold uppercase tracking-widest mb-2">91.1% Reduction</span>
+<p class="text-xs text-secondary italic">Estimated based on 12.5kWp system</p>
+</div>
+</div>
+<!-- Technical Specification List -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-8 border-t border-outline-variant/20">
+<div class="space-y-1">
+<p class="text-[0.6875rem] font-bold uppercase text-secondary">Net Savings</p>
+<p class="text-lg font-bold text-primary">RM 473.81/mo</p>
+</div>
+<div class="space-y-1">
+<p class="text-[0.6875rem] font-bold uppercase text-secondary">Annual Yield</p>
+<p class="text-lg font-bold text-primary">15,420 kWh</p>
+</div>
+<div class="space-y-1">
+<p class="text-[0.6875rem] font-bold uppercase text-secondary">System ROI</p>
+<p class="text-lg font-bold text-primary">4.2 Years</p>
+</div>
+<div class="space-y-1">
+<p class="text-[0.6875rem] font-bold uppercase text-secondary">Tier Efficiency</p>
+<p class="text-lg font-bold text-primary">Tier 1 Opt.</p>
+</div>
+</div>
+</div>
+<!-- Environmental Impact Card -->
+<div class="md:col-span-4 bg-primary-container p-6 md:p-8 text-white flex flex-col justify-between">
+<div>
+<h2 class="text-xs font-bold uppercase tracking-[0.2em] text-on-primary-container mb-8">Asset Impact</h2>
+<div class="flex items-center gap-4 mb-4">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">park</span>
+<div>
+<p class="text-4xl font-black tracking-tighter">124 TREES</p>
+<p class="text-[0.6875rem] font-medium text-on-primary-container uppercase">Annual Carbon Sequestration</p>
+</div>
+</div>
+</div>
+<div class="bg-[#1a253d] p-4">
+<p class="text-[0.625rem] font-bold text-on-primary-container uppercase mb-2">Sustainability Ledger</p>
+<p class="text-sm leading-tight text-slate-300">Equivalent to removing 8.4 metric tons of CO2 annually from the regional power grid.</p>
+</div>
+</div>
+</div>
+<!-- Investment Ledger Table - Full Bleed -->
+<section class="space-y-6 pt-6">
+<h3 class="text-xs font-bold uppercase tracking-[0.2em] text-secondary px-4 md:px-8">Investment Ledger (10-Year Projection)</h3>
+<div class="overflow-x-auto w-full">
+<table class="w-full text-left border-collapse min-w-full">
+<thead>
+<tr class="bg-surface-container-highest border-b border-primary">
+<th class="p-4 md:px-8 text-[0.6875rem] font-black uppercase tracking-widest text-primary">Fiscal Year</th>
+<th class="p-4 text-[0.6875rem] font-black uppercase tracking-widest text-primary">Projected Yield</th>
+<th class="p-4 text-[0.6875rem] font-black uppercase tracking-widest text-primary">Grid Offset</th>
+<th class="p-4 text-[0.6875rem] font-black uppercase tracking-widest text-primary">Cumulative Savings</th>
+<th class="p-4 md:px-8 text-[0.6875rem] font-black uppercase tracking-widest text-primary text-right">Asset Value</th>
+</tr>
+</thead>
+<tbody class="text-sm font-medium">
+<tr class="bg-surface-container-low/50 hover:bg-surface-container-high transition-colors">
+<td class="p-4 md:px-8 font-mono">2024 (Y1)</td>
+<td class="p-4 italic">15,420 kWh</td>
+<td class="p-4">RM 5,685</td>
+<td class="p-4">RM 5,685</td>
+<td class="p-4 md:px-8 text-right">98%</td>
+</tr>
+<tr class="bg-surface border-t border-outline-variant/10 hover:bg-surface-container-high transition-colors">
+<td class="p-4 md:px-8 font-mono">2025 (Y2)</td>
+<td class="p-4 italic">15,340 kWh</td>
+<td class="p-4">RM 5,912</td>
+<td class="p-4">RM 11,597</td>
+<td class="p-4 md:px-8 text-right">96%</td>
+</tr>
+<tr class="bg-surface-container-low/50 border-t border-outline-variant/10 hover:bg-surface-container-high transition-colors">
+<td class="p-4 md:px-8 font-mono">2026 (Y3)</td>
+<td class="p-4 italic">15,260 kWh</td>
+<td class="p-4">RM 6,148</td>
+<td class="p-4">RM 17,745</td>
+<td class="p-4 md:px-8 text-right">94%</td>
+</tr>
+<tr class="bg-surface border-t border-outline-variant/10 hover:bg-surface-container-high transition-colors font-bold bg-primary-container/5">
+<td class="p-4 md:px-8 font-mono">2028 (Y5)</td>
+<td class="p-4 italic text-primary-container">15,100 kWh</td>
+<td class="p-4 text-primary-container">RM 6,650</td>
+<td class="p-4 text-primary-container underline decoration-2 underline-offset-4">RM 31,043</td>
+<td class="p-4 md:px-8 text-right">91%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Asymmetric CTA Section - Edge to Edge -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-0 pt-8">
+<div class="relative h-64 bg-surface-container-highest">
+<img alt="Close-up of high-efficiency monocrystalline solar cells with dark blue metallic texture" class="w-full h-full object-cover mix-blend-multiply opacity-80" data-alt="Close-up of high-efficiency monocrystalline solar cells with dark blue metallic texture and sharp structural grid lines" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcT7X4zF57IST1VNKdDj_iXTo2g4cWZqtMiq9HJvcF4QtcuBMP6IxoAk0NfGq4LjqGBEvDhTa43JeBdjoOp4Ro7pqFdS_yIjF3Zf_hyxVTA2NEo2mZcQGpFHOW_BL4nLGAQpmxHnLOLOyJ46uE0vH78lNxBEO-CXx1I2LkunqFZFm3bVjUf19sq6Fa16mZj-nwdC66YrItY1m5l3SWw6NsBeUVNx4G9b9v-9X0hAVoIlZdzJUULpDhEP2Fp0UOt5enDFladb_SNtM"/>
+<div class="absolute inset-0 bg-primary-container/20"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<p class="text-white text-xs font-bold uppercase tracking-[0.2em] drop-shadow-md">Technical Verification</p>
+<p class="text-white text-[10px] opacity-75">All calculations based on PVGIS global solar irradiation data for the specified coordinates.</p>
+</div>
+</div>
+<div class="space-y-6 p-6 md:p-12">
+<h4 class="text-2xl font-black tracking-tight text-primary">READY TO EXECUTE?</h4>
+<p class="text-secondary text-sm leading-relaxed">
+                    This estimation is an executive-level projection. Lock in current utility rates and start your archival journey. Final technical survey required for structural validation.
+                </p>
+<div class="flex gap-4">
+<button class="bg-primary-container text-white flex-1 md:flex-none px-8 py-4 font-bold uppercase tracking-widest text-xs hover:bg-black transition-all active:scale-95 duration-75">
+                        Download Report
+                    </button>
+<button class="bg-surface-container-highest text-primary flex-1 md:flex-none px-8 py-4 font-bold uppercase tracking-widest text-xs hover:bg-surface-dim transition-all active:scale-95 duration-75">
+                        Contact Analyst
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<footer class="fixed bottom-0 left-0 w-full h-20 z-50 flex justify-around items-stretch bg-[#0F172A] dark:bg-[#000000] border-t border-slate-800">
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1">request_quote</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest">Quotation</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1">architecture</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest">Specs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white bg-[#131b2e] h-full w-full active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1">analytics</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest">Savings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1">quiz</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest">FAQ</span>
+</a>
+</footer>
+</body></html>
+
+<!-- FAQ & Terms (Edge-to-Edge) -->
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Solar Archive - FAQ &amp; Terms</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#0b1c30",
+                    "on-secondary-fixed": "#0d1c2f",
+                    "on-error-container": "#93000a",
+                    "error-container": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "outline": "#76777d",
+                    "secondary": "#515f74",
+                    "tertiary-fixed-dim": "#b7c8e1",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "secondary-fixed-dim": "#b9c7e0",
+                    "error": "#ba1a1a",
+                    "surface-bright": "#fff8f5",
+                    "outline-variant": "#c6c6cd",
+                    "on-primary-fixed": "#131b2e",
+                    "surface-container": "#f6ece6",
+                    "on-tertiary-container": "#75859d",
+                    "on-surface": "#1f1b17",
+                    "surface-tint": "#565e74",
+                    "primary-fixed-dim": "#bec6e0",
+                    "primary-fixed": "#dae2fd",
+                    "surface-dim": "#e2d8d2",
+                    "on-background": "#1f1b17",
+                    "primary-container": "#131b2e",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#45464d",
+                    "surface-variant": "#eae1da",
+                    "on-tertiary-fixed-variant": "#38485d",
+                    "tertiary-fixed": "#d3e4fe",
+                    "on-primary": "#ffffff",
+                    "secondary-fixed": "#d5e3fd",
+                    "on-secondary-container": "#57657b",
+                    "primary": "#000000",
+                    "tertiary": "#000000",
+                    "on-on-primary-container": "#7c839b",
+                    "surface-container-high": "#f0e6e0",
+                    "surface-container-highest": "#eae1da",
+                    "inverse-on-surface": "#f9efe8",
+                    "secondary-container": "#d5e3fd",
+                    "on-secondary": "#ffffff",
+                    "tertiary-container": "#0b1c30",
+                    "on-secondary-fixed-variant": "#3a485c",
+                    "inverse-primary": "#bec6e0",
+                    "background": "#fff8f5",
+                    "inverse-surface": "#342f2b",
+                    "surface": "#fff8f5",
+                    "surface-container-low": "#fcf2eb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0px",
+                    "lg": "0px",
+                    "xl": "0px",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fff8f5;
+            overflow-x: hidden;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="text-on-surface antialiased w-full overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="bg-[#0F172A] dark:bg-[#000000] text-white font-['Inter'] tracking-tight text-sm font-semibold uppercase rounded-none w-full top-0 sticky z-50">
+<div class="flex justify-between items-center px-4 h-16 w-full">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container-highest flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</div>
+<span class="text-lg font-black tracking-tighter text-white">SOLAR ARCHIVE</span>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex gap-8 items-center">
+<span class="text-slate-400 hover:bg-slate-800 transition-colors px-2 py-1 cursor-pointer">Quotation</span>
+<span class="text-slate-400 hover:bg-slate-800 transition-colors px-2 py-1 cursor-pointer">Specs</span>
+<span class="text-slate-400 hover:bg-slate-800 transition-colors px-2 py-1 cursor-pointer">Savings</span>
+<span class="text-white font-bold hover:bg-slate-800 transition-colors px-2 py-1 cursor-pointer">FAQ</span>
+</nav>
+<span class="material-symbols-outlined cursor-pointer hover:bg-slate-800 p-2 transition-colors">settings</span>
+</div>
+</div>
+<div class="bg-[#131b2e] h-[1px] w-full"></div>
+</header>
+<main class="w-full pt-12 pb-32">
+<!-- Hero Section -->
+<div class="mb-16 px-4">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-end">
+<div class="md:col-span-8">
+<p class="text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-secondary mb-4">Registry v.4.02</p>
+<h1 class="text-[3.5rem] font-extrabold leading-[0.95] tracking-tighter text-primary uppercase">Knowledge Hub &amp; Governance</h1>
+</div>
+<div class="md:col-span-4 md:text-right">
+<p class="text-label-sm text-secondary leading-relaxed max-w-none md:max-w-xs md:ml-auto">
+                        Centralized repository for technical specifications, financial projection methodologies, and legal compliance frameworks.
+                    </p>
+</div>
+</div>
+</div>
+<!-- Bento Grid for Knowledge Hub -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-0 mb-16">
+<!-- Installation -->
+<div class="bg-surface-container-low p-8 border-b md:border-b-0 md:border-r border-outline-variant/15">
+<div class="flex justify-between items-start mb-12">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">architecture</span>
+<span class="text-[0.625rem] font-bold text-outline uppercase tracking-widest">SEC_01</span>
+</div>
+<h3 class="text-xl font-bold uppercase tracking-tight mb-4">Installation</h3>
+<ul class="space-y-4 text-xs font-medium text-secondary">
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>STRUCTURAL AUDIT</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>ARRAY PLACEMENT</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>GRID INTEGRATION</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+</ul>
+</div>
+<!-- Financial ROI -->
+<div class="bg-surface-container-high p-8 border-b md:border-b-0 md:border-r border-outline-variant/15">
+<div class="flex justify-between items-start mb-12">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="text-[0.625rem] font-bold text-outline uppercase tracking-widest">SEC_02</span>
+</div>
+<h3 class="text-xl font-bold uppercase tracking-tight mb-4">Financial ROI</h3>
+<ul class="space-y-4 text-xs font-medium text-secondary">
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>TAX INCENTIVES</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>AMORTIZATION</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>NET METERING</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+</ul>
+</div>
+<!-- Technology -->
+<div class="bg-surface-container-low p-8 border-b md:border-b-0 md:border-r border-outline-variant/15">
+<div class="flex justify-between items-start mb-12">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">memory</span>
+<span class="text-[0.625rem] font-bold text-outline uppercase tracking-widest">SEC_03</span>
+</div>
+<h3 class="text-xl font-bold uppercase tracking-tight mb-4">Technology</h3>
+<ul class="space-y-4 text-xs font-medium text-secondary">
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>PV EFFICIENCY</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>STORAGE SYSTEMS</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>INVERTER LOGIC</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+</ul>
+</div>
+<!-- Warranty -->
+<div class="bg-surface-container-high p-8">
+<div class="flex justify-between items-start mb-12">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-[0.625rem] font-bold text-outline uppercase tracking-widest">SEC_04</span>
+</div>
+<h3 class="text-xl font-bold uppercase tracking-tight mb-4">Warranty</h3>
+<ul class="space-y-4 text-xs font-medium text-secondary">
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>PERFORMANCE BOND</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>HARDWARE COVER</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+<li class="flex justify-between items-center hover:text-primary cursor-pointer group">
+<span>SERVICE LEVEL</span>
+<span class="material-symbols-outlined text-[14px] opacity-0 group-hover:opacity-100">arrow_forward</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- Ledger Style FAQ Content -->
+<div class="mb-24">
+<div class="flex items-center gap-4 mb-8 px-4">
+<h2 class="text-[0.6875rem] font-bold uppercase tracking-[0.2em] text-primary">Inquiry Ledger</h2>
+<div class="h-px bg-outline-variant/20 flex-grow"></div>
+</div>
+<div class="space-y-0">
+<!-- FAQ Item 1 -->
+<div class="group bg-surface hover:bg-surface-container-lowest transition-colors cursor-pointer">
+<div class="grid grid-cols-1 md:grid-cols-12 py-10 px-4 items-baseline border-b border-outline-variant/10">
+<div class="md:col-span-1 text-[0.625rem] font-bold text-secondary mb-2 md:mb-0">001</div>
+<div class="md:col-span-4">
+<h4 class="text-sm font-bold uppercase tracking-tight text-primary">How is the performance degradation calculated over 25 years?</h4>
+</div>
+<div class="md:col-span-6 md:pl-8">
+<p class="text-xs text-secondary leading-relaxed font-medium">
+                                We utilize a standard linear degradation model of 0.5% annually. Each asset in the Solar Archive is benchmarked against real-world degradation datasets ensuring the ROI remains within 3.2% of the projected trajectory over the full lifecycle.
+                            </p>
+</div>
+<div class="md:col-span-1 text-right mt-4 md:mt-0">
+<span class="material-symbols-outlined text-secondary group-hover:text-primary transition-colors">add</span>
+</div>
+</div>
+</div>
+<!-- FAQ Item 2 -->
+<div class="group bg-surface hover:bg-surface-container-lowest transition-colors cursor-pointer">
+<div class="grid grid-cols-1 md:grid-cols-12 py-10 px-4 items-baseline border-b border-outline-variant/10">
+<div class="md:col-span-1 text-[0.625rem] font-bold text-secondary mb-2 md:mb-0">002</div>
+<div class="md:col-span-4">
+<h4 class="text-sm font-bold uppercase tracking-tight text-primary">What protocols govern battery discharge during peak grid demand?</h4>
+</div>
+<div class="md:col-span-6 md:pl-8">
+<p class="text-xs text-secondary leading-relaxed font-medium">
+                                Smart-Grid Integration (SGI) protocols prioritize localized load shedding before grid export. The system automatically switches to battery reserve when dynamic pricing exceeds the predefined executive threshold.
+                            </p>
+</div>
+<div class="md:col-span-1 text-right mt-4 md:mt-0">
+<span class="material-symbols-outlined text-secondary group-hover:text-primary transition-colors">add</span>
+</div>
+</div>
+</div>
+<!-- FAQ Item 3 -->
+<div class="group bg-surface hover:bg-surface-container-lowest transition-colors cursor-pointer">
+<div class="grid grid-cols-1 md:grid-cols-12 py-10 px-4 items-baseline border-b border-outline-variant/10">
+<div class="md:col-span-1 text-[0.625rem] font-bold text-secondary mb-2 md:mb-0">003</div>
+<div class="md:col-span-4">
+<h4 class="text-sm font-bold uppercase tracking-tight text-primary">Liability boundaries for unforeseen structural atmospheric events?</h4>
+</div>
+<div class="md:col-span-6 md:pl-8">
+<p class="text-xs text-secondary leading-relaxed font-medium">
+                                The Master Service Agreement covers all hardware failure due to standard operational fatigue. Extraordinary atmospheric events are categorized under Force Majeure and handled through the bundled secondary insurance ledger.
+                            </p>
+</div>
+<div class="md:col-span-1 text-right mt-4 md:mt-0">
+<span class="material-symbols-outlined text-secondary group-hover:text-primary transition-colors">add</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Service Governance (Terms) -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-0 items-start">
+<div class="border-b md:border-b-0 md:border-r border-outline-variant/10">
+<div class="flex items-center gap-4 mb-10 px-4 mt-16 md:mt-0">
+<h2 class="text-[0.6875rem] font-bold uppercase tracking-[0.2em] text-primary">Master Agreement</h2>
+<div class="h-px bg-outline-variant/20 flex-grow"></div>
+</div>
+<div class="bg-surface-container-highest p-8 md:p-12 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<span class="text-[4rem] font-black opacity-[0.03] select-none">LEGAL</span>
+</div>
+<div class="space-y-8 relative z-10">
+<div>
+<span class="text-[0.625rem] font-bold text-primary tracking-widest block mb-2">ARTICLE I: DATA FIDELITY</span>
+<p class="text-[11px] leading-loose text-secondary font-medium">
+                                Solar Archive reserves the right to aggregate system performance data for the purpose of refining architectural projection algorithms. User identity remains siloed within the encrypted primary vault.
+                            </p>
+</div>
+<div>
+<span class="text-[0.625rem] font-bold text-primary tracking-widest block mb-2">ARTICLE II: OPERATIONAL CONTINUITY</span>
+<p class="text-[11px] leading-loose text-secondary font-medium">
+                                Continuous uptime is guaranteed at 99.8% for all monitoring interfaces. Technical interventions required for maintenance are scheduled within a 72-hour notification window.
+                            </p>
+</div>
+<button class="w-full bg-primary-container text-white py-4 font-bold text-xs uppercase tracking-widest hover:bg-black transition-all">Download Full Ledger (PDF)</button>
+</div>
+</div>
+</div>
+<div>
+<div class="flex items-center gap-4 mb-10 px-4 mt-16 md:mt-0">
+<h2 class="text-[0.6875rem] font-bold uppercase tracking-[0.2em] text-primary">Privacy Framework</h2>
+<div class="h-px bg-outline-variant/20 flex-grow"></div>
+</div>
+<div class="space-y-6 px-4 pb-12">
+<div class="flex gap-6 items-start">
+<div class="w-12 h-12 bg-surface-container flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">encrypted</span>
+</div>
+<div>
+<h5 class="text-xs font-extrabold uppercase mb-2">Zero-Leak Architecture</h5>
+<p class="text-[11px] text-secondary leading-relaxed">
+                                Our data infrastructure is built on private ledger technology, ensuring that your energy footprint remains confidential and non-traceable by third-party utilities.
+                            </p>
+</div>
+</div>
+<div class="flex gap-6 items-start">
+<div class="w-12 h-12 bg-surface-container flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">policy</span>
+</div>
+<div>
+<h5 class="text-xs font-extrabold uppercase mb-2">Governance Audit</h5>
+<p class="text-[11px] text-secondary leading-relaxed">
+                                Bi-annual audits are conducted by independent structural and financial authorities to ensure Solar Archive maintains maximum transparency for stakeholders.
+                            </p>
+</div>
+</div>
+<div class="pt-6 border-t border-outline-variant/20">
+<div class="flex justify-between items-center text-[0.625rem] font-bold text-secondary">
+<span>LAST REVISION: OCT 2024</span>
+<a class="underline hover:text-primary" href="#">REQUEST REVISION LOG</a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full h-20 z-50 flex justify-around items-stretch bg-[#0F172A] dark:bg-[#000000] border-t border-slate-800 md:hidden">
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1">request_quote</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest">Quotation</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1">architecture</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest">Specs</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1">analytics</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest">Savings</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white bg-[#131b2e] h-full w-full hover:text-white transition-all active:bg-black duration-75" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">quiz</span>
+<span class="font-['Inter'] text-[10px] font-bold uppercase tracking-widest">FAQ</span>
+</a>
+</nav>
+<!-- Visual Anchor Decoration (Asymmetric Element) -->
+<div class="fixed top-1/2 -right-12 -translate-y-1/2 opacity-5 pointer-events-none hidden lg:block">
+<img alt="Architectural Blueprint Detail" class="w-[400px] grayscale" data-alt="Technical blueprint lines and architectural drafting details on stone gray textured paper, highly professional and precise" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAS6TU8HmYZm5BIwR70iXCUEdT_UDWxjiTaVS1n40kPn3XzbnDFI4u1q1j7GYcGlIk-DY8d4XNjUuD9p4Nj5T4GHqoZIcXkDKJGcCK7OU3IGTujNFJkgTiq-esXjNrvo_v1LutbH5HplQ_ZJydQ_CcVaZuw9dxk66HyUFEyp9XolX1HWdsSVbJd3cOEGnhZqx3estCiFaEqDjj6_syo4mc11ktAyJi1JipclWCokE30YgUdLcxp12t7CDa7XzLanASzQV_zlfFOgnw"/>
+</div>
+</body></html>

@@ -19,6 +19,16 @@ REPO NAME : Solar Calculator v2
 - Reviewed seda-form upload flow against the shared file upload processor and identified the remaining page wiring blocker.
 - Updated the SEDA form to use the shared upload flow, show MyKad thumbnails after upload, and accept TNB bill image uploads.
 - Rechecked the SEDA upload changes and validated them with the repo build and SEDA upload test.
+- Checked SEDA page access rules and identified which users can view the record.
+- Built a local multi-database Postgres MCP with local-only secret files and per-database permissions.
+- Moved the Postgres MCP out of the repo into E:\mcp\postgres-multi and cleaned the repo-level setup back out.
+- Simplified the external Postgres MCP to support a single-file direct URL setup and diagnosed the remaining placeholder env value blocking connection.
+- Simplified the external Postgres MCP to one visible JSON config file and removed the confusing hidden-file setup.
+- Enabled the external postgres-multi MCP in the repo-level .mcp.json configuration.
+- Collapsed the external Postgres MCP to a one-file config design and added a direct smoke test that confirms handshake and tool listing.
+- Verified the external postgres-multi MCP handshake and confirmed its solar_prod Railway database connection with a live read query.
+- Fixed SEDA ownership checks to honor legacy creator IDs and linked invoice agent ownership, unblocking the owner of seda_ca86de41bd6eb039 from opening the form.
+- Patched the production SEDA table so null agent values are backfilled from linked invoice agents, including seda_ca86de41bd6eb039, and verified no matching null-agent rows remain.
 
 =====================
 

@@ -20,5 +20,6 @@ REPO NAME : Solar Calculator v2
 - Restored invoice preview buttons on My Invoice and Invoice Office, with fallback viewer links for older invoices.
 - Restyled invoice payment method card to match summary width and page text colors
 - Changed edit invoice save flow to open invoice preview and renamed action to Save And Preview
+- Audited live Postgres inverter product names and package links for hybrid upgrade auto-detection planning
 
 =====================

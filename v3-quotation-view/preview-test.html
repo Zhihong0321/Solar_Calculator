@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>QUOTATION INV-1008812</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#003527",
+            "on-primary": "#ffffff",
+            "primary-container": "#131b2e",
+            "on-primary-container": "#7c9e8f",
+            "secondary": "#515f74",
+            "on-secondary": "#ffffff",
+            "surface": "#fff8f5",
+            "on-surface": "#1f1b17",
+            "surface-variant": "#eae1da",
+            "on-surface-variant": "#45464d",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#fcf2eb",
+            "surface-container": "#f6ece6",
+            "surface-container-high": "#f0e6e0",
+            "surface-container-highest": "#eae1da",
+            "outline": "#76777d",
+            "outline-variant": "#c6c6cd",
+            "inverse-surface": "#342f2b",
+            "primary-fixed-dim": "#95d3ba"
+          },
+          fontFamily: { sans: ["Inter", "sans-serif"] },
+          borderRadius: {
+            "DEFAULT": "0px",
+            "sm": "0px",
+            "md": "0px",
+            "lg": "0px",
+            "xl": "0px",
+            "2xl": "0px",
+            "3xl": "0px",
+            "full": "9999px"
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; min-height: max(884px, 100dvh); background: #fff8f5; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; display: inline-block; line-height: 1; }
+    section.tab-panel { display: none; }
+    section.tab-panel.active { display: block; animation: fadeIn 0.25s ease forwards; }
+    .nav-btn.active { color: white !important; background-color: #131b2e; }
+    .nav-btn.active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .ledger-divider { border-bottom: 1px solid rgba(198,198,205,0.2); }
+    .component-card { background: #fcf2eb; }
+    .component-card-label { background: #eae1da; }
+  </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col ">
+
+  <!-- STICKY DARK HEADER — Stitch "Solar Archive" style -->
+  <header class="bg-[#0F172A] text-white sticky top-0 z-50 w-full">
+    <div class="flex justify-between items-center px-5 h-14 w-full">
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 bg-surface-container-highest flex items-center justify-center">
+          <span class="material-symbols-outlined text-primary-container" style="font-size:1rem;font-variation-settings:'FILL' 1">solar_power</span>
+        </div>
+        <span class="text-base font-black tracking-tighter text-white uppercase">ETERNALGY SDN BHD</span>
+      </div>
+      <div class="flex items-center gap-1">
+        
+      <div class="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+        
+          <a href="/view-v3-preview/cf490b3de244e6bf4ea25cb9da5ddfb1739644e73d7f9b55874a9d5694ce3e86" class="transition-colors hover:text-primary text-primary underline underline-offset-4 decoration-2">
+            English
+          </a>
+        <span class="text-outline-variant/40">/</span>
+          <a href="/view-v3-preview/cf490b3de244e6bf4ea25cb9da5ddfb1739644e73d7f9b55874a9d5694ce3e86?lang=zh-Hans" class="transition-colors hover:text-primary ">
+            中文
+          </a>
+        <span class="text-outline-variant/40">/</span>
+          <a href="/view-v3-preview/cf490b3de244e6bf4ea25cb9da5ddfb1739644e73d7f9b55874a9d5694ce3e86?lang=ms-MY" class="transition-colors hover:text-primary ">
+            Melayu
+          </a>
+        
+      </div>
+    
+        <button onclick="downloadPdf()" class="hover:bg-slate-800 transition-colors p-2 active:scale-95 duration-100 ml-2">
+          <span class="material-symbols-outlined text-white" style="font-size:1.1rem">picture_as_pdf</span>
+        </button>
+      </div>
+    </div>
+    <div class="bg-[#131b2e] h-px w-full"></div>
+  </header>
+
+  <main class="flex-grow pb-24" id="main-container">
+
+    <!-- HOME TAB -->
+    <section id="home" class="tab-panel active w-full">
+      <!-- Edge-to-edge hero — dark gradient overlay like Stitch -->
+      <div class="relative w-full min-h-[50vw] max-h-[55vh] bg-[#0F172A] overflow-hidden">
+        <img alt="Solar installation" class="absolute inset-0 w-full h-full object-cover filter contrast-125 grayscale opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCe6zxkDkDoOvrWoPApnTbNpWROgYsccxjdqIAcFo1an4QF__sLBW4cOA4u-WFsKlHSvDYjxBsdE0AS0CsoXz3HIAcosB7bACXZcXomITY2drC_MCZYpJk9WrTWZCwAojbEaahot4yFRpb7UY-q6PTXokEPh3jdAuX8pqXYo9ezS0e833SC_-QFtEwbrkBbFhp-po7tjjEoUNJUy45CoRec5OSz19D5zGc7vrJi62QeBVqPYk4NTb3bZ9zKbaBQ2plIrE8uzIC8Okg">
+        <div class="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/40 to-transparent"></div>
+        <!-- Verified chip -->
+        <div class="absolute top-4 left-4 flex items-center gap-2 bg-primary px-3 py-1.5 z-10">
+          <span class="w-1.5 h-1.5 bg-primary-fixed-dim"></span>
+          <span class="text-[10px] font-bold text-white tracking-[0.15em] uppercase">Verified Asset</span>
+        </div>
+        <!-- Hero text pinned to bottom of image -->
+        <div class="absolute bottom-0 left-0 right-0 px-5 pb-5">
+          <p class="text-[9px] font-bold tracking-[0.3em] text-white/40 uppercase mb-1">Proposal</p>
+          <h2 class="text-[2.2rem] font-black tracking-tighter text-white leading-[0.95] uppercase">SOLAR ENERGY<br>QUOTATION</h2>
+        </div>
+      </div>
+
+      <!-- Executive summary header — border-bottom ledger style -->
+      <div class="border-b border-outline-variant/15 px-5 py-5">
+        <div class="grid grid-cols-2 gap-0">
+          <div class="pr-5 border-r border-outline-variant/15">
+            <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">Prepared for</p>
+            <p class="text-sm font-black tracking-tight text-on-surface uppercase leading-snug">Eng Ann Metal Works SDN BHD</p>
+          </div>
+          <div class="pl-5">
+            <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">Project Reference</p>
+            <p class="text-sm font-black font-mono text-on-surface">INV-1008812</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full-bleed bento stats — no gaps, tonal backgrounds -->
+      <div class="grid grid-cols-2 gap-0">
+        <div class="bg-surface-container-low p-5 border-r border-b border-outline-variant/15">
+          <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-2">System Capacity</p>
+          <p class="text-3xl font-black tracking-tighter text-primary">13.65 <span class="text-base font-medium">kWp</span></p>
+        </div>
+        <div class="bg-primary-container p-5 border-b border-outline-variant/15">
+          <p class="text-[9px] font-bold uppercase tracking-widest text-on-primary-container mb-2">Estimated Saving</p>
+          <p class="text-3xl font-black tracking-tighter text-white">RM 473.81</p>
+        </div>
+        <div class="bg-surface-container-highest p-5 border-r border-outline-variant/15">
+          <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-2">Issued Date</p>
+          <p class="text-sm font-bold text-on-surface">1 Apr 2026</p>
+        </div>
+        <div class="bg-surface-container-low p-5">
+          <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-2">Proposed By</p>
+          <p class="text-sm font-bold text-on-surface">System</p>
+        </div>
+      </div>
+
+      <!-- CTA row -->
+      <div class="px-5 py-5 flex gap-3">
+        <button onclick="switchTab('quotation')" class="flex-1 bg-primary-container text-white py-4 text-[11px] font-bold uppercase tracking-widest active:scale-95 transition-transform flex justify-center items-center gap-2 hover:bg-black transition-colors">
+          View Proposal <span class="material-symbols-outlined" style="font-size:1rem">arrow_forward</span>
+        </button>
+        <button onclick="switchTab('spec')" class="px-5 py-4 bg-surface-container-highest text-on-surface text-[11px] font-bold uppercase tracking-widest active:scale-95 transition-transform hover:bg-surface-container-high transition-colors">
+          <span class="material-symbols-outlined" style="font-size:1rem">description</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- SPEC TAB -->
+    <section id="spec" class="tab-panel w-full pb-10">
+      <!-- Section header — ledger style with border-bottom -->
+      <div class="border-b border-outline-variant/15 px-5 pt-6 pb-5">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">01. System Spec</p>
+        <h2 class="text-[2rem] font-black tracking-tighter text-primary uppercase leading-[0.95]">System Spec Summary</h2>
+        <p class="text-xs mt-2 text-on-surface-variant">Key details about your solar installation.</p>
+      </div>
+
+      <!-- System summary — full-bleed bento, no gaps -->
+      <div class="grid grid-cols-2 gap-0">
+        <div class="bg-surface-container-low p-5 border-r border-b border-outline-variant/15">
+          <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-2">Package</p>
+          <p class="text-sm font-black text-primary uppercase leading-snug">STRING SAJ JINKO 21 PCS</p>
+        </div>
+        <div class="bg-surface-container-highest p-5 border-b border-outline-variant/15">
+          <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-2">System Size</p>
+          <p class="text-3xl font-black tracking-tighter text-primary">13.65 <span class="text-base font-medium">kWp</span></p>
+        </div>
+      </div>
+
+      <!-- Components — Stitch "component card" pattern: label strip + content -->
+      <div class="px-5 pt-6 pb-2">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary">Hardware Components</p>
+      </div>
+      <div class="space-y-0">
+        
+            <div class="component-card">
+              <div class="component-card-label px-5 py-1.5">
+                <span class="text-[9px] font-bold tracking-widest uppercase text-secondary">ITEM 01</span>
+              </div>
+              <div class="px-5 py-4 flex justify-between items-start">
+                <div class="flex-1 pr-4">
+                  <h4 class="font-bold text-sm text-primary leading-snug">STRING SAJ JINKO 21 PCS</h4>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="font-black text-xl text-on-surface">1 <span class="text-xs font-normal text-secondary">UNITS</span></p>
+                </div>
+              </div>
+            </div>
+            <div class="h-4 bg-surface"></div>
+          
+      </div>
+
+      <!-- Warranty — same ledger pattern -->
+      <div class="px-5 pt-4 pb-2">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary">Coverage Summary</p>
+      </div>
+      <div class="space-y-0">
+        
+          <div class="component-card">
+            <div class="component-card-label px-5 py-1.5 flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary" style="font-size:0.9rem;font-variation-settings:'FILL' 1">verified_user</span>
+              <span class="text-[9px] font-bold tracking-widest uppercase text-secondary">Installation</span>
+            </div>
+            <div class="px-5 py-4">
+              <p class="text-xs leading-relaxed text-on-surface-variant whitespace-pre-wrap">1 Year Roof Leaking Warranty
+3 Years Workmanship Warranty</p>
+            </div>
+          </div>
+          <div class="h-4 bg-surface"></div>
+        
+          <div class="component-card">
+            <div class="component-card-label px-5 py-1.5 flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary" style="font-size:0.9rem;font-variation-settings:'FILL' 1">verified_user</span>
+              <span class="text-[9px] font-bold tracking-widest uppercase text-secondary">[3P] SAJ R5 10KW String Inverter</span>
+            </div>
+            <div class="px-5 py-4">
+              <p class="text-xs leading-relaxed text-on-surface-variant whitespace-pre-wrap">10 Years Product Warranty</p>
+            </div>
+          </div>
+          <div class="h-4 bg-surface"></div>
+        
+          <div class="component-card">
+            <div class="component-card-label px-5 py-1.5 flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary" style="font-size:0.9rem;font-variation-settings:'FILL' 1">verified_user</span>
+              <span class="text-[9px] font-bold tracking-widest uppercase text-secondary">650W JinkoSolar Panel N-Type TOPCon  </span>
+            </div>
+            <div class="px-5 py-4">
+              <p class="text-xs leading-relaxed text-on-surface-variant whitespace-pre-wrap">12 Years Product Warranty
+30 Years Linear Power Warranty</p>
+            </div>
+          </div>
+          <div class="h-4 bg-surface"></div>
+        
+      </div>
+    </section>
+
+    <!-- QUOTATION TAB -->
+    <section id="quotation" class="tab-panel w-full pb-10">
+      <!-- Section header -->
+      <div class="border-b border-outline-variant/15 px-5 pt-6 pb-5">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">04. Commercial</p>
+        <h2 class="text-[2rem] font-black tracking-tighter text-primary uppercase leading-[0.95]">Quotation Details</h2>
+      </div>
+
+      <!-- Savings hero — dark navy block like Stitch "Investment Ledger" -->
+      <div class="bg-primary-container text-white px-5 py-6 relative overflow-hidden">
+        <div class="absolute top-0 right-0 p-5 pointer-events-none opacity-5">
+          <span class="material-symbols-outlined" style="font-size:5rem">savings</span>
+        </div>
+        <p class="text-[9px] font-bold uppercase tracking-widest text-on-primary-container mb-3">Savings Estimation</p>
+        <div class="flex items-baseline gap-3 mb-3">
+          <div>
+            <p class="text-[9px] font-bold uppercase text-on-primary-container mb-1">Current Bill</p>
+            <p class="text-xl font-light text-on-primary-container line-through decoration-1">RM 719.90</p>
+          </div>
+          <span class="material-symbols-outlined text-on-primary-container self-center" style="font-size:1rem">arrow_forward</span>
+          <div>
+            <p class="text-[9px] font-bold uppercase text-on-primary-container mb-1">Solar Bill</p>
+            <p class="text-4xl font-black tracking-tighter text-white">RM 246.09</p>
+          </div>
+        </div>
+        <div class="mt-4 space-y-2 border-t border-white/10 pt-4">
+          <div class="flex justify-between items-baseline">
+            <span class="text-[9px] uppercase tracking-widest text-on-primary-container">Monthly Saving</span>
+            <span class="font-black text-white">RM 473.81</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Line items — Stitch component card pattern -->
+      <div class="px-5 pt-6 pb-2">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary">Description</p>
+      </div>
+      <div class="space-y-0">
+        
+            <div class="component-card">
+              <div class="component-card-label px-5 py-1.5 flex justify-between items-center">
+                <span class="text-[9px] font-bold tracking-widest uppercase text-secondary">21X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon  
+1X [3P] SAJ R5 10KW String Inverter
+1X SEDA ATAP Application
+TNB Smart Meter Application
+Solar System Architecture Design
+Electrical System Design
+Roof and Site Surveying
+Roof Panel Installation
+Electrical Works
+SkyLif</span>
+              </div>
+              <div class="px-5 py-4 flex justify-between items-start">
+                <div class="flex gap-4 text-[10px] uppercase font-bold tracking-widest text-secondary">
+                  <span>QTY: 1</span>
+                  <span>UNIT: RM 38591.00</span>
+                </div>
+                <p class="font-black text-xl text-primary">RM 38591.00</p>
+              </div>
+            </div>
+            <div class="h-3 bg-surface"></div>
+          
+      </div>
+
+      <!-- Financial totals — full-bleed tonal block -->
+      <div class="bg-surface-container-highest px-5 py-6 space-y-3 mt-2">
+        
+          <div class="flex justify-between items-center text-sm font-semibold ledger-divider pb-3 text-on-surface-variant">
+            <span>Subtotal</span>
+            <span>RM 38591.00</span>
+          </div>
+        
+        <div class="flex justify-between items-end pt-2">
+          <span class="text-[9px] font-bold uppercase tracking-widest text-secondary">Total Amount</span>
+          <span class="text-4xl font-black text-primary tracking-tighter">RM 38591.00</span>
+        </div>
+      </div>
+
+      <!-- Payment details -->
+      <div class="px-5 pt-6 pb-2">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary">Payment Details</p>
+      </div>
+      <div class="component-card mx-0">
+        <div class="component-card-label px-5 py-1.5">
+          <span class="text-[9px] font-bold tracking-widest uppercase text-secondary">Bank</span>
+        </div>
+        <div class="px-5 py-3 flex justify-between items-baseline ledger-divider">
+          <span class="text-[9px] font-bold uppercase tracking-widest text-secondary">Bank</span>
+          <span class="text-sm font-bold text-on-surface">MAYBANK</span>
+        </div>
+        <div class="px-5 py-3 flex justify-between items-baseline ledger-divider">
+          <span class="text-[9px] font-bold uppercase tracking-widest text-secondary">Account Number</span>
+          <span class="text-sm font-black font-mono text-on-surface">501534157918</span>
+        </div>
+        <div class="px-5 py-3 flex justify-between items-baseline">
+          <span class="text-[9px] font-bold uppercase tracking-widest text-secondary">Account Name</span>
+          <span class="text-sm font-bold text-on-surface">ETERNALGY SDN BHD</span>
+        </div>
+      </div>
+
+      <!-- Signature block -->
+      <div class="px-5 pt-6 pb-2">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary">Confirmation</p>
+      </div>
+      <div class="component-card mx-0 text-center">
+        
+          <div class="py-8 flex flex-col items-center">
+            <span class="material-symbols-outlined text-4xl text-outline-variant/40 mb-3">ink_pen</span>
+            <p class="text-sm font-medium text-on-surface-variant mb-5">Awaiting signature.</p>
+            <button onclick="window.open('/view-v3-preview/cf490b3de244e6bf4ea25cb9da5ddfb1739644e73d7f9b55874a9d5694ce3e86')" class="bg-[#0F172A] text-white px-6 py-3 text-[10px] uppercase font-bold tracking-widest active:scale-95 transition-transform">Sign Online</button>
+          </div>
+        
+      </div>
+      <div class="h-6 bg-surface"></div>
+    </section>
+
+    <!-- SLIDE TAB -->
+    <section id="slide" class="tab-panel w-full pb-10">
+      <div class="border-b border-outline-variant/15 px-5 pt-6 pb-5">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">05. Presentation</p>
+        <h2 class="text-[2rem] font-black tracking-tighter text-primary uppercase leading-[0.95]">Product Information</h2>
+        <p class="text-xs mt-2 text-on-surface-variant">Supporting details for the components in your package.</p>
+      </div>
+
+      <!-- Presentation card — full bleed image with dark overlay -->
+      <a href="/t3_html_presentation/solar-proposal-2026-tiger-neo-3/?customer_name=Eng+Ann+Metal+Works+SDN+BHD&customer_address=No.40%2C+Jalan+Indah+2%2F9%2C%0ATaman+Kluang+Indah%2C%0A86000+Kluang%2C%0AJohor.&panel_qty=21&panel_rating=650&system_size_kwp=13.65" target="_blank" class="block overflow-hidden active:scale-[0.98] transition-transform">
+        <div class="relative">
+          <img src="/commercial_demo_v2.webp" onerror="this.src='/v2-part-1.jpg'" class="w-full aspect-[4/3] object-cover filter contrast-110" alt="Presentation Cover">
+          <div class="absolute inset-0 bg-gradient-to-t from-[#0F172A]/80 to-transparent"></div>
+          <div class="absolute bottom-0 left-0 right-0 px-5 pb-5 flex justify-between items-end">
+            <div>
+              <p class="text-[9px] font-bold uppercase tracking-widest text-white/50 mb-1">05. Presentation</p>
+              <h4 class="font-black text-lg text-white uppercase leading-tight">TigerNeo 3 Presentation</h4>
+              <p class="text-xs text-white/60 mt-0.5">STRING SAJ JINKO 21 PCS</p>
+            </div>
+            <div class="w-10 h-10 bg-primary-container flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-white" style="font-size:1.1rem">launch</span>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- PDF download — full-bleed tonal button -->
+      <button onclick="downloadPdf()" class="w-full flex items-center justify-center gap-2 bg-surface-container-highest py-5 text-[11px] font-bold uppercase tracking-widest text-primary active:scale-95 transition-transform hover:bg-surface-container-high transition-colors mt-0">
+        <span class="material-symbols-outlined" style="font-size:1rem">picture_as_pdf</span>
+        Download PDF
+      </button>
+    </section>
+
+    <!-- TNC TAB -->
+    <section id="tnc" class="tab-panel w-full pb-16">
+      <div class="border-b border-outline-variant/15 px-5 pt-6 pb-5">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary mb-1">06. Terms</p>
+        <h2 class="text-[2rem] font-black tracking-tighter text-primary uppercase leading-[0.95]">Terms & Conditions</h2>
+      </div>
+
+      <!-- Terms — Stitch "Knowledge Hub" style: tonal block, no border -->
+      <div class="bg-surface-container-low px-5 py-6 relative overflow-hidden">
+        <div class="absolute top-0 right-0 p-4 pointer-events-none select-none">
+          <span class="text-[5rem] font-black text-primary opacity-[0.025] leading-none">T&amp;C</span>
+        </div>
+        <div class="text-xs leading-loose text-on-surface-variant whitespace-pre-wrap relative z-10">
+          
+PRIVACY POLICY
+1. Collection of Personal Information:
+We may collect the following types of personal information from you:
+Contact Information: Including your name, address, email address, and phone number.
+Installation Address: Necessary for site visits and project planning.
+Financial Information: Payment details and related financial information for billing purposes.
+
+2. Use of Personal Information:
+We will use your personal information for the following purposes:
+SEDA ATAP SOLAR Quota Application: To facilitate the application for ATAP SOLAR quota with SEDA Malaysia, we will use the required information provided by you.
+
+Installation Planning: We may share your information with our EPCC partner to plan and execute the installation of the solar PV system upon approval by SEDA Malaysia.
+
+3. Sharing of Personal Information:
+We may share your personal information with third parties in the following situations:
+SEDA Malaysia: We will share the necessary information required for the ATAP SOLAR quota application with SEDA Malaysia.
+
+EPCC Partner: We will provide your information to our EPCC partner for the sole purpose of facilitating the installation process upon SEDA approval. Our EPCC partner is bound by confidentiality agreements to protect your data.
+
+4. Data Security:
+We take reasonable and appropriate measures to safeguard your personal information. Access to your data is restricted to authorized personnel and is protected through security measures, including encryption and access controls.
+
+5. Data Retention:
+We will retain your personal information only for the period required to fulfill the purposes outlined in this Privacy Policy or as required by applicable laws and regulations.
+
+6. Consent:
+By engaging our services, you consent to the collection and use of your personal information as outlined in this Privacy Policy.
+
+7. Changes to Privacy Policy:
+Eternalgy Sdn Bhd reserves the right to amend or update this Privacy Policy as necessary. Any changes will be communicated to you in writing.
+
+8. Contact Information:
+If you have any questions or concerns regarding our Privacy Policy, or if you wish to access, update, or delete your personal information, please contact us at:
+
+Eternalgy Sdn Bhd
+Address: 23-01, Jalan Mutiara Emas 10/19, Taman Mount Austin, 81100 Johor Bahru, Johor.
+Phone: 601121-0000-99
+Email: admin@eternalgy.com
+
+This Privacy Policy is effective as of 1 AUG 2023. Your continued engagement with our services indicates your acceptance of this policy.
+
+WARRANTY POLICY
+Solar Panel Product Warranty
+Beginning on the Warranty Start Date and for the Limited Product Warranty Period，Panel manufactorer warrants that the Module and its respective DC connectors and cables (hereinafter referred to as the “Products”) will be free from material defects in workmanship which impair the performance of the Products. Material defects shall not include changes in appearance or normal wear and tear of the Products. 
+
+Solar Panel Power Warranty
+Beginning on Warranty Start Date and for the first year following the Warranty Start Date, Panel manufactorer warrants that the Degradation Rate of Modules shall not exceed the applicable First Year Degradation Rate; for each year after the first year, the Degradation Rate of Modules shall not exceed the applicable Annual Degradation Rate, as set forth at Table below.
+
+Workmanship Warranty
+During the period of the warranty where Eternalgy Sdn Bhd’s workmanship has resulted in a defective installation then Eternalgy Sdn Bhd will, at its absolute discretion, either carry out any repairs or replacements necessary to allow proper functioning of the Solar PV system.
+
+Roof Leaking Warranty
+During the period of the warranty where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage then Eternalgy Sdn Bhd will, at its absolute discretion, either carry out any repairs to fix the roof condition. The covered cost of Roof Repair shall not exceed 20% of the project final price.
+
+REFUND POLICY
+Eternalgy Sdn Bhd (hereinafter referred to as &quot;Eternalgy&quot;) is committed to providing high-quality solar PV installation services in Malaysia. We understand that sometimes circumstances may arise that necessitate refunds. This Refund Policy outlines the terms and conditions governing refunds for our services.
+
+Our Payment Terms:
+5% Downpayment upon Signing Up: Customers are required to make a 5% downpayment of the total project cost upon signing up for our solar PV installation services.
+
+60% Upon SEDA Approval: Upon approval by the Sustainable Energy Development Authority (SEDA) Malaysia for residential PV installations, customers are required to make an additional payment of 60% of the total project cost.
+
+35% Upon Installation Complete: The remaining 35% of the total project cost is due upon the completion of the installation.
+
+Our Refund Policy:
+5% Downpayment Refund (Before SEDA Application): Customers who have made the initial 5% downpayment may request a refund, excluding a non-refundable administrative fee of RM600. This refund request must be made before the SEDA application process commences.
+
+5% + 60% Refund (After SEDA Application): Customers who have paid the 5% downpayment and the subsequent 60% fee but wish to cancel their project after SEDA approval may request a refund. This refund will be subject to deductions, including a non-refundable administrative fee of RM600 , RM600 site survey, engineering design fee and  SEDA application fee of RM300. (Total of RM1500 for completed project milestone)
+
+35% Payment After Installation Complete (Non-Refundable): The 35% payment made upon the completion of the installation is non-refundable. This payment covers the cost of products and services provided by Eternalgy and includes any applicable warranties for the installed solar PV system.
+
+Warranty Coverage:
+Please note that once the installation is complete and the full payment has been made, the products and services provided by Eternalgy are covered under warranty as specified in our warranty policy. Customers may refer to the warranty policy for details regarding warranty coverage and procedures for warranty claims.
+
+Refund Request Process:
+To request a refund, customers must submit their request in writing to Eternalgy&#39;s customer support team. The request should include the customer&#39;s name, contact information, project details, and the reason for the refund request. Refund requests will be processed in accordance with the terms outlined in this Refund Policy.
+
+
+For any inquiries or refund requests, please contact our customer support team at:
+Eternalgy Sdn Bhd
+Address: 23-01, Jalan Mutiara Emas 10/19, Taman Mount Austin, 81100 Johor Bahru, Johor.
+Phone: 601121-0000-99
+Email: admin@eternalgy.com
+
+Eternalgy Sdn Bhd reserves the right to amend or update this Refund Policy at its discretion. Customers are encouraged to review this policy periodically for any changes. This policy is effective as of 1st Aug 2023.
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-5 pt-8 pb-4 border-t border-outline-variant/15 mt-6 flex flex-col gap-1.5 text-xs font-medium text-secondary text-center">
+        <p>Created by <strong class="text-on-surface font-black">System</strong></p>
+        <p>ETERNALGY SDN BHD</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAV — Stitch dark nav bar -->
+  
+  <nav class="fixed bottom-0 left-0 w-full h-[72px] z-50 flex justify-around items-stretch bg-[#0F172A] border-t border-[#131b2e] shadow-[0_-8px_32px_rgba(0,0,0,0.3)]" style="padding-bottom: env(safe-area-inset-bottom)">
+    
+    <a href="#home" onclick="switchTab('home'); event.preventDefault();" id="nav-home" class="nav-btn flex flex-col items-center justify-center h-full w-full hover:text-white transition-all active:bg-black duration-75 text-slate-500">
+      <span class="material-symbols-outlined mb-1" style="font-size:1.25rem">home</span>
+      <span class="font-['Inter'] text-[9px] font-bold uppercase tracking-widest leading-none">HOME</span>
+    </a>
+  
+    <a href="#spec" onclick="switchTab('spec'); event.preventDefault();" id="nav-spec" class="nav-btn flex flex-col items-center justify-center h-full w-full hover:text-white transition-all active:bg-black duration-75 text-slate-500">
+      <span class="material-symbols-outlined mb-1" style="font-size:1.25rem">description</span>
+      <span class="font-['Inter'] text-[9px] font-bold uppercase tracking-widest leading-none">SPEC</span>
+    </a>
+  
+    <a href="#quotation" onclick="switchTab('quotation'); event.preventDefault();" id="nav-quotation" class="nav-btn flex flex-col items-center justify-center h-full w-full hover:text-white transition-all active:bg-black duration-75 text-slate-500">
+      <span class="material-symbols-outlined mb-1" style="font-size:1.25rem">payments</span>
+      <span class="font-['Inter'] text-[9px] font-bold uppercase tracking-widest leading-none">QUOTATION</span>
+    </a>
+  
+    <a href="#slide" onclick="switchTab('slide'); event.preventDefault();" id="nav-slide" class="nav-btn flex flex-col items-center justify-center h-full w-full hover:text-white transition-all active:bg-black duration-75 text-slate-500">
+      <span class="material-symbols-outlined mb-1" style="font-size:1.25rem">auto_stories</span>
+      <span class="font-['Inter'] text-[9px] font-bold uppercase tracking-widest leading-none">SLIDE</span>
+    </a>
+  
+    <a href="#tnc" onclick="switchTab('tnc'); event.preventDefault();" id="nav-tnc" class="nav-btn flex flex-col items-center justify-center h-full w-full hover:text-white transition-all active:bg-black duration-75 text-slate-500">
+      <span class="material-symbols-outlined mb-1" style="font-size:1.25rem">draw</span>
+      <span class="font-['Inter'] text-[9px] font-bold uppercase tracking-widest leading-none">TNC</span>
+    </a>
+  
+  </nav>
+  
+
+  <script>
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+        panel.style.animation = 'none';
+        panel.offsetHeight;
+        panel.style.animation = null;
+      });
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      const tgt = document.getElementById(tabId);
+      if (tgt) tgt.classList.add('active');
+      const btn = document.getElementById('nav-' + tabId);
+      if (btn) {
+        btn.classList.add('active');
+        btn.querySelector('.material-symbols-outlined').style.fontVariationSettings = "'FILL' 1";
+      }
+      document.querySelectorAll('.nav-btn:not(.active) .material-symbols-outlined').forEach(icon => {
+        icon.style.fontVariationSettings = "'FILL' 0";
+      });
+      window.scrollTo(0, 0);
+    }
+
+    async function downloadPdf() {
+      try {
+        const response = await fetch('/view-v3-preview/cf490b3de244e6bf4ea25cb9da5ddfb1739644e73d7f9b55874a9d5694ce3e86/pdf');
+        const data = await response.json();
+        if (data && data.success && data.downloadUrl) {
+          let url = data.downloadUrl;
+          if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+          window.open(url, '_blank', 'noopener');
+          return;
+        }
+        alert('Failed to prepare PDF: ' + ((data && data.error) ? data.error : 'Unknown error'));
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const initialTab = window.location.hash.replace('#', '') || 'home';
+      switchTab(initialTab);
+    });
+  </script>
+</body>
+</html>

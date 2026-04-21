@@ -13,5 +13,9 @@ REPO NAME : Solar Calculator v2
 - Documented the full user identity standardization and rollout plan for future reference
 - Preserved the Earth Month promo in the shared quotation edit flow so edit mode no longer resets the bonus to false.
 - Aligned the shared quotation edit submit path with the loaded promo state so Earth Month discounts are preserved without breaking user toggles.
+- Located the V3 invoice view template files
+- Started local V3 invoice preview server on port 28888
+- Removed the wrong static V3 preview files and shut down the temporary preview server
+- Updated the live V3 invoice SPEC tab with a linked-package summary and conditional Tiger Neo 3, SAJ inverter, and MasterTec cable cards.
 
 =====================

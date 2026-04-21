@@ -114,14 +114,20 @@
             box-shadow: var(--shadow);
         }
 
-        .title-chip {
+        .brand-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0;
             max-width: calc(100vw - 140px);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 0.02em;
+            padding: 8px 12px;
+        }
+
+        .brand-logo {
+            width: auto;
+            height: 28px;
+            object-fit: contain;
+            flex: 0 0 auto;
+            display: block;
         }
 
         .count-chip {
@@ -157,7 +163,9 @@
 </head>
 <body>
     <div class="hud">
-        <div class="chip title-chip">Solar Proposal 2026_Tiger Neo 3</div>
+        <div class="chip brand-chip">
+            <img src="/logo.png" alt="Eternalgy logo" class="brand-logo" loading="eager" />
+        </div>
         <div class="chip count-chip" id="counter">1 / 24</div>
     </div>
     <div class="chip hint" id="hint">Swipe up or down to change slides. Pinch to zoom.</div>

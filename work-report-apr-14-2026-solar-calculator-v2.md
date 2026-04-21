@@ -32,5 +32,6 @@ REPO NAME : Solar Calculator v2
 - Fixed hybrid invoice upgrade totals and upgraded-item badge
 - Adjusted hybrid upgrade to preserve invoice look while swapping the custom package
 - Adjusted hybrid upgrade to update invoice total with a new line item
+- Verified production package inverter linkage for hybrid upgrade UI
 
 =====================

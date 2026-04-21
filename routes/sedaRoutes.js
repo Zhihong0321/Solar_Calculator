@@ -42,6 +42,7 @@ const {
 
 // ─── SEDA-specific modules ────────────────────────────────────────────────────
 const sedaRepo          = require('../src/modules/Invoicing/services/sedaRepo');
+const invoiceRepo       = require('../src/modules/Invoicing/services/invoiceRepo');
 const extractionService = require('../src/modules/Invoicing/services/extractionService');
 
 const router = express.Router();
@@ -105,7 +106,7 @@ async function requireSedaOwnership(req, res, next) {
     const client = await pool.connect();
     try {
         const r = await client.query(
-            'SELECT bubble_id, agent, created_by FROM seda_registration WHERE bubble_id = $1',
+            'SELECT bubble_id, agent, created_by, linked_invoice FROM seda_registration WHERE bubble_id = $1',
             [id]
         );
         if (!r.rows.length) {
@@ -113,10 +114,25 @@ async function requireSedaOwnership(req, res, next) {
         }
 
         const record  = r.rows[0];
-        const agentId = await resolveAgentBubbleId(client, req);
         const isAdmin = Array.isArray(req.user?.access_level) && req.user.access_level.includes('admin');
+        const authUserId = String(req.user?.userId || req.user?.id || req.user?.bubbleId || req.user?.bubble_id || '').trim() || null;
 
-        if (!isAdmin && record.agent !== agentId && record.created_by !== agentId) {
+        let linkedInvoiceAgent = null;
+        const linkedInvoiceId = Array.isArray(record.linked_invoice) ? record.linked_invoice[0] : null;
+        if (linkedInvoiceId) {
+            const invoiceRes = await client.query(
+                'SELECT linked_agent FROM invoice WHERE bubble_id = $1 LIMIT 1',
+                [linkedInvoiceId]
+            );
+            linkedInvoiceAgent = invoiceRes.rows[0]?.linked_agent || null;
+        }
+
+        const resolvedLinkedAgent = record.agent || linkedInvoiceAgent || null;
+        const isOwner = authUserId
+            ? await invoiceRepo.verifyOwnership(client, authUserId, record.created_by, resolvedLinkedAgent)
+            : false;
+
+        if (!isAdmin && !isOwner) {
             return res.status(403).json(uploadError(ERROR_CODES.FORBIDDEN, { error: 'You do not have access to this SEDA record.' }));
         }
 

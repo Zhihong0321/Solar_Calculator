@@ -6,6 +6,8 @@ const invoiceRepo = require('../services/invoiceRepo');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const invoiceHtmlGeneratorV3 = require('../services/invoiceHtmlGeneratorV3');
+const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
+const { normalizeV3Locale } = require('../services/invoiceV3Content');
 const externalPdfService = require('../services/externalPdfService');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
@@ -162,6 +164,118 @@ async function handlePublicSolarEstimate(req, res) {
   } catch (err) {
     console.error('Error recalculating public solar estimate:', err);
     res.status(500).json({ success: false, error: err.message || 'Failed to recalculate solar estimate' });
+  }
+}
+
+function isLocalV3PreviewRequest(req) {
+  const previewFlag = String(req.query.preview || req.query.source || '').toLowerCase();
+  return previewFlag === 'local' || req.path.startsWith('/view-v3-preview/');
+}
+
+function resolveV3Locale(req, source) {
+  return normalizeV3Locale(
+    req.query.lang
+    || req.query.locale
+    || source?.meta?.locale
+    || source?.invoice?.locale
+    || 'en'
+  );
+}
+
+function buildV3PreviewUrls(tokenOrId, previewMode, locale) {
+  const encodedToken = encodeURIComponent(tokenOrId);
+  const basePath = previewMode === 'local'
+    ? `/view-v3-preview/${encodedToken}`
+    : `/view-v3/${encodedToken}`;
+  const buildUrl = (targetLocale) => {
+    const query = new URLSearchParams();
+    if (previewMode === 'local') {
+      query.set('preview', 'local');
+    }
+    if (targetLocale && targetLocale !== 'en') {
+      query.set('lang', targetLocale);
+    }
+    const queryString = query.toString();
+    return queryString ? `${basePath}?${queryString}` : basePath;
+  };
+  return {
+    currentViewUrl: buildUrl(locale),
+    pdfUrl: buildUrl(locale).replace(basePath, `${basePath}/pdf`),
+    languageSwitchUrls: {
+      en: buildUrl('en'),
+      'zh-Hans': buildUrl('zh-Hans'),
+      'ms-MY': buildUrl('ms-MY')
+    }
+  };
+}
+
+async function loadV3InvoiceForRequest(client, tokenOrId, previewMode) {
+  if (previewMode === 'local') {
+    const snapshot = loadPreviewSnapshot(tokenOrId);
+    if (snapshot && snapshot.invoice) {
+      return {
+        invoice: snapshot.invoice,
+        template: snapshot.template || snapshot.invoice.template || {},
+        meta: snapshot.meta || null,
+        previewMode: 'local'
+      };
+    }
+  }
+
+  const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+  if (!invoice) {
+    return null;
+  }
+
+  return {
+    invoice,
+    template: invoice.template || {},
+    meta: null,
+    previewMode: 'live'
+  };
+}
+
+async function renderV3Invoice(req, res, { forPdf = false } = {}) {
+  const { tokenOrId } = req.params;
+  const layout = String(req.query.layout || '').toLowerCase();
+  const previewMode = isLocalV3PreviewRequest(req) ? 'local' : 'live';
+  const client = await pool.connect();
+
+  try {
+    const source = await loadV3InvoiceForRequest(client, tokenOrId, previewMode);
+
+    if (!source) {
+      if (previewMode === 'local') {
+        return res.status(404).send('Local V3 preview snapshot not found');
+      }
+      return res.status(404).send('Invoice not found');
+    }
+
+    const locale = resolveV3Locale(req, source);
+    const urls = buildV3PreviewUrls(tokenOrId, source.previewMode, locale);
+    const html = invoiceHtmlGeneratorV3.generateInvoiceHtmlV3(source.invoice, source.template, {
+      layout,
+      forPdf,
+      previewMode: source.previewMode,
+      locale,
+      currentViewUrl: urls.currentViewUrl,
+      pdfUrl: urls.pdfUrl,
+      languageSwitchUrls: urls.languageSwitchUrls
+    });
+
+    if (forPdf) {
+      return html;
+    }
+
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+
+    return res.send(html);
+  } finally {
+    client.release();
   }
 }
 
@@ -422,24 +536,20 @@ router.post('/view2/:tokenOrId/signature', async (req, res) => {
  */
 router.get('/view-v3/:tokenOrId', async (req, res) => {
   try {
-    const { tokenOrId } = req.params;
-    const layout = String(req.query.layout || '').toLowerCase();
-    const client = await pool.connect();
-    try {
-      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
-
-      if (invoice) {
-        const html = invoiceHtmlGeneratorV3.generateInvoiceHtmlV3(invoice, invoice.template, { layout });
-        res.send(html);
-      } else {
-        res.status(404).send('Invoice not found');
-      }
-    } finally {
-      client.release();
-    }
+    await renderV3Invoice(req, res);
   } catch (err) {
     console.error('Error viewing invoice V3:', err);
     res.status(500).send('Error loading invoice');
+  }
+});
+
+router.get('/view-v3-preview/:tokenOrId', async (req, res) => {
+  try {
+    req.query.preview = 'local';
+    await renderV3Invoice(req, res);
+  } catch (err) {
+    console.error('Error viewing local invoice V3 preview:', err);
+    res.status(500).send('Error loading local invoice preview');
   }
 });
 
@@ -449,27 +559,36 @@ router.get('/view-v3/:tokenOrId', async (req, res) => {
  */
 router.get('/view-v3/:tokenOrId/pdf', async (req, res) => {
   try {
-    const { tokenOrId } = req.params;
-    const client = await pool.connect();
-    try {
-      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
-
-      if (!invoice) {
-        return res.status(404).json({ success: false, error: 'Invoice not found' });
-      }
-
-      const html = invoiceHtmlGeneratorV3.generateInvoiceHtmlV3(invoice, invoice.template, { forPdf: true });
-      const pdfResult = await externalPdfService.generatePdf(html);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-store');
-      res.json(pdfResult);
-    } finally {
-      client.release();
+    const html = await renderV3Invoice(req, res, { forPdf: true });
+    if (!html) {
+      return;
     }
+    const pdfResult = await externalPdfService.generatePdf(html);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(pdfResult);
   } catch (err) {
     console.error('Error generating PDF for V3:', err);
     res.status(500).json({ success: false, error: 'Error generating PDF: ' + err.message });
+  }
+});
+
+router.get('/view-v3-preview/:tokenOrId/pdf', async (req, res) => {
+  try {
+    req.query.preview = 'local';
+    const html = await renderV3Invoice(req, res, { forPdf: true });
+    if (!html) {
+      return;
+    }
+    const pdfResult = await externalPdfService.generatePdf(html);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(pdfResult);
+  } catch (err) {
+    console.error('Error generating local PDF for V3:', err);
+    res.status(500).json({ success: false, error: 'Error generating local PDF: ' + err.message });
   }
 });
 

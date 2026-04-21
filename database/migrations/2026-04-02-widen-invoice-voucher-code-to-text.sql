@@ -1,0 +1,2 @@
+ALTER TABLE invoice
+ALTER COLUMN voucher_code TYPE TEXT;

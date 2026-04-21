@@ -10,5 +10,6 @@ REPO NAME : Solar Calculator v2
 - Improved voucher-step auto-swap selection and selected card styling
 - Fixed selected voucher gradient rendering in voucher step
 - Fixed edit voucher step to preload existing saved selections
+- Fixed invoice view to always show the Tiger Neo 3 presentation banner for invoices dated after Mar 31, 2026.
 
 =====================

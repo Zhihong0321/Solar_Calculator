@@ -3,20 +3,9 @@
     "allow": [
       "Bash(*)",
       "PowerShell(*)",
-      "git(*)",
-      "npm(*)",
-      "node(*)",
-      "python(*)",
-      "tailwindcss(*)",
-      "npx(*)",
-      "where(*)",
-      "cat(*)",
-      "ls(*)",
-      "mkdir(*)",
-      "python.exe(*)",
-      "node.exe(*)",
-      "npm.cmd(*)",
-      "npx.cmd(*)"
+      "mcp__stitch__list_projects",
+      "mcp__stitch__list_screens",
+      "WebFetch(domain:contribution.usercontent.google.com)"
     ]
   }
 }

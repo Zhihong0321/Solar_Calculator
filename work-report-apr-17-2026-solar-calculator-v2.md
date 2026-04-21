@@ -11,3 +11,6 @@ REPO NAME : Solar Calculator v2
 - Added a TNB BILL LIBRARY quick access link to the shared customer bill Google Drive folder.
 
 =====================
+- Improved domestic-mobile UI/UX: added 💡 Tips label to hints toggle, added inline AFA period helper text, promoted Discount Protocol field out of Advanced Settings to always-visible strip, added 25-year payback projection chart (Chart.js) inside ROI hero, replaced abstract future usage block labels with appliance names (Aircond, EV Charge, Hot Water, Laundry, Dryer, Night AC) in EN and ZH, added padlock indicator on locked cards, and added live green dot badge in Quick Adjust bar title.
+
+=====================

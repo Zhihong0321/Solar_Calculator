@@ -576,7 +576,7 @@
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadFront').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload image</p>
                             <input type="file" id="fileMyKadFront" accept="image/*" class="hidden"
-                                onchange="handleExtraction(this, 'mykad')">
+                                onchange="uploadFile(this)">
                             <div id="previewMyKadFront" class="file-preview"></div>
                         </div>
                     </div>
@@ -597,7 +597,7 @@
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadPdf').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload PDF</p>
                             <input type="file" id="fileMyKadPdf" accept="application/pdf" class="hidden"
-                                onchange="handleExtraction(this, 'mykad')">
+                                onchange="uploadFile(this)">
                             <div id="previewMyKadPdf" class="file-preview"></div>
                         </div>
                     </div>
@@ -640,20 +640,27 @@
                                 disabled>
                                 Send for Info Extract
                             </button>
-                            <div id="tnb1StatusPanel" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 space-y-2">
+                            <div id="tnb1StatusPanel"
+                                class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 space-y-2">
                                 <div class="flex items-center justify-between gap-3">
-                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Upload Status</span>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Upload
+                                        Status</span>
                                     <span id="tnb1UploadStatus"
-                                        class="inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600">Not uploaded</span>
+                                        class="inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600">Not
+                                        uploaded</span>
                                 </div>
                                 <div class="flex items-center justify-between gap-3">
-                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Extract Status</span>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Extract
+                                        Status</span>
                                     <span id="tnb1ExtractStatus"
-                                        class="inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600">Not started</span>
+                                        class="inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600">Not
+                                        started</span>
                                 </div>
-                                <p id="tnb1StatusMessage" class="text-[10px] text-slate-500">Upload is separate from extraction.</p>
+                                <p id="tnb1StatusMessage" class="text-[10px] text-slate-500">Upload is separate from
+                                    extraction.</p>
                             </div>
-                            <p class="text-[10px] text-slate-400">Upload and AI extract are now separate. Save will still work even if extract fails.</p>
+                            <p class="text-[10px] text-slate-400">Upload and AI extract are now separate. Save will
+                                still work even if extract fails.</p>
                         </div>
                     </div>
                     <div class="input-group">
@@ -722,7 +729,7 @@
                         <div class="file-upload-box" onclick="document.getElementById('filePropertyProof').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload document</p>
                             <input type="file" id="filePropertyProof" accept="application/pdf,image/*" class="hidden"
-                                onchange="handleVerification(this, 'ownership')">
+                                onchange="uploadFile(this)">
                             <div id="previewPropertyProof" class="file-preview"></div>
                         </div>
                     </div>
@@ -731,7 +738,7 @@
                         <div class="file-upload-box" onclick="document.getElementById('fileTnbMeter').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload photo</p>
                             <input type="file" id="fileTnbMeter" accept="image/*" class="hidden"
-                                onchange="handleVerification(this, 'meter')">
+                                onchange="uploadFile(this)">
                             <div id="previewTnbMeter" class="file-preview"></div>
                         </div>
                     </div>
@@ -763,32 +770,32 @@
 
     <script>
         // ── Mode detection ────────────────────────────────────────────────────
-        const pathParts    = window.location.pathname.split('/');
+        const pathParts = window.location.pathname.split('/');
         const isPublicMode = pathParts[1] === 'seda-public' && pathParts[2];
-        const shareToken   = isPublicMode ? pathParts[2] : null;
-        const sedaId       = new URLSearchParams(window.location.search).get('id');
+        const shareToken = isPublicMode ? pathParts[2] : null;
+        const sedaId = new URLSearchParams(window.location.search).get('id');
 
         // ── State ─────────────────────────────────────────────────────────────
-        let fileUrls       = {};   // { fieldKey: url }
+        let fileUrls = {};   // { fieldKey: url }
         let deletedUploads = [];
-        let customerPhone  = null;
-        let customerName   = null;
-        let spinnerTimer   = null;
+        let customerPhone = null;
+        let customerName = null;
+        let spinnerTimer = null;
 
         // ── Field config (must match server FILE_FIELDS keys) ─────────────────
         const FIELDS = {
-            fileMyKadFront:    { key: 'mykad_front',    label: 'MyKad Front',              preview: 'previewMyKadFront',    check: 'check-mykad' },
-            fileMyKadBack:     { key: 'mykad_back',     label: 'MyKad Back',               preview: 'previewMyKadBack',     check: 'check-mykad' },
-            fileMyKadPdf:      { key: 'mykad_pdf',      label: 'MyKad PDF',                preview: 'previewMyKadPdf',      check: 'check-mykad' },
-            fileTnb1:          { key: 'tnb_bill_1',     label: 'TNB Bill Month 1',         preview: 'previewTnb1',          check: 'check-tnb_bill_1', hasTnb1Panel: true },
-            fileTnb2:          { key: 'tnb_bill_2',     label: 'TNB Bill Month 2',         preview: 'previewTnb2',          check: null },
-            fileTnb3:          { key: 'tnb_bill_3',     label: 'TNB Bill Month 3',         preview: 'previewTnb3',          check: null },
+            fileMyKadFront: { key: 'mykad_front', label: 'MyKad Front', preview: 'previewMyKadFront', check: 'check-mykad' },
+            fileMyKadBack: { key: 'mykad_back', label: 'MyKad Back', preview: 'previewMyKadBack', check: 'check-mykad' },
+            fileMyKadPdf: { key: 'mykad_pdf', label: 'MyKad PDF', preview: 'previewMyKadPdf', check: 'check-mykad' },
+            fileTnb1: { key: 'tnb_bill_1', label: 'TNB Bill Month 1', preview: 'previewTnb1', check: 'check-tnb_bill_1', hasTnb1Panel: true },
+            fileTnb2: { key: 'tnb_bill_2', label: 'TNB Bill Month 2', preview: 'previewTnb2', check: null },
+            fileTnb3: { key: 'tnb_bill_3', label: 'TNB Bill Month 3', preview: 'previewTnb3', check: null },
             filePropertyProof: { key: 'property_proof', label: 'Property Ownership Proof', preview: 'previewPropertyProof', check: 'check-property_proof' },
-            fileTnbMeter:      { key: 'tnb_meter',      label: 'TNB Meter Image',          preview: 'previewTnbMeter',      check: 'check-tnb_meter' },
+            fileTnbMeter: { key: 'tnb_meter', label: 'TNB Meter Image', preview: 'previewTnbMeter', check: 'check-tnb_meter' },
         };
 
         // ── URL builders ─────────────────────────────────────────────────────
-        function apiBase()   { return isPublicMode ? `/api/v1/seda-public/${shareToken}` : `/api/v1/seda/${sedaId}`; }
+        function apiBase() { return isPublicMode ? `/api/v1/seda-public/${shareToken}` : `/api/v1/seda/${sedaId}`; }
         function uploadUrl(fieldKey) { return `${apiBase()}/upload/${fieldKey}`; }
         function deleteUrl(fieldKey) { return `${apiBase()}/file/${fieldKey}`; }
         function restoreUrl(fieldKey) { return `${apiBase()}/restore/${fieldKey}`; }
@@ -865,8 +872,8 @@
             el.innerHTML = `
                 <div class="file-preview-card">
                     ${isImage
-                        ? `<img src="${url}" alt="${fieldLabel(fieldKey)} preview" class="file-preview-thumb" onclick="event.stopPropagation()">`
-                        : `<div class="file-preview-thumb" style="display:flex;align-items:center;justify-content:center;color:#334155;">
+                    ? `<img src="${url}" alt="${fieldLabel(fieldKey)} preview" class="file-preview-thumb" onclick="event.stopPropagation()">`
+                    : `<div class="file-preview-thumb" style="display:flex;align-items:center;justify-content:center;color:#334155;">
                                 <div style="text-align:center;">
                                     <div style="font-size:1.75rem;line-height:1;margin-bottom:0.5rem;"><i class="fa-regular fa-file-pdf"></i></div>
                                     <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">${isPdf ? 'PDF Document' : 'Uploaded File'}</div>
@@ -1049,14 +1056,14 @@
         // ── Checklist/progress ─────────────────────────────────────────────────
         function updateChecklist() {
             const items = [
-                { id: 'check-applicantName',  value: () => !!document.getElementById('applicantName')?.value.trim() },
-                { id: 'check-applicantIC',    value: () => !!document.getElementById('applicantIC')?.value.trim() },
+                { id: 'check-applicantName', value: () => !!document.getElementById('applicantName')?.value.trim() },
+                { id: 'check-applicantIC', value: () => !!document.getElementById('applicantIC')?.value.trim() },
                 { id: 'check-applicantPhone', value: () => !!document.getElementById('applicantPhone')?.value.trim() },
                 { id: 'check-installAddress', value: () => !!document.getElementById('installAddress')?.value.trim() },
-                { id: 'check-mykad',          value: () => !!(fileUrls.mykad_front || fileUrls.mykad_pdf) },
-                { id: 'check-tnb_bill_1',     value: () => !!fileUrls.tnb_bill_1 },
+                { id: 'check-mykad', value: () => !!(fileUrls.mykad_front || fileUrls.mykad_pdf) },
+                { id: 'check-tnb_bill_1', value: () => !!fileUrls.tnb_bill_1 },
                 { id: 'check-property_proof', value: () => !!fileUrls.property_proof },
-                { id: 'check-tnb_meter',      value: () => !!fileUrls.tnb_meter },
+                { id: 'check-tnb_meter', value: () => !!fileUrls.tnb_meter },
             ];
 
             let done = 0;
@@ -1081,45 +1088,45 @@
             if (!sedaId && !shareToken) { alert('No ID provided.'); return; }
             showSpinner('Loading...');
             try {
-                const res  = await fetch(apiBase());
+                const res = await fetch(apiBase());
                 const json = await res.json();
                 if (!json.success) throw new Error(json.error || 'Load failed.');
 
                 const d = json.data;
-                customerName  = d.customer_profile?.name || '';
+                customerName = d.customer_profile?.name || '';
                 customerPhone = d.customer_profile?.phone || '';
 
                 // Form fields
-                document.getElementById('statusBadge').textContent      = d.reg_status || 'DRAFT';
-                document.getElementById('applicantName').value           = d.customer_profile?.name || d.customer_name || '';
-                document.getElementById('applicantPhone').value          = d.customer_profile?.phone || d.phone || '';
-                document.getElementById('applicantEmail').value          = d.email || d.customer_profile?.email || '';
-                document.getElementById('applicantIC').value             = d.ic_no || '';
-                document.getElementById('applicantAddress').value        = [d.customer_profile?.address, d.customer_profile?.city, d.customer_profile?.state, d.customer_profile?.postcode].filter(Boolean).join(', ');
-                document.getElementById('installAddress').value          = d.installation_address || '';
-                document.getElementById('city').value                    = d.city || '';
-                document.getElementById('state').value                   = d.state || '';
-                document.getElementById('postcode').value                = d.postcode || '';
-                document.getElementById('tnbAccount').value              = d.tnb_account_no || '';
-                document.getElementById('phaseType').value               = d.phase_type || '1';
-                document.getElementById('emergencyName').value           = d.e_contact_name || '';
-                document.getElementById('emergencyRel').value            = d.e_contact_relationship || '';
-                document.getElementById('emergencyPhone').value          = d.e_contact_no || '';
-                document.getElementById('emergencyEmail').value          = d.e_email || '';
-                document.getElementById('emergencyMyKad').value          = d.e_contact_mykad || '';
+                document.getElementById('statusBadge').textContent = d.reg_status || 'DRAFT';
+                document.getElementById('applicantName').value = d.customer_profile?.name || d.customer_name || '';
+                document.getElementById('applicantPhone').value = d.customer_profile?.phone || d.phone || '';
+                document.getElementById('applicantEmail').value = d.email || d.customer_profile?.email || '';
+                document.getElementById('applicantIC').value = d.ic_no || '';
+                document.getElementById('applicantAddress').value = [d.customer_profile?.address, d.customer_profile?.city, d.customer_profile?.state, d.customer_profile?.postcode].filter(Boolean).join(', ');
+                document.getElementById('installAddress').value = d.installation_address || '';
+                document.getElementById('city').value = d.city || '';
+                document.getElementById('state').value = d.state || '';
+                document.getElementById('postcode').value = d.postcode || '';
+                document.getElementById('tnbAccount').value = d.tnb_account_no || '';
+                document.getElementById('phaseType').value = d.phase_type || '1';
+                document.getElementById('emergencyName').value = d.e_contact_name || '';
+                document.getElementById('emergencyRel').value = d.e_contact_relationship || '';
+                document.getElementById('emergencyPhone').value = d.e_contact_no || '';
+                document.getElementById('emergencyEmail').value = d.e_email || '';
+                document.getElementById('emergencyMyKad').value = d.e_contact_mykad || '';
 
                 deletedUploads = Array.isArray(d.deleted_uploads) ? d.deleted_uploads : [];
 
                 // Restore file URLs
                 fileUrls = {
-                    mykad_front:    d.ic_copy_front             || null,
-                    mykad_back:     d.ic_copy_back              || null,
-                    mykad_pdf:      d.mykad_pdf                 || null,
-                    tnb_bill_1:     d.tnb_bill_1                || null,
-                    tnb_bill_2:     d.tnb_bill_2                || null,
-                    tnb_bill_3:     d.tnb_bill_3                || null,
-                    property_proof: d.property_ownership_prove  || null,
-                    tnb_meter:      d.tnb_meter                 || null,
+                    mykad_front: d.ic_copy_front || null,
+                    mykad_back: d.ic_copy_back || null,
+                    mykad_pdf: d.mykad_pdf || null,
+                    tnb_bill_1: d.tnb_bill_1 || null,
+                    tnb_bill_2: d.tnb_bill_2 || null,
+                    tnb_bill_3: d.tnb_bill_3 || null,
+                    property_proof: d.property_ownership_prove || null,
+                    tnb_meter: d.tnb_meter || null,
                 };
 
                 // Render existing file previews
@@ -1134,8 +1141,8 @@
                 if (d.mykad_pdf) setMyKadMode('pdf');
 
                 // Signature block
-                const invoice   = d.invoice_details;
-                const sigBlock  = document.getElementById('signatureBlock');
+                const invoice = d.invoice_details;
+                const sigBlock = document.getElementById('signatureBlock');
                 if (invoice && sigBlock) {
                     sigBlock.classList.remove('hidden');
                     const signed = invoice.customer_signature?.trim();
@@ -1145,7 +1152,7 @@
                         document.getElementById('sigImage').src = invoice.customer_signature;
                     } else {
                         const invUrl = `${window.location.origin}/view/${invoice.share_token || invoice.bubble_id}`;
-                        document.getElementById('viewInvoiceBtn').onclick  = () => window.open(invUrl, '_blank');
+                        document.getElementById('viewInvoiceBtn').onclick = () => window.open(invUrl, '_blank');
                         document.getElementById('shareInvoiceBtn').onclick = () => shareInvoice(invUrl, invoice.invoice_number);
                     }
                 }
@@ -1175,21 +1182,21 @@
             showSpinner('Saving...');
             try {
                 const payload = {
-                    installation_address:  document.getElementById('installAddress').value,
-                    city:                  document.getElementById('city').value,
-                    state:                 document.getElementById('state').value,
-                    postcode:              document.getElementById('postcode').value,
-                    tnb_account_no:        document.getElementById('tnbAccount').value,
-                    phase_type:            document.getElementById('phaseType').value,
-                    e_contact_name:        document.getElementById('emergencyName').value,
-                    e_contact_relationship:document.getElementById('emergencyRel').value,
-                    e_contact_no:          document.getElementById('emergencyPhone').value,
-                    e_email:               document.getElementById('emergencyEmail').value,
-                    e_contact_mykad:       document.getElementById('emergencyMyKad').value,
-                    ic_no:                 document.getElementById('applicantIC').value,
-                    email:                 document.getElementById('applicantEmail').value,
+                    installation_address: document.getElementById('installAddress').value,
+                    city: document.getElementById('city').value,
+                    state: document.getElementById('state').value,
+                    postcode: document.getElementById('postcode').value,
+                    tnb_account_no: document.getElementById('tnbAccount').value,
+                    phase_type: document.getElementById('phaseType').value,
+                    e_contact_name: document.getElementById('emergencyName').value,
+                    e_contact_relationship: document.getElementById('emergencyRel').value,
+                    e_contact_no: document.getElementById('emergencyPhone').value,
+                    e_email: document.getElementById('emergencyEmail').value,
+                    e_contact_mykad: document.getElementById('emergencyMyKad').value,
+                    ic_no: document.getElementById('applicantIC').value,
+                    email: document.getElementById('applicantEmail').value,
                 };
-                const res  = await fetch(apiBase(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await fetch(apiBase(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const json = await res.json();
                 if (!json.success) throw new Error(json.error || 'Save failed.');
                 Swal.fire({ icon: 'success', title: 'Saved', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
@@ -1207,7 +1214,7 @@
             document.getElementById('tnb1ExtractStatus').textContent = 'Processing…';
 
             try {
-                const res  = await fetch('/api/v1/seda/extract-tnb', {
+                const res = await fetch('/api/v1/seda/extract-tnb', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sedaId, fieldKey: 'tnb_bill_1' })
                 });
@@ -1225,55 +1232,14 @@
             }
         }
 
+        // Upload only. Extraction/verification are manual actions via dedicated buttons.
+        // Nothing AI-related fires automatically when a file is picked.
         async function handleVerification(inputEl, type) {
-            if (!inputEl.files[0]) return;
-
-            // Upload first — server saves file to disk
             await uploadFile(inputEl);
-            const fieldKey = type === 'meter' ? 'tnb_meter' : 'property_proof';
-            if (!fileUrls[fieldKey]) return;   // upload failed
-
-            // Verify — server reads from disk, no re-download needed
-            showSpinner(type === 'meter' ? 'Verifying meter...' : 'Verifying ownership...');
-            try {
-                const endpoint = type === 'meter' ? '/api/v1/seda/verify-meter' : '/api/v1/seda/verify-ownership';
-                const ctx      = type === 'ownership'
-                    ? { name: document.getElementById('applicantName').value, address: document.getElementById('installAddress').value }
-                    : undefined;
-                const res  = await fetch(endpoint, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sedaId, context: ctx })
-                });
-                const json = await res.json();
-                hideSpinner();
-                if (json.success) Swal.fire({ icon: 'success', title: 'Verified', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
-            } catch (err) {
-                hideSpinner();
-                Swal.fire({ icon: 'warning', title: 'Verification Incomplete', text: err.message });
-            }
         }
 
         async function handleExtraction(inputEl, type) {
-            // Upload first — server saves file to disk
             await uploadFile(inputEl);
-            const fieldKey = type === 'tnb' ? 'tnb_bill_1' : (inputEl.id === 'fileMyKadFront' ? 'mykad_front' : 'mykad_pdf');
-            if (!fileUrls[fieldKey]) return;   // upload failed
-
-            // Extract — server reads from disk, no re-download needed
-            showSpinner(type === 'tnb' ? 'Scanning TNB Bill...' : 'Scanning MyKad...');
-            try {
-                const endpoint = type === 'tnb' ? '/api/v1/seda/extract-tnb' : '/api/v1/seda/extract-mykad';
-                const res  = await fetch(endpoint, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sedaId, fieldKey })
-                });
-                const json = await res.json();
-                hideSpinner();
-                if (json.success || json.data) renderExtractedData(inputEl, type, json.data || json);
-            } catch (err) {
-                hideSpinner();
-                Swal.fire({ icon: 'warning', title: 'Extraction Failed', text: err.message });
-            }
         }
 
         function renderExtractedData(inputEl, type, data) {
@@ -1283,13 +1249,13 @@
 
             let html = '';
             if (type === 'tnb') {
-                if (data.tnb_account)   html += makeExtractItem('TNB Account', data.tnb_account, 'tnbAccount');
+                if (data.tnb_account) html += makeExtractItem('TNB Account', data.tnb_account, 'tnbAccount');
                 if (data.customer_name) html += makeExtractItem('Name', data.customer_name, 'applicantName');
-                if (data.address)       html += makeExtractItem('Address', data.address, 'installAddress');
+                if (data.address) html += makeExtractItem('Address', data.address, 'installAddress');
             } else {
                 const name = data.customer_name || data.name;
-                if (name)           html += makeExtractItem('Name', name, 'applicantName');
-                if (data.mykad_id)  html += makeExtractItem('IC No', data.mykad_id, 'applicantIC');
+                if (name) html += makeExtractItem('Name', name, 'applicantName');
+                if (data.mykad_id) html += makeExtractItem('IC No', data.mykad_id, 'applicantIC');
             }
 
             if (!html) {
@@ -1320,9 +1286,9 @@
         // ── MyKad mode toggle ─────────────────────────────────────────────────
         function setMyKadMode(mode) {
             document.getElementById('btnModeImages').className = mode === 'images' ? 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white' : 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
-            document.getElementById('btnModePdf').className    = mode === 'pdf'    ? 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white' : 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
+            document.getElementById('btnModePdf').className = mode === 'pdf' ? 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white' : 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
             document.getElementById('sectionMyKadImages').classList.toggle('hidden', mode !== 'images');
-            document.getElementById('sectionMyKadPdf').classList.toggle('hidden',    mode !== 'pdf');
+            document.getElementById('sectionMyKadPdf').classList.toggle('hidden', mode !== 'pdf');
         }
 
         function copyAddress() {
@@ -1334,8 +1300,8 @@
         async function checkWhatsApp(phone) {
             try {
                 const clean = phone.replace(/\D/g, '').replace(/^0/, '60');
-                const res   = await fetch('/api/customers/check-whatsapp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: clean }) });
-                const json  = await res.json();
+                const res = await fetch('/api/customers/check-whatsapp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: clean }) });
+                const json = await res.json();
                 return json.success && json.isWhatsAppUser;
             } catch { return false; }
         }
@@ -1345,7 +1311,7 @@
             const missing = [];
             if (!fileUrls.mykad_front && !fileUrls.mykad_pdf) missing.push('- MyKad (Front & Back or PDF)');
             if (!fileUrls.tnb_bill_1) missing.push('- TNB Bill (Latest Month)');
-            if (!fileUrls.tnb_meter)  missing.push('- TNB Meter Photo');
+            if (!fileUrls.tnb_meter) missing.push('- TNB Meter Photo');
             if (!fileUrls.property_proof) missing.push('- Property Ownership Proof (S&P / Geran)');
             const eName = document.getElementById('emergencyName').value.trim();
             const ePhone = document.getElementById('emergencyPhone').value.trim();
@@ -1353,8 +1319,8 @@
             if (!missing.length) return alert('All documents are already uploaded!');
 
             const clean = customerPhone.replace(/\D/g, '');
-            const num   = clean.startsWith('60') ? clean : (clean.startsWith('0') ? '6' + clean : '60' + clean);
-            const msg   = `Hi ${customerName || 'Customer'},\n\nThis is a friendly reminder from Eternalgy regarding your SEDA registration.\n\nMissing documents:\n${missing.join('\n')}\n\nUpload here:\n${window.location.href}\n\nThank you!`;
+            const num = clean.startsWith('60') ? clean : (clean.startsWith('0') ? '6' + clean : '60' + clean);
+            const msg = `Hi ${customerName || 'Customer'},\n\nThis is a friendly reminder from Eternalgy regarding your SEDA registration.\n\nMissing documents:\n${missing.join('\n')}\n\nUpload here:\n${window.location.href}\n\nThank you!`;
             window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
@@ -1366,7 +1332,7 @@
                     await navigator.clipboard.writeText(url);
                     Swal.fire({ icon: 'success', title: 'Link Copied', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
                 }
-            } catch {}
+            } catch { }
         }
 
         function goBackToOffice() {

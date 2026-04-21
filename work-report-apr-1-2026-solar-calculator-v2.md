@@ -21,5 +21,10 @@ REPO NAME : Solar Calculator v2
 - Fixed create quotation form getting stuck before submit when April promo payload was built
 - Hardened My Invoices auth handling for JWT sub/email identities and added redirect on unauthorized invoice list loads.
 - Simplified My Invoices auth flow to use one canonical app user identity and added a visible load error state instead of silent failure.
+- Opened GitHub PR and triggered Codex review for invoice preview branch
+- Retriggered Codex GitHub review request on PR #5 for quota test
+- Built AI First Codebase Management skill bundle with staged maintenance workflow and starter audit scripts
+- Fixed blocked agent registration on databases missing the agent_code column.
+- Applied the missing agent_code database migration for agent registration.
 
 =====================
