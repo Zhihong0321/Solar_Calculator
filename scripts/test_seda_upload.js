@@ -51,11 +51,11 @@ const MINIMAL_JPG = Buffer.from(
 const FILE_FIELDS = {
     mykad_front:    { label: 'MyKad Front',              accept: ['image/*'],                    maxMB: 20 },
     mykad_back:     { label: 'MyKad Back',               accept: ['image/*'],                    maxMB: 20 },
-    mykad_pdf:      { label: 'MyKad PDF',                accept: ['application/pdf'],             maxMB: 25 },
+    mykad_pdf:      { label: 'MyKad PDF',                accept: ['application/pdf'],             maxMB: 40 },
     tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
-    property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'], maxMB: 25 },
+    property_proof: { label: 'Property Ownership Proof', accept: ['image/*'],                    maxMB: 25 },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                    maxMB: 20 },
 };
 
@@ -89,7 +89,14 @@ function isMimeOk(mime, accept) {
 }
 
 function resolvedMime(file) {
-    const declared = (file.mimetype || '').toLowerCase().trim();
+    const aliases = {
+        'application/x-pdf': 'application/pdf',
+        'application/acrobat': 'application/pdf',
+        'applications/vnd.pdf': 'application/pdf',
+        'text/pdf': 'application/pdf',
+        'image/jpg': 'image/jpeg',
+    };
+    const declared = aliases[(file.mimetype || '').toLowerCase().trim()] || (file.mimetype || '').toLowerCase().trim();
     if (declared && declared !== 'application/octet-stream') return declared;
     // Sniff from extension
     const ext = path.extname(file.originalname || '').toLowerCase();
@@ -159,7 +166,7 @@ function buildTestRouter() {
 // ═════════════════════════════════════════════════════════════════════════════
 
 async function test_valid_pdf_upload() {
-    const name = '[CORE] Valid PDF → tnb_bill_1 (the field that kept failing)';
+    const name = '[CORE] Valid PDF → tnb_bill_1';
     try {
         const { ok, status, json } = await upload('tnb_bill_1', MINIMAL_PDF, 'bill.pdf', 'application/pdf');
         if (!ok || !json?.success) return fail(name, `HTTP ${status}: ${json?.error}`);
@@ -176,7 +183,7 @@ async function test_all_fields_accept_correct_types() {
         { field: 'tnb_bill_1',     buf: MINIMAL_PDF, file: 'b1.pdf',    mime: 'application/pdf' },
         { field: 'tnb_bill_2',     buf: MINIMAL_JPG, file: 'b2.jpg',    mime: 'image/jpeg'      },
         { field: 'tnb_bill_3',     buf: MINIMAL_PDF, file: 'b3.pdf',    mime: 'application/pdf' },
-        { field: 'property_proof', buf: MINIMAL_PDF, file: 'sp.pdf',    mime: 'application/pdf' },
+        { field: 'property_proof', buf: MINIMAL_JPG, file: 'sp.jpg',    mime: 'image/jpeg'      },
         { field: 'tnb_meter',      buf: MINIMAL_JPG, file: 'm.jpg',     mime: 'image/jpeg'      },
     ];
 
@@ -190,12 +197,13 @@ async function test_all_fields_accept_correct_types() {
     }
 }
 
-async function test_property_proof_accepts_image() {
-    const name = '[FIELD] Property Proof → JPEG (also accepted)';
+async function test_wrong_type_pdf_to_image_field() {
+    const name = '[REJECT] PDF sent to mykad_front (image-only field)';
     try {
-        const { ok, status, json } = await upload('property_proof', MINIMAL_JPG, 'proof.jpg', 'image/jpeg');
-        if (!ok || !json?.success) return fail(name, `HTTP ${status}: ${json?.error}`);
-        pass(name, 'JPEG accepted for property_proof field');
+        const { ok, status, json } = await upload('mykad_front', MINIMAL_PDF, 'doc.pdf', 'application/pdf');
+        if (ok) return fail(name, 'Accepted wrong type — should have rejected');
+        if (status !== 400) return fail(name, `Expected 400, got ${status}`);
+        pass(name, `Rejected: "${json?.error}"`);
     } catch (err) { fail(name, err.message); }
 }
 
@@ -208,13 +216,12 @@ async function test_tnb_bill_accepts_image() {
     } catch (err) { fail(name, err.message); }
 }
 
-async function test_wrong_type_pdf_to_image_field() {
-    const name = '[REJECT] PDF sent to mykad_front (image-only field)';
+async function test_mykad_pdf_accepts_pdf_alias_mime() {
+    const name = '[FIELD] MyKad PDF accepts application/x-pdf alias';
     try {
-        const { ok, status, json } = await upload('mykad_front', MINIMAL_PDF, 'doc.pdf', 'application/pdf');
-        if (ok) return fail(name, 'Accepted wrong type — should have rejected');
-        if (status !== 400) return fail(name, `Expected 400, got ${status}`);
-        pass(name, `Rejected: "${json?.error}"`);
+        const { ok, status, json } = await upload('mykad_pdf', MINIMAL_PDF, 'mykad-scan.pdf', 'application/x-pdf');
+        if (!ok || !json?.success) return fail(name, `HTTP ${status}: ${json?.error}`);
+        pass(name, 'Alias MIME accepted for mykad_pdf');
     } catch (err) { fail(name, err.message); }
 }
 
@@ -330,9 +337,9 @@ async function main() {
         await test_response_shape_correct();
         await test_content_type_not_required();
         await test_all_fields_accept_correct_types();
-        await test_property_proof_accepts_image();
-        await test_tnb_bill_accepts_image();
         await test_wrong_type_pdf_to_image_field();
+        await test_tnb_bill_accepts_image();
+        await test_mykad_pdf_accepts_pdf_alias_mime();
         await test_unknown_field();
         await test_empty_formdata();
         await test_large_file_rejected();

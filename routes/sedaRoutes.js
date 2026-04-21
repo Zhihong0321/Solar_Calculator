@@ -54,11 +54,11 @@ const router = express.Router();
 const FILE_FIELDS = {
     mykad_front:    { label: 'MyKad Front',              accept: ['image/*'],                         maxMB: 20, column: 'ic_copy_front'            },
     mykad_back:     { label: 'MyKad Back',               accept: ['image/*'],                         maxMB: 20, column: 'ic_copy_back'             },
-    mykad_pdf:      { label: 'MyKad PDF',                accept: ['application/pdf'],                 maxMB: 25, column: 'mykad_pdf'                },
+    mykad_pdf:      { label: 'MyKad PDF',                accept: ['application/pdf'],                 maxMB: 40, column: 'mykad_pdf'                },
     tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_1'               },
     tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_2'               },
     tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_3'               },
-    property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'property_ownership_prove'  },
+    property_proof: { label: 'Property Ownership Proof', accept: ['image/*'],                         maxMB: 25, column: 'property_ownership_prove'  },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                         maxMB: 20, column: 'tnb_meter'                },
 };
 
@@ -71,7 +71,7 @@ function getUploader(fieldKey) {
     _uploaders[fieldKey] = createUploader({
         storageSubdir:   'seda_registration',
         allowedMimes:    rule.accept,
-        maxFileSizeMB:   30,                     // transport cap — per-field cap enforced below
+        maxFileSizeMB:   Math.max(rule.maxMB, 30), // transport cap — per-field cap enforced below
         generateFilename: (req, file) => {
             const { fileExtension } = require('../src/core/upload');
             const id   = req.params.id || req.params.shareToken || 'unknown';

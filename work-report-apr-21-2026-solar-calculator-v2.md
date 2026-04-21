@@ -19,5 +19,11 @@ REPO NAME : Solar Calculator v2
 - Extracted invoice estimate helpers into a focused support module and verified the split with DB schema checks.
 - Fixed critical "Network error" fetch failures in SEDA file upload by resolving path.extname unhandled rejection.
 - Fixed Express ECONNRESET crash during SEDA upload rejections by properly draining the multipart request stream.
+- Extracted invoice-item insertion helpers into a focused support module and verified the split locally.
+- Extracted invoice lookup helpers into a focused support module and verified the split with live table checks.
+- Verified live DB write paths safely and cleaned up the temporary verification rows.
+- Hotfixed the SEDA MyKad PDF upload path with a larger limit and early user-side size validation after live failure reports.
+- Re-enabled SEDA MyKad PDF and TNB bill PDF uploads through the site-wide file upload processor and revalidated the SEDA upload flow.
+- Removed shared filename-based upload rejection so SEDA uploads sanitize original names instead of blocking them.
 
 =====================

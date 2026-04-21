@@ -569,7 +569,6 @@
                         class="px-4 py-2 text-xs font-bold rounded-lg transition-all text-slate-500 hover:bg-slate-100">Upload
                         PDF</button>
                 </div>
-
                 <div id="sectionMyKadImages" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="input-group">
                         <label class="input-label">MyKad Front</label>
@@ -600,6 +599,7 @@
                                 onchange="uploadFile(this)">
                             <div id="previewMyKadPdf" class="file-preview"></div>
                         </div>
+                        <p class="mt-2 text-[10px] text-slate-400">Recommended for phone scans. Max 40 MB.</p>
                     </div>
                 </div>
             </div>
@@ -725,10 +725,10 @@
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="input-group">
-                        <label class="input-label">Property Ownership Proof (PDF/Image)</label>
+                        <label class="input-label">Property Ownership Proof (Image)</label>
                         <div class="file-upload-box" onclick="document.getElementById('filePropertyProof').click()">
-                            <p class="text-xs text-slate-400 font-medium">Click to upload document</p>
-                            <input type="file" id="filePropertyProof" accept="application/pdf,image/*" class="hidden"
+                            <p class="text-xs text-slate-400 font-medium">Click to upload image</p>
+                            <input type="file" id="filePropertyProof" accept="image/*" class="hidden"
                                 onchange="uploadFile(this)">
                             <div id="previewPropertyProof" class="file-preview"></div>
                         </div>
@@ -784,14 +784,14 @@
 
         // ── Field config (must match server FILE_FIELDS keys) ─────────────────
         const FIELDS = {
-            fileMyKadFront: { key: 'mykad_front', label: 'MyKad Front', preview: 'previewMyKadFront', check: 'check-mykad' },
-            fileMyKadBack: { key: 'mykad_back', label: 'MyKad Back', preview: 'previewMyKadBack', check: 'check-mykad' },
-            fileMyKadPdf: { key: 'mykad_pdf', label: 'MyKad PDF', preview: 'previewMyKadPdf', check: 'check-mykad' },
-            fileTnb1: { key: 'tnb_bill_1', label: 'TNB Bill Month 1', preview: 'previewTnb1', check: 'check-tnb_bill_1', hasTnb1Panel: true },
-            fileTnb2: { key: 'tnb_bill_2', label: 'TNB Bill Month 2', preview: 'previewTnb2', check: null },
-            fileTnb3: { key: 'tnb_bill_3', label: 'TNB Bill Month 3', preview: 'previewTnb3', check: null },
-            filePropertyProof: { key: 'property_proof', label: 'Property Ownership Proof', preview: 'previewPropertyProof', check: 'check-property_proof' },
-            fileTnbMeter: { key: 'tnb_meter', label: 'TNB Meter Image', preview: 'previewTnbMeter', check: 'check-tnb_meter' },
+            fileMyKadFront: { key: 'mykad_front', label: 'MyKad Front', preview: 'previewMyKadFront', check: 'check-mykad', maxMB: 20 },
+            fileMyKadBack: { key: 'mykad_back', label: 'MyKad Back', preview: 'previewMyKadBack', check: 'check-mykad', maxMB: 20 },
+            fileMyKadPdf: { key: 'mykad_pdf', label: 'MyKad PDF', preview: 'previewMyKadPdf', check: 'check-mykad', maxMB: 40 },
+            fileTnb1: { key: 'tnb_bill_1', label: 'TNB Bill Month 1', preview: 'previewTnb1', check: 'check-tnb_bill_1', hasTnb1Panel: true, maxMB: 25 },
+            fileTnb2: { key: 'tnb_bill_2', label: 'TNB Bill Month 2', preview: 'previewTnb2', check: null, maxMB: 25 },
+            fileTnb3: { key: 'tnb_bill_3', label: 'TNB Bill Month 3', preview: 'previewTnb3', check: null, maxMB: 25 },
+            filePropertyProof: { key: 'property_proof', label: 'Property Ownership Proof', preview: 'previewPropertyProof', check: 'check-property_proof', maxMB: 25 },
+            fileTnbMeter: { key: 'tnb_meter', label: 'TNB Meter Image', preview: 'previewTnbMeter', check: 'check-tnb_meter', maxMB: 20 },
         };
 
         // ── URL builders ─────────────────────────────────────────────────────
@@ -866,7 +866,6 @@
         function renderPreview(previewId, url, fieldKey) {
             const el = document.getElementById(previewId);
             if (!el) return;
-            const isPdf = isPdfUrl(url);
             const isImage = isImageUrl(url);
             el.style.display = 'block';
             el.innerHTML = `
@@ -876,14 +875,14 @@
                     : `<div class="file-preview-thumb" style="display:flex;align-items:center;justify-content:center;color:#334155;">
                                 <div style="text-align:center;">
                                     <div style="font-size:1.75rem;line-height:1;margin-bottom:0.5rem;"><i class="fa-regular fa-file-pdf"></i></div>
-                                    <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">${isPdf ? 'PDF Document' : 'Uploaded File'}</div>
+                                    <div style="font-size:0.7rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;">Uploaded File</div>
                                 </div>
                            </div>`}
                     <div class="file-preview-meta">
                         <div style="min-width:0;">
                             <div class="file-preview-type">
                                 <i class="fa-solid ${isImage ? 'fa-image' : 'fa-file-lines'}"></i>
-                                ${isImage ? 'Image Upload' : (isPdf ? 'PDF Upload' : 'File Upload')}
+                                ${isImage ? 'Image Upload' : 'File Upload'}
                             </div>
                             <div class="file-preview-name">${displayFileName(url, fieldKey)}</div>
                         </div>
@@ -904,7 +903,7 @@
             tag.innerHTML = `
                 <span style="color:#166534;display:flex;align-items:center;gap:0.4rem;">
                     <span style="width:6px;height:6px;background:#22c55e;border-radius:50%;display:inline-block;"></span>
-                    ${isPdf ? 'PDF Uploaded' : (isImage ? 'Image Uploaded' : 'File Uploaded')}
+                    ${isImage ? 'Image Uploaded' : 'File Uploaded'}
                 </span>
                 <div style="display:flex;align-items:center;gap:0.4rem;">
                     <a href="${url}" target="_blank" onclick="event.stopPropagation()" style="color:#3b82f6;text-decoration:none;font-size:0.65rem;border:1px solid #dbeafe;padding:0.15rem 0.4rem;border-radius:0.25rem;background:white;">VIEW</a>
@@ -971,6 +970,13 @@
             // Clear any previous error on this field
             const group = inputEl.closest('.input-group');
             if (group) group.querySelector('.upload-err')?.remove();
+
+            if (config.maxMB && file.size > config.maxMB * 1024 * 1024) {
+                const msg = `${config.label}: File too large. Maximum is ${config.maxMB} MB.`;
+                showUploadError(group, msg);
+                Swal.fire({ icon: 'error', title: 'Upload Failed', text: msg });
+                return;
+            }
 
             showSpinner(`Uploading ${fileName}…`);
 
@@ -1060,7 +1066,7 @@
                 { id: 'check-applicantIC', value: () => !!document.getElementById('applicantIC')?.value.trim() },
                 { id: 'check-applicantPhone', value: () => !!document.getElementById('applicantPhone')?.value.trim() },
                 { id: 'check-installAddress', value: () => !!document.getElementById('installAddress')?.value.trim() },
-                { id: 'check-mykad', value: () => !!(fileUrls.mykad_front || fileUrls.mykad_pdf) },
+                { id: 'check-mykad', value: () => !!(fileUrls.mykad_pdf || (fileUrls.mykad_front && fileUrls.mykad_back)) },
                 { id: 'check-tnb_bill_1', value: () => !!fileUrls.tnb_bill_1 },
                 { id: 'check-property_proof', value: () => !!fileUrls.property_proof },
                 { id: 'check-tnb_meter', value: () => !!fileUrls.tnb_meter },
@@ -1309,7 +1315,7 @@
         async function sendWhatsAppReminder() {
             if (!customerPhone) return alert('No customer phone number.');
             const missing = [];
-            if (!fileUrls.mykad_front && !fileUrls.mykad_pdf) missing.push('- MyKad (Front & Back or PDF)');
+            if (!fileUrls.mykad_pdf && (!fileUrls.mykad_front || !fileUrls.mykad_back)) missing.push('- MyKad (Front & Back or PDF)');
             if (!fileUrls.tnb_bill_1) missing.push('- TNB Bill (Latest Month)');
             if (!fileUrls.tnb_meter) missing.push('- TNB Meter Photo');
             if (!fileUrls.property_proof) missing.push('- Property Ownership Proof (S&P / Geran)');
