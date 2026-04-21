@@ -7,6 +7,26 @@
  * Performance Note: Uses atomic updates for invoice number generation to prevent race conditions.
  */
 const crypto = require('crypto');
+const {
+  calculateInvoiceFinancials,
+  validateManualDiscountLimit
+} = require('./invoiceFinancials');
+const {
+  getInvoiceColumns,
+  getTableColumns,
+  hasTable
+} = require('./invoiceSchemaSupport');
+const {
+  appendInvoiceEstimateInsertFields,
+  appendInvoiceEstimateUpdateFields
+} = require('./invoiceEstimateSupport');
+const {
+  buildVoucherInfoFromRows,
+  getInvoiceSelectedVoucherRows,
+  getVoucherStepData: loadVoucherStepData,
+  isVoucherCategoryEligible
+} = require('./invoiceVoucherSupport');
+
 let beginAgentAuditTransaction = async (client) => {
   await client.query('BEGIN');
 };
@@ -19,62 +39,6 @@ try {
   }
   console.warn('[InvoiceRepo] agentAuditContext unavailable, using basic transaction fallback.');
 }
-const tablePresenceCache = new Map();
-
-// Tiered manual discount policy based on package price
-const MANUAL_DISCOUNT_POLICY = [
-  { minPrice: 40000, maxPercent: 7 },
-  { minPrice: 30000, maxPercent: 6 },
-  { minPrice: 18000, maxPercent: 5 }
-];
-
-function getManualDiscountPolicy(packagePrice) {
-  const normalizedPrice = parseFloat(packagePrice) || 0;
-  const matchedTier = MANUAL_DISCOUNT_POLICY.find((tier) => normalizedPrice >= tier.minPrice);
-  const maxPercent = matchedTier ? matchedTier.maxPercent : 0;
-
-  return {
-    maxPercent,
-    maxAmount: normalizedPrice * (maxPercent / 100)
-  };
-}
-
-function validateManualDiscountLimit(packagePrice, totalDiscountValue) {
-  const { maxPercent, maxAmount } = getManualDiscountPolicy(packagePrice);
-
-  if (totalDiscountValue > (maxAmount + 0.01)) {
-    throw new Error(
-      `Manual discount (RM ${totalDiscountValue.toFixed(2)}) exceeds the maximum allowed for this package tier of ${maxPercent}% of package price (RM ${maxAmount.toFixed(2)}). Vouchers are not subject to this limit.`
-    );
-  }
-}
-
-const APRIL_2026_PROMO_END = new Date('2026-05-01T00:00:00');
-
-function isApril2026PromotionActive() {
-  return new Date() < APRIL_2026_PROMO_END;
-}
-
-function getEarnNowRebateDiscount(panelQty) {
-  if (!isApril2026PromotionActive()) return 0;
-
-  const qty = parseInt(panelQty, 10) || 0;
-  if (qty >= 11 && qty <= 18) return 1000;
-  if (qty >= 19 && qty <= 25) return 1500;
-  if (qty >= 26 && qty <= 30) return 2000;
-  if (qty >= 31 && qty <= 36) return 2500;
-  return 0;
-}
-
-function getEarthMonthGoGreenBonusDiscount(panelQty) {
-  if (!isApril2026PromotionActive()) return 0;
-
-  const qty = parseInt(panelQty, 10) || 0;
-  if (qty >= 11 && qty <= 17) return 600;
-  if (qty >= 18 && qty <= 24) return 1200;
-  if (qty >= 25 && qty <= 36) return 1500;
-  return 0;
-}
 
 /**
  * Generate a unique share token
@@ -82,62 +46,6 @@ function getEarthMonthGoGreenBonusDiscount(panelQty) {
  */
 function generateShareToken() {
   return crypto.randomBytes(32).toString('hex');
-}
-
-async function getInvoiceColumns(client) {
-  const result = await client.query(
-    `SELECT column_name
-     FROM information_schema.columns
-     WHERE table_schema = 'public' AND table_name = 'invoice'`
-  );
-
-  return new Set(result.rows.map((row) => row.column_name));
-}
-
-async function hasTable(client, tableName) {
-  if (tablePresenceCache.has(tableName)) {
-    return tablePresenceCache.get(tableName);
-  }
-
-  const result = await client.query(
-    `SELECT 1
-     FROM information_schema.tables
-     WHERE table_schema = 'public' AND table_name = $1
-     LIMIT 1`,
-    [tableName]
-  );
-
-  const exists = result.rows.length > 0;
-  tablePresenceCache.set(tableName, exists);
-  return exists;
-}
-
-async function getTableColumns(client, tableName) {
-  const cacheKey = `${tableName}:columns`;
-  if (tablePresenceCache.has(cacheKey)) {
-    return tablePresenceCache.get(cacheKey);
-  }
-
-  const result = await client.query(
-    `SELECT column_name
-     FROM information_schema.columns
-     WHERE table_schema = 'public' AND table_name = $1`,
-    [tableName]
-  );
-
-  const columns = new Set(result.rows.map((row) => row.column_name));
-  tablePresenceCache.set(cacheKey, columns);
-  return columns;
-}
-
-function normalizeNullableNumber(value, { integer = false } = {}) {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-
-  const numericValue = Number(value);
-  const parsed = integer ? Math.round(numericValue) : parseFloat(value);
-  return Number.isNaN(parsed) ? null : parsed;
 }
 
 /**
@@ -781,87 +689,6 @@ async function getVoucherById(client, voucherId) {
   }
 }
 
-function _buildVoucherInfoFromRows(voucherRows, packagePrice) {
-  const seenCodes = new Set();
-  let totalVoucherAmount = 0;
-  const voucherItemsToCreate = [];
-  const validVoucherCodes = [];
-  const selectedVoucherIds = [];
-
-  for (const voucher of voucherRows) {
-    if (!voucher) continue;
-
-    const code = String(voucher.voucher_code || '').trim();
-    if (!code || seenCodes.has(code)) continue;
-    seenCodes.add(code);
-
-    let amount = 0;
-    let desc = '';
-
-    if (voucher.discount_amount) {
-      amount = parseFloat(voucher.discount_amount) || 0;
-      desc = voucher.invoice_description || `Voucher: ${code}`;
-    } else if (voucher.discount_percent) {
-      amount = (packagePrice * parseFloat(voucher.discount_percent)) / 100;
-      desc = voucher.invoice_description || `Voucher: ${code}`;
-    }
-
-    if (amount > 0) {
-      totalVoucherAmount += amount;
-      validVoucherCodes.push(code);
-      selectedVoucherIds.push(voucher.bubble_id || String(voucher.id || ''));
-      voucherItemsToCreate.push({
-        description: desc,
-        amount,
-        code,
-        voucherId: voucher.bubble_id || String(voucher.id || ''),
-        categoryId: voucher.linked_voucher_category || null
-      });
-    }
-  }
-
-  return { totalVoucherAmount, voucherItemsToCreate, validVoucherCodes, selectedVoucherIds };
-}
-
-async function _getInvoiceSelectedVoucherRows(client, invoiceId, fallbackVoucherCode) {
-  const hasSelectionTable = await hasTable(client, 'invoice_voucher_selection');
-  if (hasSelectionTable) {
-    const selectionColumns = await getTableColumns(client, 'invoice_voucher_selection');
-    const linkedVoucherCategorySelect = selectionColumns.has('linked_voucher_category')
-      ? 'ivs.linked_voucher_category as selected_category_id,'
-      : 'NULL::text as selected_category_id,';
-
-    const result = await client.query(
-      `SELECT
-          v.*,
-          ${linkedVoucherCategorySelect}
-          ivs.bubble_id as selection_id
-       FROM invoice_voucher_selection ivs
-       LEFT JOIN voucher v ON ivs.linked_voucher = v.bubble_id OR ivs.linked_voucher = v.id::text
-       WHERE ivs.linked_invoice = $1
-       ORDER BY ivs.created_at ASC`,
-      [invoiceId]
-    );
-
-    const rows = result.rows.filter((row) => row?.voucher_code);
-    if (rows.length > 0) {
-      return rows;
-    }
-  }
-
-  const codes = String(fallbackVoucherCode || '')
-    .split(',')
-    .map((code) => code.trim())
-    .filter(Boolean);
-
-  const rows = [];
-  for (const code of codes) {
-    const voucher = await getVoucherByCode(client, code);
-    if (voucher) rows.push(voucher);
-  }
-  return rows;
-}
-
 /**
  * Find or create a customer
  * @param {object} client - Database client
@@ -1108,247 +935,33 @@ async function _processVouchers(client, { voucherCodes, voucherCode, voucherIds 
     }
   }
 
-  return _buildVoucherInfoFromRows(voucherRows, packagePrice);
+  return buildVoucherInfoFromRows(voucherRows, packagePrice);
 }
 
 async function _processExistingInvoiceVouchers(client, invoiceId, fallbackVoucherCode, packagePrice) {
-  const voucherRows = await _getInvoiceSelectedVoucherRows(client, invoiceId, fallbackVoucherCode);
-  return _buildVoucherInfoFromRows(voucherRows, packagePrice);
-}
-
-function normalizeVoucherCategoryPackageType(rawType) {
-  const value = String(rawType || '').trim().toLowerCase();
-  if (!value) return 'all';
-  if (value === 'all') return 'all';
-  if (value === 'resi' || value === 'residential') return 'resi';
-  if (value === 'non-resi' || value === 'non_resi' || value === 'non residential' || value === 'non-residential' || value === 'commercial') {
-    return 'non-resi';
-  }
-  return value.includes('residential') ? 'resi' : 'non-resi';
-}
-
-function isVoucherCategoryEligible(category, invoiceSummary) {
-  if (!category || !invoiceSummary) return false;
-  if (!category.active || category.disabled) return false;
-
-  const minPackageAmount = parseFloat(category.min_package_amount);
-  if (Number.isFinite(minPackageAmount) && invoiceSummary.packagePrice < minPackageAmount) {
-    return false;
-  }
-
-  const maxPackageAmount = parseFloat(category.max_package_amount);
-  if (Number.isFinite(maxPackageAmount) && invoiceSummary.packagePrice > maxPackageAmount) {
-    return false;
-  }
-
-  const minPanelQuantity = parseInt(category.min_panel_quantity, 10);
-  if (Number.isFinite(minPanelQuantity) && invoiceSummary.panelQty < minPanelQuantity) {
-    return false;
-  }
-
-  const maxPanelQuantity = parseInt(category.max_panel_quantity, 10);
-  if (Number.isFinite(maxPanelQuantity) && invoiceSummary.panelQty > maxPanelQuantity) {
-    return false;
-  }
-
-  const requiredScope = normalizeVoucherCategoryPackageType(category.package_type_scope);
-  if (requiredScope !== 'all' && requiredScope !== invoiceSummary.packageTypeScope) {
-    return false;
-  }
-
-  return true;
-}
-
-async function _getInvoiceVoucherStepSummary(client, invoiceId) {
-  const result = await client.query(
-    `SELECT
-        i.bubble_id,
-        i.invoice_number,
-        i.total_amount,
-        i.voucher_code,
-        i.linked_package,
-        COALESCE(c.name, 'Valued Customer') AS customer_name,
-        pkg.price AS package_price,
-        pkg.panel_qty,
-        pkg.type AS package_type
-     FROM invoice i
-     LEFT JOIN customer c ON i.linked_customer = c.customer_id
-     LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text
-     WHERE i.bubble_id = $1
-     LIMIT 1`,
-    [invoiceId]
-  );
-
-  const invoice = result.rows[0];
-  if (!invoice) return null;
-
-  return {
-    ...invoice,
-    packagePrice: parseFloat(invoice.package_price) || 0,
-    panelQty: parseInt(invoice.panel_qty, 10) || 0,
-    packageTypeScope: normalizeVoucherCategoryPackageType(invoice.package_type)
-  };
+  const voucherRows = await getInvoiceSelectedVoucherRows(client, invoiceId, fallbackVoucherCode, {
+    hasTable,
+    getTableColumns,
+    getVoucherByCode
+  });
+  return buildVoucherInfoFromRows(voucherRows, packagePrice);
 }
 
 async function getVoucherStepData(client, invoiceId) {
-  const invoiceSummary = await _getInvoiceVoucherStepSummary(client, invoiceId);
-  if (!invoiceSummary) {
-    throw new Error('Invoice not found');
-  }
-
-  const categoriesExist = await hasTable(client, 'voucher_category');
-  const selectionsExist = await hasTable(client, 'invoice_voucher_selection');
-  if (!categoriesExist) {
-    return {
-      invoice: invoiceSummary,
-      categories: [],
-      selectedVoucherIds: [],
-      selectedVoucherCodes: []
-    };
-  }
-
-  const voucherColumns = await getTableColumns(client, 'voucher');
-  const hasCategoryLink = voucherColumns.has('linked_voucher_category');
-
-  const categoryRows = await client.query(
-    `SELECT *
-     FROM voucher_category
-     WHERE active = TRUE AND COALESCE(disabled, FALSE) = FALSE
-     ORDER BY created_at ASC, name ASC`
-  );
-
-  const selectionRows = selectionsExist
-    ? await client.query(
-      `SELECT linked_voucher
-       FROM invoice_voucher_selection
-       WHERE linked_invoice = $1`,
-      [invoiceId]
+  return loadVoucherStepData(client, invoiceId, {
+    hasTable,
+    getTableColumns,
+    getInvoiceSelectedVoucherRows: (innerClient, innerInvoiceId, innerFallbackVoucherCode) => getInvoiceSelectedVoucherRows(
+      innerClient,
+      innerInvoiceId,
+      innerFallbackVoucherCode,
+      {
+        hasTable,
+        getTableColumns,
+        getVoucherByCode
+      }
     )
-    : { rows: [] };
-
-  const selectedVoucherIds = new Set(selectionRows.rows.map((row) => String(row.linked_voucher)));
-  const legacySelected = await _getInvoiceSelectedVoucherRows(client, invoiceId, invoiceSummary.voucher_code);
-  legacySelected.forEach((voucher) => {
-    if (voucher?.bubble_id) selectedVoucherIds.add(String(voucher.bubble_id));
-    if (voucher?.id !== undefined && voucher?.id !== null) selectedVoucherIds.add(String(voucher.id));
   });
-
-  const categories = [];
-  for (const category of categoryRows.rows) {
-    const eligible = isVoucherCategoryEligible(category, invoiceSummary);
-    const vouchers = hasCategoryLink
-      ? await client.query(
-        `SELECT *
-         FROM voucher
-         WHERE linked_voucher_category = $1
-           AND active = TRUE
-           AND ("delete" IS NULL OR "delete" = FALSE)
-         ORDER BY created_at ASC, title ASC`,
-        [category.bubble_id]
-      )
-      : { rows: [] };
-
-    if (!vouchers.rows.length) continue;
-
-    categories.push({
-      ...category,
-      eligible,
-      vouchers: vouchers.rows.map((voucher) => ({
-        ...voucher,
-        is_selected: selectedVoucherIds.has(String(voucher.bubble_id)) || selectedVoucherIds.has(String(voucher.id))
-      }))
-    });
-  }
-
-  return {
-    invoice: invoiceSummary,
-    categories,
-    selectedVoucherIds: legacySelected
-      .map((voucher) => voucher.bubble_id || String(voucher.id || ''))
-      .filter(Boolean),
-    selectedVoucherCodes: legacySelected.map((voucher) => voucher.voucher_code).filter(Boolean)
-  };
-}
-
-/**
- * Helper: Calculate all financial totals
- * @private
- */
-function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty = 0) {
-  const {
-    agentMarkup = 0,
-    discountFixed = 0,
-    discountPercent = 0,
-    applySst = false,
-    eppFeeAmount = 0,
-    extraItems = [],
-    applyEarnNowRebate = false,
-    applyEarthMonthGoGreenBonus = false
-  } = data;
-
-  const markupAmount = parseFloat(agentMarkup) || 0;
-  const priceWithMarkup = packagePrice + markupAmount;
-
-  // Calculate total of extra items
-  let extraItemsTotal = 0;
-  let extraItemsNegativeTotal = 0;
-  if (Array.isArray(extraItems)) {
-    extraItems.forEach(item => {
-      const tp = parseFloat(item.total_price) || 0;
-      extraItemsTotal += tp;
-      if (tp < 0) extraItemsNegativeTotal += tp;
-    });
-  }
-
-  // Security: Cap negative extra items at 5% of package price
-  const maxNegative = -(packagePrice * 0.05);
-  if (extraItemsNegativeTotal < maxNegative && packagePrice > 0) {
-    throw new Error(`Additional items discount (RM ${Math.abs(extraItemsNegativeTotal).toFixed(2)}) exceeds the maximum allowed 5% of package price (RM ${Math.abs(maxNegative).toFixed(2)}).`);
-  }
-
-  // Calculate discount amount from percent
-  let percentDiscountVal = 0;
-  if (discountPercent > 0) {
-    percentDiscountVal = (packagePrice * discountPercent) / 100;
-  }
-
-  const earnNowRebateDiscount = applyEarnNowRebate ? getEarnNowRebateDiscount(panelQty) : 0;
-  const earthMonthGoGreenBonusDiscount = applyEarthMonthGoGreenBonus ? getEarthMonthGoGreenBonusDiscount(panelQty) : 0;
-
-  // Subtotal after ALL adjustments (discounts, vouchers, epp fees, extra items)
-  // taxable subtotal = package + markup + extra items - discounts - vouchers - promo
-  const trueSubtotal = priceWithMarkup
-    + extraItemsTotal
-    - discountFixed
-    - percentDiscountVal
-    - totalVoucherAmount
-    - earnNowRebateDiscount
-    - earthMonthGoGreenBonusDiscount;
-
-  if (trueSubtotal <= 0) {
-    throw new Error('Total amount cannot be zero or negative after applying discounts and vouchers.');
-  }
-
-  const taxableSubtotal = Math.max(0, trueSubtotal);
-
-  // Calculate SST (6% rate)
-  const sstRate = applySst ? 6.0 : 0;
-  const sstAmount = applySst ? (taxableSubtotal * sstRate) / 100 : 0;
-
-  // Total amount including SST and EPP fees
-  const finalTotalAmount = taxableSubtotal + sstAmount + parseFloat(eppFeeAmount);
-
-  return {
-    markupAmount,
-    priceWithMarkup,
-    percentDiscountVal,
-    taxableSubtotal,
-    sstRate,
-    sstAmount,
-    finalTotalAmount,
-    earnNowRebateDiscount,
-    earthMonthGoGreenBonusDiscount
-  };
 }
 
 /**
@@ -1634,11 +1247,6 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   const shareToken = generateShareToken();
   const shareExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
   const finalCreatedBy = String(userId);
-  const customerAverageTnb = normalizeNullableNumber(data.customerAverageTnb);
-  const estimatedSaving = normalizeNullableNumber(data.estimatedSaving);
-  const estimatedNewBillAmount = normalizeNullableNumber(data.estimatedNewBillAmount);
-  const solarSunPeakHour = normalizeNullableNumber(data.solarSunPeakHour);
-  const solarMorningUsagePercent = normalizeNullableNumber(data.solarMorningUsagePercent);
 
   const insertColumns = [
     'bubble_id',
@@ -1665,30 +1273,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
     values.push(data.referrerName || null);
   }
 
-  if (invoiceColumns.has('customer_average_tnb')) {
-    insertColumns.push('customer_average_tnb');
-    values.push(customerAverageTnb);
-  }
-
-  if (invoiceColumns.has('estimated_saving')) {
-    insertColumns.push('estimated_saving');
-    values.push(estimatedSaving);
-  }
-
-  if (invoiceColumns.has('estimated_new_bill_amount')) {
-    insertColumns.push('estimated_new_bill_amount');
-    values.push(estimatedNewBillAmount);
-  }
-
-  if (invoiceColumns.has('solar_sun_peak_hour')) {
-    insertColumns.push('solar_sun_peak_hour');
-    values.push(solarSunPeakHour);
-  }
-
-  if (invoiceColumns.has('solar_morning_usage_percent')) {
-    insertColumns.push('solar_morning_usage_percent');
-    values.push(solarMorningUsagePercent);
-  }
+  appendInvoiceEstimateInsertFields(invoiceColumns, data, insertColumns, values);
 
   insertColumns.push(
     'invoice_number',
@@ -2025,7 +1610,7 @@ async function createInvoiceOnTheFly(client, data) {
     const voucherInfo = await _processVouchers(client, data, packagePrice);
 
     // 3. Calculate Financials
-    const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, deps.pkg ? deps.pkg.panel_qty : 0);
+    const financials = calculateInvoiceFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, deps.pkg ? deps.pkg.panel_qty : 0);
 
     // 3.5 Validate tiered max discount policy (vouchers excluded)
     const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
@@ -2496,7 +2081,7 @@ async function updateInvoiceTransaction(client, data) {
     const voucherInfo = Array.isArray(data.voucherCodes) || data.voucherCode || (Array.isArray(data.voucherIds) && data.voucherIds.length > 0)
       ? await _processVouchers(client, data, packagePrice)
       : await _processExistingInvoiceVouchers(client, bubbleId, currentData.voucher_code, packagePrice);
-    const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
+    const financials = calculateInvoiceFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
 
     // Validate tiered max discount policy (vouchers excluded)
     const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
@@ -2527,50 +2112,14 @@ async function updateInvoiceTransaction(client, data) {
       updateValues.push(data.referrerName || null);
     }
 
-    if (invoiceColumns.has('customer_average_tnb')) {
-      updateAssignments.push(`customer_average_tnb = $${updateParamIdx++}`);
-      updateValues.push(
-        data.customerAverageTnb !== undefined
-          ? normalizeNullableNumber(data.customerAverageTnb)
-          : currentData.customer_average_tnb
-      );
-    }
-
-    if (invoiceColumns.has('estimated_saving')) {
-      updateAssignments.push(`estimated_saving = $${updateParamIdx++}`);
-      updateValues.push(
-        data.estimatedSaving !== undefined
-          ? normalizeNullableNumber(data.estimatedSaving)
-          : currentData.estimated_saving
-      );
-    }
-
-    if (invoiceColumns.has('estimated_new_bill_amount')) {
-      updateAssignments.push(`estimated_new_bill_amount = $${updateParamIdx++}`);
-      updateValues.push(
-        data.estimatedNewBillAmount !== undefined
-          ? normalizeNullableNumber(data.estimatedNewBillAmount)
-          : currentData.estimated_new_bill_amount
-      );
-    }
-
-    if (invoiceColumns.has('solar_sun_peak_hour')) {
-      updateAssignments.push(`solar_sun_peak_hour = $${updateParamIdx++}`);
-      updateValues.push(
-        data.solarSunPeakHour !== undefined
-          ? normalizeNullableNumber(data.solarSunPeakHour)
-          : currentData.solar_sun_peak_hour
-      );
-    }
-
-    if (invoiceColumns.has('solar_morning_usage_percent')) {
-      updateAssignments.push(`solar_morning_usage_percent = $${updateParamIdx++}`);
-      updateValues.push(
-        data.solarMorningUsagePercent !== undefined
-          ? normalizeNullableNumber(data.solarMorningUsagePercent)
-          : currentData.solar_morning_usage_percent
-      );
-    }
+    updateParamIdx = appendInvoiceEstimateUpdateFields(
+      invoiceColumns,
+      data,
+      currentData,
+      updateAssignments,
+      updateValues,
+      updateParamIdx
+    );
 
     updateAssignments.push(
       `total_amount = $${updateParamIdx}`,

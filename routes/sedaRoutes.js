@@ -151,85 +151,100 @@ async function requireSedaOwnership(req, res, next) {
 // Auth and ownership checks happen in the router BEFORE this is called.
 
 async function handleUpload(req, res, recordId) {
-    const { field } = req.params;
-    const rule = FILE_FIELDS[field];
+    try {
+        const { field } = req.params;
+        const rule = FILE_FIELDS[field];
 
-    // Unknown field — rejected before multer runs
-    if (!rule) {
-        logUpload({ route: req.path, field, recordId, result: 'rejected', code: ERROR_CODES.UNKNOWN_FIELD, error: 'Unknown field' });
-        return res.status(400).json(uploadError(ERROR_CODES.UNKNOWN_FIELD, { field, error: `"${field}" is not a valid upload field.` }));
-    }
+        // Unknown field — rejected before multer runs
+        if (!rule) {
+            if (!req.complete) req.resume();
+            res.set('Connection', 'close');
+            logUpload({ route: req.path, field, recordId, result: 'rejected', code: ERROR_CODES.UNKNOWN_FIELD, error: 'Unknown field' });
+            return res.status(400).json(uploadError(ERROR_CODES.UNKNOWN_FIELD, { field, error: `"${field}" is not a valid upload field.` }));
+        }
 
-    // Filename safety pre-check on originalname (before multer writes to disk)
-    // We'll re-check in fileFilter — but let's reject early for obvious attacks
-    const rawName = req.headers['x-upload-filename'] || '';  // optional header; no reliance on it
-    if (rawName) {
-        const nameCheck = validateFilename(rawName);
+        // Filename safety pre-check on originalname (before multer writes to disk)
+        const rawName = req.headers['x-upload-filename'] || '';
+        if (rawName) {
+            const nameCheck = validateFilename(rawName);
+            if (!nameCheck.ok) {
+                if (!req.complete) req.resume();
+                res.set('Connection', 'close');
+                logUpload({ route: req.path, field, recordId, result: 'rejected', code: ERROR_CODES.UNSAFE_FILENAME, error: nameCheck.error });
+                return res.status(400).json(uploadError(ERROR_CODES.UNSAFE_FILENAME, { field, error: `${rule.label}: ${nameCheck.error}` }));
+            }
+        }
+
+        // Run multer
+        const multerErr = await getUploader(field)(req, res);
+
+        if (multerErr) {
+            if (!req.complete) req.resume();
+            res.set('Connection', 'close');
+            
+            const isSize = multerErr.code === 'LIMIT_FILE_SIZE';
+            const code   = isSize ? ERROR_CODES.TOO_LARGE
+                         : (multerErr.code === 'WRONG_TYPE' ? ERROR_CODES.WRONG_TYPE : ERROR_CODES.STORAGE_FAILED);
+            const msg    = isSize
+                ? `${rule.label}: File too large. Maximum is ${rule.maxMB} MB.`
+                : (multerErr.message || 'Upload failed.');
+
+            logUpload({ route: req.path, field, recordId, mime: resolvedMime(req.file || {}), result: 'rejected', code, error: msg });
+            return res.status(400).json(uploadError(code, { field, error: msg }));
+        }
+
+        if (!req.file) {
+            if (!req.complete) req.resume();
+            res.set('Connection', 'close');
+            logUpload({ route: req.path, field, recordId, result: 'rejected', code: ERROR_CODES.NO_FILE, error: 'No file received' });
+            return res.status(400).json(uploadError(ERROR_CODES.NO_FILE, { field, error: `${rule.label}: No file received. Please select a file and try again.` }));
+        }
+
+        // Per-field size enforcement (stricter than transport cap)
+        const sizeCheck = validateSize(req.file.size, rule.maxMB, rule.label);
+        if (!sizeCheck.ok) {
+            safeDelete(req.file.path);
+            logUpload({ route: req.path, field, recordId, mime: req.file.mimetype, sizeBytes: req.file.size, result: 'rejected', code: ERROR_CODES.TOO_LARGE, error: sizeCheck.error });
+            return res.status(413).json(uploadError(ERROR_CODES.TOO_LARGE, { field, error: sizeCheck.error }));
+        }
+
+        // Filename safety check on the actual originalname after multer runs
+        const nameCheck = validateFilename(req.file.originalname || '');
         if (!nameCheck.ok) {
-            logUpload({ route: req.path, field, recordId, result: 'rejected', code: ERROR_CODES.UNSAFE_FILENAME, error: nameCheck.error });
+            safeDelete(req.file.path);
             return res.status(400).json(uploadError(ERROR_CODES.UNSAFE_FILENAME, { field, error: `${rule.label}: ${nameCheck.error}` }));
         }
+
+        const mime    = resolvedMime(req.file);
+        const fileUrl = buildPublicUrl(req, 'seda_registration', req.file.filename);
+
+        // DB update — use finally to guarantee single client.release()
+        let client;
+        try {
+            client = await pool.connect();
+            await client.query(
+                `UPDATE seda_registration
+                 SET ${rule.column} = $1, modified_date = NOW(), updated_at = NOW()
+                 WHERE bubble_id = $2`,
+                [fileUrl, recordId]
+            );
+        } catch (dbErr) {
+            console.error('[SEDA Upload] DB update failed — orphaned file:', req.file.path, dbErr.message);
+            logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'error', code: ERROR_CODES.DB_FAILED, error: dbErr.message });
+            return res.status(500).json(uploadError(ERROR_CODES.DB_FAILED, { field, error: 'File saved but database update failed. Please try uploading again — the retry is safe.' }));
+        } finally {
+            if (client) client.release();
+        }
+
+        logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'success' });
+        return res.json(uploadSuccess({ field, url: fileUrl, filename: req.file.filename, mime, size: req.file.size }));
+        
+    } catch (err) {
+        console.error('[SEDA Upload] Unhandled error:', err.message);
+        if (!req.complete) req.resume();
+        res.set('Connection', 'close');
+        return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: req.params.field, error: 'Internal server error during upload.' }));
     }
-
-    // Run multer
-    const multerErr = await getUploader(field)(req, res);
-
-    if (multerErr) {
-        const isSize = multerErr.code === 'LIMIT_FILE_SIZE';
-        const code   = isSize ? ERROR_CODES.TOO_LARGE
-                     : (multerErr.code === 'WRONG_TYPE' ? ERROR_CODES.WRONG_TYPE : ERROR_CODES.STORAGE_FAILED);
-        const msg    = isSize
-            ? `${rule.label}: File too large. Maximum is ${rule.maxMB} MB.`
-            : (multerErr.message || 'Upload failed.');
-
-        logUpload({ route: req.path, field, recordId, mime: resolvedMime(req.file || {}), result: 'rejected', code, error: msg });
-        return res.status(400).json(uploadError(code, { field, error: msg }));
-    }
-
-    if (!req.file) {
-        logUpload({ route: req.path, field, recordId, result: 'rejected', code: ERROR_CODES.NO_FILE, error: 'No file received' });
-        return res.status(400).json(uploadError(ERROR_CODES.NO_FILE, { field, error: `${rule.label}: No file received. Please select a file and try again.` }));
-    }
-
-    // Per-field size enforcement (stricter than transport cap)
-    const sizeCheck = validateSize(req.file.size, rule.maxMB, rule.label);
-    if (!sizeCheck.ok) {
-        safeDelete(req.file.path);
-        logUpload({ route: req.path, field, recordId, mime: req.file.mimetype, sizeBytes: req.file.size, result: 'rejected', code: ERROR_CODES.TOO_LARGE, error: sizeCheck.error });
-        return res.status(413).json(uploadError(ERROR_CODES.TOO_LARGE, { field, error: sizeCheck.error }));
-    }
-
-    // Filename safety check on the actual originalname after multer runs
-    const nameCheck = validateFilename(req.file.originalname || '');
-    if (!nameCheck.ok) {
-        safeDelete(req.file.path);
-        return res.status(400).json(uploadError(ERROR_CODES.UNSAFE_FILENAME, { field, error: `${rule.label}: ${nameCheck.error}` }));
-    }
-
-    const mime    = resolvedMime(req.file);
-    const fileUrl = buildPublicUrl(req, 'seda_registration', req.file.filename);
-
-    // DB update — use finally to guarantee single client.release()
-    const client = await pool.connect();
-    try {
-        await client.query(
-            `UPDATE seda_registration
-             SET ${rule.column} = $1, modified_date = NOW(), updated_at = NOW()
-             WHERE bubble_id = $2`,
-            [fileUrl, recordId]
-        );
-    } catch (dbErr) {
-        // File is on disk but DB update failed — log the orphaned file path
-        console.error('[SEDA Upload] DB update failed — orphaned file:', req.file.path, dbErr.message);
-        logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'error', code: ERROR_CODES.DB_FAILED, error: dbErr.message });
-        // Do NOT delete the file — client can retry; second upload will overwrite
-        return res.status(500).json(uploadError(ERROR_CODES.DB_FAILED, { field, error: 'File saved but database update failed. Please try uploading again — the retry is safe.' }));
-    } finally {
-        client.release();   // exactly one release, always
-    }
-
-    logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'success' });
-    return res.json(uploadSuccess({ field, url: fileUrl, filename: req.file.filename, mime, size: req.file.size }));
 }
 
 // ─── Extraction helpers ────────────────────────────────────────────────────────

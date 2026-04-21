@@ -36,7 +36,7 @@ function resolvedMime(file) {
 }
 
 function mimeFromExtension(filename = '') {
-    const ext = path.extname(filename).toLowerCase();
+    const ext = path.extname(filename || '').toLowerCase();
     const map = {
         '.pdf':  'application/pdf',
         '.jpg':  'image/jpeg',
