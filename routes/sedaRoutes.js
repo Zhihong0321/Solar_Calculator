@@ -157,8 +157,7 @@ async function handleUpload(req, res, recordId) {
 
         // Unknown field — rejected before multer runs
         if (!rule) {
-            if (!req.complete) req.resume();
-            res.set('Connection', 'close');
+            await drainRequest(req);
             logUpload({ route: req.path, field, recordId, result: 'rejected', code: ERROR_CODES.UNKNOWN_FIELD, error: 'Unknown field' });
             return res.status(400).json(uploadError(ERROR_CODES.UNKNOWN_FIELD, { field, error: `"${field}" is not a valid upload field.` }));
         }
@@ -168,8 +167,7 @@ async function handleUpload(req, res, recordId) {
         if (rawName) {
             const nameCheck = validateFilename(rawName);
             if (!nameCheck.ok) {
-                if (!req.complete) req.resume();
-                res.set('Connection', 'close');
+                await drainRequest(req);
                 logUpload({ route: req.path, field, recordId, result: 'rejected', code: ERROR_CODES.UNSAFE_FILENAME, error: nameCheck.error });
                 return res.status(400).json(uploadError(ERROR_CODES.UNSAFE_FILENAME, { field, error: `${rule.label}: ${nameCheck.error}` }));
             }
@@ -179,8 +177,7 @@ async function handleUpload(req, res, recordId) {
         const multerErr = await getUploader(field)(req, res);
 
         if (multerErr) {
-            if (!req.complete) req.resume();
-            res.set('Connection', 'close');
+            await drainRequest(req);
             
             const isSize = multerErr.code === 'LIMIT_FILE_SIZE';
             const code   = isSize ? ERROR_CODES.TOO_LARGE
@@ -194,8 +191,7 @@ async function handleUpload(req, res, recordId) {
         }
 
         if (!req.file) {
-            if (!req.complete) req.resume();
-            res.set('Connection', 'close');
+            await drainRequest(req);
             logUpload({ route: req.path, field, recordId, result: 'rejected', code: ERROR_CODES.NO_FILE, error: 'No file received' });
             return res.status(400).json(uploadError(ERROR_CODES.NO_FILE, { field, error: `${rule.label}: No file received. Please select a file and try again.` }));
         }
@@ -241,10 +237,28 @@ async function handleUpload(req, res, recordId) {
         
     } catch (err) {
         console.error('[SEDA Upload] Unhandled error:', err.message);
-        if (!req.complete) req.resume();
-        res.set('Connection', 'close');
+        await drainRequest(req);
         return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: req.params.field, error: 'Internal server error during upload.' }));
     }
+}
+
+function drainRequest(req) {
+    if (!req || req.complete || req.readableEnded) return Promise.resolve();
+    return new Promise(resolve => {
+        let settled = false;
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            req.off('end', finish);
+            req.off('close', finish);
+            req.off('error', finish);
+            resolve();
+        };
+        req.on('end', finish);
+        req.on('close', finish);
+        req.on('error', finish);
+        req.resume();
+    });
 }
 
 // ─── Extraction helpers ────────────────────────────────────────────────────────

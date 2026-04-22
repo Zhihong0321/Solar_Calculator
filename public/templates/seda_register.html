@@ -595,7 +595,7 @@
                         <label class="input-label">MyKad PDF (Full Document)</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileMyKadPdf').click()">
                             <p class="text-xs text-slate-400 font-medium">Click to upload PDF</p>
-                            <input type="file" id="fileMyKadPdf" accept="application/pdf" class="hidden"
+                            <input type="file" id="fileMyKadPdf" accept=".pdf,application/pdf" class="hidden"
                                 onchange="uploadFile(this)">
                             <div id="previewMyKadPdf" class="file-preview"></div>
                         </div>
@@ -853,6 +853,12 @@
             return /\.(?:jpg|jpeg|png|webp|gif|bmp|heic|heif)(?:$|[?#])/i.test(url || '');
         }
 
+        function uploadFilenameFor(file) {
+            const explicitName = String(file?.name || '').trim();
+            if (explicitName) return explicitName;
+            return (file?.type || '').toLowerCase() === 'application/pdf' ? 'upload.pdf' : 'upload.bin';
+        }
+
         function displayFileName(url, fieldKey) {
             try {
                 const cleanUrl = (url || '').split('?')[0];
@@ -964,7 +970,7 @@
             if (!config) { console.error('No FIELDS config for', inputEl.id); return; }
 
             // Reset input immediately so same file can be re-selected if needed
-            const fileName = file.name;
+            const fileName = uploadFilenameFor(file);
             inputEl.value = '';
 
             // Clear any previous error on this field
@@ -983,10 +989,11 @@
             let response, json;
             try {
                 const form = new FormData();
-                form.append('file', file);
+                form.append('file', file, fileName);
 
                 response = await fetch(uploadUrl(config.key), {
                     method: 'POST',
+                    headers: { 'Accept': 'application/json' },
                     body: form
                     // ← No Content-Type header. Browser sets it with boundary automatically.
                 });
