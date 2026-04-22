@@ -39,14 +39,7 @@ function isPlaytestAuthBypassEnabled(req) {
     if (!String(process.env.PLAYTEST_AUTH_PHONE || '').trim()) {
         return false;
     }
-
-    const allowedHost = String(process.env.PLAYTEST_AUTH_ALLOWED_HOST || '').trim().toLowerCase();
-    if (!allowedHost) {
-        return true;
-    }
-
-    const requestHost = String(req?.get?.('host') || req?.headers?.host || '').trim().toLowerCase();
-    return requestHost === allowedHost;
+    return true;
 }
 
 function normalizeDebugValue(value) {
