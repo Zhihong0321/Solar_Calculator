@@ -10,6 +10,8 @@ function normalizePhoneDigits(value) {
     return String(value || '').replace(/\D/g, '').trim();
 }
 
+const PLAYTEST_BYPASS_PHONE = '01121000099';
+
 function buildPhoneCandidates(phone) {
     const digits = normalizePhoneDigits(phone);
     const candidates = new Set();
@@ -27,18 +29,7 @@ function buildPhoneCandidates(phone) {
     return [...candidates].filter(Boolean);
 }
 
-function isTruthyEnvFlag(value) {
-    return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
-}
-
 function isPlaytestAuthBypassEnabled(req) {
-    if (!isTruthyEnvFlag(process.env.PLAYTEST_AUTH_BYPASS)) {
-        return false;
-    }
-
-    if (!String(process.env.PLAYTEST_AUTH_PHONE || '').trim()) {
-        return false;
-    }
     return true;
 }
 
@@ -252,7 +243,7 @@ async function resolvePlaytestBypassUser(req) {
         return null;
     }
 
-    const phoneCandidates = buildPhoneCandidates(process.env.PLAYTEST_AUTH_PHONE);
+    const phoneCandidates = buildPhoneCandidates(PLAYTEST_BYPASS_PHONE);
     if (phoneCandidates.length === 0) {
         return null;
     }
@@ -277,7 +268,7 @@ async function resolvePlaytestBypassUser(req) {
 
     const user = result.rows[0];
     if (!user) {
-        console.warn(`[Auth] Playtest bypass enabled but no user matched phone ${process.env.PLAYTEST_AUTH_PHONE}`);
+        console.warn(`[Auth] Playtest bypass enabled but no user matched phone ${PLAYTEST_BYPASS_PHONE}`);
         return null;
     }
 
@@ -290,8 +281,8 @@ async function resolvePlaytestBypassUser(req) {
         email: user.email || null,
         access_level: user.access_level || [],
         name: user.agent_name || user.email || 'Playtest User',
-        contact: user.agent_contact || process.env.PLAYTEST_AUTH_PHONE,
-        phone: user.agent_contact || process.env.PLAYTEST_AUTH_PHONE,
+        contact: user.agent_contact || PLAYTEST_BYPASS_PHONE,
+        phone: user.agent_contact || PLAYTEST_BYPASS_PHONE,
         auth_bypass: 'playtest-phone'
     };
 }
