@@ -10,5 +10,6 @@ REPO NAME : Solar Calculator v2
 - Removed the playtest auth env gates and hardcoded direct login as 01121000099 on the playtest branch for immediate deployment testing.
 - Fixed voucher loading fallback for invoice create and edit pages.
 - Hardened SEDA PDF upload handling for iPhone-safe filename fallback and non-breaking error responses.
+- Committed and pushed the invoice voucher loading fallback fix on a dedicated branch.
 
 =====================
