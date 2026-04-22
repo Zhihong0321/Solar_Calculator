@@ -6,33 +6,6 @@ const AUTH_URL = process.env.AUTH_URL || 'https://auth.atap.solar';
 const AUTH_DEBUG_SOURCE_FILE = 'src/core/middleware/auth.js';
 const AUTH_DEBUG_SOURCE_FUNCTION = 'resolveAuthenticatedUser';
 
-function normalizePhoneDigits(value) {
-    return String(value || '').replace(/\D/g, '').trim();
-}
-
-const PLAYTEST_BYPASS_PHONE = '01121000099';
-
-function buildPhoneCandidates(phone) {
-    const digits = normalizePhoneDigits(phone);
-    const candidates = new Set();
-
-    if (!digits) return [];
-
-    candidates.add(digits);
-    if (digits.startsWith('0')) {
-        candidates.add(`6${digits}`);
-    }
-    if (digits.startsWith('60')) {
-        candidates.add(digits.slice(1));
-    }
-
-    return [...candidates].filter(Boolean);
-}
-
-function isPlaytestAuthBypassEnabled(req) {
-    return true;
-}
-
 function normalizeDebugValue(value) {
     if (value === null || value === undefined) return null;
     const normalized = String(value).trim();
@@ -238,55 +211,6 @@ async function resolveAuthenticatedUser(decoded, context = {}) {
     };
 }
 
-async function resolvePlaytestBypassUser(req) {
-    if (!isPlaytestAuthBypassEnabled(req)) {
-        return null;
-    }
-
-    const phoneCandidates = buildPhoneCandidates(PLAYTEST_BYPASS_PHONE);
-    if (phoneCandidates.length === 0) {
-        return null;
-    }
-
-    const result = await pool.query(
-        `SELECT
-            u.id::text AS user_id,
-            u.bubble_id,
-            u.linked_agent_profile,
-            u.email,
-            u.access_level,
-            a.name AS agent_name,
-            a.contact AS agent_contact
-         FROM "user" u
-         LEFT JOIN agent a
-           ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
-         WHERE regexp_replace(COALESCE(a.contact, ''), '\D', '', 'g') = ANY($1::text[])
-         ORDER BY u.id DESC
-         LIMIT 1`,
-        [phoneCandidates]
-    );
-
-    const user = result.rows[0];
-    if (!user) {
-        console.warn(`[Auth] Playtest bypass enabled but no user matched phone ${PLAYTEST_BYPASS_PHONE}`);
-        return null;
-    }
-
-    return {
-        userId: user.user_id,
-        id: user.user_id,
-        bubbleId: user.bubble_id,
-        bubble_id: user.bubble_id,
-        linked_agent_profile: user.linked_agent_profile,
-        email: user.email || null,
-        access_level: user.access_level || [],
-        name: user.agent_name || user.email || 'Playtest User',
-        contact: user.agent_contact || PLAYTEST_BYPASS_PHONE,
-        phone: user.agent_contact || PLAYTEST_BYPASS_PHONE,
-        auth_bypass: 'playtest-phone'
-    };
-}
-
 /**
  * Shared authentication middleware.
  * Ensures the user has a valid JWT in their cookies.
@@ -305,11 +229,6 @@ const requireAuth = async (req, res, next) => {
     };
 
     if (!token) {
-        const bypassUser = await resolvePlaytestBypassUser(req);
-        if (bypassUser) {
-            req.user = bypassUser;
-            return next();
-        }
         return handleAuthFail();
     }
 
@@ -321,11 +240,6 @@ const requireAuth = async (req, res, next) => {
             url: req.url
         });
         if (!resolvedUser) {
-            const bypassUser = await resolvePlaytestBypassUser(req);
-            if (bypassUser) {
-                req.user = bypassUser;
-                return next();
-            }
             return handleAuthFail();
         }
 
@@ -335,13 +249,8 @@ const requireAuth = async (req, res, next) => {
         if (err?.code && err.code !== 'ERR_JWT_EXPIRED') {
             console.error('[Auth] Request authentication failed:', err.message);
         }
-        const bypassUser = await resolvePlaytestBypassUser(req);
-        if (bypassUser) {
-            req.user = bypassUser;
-            return next();
-        }
         return handleAuthFail();
     }
 };
 
-module.exports = { requireAuth, isPlaytestAuthBypassEnabled };
+module.exports = { requireAuth };

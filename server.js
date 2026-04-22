@@ -9,7 +9,7 @@ require('dotenv').config();
 
 // --- Core Resources ---
 const pool = require('./src/core/database/pool');
-const { requireAuth, isPlaytestAuthBypassEnabled } = require('./src/core/middleware/auth');
+const { requireAuth } = require('./src/core/middleware/auth');
 const { getRequestUserBubbleId, getRequestLegacyUserId } = require('./src/core/auth/userIdentity');
 
 // --- Feature Modules ---
@@ -156,10 +156,6 @@ async function hasTableColumn(client, tableName, columnName) {
 }
 
 app.get('/', (req, res) => {
-  if (isPlaytestAuthBypassEnabled(req)) {
-    return res.redirect('/agent/home');
-  }
-
   const token = req.cookies.auth_token;
 
   if (!token) {
@@ -176,18 +172,10 @@ app.get('/', (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-  if (isPlaytestAuthBypassEnabled(req)) {
-    return res.redirect('/agent/home');
-  }
-
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
 app.get('/auth-login', (req, res) => {
-  if (isPlaytestAuthBypassEnabled(req)) {
-    return res.redirect('/agent/home');
-  }
-
   const returnTo = encodeURIComponent(buildAbsoluteReturnTo(req));
   res.redirect(`${AUTH_URL}/?return_to=${returnTo}`);
 });
