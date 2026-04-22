@@ -72,14 +72,36 @@
         return responseJson || {};
     }
 
-    async function fetchVoucherStepData(invoiceId) {
-        const response = await fetch(`/api/v1/invoices/${encodeURIComponent(invoiceId)}/voucher-step`, {
-            credentials: 'same-origin'
-        });
-        const json = await response.json();
-        if (!response.ok) {
-            throw new Error(json?.error || 'Failed to load voucher-step data');
+    async function fetchJsonWithTimeout(url, fallbackErrorMessage, timeoutMs = 15000, options = {}) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                ...options,
+                signal: controller.signal
+            });
+            const json = await response.json();
+            if (!response.ok) {
+                throw new Error(json?.error || fallbackErrorMessage);
+            }
+            return json;
+        } catch (error) {
+            if (error?.name === 'AbortError') {
+                throw new Error('Voucher loading timed out. Please refresh and try again.');
+            }
+            throw error;
+        } finally {
+            window.clearTimeout(timeoutId);
         }
+    }
+
+    async function fetchVoucherStepData(invoiceId) {
+        const json = await fetchJsonWithTimeout(
+            `/api/v1/invoices/${encodeURIComponent(invoiceId)}/voucher-step`,
+            'Failed to load voucher-step data'
+        );
         return pickPayload(json);
     }
 

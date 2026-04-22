@@ -273,8 +273,12 @@
     }
 
     function fetchVoucherPreviewData(packageId) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+
         return fetch(`/api/v1/vouchers/preview?package_id=${encodeURIComponent(packageId)}`, {
-            credentials: 'same-origin'
+            credentials: 'same-origin',
+            signal: controller.signal
         })
             .then(async (response) => {
                 const json = await response.json();
@@ -282,6 +286,15 @@
                     throw new Error(json?.error || 'Failed to load voucher preview.');
                 }
                 return json?.data || {};
+            })
+            .catch((error) => {
+                if (error?.name === 'AbortError') {
+                    throw new Error('Voucher loading timed out. Please refresh and try again.');
+                }
+                throw error;
+            })
+            .finally(() => {
+                window.clearTimeout(timeoutId);
             });
     }
 

@@ -1625,8 +1625,14 @@ document.addEventListener('DOMContentLoaded', async function () {
             // 8. Add first payment method row (default: Cash, 100%)
             addPaymentMethodRow();
 
-            const invoiceVoucherPayload = await window.InvoiceVoucherStep.fetchVoucherStepData(editInvoiceId);
-            const selectedVoucherIds = window.InvoiceVoucherStep.readSelectedVoucherIds(invoiceVoucherPayload);
+            let selectedVoucherIds = [];
+            try {
+                const invoiceVoucherPayload = await window.InvoiceVoucherStep.fetchVoucherStepData(editInvoiceId);
+                selectedVoucherIds = window.InvoiceVoucherStep.readSelectedVoucherIds(invoiceVoucherPayload);
+            } catch (error) {
+                console.warn('Unable to load saved voucher selection for this invoice:', error);
+            }
+
             await loadDraftVoucherStepForPackage(invPackageId, {
                 selectedIds: selectedVoucherIds,
                 scrollToSection: false
