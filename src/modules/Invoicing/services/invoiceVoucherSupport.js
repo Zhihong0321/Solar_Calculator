@@ -100,6 +100,28 @@ function buildVoucherOrderClause(columns) {
   return orderParts.length ? orderParts.join(', ') : '1';
 }
 
+function buildVoucherAvailabilityClause(columns) {
+  const clauses = [];
+
+  if (columns.has('delete')) {
+    clauses.push('("delete" IS NULL OR "delete" = FALSE)');
+  }
+
+  if (columns.has('available_until')) {
+    clauses.push(`(
+      available_until IS NULL
+      OR NULLIF(TRIM(available_until::text), '') IS NULL
+      OR NULLIF(TRIM(available_until::text), '')::timestamptz >= NOW()
+    )`);
+  }
+
+  if (columns.has('voucher_availability')) {
+    clauses.push('(voucher_availability IS NULL OR voucher_availability > 0)');
+  }
+
+  return clauses.length ? clauses.join('\n           AND ') : 'TRUE';
+}
+
 async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
   const { getTableColumns } = deps;
   const categoryColumns = await getTableColumns(client, 'voucher_category');
@@ -135,9 +157,7 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
          FROM voucher
          WHERE linked_voucher_category = $1
            AND ${voucherColumns.has('active') ? 'active = TRUE' : 'TRUE'}
-           AND ${voucherColumns.has('delete') ? '("delete" IS NULL OR "delete" = FALSE)' : 'TRUE'}
-           AND ${voucherColumns.has('available_until') ? '(available_until IS NULL OR available_until >= NOW())' : 'TRUE'}
-           AND ${voucherColumns.has('voucher_availability') ? '(voucher_availability IS NULL OR voucher_availability > 0)' : 'TRUE'}
+           AND ${buildVoucherAvailabilityClause(voucherColumns)}
          ORDER BY ${buildVoucherOrderClause(voucherColumns)}`,
         [category.bubble_id]
       )

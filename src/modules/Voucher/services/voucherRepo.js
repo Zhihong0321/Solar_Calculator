@@ -606,7 +606,11 @@ async function getVoucherGroupsForInvoiceStep(pool, invoiceId) {
              WHERE v.linked_voucher_category = ANY($1::text[])
                AND v.active = TRUE
                AND (v."delete" IS NULL OR v."delete" = FALSE)
-               AND (v.available_until IS NULL OR v.available_until >= NOW())
+               AND (
+                    v.available_until IS NULL
+                    OR NULLIF(TRIM(v.available_until::text), '') IS NULL
+                    OR NULLIF(TRIM(v.available_until::text), '')::timestamptz >= NOW()
+               )
                AND (v.voucher_availability IS NULL OR v.voucher_availability > 0)
              ORDER BY c.sort_order ASC, v.created_at DESC`,
             [categoryIds]
