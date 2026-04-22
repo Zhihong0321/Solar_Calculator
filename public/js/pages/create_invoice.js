@@ -1779,6 +1779,9 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
             extraItems,
             voucherIds: getSelectedDraftVoucherIds(),
             additionalFields: {
+                // CREATE INVOICE RULE:
+                // Promo default is OFF on brand new invoices.
+                // DO NOT auto-enable promo during create unless the agent/user explicitly turns it on.
                 customer_average_tnb: document.getElementById('customerAverageTnb')?.value || null,
                 estimated_saving: document.getElementById('estimatedSaving')?.value || null,
                 estimated_new_bill_amount: document.getElementById('estimatedNewBillAmount')?.value || null,
@@ -1796,6 +1799,10 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
             endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;
             // Preserve markup
             requestData.agent_markup = window.currentAgentMarkup || 0;
+            // EDIT INVOICE RULE:
+            // Must carry the EXISTING invoice promo setting.
+            // DO NOT overwrite an existing invoice's promo choice with create-mode defaults.
+            // If promo toggles are locked because the campaign ended, preserve the loaded invoice state.
             requestData.apply_earn_now_rebate = document.getElementById('applyEarnNowRebate')?.disabled
                 ? Boolean(loadedPromotionSelections.earnNowApplied)
                 : Boolean(document.getElementById('applyEarnNowRebate')?.checked);

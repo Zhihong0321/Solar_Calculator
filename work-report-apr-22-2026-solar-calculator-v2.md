@@ -14,5 +14,9 @@ REPO NAME : Solar Calculator v2
 - Removed the accidental playtest auto-auth bypass from the active SEDA PDF upload fix branch and pushed the auth rollback.
 - Made invoice edit voucher loading fail fast and continue when saved voucher selection lookup stalls.
 - Fixed voucher expiry SQL so text-based available-until values load correctly on invoice voucher screens.
+- Refreshed the AI-first maintenance map and logged the next recommended maintenance target.
+- Extracted invoiceHtmlGeneratorV2 browser interaction helpers into a focused support module.
+- Fixed invoice edit version saves so April promo flags are preserved and added a regression test.
+- Added explicit create-vs-edit promo warning comments so invoice edits preserve saved promo settings.
 
 =====================

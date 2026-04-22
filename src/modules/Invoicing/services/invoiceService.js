@@ -491,6 +491,13 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       discountFixed: discountFixed,
       discountPercent: discountPercent,
       applySst: invoiceRequestPayload.applySst || false,
+      // VERSION / EDIT RULE:
+      // CREATE invoice: promo default is OFF unless explicitly enabled.
+      // EDIT invoice version: MUST carry the saved invoice promo setting.
+      // DO NOT drop or reset these flags here, otherwise version save will silently cancel
+      // promo items that were already applied on the existing invoice.
+      applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate || false,
+      applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus || false,
       // templateId: We reuse original
       voucherCode: invoiceRequestPayload.voucherCode,
       voucherCodes: invoiceRequestPayload.voucherCodes,

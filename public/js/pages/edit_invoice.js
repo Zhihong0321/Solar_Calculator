@@ -1777,6 +1777,9 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         extraItems,
         voucherIds: getSelectedDraftVoucherIds(),
         additionalFields: {
+            // EDIT INVOICE RULE:
+            // This screen edits an EXISTING invoice, so promo handling must follow the saved invoice setting.
+            // DO NOT treat edit like create. Create defaults are not allowed to overwrite existing invoice promo state.
             applyEarnNowRebate: document.getElementById('applyEarnNowRebate')?.checked || false,
             applyEarthMonthGoGreenBonus: document.getElementById('applyEarthMonthGoGreenBonus')?.checked || false
         }
@@ -1784,6 +1787,9 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
 
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    // If the promo toggles are disabled because the promo period already ended,
+    // we still MUST carry the original invoice setting forward on save.
+    // DO NOT replace persisted promo state with false just because the edit UI is locked.
     requestData.applyEarnNowRebate = earnNowToggle?.disabled
         ? Boolean(loadedPromotionSelections.earnNowApplied)
         : Boolean(earnNowToggle?.checked);
