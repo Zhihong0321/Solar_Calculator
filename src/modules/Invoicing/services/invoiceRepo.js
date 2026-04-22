@@ -41,6 +41,7 @@ const {
   buildVoucherInfoFromRows,
   getInvoiceSelectedVoucherRows,
   getVoucherStepData: loadVoucherStepData,
+  loadVoucherCategoriesForSummary,
   isVoucherCategoryEligible,
   normalizeVoucherCategoryPackageType
 } = require('./invoiceVoucherSupport');
@@ -554,39 +555,7 @@ async function getVoucherPreviewDataByPackage(client, packageId) {
     };
   }
 
-  const voucherColumns = await getTableColumns(client, 'voucher');
-  const hasCategoryLink = voucherColumns.has('linked_voucher_category');
-
-  const categoryRows = await client.query(
-    `SELECT *
-     FROM voucher_category
-     WHERE active = TRUE AND COALESCE(disabled, FALSE) = FALSE
-     ORDER BY created_at ASC, name ASC`
-  );
-
-  const categories = [];
-  for (const category of categoryRows.rows) {
-    const eligible = isVoucherCategoryEligible(category, packageSummary);
-    const vouchers = hasCategoryLink
-      ? await client.query(
-        `SELECT *
-         FROM voucher
-         WHERE linked_voucher_category = $1
-           AND active = TRUE
-           AND ("delete" IS NULL OR "delete" = FALSE)
-         ORDER BY created_at ASC, title ASC`,
-        [category.bubble_id]
-      )
-      : { rows: [] };
-
-    if (!vouchers.rows.length) continue;
-
-    categories.push({
-      ...category,
-      eligible,
-      vouchers: vouchers.rows
-    });
-  }
+  const categories = await loadVoucherCategoriesForSummary(client, packageSummary, { getTableColumns });
 
   return {
     invoice: packageSummary,

@@ -57,6 +57,104 @@ function normalizeVoucherCategoryPackageType(rawType) {
   return value.includes('residential') ? 'resi' : 'non-resi';
 }
 
+function normalizeVoucherCategoryRow(row) {
+  if (!row || typeof row !== 'object') return row;
+
+  return {
+    ...row,
+    active: row.active ?? row._ai_active ?? true,
+    disabled: row.disabled ?? row._ai_disabled ?? false,
+    max_selectable: row.max_selectable ?? row._ai_max_selectable ?? 1,
+    min_package_amount: row.min_package_amount ?? row._ai_min_package_amount ?? null,
+    max_package_amount: row.max_package_amount ?? row._ai_max_package_amount ?? null,
+    min_panel_quantity: row.min_panel_quantity ?? row._ai_min_panel_quantity ?? null,
+    max_panel_quantity: row.max_panel_quantity ?? row._ai_max_panel_quantity ?? null,
+    package_type_scope: row.package_type_scope ?? row._ai_package_type_scope ?? 'all'
+  };
+}
+
+function normalizeVoucherRow(row) {
+  if (!row || typeof row !== 'object') return row;
+
+  return {
+    ...row,
+    active: row.active ?? row._ai_active ?? true,
+    delete: row.delete ?? row._ai_deleted ?? false
+  };
+}
+
+function buildVoucherCategoryOrderClause(columns) {
+  const orderParts = [];
+  if (columns.has('sort_order')) orderParts.push('sort_order ASC');
+  if (columns.has('created_at')) orderParts.push('created_at ASC');
+  if (columns.has('name')) orderParts.push('name ASC');
+  if (columns.has('id')) orderParts.push('id ASC');
+  return orderParts.length ? orderParts.join(', ') : '1';
+}
+
+function buildVoucherOrderClause(columns) {
+  const orderParts = [];
+  if (columns.has('created_at')) orderParts.push('created_at ASC');
+  if (columns.has('title')) orderParts.push('title ASC');
+  if (columns.has('id')) orderParts.push('id ASC');
+  return orderParts.length ? orderParts.join(', ') : '1';
+}
+
+async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
+  const { getTableColumns } = deps;
+  const categoryColumns = await getTableColumns(client, 'voucher_category');
+  const voucherColumns = await getTableColumns(client, 'voucher');
+  const hasCategoryLink = voucherColumns.has('linked_voucher_category');
+
+  const categoryResult = await client.query(
+    `SELECT *,
+        ${categoryColumns.has('active') ? 'active' : 'TRUE'} AS _ai_active,
+        ${categoryColumns.has('disabled') ? 'COALESCE(disabled, FALSE)' : 'FALSE'} AS _ai_disabled,
+        ${categoryColumns.has('max_selectable') ? 'max_selectable' : '1'} AS _ai_max_selectable,
+        ${categoryColumns.has('min_package_amount') ? 'min_package_amount' : 'NULL::numeric'} AS _ai_min_package_amount,
+        ${categoryColumns.has('max_package_amount') ? 'max_package_amount' : 'NULL::numeric'} AS _ai_max_package_amount,
+        ${categoryColumns.has('min_panel_quantity') ? 'min_panel_quantity' : 'NULL::integer'} AS _ai_min_panel_quantity,
+        ${categoryColumns.has('max_panel_quantity') ? 'max_panel_quantity' : 'NULL::integer'} AS _ai_max_panel_quantity,
+        ${categoryColumns.has('package_type_scope') ? 'package_type_scope' : "'all'::text"} AS _ai_package_type_scope
+     FROM voucher_category
+     WHERE ${categoryColumns.has('active') ? 'active = TRUE' : 'TRUE'}
+       AND ${categoryColumns.has('disabled') ? 'COALESCE(disabled, FALSE) = FALSE' : 'TRUE'}
+       AND ${categoryColumns.has('delete') ? '("delete" IS NULL OR "delete" = FALSE)' : 'TRUE'}
+     ORDER BY ${buildVoucherCategoryOrderClause(categoryColumns)}`
+  );
+
+  const categories = [];
+  for (const rawCategory of categoryResult.rows) {
+    const category = normalizeVoucherCategoryRow(rawCategory);
+    const eligible = isVoucherCategoryEligible(category, invoiceSummary);
+    const vouchers = hasCategoryLink
+      ? await client.query(
+        `SELECT *,
+            ${voucherColumns.has('active') ? 'active' : 'TRUE'} AS _ai_active,
+            ${voucherColumns.has('delete') ? 'COALESCE("delete", FALSE)' : 'FALSE'} AS _ai_deleted
+         FROM voucher
+         WHERE linked_voucher_category = $1
+           AND ${voucherColumns.has('active') ? 'active = TRUE' : 'TRUE'}
+           AND ${voucherColumns.has('delete') ? '("delete" IS NULL OR "delete" = FALSE)' : 'TRUE'}
+           AND ${voucherColumns.has('available_until') ? '(available_until IS NULL OR available_until >= NOW())' : 'TRUE'}
+           AND ${voucherColumns.has('voucher_availability') ? '(voucher_availability IS NULL OR voucher_availability > 0)' : 'TRUE'}
+         ORDER BY ${buildVoucherOrderClause(voucherColumns)}`,
+        [category.bubble_id]
+      )
+      : { rows: [] };
+
+    if (!vouchers.rows.length) continue;
+
+    categories.push({
+      ...category,
+      eligible,
+      vouchers: vouchers.rows.map((voucher) => normalizeVoucherRow(voucher))
+    });
+  }
+
+  return categories;
+}
+
 function isVoucherCategoryEligible(category, invoiceSummary) {
   if (!category || !invoiceSummary) return false;
   if (!category.active || category.disabled) return false;
@@ -178,16 +276,6 @@ async function getVoucherStepData(client, invoiceId, deps) {
     };
   }
 
-  const voucherColumns = await getTableColumns(client, 'voucher');
-  const hasCategoryLink = voucherColumns.has('linked_voucher_category');
-
-  const categoryRows = await client.query(
-    `SELECT *
-     FROM voucher_category
-     WHERE active = TRUE AND COALESCE(disabled, FALSE) = FALSE
-     ORDER BY created_at ASC, name ASC`
-  );
-
   const selectionRows = selectionsExist
     ? await client.query(
       `SELECT linked_voucher
@@ -204,36 +292,17 @@ async function getVoucherStepData(client, invoiceId, deps) {
     if (voucher?.id !== undefined && voucher?.id !== null) selectedVoucherIds.add(String(voucher.id));
   });
 
-  const categories = [];
-  for (const category of categoryRows.rows) {
-    const eligible = isVoucherCategoryEligible(category, invoiceSummary);
-    const vouchers = hasCategoryLink
-      ? await client.query(
-        `SELECT *
-         FROM voucher
-         WHERE linked_voucher_category = $1
-           AND active = TRUE
-           AND ("delete" IS NULL OR "delete" = FALSE)
-         ORDER BY created_at ASC, title ASC`,
-        [category.bubble_id]
-      )
-      : { rows: [] };
-
-    if (!vouchers.rows.length) continue;
-
-    categories.push({
-      ...category,
-      eligible,
-      vouchers: vouchers.rows.map((voucher) => ({
-        ...voucher,
-        is_selected: selectedVoucherIds.has(String(voucher.bubble_id)) || selectedVoucherIds.has(String(voucher.id))
-      }))
-    });
-  }
+  const categories = await loadVoucherCategoriesForSummary(client, invoiceSummary, { getTableColumns });
 
   return {
     invoice: invoiceSummary,
-    categories,
+    categories: categories.map((category) => ({
+      ...category,
+      vouchers: category.vouchers.map((voucher) => ({
+        ...voucher,
+        is_selected: selectedVoucherIds.has(String(voucher.bubble_id)) || selectedVoucherIds.has(String(voucher.id))
+      }))
+    })),
     selectedVoucherIds: legacySelected
       .map((voucher) => voucher.bubble_id || String(voucher.id || ''))
       .filter(Boolean),
@@ -245,6 +314,7 @@ module.exports = {
   buildVoucherInfoFromRows,
   getInvoiceSelectedVoucherRows,
   getVoucherStepData,
+  loadVoucherCategoriesForSummary,
   isVoucherCategoryEligible,
   normalizeVoucherCategoryPackageType
 };
