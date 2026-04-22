@@ -21,10 +21,28 @@ const {
   appendInvoiceEstimateUpdateFields
 } = require('./invoiceEstimateSupport');
 const {
+  insertInvoiceItem,
+  syncLinkedInvoiceItems
+} = require('./invoiceItemSupport');
+const {
+  fetchInvoiceDependencies,
+  findOrCreateCustomer,
+  resolveLinkedReferral,
+  syncReferralInvoiceLink
+} = require('./invoiceDependencySupport');
+const {
+  getDefaultTemplate,
+  getPackageById,
+  getTemplateById,
+  getVoucherByCode,
+  getVoucherById
+} = require('./invoiceLookupSupport');
+const {
   buildVoucherInfoFromRows,
   getInvoiceSelectedVoucherRows,
   getVoucherStepData: loadVoucherStepData,
-  isVoucherCategoryEligible
+  isVoucherCategoryEligible,
+  normalizeVoucherCategoryPackageType
 } = require('./invoiceVoucherSupport');
 
 let beginAgentAuditTransaction = async (client) => {
@@ -177,29 +195,6 @@ async function _fetchWarrantyInfo(client, packageId, invoiceItems = []) {
   } catch (err) {
     console.error('Error fetching warranty info:', err);
     return [];
-  }
-}
-
-/**
- * Get package by bubble_id
- * @param {object} client - Database client
- * @param {string} packageId - Package bubble_id
- * @returns {Promise<object|null>} Package object or null
- */
-async function getPackageById(client, packageId) {
-  try {
-    const result = await client.query(
-      `SELECT COALESCE(bubble_id, id::text) AS bubble_id, id, package_name as name, price, panel, panel_qty, invoice_desc, type, max_discount
-       FROM package
-       WHERE bubble_id = $1 OR id::text = $1
-       LIMIT 1`,
-      [packageId]
-    );
-
-    return result.rows.length > 0 ? result.rows[0] : null;
-  } catch (err) {
-    console.error('Error fetching package:', err);
-    return null;
   }
 }
 
@@ -528,78 +523,6 @@ async function _getInvoicePaymentState(client, invoiceBubbleId, linkedPaymentIds
   };
 }
 
-/**
- * Get default invoice template
- * @param {object} client - Database client
- * @returns {Promise<object>} Default template data
- */
-async function getDefaultTemplate(client) {
-  try {
-    const result = await client.query(
-      `SELECT * FROM invoice_template WHERE is_default = true LIMIT 1`
-    );
-
-    if (result.rows.length > 0) {
-      return result.rows[0];
-    }
-
-    // Return default template structure if none found
-    return {
-      company_name: 'Atap Solar',
-      company_address: 'Your Company Address',
-      company_phone: '+60 1-234-56789',
-      sst_registration_no: 'SSR123456789',
-      apply_sst: false,
-      terms_and_conditions: '1. Payment is due within 30 days.\n2. Goods once sold are not returnable.\n3. Prices are in Malaysian Ringgit.'
-    };
-  } catch (err) {
-    console.error('Error fetching default template:', err);
-    return {};
-  }
-}
-
-/**
- * Get template by bubble_id
- * @param {object} client - Database client
- * @param {string} templateId - Template bubble_id
- * @returns {Promise<object|null>} Template object or null
- */
-async function getTemplateById(client, templateId) {
-  try {
-    const result = await client.query(
-      `SELECT * FROM invoice_template WHERE bubble_id = $1`,
-      [templateId]
-    );
-
-    return result.rows.length > 0 ? result.rows[0] : null;
-  } catch (err) {
-    console.error('Error fetching template:', err);
-    return null;
-  }
-}
-
-/**
- * Get voucher by code
- * @param {object} client - Database client
- * @param {string} voucherCode - Voucher code
- * @returns {Promise<object|null>} Voucher object or null
- */
-async function getVoucherByCode(client, voucherCode) {
-  try {
-    const result = await client.query(
-      `SELECT * FROM voucher
-       WHERE voucher_code = $1 AND active = TRUE AND ("delete" IS NULL OR "delete" = FALSE)
-       LIMIT 1`,
-      [voucherCode]
-    );
-
-    return result.rows.length > 0 ? result.rows[0] : null;
-  } catch (err) {
-    console.error('Error fetching voucher:', err);
-    return null;
-  }
-}
-
 async function getVoucherPreviewDataByPackage(client, packageId) {
   const pkg = await getPackageById(client, packageId);
   if (!pkg) {
@@ -673,235 +596,12 @@ async function getVoucherPreviewDataByPackage(client, packageId) {
   };
 }
 
-async function getVoucherById(client, voucherId) {
-  try {
-    const result = await client.query(
-      `SELECT *
-       FROM voucher
-       WHERE bubble_id = $1 OR id::text = $1
-       LIMIT 1`,
-      [voucherId]
-    );
-    return result.rows[0] || null;
-  } catch (err) {
-    console.error('Error fetching voucher by ID:', err);
-    throw err;
-  }
-}
-
 /**
  * Find or create a customer
  * @param {object} client - Database client
  * @param {object} data - Customer data
  * @returns {Promise<object|null>} { id: number, bubbleId: string } or null
  */
-async function findOrCreateCustomer(client, data) {
-  const { name, phone, address, createdBy, profilePicture, leadSource, remark, existingCustomerBubbleId } = data;
-  if (!name) return null;
-
-  try {
-    // 0. If we have an existing customer ID, update that customer directly (including name change)
-    if (existingCustomerBubbleId) {
-      const existingRes = await client.query(
-        'SELECT id, customer_id, name, phone, address, profile_picture, lead_source, remark FROM customer WHERE customer_id = $1 LIMIT 1',
-        [existingCustomerBubbleId]
-      );
-
-      if (existingRes.rows.length > 0) {
-        const customer = existingRes.rows[0];
-        const id = customer.id;
-        const bubbleId = customer.customer_id;
-
-        // Update customer (including name change)
-        await client.query(
-          `UPDATE customer 
-           SET name = COALESCE($1, name),
-               phone = COALESCE($2, phone), 
-               address = COALESCE($3, address),
-               profile_picture = COALESCE($6, profile_picture),
-               lead_source = COALESCE($7, lead_source),
-               remark = COALESCE($8, remark),
-               updated_at = NOW(),
-               updated_by = $5
-           WHERE id = $4`,
-          [name, phone, address, id, String(createdBy), profilePicture, leadSource, remark]
-        );
-        return { id, bubbleId };
-      }
-    }
-
-    // 1. Try to find by name (only if no existing customer ID or not found)
-    const findRes = await client.query(
-      'SELECT id, customer_id, phone, address, profile_picture, lead_source, remark FROM customer WHERE name = $1 LIMIT 1',
-      [name]
-    );
-
-    if (findRes.rows.length > 0) {
-      const customer = findRes.rows[0];
-      const id = customer.id;
-      const bubbleId = customer.customer_id;
-
-      // Update if details changed
-      if (
-        (phone && phone !== customer.phone) ||
-        (address && address !== customer.address) ||
-        (profilePicture && profilePicture !== customer.profile_picture) ||
-        (leadSource && leadSource !== customer.lead_source) ||
-        (remark && remark !== customer.remark)
-      ) {
-        await client.query(
-          `UPDATE customer 
-           SET phone = COALESCE($1, phone), 
-               address = COALESCE($2, address),
-               profile_picture = COALESCE($5, profile_picture),
-               lead_source = COALESCE($6, lead_source),
-               remark = COALESCE($7, remark),
-               updated_at = NOW(),
-               updated_by = $4
-           WHERE id = $3`,
-          [phone, address, id, String(createdBy), profilePicture, leadSource, remark]
-        );
-      }
-      return { id, bubbleId };
-    }
-
-    // 2. Create new if not found
-    const customerBubbleId = `cust_${crypto.randomBytes(4).toString('hex')}`;
-    const insertRes = await client.query(
-      `INSERT INTO customer (customer_id, name, phone, address, created_by, created_at, updated_at, profile_picture, lead_source, remark)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7, $8)
-       RETURNING id`,
-      [customerBubbleId, name, phone, address, createdBy, profilePicture, leadSource, remark]
-    );
-    return { id: insertRes.rows[0].id, bubbleId: customerBubbleId };
-  } catch (err) {
-    console.error('Error in findOrCreateCustomer:', err);
-    return null;
-  }
-}
-
-async function _resolveLinkedReferral(client, userId, referralBubbleId, currentInvoiceBubbleId = null) {
-  if (!referralBubbleId) {
-    return null;
-  }
-
-  const referralRepo = require('../../Referral/services/referralRepo');
-  const referral = await referralRepo.getReferralByBubbleId(client, referralBubbleId);
-
-  if (!referral) {
-    throw new Error('Selected referral was not found.');
-  }
-
-  const identifiers = await referralRepo.resolveAgentIdentifiers(client, userId);
-  const currentAssignment = referral.assigned_agent || referral.linked_agent;
-
-  if (!currentAssignment || !identifiers.includes(String(currentAssignment))) {
-    throw new Error('Selected referral is not assigned to you.');
-  }
-
-  if (referral.linked_invoice && referral.linked_invoice !== currentInvoiceBubbleId) {
-    const invoiceCheck = await client.query(
-      `SELECT bubble_id FROM invoice WHERE bubble_id = $1 LIMIT 1`,
-      [referral.linked_invoice]
-    );
-
-    if (invoiceCheck.rows.length > 0) {
-      throw new Error('Selected referral is already linked to another quotation.');
-    }
-  }
-
-  if (referral.linked_customer_profile) {
-    const referrerResult = await client.query(
-      `SELECT name
-       FROM customer
-       WHERE customer_id = $1
-       LIMIT 1`,
-      [referral.linked_customer_profile]
-    );
-
-    referral.referrer_customer_name = referrerResult.rows[0]?.name || null;
-  }
-
-  return referral;
-}
-
-async function _syncReferralInvoiceLink(client, invoiceBubbleId, referralBubbleId) {
-  await client.query(
-    `UPDATE referral
-     SET linked_invoice = NULL,
-         updated_at = NOW()
-     WHERE linked_invoice = $1
-       AND ($2::text IS NULL OR bubble_id <> $2)`,
-    [invoiceBubbleId, referralBubbleId || null]
-  );
-
-  if (!referralBubbleId) {
-    return;
-  }
-
-  await client.query(
-    `UPDATE referral
-     SET linked_invoice = $1,
-         updated_at = NOW()
-     WHERE bubble_id = $2`,
-    [invoiceBubbleId, referralBubbleId]
-  );
-}
-
-/**
- * Helper: Fetch all necessary dependencies for invoice creation
- * @private
- */
-async function _fetchDependencies(client, data) {
-  const { userId, packageId, customerName, customerPhone, customerAddress, templateId, profilePicture, leadSource, remark } = data;
-
-  // 0. Resolve Agent Profile
-  let linkedAgent = null;
-  try {
-    const userRes = await client.query(
-      'SELECT linked_agent_profile FROM "user" WHERE id::text = $1 OR bubble_id = $1',
-      [String(userId)]
-    );
-    if (userRes.rows.length > 0) {
-      linkedAgent = userRes.rows[0].linked_agent_profile;
-    }
-  } catch (e) {
-    console.warn('[DB] Agent lookup failed during invoice creation for user', userId);
-  }
-
-  // 1. Get package details
-  const pkg = await getPackageById(client, packageId);
-  if (!pkg) {
-    throw new Error(`Package with ID '${packageId}' not found`);
-  }
-
-  // 2. Handle Customer
-  const customerResult = await findOrCreateCustomer(client, {
-    name: customerName,
-    phone: customerPhone,
-    address: customerAddress,
-    createdBy: userId,
-    profilePicture: profilePicture,
-    leadSource: leadSource,
-    remark: remark
-  });
-
-  const internalCustomerId = customerResult ? customerResult.id : null;
-  const customerBubbleId = customerResult ? customerResult.bubbleId : null;
-
-  // 3. Get template
-  let template;
-  if (templateId) {
-    template = await getTemplateById(client, templateId);
-  }
-  if (!template) {
-    template = await getDefaultTemplate(client);
-  }
-
-  return { pkg, internalCustomerId, customerBubbleId, template, linkedAgent };
-}
-
-
 /**
  * Helper: Process vouchers and calculate total voucher amount
  * @private
@@ -1325,65 +1025,41 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   const createdItemIds = [];
 
   // 1. Package Item
-  const packageItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-  await client.query(
-    `INSERT INTO invoice_item
-     (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package, linked_package)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9, $10)`,
-    [
-      packageItemBubbleId,
-      invoiceId,
-      pkg.invoice_desc || pkg.name || 'Solar Package',
-      1,
-      priceWithMarkup,
-      priceWithMarkup,
-      'package',
-      0,
-      true,
-      pkg.bubble_id || null
-    ]
-  );
+  const packageItemBubbleId = await insertInvoiceItem(client, invoiceId, {
+    description: pkg.invoice_desc || pkg.name || 'Solar Package',
+    qty: 1,
+    unitPrice: priceWithMarkup,
+    amount: priceWithMarkup,
+    itemType: 'package',
+    sort: 0,
+    isPackage: true,
+    linkedPackage: pkg.bubble_id || null
+  });
   createdItemIds.push(packageItemBubbleId);
 
   if (financials.earnNowRebateDiscount > 0) {
-    const earnNowItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-      [
-        earnNowItemBubbleId,
-        invoiceId,
-        `Earn Now Rebate (Panel Qty: ${pkg.panel_qty})`,
-        1,
-        -financials.earnNowRebateDiscount,
-        -financials.earnNowRebateDiscount,
-        'discount',
-        5,
-        false
-      ]
-    );
+    const earnNowItemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: `Earn Now Rebate (Panel Qty: ${pkg.panel_qty})`,
+      qty: 1,
+      unitPrice: -financials.earnNowRebateDiscount,
+      amount: -financials.earnNowRebateDiscount,
+      itemType: 'discount',
+      sort: 5,
+      isPackage: false
+    });
     createdItemIds.push(earnNowItemBubbleId);
   }
 
   if (financials.earthMonthGoGreenBonusDiscount > 0) {
-    const earthMonthItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-      [
-        earthMonthItemBubbleId,
-        invoiceId,
-        `Earth Month Go Green Bonus (Panel Qty: ${pkg.panel_qty})`,
-        1,
-        -financials.earthMonthGoGreenBonusDiscount,
-        -financials.earthMonthGoGreenBonusDiscount,
-        'discount',
-        6,
-        false
-      ]
-    );
+    const earthMonthItemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: `Earth Month Go Green Bonus (Panel Qty: ${pkg.panel_qty})`,
+      qty: 1,
+      unitPrice: -financials.earthMonthGoGreenBonusDiscount,
+      amount: -financials.earthMonthGoGreenBonusDiscount,
+      itemType: 'discount',
+      sort: 6,
+      isPackage: false
+    });
     createdItemIds.push(earthMonthItemBubbleId);
   }
 
@@ -1391,25 +1067,17 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   if (Array.isArray(data.extraItems) && data.extraItems.length > 0) {
     let extraItemSortOrder = 50;
     for (const item of data.extraItems) {
-      const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
       const linkedProductId = item.linked_product || item.linkedProduct || null;
-      await client.query(
-        `INSERT INTO invoice_item
-             (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package, linked_product)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9, $10)`,
-        [
-          itemBubbleId,
-          invoiceId,
-          item.description || 'Extra Item',
-          item.qty || 1,
-          item.unit_price || 0,
-          item.total_price || 0,
-          'extra',
-          extraItemSortOrder++,
-          false,
-          linkedProductId
-        ]
-      );
+      const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
+        description: item.description || 'Extra Item',
+        qty: item.qty || 1,
+        unitPrice: item.unit_price || 0,
+        amount: item.total_price || 0,
+        itemType: 'extra',
+        sort: extraItemSortOrder++,
+        isPackage: false,
+        linkedProduct: linkedProductId
+      });
       createdItemIds.push(itemBubbleId);
     }
   }
@@ -1417,141 +1085,90 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   // 2. Discount Items
   let sortOrder = 100;
   if (discountFixed > 0) {
-    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-      [
-        itemBubbleId,
-        invoiceId,
-        `Discount (RM ${discountFixed})`,
-        1,
-        -discountFixed,
-        -discountFixed,
-        'discount',
-        sortOrder++,
-        false
-      ]
-    );
+    const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: `Discount (RM ${discountFixed})`,
+      qty: 1,
+      unitPrice: -discountFixed,
+      amount: -discountFixed,
+      itemType: 'discount',
+      sort: sortOrder++,
+      isPackage: false
+    });
     createdItemIds.push(itemBubbleId);
   }
 
   if (discountPercent > 0) {
-    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-      [
-        itemBubbleId,
-        invoiceId,
-        `Discount (${discountPercent}%)`,
-        1,
-        -percentDiscountVal,
-        -percentDiscountVal,
-        'discount',
-        sortOrder++,
-        false
-      ]
-    );
+    const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: `Discount (${discountPercent}%)`,
+      qty: 1,
+      unitPrice: -percentDiscountVal,
+      amount: -percentDiscountVal,
+      itemType: 'discount',
+      sort: sortOrder++,
+      isPackage: false
+    });
     createdItemIds.push(itemBubbleId);
   }
 
   // 3. Voucher Items
   for (const vItem of voucherItemsToCreate) {
-    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-      [
-        itemBubbleId,
-        invoiceId,
-        vItem.description,
-        1,
-        -vItem.amount,
-        -vItem.amount,
-        'voucher',
-        101,
-        false
-      ]
-    );
+    const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: vItem.description,
+      qty: 1,
+      unitPrice: -vItem.amount,
+      amount: -vItem.amount,
+      itemType: 'voucher',
+      sort: 101,
+      isPackage: false
+    });
     createdItemIds.push(itemBubbleId);
   }
 
   // 4. EPP Fee Item
   if (eppFeeAmount > 0) {
-    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-      [
-        itemBubbleId,
-        invoiceId,
-        `Bank Processing Fee (${eppFeeDescription})`,
-        1,
-        eppFeeAmount,
-        eppFeeAmount,
-        'epp_fee',
-        200,
-        false
-      ]
-    );
+    const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: `Bank Processing Fee (${eppFeeDescription})`,
+      qty: 1,
+      unitPrice: eppFeeAmount,
+      amount: eppFeeAmount,
+      itemType: 'epp_fee',
+      sort: 200,
+      isPackage: false
+    });
     createdItemIds.push(itemBubbleId);
   }
 
   // 5. Payment Structure Notice
   if (paymentStructure) {
-    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-      [
-        itemBubbleId,
-        invoiceId,
-        paymentStructure,
-        1,
-        0,
-        0,
-        'notice',
-        250,
-        false
-      ]
-    );
+    const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: paymentStructure,
+      qty: 1,
+      unitPrice: 0,
+      amount: 0,
+      itemType: 'notice',
+      sort: 250,
+      isPackage: false
+    });
     createdItemIds.push(itemBubbleId);
   }
 
   // 6. SST Line Item (Dynamic derivation support)
   if (financials.sstAmount > 0) {
-    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-      [
-        itemBubbleId,
-        invoiceId,
-        `SST (6%)`,
-        1,
-        financials.sstAmount,
-        financials.sstAmount,
-        'sst',
-        300,
-        false
-      ]
-    );
+    const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: 'SST (6%)',
+      qty: 1,
+      unitPrice: financials.sstAmount,
+      amount: financials.sstAmount,
+      itemType: 'sst',
+      sort: 300,
+      isPackage: false
+    });
     createdItemIds.push(itemBubbleId);
   }
 
   // Update Invoice with Linked Items (Legacy requirement)
   if (createdItemIds.length > 0) {
-    await client.query(
-      `UPDATE invoice SET linked_invoice_item = $1 WHERE bubble_id = $2`,
-      [createdItemIds, invoiceId]
-    );
+    await syncLinkedInvoiceItems(client, invoiceId, createdItemIds);
   }
 
   return { packageItemBubbleId };
@@ -1573,7 +1190,12 @@ async function createInvoiceOnTheFly(client, data) {
     // Start transaction
     await beginAgentAuditTransaction(client, data.auditContext);
 
-    const linkedReferral = await _resolveLinkedReferral(client, data.userId, data.linkedReferral || null);
+    const linkedReferral = await resolveLinkedReferral(
+      client,
+      data.userId,
+      data.linkedReferral || null,
+      { referralRepo: require('../../Referral/services/referralRepo') }
+    );
     if (linkedReferral) {
       data.linkedReferral = linkedReferral.bubble_id;
       data.referrerName = data.referrerName || linkedReferral.referrer_customer_name || null;
@@ -1603,7 +1225,12 @@ async function createInvoiceOnTheFly(client, data) {
     }
 
     // 1. Fetch Dependencies (Package, Customer, Template)
-    const deps = await _fetchDependencies(client, data);
+    const deps = await fetchInvoiceDependencies(client, data, {
+      getPackageById,
+      getTemplateById,
+      getDefaultTemplate,
+      findOrCreateCustomer
+    });
 
     // 2. Process Vouchers
     const packagePrice = parseFloat(deps.pkg.price) || 0;
@@ -1650,7 +1277,7 @@ async function createInvoiceOnTheFly(client, data) {
       }
     }
 
-    await _syncReferralInvoiceLink(client, invoice.bubble_id, data.linkedReferral || null);
+    await syncReferralInvoiceLink(client, invoice.bubble_id, data.linkedReferral || null);
 
     // Commit transaction
     await client.query('COMMIT');
@@ -1997,10 +1624,11 @@ async function updateInvoiceTransaction(client, data) {
     const currentData = currentRes.rows[0];
     if (!currentData) throw new Error('Invoice not found');
 
-    const linkedReferral = await _resolveLinkedReferral(
+    const linkedReferral = await resolveLinkedReferral(
       client,
       data.userId,
       data.linkedReferral || null,
+      { referralRepo: require('../../Referral/services/referralRepo') },
       bubbleId
     );
 
@@ -2153,7 +1781,7 @@ async function updateInvoiceTransaction(client, data) {
     await client.query('DELETE FROM invoice_item WHERE linked_invoice = $1', [bubbleId]);
     await _createLineItems(client, bubbleId, data, financials, { pkg, linkedAgent }, voucherInfo);
 
-    await _syncReferralInvoiceLink(client, bubbleId, data.linkedReferral);
+    await syncReferralInvoiceLink(client, bubbleId, data.linkedReferral);
 
     await client.query('COMMIT');
 
@@ -2388,24 +2016,28 @@ async function applyInvoiceVoucherSelections(client, invoiceId, voucherIds, user
     const newItemIds = preservedItems.map((item) => item.bubble_id);
     let sortOrder = 101;
     for (const vItem of voucherInfo.voucherItemsToCreate) {
-      const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-      await client.query(
-        `INSERT INTO invoice_item
-         (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-         VALUES ($1, $2, $3, 1, $4, $5, 'voucher', $6, NOW(), NOW(), FALSE)`,
-        [itemBubbleId, invoiceId, vItem.description, -vItem.amount, -vItem.amount, sortOrder++]
-      );
+      const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
+        description: vItem.description,
+        qty: 1,
+        unitPrice: -vItem.amount,
+        amount: -vItem.amount,
+        itemType: 'voucher',
+        sort: sortOrder++,
+        isPackage: false
+      });
       newItemIds.push(itemBubbleId);
     }
 
     if (sstAmount > 0) {
-      const sstItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-      await client.query(
-        `INSERT INTO invoice_item
-         (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-         VALUES ($1, $2, 'SST (6%)', 1, $3, $3, 'sst', 300, NOW(), NOW(), FALSE)`,
-        [sstItemBubbleId, invoiceId, sstAmount]
-      );
+      const sstItemBubbleId = await insertInvoiceItem(client, invoiceId, {
+        description: 'SST (6%)',
+        qty: 1,
+        unitPrice: sstAmount,
+        amount: sstAmount,
+        itemType: 'sst',
+        sort: 300,
+        isPackage: false
+      });
       newItemIds.push(sstItemBubbleId);
     }
 

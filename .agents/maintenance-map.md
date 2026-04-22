@@ -4,38 +4,32 @@ Date: 2026-04-21
 Stage: map-ready
 
 Top digestion candidates:
-- `src/modules/Invoicing/services/invoiceRepo.js`
-  - 2746 lines in the current tree.
-  - The file header says it should stay focused on low-level PostgreSQL operations, but the implementation also carries promotion rules, voucher orchestration, hybrid-upgrade flows, ownership checks, invoice history logic, and financial calculations.
-  - High value digestion target because many API routes and services depend on it.
 - `src/modules/Invoicing/services/invoiceHtmlGeneratorV2.js`
-  - 2167 lines with mixed responsibilities.
-  - It combines server-side HTML generation with a very large embedded browser script for signature capture, PDF download, sharing, and solar estimate scenario state.
-  - Good digestion target after the repo shape is safer to change.
+  - 2459 lines in the current tree.
+  - It combines server-side invoice rendering with a very large embedded browser script for signature capture, sharing, PDF download, and solar estimate interactions.
+  - Strong digestion target now that invoiceRepo.js has already been reduced through earlier helper extractions.
 - `public/js/app.js`
-  - 1809 lines and mixes calculator math, data loading, DOM event wiring, chart rendering, billing-cycle logic, battery tuning, and invoice-link generation.
-  - High-value front-end digestion target, but broader blast radius than the cleanup candidates.
+  - 2034 lines and still mixes calculator math, data loading, DOM event wiring, chart rendering, billing-cycle logic, battery tuning, and invoice-link generation.
+  - High-value front-end digestion target, but broader blast radius than the cleanup and optimization candidates.
 
 Top cleanup candidates:
-- `legacy_backup/`
-  - Inventory flagged it as context noise.
-  - Sampled file `legacy_backup/services/invoiceRepo.js` is a large older duplicate of the active invoicing repository.
-  - Repo search found active code importing `src/modules/Invoicing/services/invoiceRepo.js` and found no active references to `legacy_backup`.
-  - Strong candidate for a branch-based soft-remove or quarantine pass because it creates competing entry points for future AI sessions.
-- `tmp_find_payment_loo.js`
-  - 8-line one-off DB probe script with a hardcoded invoice id.
-  - Not part of `package.json` scripts and not referenced by the repo search.
-  - Very high-confidence low-risk cleanup candidate.
+- `docs/SALES_TEAM_INVOICE_LINK_GUIDE.md`
+  - 789 lines and still presents `package_id` as the default invoice-link format even though the guide also documents `linked_package` as the current required parameter.
+  - It also points readers to a Python/uvicorn localhost flow that does not match this Node/Express repo.
+  - Strong cleanup candidate because it appears stale, is unreferenced in the repo, and creates instruction noise for both humans and AI.
+- `legacy_t3_html_presentation/`
+  - Context-noise inventory still flags it as a likely residual folder.
+  - It was not sampled deeply in this run, so it remains a secondary cleanup candidate rather than the next action.
 
 Top optimization candidates:
-- Invoice rendering entry points in the invoicing module.
-  - Repo search shows `invoiceViewRoutes` still wiring `invoiceHtmlGenerator`, `invoiceHtmlGeneratorV2`, and `invoiceHtmlGeneratorV3`.
-  - This likely reflects staged evolution rather than a finished boundary, so it is a future optimization target after cleanup and digestion work reduce ambiguity.
-- Active invoicing domain boundaries.
-  - `invoiceRepo.js` is imported by many API routes and services, which suggests the current repository boundary has absorbed orchestration concerns that may belong elsewhere.
-  - This is a later optimization target, not the next safest action.
+- `public/js/pages/create_invoice.js` and `public/js/pages/edit_invoice.js`
+  - 2113 and 2116 lines respectively, with sampled sections showing duplicated voucher preview calls, package/referral handling, customer field hydration, and submit payload construction.
+  - Strong optimization candidate because a shared invoice-page support boundary would reduce duplicate business rules without reopening the repository-layer work immediately.
+- Invoicing link parameter normalization flow.
+  - URL parameter aliases like `linked_package` and `package_id` are normalized across front-end page scripts and back-end service code.
+  - This is a follow-on optimization target after the larger create/edit duplication is clarified.
 
 Recommended next target:
-- `legacy_backup/` cleanup pass on a dedicated branch.
+- `docs/SALES_TEAM_INVOICE_LINK_GUIDE.md` cleanup pass.
   - Reason: best balance of clarity, confidence, and value.
-  - It appears to be unused duplicate code, it increases AI confusion, and cleaning it up is safer than digesting a live 2k+ line production file as the very next step.
+  - It appears stale, is unreferenced in the repo, and is safer to remove from the active docs path before taking on the larger duplicated invoice-page optimization work.

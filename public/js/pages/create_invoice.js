@@ -1257,119 +1257,12 @@ function pageLog(msg, color = 'gray-400') {
     console.log(`[PageLog] ${msg}`);
 }
 
-function setSectionStatus(sectionId, label, tone = 'neutral') {
-    const toneClasses = {
-        neutral: 'text-slate-500',
-        ready: 'text-emerald-600',
-        warning: 'text-amber-600',
-        error: 'text-red-600',
-        optional: 'text-slate-500'
-    };
-
-    document.querySelectorAll(`[data-status-for="${sectionId}"]`).forEach((el) => {
-        el.textContent = label;
-        el.classList.remove('text-slate-500', 'text-emerald-600', 'text-amber-600', 'text-red-600');
-        el.classList.add(toneClasses[tone] || toneClasses.neutral);
-    });
-}
-
-function scrollToWorkspaceSection(sectionId) {
-    const target = document.getElementById(sectionId);
-    if (!target) return;
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function refreshActiveWorkspaceSection() {
-    const sections = Array.from(document.querySelectorAll('[data-section]'));
-    if (!sections.length) return;
-
-    let activeId = sections[0].id;
-    const threshold = window.innerHeight * 0.3;
-
-    sections.forEach((section) => {
-        const rect = section.getBoundingClientRect();
-        if (rect.top <= threshold && rect.bottom >= threshold / 2) {
-            activeId = section.id;
-        }
-    });
-
-    document.querySelectorAll('.workspace-nav-item').forEach((button) => {
-        const isActive = button.dataset.target === activeId;
-        button.classList.toggle('border-slate-900', isActive);
-        button.classList.toggle('bg-slate-900', isActive);
-        button.classList.toggle('text-white', isActive);
-        if (isActive) {
-            button.querySelectorAll('span').forEach((span) => {
-                span.classList.add('text-white');
-            });
-        } else {
-            button.classList.remove('text-white');
-            button.querySelectorAll('span').forEach((span) => {
-                span.classList.remove('text-white');
-            });
-        }
-    });
-}
-
 function updateWorkspaceStatuses() {
-    const packageReady = Boolean(document.getElementById('packageIdHidden')?.value);
-    setSectionStatus('package-summary', packageReady ? 'Ready' : 'Pending', packageReady ? 'ready' : 'warning');
-
-    const customerName = document.getElementById('customerName')?.value?.trim();
-    const leadSource = document.getElementById('customerLeadSource')?.value?.trim();
-    const remark = document.getElementById('customerRemark')?.value?.trim();
-    const customerReady = !customerName || (leadSource && remark);
-    setSectionStatus('customer-lead', customerReady ? 'Ready' : 'Needs attention', customerReady ? 'ready' : 'error');
-
-    const pricingHealthy = !window._extraItemsDiscountExceeded && !window._maxDiscountExceeded && !window._subtotalIsZeroOrNegative;
-    setSectionStatus('price-controls', pricingHealthy ? 'Ready' : 'Needs attention', pricingHealthy ? 'ready' : 'error');
-
-    const paymentRows = document.querySelectorAll('#paymentMethodsContainer > *').length;
-    setSectionStatus('payment-setup', paymentRows > 0 ? 'Ready' : 'Pending', paymentRows > 0 ? 'ready' : 'warning');
-
-    const voucherRootVisible = !document.getElementById('voucherStepRoot')?.classList.contains('hidden');
-    const voucherLabel = !packageReady
-        ? 'Select package first'
-        : selectedDraftVouchers.length > 0
-            ? `${selectedDraftVouchers.length} selected`
-            : voucherRootVisible
-                ? 'Optional'
-                : 'Loading';
-    const voucherTone = !packageReady
-        ? 'warning'
-        : selectedDraftVouchers.length > 0
-            ? 'ready'
-            : voucherRootVisible
-                ? 'optional'
-                : 'warning';
-    setSectionStatus('voucher-selection', voucherLabel, voucherTone);
-
-    const reviewReady = packageReady && customerReady && pricingHealthy;
-    setSectionStatus('final-review', reviewReady ? 'Ready' : 'Pending', reviewReady ? 'ready' : 'warning');
-
-    refreshActiveWorkspaceSection();
-}
-
-function initWorkspaceShell() {
-    document.querySelectorAll('.workspace-nav-item').forEach((button) => {
-        button.addEventListener('click', () => {
-            const mobilePanel = document.getElementById('mobileSectionPanel');
-            mobilePanel?.classList.add('hidden');
-            scrollToWorkspaceSection(button.dataset.target);
-        });
+    window.InvoicePageShared.applyCommonWorkspaceStatuses({
+        selectedDraftVoucherCount: selectedDraftVouchers.length,
+        setSectionStatus: window.InvoicePageShared.setSectionStatus,
+        refreshActiveWorkspaceSection: window.InvoicePageShared.refreshActiveWorkspaceSection
     });
-
-    const mobileToggle = document.getElementById('mobileSectionToggle');
-    const mobileClose = document.getElementById('mobileSectionClose');
-    const mobilePanel = document.getElementById('mobileSectionPanel');
-    mobileToggle?.addEventListener('click', () => mobilePanel?.classList.remove('hidden'));
-    mobileClose?.addEventListener('click', () => mobilePanel?.classList.add('hidden'));
-    mobilePanel?.addEventListener('click', (event) => {
-        if (event.target === mobilePanel) mobilePanel.classList.add('hidden');
-    });
-
-    window.addEventListener('scroll', refreshActiveWorkspaceSection, { passive: true });
-    updateWorkspaceStatuses();
 }
 
 function getSelectedDraftVoucherIds() {
@@ -1406,17 +1299,6 @@ function buildDraftVoucherRows(packagePrice = parseFloat(document.getElementById
         .filter(Boolean);
 }
 
-async function fetchVoucherPreviewData(packageId) {
-    const response = await fetch(`/api/v1/vouchers/preview?package_id=${encodeURIComponent(packageId)}`, {
-        credentials: 'same-origin'
-    });
-    const json = await response.json();
-    if (!response.ok) {
-        throw new Error(json?.error || 'Failed to load voucher preview.');
-    }
-    return json?.data || {};
-}
-
 async function loadDraftVoucherStepForPackage(packageId, { scrollToSection = false } = {}) {
     const hint = document.getElementById('voucherInlineHint');
     const root = document.getElementById('voucherStepRoot');
@@ -1449,7 +1331,7 @@ async function loadDraftVoucherStepForPackage(packageId, { scrollToSection = fal
     }
 
     try {
-        const payload = await fetchVoucherPreviewData(packageId);
+        const payload = await window.InvoicePageShared.fetchVoucherPreviewData(packageId);
         hint?.classList.add('hidden');
         root.classList.remove('hidden');
         await inlineVoucherStep.loadPayload(payload, {
@@ -1457,7 +1339,7 @@ async function loadDraftVoucherStepForPackage(packageId, { scrollToSection = fal
         });
         updateWorkspaceStatuses();
         if (scrollToSection) {
-            scrollToWorkspaceSection('voucher-selection');
+            window.InvoicePageShared.scrollToWorkspaceSection('voucher-selection');
         }
     } catch (error) {
         root.classList.add('hidden');
@@ -1474,18 +1356,8 @@ async function loadDraftVoucherStepForPackage(packageId, { scrollToSection = fal
 // Initialize preview on page load
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('DOM Content Loaded - Initializing Creation Page');
-    initWorkspaceShell();
-
-    // Initialize CustomerManager for inline mode
-    CustomerManager.initInline({
-        fieldIds: {
-            name: 'customerName',
-            phone: 'customerPhone',
-            address: 'customerAddress',
-            profilePicture: 'profilePicture',
-            profilePreview: 'profilePreview'
-        }
-    });
+    window.InvoicePageShared.initializeInvoicePageBase();
+    window.InvoicePageShared.initWorkspaceShell({ updateWorkspaceStatuses });
 
     const detectionStatus = document.getElementById('detectionStatus');
     const detectedPackageIdEl = document.getElementById('detectedPackageId');
@@ -1495,7 +1367,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     pageLog('Initializing creation page...');
 
     // 2. Fetch User Profile (non-blocking for UI)
-    fetchUserProfile();
+    window.InvoicePageShared.fetchUserProfile();
 
     // 3. Parse URL parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -1557,9 +1429,11 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
 
                 // ... pre-fill logic
-                if (inv.customer_name_snapshot) document.getElementById('customerName').value = inv.customer_name_snapshot;
-                if (inv.customer_phone_snapshot) document.getElementById('customerPhone').value = inv.customer_phone_snapshot;
-                if (inv.customer_address_snapshot) document.getElementById('customerAddress').value = inv.customer_address_snapshot;
+                window.InvoicePageShared.setCustomerContactFields({
+                    name: inv.customer_name_snapshot,
+                    phone: inv.customer_phone_snapshot,
+                    address: inv.customer_address_snapshot
+                });
                 setHiddenFieldValue('customerAverageTnb', inv.customer_average_tnb);
                 setHiddenFieldValue('estimatedSaving', inv.estimated_saving);
                 setHiddenFieldValue('estimatedNewBillAmount', inv.estimated_new_bill_amount);
@@ -1567,10 +1441,12 @@ document.addEventListener('DOMContentLoaded', async function () {
                 setHiddenFieldValue('solarMorningUsagePercent', inv.solar_morning_usage_percent);
                 if (inv.linked_referral) applyAssignedReferralSelection(inv.linked_referral, { autofill: false });
 
-                let discountVal = '';
-                if (inv.discount_fixed > 0) discountVal += inv.discount_fixed;
-                if (inv.discount_percent > 0) discountVal += (discountVal ? ' ' : '') + `${inv.discount_percent}%`;
-                document.getElementById('discountGiven').value = discountVal;
+                window.InvoicePageShared.applyDiscountValue(
+                    window.InvoicePageShared.formatDiscountValue({
+                        fixedAmount: inv.discount_fixed,
+                        percent: inv.discount_percent
+                    })
+                );
 
                 if (inv.sst_amount > 0) document.getElementById('applySST').checked = true;
                 window.currentAgentMarkup = inv.agent_markup || 0;
@@ -1666,41 +1542,20 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     // Always pre-fill common fields from URL
-    if (urlParams.get('customer_name')) document.getElementById('customerName').value = urlParams.get('customer_name');
-    if (urlParams.get('customer_phone')) document.getElementById('customerPhone').value = urlParams.get('customer_phone');
-    if (urlParams.get('customer_address')) document.getElementById('customerAddress').value = urlParams.get('customer_address');
-    if (urlParams.get('discount_given')) document.getElementById('discountGiven').value = urlParams.get('discount_given');
-    if (urlParams.get('apply_sst') === 'true') document.getElementById('applySST').checked = true;
-    applySolarSavingsParams(urlParams);
-    if (selectedReferralFromUrl) applyAssignedReferralSelection(selectedReferralFromUrl, { autofill: true });
+    window.InvoicePageShared.applyCommonInvoiceQueryPrefill({
+        urlParams,
+        applySolarSavingsParams,
+        applyAssignedReferralSelection
+    });
 
-    // Setup listeners
-    const addManualItemBtn = document.getElementById('addManualItemBtn');
-    if (addManualItemBtn) addManualItemBtn.addEventListener('click', () => addManualItem());
+    window.InvoicePageShared.wireCommonInvoicePageInteractions({
+        addManualItem,
+        applyAssignedReferralSelection,
+        updateInvoicePreview,
+        getBallastQty,
+        addPaymentMethodRow
+    });
 
-    const assignedReferralSelect = document.getElementById('assignedReferralSelect');
-    if (assignedReferralSelect) {
-        assignedReferralSelect.addEventListener('change', (event) => {
-            applyAssignedReferralSelection(event.target.value, { autofill: true });
-        });
-    }
-
-    const sstToggle = document.getElementById('applySST');
-    if (sstToggle) sstToggle.addEventListener('change', updateInvoicePreview);
-
-    const earnNowToggle = document.getElementById('applyEarnNowRebate');
-    if (earnNowToggle) earnNowToggle.addEventListener('change', updateInvoicePreview);
-
-    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
-    if (earthMonthToggle) earthMonthToggle.addEventListener('change', updateInvoicePreview);
-
-    const discountInput = document.getElementById('discountGiven');
-    if (discountInput) {
-        discountInput.addEventListener('input', updateInvoicePreview);
-        discountInput.addEventListener('change', updateInvoicePreview);
-    }
-
-    // Micro Inverter qty inputs
     MICRO_INVERTER_MODELS.forEach(model => {
         const input = document.getElementById(`${model.id}_qty`);
         if (input) {
@@ -1709,46 +1564,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     });
 
-    const ballastQtyInput = document.getElementById('ballastQty');
-    if (ballastQtyInput) {
-        ballastQtyInput.addEventListener('input', () => {
-            getBallastQty();
-            updateInvoicePreview();
-        });
-        ballastQtyInput.addEventListener('change', () => {
-            getBallastQty();
-            updateInvoicePreview();
-        });
-    }
-
-    const addBtn = document.getElementById('addPaymentMethodBtn');
-    if (addBtn) addBtn.addEventListener('click', addPaymentMethodRow);
-
     updateBallastLimitText();
     updatePromotionOptionsUI();
     updateInvoicePreview();
     updateWorkspaceStatuses();
 });
-
-async function fetchUserProfile() {
-    try {
-        const response = await fetch('/api/user/me');
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.user) {
-                const welcomeDiv = document.getElementById('userWelcome');
-                const nameSpan = document.getElementById('userNameDisplay');
-
-                if (welcomeDiv && nameSpan) {
-                    nameSpan.textContent = data.user.name || 'User';
-                    welcomeDiv.classList.remove('hidden');
-                }
-            }
-        }
-    } catch (err) {
-        console.error('Error fetching user profile:', err);
-    }
-}
 
 async function fetchPackageDetails(packageId) {
     try {
@@ -1848,31 +1668,15 @@ function showPackage(pkg) {
         document.getElementById('packageDescDisplay').textContent = pkg.invoice_desc;
     }
 
-    // Set form values from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('customer_name')) {
-        document.getElementById('customerName').value = urlParams.get('customer_name');
-    }
-    if (urlParams.get('customer_phone')) {
-        document.getElementById('customerPhone').value = urlParams.get('customer_phone');
-    }
-
     loadDraftVoucherStepForPackage(pkg.bubble_id).catch((error) => {
         console.error('Unable to load voucher preview:', error);
     });
-    if (urlParams.get('customer_address')) {
-        document.getElementById('customerAddress').value = urlParams.get('customer_address');
-    }
-    if (urlParams.get('discount_given')) {
-        document.getElementById('discountGiven').value = urlParams.get('discount_given');
-    }
-    if (urlParams.get('apply_sst') === 'true') {
-        document.getElementById('applySST').checked = true;
-    }
-    if (urlParams.get('template_id')) {
-        document.getElementById('templateIdHidden').value = urlParams.get('template_id');
-    }
-    applySolarSavingsParams(urlParams);
+
+    window.InvoicePageShared.applyCommonInvoiceQueryPrefill({
+        urlParams: new URLSearchParams(window.location.search),
+        applySolarSavingsParams,
+        applyAssignedReferralSelection
+    });
 
     loadHybridUpgradeOptions(pkg.bubble_id);
     updateInvoicePreview();
@@ -1955,110 +1759,36 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     console.log('Linked Package Value:', data.linked_package);
     console.log('Hidden Input Value:', document.getElementById('packageIdHidden').value);
 
-    // Block submission if extra items discount exceeds 5% cap
-    if (window._extraItemsDiscountExceeded) {
-        const pkgPrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
-        const maxRM = (pkgPrice * EXTRA_ITEMS_MAX_DISCOUNT_PERCENT / 100).toFixed(2);
-        Swal.fire({
-            icon: 'error',
-            title: 'Discount Limit Exceeded',
-            text: `Additional items discount cannot exceed ${EXTRA_ITEMS_MAX_DISCOUNT_PERCENT}% of the package price (RM ${maxRM}). Please adjust the negative item amounts.`
-        });
+    if (!window.InvoicePageShared.validateInvoiceSubmitState({
+        extraItemsMaxDiscountPercent: EXTRA_ITEMS_MAX_DISCOUNT_PERCENT
+    })) {
         return;
     }
 
-    if (window._maxDiscountExceeded) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Max Discount Exceeded',
-            text: `The discount entered exceeds the maximum allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)} (${window.maxDiscountPercentAllowed || 0}% of package price).`
-        });
-        return;
-    }
-
-    if (window._subtotalIsZeroOrNegative) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Invalid Total Amount',
-            text: 'The total amount cannot be zero or negative after applying discounts. Please adjust the discounts.'
-        });
-        return;
-    }
-
-    // Require lead_source when customer name is provided
-    const customerName = document.getElementById('customerName')?.value?.trim();
-    const leadSource = document.getElementById('customerLeadSource')?.value;
-    const remark = document.getElementById('customerRemark')?.value;
-
-    if (customerName && !leadSource) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Lead Source Required',
-            text: 'Please select a lead source for the customer.'
-        });
-        return;
-    }
-
-    if (customerName && !remark?.trim()) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Remark Required',
-            text: 'Please add a remark for the customer.'
-        });
-        return;
-    }
-
-    // Show loading state
-    const submitBtn = this.querySelector('button[type="submit"]');
-    const originalText = submitBtn.textContent;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Creating...';
+    const restoreSubmitButtonState = window.InvoicePageShared.setSubmitButtonLoadingState(this, 'Creating...');
 
     // Calculate EPP fees
     const eppData = calculateAllEPPFees();
     const promotionAmounts = getAppliedPromotionAmounts();
-
-    // Prepare extra items (Manual Items + Micro Inverters)
-    const extraItems = getAdditionalInvoiceItems().map(item => ({
-        description: item.description,
-        qty: item.qty,
-        unit_price: item.unit_price,
-        total_price: item.qty * item.unit_price,
-        linked_product: item.linked_product || null
-    }));
+    const extraItems = getAdditionalInvoiceItems();
 
     try {
-        // Prepare request data
-        const requestData = {
-            linked_package: data.linked_package,
-            template_id: data.template_id || null,
-            linked_referral: data.linked_referral || null,
-            customer_name: data.customer_name || null,
-            customer_phone: data.customer_phone || null,
-            customer_address: data.customer_address || null,
-            profilePicture: document.getElementById('profilePicture').value || null,
-            lead_source: document.getElementById('customerLeadSource')?.value || null,
-            remark: document.getElementById('customerRemark')?.value || null,
-            customer_average_tnb: document.getElementById('customerAverageTnb')?.value || null,
-            estimated_saving: document.getElementById('estimatedSaving')?.value || null,
-            estimated_new_bill_amount: document.getElementById('estimatedNewBillAmount')?.value || null,
-            solar_sun_peak_hour: document.getElementById('solarSunPeakHour')?.value || null,
-            solar_morning_usage_percent: document.getElementById('solarMorningUsagePercent')?.value || null,
-            discount_given: data.discount_given || null,
-            apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,
-            apply_earth_month_go_green_bonus: promotionAmounts.earthMonthAppliedAmount > 0,
-            apply_sst: document.getElementById('applySST')?.checked || false,
-            payment_structure: eppData.payment_structure,
-            extra_items: extraItems,
-            voucher_ids: getSelectedDraftVoucherIds(),
-            followUpDays: data.follow_up_days || null
-        };
-
-        // Add EPP fee data if exists
-        if (eppData.total_fee > 0 && eppData.description) {
-            requestData.epp_fee_amount = eppData.total_fee;
-            requestData.epp_fee_description = eppData.description;
-        }
+        const requestData = window.InvoicePageShared.buildInvoiceRequestData({
+            formValues: data,
+            eppData,
+            extraItems,
+            voucherIds: getSelectedDraftVoucherIds(),
+            additionalFields: {
+                customer_average_tnb: document.getElementById('customerAverageTnb')?.value || null,
+                estimated_saving: document.getElementById('estimatedSaving')?.value || null,
+                estimated_new_bill_amount: document.getElementById('estimatedNewBillAmount')?.value || null,
+                solar_sun_peak_hour: document.getElementById('solarSunPeakHour')?.value || null,
+                solar_morning_usage_percent: document.getElementById('solarMorningUsagePercent')?.value || null,
+                apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,
+                apply_earth_month_go_green_bonus: promotionAmounts.earthMonthAppliedAmount > 0,
+                followUpDays: data.follow_up_days || null
+            }
+        });
 
         // Handle Edit Mode vs Create Mode
         let endpoint = '/api/v1/invoices/on-the-fly';
@@ -2093,8 +1823,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     } catch (error) {
         alert('Error: ' + error.message);
     } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+        restoreSubmitButtonState();
     }
 });
 

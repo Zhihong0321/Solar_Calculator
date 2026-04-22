@@ -565,115 +565,12 @@ function formatAmount(amount) {
     return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-function setSectionStatus(sectionId, label, tone = 'neutral') {
-    const toneClasses = {
-        neutral: 'text-slate-500',
-        ready: 'text-emerald-600',
-        warning: 'text-amber-600',
-        error: 'text-red-600',
-        optional: 'text-slate-500'
-    };
-
-    document.querySelectorAll(`[data-status-for="${sectionId}"]`).forEach((el) => {
-        el.textContent = label;
-        el.classList.remove('text-slate-500', 'text-emerald-600', 'text-amber-600', 'text-red-600');
-        el.classList.add(toneClasses[tone] || toneClasses.neutral);
-    });
-}
-
-function scrollToWorkspaceSection(sectionId) {
-    const target = document.getElementById(sectionId);
-    if (!target) return;
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function refreshActiveWorkspaceSection() {
-    const sections = Array.from(document.querySelectorAll('[data-section]'));
-    if (!sections.length) return;
-
-    let activeId = sections[0].id;
-    const threshold = window.innerHeight * 0.3;
-
-    sections.forEach((section) => {
-        const rect = section.getBoundingClientRect();
-        if (rect.top <= threshold && rect.bottom >= threshold / 2) {
-            activeId = section.id;
-        }
-    });
-
-    document.querySelectorAll('.workspace-nav-item').forEach((button) => {
-        const isActive = button.dataset.target === activeId;
-        button.classList.toggle('border-slate-900', isActive);
-        button.classList.toggle('bg-slate-900', isActive);
-        button.classList.toggle('text-white', isActive);
-        if (isActive) {
-            button.querySelectorAll('span').forEach((span) => span.classList.add('text-white'));
-        } else {
-            button.classList.remove('text-white');
-            button.querySelectorAll('span').forEach((span) => span.classList.remove('text-white'));
-        }
-    });
-}
-
 function updateWorkspaceStatuses() {
-    const packageReady = Boolean(document.getElementById('packageIdHidden')?.value);
-    setSectionStatus('package-summary', packageReady ? 'Ready' : 'Pending', packageReady ? 'ready' : 'warning');
-
-    const customerName = document.getElementById('customerName')?.value?.trim();
-    const leadSource = document.getElementById('customerLeadSource')?.value?.trim();
-    const remark = document.getElementById('customerRemark')?.value?.trim();
-    const customerReady = !customerName || (leadSource && remark);
-    setSectionStatus('customer-lead', customerReady ? 'Ready' : 'Needs attention', customerReady ? 'ready' : 'error');
-
-    const pricingHealthy = !window._extraItemsDiscountExceeded && !window._maxDiscountExceeded && !window._subtotalIsZeroOrNegative;
-    setSectionStatus('price-controls', pricingHealthy ? 'Ready' : 'Needs attention', pricingHealthy ? 'ready' : 'error');
-
-    const paymentRows = document.querySelectorAll('#paymentMethodsContainer > *').length;
-    setSectionStatus('payment-setup', paymentRows > 0 ? 'Ready' : 'Pending', paymentRows > 0 ? 'ready' : 'warning');
-
-    const voucherRootVisible = !document.getElementById('voucherStepRoot')?.classList.contains('hidden');
-    const voucherLabel = !packageReady
-        ? 'Select package first'
-        : selectedDraftVouchers.length > 0
-            ? `${selectedDraftVouchers.length} selected`
-            : voucherRootVisible
-                ? 'Optional'
-                : 'Loading';
-    const voucherTone = !packageReady
-        ? 'warning'
-        : selectedDraftVouchers.length > 0
-            ? 'ready'
-            : voucherRootVisible
-                ? 'optional'
-                : 'warning';
-    setSectionStatus('voucher-selection', voucherLabel, voucherTone);
-
-    const reviewReady = packageReady && customerReady && pricingHealthy;
-    setSectionStatus('final-review', reviewReady ? 'Ready' : 'Pending', reviewReady ? 'ready' : 'warning');
-
-    refreshActiveWorkspaceSection();
-}
-
-function initWorkspaceShell() {
-    document.querySelectorAll('.workspace-nav-item').forEach((button) => {
-        button.addEventListener('click', () => {
-            const mobilePanel = document.getElementById('mobileSectionPanel');
-            mobilePanel?.classList.add('hidden');
-            scrollToWorkspaceSection(button.dataset.target);
-        });
+    window.InvoicePageShared.applyCommonWorkspaceStatuses({
+        selectedDraftVoucherCount: selectedDraftVouchers.length,
+        setSectionStatus: window.InvoicePageShared.setSectionStatus,
+        refreshActiveWorkspaceSection: window.InvoicePageShared.refreshActiveWorkspaceSection
     });
-
-    const mobileToggle = document.getElementById('mobileSectionToggle');
-    const mobileClose = document.getElementById('mobileSectionClose');
-    const mobilePanel = document.getElementById('mobileSectionPanel');
-    mobileToggle?.addEventListener('click', () => mobilePanel?.classList.remove('hidden'));
-    mobileClose?.addEventListener('click', () => mobilePanel?.classList.add('hidden'));
-    mobilePanel?.addEventListener('click', (event) => {
-        if (event.target === mobilePanel) mobilePanel.classList.add('hidden');
-    });
-
-    window.addEventListener('scroll', refreshActiveWorkspaceSection, { passive: true });
-    updateWorkspaceStatuses();
 }
 
 function getSelectedDraftVoucherIds() {
@@ -710,17 +607,6 @@ function buildDraftVoucherRows(packagePrice = parseFloat(document.getElementById
         .filter(Boolean);
 }
 
-async function fetchVoucherPreviewData(packageId) {
-    const response = await fetch(`/api/v1/vouchers/preview?package_id=${encodeURIComponent(packageId)}`, {
-        credentials: 'same-origin'
-    });
-    const json = await response.json();
-    if (!response.ok) {
-        throw new Error(json?.error || 'Failed to load voucher preview.');
-    }
-    return json?.data || {};
-}
-
 async function loadDraftVoucherStepForPackage(packageId, { selectedIds = [], scrollToSection = false } = {}) {
     const hint = document.getElementById('voucherInlineHint');
     const root = document.getElementById('voucherStepRoot');
@@ -753,7 +639,7 @@ async function loadDraftVoucherStepForPackage(packageId, { selectedIds = [], scr
     }
 
     try {
-        const payload = await fetchVoucherPreviewData(packageId);
+        const payload = await window.InvoicePageShared.fetchVoucherPreviewData(packageId);
         hint?.classList.add('hidden');
         root.classList.remove('hidden');
         await inlineVoucherStep.loadPayload(payload, {
@@ -761,7 +647,7 @@ async function loadDraftVoucherStepForPackage(packageId, { selectedIds = [], scr
         });
         updateWorkspaceStatuses();
         if (scrollToSection) {
-            scrollToWorkspaceSection('voucher-selection');
+            window.InvoicePageShared.scrollToWorkspaceSection('voucher-selection');
         }
     } catch (error) {
         root.classList.add('hidden');
@@ -1601,21 +1487,11 @@ function updateInvoicePreview() {
 
 // Load invoice data on page load
 document.addEventListener('DOMContentLoaded', async function () {
-    initWorkspaceShell();
-
-    // Initialize CustomerManager for inline mode
-    CustomerManager.initInline({
-        fieldIds: {
-            name: 'customerName',
-            phone: 'customerPhone',
-            address: 'customerAddress',
-            profilePicture: 'profilePicture',
-            profilePreview: 'profilePreview'
-        }
-    });
+    window.InvoicePageShared.initializeInvoicePageBase();
+    window.InvoicePageShared.initWorkspaceShell({ updateWorkspaceStatuses });
 
     // Fetch User Profile
-    fetchUserProfile();
+    window.InvoicePageShared.fetchUserProfile();
 
     // Get edit_invoice_id from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -1670,29 +1546,30 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
 
             // 2. Pre-fill Customer Info from Live Data
-            if (inv.customer_name) document.getElementById('customerName').value = inv.customer_name;
-            if (inv.customer_phone) document.getElementById('customerPhone').value = inv.customer_phone;
-            if (inv.customer_address) document.getElementById('customerAddress').value = inv.customer_address;
+            window.InvoicePageShared.setCustomerContactFields({
+                name: inv.customer_name,
+                phone: inv.customer_phone,
+                address: inv.customer_address
+            });
             if (inv.linked_referral) {
                 renderAssignedReferralOptions(inv.linked_referral);
                 applyAssignedReferralSelection(inv.linked_referral, { autofill: false });
             }
 
             // 2.5 Load Profile Picture
-            if (inv.profile_picture) {
-                document.getElementById('profilePicture').value = inv.profile_picture;
-                document.getElementById('profilePreview').innerHTML = `<img src="${inv.profile_picture}" class="h-full w-full object-cover">`;
-            }
+            window.InvoicePageShared.setProfilePicture(inv.profile_picture);
 
             // 2.6 Load Lead Source & Remark from customer
             if (inv.lead_source) document.getElementById('customerLeadSource').value = inv.lead_source;
             if (inv.remark) document.getElementById('customerRemark').value = inv.remark;
 
             // 3. Discount
-            let discountVal = '';
-            if (inv.discount_fixed > 0) discountVal += inv.discount_fixed;
-            if (inv.discount_percent > 0) discountVal += (discountVal ? ' ' : '') + `${inv.discount_percent}%`;
-            document.getElementById('discountGiven').value = discountVal;
+            window.InvoicePageShared.applyDiscountValue(
+                window.InvoicePageShared.formatDiscountValue({
+                    fixedAmount: inv.discount_fixed,
+                    percent: inv.discount_percent
+                })
+            );
 
             // 4. SST
             if (inv.sst_amount > 0) document.getElementById('applySST').checked = true;
@@ -1765,59 +1642,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         document.getElementById('warningMessage').classList.add('hidden');
     }
 
-    // Manual Item Listener
-    const addManualItemBtn = document.getElementById('addManualItemBtn');
-    if (addManualItemBtn) {
-        addManualItemBtn.addEventListener('click', () => addManualItem());
-    }
-
-    const assignedReferralSelect = document.getElementById('assignedReferralSelect');
-    if (assignedReferralSelect) {
-        assignedReferralSelect.addEventListener('change', (event) => {
-            applyAssignedReferralSelection(event.target.value, { autofill: true });
-        });
-    }
-
-    // Update preview when SST toggle changes
-    const sstToggle = document.getElementById('applySST');
-    if (sstToggle) {
-        sstToggle.addEventListener('change', updateInvoicePreview);
-    }
-
-    const earnNowToggle = document.getElementById('applyEarnNowRebate');
-    if (earnNowToggle) {
-        earnNowToggle.addEventListener('change', updateInvoicePreview);
-    }
-
-    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
-    if (earthMonthToggle) {
-        earthMonthToggle.addEventListener('change', updateInvoicePreview);
-    }
-
-    // Update preview when discount input changes
-    const discountInput = document.getElementById('discountGiven');
-    if (discountInput) {
-        discountInput.addEventListener('input', updateInvoicePreview);
-        discountInput.addEventListener('change', updateInvoicePreview);
-    }
-
-    const ballastQtyInput = document.getElementById('ballastQty');
-    if (ballastQtyInput) {
-        ballastQtyInput.addEventListener('input', () => {
-            getBallastQty();
-            updateInvoicePreview();
-        });
-        ballastQtyInput.addEventListener('change', () => {
-            getBallastQty();
-            updateInvoicePreview();
-        });
-    }
-
-    // Add payment method button
-    const addBtn = document.getElementById('addPaymentMethodBtn');
-    if (addBtn) {
-        addBtn.addEventListener('click', addPaymentMethodRow);
-    }
+    window.InvoicePageShared.wireCommonInvoicePageInteractions({
+        addManualItem,
+        applyAssignedReferralSelection,
+        updateInvoicePreview,
+        getBallastQty,
+        addPaymentMethodRow
+    });
 
     const changePackageBtn = document.getElementById('changePackageBtn');
     if (changePackageBtn) {
@@ -1829,26 +1660,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     updatePackageChangeControls();
     updateWorkspaceStatuses();
 });
-
-async function fetchUserProfile() {
-    try {
-        const response = await fetch('/api/user/me');
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.user) {
-                const welcomeDiv = document.getElementById('userWelcome');
-                const nameSpan = document.getElementById('userNameDisplay');
-
-                if (welcomeDiv && nameSpan) {
-                    nameSpan.textContent = data.user.name || 'User';
-                    welcomeDiv.classList.remove('hidden');
-                }
-            }
-        }
-    } catch (err) {
-        console.error('Error fetching user profile:', err);
-    }
-}
 
 async function fetchPackageDetails(packageId) {
     try {
@@ -1943,96 +1754,27 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     const formData = new FormData(this);
     const data = Object.fromEntries(formData);
 
-    // Block submission if extra items discount exceeds 5% cap
-    if (window._extraItemsDiscountExceeded) {
-        const pkgPrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
-        const maxRM = (pkgPrice * EXTRA_ITEMS_MAX_DISCOUNT_PERCENT / 100).toFixed(2);
-        Swal.fire({
-            icon: 'error',
-            title: 'Discount Limit Exceeded',
-            text: `Additional items discount cannot exceed ${EXTRA_ITEMS_MAX_DISCOUNT_PERCENT}% of the package price (RM ${maxRM}). Please adjust the negative item amounts.`
-        });
+    if (!window.InvoicePageShared.validateInvoiceSubmitState({
+        extraItemsMaxDiscountPercent: EXTRA_ITEMS_MAX_DISCOUNT_PERCENT
+    })) {
         return;
     }
 
-    if (window._maxDiscountExceeded) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Max Discount Exceeded',
-            text: `The discount entered exceeds the maximum allowed discount of RM ${window.maxDiscountAllowed.toFixed(2)} (${window.maxDiscountPercentAllowed || 0}% of package price).`
-        });
-        return;
-    }
-
-    if (window._subtotalIsZeroOrNegative) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Invalid Total Amount',
-            text: 'The total amount cannot be zero or negative after applying discounts. Please adjust the discounts.'
-        });
-        return;
-    }
-
-    // Require lead_source when customer name is provided
-    const customerName = document.getElementById('customerName')?.value?.trim();
-    const leadSource = document.getElementById('customerLeadSource')?.value;
-    const remark = document.getElementById('customerRemark')?.value;
-
-    if (customerName && !leadSource) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Lead Source Required',
-            text: 'Please select a lead source for the customer.'
-        });
-        return;
-    }
-
-    if (customerName && !remark?.trim()) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Remark Required',
-            text: 'Please add a remark for the customer.'
-        });
-        return;
-    }
-
-    // Show loading state
-    const submitBtn = this.querySelector('button[type="submit"]');
-    const originalText = submitBtn.textContent;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Saving...';
+    const restoreSubmitButtonState = window.InvoicePageShared.setSubmitButtonLoadingState(this, 'Saving...');
 
     // Calculate EPP fees
     const eppData = calculateAllEPPFees();
-
-    // Prepare extra items (Manual Items)
-    const extraItems = getAdditionalInvoiceItems().map(item => ({
-        description: item.description,
-        qty: item.qty,
-        unit_price: item.unit_price,
-        total_price: item.qty * item.unit_price,
-        linked_product: item.linked_product || null
-    }));
-
-    // Prepare request data
-    const requestData = {
-        linked_package: data.linked_package,
-        template_id: data.template_id || null,
-        linked_referral: data.linked_referral || null,
-        customer_name: data.customer_name || null,
-        customer_phone: data.customer_phone || null,
-        customer_address: data.customer_address || null,
-        profilePicture: document.getElementById('profilePicture').value || null,
-        lead_source: document.getElementById('customerLeadSource')?.value || null,
-        remark: document.getElementById('customerRemark')?.value || null,
-        discount_given: data.discount_given || null,
-        apply_sst: document.getElementById('applySST')?.checked || false,
-        applyEarnNowRebate: document.getElementById('applyEarnNowRebate')?.checked || false,
-        applyEarthMonthGoGreenBonus: document.getElementById('applyEarthMonthGoGreenBonus')?.checked || false,
-        payment_structure: eppData.payment_structure,
-        extra_items: extraItems,
-        voucher_ids: getSelectedDraftVoucherIds()
-    };
+    const extraItems = getAdditionalInvoiceItems();
+    const requestData = window.InvoicePageShared.buildInvoiceRequestData({
+        formValues: data,
+        eppData,
+        extraItems,
+        voucherIds: getSelectedDraftVoucherIds(),
+        additionalFields: {
+            applyEarnNowRebate: document.getElementById('applyEarnNowRebate')?.checked || false,
+            applyEarthMonthGoGreenBonus: document.getElementById('applyEarthMonthGoGreenBonus')?.checked || false
+        }
+    });
 
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
@@ -2042,14 +1784,6 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     requestData.applyEarthMonthGoGreenBonus = earthMonthToggle?.disabled
         ? Boolean(loadedPromotionSelections.earthMonthApplied)
         : Boolean(earthMonthToggle?.checked);
-
-
-    // Add EPP fee data if exists
-    if (eppData.total_fee > 0 && eppData.description) {
-        requestData.epp_fee_amount = eppData.total_fee;
-        requestData.epp_fee_description = eppData.description;
-    }
-
     // Always use version endpoint for edit mode
     const endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;
     // Preserve markup
@@ -2072,13 +1806,11 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
             window.location.href = `/view/${encodeURIComponent(newVersionInvoiceId)}`;
         } else {
             alert('Error: ' + (result.error || result.detail || 'Failed to process quotation'));
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
+            restoreSubmitButtonState();
         }
     } catch (error) {
         alert('Error: ' + error.message);
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+        restoreSubmitButtonState();
     }
 });
 

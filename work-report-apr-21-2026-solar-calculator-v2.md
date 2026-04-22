@@ -25,5 +25,8 @@ REPO NAME : Solar Calculator v2
 - Hotfixed the SEDA MyKad PDF upload path with a larger limit and early user-side size validation after live failure reports.
 - Re-enabled SEDA MyKad PDF and TNB bill PDF uploads through the site-wide file upload processor and revalidated the SEDA upload flow.
 - Removed shared filename-based upload rejection so SEDA uploads sanitize original names instead of blocking them.
+- Updated the AI-first maintenance map with the next cleanup and optimization targets.
+- Soft-removed a stale sales invoice link guide from active docs and archived it with a dated marker.
+- Extracted shared helper logic for the create and edit invoice pages to reduce duplicated quotation workflow code.
 
 =====================
