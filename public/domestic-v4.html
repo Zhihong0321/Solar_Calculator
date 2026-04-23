@@ -1,0 +1,2025 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Domestic V4 solar calculator redesign powered by the existing Eternalgy calculator APIs.">
+    <title>Solar PV Planner · Domestic V4</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            color-scheme: light;
+        }
+
+        html {
+            background: #bbf7d0;
+        }
+
+        body {
+            background: #bbf7d0;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            color: #111827;
+        }
+
+        #root {
+            width: 100%;
+            max-width: 430px;
+            min-height: 100vh;
+            background: #f1f5f1;
+        }
+
+        @media (min-width: 500px) {
+            body {
+                padding: 28px 16px;
+                align-items: flex-start;
+            }
+
+            #root {
+                border-radius: 36px;
+                overflow: hidden;
+                box-shadow: 0 32px 80px rgba(0, 0, 0, 0.22);
+            }
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useEffect, useState } = React;
+
+        const ACCENT = {
+            primary: '#16a34a',
+            light: '#22c55e',
+            bg: '#dcfce7',
+            dark: '#14532d',
+            border: '#86efac'
+        };
+
+        const AFA_OPTIONS = [
+            { value: 0.0, label: 'JUL 2025 (0.00 sen)' },
+            { value: -0.0145, label: 'AUG 2025 (-1.45 sen)' },
+            { value: -0.0110, label: 'SEP 2025 (-1.10 sen)' },
+            { value: -0.0650, label: 'OCT 2025 (-6.50 sen)' },
+            { value: -0.0891, label: 'NOV 2025 (-8.91 sen)' },
+            { value: -0.0642, label: 'DEC 2025 (-6.42 sen)' },
+            { value: -0.0499, label: 'JAN 2026 (-4.99 sen)' },
+            { value: -0.0509, label: 'FEB 2026 (-5.09 sen)' },
+            { value: -0.0215, label: 'MAR 2026 (-2.15 sen)' },
+            { value: -0.0047, label: 'APR 2026 (-0.47 sen)' },
+            { value: -0.0039, label: 'MAY 2026 (-0.39 sen)' }
+        ];
+
+        const EPP_RATES = {
+            'Maybank': { 6: 2.50, 12: 3.50, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
+            'Public Bank': { 6: 2.50, 12: 3.50, 18: 4.00, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
+            'Hong Leong': { 12: 3.50, 24: 5.50, 36: 6.00, 48: 8.00, 60: 10.00 },
+            'CIMB': { 6: 2.50, 12: 3.50 },
+            'UOB': { 6: 2.50, 12: 3.50, 24: 5.50, 48: 8.50, 68: 11.50 },
+            'OCBC': { 6: 4.00, 12: 5.00, 18: 6.00, 24: 7.00, 36: 8.00, 48: 9.00 }
+        };
+
+        const DEFAULT_INPUTS = {
+            billAmount: '500',
+            historicalAfaRate: '-0.0047',
+            systemPhase: 3,
+            inverterType: 'string',
+            sunPeakHour: '3.4',
+            morningUsage: '30',
+            panelType: '650',
+            smpPrice: '0.2703',
+            afaRate: '0.0000',
+            percentDiscount: '0',
+            fixedDiscount: '0',
+            batterySize: 0,
+            batteryLossPercent: 0,
+            batteryDodPercent: 5
+        };
+
+        const SHORT_BILL_CYCLE_SST_RATE = 0.08;
+
+        function fmt(value, digits = 2) {
+            return Number(value || 0).toLocaleString('en-MY', {
+                minimumFractionDigits: digits,
+                maximumFractionDigits: digits
+            });
+        }
+
+        function toNumber(value, fallback = 0) {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        }
+
+        function clamp(value, min, max) {
+            return Math.min(max, Math.max(min, value));
+        }
+
+        function normalizeBatteryLossPercent(value) {
+            return clamp(toNumber(value, 0), 0, 20);
+        }
+
+        function normalizeBatteryDodPercent(value) {
+            return clamp(toNumber(value, 5), 0, 10);
+        }
+
+        function buildTariffBreakdown(tariff, historicalAfaRate) {
+            if (!tariff) {
+                return null;
+            }
+
+            const usageKwh = toNumber(tariff.usage_kwh);
+            const usage = toNumber(tariff.energy_charge ?? tariff.usage_normal);
+            const network = toNumber(tariff.network_charge ?? tariff.network);
+            const capacity = toNumber(tariff.capacity_charge ?? tariff.capacity);
+            const retail = toNumber(tariff.retail_charge ?? tariff.retail);
+            const eei = toNumber(tariff.energy_efficiency_incentive ?? tariff.eei);
+            const sst = toNumber(tariff.sst_tax ?? tariff.sst_normal);
+            const kwtbb = toNumber(tariff.kwtbb_fund ?? tariff.kwtbb_normal);
+            const fuelAdjustment = toNumber(tariff.fuel_adjustment);
+            const afa = usageKwh * historicalAfaRate;
+            const total = toNumber(tariff.total_bill ?? tariff.bill_total_normal) + afa;
+
+            return {
+                usageKwh,
+                usage,
+                network,
+                capacity,
+                retail,
+                eei,
+                sst,
+                kwtbb,
+                fuelAdjustment,
+                afa,
+                total
+            };
+        }
+
+        function buildBillCycleMetrics(data) {
+            if (data?.billCycleModes?.fullMonth && data?.billCycleModes?.under28Days) {
+                return data.billCycleModes;
+            }
+
+            const details = data?.details || {};
+            const afterBreakdown = data?.billBreakdownComparison?.after || details?.billBreakdown?.after || null;
+            const beforeBreakdown = data?.billBreakdownComparison?.before || details?.billBreakdown?.before || null;
+
+            const billBefore = toNumber(details.billBefore, toNumber(beforeBreakdown?.total));
+            const fullBillAfter = toNumber(details.billAfter, toNumber(afterBreakdown?.total));
+            const actualEeiSaving = toNumber(details.actualEeiSaving, toNumber(data?.savingsBreakdown?.eeiSaving));
+            const exportSaving = toNumber(details.exportSaving, toNumber(data?.savingsBreakdown?.exportCredit));
+            const fullBillReduction = toNumber(details.billReduction, toNumber(data?.savingsBreakdown?.billReduction));
+            const fullTotalSavings = toNumber(data?.monthlySavings);
+            const fullPayableAfterSolar = Number.isFinite(Number(details.estimatedPayableAfterSolar))
+                ? toNumber(details.estimatedPayableAfterSolar)
+                : Math.max(0, fullBillAfter - exportSaving);
+            const currentSst = toNumber(afterBreakdown?.sst);
+            const shortCycleSstBase = toNumber(afterBreakdown?.usage) + toNumber(afterBreakdown?.network) + toNumber(afterBreakdown?.capacity);
+            const recalculatedSst = shortCycleSstBase * SHORT_BILL_CYCLE_SST_RATE;
+            const under28BillAfter = Math.max(0, fullBillAfter - currentSst + recalculatedSst);
+            const under28GrossBillReduction = Math.max(0, billBefore - under28BillAfter);
+            const under28BillReduction = Math.max(0, under28GrossBillReduction - actualEeiSaving);
+            const under28TotalSavings = under28BillReduction + actualEeiSaving + exportSaving;
+            const under28PayableAfterSolar = Math.max(0, under28BillAfter - exportSaving);
+
+            return {
+                fullMonth: {
+                    key: 'fullMonth',
+                    label: 'Full Month',
+                    billAfter: fullBillAfter,
+                    billReduction: fullBillReduction,
+                    totalSavings: fullTotalSavings,
+                    payableAfterSolar: fullPayableAfterSolar
+                },
+                under28Days: {
+                    key: 'under28Days',
+                    label: '<28 Days',
+                    billAfter: under28BillAfter,
+                    billReduction: under28BillReduction,
+                    totalSavings: under28TotalSavings,
+                    payableAfterSolar: under28PayableAfterSolar
+                }
+            };
+        }
+
+        function collectSolarParams(inputs) {
+            return {
+                amount: toNumber(inputs.billAmount),
+                sunPeakHour: toNumber(inputs.sunPeakHour),
+                morningUsage: toNumber(inputs.morningUsage),
+                panelType: parseInt(inputs.panelType, 10) || 650,
+                smpPrice: toNumber(inputs.smpPrice, 0.2703),
+                afaRate: toNumber(inputs.afaRate),
+                historicalAfaRate: toNumber(inputs.historicalAfaRate),
+                percentDiscount: toNumber(inputs.percentDiscount),
+                fixedDiscount: toNumber(inputs.fixedDiscount),
+                systemPhase: parseInt(inputs.systemPhase, 10) || 3,
+                inverterType: inputs.inverterType || 'string',
+                batterySize: toNumber(inputs.batterySize),
+                batteryLossPercent: normalizeBatteryLossPercent(inputs.batteryLossPercent),
+                batteryDodPercent: normalizeBatteryDodPercent(inputs.batteryDodPercent)
+            };
+        }
+
+        function buildQuotationUrl(invoiceBaseUrl, solarData, inputs, selectedBillCycleMode) {
+            if (!solarData?.selectedPackage?.linked_package) {
+                return null;
+            }
+
+            const params = new URLSearchParams();
+            params.set('linked_package', solarData.selectedPackage.linked_package);
+
+            const discountParts = [];
+            if (toNumber(inputs.fixedDiscount) > 0) {
+                discountParts.push(toNumber(inputs.fixedDiscount).toString());
+            }
+            if (toNumber(inputs.percentDiscount) > 0) {
+                discountParts.push(`${toNumber(inputs.percentDiscount)}%`);
+            }
+            if (discountParts.length > 0) {
+                params.set('discount_given', discountParts.join(' '));
+            }
+
+            const cycles = buildBillCycleMetrics(solarData);
+            const activeCycle = cycles[selectedBillCycleMode] || cycles.fullMonth;
+            const selectedBatterySize = toNumber(solarData.config?.batterySize || inputs.batterySize);
+
+            params.set('customer_name', 'Sample Quotation');
+            if (solarData.actualPanels) params.set('panel_qty', solarData.actualPanels);
+            if (solarData.config?.panelType) params.set('panel_rating', `${solarData.config.panelType}W`);
+            if (solarData.config?.systemPhase) params.set('system_phase', solarData.config.systemPhase);
+            if (solarData.config?.inverterType) params.set('inverter_type', solarData.config.inverterType);
+            if (selectedBatterySize > 0) params.set('battery_size', selectedBatterySize);
+            if (solarData.details?.billBefore) params.set('customer_average_tnb', solarData.details.billBefore);
+            if (activeCycle?.totalSavings != null) params.set('estimated_saving', activeCycle.totalSavings.toFixed(2));
+            if (activeCycle?.payableAfterSolar != null) params.set('estimated_new_bill_amount', activeCycle.payableAfterSolar.toFixed(2));
+            if (solarData.config?.sunPeakHour != null) params.set('solar_sun_peak_hour', solarData.config.sunPeakHour);
+            if (solarData.config?.morningUsage != null) params.set('solar_morning_usage_percent', solarData.config.morningUsage);
+
+            return `${invoiceBaseUrl}?${params.toString()}`;
+        }
+
+        function Card({ children, style, dark }) {
+            return (
+                <div style={{
+                    background: dark ? '#1a2e1c' : '#fff',
+                    borderRadius: 16,
+                    padding: '18px 16px',
+                    ...style
+                }}>
+                    {children}
+                </div>
+            );
+        }
+
+        function SectionWrap({ children }) {
+            return <div style={{ padding: '10px 14px 0' }}>{children}</div>;
+        }
+
+        function Tag({ children, color, bg }) {
+            return (
+                <span style={{
+                    display: 'inline-block',
+                    background: bg || '#dcfce7',
+                    color: color || '#16a34a',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: 20
+                }}>
+                    {children}
+                </span>
+            );
+        }
+
+        function Divider({ style }) {
+            return <div style={{ height: 1, background: '#e5e7eb', margin: '12px 0', ...style }} />;
+        }
+
+        function MetricChip({ icon, value, label, sub, valueColor }) {
+            return (
+                <div style={{ flex: 1, background: '#f8faf8', borderRadius: 12, padding: '12px 8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: valueColor, lineHeight: 1 }}>{value}</div>
+                    <div style={{ fontSize: 10, color: '#6b7280', marginTop: 3, fontWeight: 600 }}>{label}</div>
+                    <div style={{ fontSize: 9, color: '#9ca3af' }}>{sub}</div>
+                </div>
+            );
+        }
+
+        function SegmentedButton({ active, onClick, children }) {
+            return (
+                <button
+                    type="button"
+                    onClick={onClick}
+                    style={{
+                        flex: 1,
+                        padding: '10px 8px',
+                        borderRadius: 10,
+                        border: active ? `2px solid ${ACCENT.primary}` : '2px solid #e5e7eb',
+                        background: active ? ACCENT.bg : '#fff',
+                        color: active ? ACCENT.primary : '#6b7280',
+                        fontSize: 12,
+                        fontWeight: active ? 700 : 600,
+                        cursor: 'pointer'
+                    }}
+                >
+                    {children}
+                </button>
+            );
+        }
+
+        function FieldLabel({ children }) {
+            return (
+                <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, marginBottom: 6 }}>
+                    {children}
+                </div>
+            );
+        }
+
+        function TextField({ prefix, value, onChange, placeholder }) {
+            return (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    border: '1px solid #d1d5db',
+                    borderRadius: 12,
+                    padding: '12px 14px',
+                    background: '#fff'
+                }}>
+                    {prefix && <span style={{ color: '#6b7280', fontWeight: 700 }}>{prefix}</span>}
+                    <input
+                        value={value}
+                        onChange={(event) => onChange(event.target.value)}
+                        placeholder={placeholder}
+                        type="number"
+                        style={{
+                            width: '100%',
+                            border: 'none',
+                            outline: 'none',
+                            background: 'transparent',
+                            fontSize: 18,
+                            fontWeight: 700,
+                            color: '#111827'
+                        }}
+                    />
+                </div>
+            );
+        }
+
+        function SelectField({ value, onChange, options }) {
+            return (
+                <div style={{
+                    border: '1px solid #d1d5db',
+                    borderRadius: 12,
+                    background: '#fff',
+                    overflow: 'hidden'
+                }}>
+                    <select
+                        value={value}
+                        onChange={(event) => onChange(event.target.value)}
+                        style={{
+                            width: '100%',
+                            border: 'none',
+                            outline: 'none',
+                            background: 'transparent',
+                            padding: '14px 12px',
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: '#111827'
+                        }}
+                    >
+                        {options.map((option) => (
+                            <option key={option.label} value={option.value}>{option.label}</option>
+                        ))}
+                    </select>
+                </div>
+            );
+        }
+
+        function NavBar() {
+            return (
+                <div style={{
+                    background: '#0d1f0f',
+                    padding: '11px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 200
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <div style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 8,
+                            background: ACCENT.primary,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 15,
+                            fontWeight: 900,
+                            color: '#fff'
+                        }}>
+                            ∞
+                        </div>
+                        <div>
+                            <div style={{ color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: '0.04em' }}>ETERNALGY</div>
+                            <div style={{ color: '#4b5563', fontSize: 10 }}>Domestic V4 · Solar PV Planner</div>
+                        </div>
+                    </div>
+                    <div style={{
+                        background: '#1e3a20',
+                        border: 'none',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        color: ACCENT.light,
+                        fontSize: 12,
+                        fontWeight: 700
+                    }}>
+                        LIVE
+                    </div>
+                </div>
+            );
+        }
+
+        function StepProgress({ billReady, roiReady }) {
+            const steps = [
+                { num: 1, zh: '账单', done: billReady || roiReady, active: !billReady && !roiReady },
+                { num: 2, zh: '明细', done: billReady || roiReady, active: billReady && !roiReady },
+                { num: 3, zh: '设置', done: roiReady, active: billReady && !roiReady },
+                { num: 4, zh: '回报', done: roiReady, active: roiReady },
+                { num: 5, zh: '详情', done: roiReady, active: roiReady }
+            ];
+
+            return (
+                <div style={{
+                    background: '#fff',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    borderBottom: '1px solid #f3f4f6'
+                }}>
+                    {steps.map((step, index) => (
+                        <React.Fragment key={step.num}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                                <div style={{
+                                    width: 26,
+                                    height: 26,
+                                    borderRadius: '50%',
+                                    background: step.done || step.active ? ACCENT.primary : '#d1d5db',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: step.done ? 12 : 11,
+                                    fontWeight: 700,
+                                    color: '#fff'
+                                }}>
+                                    {step.done ? '✓' : step.num}
+                                </div>
+                                <div style={{
+                                    fontSize: 10,
+                                    fontWeight: step.active ? 700 : 500,
+                                    color: step.done || step.active ? '#374151' : '#9ca3af'
+                                }}>
+                                    {step.zh}
+                                </div>
+                            </div>
+                            {index < steps.length - 1 && (
+                                <div style={{
+                                    flex: 1,
+                                    height: 2,
+                                    margin: '0 3px',
+                                    marginBottom: 13,
+                                    background: step.done ? ACCENT.primary : '#e5e7eb',
+                                    borderRadius: 1
+                                }} />
+                            )}
+                        </React.Fragment>
+                    ))}
+                </div>
+            );
+        }
+
+        function InputPanel({ inputs, setInputs, onAnalyseBill, analysingBill, planLoading, errorMessage }) {
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                            <div>
+                                <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>第一步</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>输入电费资料</div>
+                            </div>
+                            <Tag color={ACCENT.primary} bg={ACCENT.bg}>使用现有计算逻辑</Tag>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: 14 }}>
+                            <div>
+                                <FieldLabel>Monthly TNB Bill</FieldLabel>
+                                <TextField
+                                    prefix="RM"
+                                    value={inputs.billAmount}
+                                    onChange={(value) => setInputs((prev) => ({ ...prev, billAmount: value }))}
+                                    placeholder="500"
+                                />
+                            </div>
+
+                            <div>
+                                <FieldLabel>AFA Bill Month</FieldLabel>
+                                <SelectField
+                                    value={inputs.historicalAfaRate}
+                                    onChange={(value) => setInputs((prev) => ({ ...prev, historicalAfaRate: value }))}
+                                    options={AFA_OPTIONS.map((option) => ({
+                                        value: String(option.value),
+                                        label: option.label
+                                    }))}
+                                />
+                            </div>
+
+                            <div>
+                                <FieldLabel>Electrical Phase</FieldLabel>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <SegmentedButton active={Number(inputs.systemPhase) === 3} onClick={() => setInputs((prev) => ({ ...prev, systemPhase: 3 }))}>
+                                        3-Phase
+                                    </SegmentedButton>
+                                    <SegmentedButton active={Number(inputs.systemPhase) === 1} onClick={() => setInputs((prev) => ({ ...prev, systemPhase: 1 }))}>
+                                        1-Phase
+                                    </SegmentedButton>
+                                </div>
+                            </div>
+
+                            <div>
+                                <FieldLabel>Inverter Type</FieldLabel>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <SegmentedButton active={inputs.inverterType === 'string'} onClick={() => setInputs((prev) => ({ ...prev, inverterType: 'string' }))}>
+                                        String
+                                    </SegmentedButton>
+                                    <SegmentedButton active={inputs.inverterType === 'hybrid'} onClick={() => setInputs((prev) => ({ ...prev, inverterType: 'hybrid' }))}>
+                                        Hybrid
+                                    </SegmentedButton>
+                                </div>
+                            </div>
+
+                            {errorMessage && (
+                                <div style={{
+                                    background: '#fef2f2',
+                                    border: '1px solid #fecaca',
+                                    color: '#991b1b',
+                                    borderRadius: 12,
+                                    padding: '12px 14px',
+                                    fontSize: 12,
+                                    fontWeight: 600
+                                }}>
+                                    {errorMessage}
+                                </div>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={onAnalyseBill}
+                                disabled={analysingBill || planLoading}
+                                style={{
+                                    width: '100%',
+                                    padding: '15px',
+                                    background: '#111827',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 14,
+                                    fontSize: 15,
+                                    fontWeight: 700,
+                                    cursor: analysingBill || planLoading ? 'wait' : 'pointer',
+                                    opacity: analysingBill || planLoading ? 0.75 : 1
+                                }}
+                            >
+                                {analysingBill ? '分析中...' : '分析账单'}
+                            </button>
+                        </div>
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function BillSummary({ billAmount, usageKwh, phaseLabel, inverterLabel }) {
+            return (
+                <SectionWrap>
+                    <Card style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: '50%',
+                                background: ACCENT.primary,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 14,
+                                color: '#fff',
+                                flexShrink: 0
+                            }}>
+                                ✓
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 11, color: '#9ca3af' }}>第一步 · TNB 电费</div>
+                                <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>
+                                    RM {fmt(billAmount)} / 月
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <Tag>{Math.round(usageKwh).toLocaleString('en-MY')} kWh</Tag>
+                                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>{phaseLabel} · {inverterLabel}</div>
+                            </div>
+                        </div>
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function BillBreakdownCard({ breakdown }) {
+            const [open, setOpen] = useState(false);
+
+            const groups = [
+                { label: '用电费', value: breakdown.usage, color: '#16a34a' },
+                { label: '网络费', value: breakdown.network, color: '#4ade80' },
+                { label: '容量费', value: breakdown.capacity, color: '#86efac' },
+                { label: '税费', value: Math.max(0, breakdown.sst + breakdown.kwtbb + breakdown.retail), color: '#bbf7d0' }
+            ];
+            const groupTotal = Math.max(1, groups.reduce((sum, item) => sum + item.value, 0));
+
+            const detailRows = [
+                { label: '用电费', value: breakdown.usage },
+                { label: '网络费', value: breakdown.network },
+                { label: '容量费', value: breakdown.capacity },
+                { label: '零售费', value: breakdown.retail },
+                { label: 'SST', value: breakdown.sst },
+                { label: 'KWTBB', value: breakdown.kwtbb },
+                { label: 'EEI', value: breakdown.eei },
+                { label: 'AFA 调整', value: breakdown.afa }
+            ];
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                            <div>
+                                <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>第二步</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>账单明细</div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 24, fontWeight: 800, color: '#111827' }}>RM {fmt(breakdown.total)}</div>
+                                <div style={{ fontSize: 10, color: '#9ca3af' }}>匹配精度 ±0.01%</div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', height: 14, borderRadius: 8, overflow: 'hidden', gap: 2, marginBottom: 10 }}>
+                            {groups.map((group) => (
+                                <div
+                                    key={group.label}
+                                    style={{
+                                        width: `${(group.value / groupTotal) * 100}%`,
+                                        background: group.color,
+                                        borderRadius: 3
+                                    }}
+                                />
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 14px', marginBottom: 12 }}>
+                            {groups.map((group) => (
+                                <div key={group.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: 2, background: group.color }} />
+                                    <span style={{ fontSize: 11, color: '#6b7280' }}>{group.label}</span>
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>
+                                        {Math.round((group.value / groupTotal) * 100)}%
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            background: '#fffbeb',
+                            padding: '6px 10px',
+                            borderRadius: 8,
+                            marginBottom: 12
+                        }}>
+                            <span style={{ fontSize: 13 }}>⚡</span>
+                            <span style={{ fontSize: 11, color: '#92400e', fontWeight: 700 }}>
+                                推算用电量 {Math.round(breakdown.usageKwh).toLocaleString('en-MY')} kWh / 月
+                            </span>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setOpen((value) => !value)}
+                            style={{
+                                width: '100%',
+                                background: '#f8faf8',
+                                border: 'none',
+                                borderRadius: 10,
+                                padding: '11px 14px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <div style={{ textAlign: 'left' }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>展开组件明细</div>
+                                <div style={{ fontSize: 11, color: '#6b7280' }}>查看逐项账单组成</div>
+                            </div>
+                            <span style={{ color: '#9ca3af', fontSize: 11 }}>{open ? '▲' : '▼'}</span>
+                        </button>
+
+                        {open && (
+                            <div style={{ marginTop: 12, borderRadius: 10, overflow: 'hidden', border: '1px solid #f3f4f6' }}>
+                                {detailRows.map((row, index) => (
+                                    <div
+                                        key={row.label}
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            padding: '10px 12px',
+                                            borderTop: index > 0 ? '1px solid #f3f4f6' : 'none',
+                                            background: index % 2 === 0 ? '#fff' : '#fafafa',
+                                            fontSize: 12
+                                        }}
+                                    >
+                                        <span style={{ color: '#6b7280' }}>{row.label}</span>
+                                        <span style={{ fontWeight: 700, color: row.value < 0 ? ACCENT.primary : '#111827' }}>
+                                            {row.value < 0 ? '−' : ''}RM {fmt(Math.abs(row.value))}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function SolarSetupCard({ inputs, setInputs, onGeneratePlan, planLoading, canGenerate, result }) {
+            const actualPanels = toNumber(result?.actualPanels, 0);
+            const systemSize = toNumber(result?.systemSizeKwp, 0);
+            const sunPeak = toNumber(inputs.sunPeakHour, 3.4);
+            const daytime = toNumber(inputs.morningUsage, 30);
+            const selectedPackage = result?.selectedPackage;
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                            <div>
+                                <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>第三步</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>太阳能设置</div>
+                            </div>
+                            <Tag color={ACCENT.primary} bg={ACCENT.bg}>{result ? '已生成 ✓' : '待生成'}</Tag>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                            <MetricChip icon="☀️" value={`${sunPeak.toFixed(1)}h`} label="日照峰值" sub="马来西亚标准" valueColor="#d97706" />
+                            <MetricChip icon="🏠" value={`${daytime}%`} label="白天用电" sub="发电时段内" valueColor={ACCENT.primary} />
+                            <MetricChip icon="⚡" value={systemSize > 0 ? systemSize.toFixed(1) : '—'} label="kWp 系统" sub={actualPanels > 0 ? `${actualPanels} × ${inputs.panelType}W` : '待计算'} valueColor="#111827" />
+                        </div>
+
+                        <div style={{ display: 'grid', gap: 14 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div>
+                                    <FieldLabel>Sun Peak Hour</FieldLabel>
+                                    <TextField value={inputs.sunPeakHour} onChange={(value) => setInputs((prev) => ({ ...prev, sunPeakHour: value }))} />
+                                </div>
+                                <div>
+                                    <FieldLabel>Daytime Usage %</FieldLabel>
+                                    <TextField value={inputs.morningUsage} onChange={(value) => setInputs((prev) => ({ ...prev, morningUsage: value }))} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div>
+                                    <FieldLabel>Panel Rating (W)</FieldLabel>
+                                    <TextField value={inputs.panelType} onChange={(value) => setInputs((prev) => ({ ...prev, panelType: value }))} />
+                                </div>
+                                <div>
+                                    <FieldLabel>Export Rate (RM/kWh)</FieldLabel>
+                                    <TextField value={inputs.smpPrice} onChange={(value) => setInputs((prev) => ({ ...prev, smpPrice: value }))} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div>
+                                    <FieldLabel>AFA Projection</FieldLabel>
+                                    <TextField value={inputs.afaRate} onChange={(value) => setInputs((prev) => ({ ...prev, afaRate: value }))} />
+                                </div>
+                                <div>
+                                    <FieldLabel>Discount %</FieldLabel>
+                                    <TextField value={inputs.percentDiscount} onChange={(value) => setInputs((prev) => ({ ...prev, percentDiscount: value }))} />
+                                </div>
+                            </div>
+
+                            <div>
+                                <FieldLabel>Fixed Discount (RM)</FieldLabel>
+                                <TextField prefix="RM" value={inputs.fixedDiscount} onChange={(value) => setInputs((prev) => ({ ...prev, fixedDiscount: value }))} />
+                            </div>
+
+                            {selectedPackage && (
+                                <div style={{
+                                    background: '#0d1f0f',
+                                    borderRadius: 12,
+                                    padding: '12px 14px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 12
+                                }}>
+                                    <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                                        <div style={{ color: ACCENT.light, fontWeight: 700, fontSize: 10, marginBottom: 1 }}>推荐配套</div>
+                                        {selectedPackage.packageName}
+                                    </div>
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>
+                                        RM {fmt(result?.finalSystemCost || selectedPackage.price)}
+                                    </div>
+                                </div>
+                            )}
+
+                            {result?.requiresSedaFee && (
+                                <div style={{
+                                    background: '#fffbeb',
+                                    border: '1px solid #fde68a',
+                                    color: '#92400e',
+                                    borderRadius: 12,
+                                    padding: '12px 14px',
+                                    fontSize: 12,
+                                    fontWeight: 700
+                                }}>
+                                    此系统超过当前相位上限，需留意 SEDA oversize registration fee。
+                                </div>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={onGeneratePlan}
+                                disabled={!canGenerate || planLoading}
+                                style={{
+                                    width: '100%',
+                                    padding: '15px',
+                                    background: ACCENT.primary,
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 14,
+                                    fontSize: 15,
+                                    fontWeight: 700,
+                                    cursor: !canGenerate || planLoading ? 'not-allowed' : 'pointer',
+                                    opacity: !canGenerate || planLoading ? 0.6 : 1
+                                }}
+                            >
+                                {planLoading ? '计算中...' : '生成 ROI'}
+                            </button>
+                        </div>
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function CycleToggle({ selected, onSelect }) {
+            return (
+                <SectionWrap>
+                    <div style={{
+                        display: 'flex',
+                        gap: 8,
+                        background: '#fff',
+                        borderRadius: 16,
+                        padding: 8
+                    }}>
+                        <SegmentedButton active={selected === 'fullMonth'} onClick={() => onSelect('fullMonth')}>
+                            Full Month
+                        </SegmentedButton>
+                        <SegmentedButton active={selected === 'under28Days'} onClick={() => onSelect('under28Days')}>
+                            {'<28 Days'}
+                        </SegmentedButton>
+                    </div>
+                </SectionWrap>
+            );
+        }
+
+        function SavingsHero({ activeCycle, solarResult, annualRoi }) {
+            const confidence = toNumber(solarResult?.confidenceLevel, 0);
+            const radius = 26;
+            const circumference = 2 * Math.PI * radius;
+            const filled = (confidence / 100) * circumference;
+
+            return (
+                <SectionWrap>
+                    <div style={{ background: '#0d1f0f', borderRadius: 20, overflow: 'hidden' }}>
+                        <div style={{ padding: '20px 20px 0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div>
+                                    <div style={{ fontSize: 10, color: ACCENT.light, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>第四步 · 投资回报</div>
+                                    <div style={{ fontSize: 13, color: '#6b7280', marginTop: 5 }}>每月节省金额</div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <svg width="64" height="64" viewBox="0 0 64 64">
+                                        <circle cx="32" cy="32" r={radius} fill="none" stroke="#1a3a1a" strokeWidth="5" />
+                                        <circle
+                                            cx="32"
+                                            cy="32"
+                                            r={radius}
+                                            fill="none"
+                                            stroke={ACCENT.light}
+                                            strokeWidth="5"
+                                            strokeDasharray={`${filled} ${circumference}`}
+                                            strokeLinecap="round"
+                                            transform="rotate(-90 32 32)"
+                                        />
+                                        <text x="32" y="35" textAnchor="middle" fontSize="13" fontWeight="800" fill="#fff">{Math.round(confidence)}%</text>
+                                    </svg>
+                                    <div style={{ fontSize: 9, color: '#6b7280', marginTop: -2 }}>置信度</div>
+                                </div>
+                            </div>
+
+                            <div style={{ marginTop: 6, paddingBottom: 18 }}>
+                                <div style={{ fontSize: 58, fontWeight: 800, color: ACCENT.light, letterSpacing: '-2px', lineHeight: 1 }}>
+                                    RM {fmt(activeCycle.totalSavings)}
+                                </div>
+                                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 5 }}>
+                                    每月 · {activeCycle.key === 'under28Days' ? '<28 Days Bill Cycle' : 'Full Month Bill Cycle'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', background: '#091407' }}>
+                            {[
+                                { value: `${solarResult?.paybackPeriod || '—'}yr`, label: '回本期' },
+                                { value: `${annualRoi.toFixed(1)}%`, label: '年回报率' },
+                                { value: `RM ${fmt(solarResult?.finalSystemCost || 0)}`, label: '系统费用' }
+                            ].map((metric, index) => (
+                                <div
+                                    key={metric.label}
+                                    style={{
+                                        flex: 1,
+                                        padding: '14px 6px',
+                                        textAlign: 'center',
+                                        borderRight: index < 2 ? '1px solid #1a2e1a' : 'none'
+                                    }}
+                                >
+                                    <div style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>{metric.value}</div>
+                                    <div style={{ fontSize: 10, color: ACCENT.light, marginTop: 2, fontWeight: 600 }}>{metric.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </SectionWrap>
+            );
+        }
+
+        function BeforeAfterCard({ beforeBill, activeCycle }) {
+            const afterBill = activeCycle.payableAfterSolar;
+            const percentageSaved = beforeBill > 0 ? Math.round((1 - afterBill / beforeBill) * 100) : 0;
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>
+                            安装前后 · 电费对比
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', marginBottom: 14 }}>
+                            <div style={{ flex: 1, background: '#f3f4f6', borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
+                                <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4 }}>安装前</div>
+                                <div style={{ fontSize: 30, fontWeight: 800, color: '#9ca3af', textDecoration: 'line-through' }}>
+                                    RM {fmt(beforeBill)}
+                                </div>
+                                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>每月电费</div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                                <Tag color={ACCENT.primary} bg={ACCENT.bg}>−{percentageSaved}%</Tag>
+                                <div style={{ fontSize: 20, color: ACCENT.primary }}>→</div>
+                            </div>
+
+                            <div style={{
+                                flex: 1,
+                                background: ACCENT.bg,
+                                borderRadius: 12,
+                                padding: '14px 12px',
+                                textAlign: 'center',
+                                border: `2px solid ${ACCENT.border}`
+                            }}>
+                                <div style={{ fontSize: 10, color: ACCENT.primary, marginBottom: 4, fontWeight: 700 }}>☀️ 安装后</div>
+                                <div style={{ fontSize: 30, fontWeight: 800, color: ACCENT.primary }}>RM {fmt(afterBill)}</div>
+                                <div style={{ fontSize: 11, color: ACCENT.primary, marginTop: 3 }}>每月电费</div>
+                            </div>
+                        </div>
+
+                        {[
+                            { label: '现在', value: beforeBill, max: Math.max(beforeBill, afterBill, 1), color: '#d1d5db' },
+                            { label: '太阳能后', value: afterBill, max: Math.max(beforeBill, afterBill, 1), color: ACCENT.primary }
+                        ].map((row) => (
+                            <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                <div style={{ width: 52, fontSize: 11, color: '#6b7280', textAlign: 'right', flexShrink: 0 }}>{row.label}</div>
+                                <div style={{ flex: 1, height: 22, background: '#f3f4f6', borderRadius: 6, overflow: 'hidden' }}>
+                                    <div style={{
+                                        height: '100%',
+                                        width: `${(row.value / row.max) * 100}%`,
+                                        background: row.color,
+                                        borderRadius: 6,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        paddingLeft: 8
+                                    }}>
+                                        <span style={{
+                                            fontSize: 10,
+                                            fontWeight: 700,
+                                            color: row.color === '#d1d5db' ? '#6b7280' : '#fff'
+                                        }}>
+                                            RM {fmt(row.value)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function EnergyFlowCard({ solarResult }) {
+            const details = solarResult.details || {};
+            const battery = details.battery || {};
+            const usage = toNumber(details.monthlyUsageKwh);
+            const generated = toNumber(details.monthlySolarGeneration);
+            const exportKwh = toNumber(details.exportKwh);
+            const gridImport = toNumber(details.actualUsageForEeiKwh);
+            const batteryDischarge = toNumber(battery.monthlyStoredKwh);
+            const solarToHome = Math.max(0, usage - gridImport);
+            const directSolar = Math.max(0, solarToHome - batteryDischarge);
+            const selfPct = generated > 0 ? Math.round((Math.max(0, directSolar + batteryDischarge) / generated) * 100) : 0;
+            const exportPct = generated > 0 ? Math.max(0, 100 - selfPct) : 0;
+            const fromSolarPct = usage > 0 ? Math.round((solarToHome / usage) * 100) : 0;
+
+            function FlowBar({ pct, color, bg, label, kwh }) {
+                return (
+                    <div style={{ marginBottom: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                            <span style={{ fontSize: 11, color: '#6b7280' }}>{label}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color }}>{fmt(kwh)} kWh</span>
+                        </div>
+                        <div style={{ height: 8, background: bg || '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 4 }} />
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>
+                            ⚡ 能量流向
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <div style={{ flex: 1, background: '#f8faf8', borderRadius: 12, padding: 12 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 2 }}>☀️ 太阳能产出</div>
+                                <div style={{ fontSize: 18, fontWeight: 800, color: '#d97706', marginBottom: 10 }}>{fmt(generated)} kWh</div>
+                                <FlowBar label={`自用 ${selfPct}%`} pct={selfPct} kwh={directSolar + batteryDischarge} color={ACCENT.primary} bg={ACCENT.bg} />
+                                <FlowBar label={`输出 FiT ${exportPct}%`} pct={exportPct} kwh={exportKwh} color="#d97706" bg="#fef3c7" />
+                                <div style={{
+                                    marginTop: 8,
+                                    background: '#fffbeb',
+                                    borderRadius: 8,
+                                    padding: '8px 10px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{ fontSize: 11, color: '#9ca3af' }}>FiT 收入</div>
+                                    <div style={{ fontSize: 16, fontWeight: 800, color: '#d97706' }}>
+                                        +RM {fmt(solarResult.savingsBreakdown?.exportCredit || 0)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ flex: 1, background: '#f8faf8', borderRadius: 12, padding: 12 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginBottom: 2 }}>🏠 家庭用电</div>
+                                <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 10 }}>{fmt(usage)} kWh</div>
+                                <FlowBar label={`太阳能 ${fromSolarPct}%`} pct={fromSolarPct} kwh={solarToHome} color={ACCENT.primary} bg={ACCENT.bg} />
+                                <FlowBar label={`电网补充 ${Math.max(0, 100 - fromSolarPct)}%`} pct={Math.max(0, 100 - fromSolarPct)} kwh={gridImport} color="#60a5fa" bg="#eff6ff" />
+                                <div style={{
+                                    marginTop: 8,
+                                    background: '#eff6ff',
+                                    borderRadius: 8,
+                                    padding: '8px 10px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{ fontSize: 11, color: '#9ca3af' }}>备用发电</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#3b82f6' }}>{fmt(details.backupGenerationKwh || 0)} kWh</div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function SavingsBreakdownCard({ solarResult, activeCycle }) {
+            const breakdown = solarResult.savingsBreakdown || {};
+            const before = solarResult.billBreakdownComparison?.before || {};
+            const after = solarResult.billBreakdownComparison?.after || {};
+
+            const exportRm = toNumber(breakdown.exportCredit);
+            const totalGain = exportRm;
+            const energyBefore = toNumber(before.usage) + toNumber(before.network) + toNumber(before.capacity);
+            const energyAfter = toNumber(after.usage) + toNumber(after.network) + toNumber(after.capacity);
+            const feesBefore = toNumber(before.sst) + toNumber(before.kwtbb) + toNumber(before.retail);
+            const feesAfter = toNumber(after.sst) + toNumber(after.kwtbb) + toNumber(after.retail);
+            const totalReduce = toNumber(breakdown.billReduction) + toNumber(breakdown.eeiSaving);
+            const maxBar = Math.max(energyBefore, exportRm, 1) * 1.1;
+
+            function Bar({ beforeValue, afterValue, colorAfter }) {
+                return (
+                    <div style={{ flex: 1 }}>
+                        {beforeValue !== undefined && (
+                            <div style={{ height: 26, background: '#f3f4f6', borderRadius: 5, overflow: 'hidden', marginBottom: 3 }}>
+                                <div style={{
+                                    height: '100%',
+                                    width: `${(beforeValue / maxBar) * 100}%`,
+                                    background: '#d1d5db',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'flex-end',
+                                    paddingRight: 6,
+                                    minWidth: 30
+                                }}>
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280' }}>RM {fmt(beforeValue)}</span>
+                                </div>
+                            </div>
+                        )}
+                        {afterValue !== undefined && (
+                            <div style={{ height: 26, background: ACCENT.bg, borderRadius: 5, overflow: 'hidden' }}>
+                                <div style={{
+                                    height: '100%',
+                                    width: `${(afterValue / maxBar) * 100}%`,
+                                    background: colorAfter || ACCENT.primary,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'flex-end',
+                                    paddingRight: 6,
+                                    minWidth: 30
+                                }}>
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>RM {fmt(afterValue)}</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+                            账单节省分解
+                        </div>
+                        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 14 }}>每月节省 = 出售电力收入 + 电费减少</div>
+
+                        <div style={{ background: '#fffbeb', borderRadius: 12, padding: 12, marginBottom: 10, border: '1px solid #fde68a' }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                                💰 卖电收入 (FiT)
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>FiT 输出</div>
+                                    <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                                        {fmt(solarResult.details?.exportKwh || 0)} kWh × RM {fmt(solarResult.details?.effectiveExportRate || 0, 4)}
+                                    </div>
+                                </div>
+                                <Bar afterValue={exportRm} colorAfter="#d97706" />
+                            </div>
+                            <Divider style={{ margin: '10px 0' }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: '#d97706' }}>合计收入</span>
+                                <span style={{ fontSize: 18, fontWeight: 800, color: '#d97706' }}>+RM {fmt(totalGain)}</span>
+                            </div>
+                        </div>
+
+                        <div style={{ background: ACCENT.bg, borderRadius: 12, padding: 12, marginBottom: 10, border: `1px solid ${ACCENT.border}` }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: ACCENT.primary, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                                📉 电费减少
+                            </div>
+                            {[
+                                { label: '用电 + 网络 + 容量费', beforeValue: energyBefore, afterValue: energyAfter },
+                                { label: 'SST + KWTBB + 零售费', beforeValue: feesBefore, afterValue: feesAfter }
+                            ].map((row) => (
+                                <div key={row.label} style={{ marginBottom: 10 }}>
+                                    <div style={{ fontSize: 12, color: '#374151', fontWeight: 500, marginBottom: 5 }}>{row.label}</div>
+                                    <div style={{ display: 'flex', gap: 10 }}>
+                                        <div style={{ width: 24, flexShrink: 0 }}>
+                                            <div style={{ fontSize: 10, color: '#9ca3af', height: 26, lineHeight: '26px', textAlign: 'right' }}>前</div>
+                                            <div style={{ fontSize: 10, color: '#9ca3af', height: 26, lineHeight: '26px', textAlign: 'right' }}>后</div>
+                                        </div>
+                                        <Bar beforeValue={row.beforeValue} afterValue={row.afterValue} />
+                                    </div>
+                                </div>
+                            ))}
+                            <Divider style={{ margin: '8px 0' }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: ACCENT.primary }}>合计减少</span>
+                                <span style={{ fontSize: 18, fontWeight: 800, color: ACCENT.primary }}>RM {fmt(totalReduce)}</span>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            background: '#0d1f0f',
+                            borderRadius: 12,
+                            padding: '14px 16px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <div>
+                                <div style={{ fontSize: 11, color: '#6b7280' }}>收入 + 减少</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>每月总节省</div>
+                            </div>
+                            <div style={{ fontSize: 32, fontWeight: 800, color: ACCENT.light }}>RM {fmt(activeCycle.totalSavings)}</div>
+                        </div>
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function ProjectionChartCard({ solarResult, activeCycle }) {
+            const width = 320;
+            const height = 150;
+            const paddingLeft = 36;
+            const paddingRight = 12;
+            const paddingTop = 10;
+            const paddingBottom = 26;
+            const chartWidth = width - paddingLeft - paddingRight;
+            const chartHeight = height - paddingTop - paddingBottom;
+            const annualBase = toNumber(activeCycle.totalSavings) * 12;
+            const escalation = 0.03;
+            const maxY = 160000;
+            const xScale = (year) => paddingLeft + (year / 25) * chartWidth;
+            const yScale = (amount) => paddingTop + chartHeight - (Math.min(amount, maxY) / maxY) * chartHeight;
+
+            const points = [];
+            let cumulative = 0;
+            for (let year = 0; year <= 25; year += 1) {
+                points.push({ year, cumulative });
+                if (year < 25) {
+                    cumulative += annualBase * Math.pow(1 + escalation, year);
+                }
+            }
+
+            const final25YearValue = Math.round(points[25].cumulative / 1000);
+            const savingsPath = `M ${points.map((point) => `${xScale(point.year)},${yScale(point.cumulative)}`).join(' L ')}`;
+            const areaPath = `${savingsPath} L ${xScale(25)},${yScale(0)} L ${xScale(0)},${yScale(0)} Z`;
+            const costLineY = yScale(toNumber(solarResult.finalSystemCost));
+            const breakEvenX = xScale(toNumber(solarResult.paybackPeriod, 0));
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                            <div>
+                                <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>25年节省预测</div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: ACCENT.primary, marginTop: 2 }}>RM {final25YearValue}k+</div>
+                                <div style={{ fontSize: 11, color: '#9ca3af' }}>预计25年总回报（含每年3%电价涨幅）</div>
+                            </div>
+                            <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'right', lineHeight: 1.8 }}>
+                                <div><span style={{ display: 'inline-block', width: 12, height: 2.5, background: ACCENT.primary, verticalAlign: 'middle', marginRight: 4, borderRadius: 1 }} />累计节省</div>
+                                <div><span style={{ display: 'inline-block', width: 12, borderTop: '2px dashed #9ca3af', verticalAlign: 'middle', marginRight: 4 }} />系统费用</div>
+                            </div>
+                        </div>
+
+                        <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ overflow: 'visible' }}>
+                            {[0, 50000, 100000, 150000].map((value) => (
+                                <g key={value}>
+                                    <line x1={paddingLeft} y1={yScale(value)} x2={width - paddingRight} y2={yScale(value)} stroke="#f3f4f6" strokeWidth="1" />
+                                    <text x={paddingLeft - 4} y={yScale(value) + 4} textAnchor="end" fontSize="9" fill="#9ca3af">
+                                        {value === 0 ? '0' : `${value / 1000}k`}
+                                    </text>
+                                </g>
+                            ))}
+
+                            <path d={areaPath} fill={ACCENT.bg} opacity="0.5" />
+                            <path d={savingsPath} fill="none" stroke={ACCENT.primary} strokeWidth="2.5" strokeLinecap="round" />
+                            <line x1={paddingLeft} y1={costLineY} x2={width - paddingRight} y2={costLineY} stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="4 3" />
+                            <line x1={breakEvenX} y1={paddingTop} x2={breakEvenX} y2={height - paddingBottom} stroke={ACCENT.light} strokeWidth="1" strokeDasharray="2 2" opacity="0.7" />
+                            <circle cx={breakEvenX} cy={costLineY} r="5" fill={ACCENT.light} stroke={ACCENT.primary} strokeWidth="1.5" />
+                            <text x={breakEvenX + 7} y={costLineY - 7} fontSize="9" fill={ACCENT.primary} fontWeight="700">
+                                {solarResult.paybackPeriod}yr 回本
+                            </text>
+                            <line x1={paddingLeft} y1={height - paddingBottom} x2={width - paddingRight} y2={height - paddingBottom} stroke="#e5e7eb" strokeWidth="1" />
+                            {[0, 5, 10, 15, 20, 25].map((year) => (
+                                <text key={year} x={xScale(year)} y={height - paddingBottom + 13} textAnchor="middle" fontSize="9" fill="#9ca3af">
+                                    {year === 0 ? '今' : `${year}y`}
+                                </text>
+                            ))}
+                            <text x={xScale(25) - 4} y={yScale(points[25].cumulative) - 8} textAnchor="end" fontSize="9" fill={ACCENT.primary} fontWeight="700">
+                                RM {final25YearValue}k
+                            </text>
+                        </svg>
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function FinanceCard({ solarResult, activeCycle, financeBank, setFinanceBank, financeTenure, setFinanceTenure }) {
+            const [open, setOpen] = useState(false);
+            const rates = EPP_RATES[financeBank] || {};
+            const tenureOptions = Object.keys(rates).map((value) => Number(value)).sort((a, b) => a - b);
+            const tenure = tenureOptions.includes(Number(financeTenure)) ? Number(financeTenure) : tenureOptions[tenureOptions.length - 1];
+            const rate = rates[tenure] || 0;
+            const fullPrice = toNumber(solarResult.finalSystemCost);
+            const downpayment = fullPrice * 0.05;
+            const financed = fullPrice * 0.95;
+            const monthly = tenure > 0 ? (financed * (1 + rate / 100)) / tenure : 0;
+            const feeAmount = financed * (rate / 100);
+            const net = monthly - toNumber(activeCycle.totalSavings);
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+                            <span style={{ fontSize: 20 }}>💳</span>
+                            <div>
+                                <div style={{ fontSize: 16, fontWeight: 700 }}>贷款可行性</div>
+                                <div style={{ fontSize: 11, color: '#9ca3af' }}>{financeBank} · {tenure} 个月 EPP</div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                            <div>
+                                <FieldLabel>Bank</FieldLabel>
+                                <SelectField
+                                    value={financeBank}
+                                    onChange={setFinanceBank}
+                                    options={Object.keys(EPP_RATES).map((bank) => ({ value: bank, label: bank }))}
+                                />
+                            </div>
+                            <div>
+                                <FieldLabel>Tenure</FieldLabel>
+                                <SelectField
+                                    value={String(tenure)}
+                                    onChange={(value) => setFinanceTenure(Number(value))}
+                                    options={tenureOptions.map((value) => ({ value: String(value), label: `${value} months` }))}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ background: '#fffbeb', borderRadius: 12, padding: 14, marginBottom: 12, border: '1px solid #fde68a' }}>
+                            <div style={{ fontSize: 11, color: '#d97706', fontWeight: 700, marginBottom: 8 }}>贷款期间 · 每月净支出</div>
+                            <div style={{ fontSize: 36, fontWeight: 800, color: '#d97706', lineHeight: 1, marginBottom: 10 }}>
+                                RM {fmt(net)}
+                                <span style={{ fontSize: 14, fontWeight: 500, color: '#9ca3af' }}> / 月</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <div style={{ background: '#fff', padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, color: '#374151' }}>
+                                    还款 RM {fmt(monthly)}
+                                </div>
+                                <span style={{ color: '#9ca3af', fontWeight: 700 }}>−</span>
+                                <div style={{ background: ACCENT.bg, padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, color: ACCENT.primary }}>
+                                    节省 RM {fmt(activeCycle.totalSavings)}
+                                </div>
+                                <span style={{ color: '#9ca3af', fontWeight: 700 }}>=</span>
+                                <div style={{ background: '#fffbeb', padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, color: '#d97706', border: '1px solid #fde68a' }}>
+                                    净 RM {fmt(net)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ background: ACCENT.bg, borderRadius: 10, padding: '10px 12px', display: 'flex', gap: 8, marginBottom: 12 }}>
+                            <span style={{ fontSize: 16, flexShrink: 0 }}>🎯</span>
+                            <div style={{ fontSize: 12, color: ACCENT.dark, lineHeight: 1.6 }}>
+                                <strong>{solarResult.paybackPeriod}年后太阳能全额回本</strong>，此后每月净赚&nbsp;
+                                <strong style={{ color: ACCENT.primary }}>RM {fmt(activeCycle.totalSavings)}</strong>，
+                                持续超过 <strong>17年</strong>。
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setOpen((value) => !value)}
+                            style={{
+                                width: '100%',
+                                background: '#f8faf8',
+                                border: 'none',
+                                borderRadius: 10,
+                                padding: '11px 14px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <div style={{ textAlign: 'left' }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>查看贷款详情</div>
+                                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 1 }}>首付 · 融资 · 利息</div>
+                            </div>
+                            <span style={{ color: '#9ca3af', fontSize: 11 }}>{open ? '▲' : '▼'}</span>
+                        </button>
+
+                        {open && (
+                            <div style={{ marginTop: 12, borderRadius: 10, overflow: 'hidden', border: '1px solid #f3f4f6' }}>
+                                <div style={{ background: '#0d1f0f', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ fontSize: 11, color: '#9ca3af' }}>
+                                        <div style={{ color: ACCENT.light, fontWeight: 700, fontSize: 10, marginBottom: 1 }}>推荐配套</div>
+                                        {solarResult.selectedPackage?.packageName || '—'}
+                                    </div>
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>RM {fmt(fullPrice)}</div>
+                                </div>
+                                {[
+                                    { label: '首付 (5%)', value: `− RM ${fmt(downpayment)}`, color: '#dc2626' },
+                                    { label: '融资金额 (95%)', value: `RM ${fmt(financed)}`, color: '#111827' },
+                                    { label: `EPP 利息 (${rate}%)`, value: `RM ${fmt(feeAmount)}`, color: '#7c3aed' },
+                                    { label: `每月还款 (${tenure}个月)`, value: `RM ${fmt(monthly)}`, color: '#111827', bold: true }
+                                ].map((row, index) => (
+                                    <div key={row.label} style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        padding: '9px 12px',
+                                        fontSize: 13,
+                                        borderTop: index > -1 ? '1px solid #f3f4f6' : 'none'
+                                    }}>
+                                        <span style={{ color: '#6b7280' }}>{row.label}</span>
+                                        <span style={{ fontWeight: row.bold ? 700 : 500, color: row.color }}>{row.value}</span>
+                                    </div>
+                                ))}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    padding: '9px 12px',
+                                    background: ACCENT.bg,
+                                    borderTop: '1px solid #f3f4f6',
+                                    fontSize: 13
+                                }}>
+                                    <span style={{ color: ACCENT.primary, fontWeight: 600 }}>每月节省</span>
+                                    <span style={{ fontWeight: 700, color: ACCENT.primary }}>RM {fmt(activeCycle.totalSavings)}</span>
+                                </div>
+                            </div>
+                        )}
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function DetailedAnalysisCard({ solarResult }) {
+            const [showBill, setShowBill] = useState(false);
+            const [showFlow, setShowFlow] = useState(false);
+            const items = solarResult.billBreakdownComparison?.items || [];
+            const details = solarResult.details || {};
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                            <div>
+                                <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>第五步</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>详细分析</div>
+                            </div>
+                            <span style={{ fontSize: 11, color: '#9ca3af' }}>供参考</span>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setShowBill((value) => !value)}
+                            style={{
+                                width: '100%',
+                                background: '#f8faf8',
+                                border: 'none',
+                                borderRadius: 10,
+                                padding: '11px 14px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                cursor: 'pointer',
+                                marginBottom: 6
+                            }}
+                        >
+                            <div style={{ textAlign: 'left' }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>📊 账单组件明细</div>
+                                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 1 }}>安装前 vs 安装后对比</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT.primary }}>
+                                    -RM {fmt(solarResult.billBreakdownComparison?.totals?.delta || 0)}
+                                </span>
+                                <span style={{ color: '#9ca3af', fontSize: 11 }}>{showBill ? '▲' : '▼'}</span>
+                            </div>
+                        </button>
+
+                        {showBill && (
+                            <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid #f3f4f6', marginBottom: 6 }}>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 64px 64px 64px',
+                                    background: '#f8faf8',
+                                    padding: '8px 12px',
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    color: '#9ca3af',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    <div>项目</div>
+                                    <div style={{ textAlign: 'right' }}>安装前</div>
+                                    <div style={{ textAlign: 'right' }}>安装后</div>
+                                    <div style={{ textAlign: 'right' }}>节省</div>
+                                </div>
+                                {items.map((item, index) => (
+                                    <div key={item.key || item.label || index} style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 64px 64px 64px',
+                                        padding: '8px 12px',
+                                        fontSize: 12,
+                                        borderTop: '1px solid #f3f4f6',
+                                        background: index % 2 === 0 ? '#fff' : '#fafafa'
+                                    }}>
+                                        <span style={{ color: '#374151' }}>{item.label}</span>
+                                        <span style={{ textAlign: 'right', color: '#6b7280' }}>{fmt(item.before)}</span>
+                                        <span style={{ textAlign: 'right', color: '#6b7280' }}>{fmt(item.after)}</span>
+                                        <span style={{ textAlign: 'right', fontWeight: 700, color: item.delta > 0 ? ACCENT.primary : '#9ca3af' }}>
+                                            {item.delta > 0 ? '−' : ''}{fmt(Math.abs(item.delta))}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={() => setShowFlow((value) => !value)}
+                            style={{
+                                width: '100%',
+                                background: '#f8faf8',
+                                border: 'none',
+                                borderRadius: 10,
+                                padding: '11px 14px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <div style={{ textAlign: 'left' }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>⚡ 电量流向数据</div>
+                                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 1 }}>太阳能产能报告</div>
+                            </div>
+                            <span style={{ color: '#9ca3af', fontSize: 11 }}>{showFlow ? '▲' : '▼'}</span>
+                        </button>
+
+                        {showFlow && (
+                            <div style={{ marginTop: 6, borderRadius: 10, overflow: 'hidden', border: '1px solid #f3f4f6' }}>
+                                {[
+                                    { label: '月用电量', value: `${fmt(details.monthlyUsageKwh || 0)} kWh`, color: '#111827' },
+                                    { label: '太阳能发电量', value: `${fmt(details.monthlySolarGeneration || 0)} kWh`, color: ACCENT.primary },
+                                    { label: '净从电网进口', value: `${fmt(details.actualUsageForEeiKwh || 0)} kWh`, color: '#6b7280' },
+                                    { label: '输出 (FiT)', value: `${fmt(details.exportKwh || 0)} kWh @ RM ${fmt(details.effectiveExportRate || 0, 4)}`, color: '#d97706' },
+                                    { label: '备用发电', value: `${fmt(details.backupGenerationKwh || 0)} kWh`, color: '#6b7280' }
+                                ].map((row, index) => (
+                                    <div key={row.label} style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        padding: '9px 12px',
+                                        fontSize: 12,
+                                        borderTop: index > 0 ? '1px solid #f3f4f6' : 'none',
+                                        background: index % 2 === 0 ? '#fff' : '#fafafa'
+                                    }}>
+                                        <span style={{ color: '#6b7280' }}>{row.label}</span>
+                                        <span style={{ fontWeight: 600, color: row.color }}>{row.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function BatteryCard({ solarResult, batterySize, onSelect, batteryLossPercent, batteryDodPercent, onChangeLoss, onChangeDod, updating }) {
+            const [showAdvanced, setShowAdvanced] = useState(false);
+            const battery = solarResult.details?.battery || {};
+            const options = [0, 16, 32, 48];
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+                            <span style={{ fontSize: 20 }}>🔋</span>
+                            <div>
+                                <div style={{ fontSize: 16, fontWeight: 700 }}>储能电池（可选）</div>
+                                <div style={{ fontSize: 11, color: '#9ca3af' }}>提升自用率，减少电网依赖</div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                            {options.map((option) => (
+                                <SegmentedButton key={option} active={Number(batterySize) === option} onClick={() => onSelect(option)}>
+                                    {option === 0 ? '无' : `${option}kWh`}
+                                </SegmentedButton>
+                            ))}
+                        </div>
+
+                        {Number(batterySize) > 0 && (
+                            <>
+                                <div style={{
+                                    background: ACCENT.bg,
+                                    borderRadius: 12,
+                                    padding: '12px 14px',
+                                    marginBottom: 10,
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: ACCENT.primary }}>电池增加月节省</div>
+                                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                                            可用 {fmt(battery.dailyChargeAvailableKwh || 0)} kWh/天 · 充入 {fmt(battery.monthlySolarToBatteryInputKwh || 0)} kWh/月
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: 28, fontWeight: 800, color: ACCENT.primary }}>
+                                        +RM {fmt(battery.valueAddMonthly || 0)}
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAdvanced((value) => !value)}
+                                    style={{
+                                        width: '100%',
+                                        background: '#f8faf8',
+                                        border: 'none',
+                                        borderRadius: 10,
+                                        padding: '11px 14px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <div style={{ textAlign: 'left' }}>
+                                        <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>高级电池参数</div>
+                                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 1 }}>放电深度 · 损耗率</div>
+                                    </div>
+                                    <span style={{ color: '#9ca3af', fontSize: 11 }}>{showAdvanced ? '▲' : '▼'}</span>
+                                </button>
+
+                                {showAdvanced && (
+                                    <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
+                                        <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid #f3f4f6' }}>
+                                            {[
+                                                { label: '放电损耗', value: `${fmt(batteryLossPercent, 0)}%`, note: 'SAJ 电池 · 0~20%' },
+                                                { label: '放电深度 (DoD)', value: `${fmt(batteryDodPercent, 0)}%`, note: 'SAJ 电池 · 0~10%' },
+                                                { label: '充入储能', value: `${fmt(battery.monthlySolarToBatteryInputKwh || 0)} kWh/月`, note: '' },
+                                                { label: '剩余输出', value: `${fmt(battery.monthlyExcessExportKwh || 0)} kWh/月`, note: '' }
+                                            ].map((row, index) => (
+                                                <div key={row.label} style={{ padding: '9px 12px', borderTop: index > 0 ? '1px solid #f3f4f6' : 'none', fontSize: 12 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                        <span style={{ color: '#6b7280' }}>{row.label}</span>
+                                                        <span style={{ fontWeight: 600, color: '#111827' }}>{row.value}</span>
+                                                    </div>
+                                                    {row.note && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>{row.note}</div>}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: 12 }}>
+                                            <div>
+                                                <FieldLabel>Battery Loss %</FieldLabel>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="20"
+                                                    step="1"
+                                                    value={batteryLossPercent}
+                                                    onChange={(event) => onChangeLoss(event.target.value)}
+                                                    style={{ width: '100%', accentColor: '#111827' }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <FieldLabel>Battery DoD %</FieldLabel>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="10"
+                                                    step="1"
+                                                    value={batteryDodPercent}
+                                                    onChange={(event) => onChangeDod(event.target.value)}
+                                                    style={{ width: '100%', accentColor: '#111827' }}
+                                                />
+                                            </div>
+                                            {updating && (
+                                                <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 700 }}>
+                                                    正在更新电池测算...
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+        function CtaCard({ activeCycle, solarResult, onCreateQuotation, disabled }) {
+            return (
+                <SectionWrap>
+                    <div style={{ background: '#0d1f0f', borderRadius: 20, padding: '22px 20px', marginBottom: 20, textAlign: 'center' }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 4 }}>准备好安装太阳能了吗？</div>
+                        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 18 }}>为客户生成完整报价链接</div>
+                        <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={onCreateQuotation}
+                            style={{
+                                width: '100%',
+                                padding: '15px',
+                                background: ACCENT.primary,
+                                border: 'none',
+                                borderRadius: 14,
+                                fontSize: 16,
+                                fontWeight: 700,
+                                color: '#fff',
+                                cursor: disabled ? 'not-allowed' : 'pointer',
+                                opacity: disabled ? 0.6 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 8
+                            }}
+                        >
+                            <span>📋</span>
+                            创建报价链接
+                        </button>
+                        <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 16 }}>
+                            {[
+                                { label: '每月节省', value: `RM ${fmt(activeCycle.totalSavings)}` },
+                                { label: '系统规模', value: `${fmt(solarResult.systemSizeKwp || 0, 1)} kWp` },
+                                { label: '回本期', value: `${solarResult.paybackPeriod || '—'}yr` }
+                            ].map((metric) => (
+                                <div key={metric.label} style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: ACCENT.light }}>{metric.value}</div>
+                                    <div style={{ fontSize: 10, color: '#4b5563', marginTop: 1 }}>{metric.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </SectionWrap>
+            );
+        }
+
+        function App() {
+            const [inputs, setInputs] = useState(DEFAULT_INPUTS);
+            const [billResult, setBillResult] = useState(null);
+            const [solarResult, setSolarResult] = useState(null);
+            const [selectedBillCycleMode, setSelectedBillCycleMode] = useState('fullMonth');
+            const [invoiceBaseUrl, setInvoiceBaseUrl] = useState('/create-invoice');
+            const [financeBank, setFinanceBank] = useState('Maybank');
+            const [financeTenure, setFinanceTenure] = useState(60);
+            const [analysingBill, setAnalysingBill] = useState(false);
+            const [planLoading, setPlanLoading] = useState(false);
+            const [batteryUpdating, setBatteryUpdating] = useState(false);
+            const [errorMessage, setErrorMessage] = useState('');
+
+            useEffect(() => {
+                async function loadConfig() {
+                    try {
+                        const response = await fetch('/api/config');
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        if (data.invoiceBaseUrl) {
+                            setInvoiceBaseUrl(data.invoiceBaseUrl);
+                        }
+                    } catch (error) {
+                        console.error('Failed to load invoice config', error);
+                    }
+                }
+
+                loadConfig();
+            }, []);
+
+            useEffect(() => {
+                const rates = EPP_RATES[financeBank] || {};
+                const tenures = Object.keys(rates).map((value) => Number(value)).sort((a, b) => a - b);
+                if (!tenures.includes(Number(financeTenure))) {
+                    setFinanceTenure(tenures[tenures.length - 1] || 0);
+                }
+            }, [financeBank, financeTenure]);
+
+            const billBreakdown = buildTariffBreakdown(billResult?.tariff || null, toNumber(inputs.historicalAfaRate));
+            const billReady = Boolean(billBreakdown);
+            const roiReady = Boolean(solarResult);
+            const phaseLabel = Number(inputs.systemPhase) === 1 ? '1-Phase' : '3-Phase';
+            const inverterLabel = inputs.inverterType === 'hybrid' ? 'Hybrid' : 'String';
+            const cycles = solarResult ? buildBillCycleMetrics(solarResult) : null;
+            const activeCycle = cycles ? (cycles[selectedBillCycleMode] || cycles.fullMonth) : null;
+            const annualRoi = solarResult && toNumber(solarResult.finalSystemCost) > 0
+                ? (toNumber(activeCycle?.totalSavings) * 12 / toNumber(solarResult.finalSystemCost)) * 100
+                : 0;
+
+            async function runSolarPlan(overrides = {}, mode = 'plan') {
+                setErrorMessage('');
+                if (!billReady) {
+                    setErrorMessage('请先完成账单分析。');
+                    return null;
+                }
+
+                const nextInputs = { ...inputs, ...overrides };
+                const params = collectSolarParams(nextInputs);
+
+                if (mode === 'battery') {
+                    setBatteryUpdating(true);
+                } else {
+                    setPlanLoading(true);
+                }
+
+                try {
+                    const response = await fetch(`/api/solar-calculation?${new URLSearchParams(params)}`);
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw new Error(payload?.details || payload?.error || `Error ${response.status}`);
+                    }
+
+                    setInputs(nextInputs);
+                    setSolarResult(payload);
+                    return payload;
+                } catch (error) {
+                    setErrorMessage(error.message);
+                    return null;
+                } finally {
+                    if (mode === 'battery') {
+                        setBatteryUpdating(false);
+                    } else {
+                        setPlanLoading(false);
+                    }
+                }
+            }
+
+            async function handleAnalyseBill() {
+                setErrorMessage('');
+                setAnalysingBill(true);
+                setSolarResult(null);
+                setSelectedBillCycleMode('fullMonth');
+
+                try {
+                    const response = await fetch(`/api/calculate-bill?amount=${encodeURIComponent(toNumber(inputs.billAmount))}&afaRate=${encodeURIComponent(toNumber(inputs.historicalAfaRate))}`);
+                    const payload = await response.json();
+                    if (!response.ok || !payload.tariff) {
+                        throw new Error(payload?.error || `Error ${response.status}`);
+                    }
+                    setBillResult(payload);
+                } catch (error) {
+                    setBillResult(null);
+                    setErrorMessage(error.message);
+                } finally {
+                    setAnalysingBill(false);
+                }
+            }
+
+            async function handleBatterySelect(size) {
+                const nextSize = Number(size);
+                const nextInputs = { ...inputs, batterySize: nextSize };
+                setInputs(nextInputs);
+
+                if (!solarResult) {
+                    return;
+                }
+
+                await runSolarPlan({ batterySize: nextSize }, 'battery');
+            }
+
+            async function handleBatteryLossChange(value) {
+                const normalized = normalizeBatteryLossPercent(value);
+                const nextInputs = { ...inputs, batteryLossPercent: normalized };
+                setInputs(nextInputs);
+                if (solarResult && Number(inputs.batterySize) > 0) {
+                    await runSolarPlan({ batteryLossPercent: normalized }, 'battery');
+                }
+            }
+
+            async function handleBatteryDodChange(value) {
+                const normalized = normalizeBatteryDodPercent(value);
+                const nextInputs = { ...inputs, batteryDodPercent: normalized };
+                setInputs(nextInputs);
+                if (solarResult && Number(inputs.batterySize) > 0) {
+                    await runSolarPlan({ batteryDodPercent: normalized }, 'battery');
+                }
+            }
+
+            function handleCreateQuotation() {
+                const url = buildQuotationUrl(invoiceBaseUrl, solarResult, inputs, selectedBillCycleMode);
+                if (!url) {
+                    setErrorMessage('当前方案没有可用的配套，无法创建报价链接。');
+                    return;
+                }
+                window.location.assign(url);
+            }
+
+            return (
+                <div style={{ paddingBottom: 32 }}>
+                    <NavBar />
+                    <StepProgress billReady={billReady} roiReady={roiReady} />
+
+                    <InputPanel
+                        inputs={inputs}
+                        setInputs={setInputs}
+                        onAnalyseBill={handleAnalyseBill}
+                        analysingBill={analysingBill}
+                        planLoading={planLoading}
+                        errorMessage={errorMessage}
+                    />
+
+                    {billBreakdown && (
+                        <>
+                            <BillSummary
+                                billAmount={toNumber(inputs.billAmount)}
+                                usageKwh={billBreakdown.usageKwh}
+                                phaseLabel={phaseLabel}
+                                inverterLabel={inverterLabel}
+                            />
+                            <BillBreakdownCard breakdown={billBreakdown} />
+                            <SolarSetupCard
+                                inputs={inputs}
+                                setInputs={setInputs}
+                                onGeneratePlan={() => runSolarPlan({}, 'plan')}
+                                planLoading={planLoading}
+                                canGenerate={billReady}
+                                result={solarResult}
+                            />
+                        </>
+                    )}
+
+                    {solarResult && activeCycle && (
+                        <>
+                            <CycleToggle selected={selectedBillCycleMode} onSelect={setSelectedBillCycleMode} />
+                            <SavingsHero activeCycle={activeCycle} solarResult={solarResult} annualRoi={annualRoi} />
+                            <BeforeAfterCard beforeBill={toNumber(solarResult.details?.billBefore)} activeCycle={activeCycle} />
+                            <EnergyFlowCard solarResult={solarResult} />
+                            <SavingsBreakdownCard solarResult={solarResult} activeCycle={activeCycle} />
+                            <ProjectionChartCard solarResult={solarResult} activeCycle={activeCycle} />
+                            <FinanceCard
+                                solarResult={solarResult}
+                                activeCycle={activeCycle}
+                                financeBank={financeBank}
+                                setFinanceBank={setFinanceBank}
+                                financeTenure={financeTenure}
+                                setFinanceTenure={setFinanceTenure}
+                            />
+                            <DetailedAnalysisCard solarResult={solarResult} />
+                            <BatteryCard
+                                solarResult={solarResult}
+                                batterySize={inputs.batterySize}
+                                onSelect={handleBatterySelect}
+                                batteryLossPercent={normalizeBatteryLossPercent(inputs.batteryLossPercent)}
+                                batteryDodPercent={normalizeBatteryDodPercent(inputs.batteryDodPercent)}
+                                onChangeLoss={handleBatteryLossChange}
+                                onChangeDod={handleBatteryDodChange}
+                                updating={batteryUpdating}
+                            />
+                            <CtaCard
+                                activeCycle={activeCycle}
+                                solarResult={solarResult}
+                                onCreateQuotation={handleCreateQuotation}
+                                disabled={!solarResult?.selectedPackage?.linked_package}
+                            />
+                        </>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
