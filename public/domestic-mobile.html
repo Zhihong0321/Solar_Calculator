@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -2434,123 +2434,8 @@
             </div>
             `;
                 })()}
-        ${(function () {
-                    // ── Numbers ──────────────────────────────────────────────
-                    const exportAfter = parseFloat(ds.exportSaving) || 0;
-                    const eeiAfter = parseFloat(ds.actualEeiSaving) || 0;
-                    const feeAfterAmt = parseFloat(ds.billBreakdown?.after?.sst ?? 0) + parseFloat(ds.billBreakdown?.after?.kwtbb ?? 0);
-                    const usageAfter = parseFloat(active.billReduction) - feeAfterAmt;
 
-                    // We need before-values; pull from billBreakdownComparison items
-                    const bci = data.billBreakdownComparison?.items || [];
-                    const findBI = (lbl) => (bci.find(i => i.label === lbl) || {});
-                    const feeBeforeAmt = (findBI('SST').before || 0) + (findBI('Capacity Fee').before || 0);
-                    const usageBeforeAmt = (findBI('Usage').before || 0) + (findBI('Network').before || 0);
 
-                    // Gain section amounts
-                    const exportGain = exportAfter;   // credit = gain after solar (0 before)
-                    const eeiGain = eeiAfter;
-
-                    // Reduce section amounts
-                    const feeB = Math.max(0, feeBeforeAmt);
-                    const feeA = Math.max(0, feeB - (parseFloat(findBI('SST').delta || 0) + parseFloat(findBI('Capacity Fee').delta || 0)));
-                    const usageB = Math.max(0, usageBeforeAmt);
-                    const usageA = Math.max(0, usageB - (parseFloat(findBI('Usage').delta || 0) + parseFloat(findBI('Network').delta || 0)));
-
-                    // ── Scale: map RM values → px heights ────────────────────
-                    const MAX_H = 140;   // maximum bar px height
-                    const MIN_H = 14;    // minimum non-zero bar
-                    const allVals = [exportGain, eeiGain, feeB, feeA, usageB, usageA].filter(v => v > 0);
-                    const peak = allVals.length ? Math.max(...allVals) : 1;
-                    const toH = v => v <= 0 ? MIN_H : Math.round(Math.max(MIN_H, (v / peak) * MAX_H));
-
-                    const fmtK = v => {
-                        const n = parseFloat(v) || 0;
-                        return 'RM ' + (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : n.toFixed(0));
-                    };
-
-                    return `
-            <div class="vcmp-wrap">
-                <div class="vcmp-heading">Before &amp; After Solar — Breakdown</div>
-                <div class="vcmp-legend">
-                    <div class="vcmp-legend-item"><div class="vcmp-legend-dot" style="background:#d4c8b0;"></div>Before Solar</div>
-                    <div class="vcmp-legend-item"><div class="vcmp-legend-dot" style="background:#e1a22a;"></div>After Solar</div>
-                </div>
-
-                <!-- SECTION 1: GAIN (Export + EEI Credits) -->
-                <div class="vcmp-heading" style="color:#15803D; margin-bottom:8px;">↑ Gains from Solar</div>
-                <div class="vcmp-table">
-                    <!-- Export Credit row -->
-                    <div class="vcmp-label-cell" style="height:${MAX_H * 0.72}px;">Export Credit</div>
-                    <div class="vcmp-slot">
-                        <div class="vcmp-bar vcmp-export-b vcmp-ghost" style="--bar-h:${MIN_H}px;"></div>
-                    </div>
-                    <div class="vcmp-slot after-slot">
-                        <div class="vcmp-bar vcmp-export-a" style="--bar-h:${toH(exportGain)}px;">
-                            ${exportGain > 0 ? `<div class="vcmp-bar-val">${fmtK(exportGain)}</div>` : ''}
-                        </div>
-                    </div>
-                    <!-- EEI Saving row -->
-                    <div class="vcmp-label-cell" style="height:${MAX_H * 0.72}px;">EEI Saving</div>
-                    <div class="vcmp-slot">
-                        <div class="vcmp-bar vcmp-eei-b vcmp-ghost" style="--bar-h:${MIN_H}px;"></div>
-                    </div>
-                    <div class="vcmp-slot after-slot">
-                        <div class="vcmp-bar vcmp-eei-a" style="--bar-h:${toH(eeiGain)}px;">
-                            ${eeiGain > 0 ? `<div class="vcmp-bar-val">${fmtK(eeiGain)}</div>` : ''}
-                        </div>
-                    </div>
-                </div>
-                <div class="vcmp-total-row">
-                    <span class="vcmp-total-label" style="color:#15803D;">Total Gain</span>
-                    <span class="vcmp-total-amount" style="color:#15803D;">RM ${fmt(exportGain + eeiGain)}</span>
-                </div>
-
-                <div class="vcmp-divider"></div>
-
-                <!-- SECTION 2: REDUCE (Fees + Usage Bills Cut) -->
-                <div class="vcmp-heading" style="color:#B45309; margin-bottom:8px;">↓ Bill Reduction</div>
-                <div class="vcmp-table">
-                    <!-- SST + KWTBB + Retail Fee -->
-                    <div class="vcmp-label-cell" style="height:${MAX_H * 0.72}px; white-space:pre-line; font-size:10px;">Tax &
-Retail Fee</div>
-                    <div class="vcmp-slot">
-                        <div class="vcmp-bar vcmp-fee-b" style="--bar-h:${toH(feeB)}px;">
-                            ${feeB > 0 ? `<div class="vcmp-bar-val">${fmtK(feeB)}</div>` : ''}
-                        </div>
-                    </div>
-                    <div class="vcmp-slot after-slot">
-                        <div class="vcmp-bar vcmp-fee-a" style="--bar-h:${toH(feeA)}px;">
-                            ${feeA > 0 ? `<div class="vcmp-bar-val">${fmtK(feeA)}</div>` : ''}
-                        </div>
-                    </div>
-                    <!-- Usage + Network + Capacity -->
-                    <div class="vcmp-label-cell" style="height:${MAX_H * 0.72}px; white-space:pre-line; font-size:10px;">Usage +
-Network</div>
-                    <div class="vcmp-slot">
-                        <div class="vcmp-bar vcmp-usage-b" style="--bar-h:${toH(usageB)}px;">
-                            ${usageB > 0 ? `<div class="vcmp-bar-val">${fmtK(usageB)}</div>` : ''}
-                        </div>
-                    </div>
-                    <div class="vcmp-slot after-slot">
-                        <div class="vcmp-bar vcmp-usage-a" style="--bar-h:${toH(usageA)}px;">
-                            ${usageA > 0 ? `<div class="vcmp-bar-val">${fmtK(usageA)}</div>` : ''}
-                        </div>
-                    </div>
-                </div>
-                <div class="vcmp-total-row">
-                    <span class="vcmp-total-label" style="color:#B45309;">Total Reduced</span>
-                    <span class="vcmp-total-amount" style="color:#B45309;">RM ${fmt(active.billReduction)}</span>
-                </div>
-
-                <!-- Grand Total -->
-                <div class="vcmp-grand-row">
-                    <div class="vcmp-grand-label">💰 Monthly Savings</div>
-                    <div class="vcmp-grand-amount">RM ${fmt(active.totalSavings)}</div>
-                </div>
-            </div>
-            `;
-                })()}
 
         <!-- Package -->
         ${data.selectedPackage ? `
