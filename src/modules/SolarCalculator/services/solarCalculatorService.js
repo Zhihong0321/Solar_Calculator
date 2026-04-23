@@ -147,20 +147,29 @@ const parseCurrencyValue = (value, fallback = 0) => {
   return Number.isNaN(numeric) ? fallback : numeric;
 };
 
-const resolveActualUsageKwh = (usageAfterOffsetKwh, exportKwh) =>
+const resolveNetImportKwh = (usageAfterOffsetKwh, exportKwh) =>
   Math.max(0, parseCurrencyValue(usageAfterOffsetKwh) - parseCurrencyValue(exportKwh));
 
-const resolveActualEeiValue = (tariffRow, eeiTariffRow, actualUsageKwh) => {
-  if (actualUsageKwh <= 0) {
+const resolveEeiRatePerKwh = (tariffRow) => {
+  const usageKwh = parseCurrencyValue(tariffRow?.usage_kwh);
+  if (usageKwh <= 0) {
     return 0;
   }
 
-  return parseCurrencyValue(
-    eeiTariffRow?.energy_efficiency_incentive
-      ?? eeiTariffRow?.eei
-      ?? tariffRow?.energy_efficiency_incentive
+  const eeiAmount = parseCurrencyValue(
+    tariffRow?.energy_efficiency_incentive
       ?? tariffRow?.eei
   );
+
+  return eeiAmount / usageKwh;
+};
+
+const resolveActualEeiValue = (tariffRow, netImportKwh) => {
+  if (netImportKwh <= 0) {
+    return 0;
+  }
+
+  return resolveEeiRatePerKwh(tariffRow) * parseCurrencyValue(netImportKwh);
 };
 
 const getResidentialPanelQuantityGate = (recommendedPanels, systemPhase = 3) => {
@@ -168,7 +177,7 @@ const getResidentialPanelQuantityGate = (recommendedPanels, systemPhase = 3) => 
   const baseMin = Math.max(1, safeRecommendedPanels - 2);
 
   return {
-    min: systemPhase === 1 ? Math.min(baseMin, 10) : baseMin,
+    min: baseMin,
     max: safeRecommendedPanels + 20
   };
 };
@@ -410,19 +419,13 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const backupGenerationKwh = Math.min(exceededGeneration, netUsageKwh * 0.1);
     const donatedKwh = Math.max(0, exceededGeneration - backupGenerationKwh);
 
-    const actualUsageBaselineKwh = resolveActualUsageKwh(netUsageBaseline, exportKwhBaseline);
-    const actualUsageBaselineForLookup = Math.max(0, Math.floor(actualUsageBaselineKwh));
-    const actualUsageKwh = resolveActualUsageKwh(netUsageKwh, exportKwh);
-    const actualUsageForLookup = Math.max(0, Math.floor(actualUsageKwh));
+    const netImportBaselineKwh = resolveNetImportKwh(netUsageBaseline, exportKwhBaseline);
+    const netImportBaselineForLookup = Math.max(0, Math.floor(netImportBaselineKwh));
+    const netImportKwh = resolveNetImportKwh(netUsageKwh, exportKwh);
+    const netImportForLookup = Math.max(0, Math.floor(netImportKwh));
 
     const baselineTariff = await lookupTariffByUsage(tariffClient, netUsageBaselineForLookup);
     const afterTariff = await lookupTariffByUsage(tariffClient, netUsageForLookup);
-    const baselineEeiTariff = actualUsageBaselineKwh > 0
-      ? await lookupTariffByUsage(tariffClient, actualUsageBaselineForLookup)
-      : null;
-    const afterEeiTariff = actualUsageKwh > 0
-      ? await lookupTariffByUsage(tariffClient, actualUsageForLookup)
-      : null;
 
     // Savings
     const morningUsageRate = 0.4869;
@@ -436,15 +439,17 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const exportSavingBaselineRaw = exportKwhBaseline * exportRateBaseline;
 
     const beforeBreakdown = buildBillBreakdown(tariff, afaRate);
-    const actualEeiBaseline = resolveActualEeiValue(baselineTariff, baselineEeiTariff, actualUsageBaselineKwh);
-    const actualEei = resolveActualEeiValue(afterTariff, afterEeiTariff, actualUsageKwh);
+    const actualEeiRateBaseline = resolveEeiRatePerKwh(baselineTariff);
+    const actualEeiRate = resolveEeiRatePerKwh(afterTariff);
+    const actualEeiBaseline = resolveActualEeiValue(baselineTariff, netImportBaselineKwh);
+    const actualEei = resolveActualEeiValue(afterTariff, netImportKwh);
     const afterBreakdown = buildBillBreakdown(afterTariff, afaRate, {
       overrideEei: actualEei,
-      eeiUsageKwh: actualUsageForLookup
+      eeiUsageKwh: netImportForLookup
     });
     const baselineBreakdown = buildBillBreakdown(baselineTariff, afaRate, {
       overrideEei: actualEeiBaseline,
-      eeiUsageKwh: actualUsageBaselineForLookup
+      eeiUsageKwh: netImportBaselineForLookup
     });
 
     const billBefore = beforeBreakdown ? beforeBreakdown.total : 0;
@@ -649,8 +654,9 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         exportRate: exportRate,
         effectiveExportRate: exportRate.toFixed(4),
         netUsageKwh: netUsageKwh.toFixed(2),
-        actualUsageForEeiKwh: actualUsageKwh.toFixed(2),
-        actualUsageForEeiLookupKwh: actualUsageForLookup,
+        actualUsageForEeiKwh: netImportKwh.toFixed(2),
+        actualUsageForEeiLookupKwh: netImportForLookup,
+        actualEeiRatePerKwh: actualEeiRate.toFixed(6),
         actualEei: actualEei.toFixed(2),
         actualEeiSaving: actualEeiSaving.toFixed(2),
         afterUsageKwh: (afterUsageMatched !== null ? afterUsageMatched : netUsageKwh).toFixed(2),
@@ -716,8 +722,9 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
             billAfter: afterBillBaseline !== null ? afterBillBaseline.toFixed(2) : null,
             estimatedPayableAfterSolar: estimatedPayableAfterSolarBaseline.toFixed(2),
             usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null,
-            actualUsageForEeiKwh: actualUsageBaselineKwh.toFixed(2),
-            actualUsageForEeiLookupKwh: actualUsageBaselineForLookup,
+            actualUsageForEeiKwh: netImportBaselineKwh.toFixed(2),
+            actualUsageForEeiLookupKwh: netImportBaselineForLookup,
+            actualEeiRatePerKwh: actualEeiRateBaseline.toFixed(6),
             actualEei: actualEeiBaseline.toFixed(2),
             billBreakdown: {
               before: beforeBreakdown,
