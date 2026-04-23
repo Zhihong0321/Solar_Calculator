@@ -195,6 +195,10 @@ app.get('/domestic', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic.html'));
 });
 
+app.get('/domestic-preview', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'domestic-preview.html'));
+});
+
 app.get('/non-domestic', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'non-domestic.html'));
 });

@@ -3,20 +3,7 @@
     "allow": [
       "Bash(*)",
       "PowerShell(*)",
-      "git(*)",
-      "npm(*)",
-      "node(*)",
-      "python(*)",
-      "tailwindcss(*)",
-      "npx(*)",
-      "where(*)",
-      "cat(*)",
-      "ls(*)",
-      "mkdir(*)",
-      "python.exe(*)",
-      "node.exe(*)",
-      "npm.cmd(*)",
-      "npx.cmd(*)"
+      "mcp__Claude_in_Chrome__tabs_context_mcp"
     ]
   }
 }
