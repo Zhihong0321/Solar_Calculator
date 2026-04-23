@@ -1154,6 +1154,7 @@
             const breakdown = solarResult.savingsBreakdown || {};
             const before = solarResult.billBreakdownComparison?.before || {};
             const after = solarResult.billBreakdownComparison?.after || {};
+            const details = solarResult.details || {};
 
             const exportRm = toNumber(breakdown.exportCredit);
             const totalGain = exportRm;
@@ -1161,7 +1162,12 @@
             const energyAfter = toNumber(after.usage) + toNumber(after.network) + toNumber(after.capacity);
             const feesBefore = toNumber(before.sst) + toNumber(before.kwtbb) + toNumber(before.retail);
             const feesAfter = toNumber(after.sst) + toNumber(after.kwtbb) + toNumber(after.retail);
-            const totalReduce = toNumber(breakdown.billReduction) + toNumber(breakdown.eeiSaving);
+            const eeiBefore = toNumber(before.eei);
+            const eeiAfter = Math.max(0, toNumber(after.eei));
+            const eeiSaving = toNumber(breakdown.eeiSaving);
+            const eeiRatePerKwh = toNumber(details.actualEeiRatePerKwh);
+            const netImportKwh = Math.max(0, toNumber(details.actualUsageForEeiKwh));
+            const totalReduce = toNumber(breakdown.billReduction) + eeiSaving;
             const maxBar = Math.max(energyBefore, exportRm, 1) * 1.1;
 
             function Bar({ beforeValue, afterValue, colorAfter }) {
@@ -1209,7 +1215,7 @@
                         <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
                             账单节省分解
                         </div>
-                        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 14 }}>每月节省 = 出售电力收入 + 电费减少</div>
+                        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 14 }}>每月节省 = 出售电力收入 + 电费减少（含 EEI）</div>
 
                         <div style={{ background: '#fffbeb', borderRadius: 12, padding: 12, marginBottom: 10, border: '1px solid #fde68a' }}>
                             <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
@@ -1237,16 +1243,28 @@
                             </div>
                             {[
                                 { label: '用电 + 网络 + 容量费', beforeValue: energyBefore, afterValue: energyAfter },
-                                { label: 'SST + KWTBB + 零售费', beforeValue: feesBefore, afterValue: feesAfter }
+                                { label: 'SST + KWTBB + 零售费', beforeValue: feesBefore, afterValue: feesAfter },
+                                {
+                                    label: 'EEI 节能奖励 (TNB)',
+                                    beforeValue: eeiBefore,
+                                    afterValue: eeiAfter,
+                                    colorAfter: '#16a34a',
+                                    note: netImportKwh <= 0
+                                        ? '净进口 <= 0 kWh，EEI 自动归零'
+                                        : `${fmt(netImportKwh)} kWh × RM ${fmt(eeiRatePerKwh, 6)}/kWh = RM ${fmt(eeiAfter)}`
+                                }
                             ].map((row) => (
                                 <div key={row.label} style={{ marginBottom: 10 }}>
-                                    <div style={{ fontSize: 12, color: '#374151', fontWeight: 500, marginBottom: 5 }}>{row.label}</div>
+                                    <div style={{ fontSize: 12, color: '#374151', fontWeight: 500, marginBottom: 3 }}>{row.label}</div>
+                                    {row.note && (
+                                        <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 5 }}>{row.note}</div>
+                                    )}
                                     <div style={{ display: 'flex', gap: 10 }}>
                                         <div style={{ width: 24, flexShrink: 0 }}>
                                             <div style={{ fontSize: 10, color: '#9ca3af', height: 26, lineHeight: '26px', textAlign: 'right' }}>前</div>
                                             <div style={{ fontSize: 10, color: '#9ca3af', height: 26, lineHeight: '26px', textAlign: 'right' }}>后</div>
                                         </div>
-                                        <Bar beforeValue={row.beforeValue} afterValue={row.afterValue} />
+                                        <Bar beforeValue={row.beforeValue} afterValue={row.afterValue} colorAfter={row.colorAfter} />
                                     </div>
                                 </div>
                             ))}

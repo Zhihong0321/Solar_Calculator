@@ -17,5 +17,6 @@ REPO NAME : Solar Calculator v2
 - Upgraded the mobile solar comparison preview with production-level styling while keeping the final layout unchanged.
 - Removed the visible guide-line feel and tightened the mobile comparison bars with slimmer, closer block styling.
 - Built a domestic-v4 calculator page from the redesign and wired it to the existing domestic calculator APIs.
+- Added the EEI comparison block to domestic-v4 savings breakdown and aligned it with the actual net-import EEI formula.
 
 =====================
