@@ -71,7 +71,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="text/babel">
-        const { useEffect, useState } = React;
+        const { useEffect, useRef, useState } = React;
 
         const ACCENT = {
             primary: '#16a34a',
@@ -111,6 +111,7 @@
             inverterType: 'string',
             sunPeakHour: '3.4',
             morningUsage: '30',
+            overridePanels: '',
             panelType: '650',
             smpPrice: '0.2703',
             afaRate: '0.0000',
@@ -137,6 +138,10 @@
 
         function clamp(value, min, max) {
             return Math.min(max, Math.max(min, value));
+        }
+
+        function clampInteger(value, min, max) {
+            return Math.min(max, Math.max(min, Math.round(toNumber(value, min))));
         }
 
         function normalizeBatteryLossPercent(value) {
@@ -227,7 +232,7 @@
         }
 
         function collectSolarParams(inputs) {
-            return {
+            const params = {
                 amount: toNumber(inputs.billAmount),
                 sunPeakHour: toNumber(inputs.sunPeakHour),
                 morningUsage: toNumber(inputs.morningUsage),
@@ -243,6 +248,13 @@
                 batteryLossPercent: normalizeBatteryLossPercent(inputs.batteryLossPercent),
                 batteryDodPercent: normalizeBatteryDodPercent(inputs.batteryDodPercent)
             };
+
+            const overridePanels = parseInt(inputs.overridePanels, 10);
+            if (Number.isFinite(overridePanels) && overridePanels >= 1) {
+                params.overridePanels = overridePanels;
+            }
+
+            return params;
         }
 
         function buildQuotationUrl(invoiceBaseUrl, solarData, inputs, selectedBillCycleMode) {
@@ -1817,6 +1829,164 @@
             );
         }
 
+        function FloatingAdjustPanel({ solarResult, updating, onAdjustMorningUsage, onAdjustPanels, onResetPanels }) {
+            const actualPanels = toNumber(solarResult?.actualPanels, 0);
+            const recommendedPanels = toNumber(solarResult?.recommendedPanels, actualPanels);
+            const gate = solarResult?.panelQuantityGate || {};
+            const minPanels = toNumber(gate.min, Math.max(1, recommendedPanels));
+            const maxPanels = toNumber(gate.max, Math.max(minPanels, actualPanels));
+            const morningUsage = clampInteger(solarResult?.config?.morningUsage ?? 30, 1, 100);
+
+            function Stepper({ label, value, suffix = '', helper, onMinus, onPlus, minusDisabled, plusDisabled }) {
+                return (
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {label}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 36px', gap: 8, alignItems: 'center' }}>
+                            <button
+                                type="button"
+                                onClick={onMinus}
+                                disabled={minusDisabled || updating}
+                                style={{
+                                    height: 36,
+                                    borderRadius: 12,
+                                    border: 'none',
+                                    background: '#18371f',
+                                    color: '#fff',
+                                    fontSize: 18,
+                                    fontWeight: 700,
+                                    cursor: minusDisabled || updating ? 'not-allowed' : 'pointer',
+                                    opacity: minusDisabled || updating ? 0.45 : 1
+                                }}
+                            >
+                                −
+                            </button>
+                            <div style={{
+                                height: 42,
+                                borderRadius: 14,
+                                background: '#102915',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#fff',
+                                fontSize: 18,
+                                fontWeight: 800
+                            }}>
+                                {value}{suffix}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={onPlus}
+                                disabled={plusDisabled || updating}
+                                style={{
+                                    height: 36,
+                                    borderRadius: 12,
+                                    border: 'none',
+                                    background: ACCENT.primary,
+                                    color: '#fff',
+                                    fontSize: 18,
+                                    fontWeight: 700,
+                                    cursor: plusDisabled || updating ? 'not-allowed' : 'pointer',
+                                    opacity: plusDisabled || updating ? 0.45 : 1
+                                }}
+                            >
+                                +
+                            </button>
+                        </div>
+                        <div style={{ fontSize: 10, color: '#6b7280', marginTop: 7, textAlign: 'center' }}>{helper}</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div style={{
+                    position: 'fixed',
+                    left: '50%',
+                    bottom: 12,
+                    transform: 'translateX(-50%)',
+                    width: 'min(calc(100vw - 24px), 402px)',
+                    zIndex: 300
+                }}>
+                    <div style={{
+                        background: '#0d1f0f',
+                        borderRadius: 22,
+                        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.28)',
+                        border: '1px solid rgba(134, 239, 172, 0.28)',
+                        padding: '14px 14px 12px'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                            <div>
+                                <div style={{ fontSize: 11, color: ACCENT.light, fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                    Floating Adjust
+                                </div>
+                                <div style={{ fontSize: 12, color: '#d1d5db', marginTop: 2 }}>
+                                    调整 panel qty 和 morning offset
+                                </div>
+                            </div>
+                            {updating && (
+                                <div style={{
+                                    padding: '6px 9px',
+                                    borderRadius: 999,
+                                    background: '#18371f',
+                                    color: ACCENT.light,
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    Updating...
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                            <Stepper
+                                label="Morning Offset"
+                                value={morningUsage}
+                                suffix="%"
+                                helper="白天用电占比"
+                                onMinus={() => onAdjustMorningUsage(Math.max(1, morningUsage - 5))}
+                                onPlus={() => onAdjustMorningUsage(Math.min(100, morningUsage + 5))}
+                                minusDisabled={morningUsage <= 1}
+                                plusDisabled={morningUsage >= 100}
+                            />
+                            <Stepper
+                                label="Panel Qty"
+                                value={actualPanels}
+                                helper={`建议 ${recommendedPanels} | 范围 ${minPanels}-${maxPanels}`}
+                                onMinus={() => onAdjustPanels(actualPanels - 1)}
+                                onPlus={() => onAdjustPanels(actualPanels + 1)}
+                                minusDisabled={actualPanels <= minPanels}
+                                plusDisabled={actualPanels >= maxPanels}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                            <div style={{ fontSize: 10, color: '#6b7280' }}>
+                                当前系统 {fmt(solarResult?.systemSizeKwp || 0, 1)} kWp
+                            </div>
+                            <button
+                                type="button"
+                                onClick={onResetPanels}
+                                disabled={updating || actualPanels === recommendedPanels}
+                                style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    color: actualPanels === recommendedPanels ? '#4b5563' : ACCENT.light,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    cursor: updating || actualPanels === recommendedPanels ? 'not-allowed' : 'pointer',
+                                    opacity: updating || actualPanels === recommendedPanels ? 0.5 : 1
+                                }}
+                            >
+                                Reset to recommended
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         function App() {
             const [inputs, setInputs] = useState(DEFAULT_INPUTS);
             const [billResult, setBillResult] = useState(null);
@@ -1829,6 +1999,7 @@
             const [planLoading, setPlanLoading] = useState(false);
             const [batteryUpdating, setBatteryUpdating] = useState(false);
             const [errorMessage, setErrorMessage] = useState('');
+            const solarRequestSeqRef = useRef(0);
 
             useEffect(() => {
                 async function loadConfig() {
@@ -1875,6 +2046,8 @@
 
                 const nextInputs = { ...inputs, ...overrides };
                 const params = collectSolarParams(nextInputs);
+                const requestId = solarRequestSeqRef.current + 1;
+                solarRequestSeqRef.current = requestId;
 
                 if (mode === 'battery') {
                     setBatteryUpdating(true);
@@ -1889,17 +2062,26 @@
                         throw new Error(payload?.details || payload?.error || `Error ${response.status}`);
                     }
 
+                    if (requestId !== solarRequestSeqRef.current) {
+                        return null;
+                    }
+
                     setInputs(nextInputs);
                     setSolarResult(payload);
                     return payload;
                 } catch (error) {
+                    if (requestId !== solarRequestSeqRef.current) {
+                        return null;
+                    }
                     setErrorMessage(error.message);
                     return null;
                 } finally {
-                    if (mode === 'battery') {
-                        setBatteryUpdating(false);
-                    } else {
-                        setPlanLoading(false);
+                    if (requestId === solarRequestSeqRef.current) {
+                        if (mode === 'battery') {
+                            setBatteryUpdating(false);
+                        } else {
+                            setPlanLoading(false);
+                        }
                     }
                 }
             }
@@ -1955,6 +2137,36 @@
                 }
             }
 
+            async function handleQuickMorningUsage(nextValue) {
+                if (!solarResult) {
+                    return;
+                }
+
+                const normalized = clampInteger(nextValue, 1, 100);
+                await runSolarPlan({ morningUsage: String(normalized) }, 'plan');
+            }
+
+            async function handleQuickPanelAdjust(nextValue) {
+                if (!solarResult) {
+                    return;
+                }
+
+                const gate = solarResult.panelQuantityGate || {};
+                const recommended = toNumber(solarResult.recommendedPanels, 1);
+                const minPanels = toNumber(gate.min, recommended);
+                const maxPanels = toNumber(gate.max, Math.max(minPanels, recommended));
+                const normalized = clampInteger(nextValue, minPanels, maxPanels);
+                await runSolarPlan({ overridePanels: String(normalized) }, 'plan');
+            }
+
+            async function handleQuickPanelReset() {
+                if (!solarResult) {
+                    return;
+                }
+
+                await runSolarPlan({ overridePanels: '' }, 'plan');
+            }
+
             function handleCreateQuotation() {
                 const url = buildQuotationUrl(invoiceBaseUrl, solarResult, inputs, selectedBillCycleMode);
                 if (!url) {
@@ -1965,7 +2177,7 @@
             }
 
             return (
-                <div style={{ paddingBottom: 32 }}>
+                <div style={{ paddingBottom: solarResult ? 186 : 32 }}>
                     <NavBar />
                     <StepProgress billReady={billReady} roiReady={roiReady} />
 
@@ -2030,6 +2242,13 @@
                                 solarResult={solarResult}
                                 onCreateQuotation={handleCreateQuotation}
                                 disabled={!solarResult?.selectedPackage?.linked_package}
+                            />
+                            <FloatingAdjustPanel
+                                solarResult={solarResult}
+                                updating={planLoading || batteryUpdating}
+                                onAdjustMorningUsage={handleQuickMorningUsage}
+                                onAdjustPanels={handleQuickPanelAdjust}
+                                onResetPanels={handleQuickPanelReset}
                             />
                         </>
                     )}

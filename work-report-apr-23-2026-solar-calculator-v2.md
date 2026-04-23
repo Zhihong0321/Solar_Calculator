@@ -18,5 +18,6 @@ REPO NAME : Solar Calculator v2
 - Removed the visible guide-line feel and tightened the mobile comparison bars with slimmer, closer block styling.
 - Built a domestic-v4 calculator page from the redesign and wired it to the existing domestic calculator APIs.
 - Added the EEI comparison block to domestic-v4 savings breakdown and aligned it with the actual net-import EEI formula.
+- Added a floating panel qty and morning-offset quick-adjust tray to domestic-v4 with stale-response guarding so package data only updates from verified latest results.
 
 =====================
