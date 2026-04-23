@@ -385,6 +385,13 @@ async function fetchHybridUpgradeApplications(client, itemIds) {
 }
 
 async function fetchOfficePaidAmount(client, invoiceBubbleId, paymentIds) {
+    // @ai-stable: finance rule confirmed by user on 2026-04-23 after repeated regressions.
+    // DECISION: Only rows from the `payment` table count as verified/paid money.
+    // Considered: inferring verified totals from `submitted_payment.status`, or merging both tables into one verified list.
+    // Rejected because:
+    //   - `submitted_payment` is a submission workflow table, not the source of truth for verified money.
+    //   - treating submitted rows as verified has repeatedly caused severe finance regressions and double-counting.
+    // Revisit if: payment verification is redesigned into a single audited source-of-truth model with an explicit migration plan.
     const paidRes = await client.query(
         `SELECT COALESCE(SUM(amount), 0) as paid_amount
          FROM payment
@@ -394,12 +401,24 @@ async function fetchOfficePaidAmount(client, invoiceBubbleId, paymentIds) {
     return parseFloat(paidRes.rows[0]?.paid_amount) || 0;
 }
 
+function normalizePaymentAttachments(value) {
+    if (Array.isArray(value)) return value;
+    if (!value) return [];
+    return [value];
+}
+
 async function fetchOfficeExtras(client, invoice) {
     const invoiceBubbleId = invoice.bubble_id;
     const paymentIds = Array.isArray(invoice.linked_payment) ? invoice.linked_payment : [];
     const [submittedRes, legacyRes] = await Promise.all([
         client.query(
-            'SELECT * FROM submitted_payment WHERE linked_invoice = $1 ORDER BY created_at DESC',
+            // WARNING: keep submitted payments out of the verified list payload.
+            // A submitted row may move through workflow states, but it is still not verified revenue.
+            `SELECT *
+             FROM submitted_payment
+             WHERE linked_invoice = $1
+               AND COALESCE(LOWER(status), 'pending') != 'verified'
+             ORDER BY created_at DESC`,
             [invoiceBubbleId]
         ),
         client.query(
@@ -408,21 +427,21 @@ async function fetchOfficeExtras(client, invoice) {
         )
     ]);
 
-    const legacyPayments = legacyRes.rows.map((p) => ({
+    const submittedPayments = submittedRes.rows.map((p) => ({
         ...p,
-        status: 'verified',
-        attachment: p.attachment || []
+        office_payment_source: 'submitted',
+        status: p.status || 'pending',
+        attachment: normalizePaymentAttachments(p.attachment)
     }));
 
-    const paymentsMap = new Map();
-    for (const sp of submittedRes.rows) {
-        paymentsMap.set(sp.bubble_id, sp);
-    }
-    for (const lp of legacyPayments) {
-        paymentsMap.set(lp.bubble_id, lp);
-    }
+    const legacyPayments = legacyRes.rows.map((p) => ({
+        ...p,
+        office_payment_source: 'payment',
+        status: 'verified',
+        attachment: normalizePaymentAttachments(p.attachment)
+    }));
 
-    const payments = Array.from(paymentsMap.values())
+    const payments = [...submittedPayments, ...legacyPayments]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     let seda = null;

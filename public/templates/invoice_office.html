@@ -1041,8 +1041,17 @@
         }
 
         function renderPayments(payments) {
-            const verified = payments.filter(p => p.status === 'verified');
-            const pending = payments.filter(p => p.status !== 'verified');
+            // @ai-stable: verified UI must render only real `payment` records.
+            // WARNING: do not classify `submitted_payment` rows as verified here, even if their status string says "verified".
+            // That inference has caused repeated production finance bugs by making submitted money look like verified money.
+            const verified = payments.filter(p =>
+                p.office_payment_source === 'payment'
+                || (!p.office_payment_source && p.status === 'verified')
+            );
+            const pending = payments.filter(p =>
+                p.office_payment_source === 'submitted'
+                || (!p.office_payment_source && p.status !== 'verified')
+            );
 
             const verifiedList = document.getElementById('verifiedPaymentsList');
             const pendingList = document.getElementById('pendingPaymentsList');

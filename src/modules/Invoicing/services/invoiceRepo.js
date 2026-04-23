@@ -484,6 +484,8 @@ async function attachCustomPackageToInvoice(client, packageId, invoiceId) {
 /**
  * Get invoice payment state used by edit restrictions.
  * Counts both verified payments and submitted payments as "has payment".
+ * WARNING: this is only for edit-lock state. It must never be reused to compute verified paid totals.
+ * @ai-stable: user confirmed on 2026-04-23 that submitted payment != verified payment.
  * @private
  */
 async function _getInvoicePaymentState(client, invoiceBubbleId, linkedPaymentIds = []) {
@@ -1331,6 +1333,8 @@ async function recordInvoiceView(client, invoiceId) {
  * - Excludes deleted status
  * - Sorts by latest invoice_date
  * - Sums totals ONLY from verified 'payment' table
+ * - NEVER sums `submitted_payment` into verified totals
+ * @ai-stable: finance reporting rule reaffirmed by user on 2026-04-23 after repeated regressions
  * - Supports Date Range and Payment Status filtering
  * @param {object} client - Database client
  * @param {string} userId - User ID (to find linked agent)
