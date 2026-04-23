@@ -1168,6 +1168,7 @@
         }
 
         function SavingsBreakdownCard({ solarResult, activeCycle }) {
+            const [showEeiHelp, setShowEeiHelp] = useState(false);
             const breakdown = solarResult.savingsBreakdown || {};
             const before = solarResult.billBreakdownComparison?.before || {};
             const after = solarResult.billBreakdownComparison?.after || {};
@@ -1186,15 +1187,16 @@
             const netImportKwh = Math.max(0, toNumber(details.actualUsageForEeiKwh));
             const totalReduce = toNumber(breakdown.billReduction) + eeiSaving;
             const maxBar = Math.max(energyBefore, exportRm, 1) * 1.1;
+            const eeiScaleMax = Math.max(80, eeiBefore, eeiAfter, 1);
 
-            function Bar({ beforeValue, afterValue, colorAfter }) {
+            function Bar({ beforeValue, afterValue, colorAfter, scaleMax = maxBar }) {
                 return (
                     <div style={{ flex: 1 }}>
                         {beforeValue !== undefined && (
                             <div style={{ height: 26, background: '#f3f4f6', borderRadius: 5, overflow: 'hidden', marginBottom: 3 }}>
                                 <div style={{
                                     height: '100%',
-                                    width: `${(beforeValue / maxBar) * 100}%`,
+                                    width: `${(beforeValue / scaleMax) * 100}%`,
                                     background: '#d1d5db',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -1210,7 +1212,7 @@
                             <div style={{ height: 26, background: ACCENT.bg, borderRadius: 5, overflow: 'hidden' }}>
                                 <div style={{
                                     height: '100%',
-                                    width: `${(afterValue / maxBar) * 100}%`,
+                                    width: `${(afterValue / scaleMax) * 100}%`,
                                     background: colorAfter || ACCENT.primary,
                                     display: 'flex',
                                     alignItems: 'center',
@@ -1266,13 +1268,34 @@
                                     beforeValue: eeiBefore,
                                     afterValue: eeiAfter,
                                     colorAfter: '#16a34a',
+                                    scaleMax: eeiScaleMax,
                                     note: netImportKwh <= 0
                                         ? '净进口 <= 0 kWh，EEI 自动归零'
                                         : `${fmt(netImportKwh)} kWh × RM ${fmt(Math.abs(eeiRatePerKwh), 6)}/kWh = RM ${fmt(eeiAfter)}`
                                 }
                             ].map((row) => (
                                 <div key={row.label} style={{ marginBottom: 10 }}>
-                                    <div style={{ fontSize: 12, color: '#374151', fontWeight: 500, marginBottom: 3 }}>{row.label}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                                        <div style={{ fontSize: 12, color: '#374151', fontWeight: 500 }}>{row.label}</div>
+                                        {row.label === 'EEI 节能奖励 (TNB)' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowEeiHelp(true)}
+                                                style={{
+                                                    border: 'none',
+                                                    background: '#ecfdf5',
+                                                    color: ACCENT.primary,
+                                                    borderRadius: 999,
+                                                    padding: '3px 8px',
+                                                    fontSize: 10,
+                                                    fontWeight: 800,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                EEI 说明
+                                            </button>
+                                        )}
+                                    </div>
                                     {row.note && (
                                         <div style={{ fontSize: 10, color: '#6b7280', marginBottom: 5 }}>{row.note}</div>
                                     )}
@@ -1281,10 +1304,13 @@
                                             <div style={{ fontSize: 10, color: '#9ca3af', height: 26, lineHeight: '26px', textAlign: 'right' }}>前</div>
                                             <div style={{ fontSize: 10, color: '#9ca3af', height: 26, lineHeight: '26px', textAlign: 'right' }}>后</div>
                                         </div>
-                                        <Bar beforeValue={row.beforeValue} afterValue={row.afterValue} colorAfter={row.colorAfter} />
+                                        <Bar beforeValue={row.beforeValue} afterValue={row.afterValue} colorAfter={row.colorAfter} scaleMax={row.scaleMax} />
                                     </div>
                                 </div>
                             ))}
+                            <div style={{ fontSize: 10, color: '#6b7280', marginTop: -2, marginBottom: 8 }}>
+                                EEI bar 独立按 RM80 上限比例显示，不跟用电费与 SST 共用比例尺。
+                            </div>
                             <Divider style={{ margin: '8px 0' }} />
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: ACCENT.primary }}>合计减少</span>
@@ -1306,6 +1332,94 @@
                             </div>
                             <div style={{ fontSize: 32, fontWeight: 800, color: ACCENT.light }}>RM {fmt(activeCycle.totalSavings)}</div>
                         </div>
+
+                        {showEeiHelp && (
+                            <div style={{
+                                position: 'fixed',
+                                inset: 0,
+                                background: 'rgba(13, 31, 15, 0.48)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: 18,
+                                zIndex: 500
+                            }}>
+                                <div style={{
+                                    width: '100%',
+                                    maxWidth: 360,
+                                    background: '#f0fdf4',
+                                    border: '1px solid #86efac',
+                                    borderRadius: 22,
+                                    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.24)',
+                                    overflow: 'hidden'
+                                }}>
+                                    <div style={{
+                                        background: '#0d1f0f',
+                                        color: '#fff',
+                                        padding: '14px 16px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}>
+                                        <div>
+                                            <div style={{ fontSize: 15, fontWeight: 800 }}>EEI 计算说明</div>
+                                            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>Energy Efficient Incentive</div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowEeiHelp(false)}
+                                            style={{
+                                                border: 'none',
+                                                background: 'transparent',
+                                                color: '#86efac',
+                                                fontSize: 13,
+                                                fontWeight: 800,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            关闭
+                                        </button>
+                                    </div>
+
+                                    <div style={{ padding: 16 }}>
+                                        <div style={{ fontSize: 12, color: '#14532d', fontWeight: 700, marginBottom: 10 }}>
+                                            我们用安装太阳能后的 TNB bill 来算实际 EEI：
+                                        </div>
+                                        {[
+                                            '1. 先看 After Solar TNB Bill。',
+                                            '2. 取这张 bill 的 EEI rate per kWh。',
+                                            `3. EEI rate = RM ${fmt(Math.abs(eeiRatePerKwh), 6)} / kWh。`,
+                                            `4. Net Import = ${fmt(netImportKwh)} kWh。`,
+                                            netImportKwh <= 0
+                                                ? '5. 因为净进口 <= 0，所以 Actual EEI = RM 0.00。'
+                                                : `5. Actual EEI = ${fmt(netImportKwh)} × RM ${fmt(Math.abs(eeiRatePerKwh), 6)} = RM ${fmt(eeiAfter)}。`
+                                        ].map((line) => (
+                                            <div key={line} style={{ fontSize: 12, color: '#374151', marginBottom: 8, lineHeight: 1.45 }}>
+                                                {line}
+                                            </div>
+                                        ))}
+
+                                        <div style={{
+                                            background: '#dcfce7',
+                                            border: '1px solid #86efac',
+                                            borderRadius: 14,
+                                            padding: '12px 13px',
+                                            marginTop: 10
+                                        }}>
+                                            <div style={{ fontSize: 11, color: '#166534', fontWeight: 800, marginBottom: 6 }}>
+                                                当前结果
+                                            </div>
+                                            <div style={{ display: 'grid', gap: 5, fontSize: 12, color: '#14532d' }}>
+                                                <div>Before EEI: RM {fmt(eeiBefore)}</div>
+                                                <div>After EEI: RM {fmt(eeiAfter)}</div>
+                                                <div>Net Import: {fmt(netImportKwh)} kWh</div>
+                                                <div>EEI Rate: RM {fmt(Math.abs(eeiRatePerKwh), 6)} / kWh</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </Card>
                 </SectionWrap>
             );

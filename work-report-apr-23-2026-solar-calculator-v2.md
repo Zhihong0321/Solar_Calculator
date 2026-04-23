@@ -22,5 +22,6 @@ REPO NAME : Solar Calculator v2
 - Locked domestic-v4 panel reduction to recommended minus two by default and added a bottom request button to unlock deeper reduction down to 5 panels.
 - Updated domestic-v4 to use the official Eternalgy logo and auto-scroll to the next section after successful bill analysis and ROI generation.
 - Fixed domestic-v4 EEI display to show the actual received EEI amount instead of clamping valid EEI credits to zero.
+- Updated domestic-v4 EEI breakdown to use its own RM80 scale and added a themed popup explaining the EEI calculation formula.
 
 =====================
