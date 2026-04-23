@@ -320,6 +320,24 @@ app.get('/domestic-preview', (req, res) => {
   fs.readFile(htmlPath, 'utf8', (err, html) => {
     if (err) return res.status(500).send('Preview unavailable');
 
+    // Remove all JS lock classes so layout is exposed immediately
+    let injected = html
+        .replace(/class="card locked collapsed"/g, 'class="card"')
+        .replace(/class="card locked"/g, 'class="card"');
+
+    // Hide spinners
+    injected = injected.replace('</head>', '<style>.loading-spinner { display: none !important; }</style></head>');
+
+    // Inject bare minimum structural html into the bodies so they don't look completely empty if JS fails
+    const mockBill = `<div style="padding:20px;text-align:center;color:#666;font-style:italic;">Calculated bill breakdown (Content generated dynamically)</div>`;
+    const mockRoi = `<div style="padding:20px;text-align:center;color:#666;font-style:italic;">ROI Matrix Comparison (Content generated dynamically)</div>`;
+    const mockDetailed = `<div style="padding:20px;text-align:center;color:#666;font-style:italic;">Detailed System Info (Content generated dynamically)</div>`;
+    
+    // Attempt basic string injection for the empty bodies
+    injected = injected.replace(/(id="billBreakdownBody">)[\s\S]*?(<\/div>\s*<!-- \/card2 -->)/, `$1${mockBill}$2`);
+    injected = injected.replace(/(id="roiResultBody">)[\s\S]*?(<\/div>\s*<!-- \/card4 -->)/, `$1${mockRoi}$2`);
+    injected = injected.replace(/(id="detailedBody">)[\s\S]*?(<\/div>\s*<!-- \/card5 -->)/, `$1${mockDetailed}$2`);
+
     // Extract bill param — accept ?bill=500 or ?bill=rm500
     const rawBill = (req.query.bill || '').toString().replace(/[^0-9.]/gi, '');
     const billAmount = parseFloat(rawBill) > 0 ? rawBill : '';
@@ -330,50 +348,22 @@ app.get('/domestic-preview', (req, res) => {
   const _bill = ${JSON.stringify(billAmount)};
   if (!_bill) return;
 
-  function waitFor(selectorFn, timeout) {
-    return new Promise((resolve, reject) => {
-      const t0 = Date.now();
-      const id = setInterval(() => {
-        const el = selectorFn();
-        if (el) { clearInterval(id); resolve(el); }
-        else if (Date.now() - t0 > timeout) { clearInterval(id); reject('timeout'); }
-      }, 120);
-    });
-  }
-
   async function autoRun() {
-    // 1. Wait for page to fully initialise
-    await new Promise(r => setTimeout(r, 800));
-
-    // 2. Fill bill amount
-    const billEl = document.getElementById('billAmount');
-    if (!billEl) return;
-    billEl.value = _bill;
-    billEl.dispatchEvent(new Event('input', { bubbles: true }));
-    await new Promise(r => setTimeout(r, 200));
-
-    // 3. Click Analyse Bill
-    const analyseBtn = document.getElementById('billAnalyseBtn');
-    if (analyseBtn) analyseBtn.click();
-
-    // 4. Wait for Step 3 card to unlock (roiBtn appears enabled)
     try {
-      const roiBtn = await waitFor(() => {
-        const b = document.getElementById('roiBtn');
-        return (b && !b.disabled) ? b : null;
-      }, 12000);
+      const billEl = document.getElementById('billAmount');
+      if (billEl) {
+        billEl.value = _bill;
+        billEl.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      
+      // Trigger API calculations synchronously if available to fill the actual data
+      if (typeof handleBillAnalysis === 'function') await handleBillAnalysis();
+      if (typeof handleROIGenerate === 'function') await handleROIGenerate();
 
-      await new Promise(r => setTimeout(r, 400));
-
-      // 5. Click Generate ROI Matrix
-      roiBtn.click();
-
-      // 6. Wait for results to render, then scroll to show card 4 + comparison
-      await new Promise(r => setTimeout(r, 5000));
       const card4 = document.getElementById('card4');
-      if (card4) card4.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (card4) card4.scrollIntoView({ behavior: 'instant', block: 'start' });
     } catch(e) {
-      console.warn('[Preview] ROI btn not found or timed out:', e);
+      console.error('[Preview] autoRun failed:', e);
     }
   }
 
@@ -386,7 +376,7 @@ app.get('/domestic-preview', (req, res) => {
 </script>
 </body>`;
 
-    const injected = html.replace('</body>', autorunScript);
+    injected = injected.replace('</body>', autorunScript);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     res.send(injected);
