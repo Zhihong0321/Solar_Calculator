@@ -311,6 +311,10 @@ app.get('/domestic', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic-mobile.html'));
 });
 
+app.get('/domestic-v3', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'domestic-v3.html'));
+});
+
 // ── /domestic-preview ────────────────────────────────────────────────────────
 // Serves domestic-mobile.html with an injected autorun script.
 // Reads ?bill=500 and auto-runs the full calculation end-to-end.
