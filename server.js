@@ -311,6 +311,88 @@ app.get('/domestic', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic-mobile.html'));
 });
 
+// ── /domestic-preview ────────────────────────────────────────────────────────
+// Serves domestic-mobile.html with an injected autorun script.
+// Reads ?bill=500 and auto-runs the full calculation end-to-end.
+// Designed for Claude-Design AI / prod design review without touching the real page.
+app.get('/domestic-preview', (req, res) => {
+  const htmlPath = path.join(__dirname, 'public', 'domestic-mobile.html');
+  fs.readFile(htmlPath, 'utf8', (err, html) => {
+    if (err) return res.status(500).send('Preview unavailable');
+
+    // Extract bill param — accept ?bill=500 or ?bill=rm500
+    const rawBill = (req.query.bill || '').toString().replace(/[^0-9.]/gi, '');
+    const billAmount = parseFloat(rawBill) > 0 ? rawBill : '';
+
+    const autorunScript = `
+<script>
+(function() {
+  const _bill = ${JSON.stringify(billAmount)};
+  if (!_bill) return;
+
+  function waitFor(selectorFn, timeout) {
+    return new Promise((resolve, reject) => {
+      const t0 = Date.now();
+      const id = setInterval(() => {
+        const el = selectorFn();
+        if (el) { clearInterval(id); resolve(el); }
+        else if (Date.now() - t0 > timeout) { clearInterval(id); reject('timeout'); }
+      }, 120);
+    });
+  }
+
+  async function autoRun() {
+    // 1. Wait for page to fully initialise
+    await new Promise(r => setTimeout(r, 800));
+
+    // 2. Fill bill amount
+    const billEl = document.getElementById('billAmount');
+    if (!billEl) return;
+    billEl.value = _bill;
+    billEl.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 200));
+
+    // 3. Click Analyse Bill
+    const analyseBtn = document.getElementById('billAnalyseBtn');
+    if (analyseBtn) analyseBtn.click();
+
+    // 4. Wait for Step 3 card to unlock (roiBtn appears enabled)
+    try {
+      const roiBtn = await waitFor(() => {
+        const b = document.getElementById('roiBtn');
+        return (b && !b.disabled) ? b : null;
+      }, 12000);
+
+      await new Promise(r => setTimeout(r, 400));
+
+      // 5. Click Generate ROI Matrix
+      roiBtn.click();
+
+      // 6. Wait for results to render, then scroll to show card 4 + comparison
+      await new Promise(r => setTimeout(r, 5000));
+      const card4 = document.getElementById('card4');
+      if (card4) card4.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch(e) {
+      console.warn('[Preview] ROI btn not found or timed out:', e);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoRun);
+  } else {
+    autoRun();
+  }
+})();
+</script>
+</body>`;
+
+    const injected = html.replace('</body>', autorunScript);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(injected);
+  });
+});
+
 app.get('/eei-optimizer', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'eei-optimizer.html'));
 });
