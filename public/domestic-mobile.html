@@ -1326,136 +1326,144 @@
             text-transform: uppercase;
         }
 
-        /* ── BILL COMPARISON LEDGER ── */
-        /* ── PREMIUM VISUAL COMPARISON (PVC) ── */
-        .pvc-wrap {
+        /* ── GRID MATRIX COMPARISON (GMX) ── */
+        .gmx-wrap {
             padding: 24px 16px;
             background: var(--surface);
             border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
+            border-bottom: 2px solid var(--ink);
         }
 
-        .pvc-header {
-            font-size: 11px;
+        .gmx-header {
+            font-size: 10px;
             font-weight: 700;
             color: var(--ink-3);
-            letter-spacing: 0.1em;
             text-transform: uppercase;
-            margin-bottom: 24px;
+            letter-spacing: 0.1em;
+            margin-bottom: 20px;
             text-align: center;
         }
 
-        .pvc-chart-body {
+        .gmx-table {
+            display: grid;
+            grid-template-columns: 80px 1fr 1fr;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        .gmx-cell {
+            padding: 12px 8px;
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
             display: flex;
-            justify-content: space-around;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 80px;
+        }
+
+        .gmx-cell:nth-child(3n) {
+            border-right: none;
+        }
+
+        .gmx-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--ink-2);
+            line-height: 1.3;
+        }
+
+        .gmx-bar-slot {
+            height: 60px;
+            display: flex;
             align-items: flex-end;
-            height: 200px;
-            padding-bottom: 30px;
+            justify-content: center;
             position: relative;
         }
 
-        .pvc-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex: 1;
-        }
-
-        .pvc-bars {
-            display: flex;
-            align-items: flex-end;
-            gap: 6px;
-            height: 140px;
-            position: relative;
-        }
-
-        .pvc-bar-wrap {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .pvc-bar-val {
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--ink);
-            white-space: nowrap;
-        }
-
-        .pvc-bar {
-            width: 24px;
+        .gmx-bar {
+            width: 32px;
             border-radius: 4px 4px 1px 1px;
-            transition: height 1s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: height 0.8s ease-out;
             position: relative;
-            background: var(--border);
-            min-height: 2px;
+            background: #E2E8F0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .pvc-bar.before {
-            background: #CBD5E1;
+        .gmx-bar-val {
+            font-size: 9px;
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            padding: 2px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            pointer-events: none;
         }
 
-        .pvc-bar.after-save {
-            background: #10B981;
-        }
-
-        .pvc-bar.after-export {
+        .gmx-bar.gain {
             background: #F59E0B;
         }
 
-        .pvc-group-label {
-            margin-top: 14px;
-            font-size: 9px;
-            font-weight: 600;
-            color: var(--ink-2);
-            text-align: center;
-            max-width: 70px;
-            line-height: 1.2;
+        .gmx-bar.save {
+            background: #10B981;
         }
 
-        .pvc-legend {
+        .gmx-bar.before {
+            background: #CBD5E1;
+            color: var(--ink);
+        }
+
+        .gmx-bar.before .gmx-bar-val {
+            color: var(--ink);
+            text-shadow: none;
+        }
+
+        .gmx-footer-row {
+            grid-column: 1 / -1;
             display: flex;
-            justify-content: center;
-            gap: 16px;
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--border);
-        }
-
-        .pvc-legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 10px;
-            font-weight: 500;
-            color: var(--ink-3);
-        }
-
-        .pvc-legend-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 2px;
-        }
-
-        .pvc-summary {
-            background: #F0FDF4;
-            padding: 16px;
-            border-radius: 12px;
-            margin-top: 20px;
-            display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            background: #F8FAFC;
         }
 
-        .pvc-summary-label {
-            font-size: 13px;
+        .gmx-footer-label {
+            font-size: 10px;
             font-weight: 700;
-            color: #166534;
+            color: var(--ink-3);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
-        .pvc-summary-val {
-            font-size: 22px;
+        .gmx-footer-val {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--ink);
+        }
+
+        .gmx-grand-total {
+            margin-top: 24px;
+            padding: 16px;
+            background: #F0FDF4;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #DCFCE7;
+        }
+
+        .gmx-grand-label {
+            font-size: 14px;
+            font-weight: 800;
+            color: #166534;
+            text-transform: uppercase;
+        }
+
+        .gmx-grand-val {
+            font-size: 24px;
             font-weight: 900;
             color: #15803D;
             letter-spacing: -0.02em;
@@ -2328,66 +2336,63 @@
             </div>
         </div>
 
-        <!-- Premium Visual Comparison (Vertical Bars) -->
+        <!-- Grid Matrix Comparison -->
         ${(function () {
                     const bci = data.billBreakdownComparison?.items || [];
                     const findBI = (lbl) => (bci.find(i => i.label === lbl) || { before: 0, after: 0, delta: 0 });
 
-                    // 1. Bill Reduction Group
+                    // Row data
+                    const exportAmt = parseFloat(ds.exportSaving) || 0;
+                    const eeiAmt = parseFloat(ds.actualEeiSaving) || 0;
+                    const feeB = parseFloat(findBI('SST').before || 0) + parseFloat(findBI('Capacity Fee').before || 0);
+                    const feeA = parseFloat(findBI('SST').after || 0) + parseFloat(findBI('Capacity Fee').after || 0);
                     const usageB = parseFloat(findBI('Usage').before || 0) + parseFloat(findBI('Network').before || 0);
                     const usageA = parseFloat(findBI('Usage').after || 0) + parseFloat(findBI('Network').after || 0);
 
-                    // 2. Tax/Fee Group
-                    const taxB = parseFloat(findBI('SST').before || 0) + parseFloat(findBI('Capacity Fee').before || 0);
-                    const taxA = parseFloat(findBI('SST').after || 0) + parseFloat(findBI('Capacity Fee').after || 0);
+                    const totalGain = exportAmt + eeiAmt;
+                    const totalReduce = parseFloat(active.billReduction) || 0;
+                    const totalSaved = parseFloat(active.totalSavings) || 0;
 
-                    // 3. Gains
-                    const exportG = parseFloat(ds.exportSaving) || 0;
-                    const eeiG = parseFloat(ds.actualEeiSaving) || 0;
-
-                    const grandTotal = parseFloat(active.totalSavings) || 0;
-
-                    // Scaling Logic
-                    const peak = Math.max(usageB, taxB, exportG, eeiG, 1);
-                    const h = v => Math.max(4, Math.round((v / peak) * 140)) + 'px';
+                    // Scaling logic
+                    const peak = Math.max(usageB, feeB, exportAmt, eeiAmt, 1);
+                    const h = v => Math.max(4, Math.round((v / peak) * 60)) + 'px';
                     const fmtK = v => 'RM ' + Math.round(v);
 
-                    const barGroup = (label, beforeVal, afterVal, type) => `
-                <div class="pvc-group">
-                    <div class="pvc-bars">
-                        ${beforeVal > 0 ? `
-                        <div class="pvc-bar-wrap">
-                            <span class="pvc-bar-val">${fmtK(beforeVal)}</span>
-                            <div class="pvc-bar before" style="height:${h(beforeVal)};"></div>
-                        </div>` : ''}
-                        <div class="pvc-bar-wrap">
-                            <span class="pvc-bar-val" style="color:${type === 'save' ? '#10B981' : '#F59E0B'}">${fmtK(afterVal)}</span>
-                            <div class="pvc-bar ${type === 'save' ? 'after-save' : 'after-export'}" style="height:${h(afterVal)};"></div>
-                        </div>
-                    </div>
-                    <div class="pvc-group-label">${label}</div>
-                </div>`;
+                    const row = (label, before, after, type) => `
+                <div class="gmx-cell"><div class="gmx-label">${label}</div></div>
+                <div class="gmx-cell">
+                    ${before > 0 ? `<div class="gmx-bar-slot"><div class="gmx-bar before" style="height:${h(before)}"><span class="gmx-bar-val">${fmtK(before)}</span></div></div>` : ''}
+                </div>
+                <div class="gmx-cell">
+                    ${after > 0 ? `<div class="gmx-bar-slot"><div class="gmx-bar ${type}" style="height:${h(after)}"><span class="gmx-bar-val">${fmtK(after)}</span></div></div>` : ''}
+                </div>
+            `;
 
                     return `
-            <div class="pvc-wrap">
-                <div class="pvc-header">Detailed Comparison</div>
+            <div class="gmx-wrap">
+                <div class="gmx-header">Billing Comparison Breakdown</div>
                 
-                <div class="pvc-chart-body">
-                    ${barGroup('Usage & Network', usageB, usageA, 'save')}
-                    ${barGroup('Taxes & Fees', taxB, taxA, 'save')}
-                    ${exportG > 0 ? barGroup('Export Credit', 0, exportG, 'export') : ''}
-                    ${eeiG > 0 ? barGroup('EEI Savings', 0, eeiG, 'export') : ''}
+                <div class="gmx-table">
+                    ${row('Export', 0, exportAmt, 'gain')}
+                    ${row('EEI', 0, eeiAmt, 'gain')}
+                    
+                    <div class="gmx-footer-row">
+                        <div class="gmx-footer-label">Total Gain</div>
+                        <div class="gmx-footer-val">RM ${fmt(totalGain)}</div>
+                    </div>
+
+                    ${row('SST+ KWTBB Retail Fee', feeB, feeA, 'save')}
+                    ${row('Usage + Network + Capacity', usageB, usageA, 'save')}
+
+                    <div class="gmx-footer-row">
+                        <div class="gmx-footer-label">Total Reduce</div>
+                        <div class="gmx-footer-val">RM ${fmt(totalReduce)}</div>
+                    </div>
                 </div>
 
-                <div class="pvc-legend">
-                    <div class="pvc-legend-item"><div class="pvc-legend-dot" style="background:#CBD5E1;"></div> Before</div>
-                    <div class="pvc-legend-item"><div class="pvc-legend-dot" style="background:#10B981;"></div> After</div>
-                    <div class="pvc-legend-item"><div class="pvc-legend-dot" style="background:#F59E0B;"></div> Solar Credit</div>
-                </div>
-
-                <div class="pvc-summary">
-                    <div class="pvc-summary-label">Monthly Savings Estimate</div>
-                    <div class="pvc-summary-val">RM ${fmt(grandTotal)}</div>
+                <div class="gmx-grand-total">
+                    <div class="gmx-grand-label">Total Saved</div>
+                    <div class="gmx-grand-val">RM ${fmt(totalSaved)}</div>
                 </div>
             </div>`;
                 })()}
