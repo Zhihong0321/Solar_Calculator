@@ -1327,152 +1327,138 @@
         }
 
         /* ── BILL COMPARISON LEDGER ── */
-        .bcl-wrap {
+        /* ── PREMIUM VISUAL COMPARISON (PVC) ── */
+        .pvc-wrap {
+            padding: 24px 16px;
+            background: var(--surface);
             border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border);
-            margin-bottom: 8px;
         }
 
-        .bcl-section-header {
+        .pvc-header {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--ink-3);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .pvc-chart-body {
             display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            height: 200px;
+            padding-bottom: 30px;
+            position: relative;
+        }
+
+        .pvc-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        .pvc-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            height: 140px;
+            position: relative;
+        }
+
+        .pvc-bar-wrap {
+            display: flex;
+            flex-direction: column;
             align-items: center;
             gap: 8px;
-            padding: 10px 20px 6px;
-            font-size: 9px;
+        }
+
+        .pvc-bar-val {
+            font-size: 10px;
             font-weight: 700;
-            letter-spacing: 0.09em;
-            text-transform: uppercase;
-            color: var(--ink-3);
-            background: var(--surface);
-        }
-
-        .bcl-col-header {
-            display: grid;
-            grid-template-columns: 1fr 72px 72px 64px;
-            padding: 6px 20px;
-            background: var(--bg);
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .bcl-ch {
-            font-size: 9px;
-            font-weight: 600;
-            color: var(--ink-3);
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            text-align: right;
-        }
-
-        .bcl-ch:first-child {
-            text-align: left;
-        }
-
-        .bcl-row {
-            display: grid;
-            grid-template-columns: 1fr 72px 72px 64px;
-            padding: 9px 20px 3px;
-            border-bottom: none;
-            align-items: baseline;
-        }
-
-        .bcl-label {
-            font-size: 12px;
-            font-weight: 500;
             color: var(--ink);
+            white-space: nowrap;
         }
 
-        .bcl-before {
-            font-size: 11px;
-            font-weight: 400;
-            color: var(--ink-3);
-            text-align: right;
-        }
-
-        .bcl-after {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--ink);
-            text-align: right;
-        }
-
-        .bcl-delta {
-            font-size: 12px;
-            font-weight: 700;
-            text-align: right;
-        }
-
-        .bcl-delta.gain {
-            color: #15803D;
-        }
-
-        .bcl-delta.save {
-            color: #15803D;
-        }
-
-        .bcl-delta.zero {
-            color: var(--ink-3);
-        }
-
-        .bcl-track-row {
-            padding: 4px 20px 8px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .bcl-track {
-            height: 3px;
+        .pvc-bar {
+            width: 24px;
+            border-radius: 4px 4px 1px 1px;
+            transition: height 1s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
             background: var(--border);
-            border-radius: 2px;
-            overflow: hidden;
+            min-height: 2px;
         }
 
-        .bcl-track-fill {
-            height: 100%;
-            border-radius: 2px;
-            transition: width 0.55s cubic-bezier(.22, .68, 0, 1.1);
+        .pvc-bar.before {
+            background: #CBD5E1;
         }
 
-        .bcl-total-row {
-            display: grid;
-            grid-template-columns: 1fr 72px 72px 64px;
-            padding: 9px 20px;
-            background: var(--bg);
+        .pvc-bar.after-save {
+            background: #10B981;
+        }
+
+        .pvc-bar.after-export {
+            background: #F59E0B;
+        }
+
+        .pvc-group-label {
+            margin-top: 14px;
+            font-size: 9px;
+            font-weight: 600;
+            color: var(--ink-2);
+            text-align: center;
+            max-width: 70px;
+            line-height: 1.2;
+        }
+
+        .pvc-legend {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 16px;
+            padding-top: 16px;
             border-top: 1px solid var(--border);
         }
 
-        .bcl-total-label {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--ink);
-        }
-
-        .bcl-total-val {
-            font-size: 11px;
-            font-weight: 700;
-            text-align: right;
-            color: var(--ink);
-        }
-
-        .bcl-grand {
+        .pvc-legend-item {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 14px 20px;
-            border-top: 2px solid var(--ink);
-            background: var(--surface);
+            gap: 6px;
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--ink-3);
         }
 
-        .bcl-grand-label {
-            font-size: 12px;
+        .pvc-legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        .pvc-summary {
+            background: #F0FDF4;
+            padding: 16px;
+            border-radius: 12px;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pvc-summary-label {
+            font-size: 13px;
             font-weight: 700;
-            color: var(--ink);
+            color: #166534;
         }
 
-        .bcl-grand-amount {
+        .pvc-summary-val {
             font-size: 22px;
             font-weight: 900;
-            letter-spacing: -0.03em;
-            color: var(--green-text);
+            color: #15803D;
+            letter-spacing: -0.02em;
         }
     </style>
 </head>
@@ -2342,97 +2328,68 @@
             </div>
         </div>
 
-        <!-- Bill Comparison Ledger -->
+        <!-- Premium Visual Comparison (Vertical Bars) -->
         ${(function () {
                     const bci = data.billBreakdownComparison?.items || [];
                     const findBI = (lbl) => (bci.find(i => i.label === lbl) || { before: 0, after: 0, delta: 0 });
 
-                    const exportGain = parseFloat(ds.exportSaving) || 0;
-                    const eeiGain = parseFloat(ds.actualEeiSaving) || 0;
-                    const totalGain = exportGain + eeiGain;
-                    const totalReduce = parseFloat(active.billReduction) || 0;
+                    // 1. Bill Reduction Group
+                    const usageB = parseFloat(findBI('Usage').before || 0) + parseFloat(findBI('Network').before || 0);
+                    const usageA = parseFloat(findBI('Usage').after || 0) + parseFloat(findBI('Network').after || 0);
+
+                    // 2. Tax/Fee Group
+                    const taxB = parseFloat(findBI('SST').before || 0) + parseFloat(findBI('Capacity Fee').before || 0);
+                    const taxA = parseFloat(findBI('SST').after || 0) + parseFloat(findBI('Capacity Fee').after || 0);
+
+                    // 3. Gains
+                    const exportG = parseFloat(ds.exportSaving) || 0;
+                    const eeiG = parseFloat(ds.actualEeiSaving) || 0;
+
                     const grandTotal = parseFloat(active.totalSavings) || 0;
 
-                    // Bill reduction rows
-                    const usageRow = findBI('Usage');
-                    const networkRow = findBI('Network');
-                    const capRow = findBI('Capacity Fee');
-                    const sstRow = findBI('SST');
+                    // Scaling Logic
+                    const peak = Math.max(usageB, taxB, exportG, eeiG, 1);
+                    const h = v => Math.max(4, Math.round((v / peak) * 140)) + 'px';
+                    const fmtK = v => 'RM ' + Math.round(v);
 
-                    // Normalise: delta here means before−after (positive = saved)
-                    const toSave = v => parseFloat(v) || 0;
-                    const fmtV = v => { const n = toSave(v); return 'RM ' + n.toFixed(2); };
-                    const fmtD = v => { const n = toSave(v); return (n > 0 ? '−' : '') + 'RM ' + Math.abs(n).toFixed(2); };
-
-                    // Track bar: width % relative to peak before-value
-                    const peak = Math.max(exportGain, eeiGain, toSave(usageRow.before), toSave(networkRow.before), toSave(capRow.before), toSave(sstRow.before), 1);
-                    const pct = v => Math.max(4, Math.round((Math.abs(toSave(v)) / peak) * 100)) + '%';
-
-                    const gainRow = (label, amount, color) => amount <= 0.005 ? '' : `
-                <div class="bcl-row">
-                    <div class="bcl-label">${label}</div>
-                    <div class="bcl-before" style="color:var(--ink-3); font-style:italic;">—</div>
-                    <div class="bcl-after" style="color:${color};">${fmtV(amount)}</div>
-                    <div class="bcl-delta gain">+${fmtV(amount)}</div>
-                </div>
-                <div style="padding: 0 20px 4px; grid-column:1/-1;">
-                    <div class="bcl-track"><div class="bcl-track-fill" style="width:${pct(amount)}; background:${color};"></div></div>
-                </div>`;
-
-                    const reduRow = (label, row) => toSave(row.before) <= 0 ? '' : `
-                <div class="bcl-row">
-                    <div class="bcl-label">${label}</div>
-                    <div class="bcl-before">${fmtV(row.before)}</div>
-                    <div class="bcl-after">${fmtV(row.after)}</div>
-                    <div class="bcl-delta ${toSave(row.delta) > 0.005 ? 'save' : 'zero'}">${toSave(row.delta) > 0.005 ? fmtD(row.delta) : '—'}</div>
-                </div>
-                <div style="padding: 0 20px 4px;">
-                    <div class="bcl-track"><div class="bcl-track-fill" style="width:${pct(row.before)}; background:var(--border);"></div></div>
+                    const barGroup = (label, beforeVal, afterVal, type) => `
+                <div class="pvc-group">
+                    <div class="pvc-bars">
+                        ${beforeVal > 0 ? `
+                        <div class="pvc-bar-wrap">
+                            <span class="pvc-bar-val">${fmtK(beforeVal)}</span>
+                            <div class="pvc-bar before" style="height:${h(beforeVal)};"></div>
+                        </div>` : ''}
+                        <div class="pvc-bar-wrap">
+                            <span class="pvc-bar-val" style="color:${type === 'save' ? '#10B981' : '#F59E0B'}">${fmtK(afterVal)}</span>
+                            <div class="pvc-bar ${type === 'save' ? 'after-save' : 'after-export'}" style="height:${h(afterVal)};"></div>
+                        </div>
+                    </div>
+                    <div class="pvc-group-label">${label}</div>
                 </div>`;
 
                     return `
-            <div class="bcl-wrap">
-
-                <!-- Column headers -->
-                <div class="bcl-col-header">
-                    <div class="bcl-ch">Component</div>
-                    <div class="bcl-ch">Before</div>
-                    <div class="bcl-ch">After</div>
-                    <div class="bcl-ch">Saved</div>
+            <div class="pvc-wrap">
+                <div class="pvc-header">Detailed Comparison</div>
+                
+                <div class="pvc-chart-body">
+                    ${barGroup('Usage & Network', usageB, usageA, 'save')}
+                    ${barGroup('Taxes & Fees', taxB, taxA, 'save')}
+                    ${exportG > 0 ? barGroup('Export Credit', 0, exportG, 'export') : ''}
+                    ${eeiG > 0 ? barGroup('EEI Savings', 0, eeiG, 'export') : ''}
                 </div>
 
-                <!-- Gains -->
-                <div class="bcl-section-header">↑ &nbsp;Gains from Solar</div>
-                ${gainRow('Export Credit', exportGain, '#15803D')}
-                ${gainRow('EEI Incentive', eeiGain, '#0369A1')}
-                <div class="bcl-total-row">
-                    <div class="bcl-total-label">Total Gains</div>
-                    <div class="bcl-total-val" style="color:var(--ink-3);">—</div>
-                    <div class="bcl-total-val" style="color:#15803D;">RM ${fmt(totalGain)}</div>
-                    <div class="bcl-total-val" style="color:#15803D;">+RM ${fmt(totalGain)}</div>
+                <div class="pvc-legend">
+                    <div class="pvc-legend-item"><div class="pvc-legend-dot" style="background:#CBD5E1;"></div> Before</div>
+                    <div class="pvc-legend-item"><div class="pvc-legend-dot" style="background:#10B981;"></div> After</div>
+                    <div class="pvc-legend-item"><div class="pvc-legend-dot" style="background:#F59E0B;"></div> Solar Credit</div>
                 </div>
 
-                <!-- Reductions -->
-                <div class="bcl-section-header" style="border-top:1px solid var(--border);">↓ &nbsp;Bill Reduction</div>
-                ${reduRow('Usage', usageRow)}
-                ${reduRow('Network', networkRow)}
-                ${reduRow('Capacity Fee', capRow)}
-                ${reduRow('SST', sstRow)}
-                <div class="bcl-total-row">
-                    <div class="bcl-total-label">Total Reduced</div>
-                    <div class="bcl-total-val" style="color:var(--ink-2);">—</div>
-                    <div class="bcl-total-val">—</div>
-                    <div class="bcl-total-val" style="color:#15803D;">-RM ${fmt(totalReduce)}</div>
+                <div class="pvc-summary">
+                    <div class="pvc-summary-label">Monthly Savings Estimate</div>
+                    <div class="pvc-summary-val">RM ${fmt(grandTotal)}</div>
                 </div>
-
-                <!-- Grand total -->
-                <div class="bcl-grand">
-                    <div class="bcl-grand-label">Monthly Savings</div>
-                    <div class="bcl-grand-amount">RM ${fmt(grandTotal)}</div>
-                </div>
-
-            </div>
-            `;
+            </div>`;
                 })()}
 
 
