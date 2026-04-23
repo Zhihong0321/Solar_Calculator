@@ -112,6 +112,7 @@
             sunPeakHour: '3.4',
             morningUsage: '30',
             overridePanels: '',
+            allowDeepPanelReduction: false,
             panelType: '650',
             smpPrice: '0.2703',
             afaRate: '0.0000',
@@ -142,6 +143,13 @@
 
         function clampInteger(value, min, max) {
             return Math.min(max, Math.max(min, Math.round(toNumber(value, min))));
+        }
+
+        function resolveCompactScaleMax(...values) {
+            const peak = Math.max(...values.map((value) => Math.abs(toNumber(value))), 0);
+            if (peak <= 30) return 30;
+            if (peak <= 50) return 50;
+            return 80;
         }
 
         function scrollToElement(ref) {
@@ -1184,10 +1192,13 @@
             const eeiAfter = Math.abs(toNumber(details.actualEei, after.eei));
             const eeiSaving = toNumber(breakdown.eeiSaving);
             const eeiRatePerKwh = toNumber(details.actualEeiRatePerKwh);
+            const totalImportAfterSolarKwh = Math.max(0, toNumber(details.netUsageKwh, details.afterUsageKwh));
+            const totalExportKwh = Math.max(0, toNumber(details.exportKwh));
             const netImportKwh = Math.max(0, toNumber(details.actualUsageForEeiKwh));
             const totalReduce = toNumber(breakdown.billReduction) + eeiSaving;
             const maxBar = Math.max(energyBefore, exportRm, 1) * 1.1;
-            const eeiScaleMax = Math.max(80, eeiBefore, eeiAfter, 1);
+            const eeiScaleMax = resolveCompactScaleMax(eeiBefore, eeiAfter);
+            const feesScaleMax = resolveCompactScaleMax(feesBefore, feesAfter);
 
             function Bar({ beforeValue, afterValue, colorAfter, scaleMax = maxBar }) {
                 return (
@@ -1262,7 +1273,7 @@
                             </div>
                             {[
                                 { label: '用电 + 网络 + 容量费', beforeValue: energyBefore, afterValue: energyAfter },
-                                { label: 'SST + KWTBB + 零售费', beforeValue: feesBefore, afterValue: feesAfter },
+                                { label: 'SST + KWTBB + 零售费', beforeValue: feesBefore, afterValue: feesAfter, scaleMax: feesScaleMax },
                                 {
                                     label: 'EEI 节能奖励 (TNB)',
                                     beforeValue: eeiBefore,
@@ -1282,17 +1293,21 @@
                                                 type="button"
                                                 onClick={() => setShowEeiHelp(true)}
                                                 style={{
-                                                    border: 'none',
+                                                    width: 22,
+                                                    height: 22,
+                                                    border: '1px solid #86efac',
                                                     background: '#ecfdf5',
                                                     color: ACCENT.primary,
-                                                    borderRadius: 999,
-                                                    padding: '3px 8px',
-                                                    fontSize: 10,
-                                                    fontWeight: 800,
+                                                    borderRadius: '50%',
+                                                    padding: 0,
+                                                    fontSize: 14,
+                                                    fontWeight: 900,
+                                                    lineHeight: 1,
                                                     cursor: 'pointer'
                                                 }}
+                                                aria-label="Explain EEI math"
                                             >
-                                                EEI 说明
+                                                +
                                             </button>
                                         )}
                                     </div>
@@ -1308,9 +1323,6 @@
                                     </div>
                                 </div>
                             ))}
-                            <div style={{ fontSize: 10, color: '#6b7280', marginTop: -2, marginBottom: 8 }}>
-                                EEI bar 独立按 RM80 上限比例显示，不跟用电费与 SST 共用比例尺。
-                            </div>
                             <Divider style={{ margin: '8px 0' }} />
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: 12, fontWeight: 600, color: ACCENT.primary }}>合计减少</span>
@@ -1383,16 +1395,16 @@
 
                                     <div style={{ padding: 16 }}>
                                         <div style={{ fontSize: 12, color: '#14532d', fontWeight: 700, marginBottom: 10 }}>
-                                            我们用安装太阳能后的 TNB bill 来算实际 EEI：
+                                            EEI 金额计算方式：
                                         </div>
                                         {[
-                                            '1. 先看 After Solar TNB Bill。',
-                                            '2. 取这张 bill 的 EEI rate per kWh。',
-                                            `3. EEI rate = RM ${fmt(Math.abs(eeiRatePerKwh), 6)} / kWh。`,
-                                            `4. Net Import = ${fmt(netImportKwh)} kWh。`,
+                                            `1. Bill After Solar Total Import = ${fmt(totalImportAfterSolarKwh)} kWh`,
+                                            `2. Bill After Solar EEI Rate = RM ${fmt(Math.abs(eeiRatePerKwh), 6)} / kWh`,
+                                            `3. Total Export kWh = ${fmt(totalExportKwh)} kWh`,
+                                            `4. Net Import kWh = ${fmt(netImportKwh)} kWh`,
                                             netImportKwh <= 0
-                                                ? '5. 因为净进口 <= 0，所以 Actual EEI = RM 0.00。'
-                                                : `5. Actual EEI = ${fmt(netImportKwh)} × RM ${fmt(Math.abs(eeiRatePerKwh), 6)} = RM ${fmt(eeiAfter)}。`
+                                                ? '5. Net Import kWh × Actual EEI Rate = RM 0.00'
+                                                : `5. Net Import kWh × Actual EEI Rate = ${fmt(netImportKwh)} × RM ${fmt(Math.abs(eeiRatePerKwh), 6)} = RM ${fmt(eeiAfter)}`
                                         ].map((line) => (
                                             <div key={line} style={{ fontSize: 12, color: '#374151', marginBottom: 8, lineHeight: 1.45 }}>
                                                 {line}
@@ -1410,10 +1422,11 @@
                                                 当前结果
                                             </div>
                                             <div style={{ display: 'grid', gap: 5, fontSize: 12, color: '#14532d' }}>
-                                                <div>Before EEI: RM {fmt(eeiBefore)}</div>
-                                                <div>After EEI: RM {fmt(eeiAfter)}</div>
+                                                <div>Bill After Solar Total Import: {fmt(totalImportAfterSolarKwh)} kWh</div>
+                                                <div>Bill After Solar EEI Rate: RM {fmt(Math.abs(eeiRatePerKwh), 6)} / kWh</div>
+                                                <div>Total Export: {fmt(totalExportKwh)} kWh</div>
                                                 <div>Net Import: {fmt(netImportKwh)} kWh</div>
-                                                <div>EEI Rate: RM {fmt(Math.abs(eeiRatePerKwh), 6)} / kWh</div>
+                                                <div>Actual EEI: RM {fmt(eeiAfter)}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -2192,7 +2205,7 @@
                     return null;
                 }
 
-                const nextInputs = { ...inputs, ...overrides };
+                const nextInputs = { ...inputs, allowDeepPanelReduction, ...overrides };
                 const params = collectSolarParams(nextInputs);
                 const requestId = solarRequestSeqRef.current + 1;
                 solarRequestSeqRef.current = requestId;
@@ -2323,6 +2336,7 @@
 
             function handleRequestFurtherPanelReduction() {
                 setAllowDeepPanelReduction(true);
+                setInputs((prev) => ({ ...prev, allowDeepPanelReduction: true }));
             }
 
             function handleCreateQuotation() {

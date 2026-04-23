@@ -23,5 +23,6 @@ REPO NAME : Solar Calculator v2
 - Updated domestic-v4 to use the official Eternalgy logo and auto-scroll to the next section after successful bill analysis and ROI generation.
 - Fixed domestic-v4 EEI display to show the actual received EEI amount instead of clamping valid EEI credits to zero.
 - Updated domestic-v4 EEI breakdown to use its own RM80 scale and added a themed popup explaining the EEI calculation formula.
+- Fixed domestic-v4 deep panel reduction unlock and rebuilt the EEI popup to show the requested import, export, net import, EEI rate, and formula breakdown.
 
 =====================
