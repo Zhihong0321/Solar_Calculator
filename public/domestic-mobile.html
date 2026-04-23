@@ -2353,20 +2353,21 @@
                     const totalReduce = parseFloat(active.billReduction) || 0;
                     const totalSaved = parseFloat(active.totalSavings) || 0;
 
-                    // Scaling logic
-                    const peak = Math.max(usageB, feeB, exportAmt, eeiAmt, 1);
-                    const h = v => Math.max(4, Math.round((v / peak) * 60)) + 'px';
-                    const fmtK = v => 'RM ' + Math.round(v);
+                    // Row-based scaling: Before value is always 100% height
+                    const row = (label, before, after, type) => {
+                        const peak = Math.max(before, after, 1);
+                        const h = v => Math.max(4, Math.round((v / peak) * 60)) + 'px';
+                        return `
+                        <div class="gmx-cell"><div class="gmx-label">${label}</div></div>
+                        <div class="gmx-cell">
+                            ${before > 0 ? `<div class="gmx-bar-slot"><div class="gmx-bar before" style="height:${h(before)}"><span class="gmx-bar-val">${fmtK(before)}</span></div></div>` : ''}
+                        </div>
+                        <div class="gmx-cell">
+                            ${after > 0 ? `<div class="gmx-bar-slot"><div class="gmx-bar ${type}" style="height:${h(after)}"><span class="gmx-bar-val">${fmtK(after)}</span></div></div>` : ''}
+                        </div>`;
+                    };
 
-                    const row = (label, before, after, type) => `
-                <div class="gmx-cell"><div class="gmx-label">${label}</div></div>
-                <div class="gmx-cell">
-                    ${before > 0 ? `<div class="gmx-bar-slot"><div class="gmx-bar before" style="height:${h(before)}"><span class="gmx-bar-val">${fmtK(before)}</span></div></div>` : ''}
-                </div>
-                <div class="gmx-cell">
-                    ${after > 0 ? `<div class="gmx-bar-slot"><div class="gmx-bar ${type}" style="height:${h(after)}"><span class="gmx-bar-val">${fmtK(after)}</span></div></div>` : ''}
-                </div>
-            `;
+                    const fmtK = v => 'RM ' + Math.round(v);
 
                     return `
             <div class="gmx-wrap">
