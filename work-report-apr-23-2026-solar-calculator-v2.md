@@ -21,5 +21,6 @@ REPO NAME : Solar Calculator v2
 - Added a floating panel qty and morning-offset quick-adjust tray to domestic-v4 with stale-response guarding so package data only updates from verified latest results.
 - Locked domestic-v4 panel reduction to recommended minus two by default and added a bottom request button to unlock deeper reduction down to 5 panels.
 - Updated domestic-v4 to use the official Eternalgy logo and auto-scroll to the next section after successful bill analysis and ROI generation.
+- Fixed domestic-v4 EEI display to show the actual received EEI amount instead of clamping valid EEI credits to zero.
 
 =====================

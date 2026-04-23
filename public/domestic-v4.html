@@ -1179,8 +1179,8 @@
             const energyAfter = toNumber(after.usage) + toNumber(after.network) + toNumber(after.capacity);
             const feesBefore = toNumber(before.sst) + toNumber(before.kwtbb) + toNumber(before.retail);
             const feesAfter = toNumber(after.sst) + toNumber(after.kwtbb) + toNumber(after.retail);
-            const eeiBefore = toNumber(before.eei);
-            const eeiAfter = Math.max(0, toNumber(after.eei));
+            const eeiBefore = Math.abs(toNumber(before.eei));
+            const eeiAfter = Math.abs(toNumber(details.actualEei, after.eei));
             const eeiSaving = toNumber(breakdown.eeiSaving);
             const eeiRatePerKwh = toNumber(details.actualEeiRatePerKwh);
             const netImportKwh = Math.max(0, toNumber(details.actualUsageForEeiKwh));
@@ -1268,7 +1268,7 @@
                                     colorAfter: '#16a34a',
                                     note: netImportKwh <= 0
                                         ? '净进口 <= 0 kWh，EEI 自动归零'
-                                        : `${fmt(netImportKwh)} kWh × RM ${fmt(eeiRatePerKwh, 6)}/kWh = RM ${fmt(eeiAfter)}`
+                                        : `${fmt(netImportKwh)} kWh × RM ${fmt(Math.abs(eeiRatePerKwh), 6)}/kWh = RM ${fmt(eeiAfter)}`
                                 }
                             ].map((row) => (
                                 <div key={row.label} style={{ marginBottom: 10 }}>
