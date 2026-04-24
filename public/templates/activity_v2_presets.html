@@ -55,6 +55,10 @@
             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Task Point</label>
             <input id="taskPoint" class="field mt-1" type="number" min="0" step="1" value="0">
           </div>
+          <div>
+            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Board Order</label>
+            <input id="displayOrder" class="field mt-1" type="number" min="0" step="1" value="100">
+          </div>
           <div id="scopeWrap">
             <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Scope</label>
             <select id="scope" class="field mt-1">
@@ -112,11 +116,14 @@
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="truncate text-sm font-extrabold">${escapeHtml(preset.task_title)}</p>
-              <p class="mt-1 text-xs font-semibold text-slate-500">${escapeHtml(preset.scope)} · ${escapeHtml(preset.department)} · ${preset.max_length_minutes} min · ${preset.task_point} pt</p>
+              <p class="mt-1 text-xs font-semibold text-slate-500">${escapeHtml(preset.scope)} · ${escapeHtml(preset.department)} · ${preset.max_length_minutes} min · ${preset.task_point} pt · order ${preset.display_order ?? 100}</p>
             </div>
-            <button class="btn ${preset.is_active ? 'btn-soft' : 'btn-dark'} shrink-0" onclick="togglePreset('${preset.id}', ${preset.is_active ? 'false' : 'true'})">
-              ${preset.is_active ? 'Deactivate' : 'Activate'}
-            </button>
+            <div class="flex shrink-0 items-center gap-2">
+              <input class="field w-20" type="number" min="0" step="1" value="${preset.display_order ?? 100}" onchange="updatePresetOrder('${preset.id}', this.value)" title="Board order">
+              <button class="btn ${preset.is_active ? 'btn-soft' : 'btn-dark'}" onclick="togglePreset('${preset.id}', ${preset.is_active ? 'false' : 'true'})">
+                ${preset.is_active ? 'Deactivate' : 'Activate'}
+              </button>
+            </div>
           </div>
         </article>`;
     }
@@ -129,18 +136,28 @@
       loadPresets();
     }
 
+    async function updatePresetOrder(id, value) {
+      await requestJson(`/api/activity-v2/presets/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ display_order: Number(value) })
+      });
+      loadPresets();
+    }
+
     document.getElementById('presetForm').addEventListener('submit', async (event) => {
       event.preventDefault();
       const payload = {
         task_title: document.getElementById('taskTitle').value,
         max_length_minutes: Number(document.getElementById('maxLength').value),
         task_point: Number(document.getElementById('taskPoint').value),
+        display_order: Number(document.getElementById('displayOrder').value),
         scope: canCreateDepartmentPreset ? document.getElementById('scope').value : 'personal'
       };
       await requestJson('/api/activity-v2/presets', { method: 'POST', body: JSON.stringify(payload) });
       event.target.reset();
       document.getElementById('maxLength').value = '120';
       document.getElementById('taskPoint').value = '0';
+      document.getElementById('displayOrder').value = '100';
       loadPresets();
     });
 

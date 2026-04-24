@@ -48,6 +48,12 @@ function normalizeTaskPoint(value) {
   return parsed;
 }
 
+function normalizeDisplayOrder(value, fallback = 100) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return parsed;
+}
+
 function normalizeAccessLevels(accessLevel) {
   return Array.isArray(accessLevel)
     ? accessLevel.map((role) => String(role).trim()).filter(Boolean)
@@ -112,21 +118,21 @@ async function applyAutoCutoffs(client, linkedUser = null) {
 async function listPresetsForUser(client, userContext) {
   const departmentResult = await client.query(
     `SELECT *
-       FROM activity_v2_task_preset
+      FROM activity_v2_task_preset
       WHERE scope = 'department'
         AND department = $1
         AND is_active = TRUE
-      ORDER BY task_title ASC, id ASC`,
+      ORDER BY display_order ASC, task_title ASC, id ASC`,
     [userContext.department]
   );
 
   const personalResult = await client.query(
     `SELECT *
-       FROM activity_v2_task_preset
+      FROM activity_v2_task_preset
       WHERE scope = 'personal'
         AND owner_user = $1
         AND is_active = TRUE
-      ORDER BY task_title ASC, id ASC`,
+      ORDER BY display_order ASC, task_title ASC, id ASC`,
     [userContext.linkedUser]
   );
 
@@ -146,7 +152,7 @@ async function listManageablePresets(client, userContext) {
          FROM activity_v2_task_preset
         WHERE (scope = 'department' AND department = $1)
            OR (scope = 'personal' AND owner_user = $2)
-        ORDER BY scope ASC, is_active DESC, task_title ASC, id ASC`,
+        ORDER BY scope ASC, is_active DESC, display_order ASC, task_title ASC, id ASC`,
       [userContext.department, userContext.linkedUser]
     );
     return result.rows;
@@ -157,7 +163,7 @@ async function listManageablePresets(client, userContext) {
        FROM activity_v2_task_preset
       WHERE scope = 'personal'
         AND owner_user = $1
-      ORDER BY is_active DESC, task_title ASC, id ASC`,
+      ORDER BY is_active DESC, display_order ASC, task_title ASC, id ASC`,
     [userContext.linkedUser]
   );
   return result.rows;
@@ -187,6 +193,7 @@ async function createPreset(client, userContext, data) {
     DEFAULT_MAX_LENGTH_MINUTES
   );
   const taskPoint = normalizeTaskPoint(data.taskPoint ?? data.task_point);
+  const displayOrder = normalizeDisplayOrder(data.displayOrder ?? data.display_order);
   const ownerUser = requestedScope === 'personal' ? userContext.linkedUser : null;
 
   const result = await client.query(
@@ -199,10 +206,11 @@ async function createPreset(client, userContext, data) {
       scope,
       created_by_user,
       owner_user,
+      display_order,
       is_active,
       created_at,
       updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, NOW(), NOW())
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, NOW(), NOW())
     RETURNING *`,
     [
       generateBubbleId('av2_preset'),
@@ -212,7 +220,8 @@ async function createPreset(client, userContext, data) {
       taskPoint,
       requestedScope,
       userContext.linkedUser,
-      ownerUser
+      ownerUser,
+      displayOrder
     ]
   );
 
@@ -230,6 +239,9 @@ async function updatePreset(client, userContext, presetId, data) {
   const isActive = data.isActive !== undefined || data.is_active !== undefined
     ? Boolean(data.isActive ?? data.is_active)
     : null;
+  const displayOrder = data.displayOrder !== undefined || data.display_order !== undefined
+    ? normalizeDisplayOrder(data.displayOrder ?? data.display_order)
+    : null;
 
   const result = await client.query(
     `UPDATE activity_v2_task_preset
@@ -237,6 +249,7 @@ async function updatePreset(client, userContext, presetId, data) {
             max_length_minutes = COALESCE($4, max_length_minutes),
             task_point = COALESCE($5, task_point),
             is_active = COALESCE($6, is_active),
+            display_order = COALESCE($9, display_order),
             updated_at = NOW()
       WHERE (id::text = $1 OR bubble_id = $1)
         AND (
@@ -252,7 +265,8 @@ async function updatePreset(client, userContext, presetId, data) {
       taskPoint,
       isActive,
       userContext.department,
-      userContext.canCreateDepartmentPreset
+      userContext.canCreateDepartmentPreset,
+      displayOrder
     ]
   );
 
@@ -425,12 +439,25 @@ async function getLiveBoard(client, userContext) {
         u.email,
         u.access_level,
         a.name AS agent_name,
+        COALESCE(preset_order.display_order, 9999) AS task_display_order,
         FLOOR(EXTRACT(EPOCH FROM (NOW() - r.started_at)) / 60)::integer AS elapsed_minutes
        FROM activity_v2_report r
        LEFT JOIN "user" u ON u.bubble_id = r.linked_user
        LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
+       LEFT JOIN LATERAL (
+         SELECT p.display_order
+          FROM activity_v2_task_preset p
+         WHERE p.is_active = TRUE
+            AND p.scope = 'department'
+            AND p.department IN (r.department, 'sales')
+            AND LOWER(p.task_title) = LOWER(r.task_title)
+          ORDER BY CASE WHEN p.department = r.department THEN 0 ELSE 1 END,
+                   p.display_order ASC,
+                   p.id ASC
+          LIMIT 1
+       ) preset_order ON TRUE
       WHERE r.ended_at IS NULL
-      ORDER BY r.department ASC, r.task_title ASC, r.started_at ASC`
+      ORDER BY r.department ASC, COALESCE(preset_order.display_order, 9999) ASC, r.task_title ASC, r.started_at ASC`
   );
 
   const todayResult = await client.query(

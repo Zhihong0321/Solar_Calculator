@@ -22,5 +22,6 @@ REPO NAME : Solar Calculator v2
 - Added TEST quick access cards for PRE Activity V2 pages on Agent Home
 - Applied PRE Activity V2 migration and demo data to production main database
 - Fixed PRE Activity preset activation wording and activated user preset
+- Updated PRE Activity live board to dense task-first management view
 
 =====================
