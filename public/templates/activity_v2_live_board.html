@@ -27,6 +27,11 @@
       color: #ffffff;
       animation-name: breakBreath;
     }
+    .worker-chip.stale-chip {
+      border-color: #b91c1c;
+      background: #dc2626;
+      animation-name: staleBreath;
+    }
     @keyframes workBreath {
       0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.28); transform: scale(1); filter: saturate(1); }
       50% { box-shadow: 0 0 0 7px rgba(37, 99, 235, 0.22); transform: scale(1.025); filter: saturate(1.25); }
@@ -34,6 +39,10 @@
     @keyframes breakBreath {
       0%, 100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.30); transform: scale(1); filter: saturate(1); }
       50% { box-shadow: 0 0 0 7px rgba(234, 88, 12, 0.24); transform: scale(1.025); filter: saturate(1.25); }
+    }
+    @keyframes staleBreath {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.36); transform: scale(1); filter: saturate(1.1); }
+      50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0.30); transform: scale(1.035); filter: saturate(1.45); }
     }
   </style>
 </head>
@@ -124,10 +133,12 @@
 
     function renderAgent(row) {
       const isBreak = /break|lunch/i.test(row.task_title || '');
+      const isStaleLunch = /lunch/i.test(row.task_title || '') && Number(row.elapsed_minutes || 0) > 90;
       return `
-        <a href="/activity-live-board/person/${encodeURIComponent(row.linked_user)}" class="worker-chip ${isBreak ? 'break-chip' : ''} block rounded-lg px-2.5 py-2 no-underline">
+        <a href="/activity-live-board/person/${encodeURIComponent(row.linked_user)}" class="worker-chip ${isBreak ? 'break-chip' : ''} ${isStaleLunch ? 'stale-chip' : ''} block rounded-lg px-2.5 py-2 no-underline">
           <p class="truncate text-[11px] font-black leading-tight sm:text-xs">${escapeHtml(displayAgentName(row))}</p>
           <p class="mt-0.5 text-[10px] font-bold leading-tight opacity-70">${timeLabel(row.started_at)} · ${row.elapsed_minutes || 0}m · ${escapeHtml(row.department || 'general')}</p>
+          ${isStaleLunch ? '<p class="mt-1 rounded bg-white/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">Maybe not updating</p>' : ''}
         </a>`;
     }
 
