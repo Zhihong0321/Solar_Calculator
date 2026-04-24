@@ -20,5 +20,7 @@ REPO NAME : Solar Calculator v2
 - Seeded Sales department PRE Activity V2 task presets
 - Seeded management preview data for PRE Activity V2 using real sales users
 - Added TEST quick access cards for PRE Activity V2 pages on Agent Home
+- Applied PRE Activity V2 migration and demo data to production main database
+- Fixed PRE Activity preset activation wording and activated user preset
 
 =====================
