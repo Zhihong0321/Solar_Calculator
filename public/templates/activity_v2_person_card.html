@@ -6,71 +6,196 @@
   <title>Activity Person Card | ETERNALGY OS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tailwind.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    * { font-family: Inter, sans-serif; box-sizing: border-box; }
-    body { margin: 0; background: #f8fafc; color: #0f172a; }
-    .btn { border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-soft { background: #e2e8f0; color: #0f172a; }
-    .btn[disabled] { opacity: 0.42; cursor: not-allowed; }
-    .field { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; background: white; }
-    .day-story { border-radius: 10px; background: #f8fafc; padding: 14px; font-size: 15px; font-weight: 800; line-height: 1.65; color: #0f172a; }
-    .story-time { color: #2563eb; font-weight: 900; }
-    .story-task { color: #0f172a; font-weight: 900; }
+    :root {
+      --ink: #0b0f17;
+      --ink-soft: #374151;
+      --muted: #6b7280;
+      --hair: #e7e3db;
+      --paper: #fafaf7;
+      --surface: #ffffff;
+      --revenue: #059669;
+      --support: #2563eb;
+      --offline: #c2410c;
+    }
+    * { font-family: Inter, sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background: var(--paper); color: var(--ink); }
+    .serif { font-family: Fraunces, Georgia, serif; font-optical-sizing: auto; }
+    .tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+    .topbar { background: var(--paper); border-bottom: 1px solid var(--hair); }
+    .pill {
+      min-width: 40px; height: 40px; border-radius: 999px; padding: 0 14px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 800;
+    }
+    .pill:hover { background: var(--hair); }
+    .pill[disabled] { opacity: .42; cursor: not-allowed; }
+    .field { border: 1px solid var(--hair); border-radius: 999px; padding: 10px 12px; background: var(--surface); font-size: 13px; font-weight: 700; }
+    .avatar {
+      width: 64px; height: 64px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #065f46, #0f766e 40%, #115e59); color: white;
+      box-shadow: inset 0 -2px 8px rgba(0,0,0,.1), 0 4px 18px rgba(6,95,70,.22);
+      font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; letter-spacing: -.02em;
+    }
+    .live-pulse {
+      width: 10px; height: 10px; border-radius: 999px; background: #10b981;
+      box-shadow: 0 0 0 0 rgba(16,185,129,.55); animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,.55); }
+      50% { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+    }
+    .date-nav {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+      border: 1px solid var(--hair); border-radius: 16px; background: var(--surface); padding: 10px;
+    }
+    .ribbon-wrap {
+      position: relative; border: 1px solid var(--hair); border-radius: 16px;
+      background: var(--surface); padding: 18px 16px 14px;
+    }
+    .ribbon {
+      position: relative; height: 44px; overflow: hidden; border-radius: 10px;
+      background-image: repeating-linear-gradient(-45deg, #f1ebde 0, #f1ebde 6px, #fafaf7 6px, #fafaf7 12px);
+    }
+    .ribbon-seg { position: absolute; top: 0; bottom: 0; border-radius: 3px; transition: all .3s ease; }
+    .ribbon-seg.revenue { background: linear-gradient(180deg, #10b981, #059669); }
+    .ribbon-seg.support { background: linear-gradient(180deg, #60a5fa, #2563eb); }
+    .ribbon-seg.offline { background: linear-gradient(180deg, #f97316, #c2410c); }
+    .ribbon-seg.live::after {
+      content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 3px;
+      background: rgba(255,255,255,.9); animation: livePulse 1.6s ease-in-out infinite;
+    }
+    @keyframes livePulse { 0%,100%{opacity:.3}50%{opacity:1} }
+    .ribbon-axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--muted); }
+    .stat-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .stat-num { font-family: Fraunces, Georgia, serif; font-size: 36px; font-weight: 500; line-height: 1; letter-spacing: -.02em; }
+    .stat-label { margin-top: 6px; font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+    .narrative {
+      max-width: 62ch; color: var(--ink-soft); font-family: Fraunces, Georgia, serif;
+      font-size: 18px; font-style: italic; font-weight: 500; line-height: 1.55;
+    }
+    .narrative .hi { color: var(--ink); font-style: normal; font-weight: 600; }
+    .narrative .tm { color: var(--revenue); font-style: normal; font-weight: 600; }
+    .jrow {
+      position: relative; display: grid; grid-template-columns: 58px 1fr; gap: 14px;
+      padding: 14px 0; cursor: pointer;
+    }
+    .jrow + .jrow { border-top: 1px dashed var(--hair); }
+    .jtime { padding-top: 2px; font-family: Fraunces, Georgia, serif; font-size: 18px; font-weight: 500; line-height: 1; letter-spacing: -.01em; }
+    .jtime-end { margin-top: 4px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+    .jtitle { color: var(--ink); font-size: 14.5px; font-weight: 800; letter-spacing: .01em; }
+    .jtag {
+      display: inline-block; margin-left: 8px; border-radius: 999px; padding: 3px 8px;
+      font-size: 9px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; vertical-align: 2px;
+    }
+    .jtag.revenue { background: #ecfdf5; color: var(--revenue); }
+    .jtag.support { background: #eff6ff; color: var(--support); }
+    .jtag.offline { background: #fff7ed; color: var(--offline); }
+    .jtag.live { background: #ecfdf5; color: #10b981; }
+    .jbar { position: relative; height: 4px; overflow: hidden; border-radius: 999px; background: var(--hair); margin-top: 6px; }
+    .jbar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+    .jbar-fill.revenue { background: linear-gradient(90deg, #10b981, #059669); }
+    .jbar-fill.support { background: linear-gradient(90deg, #60a5fa, #2563eb); }
+    .jbar-fill.offline { background: linear-gradient(90deg, #f97316, #c2410c); }
+    .jmeta { margin-top: 6px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+    .jdetail { max-height: 0; overflow: hidden; transition: max-height .32s cubic-bezier(.22,.61,.36,1); }
+    .jrow.open .jdetail { max-height: 400px; }
+    .jdetail-inner { margin-top: 10px; border-radius: 10px; background: #f5f1e8; padding: 12px 14px; color: var(--ink-soft); font-size: 13.5px; line-height: 1.55; }
+    .jdetail-inner .lbl { color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+    .val-empty { color: var(--muted); font-style: italic; }
+    .empty, .error { border: 1px solid var(--hair); border-radius: 16px; background: var(--surface); padding: 36px 20px; text-align: center; color: var(--muted); font-size: 14px; font-weight: 700; }
+    .error { border-color: #fecaca; background: #fef2f2; color: #991b1b; text-align: left; }
   </style>
 </head>
 <body>
-  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4">
-    <div class="mx-auto flex max-w-5xl items-center justify-between gap-3">
-      <a href="/activity-live-board" class="btn btn-soft"><i class="fa-solid fa-arrow-left"></i></a>
-      <div class="min-w-0 flex-1">
-        <h1 id="personName" class="truncate text-lg font-black">Person Card</h1>
-        <p id="personMeta" class="truncate text-xs font-semibold text-slate-500">Loading...</p>
+  <header class="topbar sticky top-0 z-20">
+    <div class="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
+      <a href="/activity-live-board" class="pill" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></a>
+      <div class="min-w-0 flex-1 text-center">
+        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Person Card</p>
       </div>
-      <input id="datePicker" class="field max-w-[148px]" type="date">
+      <input id="datePicker" class="field max-w-[136px]" type="date">
     </div>
   </header>
 
-  <main class="mx-auto max-w-5xl space-y-4 p-4 pb-24">
-    <section class="rounded-lg border border-slate-200 bg-white p-3">
-      <div class="grid grid-cols-3 gap-2">
-        <button class="btn btn-soft w-full" onclick="moveDate(-1)">Previous</button>
-        <button id="selectedDateLabel" class="btn btn-soft w-full" onclick="setToday()">Today</button>
-        <button id="nextDateBtn" class="btn btn-soft w-full" onclick="moveDate(1)">Next</button>
-      </div>
-    </section>
-
-    <section class="rounded-lg border border-slate-200 bg-white p-4">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Today Story</p>
-          <p id="daySummary" class="mt-1 text-sm font-extrabold text-slate-900">Loading...</p>
+  <main class="mx-auto max-w-3xl space-y-6 px-4 pb-28 pt-6">
+    <section class="flex items-center gap-4">
+      <div id="avatar" class="avatar">-</div>
+      <div class="min-w-0 flex-1">
+        <h1 id="personName" class="serif truncate text-[28px] font-semibold leading-[1.05] tracking-tight sm:text-[32px]">Loading...</h1>
+        <div class="mt-1 flex items-center gap-2 text-[12.5px] font-semibold text-slate-600">
+          <span id="liveStatusDot" class="live-pulse hidden"></span>
+          <span id="personMeta" class="truncate">Loading...</span>
         </div>
-        <button class="btn btn-soft" onclick="loadPersonCard()"><i class="fa-solid fa-rotate"></i></button>
       </div>
-      <div id="dayStory" class="day-story mt-4">Loading...</div>
     </section>
 
-    <section class="rounded-lg border border-slate-200 bg-white p-4">
-      <div class="flex items-center justify-between gap-3">
-        <h2 class="text-sm font-black uppercase tracking-widest">Preview Timeline</h2>
-        <span id="rowCount" class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black text-slate-500">0 rows</span>
+    <section class="date-nav" aria-label="Day navigation">
+      <button class="pill" onclick="moveDate(-1)">Previous</button>
+      <button id="selectedDateLabel" class="pill" onclick="setToday()">Today</button>
+      <button id="nextDateBtn" class="pill" onclick="moveDate(1)">Next</button>
+    </section>
+
+    <section class="ribbon-wrap">
+      <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Rhythm · 6 AM → 2 AM</p>
+      <div id="ribbon" class="ribbon mt-3"></div>
+      <div class="ribbon-axis">
+        <span>6 AM</span><span>10</span><span>2 PM</span><span>6</span><span>10</span><span>2 AM</span>
       </div>
-      <div id="timelineList" class="mt-4 space-y-2"></div>
+    </section>
+
+    <section class="stat-row">
+      <div>
+        <div id="statTasks" class="stat-num tabular">0</div>
+        <div class="stat-label">Tasks</div>
+      </div>
+      <div>
+        <div id="statTime" class="stat-num tabular">0<span class="text-[20px] font-normal text-slate-500">m</span></div>
+        <div class="stat-label">Logged</div>
+      </div>
+      <div>
+        <div id="statPoints" class="stat-num tabular">0</div>
+        <div class="stat-label">Points</div>
+      </div>
+    </section>
+
+    <section>
+      <p id="narrative" class="narrative">Loading the day...</p>
+    </section>
+
+    <section>
+      <p class="mb-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Journey</p>
+      <div id="journey"></div>
     </section>
   </main>
 
   <script>
     const linkedUser = decodeURIComponent(location.pathname.split('/').pop());
+    const TIER_LABEL = { revenue: 'Revenue', support: 'Support', offline: 'Break' };
+    const REVENUE_KEYWORDS = /(telemarketing|networking|bni|site visit|roadshow|company meeting|prospect|lead|customer|sales|meeting|quotation|proposal|follow.?up)/i;
+    const OFFLINE_KEYWORDS = /(lunch|break|rest|away)/i;
+    const WINDOW_START_H = 6;
+    const WINDOW_END_H = 26;
+    const WINDOW_MINS = (WINDOW_END_H - WINDOW_START_H) * 60;
 
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     }
 
-    function timeLabel(value) {
-      return value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now';
+    function initialsOf(name) {
+      const trimmed = String(name || '').trim();
+      if (!trimmed) return '-';
+      const parts = trimmed.split(/\s+/).filter(Boolean).slice(0, 2);
+      return parts.map((part) => part[0].toUpperCase()).join('') || trimmed[0].toUpperCase();
+    }
+
+    function displayName(person) {
+      if (person.agent_name) return person.agent_name;
+      if (person.email) return person.email.split('@')[0];
+      return person.linked_user || linkedUser;
     }
 
     function localDateValue(date) {
@@ -88,12 +213,33 @@
       if (value === todayValue()) return 'Today';
       const [year, month, day] = String(value).split('-').map(Number);
       const date = new Date(year, month - 1, day);
-      const monthLabel = date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
-      return `${String(day).padStart(2, '0')}/${monthLabel}`;
+      return `${String(day).padStart(2, '0')}/${date.toLocaleString('en-US', { month: 'short' }).toUpperCase()}`;
     }
 
-    function displayName(person) {
-      return person.agent_name || person.email || person.linked_user || linkedUser;
+    function timeLabel(value) {
+      return value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now';
+    }
+
+    function shortTime(value) {
+      if (!value) return 'now';
+      const date = new Date(value);
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      return `${((hours + 11) % 12) + 1}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    function formatHoursMinutes(totalMins) {
+      const minutes = Math.max(0, Math.round(totalMins || 0));
+      if (minutes < 60) return `${minutes}m`;
+      const hours = Math.floor(minutes / 60);
+      const rest = minutes % 60;
+      return rest ? `${hours}h ${rest}m` : `${hours}h`;
+    }
+
+    function inferTier(taskTitle) {
+      if (OFFLINE_KEYWORDS.test(taskTitle || '')) return 'offline';
+      if (REVENUE_KEYWORDS.test(taskTitle || '')) return 'revenue';
+      return 'support';
     }
 
     async function requestJson(url) {
@@ -103,13 +249,10 @@
       return result.data;
     }
 
-    async function loadPersonCard() {
-      const date = document.getElementById('datePicker').value;
-      updateDateNavigator();
-      const data = await requestJson(`/api/activity-v2/person/${encodeURIComponent(linkedUser)}/timeline?date=${encodeURIComponent(date)}`);
-      renderHeader(data);
-      renderDayStory(data.person || {}, data.reports || []);
-      renderTimeline(data.reports || []);
+    function updateDateNavigator() {
+      const value = document.getElementById('datePicker').value;
+      document.getElementById('selectedDateLabel').textContent = displayDateLabel(value);
+      document.getElementById('nextDateBtn').disabled = value >= todayValue();
     }
 
     function setToday() {
@@ -127,64 +270,139 @@
       loadPersonCard();
     }
 
-    function updateDateNavigator() {
-      const value = document.getElementById('datePicker').value;
-      document.getElementById('selectedDateLabel').textContent = displayDateLabel(value);
-      document.getElementById('nextDateBtn').disabled = value >= todayValue();
-    }
-
-    function renderHeader(data) {
-      const person = data.person || {};
-      document.getElementById('personName').textContent = displayName(person);
-      document.getElementById('personMeta').textContent = `${person.email || person.linked_user || linkedUser} · ${data.date}`;
-      const points = (data.reports || []).reduce((sum, row) => sum + Number(row.task_point || 0), 0);
-      const minutes = (data.reports || []).reduce((sum, row) => sum + Number(row.duration_minutes || 0), 0);
-      document.getElementById('daySummary').textContent = `${data.reports.length} tasks · ${minutes} min · ${points} pt`;
-      document.getElementById('rowCount').textContent = `${data.reports.length} rows`;
-    }
-
-    function renderDayStory(person, reports) {
-      const story = document.getElementById('dayStory');
+    function renderRibbon(reports, selectedDate) {
+      const ribbon = document.getElementById('ribbon');
       if (!reports.length) {
-        story.innerHTML = `<span class="text-slate-400">No task recorded for this date.</span>`;
+        ribbon.innerHTML = '';
         return;
       }
 
+      const dayStart = new Date(`${selectedDate}T00:00:00`);
+      const windowStart = new Date(dayStart.getTime() + WINDOW_START_H * 60 * 60 * 1000);
+      const windowEnd = new Date(dayStart.getTime() + WINDOW_END_H * 60 * 60 * 1000);
+      const segments = reports.map((row) => {
+        const start = new Date(row.started_at);
+        const end = row.ended_at ? new Date(row.ended_at) : new Date();
+        const clampedStart = start < windowStart ? windowStart : start;
+        const clampedEnd = end > windowEnd ? windowEnd : end;
+        if (clampedEnd <= windowStart || clampedStart >= windowEnd) return null;
+        const leftPct = ((clampedStart - windowStart) / 60000) / WINDOW_MINS * 100;
+        const widthPct = Math.max(0.4, ((clampedEnd - clampedStart) / 60000) / WINDOW_MINS * 100);
+        const tier = inferTier(row.task_title);
+        const isLive = !row.ended_at;
+        return `<div class="ribbon-seg ${tier} ${isLive ? 'live' : ''}" style="left:${leftPct}%; width:${widthPct}%" title="${escapeHtml(row.task_title)}"></div>`;
+      }).filter(Boolean);
+
+      ribbon.innerHTML = segments.join('');
+    }
+
+    function buildNarrative(person, reports) {
+      if (!reports.length) return 'No activity recorded for this day.';
       const name = displayName(person);
       const first = reports[0];
       const rest = reports.slice(1);
-      const firstVerb = /break|lunch/i.test(first.task_title || '') ? 'taking' : 'working';
-      const fragments = [
-        `<span class="story-task">${escapeHtml(name)}</span> started the day at <span class="story-time">${timeLabel(first.started_at)}</span> by ${firstVerb} <span class="story-task">${escapeHtml(first.task_title)}</span> for ${first.duration_minutes || 0} min`
+      const isBreak = (taskTitle) => /break|lunch/i.test(taskTitle || '');
+      const firstVerb = isBreak(first.task_title) ? 'took' : 'started on';
+      const parts = [
+        `<span class="hi">${escapeHtml(name)}</span> began the day at <span class="tm">${shortTime(first.started_at)}</span>, ${firstVerb} <span class="hi">${escapeHtml(first.task_title)}</span> for ${formatHoursMinutes(first.duration_minutes)}`
       ];
-
       rest.forEach((row) => {
-        const verb = /break|lunch/i.test(row.task_title || '') ? 'took' : 'switched to';
-        const suffix = row.ended_at ? `for ${row.duration_minutes || 0} min` : 'and is still working now';
-        fragments.push(`then at <span class="story-time">${timeLabel(row.started_at)}</span>, ${verb} <span class="story-task">${escapeHtml(row.task_title)}</span> ${suffix}`);
+        const verb = isBreak(row.task_title) ? 'paused for' : 'moved to';
+        const tail = row.ended_at ? `for ${formatHoursMinutes(row.duration_minutes)}` : 'and is still there now';
+        parts.push(`then at <span class="tm">${shortTime(row.started_at)}</span> ${verb} <span class="hi">${escapeHtml(row.task_title)}</span> ${tail}`);
       });
-
-      story.innerHTML = `${fragments.join(', ')}.`;
+      return `${parts.join(', ')}.`;
     }
 
-    function renderTimeline(reports) {
-      const list = document.getElementById('timelineList');
-      list.innerHTML = reports.length ? reports.map((row) => `
-        <article class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-3">
-          <div class="min-w-0">
-            <p class="truncate text-sm font-black">${escapeHtml(row.task_title)}</p>
-            <p class="text-xs font-semibold text-slate-500">${timeLabel(row.started_at)} - ${timeLabel(row.ended_at)} · ${row.duration_minutes || 0}m · ${row.task_point || 0} pt</p>
-          </div>
-          <span class="shrink-0 rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-slate-500">${escapeHtml(row.end_reason || 'running')}</span>
-        </article>
-      `).join('') : '<div class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-bold text-slate-400">No timeline rows</div>';
+    function renderHeader(person, reports) {
+      const name = displayName(person);
+      document.getElementById('personName').textContent = name;
+      document.getElementById('avatar').textContent = initialsOf(name);
+      const live = reports.find((row) => !row.ended_at);
+      const dot = document.getElementById('liveStatusDot');
+      const meta = document.getElementById('personMeta');
+      if (live) {
+        dot.classList.remove('hidden');
+        meta.textContent = `Working now · ${live.task_title} · ${formatHoursMinutes(live.duration_minutes)} in`;
+      } else {
+        dot.classList.add('hidden');
+        const dateStr = new Date(`${document.getElementById('datePicker').value}T00:00:00`).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+        meta.textContent = `${person.email || person.linked_user || linkedUser} · ${dateStr}`;
+      }
+    }
+
+    function renderStats(reports) {
+      const totals = reports.reduce((acc, row) => {
+        acc.minutes += Number(row.duration_minutes || 0);
+        acc.points += Number(row.task_point || 0);
+        return acc;
+      }, { minutes: 0, points: 0 });
+      document.getElementById('statTasks').textContent = reports.length;
+      document.getElementById('statTime').innerHTML = formatHoursMinutes(totals.minutes).replace(/(\d+)(h|m)/g, '$1<span class="text-[20px] font-normal text-slate-500">$2</span>');
+      document.getElementById('statPoints').textContent = totals.points;
+    }
+
+    function renderJourney(reports) {
+      const container = document.getElementById('journey');
+      if (!reports.length) {
+        container.innerHTML = '<div class="empty">Nothing recorded for this day.</div>';
+        return;
+      }
+      const maxMins = Math.max(...reports.map((row) => Number(row.duration_minutes || 0)), 1);
+      container.innerHTML = reports.map((row, index) => {
+        const tier = inferTier(row.task_title);
+        const isLive = !row.ended_at;
+        const minutes = Number(row.duration_minutes || 0);
+        const widthPct = Math.max(4, (minutes / maxMins) * 100);
+        const tagText = isLive ? 'LIVE' : TIER_LABEL[tier];
+        const tagClass = isLive ? 'live' : tier;
+        const detailText = (row.detail_text || '').trim();
+        return `
+          <article class="jrow" data-index="${index}">
+            <div>
+              <div class="jtime tabular">${shortTime(row.started_at)}</div>
+              <div class="jtime-end">${isLive ? 'NOW' : `to ${shortTime(row.ended_at)}`}</div>
+            </div>
+            <div>
+              <div>
+                <span class="jtitle">${escapeHtml(row.task_title)}</span>
+                <span class="jtag ${tagClass}">${tagText}</span>
+              </div>
+              <div class="jbar"><div class="jbar-fill ${tier}" style="width:${widthPct}%"></div></div>
+              <div class="jmeta tabular">${formatHoursMinutes(minutes)} · ${row.task_point || 0} pt${isLive ? '' : ` · ${escapeHtml(row.end_reason || 'ended')}`}</div>
+              <div class="jdetail">
+                <div class="jdetail-inner">
+                  <div class="lbl">Detail</div>
+                  <div class="mt-1 ${detailText ? '' : 'val-empty'}">${detailText ? escapeHtml(detailText) : 'No detail entered.'}</div>
+                </div>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.jrow').forEach((row) => {
+        row.addEventListener('click', () => row.classList.toggle('open'));
+      });
+    }
+
+    async function loadPersonCard() {
+      const date = document.getElementById('datePicker').value;
+      updateDateNavigator();
+      const data = await requestJson(`/api/activity-v2/person/${encodeURIComponent(linkedUser)}/timeline?date=${encodeURIComponent(date)}`);
+      const reports = data.reports || [];
+      renderHeader(data.person || {}, reports);
+      renderRibbon(reports, data.date || date);
+      renderStats(reports);
+      document.getElementById('narrative').innerHTML = buildNarrative(data.person || {}, reports);
+      renderJourney(reports);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('datePicker').value = todayValue();
       document.getElementById('datePicker').addEventListener('change', loadPersonCard);
       loadPersonCard().catch((error) => {
-        document.getElementById('timelineList').innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">${escapeHtml(error.message)}</div>`;
+        document.getElementById('journey').innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
       });
     });
   </script>

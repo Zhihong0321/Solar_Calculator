@@ -6,73 +6,165 @@
   <title>Live Activity Board | ETERNALGY OS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tailwind.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    * { font-family: Inter, sans-serif; box-sizing: border-box; }
-    body { margin: 0; background: #f8fafc; color: #0f172a; }
-    .btn { border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-soft { background: #e2e8f0; color: #0f172a; }
-    .worker-chip {
-      min-width: 0;
-      border: 1px solid #1d4ed8;
-      background: #2563eb;
-      color: #ffffff;
-      animation: workBreath 1.8s ease-in-out infinite;
+    :root {
+      --ink: #0b0f17;
+      --ink-soft: #374151;
+      --muted: #6b7280;
+      --hair: #e7e3db;
+      --paper: #fafaf7;
+      --surface: #ffffff;
+      --revenue: #059669;
+      --support: #b45309;
+      --offline: #c2410c;
+      --stale: #dc2626;
     }
-    .worker-chip.break-chip {
-      border-color: #c2410c;
-      background: #ea580c;
-      color: #ffffff;
-      animation-name: breakBreath;
+    * { font-family: Inter, sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background: var(--paper); color: var(--ink); }
+    .serif { font-family: Fraunces, Georgia, serif; font-optical-sizing: auto; }
+    .tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+    .topbar { background: var(--paper); border-bottom: 1px solid var(--hair); }
+    .pill {
+      min-width: 40px; height: 40px; border-radius: 999px; padding: 0 14px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 800;
+      transition: background .2s ease;
     }
-    .worker-chip.stale-chip {
-      border-color: #b91c1c;
-      background: #dc2626;
-      animation-name: staleBreath;
+    .pill:hover { background: var(--hair); }
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 999px; display: inline-block;
+      background: var(--revenue); box-shadow: 0 0 0 0 rgba(5, 150, 105, .5);
+      animation: heartbeat 2.4s ease-in-out infinite;
     }
-    @keyframes workBreath {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.28); transform: scale(1); filter: saturate(1); }
-      50% { box-shadow: 0 0 0 7px rgba(37, 99, 235, 0.22); transform: scale(1.025); filter: saturate(1.25); }
+    @keyframes heartbeat {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, .45); }
+      50% { box-shadow: 0 0 0 9px rgba(5, 150, 105, 0); }
     }
-    @keyframes breakBreath {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.30); transform: scale(1); filter: saturate(1); }
-      50% { box-shadow: 0 0 0 7px rgba(234, 88, 12, 0.24); transform: scale(1.025); filter: saturate(1.25); }
+    .hero-num {
+      font-family: Fraunces, Georgia, serif; font-size: 76px; font-weight: 500;
+      line-height: .92; letter-spacing: -.03em;
+    }
+    @media (min-width: 640px) { .hero-num { font-size: 96px; } }
+    .barometer {
+      position: relative; display: flex; height: 14px; overflow: hidden;
+      border-radius: 999px; background: #efeae0;
+    }
+    .barometer span { display: block; height: 100%; transition: width .6s cubic-bezier(.22,.61,.36,1); }
+    .barometer .revenue { background: linear-gradient(90deg, #10b981, #059669); }
+    .barometer .support { background: #d4a373; }
+    .barometer .offline { background: #c2410c; opacity: .78; }
+    .whisper {
+      font-family: Fraunces, Georgia, serif; font-size: 14.5px; font-style: italic;
+      font-weight: 500; line-height: 1.5; color: var(--ink-soft);
+    }
+    .task-card {
+      overflow: hidden; border: 1px solid var(--hair); border-radius: 16px;
+      background: var(--surface);
+    }
+    .task-head {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+      padding: 16px 18px; border-bottom: 1px solid var(--hair);
+    }
+    .task-name {
+      font-size: 13px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--ink);
+    }
+    .task-count {
+      font-family: Fraunces, Georgia, serif; font-size: 34px; font-weight: 500;
+      line-height: 1; letter-spacing: -.02em;
+    }
+    .task-count span {
+      margin-left: 5px; font-family: Inter, sans-serif; font-size: 10px; font-weight: 800;
+      letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+    }
+    .chips {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+      padding: 14px 16px 16px;
+    }
+    @media (min-width: 480px) { .chips { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (min-width: 768px) { .chips { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (min-width: 1024px) { .chips { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+    .chip {
+      position: relative; display: block; min-width: 0; overflow: hidden; border-radius: 12px;
+      padding: 10px 12px; color: #fff; text-decoration: none;
+      animation: chipBreath 2.2s ease-in-out infinite; animation-delay: var(--sync-delay, 0s);
+    }
+    .chip.revenue { background: linear-gradient(135deg, #059669, #047857); }
+    .chip.support { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+    .chip.offline { background: linear-gradient(135deg, #f97316, #c2410c); }
+    .chip.stale { background: linear-gradient(135deg, #ef4444, #b91c1c); animation-name: staleBreath; }
+    .chip-name { font-size: 12px; font-weight: 900; line-height: 1.15; letter-spacing: .01em; }
+    .chip-sub { margin-top: 3px; font-size: 10.5px; font-weight: 700; line-height: 1.22; opacity: .8; }
+    .chip-warn {
+      margin-top: 7px; display: inline-flex; border-radius: 999px; background: rgba(255,255,255,.22);
+      padding: 3px 7px; font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase;
+    }
+    @keyframes chipBreath {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(15, 23, 42, .18); filter: saturate(1.08); }
+      50% { transform: scale(1.025); box-shadow: 0 0 0 7px rgba(15, 23, 42, 0); filter: saturate(1.35); }
     }
     @keyframes staleBreath {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.36); transform: scale(1); filter: saturate(1.1); }
-      50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0.30); transform: scale(1.035); filter: saturate(1.45); }
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, .35); filter: saturate(1.15); }
+      50% { transform: scale(1.035); box-shadow: 0 0 0 9px rgba(220, 38, 38, 0); filter: saturate(1.55); }
     }
+    .empty, .error {
+      padding: 36px 20px; border-radius: 16px; border: 1px solid var(--hair);
+      background: var(--surface); text-align: center; font-size: 14px; font-weight: 700; color: var(--muted);
+    }
+    .error { border-color: #fecaca; background: #fef2f2; color: #991b1b; text-align: left; }
   </style>
 </head>
 <body>
-  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4">
-    <div class="mx-auto flex max-w-5xl items-center justify-between gap-3">
-      <a href="/agent/home" class="btn btn-soft"><i class="fa-solid fa-arrow-left"></i></a>
-      <div class="min-w-0 flex-1">
-        <h1 class="text-lg font-extrabold">Live Activity Board</h1>
-        <p id="liveMeta" class="text-xs font-semibold text-slate-500">Loading...</p>
+  <header class="topbar sticky top-0 z-20">
+    <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
+      <a href="/agent/home" class="pill" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></a>
+      <div class="min-w-0 flex-1 text-center">
+        <p class="serif text-[15px] font-semibold italic">Eternalgy · Live</p>
       </div>
-      <button class="btn btn-soft" onclick="loadBoard()"><i class="fa-solid fa-rotate"></i></button>
+      <button class="pill" onclick="loadBoard()" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button>
     </div>
   </header>
 
-  <main class="mx-auto max-w-5xl space-y-4 p-4 pb-24">
-    <section class="grid grid-cols-2 gap-3">
-      <div class="rounded-lg border border-slate-200 bg-white p-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Active</p>
-        <p id="activeCount" class="mt-1 text-3xl font-black">0</p>
+  <main class="mx-auto max-w-5xl space-y-8 px-4 pb-28 pt-6">
+    <section>
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Right now</p>
+        <div class="flex items-center gap-2 text-[11px] font-bold text-slate-500 tabular">
+          <span class="pulse-dot"></span>
+          <span id="liveClock">--:--</span>
+        </div>
       </div>
-      <div class="rounded-lg border border-slate-200 bg-white p-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Today Rows</p>
-        <p id="todayCount" class="mt-1 text-3xl font-black">0</p>
+      <div class="mt-2 flex items-end gap-4">
+        <span id="heroRevenue" class="hero-num tabular">0</span>
+        <div class="pb-3">
+          <p class="text-base font-extrabold leading-tight text-slate-800"><span class="font-black">of <span id="heroTotal" class="tabular">0</span></span> active people on revenue work</p>
+          <p id="heroPct" class="mt-0.5 text-xs font-bold text-slate-500 tabular">0% of active workforce</p>
+        </div>
       </div>
+      <div class="barometer mt-5" role="img" aria-label="Activity value barometer">
+        <span id="barRevenue" class="revenue" style="width:0%"></span>
+        <span id="barSupport" class="support" style="width:0%"></span>
+        <span id="barOffline" class="offline" style="width:0%"></span>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] font-bold text-slate-600">
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span><span id="legendRevenue">0 revenue</span></span>
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-blue-600"></span><span id="legendSupport">0 support</span></span>
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-orange-700"></span><span id="legendOffline">0 break</span></span>
+      </div>
+      <p id="whisper" class="whisper mt-5">Reading the room...</p>
     </section>
-    <section id="boardList" class="space-y-3"></section>
+
+    <section id="boardList" class="space-y-5"></section>
   </main>
 
   <script>
+    const STALE_LUNCH_MINUTES = 90;
+    const REVENUE_KEYWORDS = /(telemarketing|networking|bni|site visit|roadshow|company meeting|prospect|lead|customer|sales|meeting|quotation|proposal|follow.?up)/i;
+    const OFFLINE_KEYWORDS = /(lunch|break|rest|away)/i;
+
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     }
@@ -84,15 +176,29 @@
     function displayAgentName(row) {
       if (row.agent_name || row.email) return row.agent_name || row.email;
       const demoNames = {
-        demo_v2_david: 'David Demo',
-        demo_v2_robert: 'Robert Demo',
-        demo_v2_chang: 'Chang Demo',
-        demo_v2_denise: 'Denise Demo',
-        demo_v2_amanda: 'Amanda Demo',
-        demo_v2_meiling: 'Mei Ling Demo',
-        demo_v2_farid: 'Farid Demo'
+        demo_v2_david: 'David',
+        demo_v2_robert: 'Robert',
+        demo_v2_chang: 'Chang',
+        demo_v2_denise: 'Denise',
+        demo_v2_amanda: 'Amanda',
+        demo_v2_meiling: 'Mei Ling',
+        demo_v2_farid: 'Farid'
       };
       return demoNames[row.linked_user] || row.linked_user;
+    }
+
+    function inferTier(taskTitle) {
+      if (OFFLINE_KEYWORDS.test(taskTitle || '')) return 'offline';
+      if (REVENUE_KEYWORDS.test(taskTitle || '')) return 'revenue';
+      return 'support';
+    }
+
+    function pct(part, whole) {
+      return whole ? (part / whole) * 100 : 0;
+    }
+
+    function updateClock() {
+      document.getElementById('liveClock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     async function requestJson(url) {
@@ -102,48 +208,92 @@
       return result.data;
     }
 
-    async function loadBoard() {
-      const list = document.getElementById('boardList');
-      list.innerHTML = '<div class="py-8 text-center text-sm font-bold text-slate-400">Loading...</div>';
-      try {
-        const data = await requestJson('/api/activity-v2/live-board');
-        document.getElementById('activeCount').textContent = data.active.length;
-        document.getElementById('todayCount').textContent = data.today.length;
-        document.getElementById('liveMeta').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        const taskGroups = Object.values(data.byTask || {})
-          .sort((a, b) => (Number(a.displayOrder || 9999) - Number(b.displayOrder || 9999)) || String(a.taskTitle).localeCompare(String(b.taskTitle)));
-        list.innerHTML = taskGroups.length ? taskGroups.map(renderTaskGroup).join('') : '<div class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-bold text-slate-400">No active task</div>';
-      } catch (error) {
-        list.innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">${escapeHtml(error.message)}</div>`;
-      }
+    function computeBarometer(rows) {
+      return rows.reduce((acc, row) => {
+        const tier = inferTier(row.task_title);
+        acc.total += 1;
+        acc[tier] += 1;
+        return acc;
+      }, { total: 0, revenue: 0, support: 0, offline: 0 });
+    }
+
+    function renderBarometer(barometer) {
+      const total = barometer.total || 0;
+      const revenuePct = Math.round(pct(barometer.revenue, total));
+      document.getElementById('heroRevenue').textContent = barometer.revenue || 0;
+      document.getElementById('heroTotal').textContent = total;
+      document.getElementById('heroPct').textContent = `${revenuePct}% of active workforce`;
+      document.getElementById('barRevenue').style.width = `${pct(barometer.revenue, total)}%`;
+      document.getElementById('barSupport').style.width = `${pct(barometer.support, total)}%`;
+      document.getElementById('barOffline').style.width = `${pct(barometer.offline, total)}%`;
+      document.getElementById('legendRevenue').textContent = `${barometer.revenue || 0} revenue`;
+      document.getElementById('legendSupport').textContent = `${barometer.support || 0} support`;
+      document.getElementById('legendOffline').textContent = `${barometer.offline || 0} break`;
+    }
+
+    function buildWhisper(data, barometer) {
+      const total = barometer.total || 0;
+      if (!total) return 'Quiet on the board - no one checked in yet.';
+      const taskGroups = Object.values(data.byTask || {});
+      const top = taskGroups.sort((a, b) => (b.rows || []).length - (a.rows || []).length)[0];
+      const revenuePct = Math.round(pct(barometer.revenue, total));
+      if (revenuePct >= 70) return `Company is pointed at growth - ${revenuePct}% of active people are on revenue work${top ? `, led by ${top.rows.length} on ${top.taskTitle}` : ''}.`;
+      if (barometer.offline >= Math.max(2, Math.ceil(total * 0.3))) return `${barometer.offline} people are on break or offline right now.`;
+      return `${total} people active${top ? `, biggest pool is ${top.taskTitle}` : ''}.`;
     }
 
     function renderTaskGroup(group) {
-      const taskTitle = group.taskTitle || 'Other Task';
       const rows = group.rows || [];
+      const taskTitle = group.taskTitle || 'Other Task';
       return `
-        <section class="rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
-          <div class="flex items-center justify-between gap-3">
-            <h2 class="text-base font-black uppercase tracking-widest sm:text-lg">${escapeHtml(taskTitle)}</h2>
-            <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-500">${rows.length} active</span>
-          </div>
-          <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-5">${rows.map(renderAgent).join('')}</div>
-        </section>`;
+        <article class="task-card">
+          <header class="task-head">
+            <div class="min-w-0">
+              <p class="task-name truncate">${escapeHtml(taskTitle)}</p>
+            </div>
+            <p class="task-count tabular">${rows.length}<span>${rows.length === 1 ? 'agent' : 'agents'}</span></p>
+          </header>
+          <div class="chips">${rows.map(renderAgent).join('')}</div>
+        </article>
+      `;
     }
 
-    function renderAgent(row) {
-      const isBreak = /break|lunch/i.test(row.task_title || '');
-      const isStaleLunch = /lunch/i.test(row.task_title || '') && Number(row.elapsed_minutes || 0) > 90;
+    function renderAgent(row, index) {
+      const tier = inferTier(row.task_title);
+      const elapsed = Number(row.elapsed_minutes || 0);
+      const isStaleLunch = /lunch/i.test(row.task_title || '') && elapsed > STALE_LUNCH_MINUTES;
+      const classes = ['chip', tier, isStaleLunch ? 'stale' : ''].filter(Boolean).join(' ');
       return `
-        <a href="/activity-live-board/person/${encodeURIComponent(row.linked_user)}" class="worker-chip ${isBreak ? 'break-chip' : ''} ${isStaleLunch ? 'stale-chip' : ''} block rounded-lg px-2.5 py-2 no-underline">
-          <p class="truncate text-[11px] font-black leading-tight sm:text-xs">${escapeHtml(displayAgentName(row))}</p>
-          <p class="mt-0.5 text-[10px] font-bold leading-tight opacity-70">${timeLabel(row.started_at)} · ${row.elapsed_minutes || 0}m · ${escapeHtml(row.department || 'general')}</p>
-          ${isStaleLunch ? '<p class="mt-1 rounded bg-white/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">Maybe not updating</p>' : ''}
-        </a>`;
+        <a class="${classes}" style="--sync-delay:${(index % 5) * 0.11}s" href="/activity-live-board/person/${encodeURIComponent(row.linked_user)}">
+          <p class="chip-name truncate">${escapeHtml(displayAgentName(row))}</p>
+          <p class="chip-sub tabular">${timeLabel(row.started_at)} · ${elapsed}m · ${escapeHtml(row.department || 'general')}</p>
+          ${isStaleLunch ? '<span class="chip-warn">Maybe not updating</span>' : ''}
+        </a>
+      `;
+    }
+
+    async function loadBoard() {
+      const list = document.getElementById('boardList');
+      list.innerHTML = '<div class="empty">Loading live board...</div>';
+      try {
+        const data = await requestJson('/api/activity-v2/live-board');
+        const activeRows = data.active || [];
+        const barometer = computeBarometer(activeRows);
+        renderBarometer(barometer);
+        document.getElementById('whisper').textContent = buildWhisper(data, barometer);
+        const taskGroups = Object.values(data.byTask || {})
+          .sort((a, b) => (Number(a.displayOrder || 9999) - Number(b.displayOrder || 9999)) || String(a.taskTitle).localeCompare(String(b.taskTitle)));
+        list.innerHTML = taskGroups.length ? taskGroups.map(renderTaskGroup).join('') : '<div class="empty">Board is quiet - no active task right now.</div>';
+        updateClock();
+      } catch (error) {
+        list.innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+      }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      updateClock();
       loadBoard();
+      setInterval(updateClock, 30000);
       setInterval(loadBoard, 60000);
     });
   </script>
