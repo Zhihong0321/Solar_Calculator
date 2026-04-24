@@ -35,5 +35,6 @@ REPO NAME : Solar Calculator v2
 - Changed PRE person card history controls to previous and next date navigation
 - Applied Claude live board design to latest PRE Activity logic
 - Changed PRE Activity pages to business minimalist typography
+- Reduced PRE Activity typography weight and fixed live board legend spacing
 
 =====================

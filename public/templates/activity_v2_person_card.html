@@ -28,16 +28,16 @@
     .pill {
       min-width: 40px; height: 40px; border-radius: 999px; padding: 0 14px;
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 800;
+      background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 600;
     }
     .pill:hover { background: var(--hair); }
     .pill[disabled] { opacity: .42; cursor: not-allowed; }
-    .field { border: 1px solid var(--hair); border-radius: 999px; padding: 10px 12px; background: var(--surface); font-size: 13px; font-weight: 700; }
+    .field { border: 1px solid var(--hair); border-radius: 999px; padding: 10px 12px; background: var(--surface); font-size: 13px; font-weight: 500; }
     .avatar {
       width: 64px; height: 64px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
       background: linear-gradient(135deg, #065f46, #0f766e 40%, #115e59); color: white;
       box-shadow: inset 0 -2px 8px rgba(0,0,0,.1), 0 4px 18px rgba(6,95,70,.22);
-      font-size: 22px; font-weight: 900; letter-spacing: 0;
+      font-size: 22px; font-weight: 700; letter-spacing: 0;
     }
     .live-pulse {
       width: 10px; height: 10px; border-radius: 999px; background: #10b981;
@@ -68,13 +68,13 @@
       background: rgba(255,255,255,.9); animation: livePulse 1.6s ease-in-out infinite;
     }
     @keyframes livePulse { 0%,100%{opacity:.3}50%{opacity:1} }
-    .ribbon-axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--muted); }
+    .ribbon-axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; font-weight: 500; letter-spacing: .08em; color: var(--muted); }
     .stat-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-    .stat-num { font-size: 32px; font-weight: 900; line-height: 1; letter-spacing: 0; }
-    .stat-label { margin-top: 6px; font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+    .stat-num { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: 0; }
+    .stat-label { margin-top: 6px; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
     .narrative {
       max-width: 62ch; color: var(--ink-soft);
-      font-size: 15px; font-style: normal; font-weight: 700; line-height: 1.6;
+      font-size: 15px; font-style: normal; font-weight: 500; line-height: 1.6;
     }
     .narrative .hi { color: var(--ink); font-style: normal; font-weight: 600; }
     .narrative .tm { color: var(--revenue); font-style: normal; font-weight: 600; }
@@ -83,12 +83,12 @@
       padding: 14px 0; cursor: pointer;
     }
     .jrow + .jrow { border-top: 1px dashed var(--hair); }
-    .jtime { padding-top: 2px; font-size: 15px; font-weight: 900; line-height: 1; letter-spacing: 0; }
-    .jtime-end { margin-top: 4px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
-    .jtitle { color: var(--ink); font-size: 14.5px; font-weight: 800; letter-spacing: .01em; }
+    .jtime { padding-top: 2px; font-size: 15px; font-weight: 700; line-height: 1; letter-spacing: 0; }
+    .jtime-end { margin-top: 4px; color: var(--muted); font-size: 10px; font-weight: 500; letter-spacing: .06em; }
+    .jtitle { color: var(--ink); font-size: 14.5px; font-weight: 600; letter-spacing: 0; }
     .jtag {
       display: inline-block; margin-left: 8px; border-radius: 999px; padding: 3px 8px;
-      font-size: 9px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; vertical-align: 2px;
+      font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; vertical-align: 2px;
     }
     .jtag.revenue { background: #ecfdf5; color: var(--revenue); }
     .jtag.support { background: #eff6ff; color: var(--support); }
@@ -99,13 +99,13 @@
     .jbar-fill.revenue { background: linear-gradient(90deg, #10b981, #059669); }
     .jbar-fill.support { background: linear-gradient(90deg, #60a5fa, #2563eb); }
     .jbar-fill.offline { background: linear-gradient(90deg, #f97316, #c2410c); }
-    .jmeta { margin-top: 6px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+    .jmeta { margin-top: 6px; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0; }
     .jdetail { max-height: 0; overflow: hidden; transition: max-height .32s cubic-bezier(.22,.61,.36,1); }
     .jrow.open .jdetail { max-height: 400px; }
     .jdetail-inner { margin-top: 10px; border-radius: 10px; background: #f5f1e8; padding: 12px 14px; color: var(--ink-soft); font-size: 13.5px; line-height: 1.55; }
-    .jdetail-inner .lbl { color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+    .jdetail-inner .lbl { color: var(--muted); font-size: 9px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
     .val-empty { color: var(--muted); font-style: italic; }
-    .empty, .error { border: 1px solid var(--hair); border-radius: 16px; background: var(--surface); padding: 36px 20px; text-align: center; color: var(--muted); font-size: 14px; font-weight: 700; }
+    .empty, .error { border: 1px solid var(--hair); border-radius: 16px; background: var(--surface); padding: 36px 20px; text-align: center; color: var(--muted); font-size: 14px; font-weight: 500; }
     .error { border-color: #fecaca; background: #fef2f2; color: #991b1b; text-align: left; }
   </style>
 </head>
@@ -114,7 +114,7 @@
     <div class="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
       <a href="/activity-live-board" class="pill" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></a>
       <div class="min-w-0 flex-1 text-center">
-        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Person Card</p>
+        <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">Person Card</p>
       </div>
       <input id="datePicker" class="field max-w-[136px]" type="date">
     </div>
@@ -124,7 +124,7 @@
     <section class="flex items-center gap-4">
       <div id="avatar" class="avatar">-</div>
       <div class="min-w-0 flex-1">
-        <h1 id="personName" class="truncate text-xl font-black leading-tight tracking-normal sm:text-2xl">Loading...</h1>
+        <h1 id="personName" class="truncate text-xl font-semibold leading-tight tracking-normal sm:text-2xl">Loading...</h1>
         <div class="mt-1 flex items-center gap-2 text-[12.5px] font-semibold text-slate-600">
           <span id="liveStatusDot" class="live-pulse hidden"></span>
           <span id="personMeta" class="truncate">Loading...</span>
@@ -139,7 +139,7 @@
     </section>
 
     <section class="ribbon-wrap">
-      <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Rhythm · 6 AM → 2 AM</p>
+      <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Rhythm · 6 AM → 2 AM</p>
       <div id="ribbon" class="ribbon mt-3"></div>
       <div class="ribbon-axis">
         <span>6 AM</span><span>10</span><span>2 PM</span><span>6</span><span>10</span><span>2 AM</span>
@@ -166,7 +166,7 @@
     </section>
 
     <section>
-      <p class="mb-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Journey</p>
+      <p class="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Journey</p>
       <div id="journey"></div>
     </section>
   </main>

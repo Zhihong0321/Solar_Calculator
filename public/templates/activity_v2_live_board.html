@@ -29,7 +29,7 @@
     .pill {
       min-width: 40px; height: 40px; border-radius: 999px; padding: 0 14px;
       display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 800;
+      background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 600;
       transition: background .2s ease;
     }
     .pill:hover { background: var(--hair); }
@@ -46,7 +46,7 @@
       border: 1px solid var(--hair); border-radius: 12px; background: var(--surface);
       padding: 14px;
     }
-    .metric-num { font-size: 32px; font-weight: 900; line-height: 1; letter-spacing: 0; }
+    .metric-num { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: 0; }
     .barometer {
       position: relative; display: flex; height: 14px; overflow: hidden;
       border-radius: 999px; background: #efeae0;
@@ -64,16 +64,16 @@
       padding: 16px 18px; border-bottom: 1px solid var(--hair);
     }
     .task-name {
-      font-size: 13px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+      font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
       color: var(--ink);
     }
     .task-count {
-      font-size: 24px; font-weight: 900;
+      font-size: 24px; font-weight: 700;
       line-height: 1; letter-spacing: 0;
     }
     .task-count span {
-      margin-left: 5px; font-family: Inter, sans-serif; font-size: 10px; font-weight: 800;
-      letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+      margin-left: 5px; font-family: Inter, sans-serif; font-size: 10px; font-weight: 600;
+      letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
     }
     .chips {
       display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
@@ -91,11 +91,11 @@
     .chip.support { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
     .chip.offline { background: linear-gradient(135deg, #f97316, #c2410c); }
     .chip.stale { background: linear-gradient(135deg, #ef4444, #b91c1c); animation-name: staleBreath; }
-    .chip-name { font-size: 12px; font-weight: 900; line-height: 1.15; letter-spacing: .01em; }
-    .chip-sub { margin-top: 3px; font-size: 10.5px; font-weight: 700; line-height: 1.22; opacity: .8; }
+    .chip-name { font-size: 12px; font-weight: 700; line-height: 1.15; letter-spacing: 0; }
+    .chip-sub { margin-top: 3px; font-size: 10.5px; font-weight: 500; line-height: 1.22; opacity: .82; }
     .chip-warn {
       margin-top: 7px; display: inline-flex; border-radius: 999px; background: rgba(255,255,255,.22);
-      padding: 3px 7px; font-size: 9px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase;
+      padding: 3px 7px; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
     }
     @keyframes chipBreath {
       0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(15, 23, 42, .18); filter: saturate(1.08); }
@@ -107,7 +107,7 @@
     }
     .empty, .error {
       padding: 36px 20px; border-radius: 16px; border: 1px solid var(--hair);
-      background: var(--surface); text-align: center; font-size: 14px; font-weight: 700; color: var(--muted);
+      background: var(--surface); text-align: center; font-size: 14px; font-weight: 500; color: var(--muted);
     }
     .error { border-color: #fecaca; background: #fef2f2; color: #991b1b; text-align: left; }
   </style>
@@ -117,7 +117,7 @@
     <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
       <a href="/agent/home" class="pill" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></a>
       <div class="min-w-0 flex-1 text-center">
-        <p class="text-[13px] font-black uppercase tracking-[0.16em] text-slate-700">Live Activity Board</p>
+        <p class="text-[13px] font-semibold uppercase tracking-[0.14em] text-slate-700">Live Activity Board</p>
       </div>
       <button class="pill" onclick="loadBoard()" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button>
     </div>
@@ -126,8 +126,8 @@
   <main class="mx-auto max-w-5xl space-y-8 px-4 pb-28 pt-6">
     <section class="space-y-4">
       <div class="flex items-center justify-between gap-3">
-        <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Right now</p>
-        <div class="flex items-center gap-2 text-[11px] font-bold text-slate-500 tabular">
+        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Right now</p>
+        <div class="flex items-center gap-2 text-[11px] font-medium text-slate-500 tabular">
           <span class="pulse-dot"></span>
           <span id="liveClock">--:--</span>
         </div>
@@ -135,16 +135,16 @@
 
       <div class="grid grid-cols-3 gap-3">
         <div class="metric-card">
-          <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Active</p>
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Active</p>
           <p id="heroTotal" class="metric-num tabular mt-2">0</p>
         </div>
         <div class="metric-card">
-          <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Revenue</p>
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Revenue</p>
           <p id="heroRevenue" class="metric-num tabular mt-2 text-emerald-700">0</p>
         </div>
         <div class="metric-card">
-          <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Ratio</p>
-          <p id="heroPct" class="mt-2 text-lg font-black text-slate-900 tabular">0%</p>
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Ratio</p>
+          <p id="heroPct" class="mt-2 text-lg font-semibold text-slate-900 tabular">0%</p>
         </div>
       </div>
 
@@ -153,10 +153,10 @@
         <span id="barSupport" class="support" style="width:0%"></span>
         <span id="barOffline" class="offline" style="width:0%"></span>
       </div>
-      <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] font-bold text-slate-600">
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span><span id="legendRevenue">0 revenue</span></span>
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-blue-600"></span><span id="legendSupport">0 support</span></span>
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-orange-700"></span><span id="legendOffline">0 break</span></span>
+      <div class="mt-3 grid grid-cols-3 gap-2 text-[11px] font-medium text-slate-600">
+        <span class="flex min-w-0 items-center gap-1.5"><span class="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-600"></span><span id="legendRevenue" class="truncate">0 revenue</span></span>
+        <span class="flex min-w-0 items-center gap-1.5"><span class="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600"></span><span id="legendSupport" class="truncate">0 support</span></span>
+        <span class="flex min-w-0 items-center gap-1.5"><span class="h-2.5 w-2.5 shrink-0 rounded-full bg-orange-700"></span><span id="legendOffline" class="truncate">0 break</span></span>
       </div>
     </section>
 
