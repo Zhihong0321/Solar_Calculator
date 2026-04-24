@@ -15,13 +15,9 @@
     .btn { border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
     .btn-soft { background: #e2e8f0; color: #0f172a; }
     .field { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; background: white; }
-    .timeline-bar { position: relative; height: 52px; border-radius: 10px; background: #e2e8f0; overflow: hidden; }
-    .timeline-segment { position: absolute; top: 8px; height: 36px; border-radius: 8px; color: #fff; padding: 6px 8px; overflow: hidden; }
-    .work-segment { background: #2563eb; }
-    .break-segment { background: #ea580c; }
-    .ended-segment { background: #475569; }
-    .time-axis { position: relative; height: 22px; margin-top: 8px; }
-    .time-axis span { position: absolute; top: 0; transform: translateX(-50%); font-size: 10px; font-weight: 900; color: #94a3b8; white-space: nowrap; }
+    .day-story { border-radius: 10px; background: #f8fafc; padding: 14px; font-size: 15px; font-weight: 800; line-height: 1.65; color: #0f172a; }
+    .story-time { color: #2563eb; font-weight: 900; }
+    .story-task { color: #0f172a; font-weight: 900; }
   </style>
 </head>
 <body>
@@ -40,17 +36,12 @@
     <section class="rounded-lg border border-slate-200 bg-white p-4">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Today Task Line</p>
+          <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Today Story</p>
           <p id="daySummary" class="mt-1 text-sm font-extrabold text-slate-900">Loading...</p>
         </div>
         <button class="btn btn-soft" onclick="loadPersonCard()"><i class="fa-solid fa-rotate"></i></button>
       </div>
-      <div class="mt-4 overflow-x-auto">
-        <div class="min-w-[760px]">
-          <div id="taskLine" class="timeline-bar"></div>
-          <div id="timeScale" class="time-axis"></div>
-        </div>
-      </div>
+      <div id="dayStory" class="day-story mt-4">Loading...</div>
     </section>
 
     <section class="rounded-lg border border-slate-200 bg-white p-4">
@@ -88,7 +79,7 @@
       const date = document.getElementById('datePicker').value;
       const data = await requestJson(`/api/activity-v2/person/${encodeURIComponent(linkedUser)}/timeline?date=${encodeURIComponent(date)}`);
       renderHeader(data);
-      renderTaskLine(data.reports || []);
+      renderDayStory(data.person || {}, data.reports || []);
       renderTimeline(data.reports || []);
     }
 
@@ -102,31 +93,28 @@
       document.getElementById('rowCount').textContent = `${data.reports.length} rows`;
     }
 
-    function renderTaskLine(reports) {
-      const line = document.getElementById('taskLine');
-      const scale = document.getElementById('timeScale');
-      const dayStart = new Date(document.getElementById('datePicker').value + 'T06:00:00');
-      const totalMinutes = 20 * 60;
-      const now = new Date();
-      const segments = reports.map((row) => {
-        const start = new Date(row.started_at);
-        const end = row.ended_at ? new Date(row.ended_at) : now;
-        const left = Math.max(0, Math.min(totalMinutes, (start - dayStart) / 60000));
-        const right = Math.max(0, Math.min(totalMinutes, (end - dayStart) / 60000));
-        const width = Math.max(8, right - left);
-        const isBreak = /break|lunch/i.test(row.task_title || '');
-        const cls = row.ended_at ? (isBreak ? 'break-segment' : 'ended-segment') : (isBreak ? 'break-segment' : 'work-segment');
-        return `<div class="timeline-segment ${cls}" style="left:${(left / totalMinutes) * 100}%;width:${(width / totalMinutes) * 100}%;" title="${escapeHtml(row.task_title)} ${timeLabel(row.started_at)} - ${timeLabel(row.ended_at)}">
-          <div class="truncate text-[10px] font-black leading-tight">${escapeHtml(row.task_title)}</div>
-          <div class="truncate text-[9px] font-bold opacity-80">${row.duration_minutes || 0}m</div>
-        </div>`;
-      }).join('');
-      line.innerHTML = segments || '<div class="p-4 text-center text-xs font-black text-slate-400">No task for this date</div>';
-      scale.innerHTML = Array.from({ length: 11 }, (_, index) => {
-        const hour = (6 + index * 2) % 24;
-        const label = hour === 0 ? '12a' : hour < 12 ? `${hour}a` : hour === 12 ? '12p' : `${hour - 12}p`;
-        return `<span style="left:${index * 10}%">${label}</span>`;
-      }).join('');
+    function renderDayStory(person, reports) {
+      const story = document.getElementById('dayStory');
+      if (!reports.length) {
+        story.innerHTML = `<span class="text-slate-400">No task recorded for this date.</span>`;
+        return;
+      }
+
+      const name = displayName(person);
+      const first = reports[0];
+      const rest = reports.slice(1);
+      const firstVerb = /break|lunch/i.test(first.task_title || '') ? 'taking' : 'working';
+      const fragments = [
+        `<span class="story-task">${escapeHtml(name)}</span> started the day at <span class="story-time">${timeLabel(first.started_at)}</span> by ${firstVerb} <span class="story-task">${escapeHtml(first.task_title)}</span> for ${first.duration_minutes || 0} min`
+      ];
+
+      rest.forEach((row) => {
+        const verb = /break|lunch/i.test(row.task_title || '') ? 'took' : 'switched to';
+        const suffix = row.ended_at ? `for ${row.duration_minutes || 0} min` : 'and is still working now';
+        fragments.push(`then at <span class="story-time">${timeLabel(row.started_at)}</span>, ${verb} <span class="story-task">${escapeHtml(row.task_title)}</span> ${suffix}`);
+      });
+
+      story.innerHTML = `${fragments.join(', ')}.`;
     }
 
     function renderTimeline(reports) {
