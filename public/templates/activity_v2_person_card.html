@@ -14,6 +14,7 @@
     body { margin: 0; background: #f8fafc; color: #0f172a; }
     .btn { border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
     .btn-soft { background: #e2e8f0; color: #0f172a; }
+    .btn[disabled] { opacity: 0.42; cursor: not-allowed; }
     .field { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; background: white; }
     .day-story { border-radius: 10px; background: #f8fafc; padding: 14px; font-size: 15px; font-weight: 800; line-height: 1.65; color: #0f172a; }
     .story-time { color: #2563eb; font-weight: 900; }
@@ -35,9 +36,9 @@
   <main class="mx-auto max-w-5xl space-y-4 p-4 pb-24">
     <section class="rounded-lg border border-slate-200 bg-white p-3">
       <div class="grid grid-cols-3 gap-2">
-        <button class="btn btn-soft w-full" onclick="setHistoryDate(0)">Today</button>
-        <button class="btn btn-soft w-full" onclick="setHistoryDate(1)">Yesterday</button>
-        <button class="btn btn-soft w-full" onclick="setHistoryDate(2)">2 Days Ago</button>
+        <button class="btn btn-soft w-full" onclick="moveDate(-1)">Previous</button>
+        <button id="selectedDateLabel" class="btn btn-soft w-full" onclick="setToday()">Today</button>
+        <button id="nextDateBtn" class="btn btn-soft w-full" onclick="moveDate(1)">Next</button>
       </div>
     </section>
 
@@ -72,6 +73,25 @@
       return value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now';
     }
 
+    function localDateValue(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function todayValue() {
+      return localDateValue(new Date());
+    }
+
+    function displayDateLabel(value) {
+      if (value === todayValue()) return 'Today';
+      const [year, month, day] = String(value).split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      const monthLabel = date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+      return `${String(day).padStart(2, '0')}/${monthLabel}`;
+    }
+
     function displayName(person) {
       return person.agent_name || person.email || person.linked_user || linkedUser;
     }
@@ -85,17 +105,32 @@
 
     async function loadPersonCard() {
       const date = document.getElementById('datePicker').value;
+      updateDateNavigator();
       const data = await requestJson(`/api/activity-v2/person/${encodeURIComponent(linkedUser)}/timeline?date=${encodeURIComponent(date)}`);
       renderHeader(data);
       renderDayStory(data.person || {}, data.reports || []);
       renderTimeline(data.reports || []);
     }
 
-    function setHistoryDate(daysAgo) {
-      const date = new Date();
-      date.setDate(date.getDate() - Number(daysAgo || 0));
-      document.getElementById('datePicker').value = date.toISOString().split('T')[0];
+    function setToday() {
+      document.getElementById('datePicker').value = todayValue();
       loadPersonCard();
+    }
+
+    function moveDate(days) {
+      const picker = document.getElementById('datePicker');
+      const [year, month, day] = picker.value.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      date.setDate(date.getDate() + Number(days || 0));
+      const nextValue = localDateValue(date);
+      picker.value = nextValue > todayValue() ? todayValue() : nextValue;
+      loadPersonCard();
+    }
+
+    function updateDateNavigator() {
+      const value = document.getElementById('datePicker').value;
+      document.getElementById('selectedDateLabel').textContent = displayDateLabel(value);
+      document.getElementById('nextDateBtn').disabled = value >= todayValue();
     }
 
     function renderHeader(data) {
@@ -146,7 +181,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('datePicker').value = new Date().toISOString().split('T')[0];
+      document.getElementById('datePicker').value = todayValue();
       document.getElementById('datePicker').addEventListener('change', loadPersonCard);
       loadPersonCard().catch((error) => {
         document.getElementById('timelineList').innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">${escapeHtml(error.message)}</div>`;

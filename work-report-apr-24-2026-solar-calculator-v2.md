@@ -32,5 +32,6 @@ REPO NAME : Solar Calculator v2
 - Added historical quick date buttons to PRE Activity person card
 - Expanded PRE Activity V2 management demo data across four days
 - Added stale lunch warning on PRE live activity board
+- Changed PRE person card history controls to previous and next date navigation
 
 =====================
