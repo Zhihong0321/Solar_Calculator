@@ -3,6 +3,29 @@ const crypto = require('crypto');
 const DEFAULT_MAX_LENGTH_MINUTES = 120;
 const MAX_LENGTH_MINUTES = 720;
 
+const VALUE_TIERS = ['revenue', 'support', 'offline'];
+const DEFAULT_VALUE_TIER = 'support';
+const VALUE_TIER_LABELS = {
+  revenue: 'Revenue Generating',
+  support: 'Support & Admin',
+  offline: 'Break & Offline'
+};
+const REVENUE_KEYWORDS = /(prospect|cold.?call|lead|customer|hunt|sales|meeting|site.?visit|closing|quotation|proposal|demo|follow.?up)/i;
+const OFFLINE_KEYWORDS = /(lunch|break|off.?duty|rest|away)/i;
+
+function normalizeValueTier(value) {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim().toLowerCase();
+  return VALUE_TIERS.includes(normalized) ? normalized : null;
+}
+
+function inferTierFromTitle(taskTitle) {
+  const title = String(taskTitle || '');
+  if (OFFLINE_KEYWORDS.test(title)) return 'offline';
+  if (REVENUE_KEYWORDS.test(title)) return 'revenue';
+  return DEFAULT_VALUE_TIER;
+}
+
 const DEPARTMENT_PRESET_ROLES = new Set([
   'admin',
   'superadmin',
@@ -187,6 +210,8 @@ async function createPreset(client, userContext, data) {
     DEFAULT_MAX_LENGTH_MINUTES
   );
   const taskPoint = normalizeTaskPoint(data.taskPoint ?? data.task_point);
+  const valueTier = normalizeValueTier(data.valueTier ?? data.value_tier)
+    || inferTierFromTitle(taskTitle);
   const ownerUser = requestedScope === 'personal' ? userContext.linkedUser : null;
 
   const result = await client.query(
@@ -199,10 +224,11 @@ async function createPreset(client, userContext, data) {
       scope,
       created_by_user,
       owner_user,
+      value_tier,
       is_active,
       created_at,
       updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, NOW(), NOW())
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, NOW(), NOW())
     RETURNING *`,
     [
       generateBubbleId('av2_preset'),
@@ -212,7 +238,8 @@ async function createPreset(client, userContext, data) {
       taskPoint,
       requestedScope,
       userContext.linkedUser,
-      ownerUser
+      ownerUser,
+      valueTier
     ]
   );
 
@@ -230,6 +257,9 @@ async function updatePreset(client, userContext, presetId, data) {
   const isActive = data.isActive !== undefined || data.is_active !== undefined
     ? Boolean(data.isActive ?? data.is_active)
     : null;
+  const valueTier = data.valueTier !== undefined || data.value_tier !== undefined
+    ? normalizeValueTier(data.valueTier ?? data.value_tier)
+    : null;
 
   const result = await client.query(
     `UPDATE activity_v2_task_preset
@@ -237,6 +267,7 @@ async function updatePreset(client, userContext, presetId, data) {
             max_length_minutes = COALESCE($4, max_length_minutes),
             task_point = COALESCE($5, task_point),
             is_active = COALESCE($6, is_active),
+            value_tier = COALESCE($9, value_tier),
             updated_at = NOW()
       WHERE (id::text = $1 OR bubble_id = $1)
         AND (
@@ -252,7 +283,8 @@ async function updatePreset(client, userContext, presetId, data) {
       taskPoint,
       isActive,
       userContext.department,
-      userContext.canCreateDepartmentPreset
+      userContext.canCreateDepartmentPreset,
+      valueTier
     ]
   );
 
@@ -425,12 +457,27 @@ async function getLiveBoard(client, userContext) {
         u.email,
         u.access_level,
         a.name AS agent_name,
+        preset_match.value_tier AS matched_value_tier,
         FLOOR(EXTRACT(EPOCH FROM (NOW() - r.started_at)) / 60)::integer AS elapsed_minutes
        FROM activity_v2_report r
        LEFT JOIN "user" u ON u.bubble_id = r.linked_user
        LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
+       LEFT JOIN LATERAL (
+         SELECT p.value_tier
+           FROM activity_v2_task_preset p
+          WHERE p.is_active = TRUE
+            AND LOWER(p.task_title) = LOWER(r.task_title)
+            AND (
+              (p.scope = 'department' AND p.department IN (r.department, 'general'))
+              OR (p.scope = 'personal' AND p.owner_user = r.linked_user)
+            )
+          ORDER BY CASE WHEN p.department = r.department THEN 0 ELSE 1 END,
+                   CASE WHEN p.scope = 'department' THEN 0 ELSE 1 END,
+                   p.id ASC
+          LIMIT 1
+       ) preset_match ON TRUE
       WHERE r.ended_at IS NULL
-      ORDER BY r.department ASC, r.task_title ASC, r.started_at ASC`
+      ORDER BY r.task_title ASC, r.started_at ASC`
   );
 
   const todayResult = await client.query(
@@ -448,19 +495,114 @@ async function getLiveBoard(client, userContext) {
       LIMIT 150`
   );
 
-  const byDepartment = {};
+  const byTier = { revenue: {}, support: {}, offline: {} };
+  const tierCounts = { revenue: 0, support: 0, offline: 0 };
+  const taskCounts = {};
+
   activeResult.rows.forEach((row) => {
-    const department = row.department || 'general';
+    const tier = normalizeValueTier(row.matched_value_tier) || inferTierFromTitle(row.task_title);
     const taskTitle = row.task_title || 'Other Task';
-    if (!byDepartment[department]) byDepartment[department] = {};
-    if (!byDepartment[department][taskTitle]) byDepartment[department][taskTitle] = [];
-    byDepartment[department][taskTitle].push(row);
+    row.value_tier = tier;
+    if (!byTier[tier][taskTitle]) byTier[tier][taskTitle] = [];
+    byTier[tier][taskTitle].push(row);
+    tierCounts[tier] += 1;
+    taskCounts[taskTitle] = (taskCounts[taskTitle] || 0) + 1;
   });
+
+  const totalActive = activeResult.rows.length;
+  const onValueWork = tierCounts.revenue;
+  const revenuePct = totalActive > 0 ? Math.round((onValueWork / totalActive) * 100) : 0;
 
   return {
     active: activeResult.rows,
-    byDepartment,
+    byTier,
+    tierOrder: VALUE_TIERS,
+    tierLabels: VALUE_TIER_LABELS,
+    tierCounts,
+    taskCounts,
+    barometer: {
+      total: totalActive,
+      revenue: tierCounts.revenue,
+      support: tierCounts.support,
+      offline: tierCounts.offline,
+      onValueWork,
+      revenuePct
+    },
     today: todayResult.rows
+  };
+}
+
+async function getPersonTimeline(client, userContext, linkedUser, options = {}) {
+  if (!userContext.canViewManagerBoard) {
+    throw new Error('Manager access is required.');
+  }
+
+  const targetLinkedUser = normalizeText(linkedUser);
+  if (!targetLinkedUser) {
+    throw new Error('linked_user is required.');
+  }
+
+  await applyAutoCutoffs(client, targetLinkedUser);
+
+  const targetDate = normalizeText(options.date) || new Date().toISOString().split('T')[0];
+
+  const profileResult = await client.query(
+    `SELECT
+        u.bubble_id AS linked_user,
+        u.email,
+        u.access_level,
+        a.name AS agent_name,
+        a.contact AS agent_contact
+       FROM "user" u
+       LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
+      WHERE u.bubble_id = $1
+      LIMIT 1`,
+    [targetLinkedUser]
+  );
+
+  const reportResult = await client.query(
+    `SELECT r.*,
+            preset_match.value_tier AS matched_value_tier,
+            FLOOR(EXTRACT(EPOCH FROM (COALESCE(r.ended_at, NOW()) - r.started_at)) / 60)::integer AS duration_minutes
+       FROM activity_v2_report r
+       LEFT JOIN LATERAL (
+         SELECT p.value_tier
+           FROM activity_v2_task_preset p
+          WHERE p.is_active = TRUE
+            AND LOWER(p.task_title) = LOWER(r.task_title)
+            AND (
+              (p.scope = 'department' AND p.department IN (r.department, 'general'))
+              OR (p.scope = 'personal' AND p.owner_user = r.linked_user)
+            )
+          ORDER BY CASE WHEN p.department = r.department THEN 0 ELSE 1 END,
+                   CASE WHEN p.scope = 'department' THEN 0 ELSE 1 END,
+                   p.id ASC
+          LIMIT 1
+       ) preset_match ON TRUE
+      WHERE r.linked_user = $1
+        AND r.started_at >= $2::date
+        AND r.started_at < ($2::date + INTERVAL '1 day')
+      ORDER BY r.started_at ASC, r.id ASC`,
+    [targetLinkedUser, targetDate]
+  );
+
+  const reports = reportResult.rows.map((row) => ({
+    ...row,
+    value_tier: normalizeValueTier(row.matched_value_tier) || inferTierFromTitle(row.task_title)
+  }));
+
+  const totals = reports.reduce((acc, row) => {
+    acc.minutes += Number(row.duration_minutes || 0);
+    acc.points += Number(row.task_point || 0);
+    acc[row.value_tier] = (acc[row.value_tier] || 0) + Number(row.duration_minutes || 0);
+    return acc;
+  }, { minutes: 0, points: 0, revenue: 0, support: 0, offline: 0 });
+
+  return {
+    date: targetDate,
+    person: profileResult.rows[0] || { linked_user: targetLinkedUser },
+    reports,
+    totals
   };
 }
 
@@ -491,5 +633,6 @@ module.exports = {
   getCurrentActivity,
   getTimeline,
   getLiveBoard,
+  getPersonTimeline,
   updateDetail
 };

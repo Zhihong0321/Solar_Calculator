@@ -32,6 +32,10 @@ router.get('/activity-live-board', requireAuth, (req, res) => {
   res.sendFile(require('path').join(__dirname, '../../../../public/templates/activity_v2_live_board.html'));
 });
 
+router.get('/activity-live-board/person/:linkedUser', requireAuth, (req, res) => {
+  res.sendFile(require('path').join(__dirname, '../../../../public/templates/activity_v2_person_card.html'));
+});
+
 router.get('/api/activity-v2/presets', requireAuth, async (req, res) => {
   let client;
   try {
@@ -147,6 +151,20 @@ router.get('/api/activity-v2/live-board', requireAuth, async (req, res) => {
     client = await pool.connect();
     const board = await activityV2Repo.getLiveBoard(client, userContext);
     res.json({ success: true, data: board });
+  } catch (err) {
+    sendError(res, err);
+  } finally {
+    if (client) client.release();
+  }
+});
+
+router.get('/api/activity-v2/person/:linkedUser/timeline', requireAuth, async (req, res) => {
+  let client;
+  try {
+    const userContext = activityV2Repo.buildUserContext(req);
+    client = await pool.connect();
+    const data = await activityV2Repo.getPersonTimeline(client, userContext, req.params.linkedUser, { date: req.query.date });
+    res.json({ success: true, data });
   } catch (err) {
     sendError(res, err);
   } finally {

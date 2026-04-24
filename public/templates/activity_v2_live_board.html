@@ -6,43 +6,261 @@
   <title>Live Activity Board | ETERNALGY OS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tailwind.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    * { font-family: Inter, sans-serif; box-sizing: border-box; }
-    body { margin: 0; background: #f8fafc; color: #0f172a; }
-    .btn { border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-    .btn-soft { background: #e2e8f0; color: #0f172a; }
+    :root {
+      --ink: #0B0F17;
+      --ink-soft: #374151;
+      --muted: #6B7280;
+      --hair: #E7E3DB;
+      --paper: #FAFAF7;
+      --surface: #FFFFFF;
+      --revenue: #059669;
+      --revenue-soft: #ECFDF5;
+      --support: #B45309;
+      --support-soft: #FFFBEB;
+      --offline: #C2410C;
+      --offline-soft: #FFF7ED;
+      --idle: #94A3B8;
+    }
+    * { font-family: 'Inter', sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background: var(--paper); color: var(--ink); }
+    .serif { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
+    .tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+    .hair { border-color: var(--hair); }
+
+    /* Top bar */
+    .topbar {
+      background: var(--paper);
+      border-bottom: 1px solid var(--hair);
+    }
+    .mark {
+      font-family: 'Fraunces', serif;
+      font-weight: 600;
+      font-style: italic;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .pill-back {
+      width: 40px; height: 40px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; color: var(--ink-soft);
+      transition: background .2s ease;
+    }
+    .pill-back:hover { background: var(--hair); }
+
+    /* Hero pulse heading */
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 999px;
+      background: var(--revenue);
+      box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.5);
+      animation: heartbeat 2.4s ease-in-out infinite;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    @keyframes heartbeat {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.45); }
+      50% { box-shadow: 0 0 0 9px rgba(5, 150, 105, 0); }
+    }
+
+    .hero-num {
+      font-family: 'Fraunces', serif;
+      font-weight: 500;
+      font-size: 76px;
+      line-height: 0.92;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+    @media (min-width: 640px) {
+      .hero-num { font-size: 96px; }
+    }
+
+    /* Barometer */
+    .barometer {
+      position: relative;
+      height: 14px;
+      background: #EFEAE0;
+      border-radius: 999px;
+      overflow: hidden;
+      display: flex;
+    }
+    .barometer > span {
+      display: block;
+      height: 100%;
+      transition: width .6s cubic-bezier(.22,.61,.36,1);
+    }
+    .barometer > span.revenue { background: linear-gradient(90deg, #10B981, #059669); }
+    .barometer > span.support { background: #D4A373; }
+    .barometer > span.offline { background: #C2410C; opacity: 0.75; }
+
+    /* Tier sections */
+    .tier-wrap { background: var(--surface); border: 1px solid var(--hair); border-radius: 16px; overflow: hidden; }
+    .tier-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 18px; border-bottom: 1px solid var(--hair);
+    }
+    .tier-title-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .tier-tag {
+      font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 4px 10px; border-radius: 999px;
+    }
+    .tier-tag.revenue { color: var(--revenue); background: var(--revenue-soft); }
+    .tier-tag.support { color: var(--support); background: var(--support-soft); }
+    .tier-tag.offline { color: var(--offline); background: var(--offline-soft); }
+
+    .tier-count {
+      font-family: 'Fraunces', serif;
+      font-weight: 500;
+      font-size: 22px;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+    }
+
+    /* Task block */
+    .task-block { padding: 16px 18px; }
+    .task-block + .task-block { border-top: 1px dashed var(--hair); }
+    .task-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .task-name {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; color: var(--ink);
+    }
+    .task-big {
+      font-family: 'Fraunces', serif;
+      font-weight: 500;
+      font-size: 34px;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .task-big-suffix { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; margin-left: 6px; }
+
+    /* Worker chips */
+    .chips {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    @media (min-width: 480px) { .chips { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (min-width: 768px) { .chips { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+    .chip {
+      position: relative;
+      display: block;
+      text-decoration: none;
+      padding: 10px 12px;
+      border-radius: 12px;
+      color: #fff;
+      background: #0F172A;
+      box-shadow: 0 0 0 0 rgba(15, 23, 42, 0.18);
+      animation: chipBreath 2.4s ease-in-out infinite;
+      animation-delay: var(--sync-delay, 0s);
+      overflow: hidden;
+    }
+    .chip.revenue { background: linear-gradient(135deg, #059669, #047857); box-shadow-color: rgba(5, 150, 105, 0.25); }
+    .chip.support { background: linear-gradient(135deg, #B45309, #92400E); box-shadow-color: rgba(180, 83, 9, 0.22); }
+    .chip.offline { background: linear-gradient(135deg, #C2410C, #9A3412); box-shadow-color: rgba(194, 65, 12, 0.22); }
+    .chip.idle    { background: #E5E7EB; color: #374151; animation: none; }
+    .chip.idle .chip-sub { color: #6B7280; }
+
+    .chip-name { font-size: 12.5px; font-weight: 800; line-height: 1.15; letter-spacing: 0.01em; }
+    .chip-sub  { margin-top: 3px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; opacity: .78; }
+
+    @keyframes chipBreath {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(15, 23, 42, 0.16); }
+      50%      { transform: scale(1.02); box-shadow: 0 0 0 6px rgba(15, 23, 42, 0); }
+    }
+
+    .chip-warn {
+      position: absolute; top: 6px; right: 6px;
+      width: 8px; height: 8px; border-radius: 999px;
+      background: #F59E0B; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+    }
+
+    /* Whisper */
+    .whisper {
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      font-weight: 500;
+      font-size: 14.5px;
+      color: var(--ink-soft);
+      line-height: 1.5;
+    }
+
+    .empty {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .error {
+      padding: 14px 16px; border-radius: 12px;
+      background: #FEF2F2; color: #991B1B;
+      font-size: 13px; font-weight: 700;
+      border: 1px solid #FECACA;
+    }
   </style>
 </head>
 <body>
-  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4">
-    <div class="mx-auto flex max-w-5xl items-center justify-between gap-3">
-      <a href="/agent/home" class="btn btn-soft"><i class="fa-solid fa-arrow-left"></i></a>
-      <div class="min-w-0 flex-1">
-        <h1 class="text-lg font-extrabold">Live Activity Board</h1>
-        <p id="liveMeta" class="text-xs font-semibold text-slate-500">Loading...</p>
+
+  <header class="topbar sticky top-0 z-20">
+    <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
+      <a href="/agent/home" class="pill-back" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></a>
+      <div class="min-w-0 flex-1 text-center">
+        <p class="mark text-[15px]">Eternalgy · Live</p>
       </div>
-      <button class="btn btn-soft" onclick="loadBoard()"><i class="fa-solid fa-rotate"></i></button>
+      <div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500 tabular">
+        <span class="pulse-dot"></span>
+        <span id="liveClock">--:--</span>
+      </div>
     </div>
   </header>
 
-  <main class="mx-auto max-w-5xl space-y-4 p-4 pb-24">
-    <section class="grid grid-cols-2 gap-3">
-      <div class="rounded-lg border border-slate-200 bg-white p-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Active</p>
-        <p id="activeCount" class="mt-1 text-3xl font-black">0</p>
+  <main class="mx-auto max-w-5xl px-4 pt-6 pb-28 space-y-8">
+
+    <!-- HERO: the money shot -->
+    <section>
+      <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Right now</p>
+      <div class="mt-2 flex items-end gap-4">
+        <span id="heroRevenue" class="hero-num tabular">0</span>
+        <div class="pb-3">
+          <p class="text-base font-800 text-slate-800 leading-tight"><span class="font-black">of <span id="heroTotal" class="tabular">0</span></span> people on revenue work</p>
+          <p id="heroPct" class="text-xs font-bold text-slate-500 mt-0.5 tabular">0% of active workforce</p>
+        </div>
       </div>
-      <div class="rounded-lg border border-slate-200 bg-white p-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Today Rows</p>
-        <p id="todayCount" class="mt-1 text-3xl font-black">0</p>
+
+      <!-- Barometer -->
+      <div class="mt-5 barometer" role="img" aria-label="Value barometer">
+        <span class="revenue" id="barRevenue" style="width:0%"></span>
+        <span class="support" id="barSupport" style="width:0%"></span>
+        <span class="offline" id="barOffline" style="width:0%"></span>
       </div>
+      <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px] font-bold text-slate-600">
+        <span class="flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#059669"></span><span id="legendRevenue">0 revenue</span></span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#D4A373"></span><span id="legendSupport">0 support</span></span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#C2410C"></span><span id="legendOffline">0 break</span></span>
+      </div>
+
+      <p id="whisper" class="whisper mt-5">Reading the room…</p>
     </section>
-    <section id="boardList" class="space-y-4"></section>
+
+    <!-- TIER SECTIONS -->
+    <section id="tiers" class="space-y-5"></section>
   </main>
 
   <script>
+    const TIER_ORDER = ['revenue', 'support', 'offline'];
+    const TIER_LABELS = {
+      revenue: 'Revenue Generating',
+      support: 'Support & Admin',
+      offline: 'Break & Offline'
+    };
+    const STALE_MINUTES = 90;
+
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     }
@@ -54,15 +272,15 @@
     function displayAgentName(row) {
       if (row.agent_name || row.email) return row.agent_name || row.email;
       const demoNames = {
-        demo_v2_david: 'David Demo',
-        demo_v2_robert: 'Robert Demo',
-        demo_v2_chang: 'Chang Demo',
-        demo_v2_denise: 'Denise Demo',
-        demo_v2_amanda: 'Amanda Demo',
-        demo_v2_meiling: 'Mei Ling Demo',
-        demo_v2_farid: 'Farid Demo'
+        demo_v2_david: 'David', demo_v2_robert: 'Robert', demo_v2_chang: 'Chang',
+        demo_v2_denise: 'Denise', demo_v2_amanda: 'Amanda', demo_v2_meiling: 'Mei Ling',
+        demo_v2_farid: 'Farid'
       };
       return demoNames[row.linked_user] || row.linked_user;
+    }
+
+    function updateClock() {
+      document.getElementById('liveClock').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     async function requestJson(url) {
@@ -72,49 +290,123 @@
       return result.data;
     }
 
+    function pct(part, whole) {
+      if (!whole) return 0;
+      return (part / whole) * 100;
+    }
+
+    function renderBarometer(barometer) {
+      const total = barometer.total || 0;
+      document.getElementById('heroRevenue').textContent = barometer.revenue || 0;
+      document.getElementById('heroTotal').textContent = total;
+      document.getElementById('heroPct').textContent = `${barometer.revenuePct || 0}% of active workforce`;
+
+      document.getElementById('barRevenue').style.width = `${pct(barometer.revenue, total)}%`;
+      document.getElementById('barSupport').style.width = `${pct(barometer.support, total)}%`;
+      document.getElementById('barOffline').style.width = `${pct(barometer.offline, total)}%`;
+
+      document.getElementById('legendRevenue').textContent = `${barometer.revenue || 0} revenue`;
+      document.getElementById('legendSupport').textContent = `${barometer.support || 0} support`;
+      document.getElementById('legendOffline').textContent = `${barometer.offline || 0} break`;
+    }
+
+    function buildWhisper(data) {
+      const b = data.barometer || {};
+      const total = b.total || 0;
+      if (total === 0) return 'Quiet on the board — no one checked in yet.';
+
+      const taskCounts = data.taskCounts || {};
+      const top = Object.entries(taskCounts).sort((a, b) => b[1] - a[1])[0];
+
+      if (b.revenuePct >= 70) {
+        return `Company is pointed at growth — ${b.revenuePct}% of active workforce is on revenue work${top ? `, led by ${top[1]} on ${top[0]}` : ''}.`;
+      }
+      if (b.revenuePct >= 40) {
+        return `Mixed rhythm — ${b.revenue} on revenue, ${b.support} keeping the engine running${top ? `. Biggest pool: ${top[0]}` : ''}.`;
+      }
+      if (b.offline >= Math.max(3, Math.ceil(total * 0.3))) {
+        return `Most of the team is resting right now — ${b.offline} on break.`;
+      }
+      return `${total} people active${top ? `, most on ${top[0]}` : ''}.`;
+    }
+
+    function renderTiers(data) {
+      const container = document.getElementById('tiers');
+      const byTier = data.byTier || {};
+      const sections = [];
+
+      TIER_ORDER.forEach((tier) => {
+        const taskMap = byTier[tier] || {};
+        const tasks = Object.entries(taskMap)
+          .sort((a, b) => b[1].length - a[1].length); // biggest pool first
+        if (!tasks.length) return;
+
+        const tierCount = tasks.reduce((sum, [, rows]) => sum + rows.length, 0);
+        sections.push(`
+          <article class="tier-wrap">
+            <header class="tier-head">
+              <div class="tier-title-row">
+                <span class="tier-tag ${tier}">${TIER_LABELS[tier]}</span>
+              </div>
+              <div class="tier-count tabular">${tierCount} <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">people</span></div>
+            </header>
+            ${tasks.map(([taskTitle, rows]) => renderTaskBlock(tier, taskTitle, rows)).join('')}
+          </article>
+        `);
+      });
+
+      container.innerHTML = sections.length
+        ? sections.join('')
+        : '<div class="empty">Board is quiet — no active tasks right now.</div>';
+    }
+
+    function renderTaskBlock(tier, taskTitle, rows) {
+      return `
+        <div class="task-block">
+          <div class="task-row-head">
+            <p class="task-name">${escapeHtml(taskTitle)}</p>
+            <p class="task-big tabular">${rows.length}<span class="task-big-suffix">${rows.length === 1 ? 'agent' : 'agents'}</span></p>
+          </div>
+          <div class="chips">
+            ${rows.map((row, i) => renderChip(tier, row, i)).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderChip(tier, row, index) {
+      const elapsed = Number(row.elapsed_minutes || 0);
+      const isOffline = tier === 'offline';
+      const isStale = isOffline && elapsed > STALE_MINUTES;
+      const classes = [`chip`, tier];
+      if (isStale) classes.push('idle');
+      const syncDelay = `${(index % 4) * 0.12}s`;
+      return `
+        <a class="${classes.join(' ')}"
+           style="--sync-delay:${syncDelay}"
+           href="/activity-live-board/person/${encodeURIComponent(row.linked_user)}">
+          ${isStale ? '<span class="chip-warn" title="Stale — may not be updating"></span>' : ''}
+          <p class="chip-name">${escapeHtml(displayAgentName(row))}</p>
+          <p class="chip-sub tabular">${timeLabel(row.started_at)} · ${elapsed}m · ${escapeHtml(row.department || 'general')}</p>
+        </a>
+      `;
+    }
+
     async function loadBoard() {
-      const list = document.getElementById('boardList');
-      list.innerHTML = '<div class="py-8 text-center text-sm font-bold text-slate-400">Loading...</div>';
       try {
         const data = await requestJson('/api/activity-v2/live-board');
-        document.getElementById('activeCount').textContent = data.active.length;
-        document.getElementById('todayCount').textContent = data.today.length;
-        document.getElementById('liveMeta').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        list.innerHTML = Object.keys(data.byDepartment).length ? Object.entries(data.byDepartment).map(renderDepartment).join('') : '<div class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-bold text-slate-400">No active task</div>';
+        renderBarometer(data.barometer || { total: 0, revenue: 0, support: 0, offline: 0, revenuePct: 0 });
+        renderTiers(data);
+        document.getElementById('whisper').textContent = buildWhisper(data);
       } catch (error) {
-        list.innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">${escapeHtml(error.message)}</div>`;
+        document.getElementById('tiers').innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
       }
     }
 
-    function renderDepartment([department, taskGroups]) {
-      return `
-        <section class="rounded-lg border border-slate-200 bg-white p-4">
-          <h2 class="text-sm font-black uppercase tracking-widest">${escapeHtml(department)}</h2>
-          <div class="mt-4 space-y-4">${Object.entries(taskGroups).map(renderTaskGroup).join('')}</div>
-        </section>`;
-    }
-
-    function renderTaskGroup([taskTitle, rows]) {
-      return `
-        <div>
-          <p class="text-xs font-black uppercase tracking-widest text-slate-400">${escapeHtml(taskTitle)}</p>
-          <div class="mt-2 space-y-2">${rows.map(renderAgent).join('')}</div>
-        </div>`;
-    }
-
-    function renderAgent(row) {
-      return `
-        <div class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-3">
-          <div class="min-w-0">
-            <p class="truncate text-sm font-extrabold">${escapeHtml(displayAgentName(row))}</p>
-            <p class="text-xs font-semibold text-slate-500">${timeLabel(row.started_at)} - now</p>
-          </div>
-          <span class="shrink-0 rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">${row.elapsed_minutes || 0}m</span>
-        </div>`;
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
+      updateClock();
       loadBoard();
+      setInterval(updateClock, 30000);
       setInterval(loadBoard, 60000);
     });
   </script>
