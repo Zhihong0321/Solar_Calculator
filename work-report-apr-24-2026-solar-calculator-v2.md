@@ -34,5 +34,6 @@ REPO NAME : Solar Calculator v2
 - Added stale lunch warning on PRE live activity board
 - Changed PRE person card history controls to previous and next date navigation
 - Applied Claude live board design to latest PRE Activity logic
+- Changed PRE Activity pages to business minimalist typography
 
 =====================

@@ -6,7 +6,7 @@
   <title>Activity Person Card | ETERNALGY OS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tailwind.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -23,7 +23,6 @@
     }
     * { font-family: Inter, sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { margin: 0; background: var(--paper); color: var(--ink); }
-    .serif { font-family: Fraunces, Georgia, serif; font-optical-sizing: auto; }
     .tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
     .topbar { background: var(--paper); border-bottom: 1px solid var(--hair); }
     .pill {
@@ -38,7 +37,7 @@
       width: 64px; height: 64px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
       background: linear-gradient(135deg, #065f46, #0f766e 40%, #115e59); color: white;
       box-shadow: inset 0 -2px 8px rgba(0,0,0,.1), 0 4px 18px rgba(6,95,70,.22);
-      font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; letter-spacing: -.02em;
+      font-size: 22px; font-weight: 900; letter-spacing: 0;
     }
     .live-pulse {
       width: 10px; height: 10px; border-radius: 999px; background: #10b981;
@@ -71,11 +70,11 @@
     @keyframes livePulse { 0%,100%{opacity:.3}50%{opacity:1} }
     .ribbon-axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--muted); }
     .stat-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-    .stat-num { font-family: Fraunces, Georgia, serif; font-size: 36px; font-weight: 500; line-height: 1; letter-spacing: -.02em; }
+    .stat-num { font-size: 32px; font-weight: 900; line-height: 1; letter-spacing: 0; }
     .stat-label { margin-top: 6px; font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
     .narrative {
-      max-width: 62ch; color: var(--ink-soft); font-family: Fraunces, Georgia, serif;
-      font-size: 18px; font-style: italic; font-weight: 500; line-height: 1.55;
+      max-width: 62ch; color: var(--ink-soft);
+      font-size: 15px; font-style: normal; font-weight: 700; line-height: 1.6;
     }
     .narrative .hi { color: var(--ink); font-style: normal; font-weight: 600; }
     .narrative .tm { color: var(--revenue); font-style: normal; font-weight: 600; }
@@ -84,7 +83,7 @@
       padding: 14px 0; cursor: pointer;
     }
     .jrow + .jrow { border-top: 1px dashed var(--hair); }
-    .jtime { padding-top: 2px; font-family: Fraunces, Georgia, serif; font-size: 18px; font-weight: 500; line-height: 1; letter-spacing: -.01em; }
+    .jtime { padding-top: 2px; font-size: 15px; font-weight: 900; line-height: 1; letter-spacing: 0; }
     .jtime-end { margin-top: 4px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
     .jtitle { color: var(--ink); font-size: 14.5px; font-weight: 800; letter-spacing: .01em; }
     .jtag {
@@ -125,7 +124,7 @@
     <section class="flex items-center gap-4">
       <div id="avatar" class="avatar">-</div>
       <div class="min-w-0 flex-1">
-        <h1 id="personName" class="serif truncate text-[28px] font-semibold leading-[1.05] tracking-tight sm:text-[32px]">Loading...</h1>
+        <h1 id="personName" class="truncate text-xl font-black leading-tight tracking-normal sm:text-2xl">Loading...</h1>
         <div class="mt-1 flex items-center gap-2 text-[12.5px] font-semibold text-slate-600">
           <span id="liveStatusDot" class="live-pulse hidden"></span>
           <span id="personMeta" class="truncate">Loading...</span>

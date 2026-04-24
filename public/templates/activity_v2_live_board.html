@@ -6,7 +6,7 @@
   <title>Live Activity Board | ETERNALGY OS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/tailwind.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -24,7 +24,6 @@
     }
     * { font-family: Inter, sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { margin: 0; background: var(--paper); color: var(--ink); }
-    .serif { font-family: Fraunces, Georgia, serif; font-optical-sizing: auto; }
     .tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
     .topbar { background: var(--paper); border-bottom: 1px solid var(--hair); }
     .pill {
@@ -43,11 +42,11 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, .45); }
       50% { box-shadow: 0 0 0 9px rgba(5, 150, 105, 0); }
     }
-    .hero-num {
-      font-family: Fraunces, Georgia, serif; font-size: 76px; font-weight: 500;
-      line-height: .92; letter-spacing: -.03em;
+    .metric-card {
+      border: 1px solid var(--hair); border-radius: 12px; background: var(--surface);
+      padding: 14px;
     }
-    @media (min-width: 640px) { .hero-num { font-size: 96px; } }
+    .metric-num { font-size: 32px; font-weight: 900; line-height: 1; letter-spacing: 0; }
     .barometer {
       position: relative; display: flex; height: 14px; overflow: hidden;
       border-radius: 999px; background: #efeae0;
@@ -56,10 +55,6 @@
     .barometer .revenue { background: linear-gradient(90deg, #10b981, #059669); }
     .barometer .support { background: #d4a373; }
     .barometer .offline { background: #c2410c; opacity: .78; }
-    .whisper {
-      font-family: Fraunces, Georgia, serif; font-size: 14.5px; font-style: italic;
-      font-weight: 500; line-height: 1.5; color: var(--ink-soft);
-    }
     .task-card {
       overflow: hidden; border: 1px solid var(--hair); border-radius: 16px;
       background: var(--surface);
@@ -73,8 +68,8 @@
       color: var(--ink);
     }
     .task-count {
-      font-family: Fraunces, Georgia, serif; font-size: 34px; font-weight: 500;
-      line-height: 1; letter-spacing: -.02em;
+      font-size: 24px; font-weight: 900;
+      line-height: 1; letter-spacing: 0;
     }
     .task-count span {
       margin-left: 5px; font-family: Inter, sans-serif; font-size: 10px; font-weight: 800;
@@ -122,14 +117,14 @@
     <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
       <a href="/agent/home" class="pill" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></a>
       <div class="min-w-0 flex-1 text-center">
-        <p class="serif text-[15px] font-semibold italic">Eternalgy · Live</p>
+        <p class="text-[13px] font-black uppercase tracking-[0.16em] text-slate-700">Live Activity Board</p>
       </div>
       <button class="pill" onclick="loadBoard()" aria-label="Refresh"><i class="fa-solid fa-rotate"></i></button>
     </div>
   </header>
 
   <main class="mx-auto max-w-5xl space-y-8 px-4 pb-28 pt-6">
-    <section>
+    <section class="space-y-4">
       <div class="flex items-center justify-between gap-3">
         <p class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Right now</p>
         <div class="flex items-center gap-2 text-[11px] font-bold text-slate-500 tabular">
@@ -137,14 +132,23 @@
           <span id="liveClock">--:--</span>
         </div>
       </div>
-      <div class="mt-2 flex items-end gap-4">
-        <span id="heroRevenue" class="hero-num tabular">0</span>
-        <div class="pb-3">
-          <p class="text-base font-extrabold leading-tight text-slate-800"><span class="font-black">of <span id="heroTotal" class="tabular">0</span></span> active people on revenue work</p>
-          <p id="heroPct" class="mt-0.5 text-xs font-bold text-slate-500 tabular">0% of active workforce</p>
+
+      <div class="grid grid-cols-3 gap-3">
+        <div class="metric-card">
+          <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Active</p>
+          <p id="heroTotal" class="metric-num tabular mt-2">0</p>
+        </div>
+        <div class="metric-card">
+          <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Revenue</p>
+          <p id="heroRevenue" class="metric-num tabular mt-2 text-emerald-700">0</p>
+        </div>
+        <div class="metric-card">
+          <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">Ratio</p>
+          <p id="heroPct" class="mt-2 text-lg font-black text-slate-900 tabular">0%</p>
         </div>
       </div>
-      <div class="barometer mt-5" role="img" aria-label="Activity value barometer">
+
+      <div class="barometer" role="img" aria-label="Activity value barometer">
         <span id="barRevenue" class="revenue" style="width:0%"></span>
         <span id="barSupport" class="support" style="width:0%"></span>
         <span id="barOffline" class="offline" style="width:0%"></span>
@@ -154,7 +158,6 @@
         <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-blue-600"></span><span id="legendSupport">0 support</span></span>
         <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-orange-700"></span><span id="legendOffline">0 break</span></span>
       </div>
-      <p id="whisper" class="whisper mt-5">Reading the room...</p>
     </section>
 
     <section id="boardList" class="space-y-5"></section>
@@ -222,24 +225,13 @@
       const revenuePct = Math.round(pct(barometer.revenue, total));
       document.getElementById('heroRevenue').textContent = barometer.revenue || 0;
       document.getElementById('heroTotal').textContent = total;
-      document.getElementById('heroPct').textContent = `${revenuePct}% of active workforce`;
+      document.getElementById('heroPct').textContent = `${revenuePct}%`;
       document.getElementById('barRevenue').style.width = `${pct(barometer.revenue, total)}%`;
       document.getElementById('barSupport').style.width = `${pct(barometer.support, total)}%`;
       document.getElementById('barOffline').style.width = `${pct(barometer.offline, total)}%`;
       document.getElementById('legendRevenue').textContent = `${barometer.revenue || 0} revenue`;
       document.getElementById('legendSupport').textContent = `${barometer.support || 0} support`;
       document.getElementById('legendOffline').textContent = `${barometer.offline || 0} break`;
-    }
-
-    function buildWhisper(data, barometer) {
-      const total = barometer.total || 0;
-      if (!total) return 'Quiet on the board - no one checked in yet.';
-      const taskGroups = Object.values(data.byTask || {});
-      const top = taskGroups.sort((a, b) => (b.rows || []).length - (a.rows || []).length)[0];
-      const revenuePct = Math.round(pct(barometer.revenue, total));
-      if (revenuePct >= 70) return `Company is pointed at growth - ${revenuePct}% of active people are on revenue work${top ? `, led by ${top.rows.length} on ${top.taskTitle}` : ''}.`;
-      if (barometer.offline >= Math.max(2, Math.ceil(total * 0.3))) return `${barometer.offline} people are on break or offline right now.`;
-      return `${total} people active${top ? `, biggest pool is ${top.taskTitle}` : ''}.`;
     }
 
     function renderTaskGroup(group) {
@@ -280,7 +272,6 @@
         const activeRows = data.active || [];
         const barometer = computeBarometer(activeRows);
         renderBarometer(barometer);
-        document.getElementById('whisper').textContent = buildWhisper(data, barometer);
         const taskGroups = Object.values(data.byTask || {})
           .sort((a, b) => (Number(a.displayOrder || 9999) - Number(b.displayOrder || 9999)) || String(a.taskTitle).localeCompare(String(b.taskTitle)));
         list.innerHTML = taskGroups.length ? taskGroups.map(renderTaskGroup).join('') : '<div class="empty">Board is quiet - no active task right now.</div>';
