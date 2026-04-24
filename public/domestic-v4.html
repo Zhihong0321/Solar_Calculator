@@ -1402,39 +1402,40 @@
             const feesScaleMax = resolveCompactScaleMax(feesBefore, feesAfter);
 
             function Bar({ beforeValue, afterValue, colorAfter, scaleMax = maxBar }) {
+                const renderLine = (value, color, bg, textColor) => {
+                    const normalizedValue = Math.max(0, toNumber(value));
+                    const widthPct = scaleMax > 0 ? clamp((normalizedValue / scaleMax) * 100, 0, 100) : 0;
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                            <div style={{ flex: 1, height: 26, background: bg, borderRadius: 5, overflow: 'hidden' }}>
+                                <div style={{
+                                    height: '100%',
+                                    width: `${widthPct}%`,
+                                    background: color,
+                                    minWidth: normalizedValue > 0 ? 8 : 0
+                                }} />
+                            </div>
+                            <div style={{
+                                width: 72,
+                                flexShrink: 0,
+                                textAlign: 'right',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                color: textColor
+                            }}>
+                                RM {fmt(value)}
+                            </div>
+                        </div>
+                    );
+                };
+
                 return (
                     <div style={{ flex: 1 }}>
                         {beforeValue !== undefined && (
-                            <div style={{ height: 26, background: '#f3f4f6', borderRadius: 5, overflow: 'hidden', marginBottom: 3 }}>
-                                <div style={{
-                                    height: '100%',
-                                    width: `${(beforeValue / scaleMax) * 100}%`,
-                                    background: '#d1d5db',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'flex-end',
-                                    paddingRight: 6,
-                                    minWidth: 30
-                                }}>
-                                    <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280' }}>RM {fmt(beforeValue)}</span>
-                                </div>
-                            </div>
+                            renderLine(beforeValue, '#d1d5db', '#f3f4f6', '#6b7280')
                         )}
                         {afterValue !== undefined && (
-                            <div style={{ height: 26, background: ACCENT.bg, borderRadius: 5, overflow: 'hidden' }}>
-                                <div style={{
-                                    height: '100%',
-                                    width: `${(afterValue / scaleMax) * 100}%`,
-                                    background: colorAfter || ACCENT.primary,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'flex-end',
-                                    paddingRight: 6,
-                                    minWidth: 30
-                                }}>
-                                    <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>RM {fmt(afterValue)}</span>
-                                </div>
-                            </div>
+                            renderLine(afterValue, colorAfter || ACCENT.primary, ACCENT.bg, colorAfter || ACCENT.primary)
                         )}
                     </div>
                 );
