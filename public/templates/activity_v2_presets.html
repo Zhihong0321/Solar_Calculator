@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <title>Task Presets | ETERNALGY OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { font-family: Inter, sans-serif; box-sizing: border-box; }
+    body { margin: 0; background: #f8fafc; color: #0f172a; }
+    .field { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 11px 12px; font-size: 14px; background: white; }
+    .btn { border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-dark { background: #0f172a; color: white; }
+    .btn-soft { background: #e2e8f0; color: #0f172a; }
+    .preset-row { border: 1px solid #e2e8f0; background: white; border-radius: 8px; padding: 14px; }
+  </style>
+</head>
+<body>
+  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4">
+    <div class="mx-auto flex max-w-4xl items-center justify-between gap-3">
+      <a href="/agent/home" class="btn btn-soft"><i class="fa-solid fa-arrow-left"></i></a>
+      <div class="min-w-0 flex-1">
+        <h1 class="text-lg font-extrabold">Task Presets</h1>
+        <p id="presetMeta" class="text-xs font-semibold text-slate-500">Loading...</p>
+      </div>
+      <a href="/activity-report-v2/report" class="btn btn-soft"><i class="fa-solid fa-list-check"></i></a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-4xl space-y-4 p-4 pb-24">
+    <section class="rounded-lg border border-slate-200 bg-white p-4">
+      <form id="presetForm" class="space-y-3">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="sm:col-span-2">
+            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Task Title</label>
+            <input id="taskTitle" class="field mt-1" required maxlength="80" placeholder="Meeting Client">
+          </div>
+          <div>
+            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Max Length</label>
+            <select id="maxLength" class="field mt-1">
+              <option value="30">30 min</option>
+              <option value="60">1 hour</option>
+              <option value="120" selected>2 hours</option>
+              <option value="180">3 hours</option>
+              <option value="240">4 hours</option>
+              <option value="480">8 hours</option>
+              <option value="720">12 hours</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Task Point</label>
+            <input id="taskPoint" class="field mt-1" type="number" min="0" step="1" value="0">
+          </div>
+          <div id="scopeWrap">
+            <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Scope</label>
+            <select id="scope" class="field mt-1">
+              <option value="personal">Private</option>
+              <option value="department">Department</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button class="btn btn-dark w-full" type="submit"><i class="fa-solid fa-plus"></i> Save Preset</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <section class="space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-400">Presets</h2>
+        <button class="btn btn-soft" onclick="loadPresets()"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+      <div id="presetList" class="space-y-3"></div>
+    </section>
+  </main>
+
+  <script>
+    let canCreateDepartmentPreset = false;
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    async function requestJson(url, options = {}) {
+      const response = await fetch(url, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...options });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) throw new Error(result.error || 'Request failed');
+      return result.data;
+    }
+
+    async function loadPresets() {
+      const list = document.getElementById('presetList');
+      list.innerHTML = '<div class="py-8 text-center text-sm font-bold text-slate-400">Loading...</div>';
+      try {
+        const data = await requestJson('/api/activity-v2/presets/manage');
+        canCreateDepartmentPreset = Boolean(data.canCreateDepartmentPreset);
+        document.getElementById('presetMeta').textContent = `${data.department} · ${canCreateDepartmentPreset ? 'Department + private presets' : 'Private presets'}`;
+        document.getElementById('scopeWrap').classList.toggle('hidden', !canCreateDepartmentPreset);
+        list.innerHTML = data.presets.length ? data.presets.map(renderPreset).join('') : '<div class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-bold text-slate-400">No presets yet</div>';
+      } catch (error) {
+        list.innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function renderPreset(preset) {
+      return `
+        <article class="preset-row">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="truncate text-sm font-extrabold">${escapeHtml(preset.task_title)}</p>
+              <p class="mt-1 text-xs font-semibold text-slate-500">${escapeHtml(preset.scope)} · ${escapeHtml(preset.department)} · ${preset.max_length_minutes} min · ${preset.task_point} pt</p>
+            </div>
+            <button class="btn ${preset.is_active ? 'btn-soft' : 'btn-dark'} shrink-0" onclick="togglePreset('${preset.id}', ${preset.is_active ? 'false' : 'true'})">
+              ${preset.is_active ? 'Off' : 'On'}
+            </button>
+          </div>
+        </article>`;
+    }
+
+    async function togglePreset(id, active) {
+      await requestJson(`/api/activity-v2/presets/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: active === true || active === 'true' })
+      });
+      loadPresets();
+    }
+
+    document.getElementById('presetForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = {
+        task_title: document.getElementById('taskTitle').value,
+        max_length_minutes: Number(document.getElementById('maxLength').value),
+        task_point: Number(document.getElementById('taskPoint').value),
+        scope: canCreateDepartmentPreset ? document.getElementById('scope').value : 'personal'
+      };
+      await requestJson('/api/activity-v2/presets', { method: 'POST', body: JSON.stringify(payload) });
+      event.target.reset();
+      document.getElementById('maxLength').value = '120';
+      document.getElementById('taskPoint').value = '0';
+      loadPresets();
+    });
+
+    document.addEventListener('DOMContentLoaded', loadPresets);
+  </script>
+</body>
+</html>

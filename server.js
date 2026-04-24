@@ -23,6 +23,7 @@ const Voucher = require('./src/modules/Voucher');
 const SalesTeam = require('./src/modules/SalesTeam');
 const sedaRoutes = require('./routes/sedaRoutes');
 const ActivityReport = require('./src/modules/ActivityReport');
+const ActivityReportV2 = require('./src/modules/ActivityReportV2');
 const Health = require('./src/modules/Health');
 const BugReport = require('./src/modules/BugReport');
 
@@ -89,6 +90,7 @@ app.use(Voucher.router);
 app.use(SalesTeam.router);
 app.use(sedaRoutes);
 app.use(ActivityReport.router);
+app.use(ActivityReportV2.router);
 app.use(Health.router);
 app.use('/api/v1/bug', BugReport.bugRoutes);
 

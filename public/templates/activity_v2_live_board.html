@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <title>Live Activity Board | ETERNALGY OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { font-family: Inter, sans-serif; box-sizing: border-box; }
+    body { margin: 0; background: #f8fafc; color: #0f172a; }
+    .btn { border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-soft { background: #e2e8f0; color: #0f172a; }
+  </style>
+</head>
+<body>
+  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4">
+    <div class="mx-auto flex max-w-5xl items-center justify-between gap-3">
+      <a href="/agent/home" class="btn btn-soft"><i class="fa-solid fa-arrow-left"></i></a>
+      <div class="min-w-0 flex-1">
+        <h1 class="text-lg font-extrabold">Live Activity Board</h1>
+        <p id="liveMeta" class="text-xs font-semibold text-slate-500">Loading...</p>
+      </div>
+      <button class="btn btn-soft" onclick="loadBoard()"><i class="fa-solid fa-rotate"></i></button>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl space-y-4 p-4 pb-24">
+    <section class="grid grid-cols-2 gap-3">
+      <div class="rounded-lg border border-slate-200 bg-white p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Active</p>
+        <p id="activeCount" class="mt-1 text-3xl font-black">0</p>
+      </div>
+      <div class="rounded-lg border border-slate-200 bg-white p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Today Rows</p>
+        <p id="todayCount" class="mt-1 text-3xl font-black">0</p>
+      </div>
+    </section>
+    <section id="boardList" class="space-y-4"></section>
+  </main>
+
+  <script>
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function timeLabel(value) {
+      return value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    }
+
+    function displayAgentName(row) {
+      if (row.agent_name || row.email) return row.agent_name || row.email;
+      const demoNames = {
+        demo_v2_david: 'David Demo',
+        demo_v2_robert: 'Robert Demo',
+        demo_v2_chang: 'Chang Demo',
+        demo_v2_denise: 'Denise Demo',
+        demo_v2_amanda: 'Amanda Demo',
+        demo_v2_meiling: 'Mei Ling Demo',
+        demo_v2_farid: 'Farid Demo'
+      };
+      return demoNames[row.linked_user] || row.linked_user;
+    }
+
+    async function requestJson(url) {
+      const response = await fetch(url, { credentials: 'same-origin' });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) throw new Error(result.error || 'Request failed');
+      return result.data;
+    }
+
+    async function loadBoard() {
+      const list = document.getElementById('boardList');
+      list.innerHTML = '<div class="py-8 text-center text-sm font-bold text-slate-400">Loading...</div>';
+      try {
+        const data = await requestJson('/api/activity-v2/live-board');
+        document.getElementById('activeCount').textContent = data.active.length;
+        document.getElementById('todayCount').textContent = data.today.length;
+        document.getElementById('liveMeta').textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        list.innerHTML = Object.keys(data.byDepartment).length ? Object.entries(data.byDepartment).map(renderDepartment).join('') : '<div class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-bold text-slate-400">No active task</div>';
+      } catch (error) {
+        list.innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function renderDepartment([department, taskGroups]) {
+      return `
+        <section class="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 class="text-sm font-black uppercase tracking-widest">${escapeHtml(department)}</h2>
+          <div class="mt-4 space-y-4">${Object.entries(taskGroups).map(renderTaskGroup).join('')}</div>
+        </section>`;
+    }
+
+    function renderTaskGroup([taskTitle, rows]) {
+      return `
+        <div>
+          <p class="text-xs font-black uppercase tracking-widest text-slate-400">${escapeHtml(taskTitle)}</p>
+          <div class="mt-2 space-y-2">${rows.map(renderAgent).join('')}</div>
+        </div>`;
+    }
+
+    function renderAgent(row) {
+      return `
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-extrabold">${escapeHtml(displayAgentName(row))}</p>
+            <p class="text-xs font-semibold text-slate-500">${timeLabel(row.started_at)} - now</p>
+          </div>
+          <span class="shrink-0 rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">${row.elapsed_minutes || 0}m</span>
+        </div>`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadBoard();
+      setInterval(loadBoard, 60000);
+    });
+  </script>
+</body>
+</html>

@@ -145,7 +145,7 @@ function renderInvoiceHtml(invoiceData) {
 const { Pool } = require('pg');
 const fs = require('fs');
 
-const pool = new Pool({ connectionString: 'postgres://...' });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const template = fs.readFileSync('./invoice-template.html', 'utf8');
 
 async function getInvoiceHtml(shareToken) {

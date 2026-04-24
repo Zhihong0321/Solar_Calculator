@@ -5,27 +5,12 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://solar_user:solar_password@db:5432/solar_db
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL outside the repo before starting docker compose}
       - PORT=3000
-    depends_on:
-      - db
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
       - solar_storage:/usr/src/app/storage
 
-  db:
-    image: postgres:15-alpine
-    restart: always
-    environment:
-      - POSTGRES_USER=solar_user
-      - POSTGRES_PASSWORD=solar_password
-      - POSTGRES_DB=solar_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
 volumes:
-  postgres_data:
   solar_storage:

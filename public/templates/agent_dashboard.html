@@ -210,6 +210,10 @@
         <i class="fa-solid fa-chart-line w-5"></i>
         <span>Activity Report</span>
       </a>
+      <a href="/activity-report-v2/report" class="nav-link">
+        <i class="fa-solid fa-stopwatch w-5"></i>
+        <span>PRE Report</span>
+      </a>
       <a href="/sales-kpi" id="activityReviewNav" class="nav-link hidden">
         <i class="fa-solid fa-clipboard-check w-5"></i>
         <span>Activity Report Review</span>
@@ -343,6 +347,54 @@
           </div>
         </div>
       </div>
+
+      <!-- PRE Activity V2 -->
+      <section class="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">PRE Activity</p>
+              <h2 id="activityV2CurrentTitle" class="mt-2 truncate text-xl font-black text-slate-900">No active task</h2>
+              <p id="activityV2CurrentMeta" class="mt-1 text-xs font-bold text-slate-500">Ready</p>
+            </div>
+            <a href="/activity-report-v2/report" class="rounded-lg bg-slate-100 p-3 text-slate-900" title="Report">
+              <i class="fa-solid fa-list-check"></i>
+            </a>
+          </div>
+
+          <div class="mt-4">
+            <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Quick Start</p>
+            <div id="activityV2PresetButtons" class="mt-3 flex gap-2 overflow-x-auto pb-1"></div>
+          </div>
+
+          <form id="activityV2CustomForm" class="mt-4 grid grid-cols-[1fr_auto] gap-2">
+            <input id="activityV2CustomTitle" class="min-w-0 rounded-lg border border-slate-200 px-3 py-3 text-sm font-semibold outline-none focus:border-slate-900" placeholder="Custom task">
+            <button class="rounded-lg bg-slate-900 px-4 py-3 text-sm font-black text-white" type="submit">
+              <i class="fa-solid fa-play"></i>
+            </button>
+          </form>
+
+          <div class="mt-4 flex flex-wrap gap-2">
+            <a href="/activity-report-v2/presets" class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-700">Manage Presets</a>
+            <a href="/activity-live-board" id="activityV2LiveBoardLink" class="hidden rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-700">Live Board</a>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">My Status Today</p>
+              <p id="activityV2TodaySummary" class="mt-2 text-sm font-extrabold text-slate-900">Loading...</p>
+            </div>
+            <button onclick="loadActivityV2Dashboard()" class="rounded-lg bg-slate-100 p-3 text-slate-900" title="Refresh">
+              <i class="fa-solid fa-rotate"></i>
+            </button>
+          </div>
+          <div class="mt-4 overflow-x-auto">
+            <div id="activityV2StatusStrip" class="min-w-[760px]"></div>
+          </div>
+        </div>
+      </section>
 
       <!-- Divider -->
       <div class="h-px bg-slate-200 w-full"></div>
@@ -509,6 +561,15 @@
             <h3 class="text-sm font-bold text-slate-900">ATAP Public Awareness</h3>
             <p class="text-[10px] text-slate-400 font-medium mt-1">
               External Public Awareness Site
+            </p>
+          </a>
+          <a href="/activity-report-v2/report" class="tool-card">
+            <div class="tool-icon">
+              <i class="fa-solid fa-stopwatch text-2xl"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900">PRE Report</h3>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">
+              Live Work Timeline
             </p>
           </a>
 
@@ -729,6 +790,11 @@
             if (bugCard) bugCard.classList.remove("hidden");
         }
 
+        if (accessLevels.includes("hr") || accessLevels.includes("admin") || accessLevels.includes("superadmin") || accessLevels.includes("hod") || accessLevels.includes("kc") || accessLevels.includes("sales-manager")) {
+          const liveBoardLink = document.getElementById("activityV2LiveBoardLink");
+          if (liveBoardLink) liveBoardLink.classList.remove("hidden");
+        }
+
         const avatarUrl =
           data.profile_picture ||
           `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || "Agent")}&background=0D8ABC&color=fff&bold=true`;
@@ -738,9 +804,137 @@
         });
 
         await fetchPendingLeadNotification();
+        await loadActivityV2Dashboard();
       } catch (error) {
         console.error("Error fetching agent data:", error);
       }
+    }
+
+    function escapeActivityV2Html(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function activityV2TimeLabel(value) {
+      if (!value) return "now";
+      return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+
+    async function activityV2Request(url, options = {}) {
+      const response = await fetch(url, {
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        ...options
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) throw new Error(result.error || "Activity request failed");
+      return result.data;
+    }
+
+    async function loadActivityV2Dashboard() {
+      try {
+        const [presets, current, timeline] = await Promise.all([
+          activityV2Request("/api/activity-v2/presets"),
+          activityV2Request("/api/activity-v2/current"),
+          activityV2Request(`/api/activity-v2/timeline?date=${new Date().toISOString().split("T")[0]}`)
+        ]);
+        renderActivityV2Current(current);
+        renderActivityV2Presets(presets);
+        renderActivityV2StatusStrip(timeline.reports || []);
+      } catch (error) {
+        console.error("Activity V2 dashboard error:", error);
+        const buttons = document.getElementById("activityV2PresetButtons");
+        if (buttons) buttons.innerHTML = `<span class="text-xs font-bold text-rose-600">${escapeActivityV2Html(error.message)}</span>`;
+      }
+    }
+
+    function renderActivityV2Current(current) {
+      const title = document.getElementById("activityV2CurrentTitle");
+      const meta = document.getElementById("activityV2CurrentMeta");
+      if (!title || !meta) return;
+      if (!current) {
+        title.textContent = "No active task";
+        meta.textContent = "Ready";
+        return;
+      }
+      title.textContent = current.task_title;
+      meta.textContent = `${activityV2TimeLabel(current.started_at)} · ${current.elapsed_minutes || 0} min · ${current.task_point || 0} pt`;
+    }
+
+    function renderActivityV2Presets(data) {
+      const container = document.getElementById("activityV2PresetButtons");
+      if (!container) return;
+      const presets = (data.groups || []).flatMap((group) => group.presets || []);
+      if (!presets.length) {
+        container.innerHTML = `<a href="/activity-report-v2/presets" class="shrink-0 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-xs font-black text-slate-500">Add Preset</a>`;
+        return;
+      }
+      container.innerHTML = presets.map((preset) => `
+        <button onclick="startActivityV2Preset('${preset.id}')" class="shrink-0 rounded-lg bg-slate-900 px-4 py-3 text-left text-xs font-black text-white shadow-sm">
+          ${escapeActivityV2Html(preset.task_title)}
+        </button>
+      `).join("");
+    }
+
+    async function startActivityV2Preset(id) {
+      await activityV2Request("/api/activity-v2/start", {
+        method: "POST",
+        body: JSON.stringify({ preset_id: id })
+      });
+      await loadActivityV2Dashboard();
+    }
+
+    document.getElementById("activityV2CustomForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const input = document.getElementById("activityV2CustomTitle");
+      const taskTitle = input.value.trim();
+      if (!taskTitle) return;
+      await activityV2Request("/api/activity-v2/start", {
+        method: "POST",
+        body: JSON.stringify({ task_title: taskTitle })
+      });
+      input.value = "";
+      await loadActivityV2Dashboard();
+    });
+
+    function renderActivityV2StatusStrip(reports) {
+      const strip = document.getElementById("activityV2StatusStrip");
+      const summary = document.getElementById("activityV2TodaySummary");
+      if (!strip || !summary) return;
+
+      const dayStart = new Date();
+      dayStart.setHours(6, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(dayStart.getHours() + 20);
+      const totalMinutes = 20 * 60;
+      const now = new Date();
+      const totalPoints = reports.reduce((sum, report) => sum + Number(report.task_point || 0), 0);
+      const running = reports.find((report) => !report.ended_at);
+
+      summary.textContent = running
+        ? `Working · ${running.task_title} · ${totalPoints} pt`
+        : `${reports.length} task${reports.length === 1 ? "" : "s"} · ${totalPoints} pt`;
+
+      const blocks = reports.map((report, index) => {
+        const start = new Date(report.started_at);
+        const end = report.ended_at ? new Date(report.ended_at) : now;
+        const clampedStart = Math.max(0, Math.min(totalMinutes, (start - dayStart) / 60000));
+        const clampedEnd = Math.max(0, Math.min(totalMinutes, (end - dayStart) / 60000));
+        const width = Math.max(6, clampedEnd - clampedStart);
+        const left = clampedStart;
+        const palette = ["#0f172a", "#2563eb", "#059669", "#b45309", "#7c3aed", "#be123c"];
+        return `<div title="${escapeActivityV2Html(report.task_title)}" class="absolute top-0 h-8 rounded-md" style="left:${(left / totalMinutes) * 100}%;width:${(width / totalMinutes) * 100}%;background:${palette[index % palette.length]}"></div>`;
+      }).join("");
+
+      const hours = Array.from({ length: 11 }, (_, index) => {
+        const hour = (6 + index * 2) % 24;
+        const label = hour === 0 ? "12a" : hour < 12 ? `${hour}a` : hour === 12 ? "12p" : `${hour - 12}p`;
+        return `<span>${label}</span>`;
+      }).join("");
+
+      strip.innerHTML = `
+        <div class="relative h-8 rounded-lg bg-slate-100">${blocks}</div>
+        <div class="mt-2 grid grid-cols-11 text-[10px] font-black uppercase tracking-widest text-slate-400">${hours}</div>
+      `;
     }
 
     async function logout() {

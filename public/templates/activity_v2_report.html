@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <title>My PRE Report | ETERNALGY OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { font-family: Inter, sans-serif; box-sizing: border-box; }
+    body { margin: 0; background: #f8fafc; color: #0f172a; }
+    .btn { border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-dark { background: #0f172a; color: white; }
+    .btn-soft { background: #e2e8f0; color: #0f172a; }
+    .field { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 11px 12px; font-size: 14px; background: white; }
+  </style>
+</head>
+<body>
+  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4">
+    <div class="mx-auto flex max-w-4xl items-center justify-between gap-3">
+      <a href="/agent/home" class="btn btn-soft"><i class="fa-solid fa-arrow-left"></i></a>
+      <div class="min-w-0 flex-1">
+        <h1 class="text-lg font-extrabold">My PRE Report</h1>
+        <p class="text-xs font-semibold text-slate-500">Today timeline and details</p>
+      </div>
+      <a href="/activity-report-v2/presets" class="btn btn-soft"><i class="fa-solid fa-sliders"></i></a>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-4xl space-y-4 p-4 pb-24">
+    <section class="rounded-lg border border-slate-200 bg-white p-4">
+      <div class="flex items-end gap-3">
+        <div class="flex-1">
+          <label class="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</label>
+          <input id="reportDate" class="field mt-1" type="date">
+        </div>
+        <button class="btn btn-dark" onclick="loadTimeline()"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+    </section>
+
+    <section id="timelineList" class="space-y-3"></section>
+  </main>
+
+  <script>
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function timeLabel(value) {
+      if (!value) return 'Now';
+      return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function requestJson(url, options = {}) {
+      const response = await fetch(url, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...options });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) throw new Error(result.error || 'Request failed');
+      return result.data;
+    }
+
+    async function loadTimeline() {
+      const list = document.getElementById('timelineList');
+      const date = document.getElementById('reportDate').value;
+      list.innerHTML = '<div class="py-8 text-center text-sm font-bold text-slate-400">Loading...</div>';
+      try {
+        const data = await requestJson(`/api/activity-v2/timeline?date=${encodeURIComponent(date)}`);
+        list.innerHTML = data.reports.length ? data.reports.map(renderReport).join('') : '<div class="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-bold text-slate-400">No task today</div>';
+      } catch (error) {
+        list.innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    function renderReport(report) {
+      const running = !report.ended_at;
+      return `
+        <article class="rounded-lg border border-slate-200 bg-white p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="truncate text-sm font-extrabold">${escapeHtml(report.task_title)}</p>
+              <p class="mt-1 text-xs font-semibold text-slate-500">${timeLabel(report.started_at)} - ${timeLabel(report.ended_at)} · ${report.duration_minutes || 0} min · ${report.task_point} pt</p>
+              <p class="mt-1 text-[11px] font-bold uppercase tracking-widest ${running ? 'text-emerald-600' : 'text-slate-400'}">${running ? 'Running' : escapeHtml(report.end_reason || 'Ended')}</p>
+            </div>
+          </div>
+          <textarea id="detail-${report.id}" class="field mt-3 min-h-[84px]" placeholder="Detail">${escapeHtml(report.detail_text || '')}</textarea>
+          <button class="btn btn-dark mt-3 w-full" onclick="saveDetail('${report.id}')"><i class="fa-solid fa-floppy-disk"></i> Save Detail</button>
+        </article>`;
+    }
+
+    async function saveDetail(id) {
+      const detail = document.getElementById(`detail-${id}`).value;
+      await requestJson(`/api/activity-v2/reports/${id}/detail`, { method: 'PUT', body: JSON.stringify({ detail_text: detail }) });
+      loadTimeline();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('reportDate').value = new Date().toISOString().split('T')[0];
+      loadTimeline();
+    });
+  </script>
+</body>
+</html>
