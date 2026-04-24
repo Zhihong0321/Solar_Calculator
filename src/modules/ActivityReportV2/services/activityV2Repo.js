@@ -475,18 +475,23 @@ async function getLiveBoard(client, userContext) {
       LIMIT 150`
   );
 
-  const byDepartment = {};
+  const byTask = {};
   activeResult.rows.forEach((row) => {
-    const department = row.department || 'general';
     const taskTitle = row.task_title || 'Other Task';
-    if (!byDepartment[department]) byDepartment[department] = {};
-    if (!byDepartment[department][taskTitle]) byDepartment[department][taskTitle] = [];
-    byDepartment[department][taskTitle].push(row);
+    if (!byTask[taskTitle]) {
+      byTask[taskTitle] = {
+        displayOrder: Number(row.task_display_order || 9999),
+        taskTitle,
+        rows: []
+      };
+    }
+    byTask[taskTitle].displayOrder = Math.min(byTask[taskTitle].displayOrder, Number(row.task_display_order || 9999));
+    byTask[taskTitle].rows.push(row);
   });
 
   return {
     active: activeResult.rows,
-    byDepartment,
+    byTask,
     today: todayResult.rows
   };
 }
