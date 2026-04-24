@@ -81,6 +81,185 @@
             border: '#86efac'
         };
 
+        const LANGUAGE_STORAGE_KEY = 'solar_lang';
+
+        const EN_TEXT = new Map([
+            ['Domestic V4 · Solar PV Planner', 'Domestic V4 · Solar PV Planner'],
+            ['LIVE', 'LIVE'],
+            ['账单', 'Bill'],
+            ['明细', 'Details'],
+            ['设置', 'Setup'],
+            ['回报', 'ROI'],
+            ['详情', 'More'],
+            ['第一步', 'Step 1'],
+            ['第二步', 'Step 2'],
+            ['第三步', 'Step 3'],
+            ['第四步 · 投资回报', 'Step 4 · ROI'],
+            ['第五步', 'Step 5'],
+            ['输入电费资料', 'Enter Bill Details'],
+            ['使用现有计算逻辑', 'Using Existing Calculator Logic'],
+            ['分析中...', 'Analysing...'],
+            ['分析账单', 'Analyse Bill'],
+            ['第一步 · TNB 电费', 'Step 1 · TNB Bill'],
+            ['账单明细', 'Bill Breakdown'],
+            ['匹配精度 ±0.01%', 'Matching Accuracy ±0.01%'],
+            ['用电费', 'Energy Charge'],
+            ['网络费', 'Network Charge'],
+            ['容量费', 'Capacity Charge'],
+            ['税费', 'Taxes & Fees'],
+            ['零售费', 'Retail Charge'],
+            ['AFA 调整', 'AFA Adjustment'],
+            ['展开组件明细', 'Expand Component Details'],
+            ['查看逐项账单组成', 'View itemized bill components'],
+            ['太阳能设置', 'Solar Setup'],
+            ['已生成 ✓', 'Generated ✓'],
+            ['待生成', 'Pending'],
+            ['日照峰值', 'Sun Peak Hours'],
+            ['马来西亚标准', 'Malaysia Standard'],
+            ['白天用电', 'Daytime Usage'],
+            ['发电时段内', 'During generation hours'],
+            ['kWp 系统', 'kWp System'],
+            ['待计算', 'Pending'],
+            ['推荐配套', 'Recommended Package'],
+            ['此系统超过当前相位上限，需留意 SEDA oversize registration fee。', 'This system exceeds the current phase limit. Please note the SEDA oversize registration fee.'],
+            ['计算中...', 'Calculating...'],
+            ['生成 ROI', 'Generate ROI'],
+            ['每月节省金额', 'Monthly Savings'],
+            ['置信度', 'Confidence'],
+            ['回本期', 'Payback'],
+            ['年回报率', 'Annual ROI'],
+            ['系统费用', 'System Cost'],
+            ['安装前后 · 电费对比', 'Before vs After · Bill Comparison'],
+            ['安装前', 'Before'],
+            ['安装后', 'After Solar'],
+            ['每月电费', 'Monthly Bill'],
+            ['现在', 'Now'],
+            ['太阳能后', 'After Solar'],
+            ['⚡ 能量流向', '⚡ Energy Flow'],
+            ['☀️ 太阳能产出', '☀️ Solar Output'],
+            ['FiT 收入', 'FiT Income'],
+            ['🏠 家庭用电', '🏠 Home Consumption'],
+            ['备用发电', 'Backup Generation'],
+            ['账单节省分解', 'Savings Breakdown'],
+            ['每月节省 = 出售电力收入 + 电费减少（含 EEI）', 'Monthly savings = export income + bill reduction (including EEI)'],
+            ['💰 卖电收入 (FiT)', '💰 Export Income (FiT)'],
+            ['FiT 输出', 'FiT Export'],
+            ['合计收入', 'Total Income'],
+            ['📉 电费减少', '📉 Bill Reduction'],
+            ['用电 + 网络 + 容量费', 'Energy + Network + Capacity'],
+            ['SST + KWTBB + 零售费', 'SST + KWTBB + Retail'],
+            ['EEI 节能奖励 (TNB)', 'EEI Incentive (TNB)'],
+            ['净进口 <= 0 kWh，EEI 自动归零', 'Net import <= 0 kWh, EEI becomes zero'],
+            ['前', 'Before'],
+            ['后', 'After'],
+            ['合计减少', 'Total Reduction'],
+            ['收入 + 减少', 'Income + Reduction'],
+            ['每月总节省', 'Total Monthly Savings'],
+            ['EEI 计算说明', 'EEI Calculation'],
+            ['关闭', 'Close'],
+            ['EEI 金额计算方式：', 'EEI amount formula:'],
+            ['当前结果', 'Current Result'],
+            ['25年节省预测', '25-Year Savings Forecast'],
+            ['预计25年总回报（含每年3%电价涨幅）', 'Estimated 25-year return (with 3% annual tariff increase)'],
+            ['累计节省', 'Cumulative Savings'],
+            ['系统费用', 'System Cost'],
+            ['今', 'Now'],
+            ['贷款可行性', 'Loan Feasibility'],
+            ['贷款期间 · 每月净支出', 'During Financing · Monthly Net Cost'],
+            ['查看贷款详情', 'View Loan Details'],
+            ['首付 · 融资 · 利息', 'Downpayment · Financing · Interest'],
+            ['首付 (5%)', 'Downpayment (5%)'],
+            ['融资金额 (95%)', 'Financed Amount (95%)'],
+            ['每月节省', 'Monthly Savings'],
+            ['详细分析', 'Detailed Analysis'],
+            ['供参考', 'For Reference'],
+            ['📊 账单组件明细', '📊 Bill Component Details'],
+            ['安装前 vs 安装后对比', 'Before vs After Comparison'],
+            ['项目', 'Item'],
+            ['节省', 'Savings'],
+            ['⚡ 电量流向数据', '⚡ Energy Flow Data'],
+            ['太阳能产能报告', 'Solar Production Report'],
+            ['月用电量', 'Monthly Usage'],
+            ['太阳能发电量', 'Solar Generation'],
+            ['净从电网进口', 'Net Grid Import'],
+            ['输出 (FiT)', 'Export (FiT)'],
+            ['储能电池（可选）', 'Battery Storage (Optional)'],
+            ['提升自用率，减少电网依赖', 'Increase self-consumption and reduce grid dependency'],
+            ['无', 'None'],
+            ['电池增加月节省', 'Added Monthly Battery Savings'],
+            ['高级电池参数', 'Advanced Battery Settings'],
+            ['放电深度 · 损耗率', 'Depth of Discharge · Loss Rate'],
+            ['放电损耗', 'Discharge Loss'],
+            ['放电深度 (DoD)', 'Depth of Discharge (DoD)'],
+            ['充入储能', 'Battery Charge'],
+            ['剩余输出', 'Remaining Export'],
+            ['正在更新电池测算...', 'Updating battery estimate...'],
+            ['准备好安装太阳能了吗？', 'Ready to Install Solar?'],
+            ['为客户生成完整报价链接', 'Generate a complete quotation link for the customer'],
+            ['创建报价链接', 'Create Quotation Link'],
+            ['已允许进一步减配，最低 5 pcs', 'Further panel reduction enabled, minimum 5 pcs'],
+            ['请求进一步减少 Panel Qty', 'Request Further Panel Qty Reduction'],
+            ['默认最低只能减到建议数量 -2。需要更低时，可启用后继续减到最低 5 pcs。', 'Default minimum is recommended quantity -2. Enable this to reduce further to minimum 5 pcs.'],
+            ['系统规模', 'System Size'],
+            ['调整 panel qty 和 morning offset', 'Adjust panel qty and morning offset'],
+            ['白天用电占比', 'Daytime usage ratio'],
+            ['当前系统', 'Current system'],
+            ['请先完成账单分析。', 'Please complete bill analysis first.'],
+            ['当前方案没有可用的配套，无法创建报价链接。', 'No available package for this plan, so a quotation link cannot be created.']
+        ]);
+
+        function translateTextContent(text) {
+            let translated = EN_TEXT.get(text) || text;
+            translated = translated
+                .replace(/个月/g, 'months')
+                .replace(/月/g, 'month')
+                .replace(/年后太阳能全额回本/g, ' years until full solar payback')
+                .replace(/持续超过/g, 'continues for over')
+                .replace(/回本/g, ' payback')
+                .replace(/推算用电量/g, 'Estimated usage')
+                .replace(/自用/g, 'Self-use')
+                .replace(/输出 FiT/g, 'FiT export')
+                .replace(/太阳能/g, 'Solar')
+                .replace(/电网补充/g, 'Grid import')
+                .replace(/可用/g, 'Available')
+                .replace(/天/g, 'day')
+                .replace(/充入/g, 'charged')
+                .replace(/建议/g, 'Recommended')
+                .replace(/已启用深度减配，范围/g, 'deep reduction enabled, range')
+                .replace(/默认最低/g, 'default minimum');
+            return translated;
+        }
+
+        function applyLanguage(lang) {
+            document.documentElement.lang = lang === 'zh' ? 'zh' : 'en';
+            if (lang !== 'en') {
+                return;
+            }
+
+            const root = document.getElementById('root');
+            if (!root) {
+                return;
+            }
+
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            const nodes = [];
+            while (walker.nextNode()) {
+                nodes.push(walker.currentNode);
+            }
+
+            nodes.forEach((node) => {
+                const original = node.nodeValue;
+                const trimmed = original.trim();
+                if (!trimmed) {
+                    return;
+                }
+                const translated = translateTextContent(trimmed);
+                if (translated !== trimmed) {
+                    node.nodeValue = original.replace(trimmed, translated);
+                }
+            });
+        }
+
         const AFA_OPTIONS = [
             { value: 0.0, label: 'JUL 2025 (0.00 sen)' },
             { value: -0.0145, label: 'AUG 2025 (-1.45 sen)' },
@@ -456,7 +635,8 @@
             );
         }
 
-        function NavBar() {
+        function NavBar({ language, onToggleLanguage }) {
+            const isEnglish = language === 'en';
             return (
                 <div style={{
                     background: '#0d1f0f',
@@ -479,16 +659,37 @@
                             <div style={{ color: '#4b5563', fontSize: 10 }}>Domestic V4 · Solar PV Planner</div>
                         </div>
                     </div>
-                    <div style={{
-                        background: '#1e3a20',
-                        border: 'none',
-                        borderRadius: 8,
-                        padding: '6px 12px',
-                        color: ACCENT.light,
-                        fontSize: 12,
-                        fontWeight: 700
-                    }}>
-                        LIVE
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button
+                            type="button"
+                            onClick={onToggleLanguage}
+                            title={isEnglish ? 'Current language: English. Click to switch to Chinese.' : '当前语言：中文。点击切换英文。'}
+                            aria-label={isEnglish ? 'Current language English. Switch to Chinese.' : '当前语言中文。切换到英文。'}
+                            style={{
+                                background: 'transparent',
+                                border: '1px solid rgba(255,255,255,0.22)',
+                                borderRadius: 8,
+                                padding: '6px 10px',
+                                color: 'rgba(255,255,255,0.78)',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {isEnglish ? 'EN | 切换中文' : '中文 | Switch EN'}
+                        </button>
+                        <div style={{
+                            background: '#1e3a20',
+                            border: 'none',
+                            borderRadius: 8,
+                            padding: '6px 10px',
+                            color: ACCENT.light,
+                            fontSize: 12,
+                            fontWeight: 700
+                        }}>
+                            LIVE
+                        </div>
                     </div>
                 </div>
             );
@@ -2158,9 +2359,15 @@
             const [planLoading, setPlanLoading] = useState(false);
             const [batteryUpdating, setBatteryUpdating] = useState(false);
             const [errorMessage, setErrorMessage] = useState('');
+            const [language, setLanguage] = useState(() => localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'zh');
             const solarRequestSeqRef = useRef(0);
             const billSummaryRef = useRef(null);
             const resultSectionRef = useRef(null);
+
+            useEffect(() => {
+                localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+                applyLanguage(language);
+            });
 
             useEffect(() => {
                 async function loadConfig() {
@@ -2339,6 +2546,10 @@
                 setInputs((prev) => ({ ...prev, allowDeepPanelReduction: true }));
             }
 
+            function handleToggleLanguage() {
+                setLanguage((current) => current === 'en' ? 'zh' : 'en');
+            }
+
             function handleCreateQuotation() {
                 const url = buildQuotationUrl(invoiceBaseUrl, solarResult, inputs, selectedBillCycleMode);
                 if (!url) {
@@ -2349,8 +2560,8 @@
             }
 
             return (
-                <div style={{ paddingBottom: solarResult ? 186 : 32 }}>
-                    <NavBar />
+                <div key={language} style={{ paddingBottom: solarResult ? 186 : 32 }}>
+                    <NavBar language={language} onToggleLanguage={handleToggleLanguage} />
                     <StepProgress billReady={billReady} roiReady={roiReady} />
 
                     <InputPanel
