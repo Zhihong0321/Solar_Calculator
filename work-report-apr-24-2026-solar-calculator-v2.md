@@ -25,5 +25,6 @@ REPO NAME : Solar Calculator v2
 - Updated PRE Activity live board to dense task-first management view
 - Refreshed PRE Activity V2 management demo rows for live board preview
 - Corrected PRE Activity live board hierarchy to group by task first
+- Improved PRE Activity live board breathing animation visibility
 
 =====================
