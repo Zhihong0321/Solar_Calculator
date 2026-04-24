@@ -125,10 +125,10 @@
     function renderAgent(row) {
       const isBreak = /break|lunch/i.test(row.task_title || '');
       return `
-        <div class="worker-chip ${isBreak ? 'break-chip' : ''} rounded-lg px-2.5 py-2">
+        <a href="/activity-live-board/person/${encodeURIComponent(row.linked_user)}" class="worker-chip ${isBreak ? 'break-chip' : ''} block rounded-lg px-2.5 py-2 no-underline">
           <p class="truncate text-[11px] font-black leading-tight sm:text-xs">${escapeHtml(displayAgentName(row))}</p>
           <p class="mt-0.5 text-[10px] font-bold leading-tight opacity-70">${timeLabel(row.started_at)} · ${row.elapsed_minutes || 0}m · ${escapeHtml(row.department || 'general')}</p>
-        </div>`;
+        </a>`;
     }
 
     document.addEventListener('DOMContentLoaded', () => {

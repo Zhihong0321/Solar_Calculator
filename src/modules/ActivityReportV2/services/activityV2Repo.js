@@ -496,6 +496,51 @@ async function getLiveBoard(client, userContext) {
   };
 }
 
+async function getPersonTimeline(client, userContext, linkedUser, options = {}) {
+  if (!userContext.canViewManagerBoard) {
+    throw new Error('Manager access is required.');
+  }
+
+  const targetLinkedUser = normalizeText(linkedUser);
+  if (!targetLinkedUser) {
+    throw new Error('linked_user is required.');
+  }
+
+  await applyAutoCutoffs(client, targetLinkedUser);
+
+  const targetDate = normalizeText(options.date) || new Date().toISOString().split('T')[0];
+  const profileResult = await client.query(
+    `SELECT
+        u.bubble_id AS linked_user,
+        u.email,
+        u.access_level,
+        a.name AS agent_name,
+        a.contact
+       FROM "user" u
+       LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
+      WHERE u.bubble_id = $1
+      LIMIT 1`,
+    [targetLinkedUser]
+  );
+
+  const reportResult = await client.query(
+    `SELECT *,
+            FLOOR(EXTRACT(EPOCH FROM (COALESCE(ended_at, NOW()) - started_at)) / 60)::integer AS duration_minutes
+       FROM activity_v2_report
+      WHERE linked_user = $1
+        AND started_at >= $2::date
+        AND started_at < ($2::date + INTERVAL '1 day')
+      ORDER BY started_at ASC, id ASC`,
+    [targetLinkedUser, targetDate]
+  );
+
+  return {
+    date: targetDate,
+    person: profileResult.rows[0] || { linked_user: targetLinkedUser },
+    reports: reportResult.rows
+  };
+}
+
 async function updateDetail(client, userContext, reportId, detailText) {
   const result = await client.query(
     `UPDATE activity_v2_report
@@ -523,5 +568,6 @@ module.exports = {
   getCurrentActivity,
   getTimeline,
   getLiveBoard,
+  getPersonTimeline,
   updateDetail
 };

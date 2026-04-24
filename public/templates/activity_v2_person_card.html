@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <title>Activity Person Card | ETERNALGY OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { font-family: Inter, sans-serif; box-sizing: border-box; }
+    body { margin: 0; background: #f8fafc; color: #0f172a; }
+    .btn { border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-soft { background: #e2e8f0; color: #0f172a; }
+    .field { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 14px; background: white; }
+    .timeline-bar { position: relative; height: 52px; border-radius: 10px; background: #e2e8f0; overflow: hidden; }
+    .timeline-segment { position: absolute; top: 8px; height: 36px; border-radius: 8px; color: #fff; padding: 6px 8px; overflow: hidden; }
+    .work-segment { background: #2563eb; }
+    .break-segment { background: #ea580c; }
+    .ended-segment { background: #475569; }
+  </style>
+</head>
+<body>
+  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4">
+    <div class="mx-auto flex max-w-5xl items-center justify-between gap-3">
+      <a href="/activity-live-board" class="btn btn-soft"><i class="fa-solid fa-arrow-left"></i></a>
+      <div class="min-w-0 flex-1">
+        <h1 id="personName" class="truncate text-lg font-black">Person Card</h1>
+        <p id="personMeta" class="truncate text-xs font-semibold text-slate-500">Loading...</p>
+      </div>
+      <input id="datePicker" class="field max-w-[148px]" type="date">
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl space-y-4 p-4 pb-24">
+    <section class="rounded-lg border border-slate-200 bg-white p-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Today Task Line</p>
+          <p id="daySummary" class="mt-1 text-sm font-extrabold text-slate-900">Loading...</p>
+        </div>
+        <button class="btn btn-soft" onclick="loadPersonCard()"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+      <div class="mt-4 overflow-x-auto">
+        <div class="min-w-[760px]">
+          <div id="taskLine" class="timeline-bar"></div>
+          <div id="timeScale" class="mt-2 grid grid-cols-11 text-[10px] font-black uppercase tracking-widest text-slate-400"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-slate-200 bg-white p-4">
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-sm font-black uppercase tracking-widest">Preview Timeline</h2>
+        <span id="rowCount" class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black text-slate-500">0 rows</span>
+      </div>
+      <div id="timelineList" class="mt-4 space-y-2"></div>
+    </section>
+  </main>
+
+  <script>
+    const linkedUser = decodeURIComponent(location.pathname.split('/').pop());
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    }
+
+    function timeLabel(value) {
+      return value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now';
+    }
+
+    function displayName(person) {
+      return person.agent_name || person.email || person.linked_user || linkedUser;
+    }
+
+    async function requestJson(url) {
+      const response = await fetch(url, { credentials: 'same-origin' });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.success === false) throw new Error(result.error || 'Request failed');
+      return result.data;
+    }
+
+    async function loadPersonCard() {
+      const date = document.getElementById('datePicker').value;
+      const data = await requestJson(`/api/activity-v2/person/${encodeURIComponent(linkedUser)}/timeline?date=${encodeURIComponent(date)}`);
+      renderHeader(data);
+      renderTaskLine(data.reports || []);
+      renderTimeline(data.reports || []);
+    }
+
+    function renderHeader(data) {
+      const person = data.person || {};
+      document.getElementById('personName').textContent = displayName(person);
+      document.getElementById('personMeta').textContent = `${person.email || person.linked_user || linkedUser} · ${data.date}`;
+      const points = (data.reports || []).reduce((sum, row) => sum + Number(row.task_point || 0), 0);
+      const minutes = (data.reports || []).reduce((sum, row) => sum + Number(row.duration_minutes || 0), 0);
+      document.getElementById('daySummary').textContent = `${data.reports.length} tasks · ${minutes} min · ${points} pt`;
+      document.getElementById('rowCount').textContent = `${data.reports.length} rows`;
+    }
+
+    function renderTaskLine(reports) {
+      const line = document.getElementById('taskLine');
+      const scale = document.getElementById('timeScale');
+      const dayStart = new Date(document.getElementById('datePicker').value + 'T06:00:00');
+      const totalMinutes = 20 * 60;
+      const now = new Date();
+      const segments = reports.map((row) => {
+        const start = new Date(row.started_at);
+        const end = row.ended_at ? new Date(row.ended_at) : now;
+        const left = Math.max(0, Math.min(totalMinutes, (start - dayStart) / 60000));
+        const right = Math.max(0, Math.min(totalMinutes, (end - dayStart) / 60000));
+        const width = Math.max(8, right - left);
+        const isBreak = /break|lunch/i.test(row.task_title || '');
+        const cls = row.ended_at ? (isBreak ? 'break-segment' : 'ended-segment') : (isBreak ? 'break-segment' : 'work-segment');
+        return `<div class="timeline-segment ${cls}" style="left:${(left / totalMinutes) * 100}%;width:${(width / totalMinutes) * 100}%;" title="${escapeHtml(row.task_title)} ${timeLabel(row.started_at)} - ${timeLabel(row.ended_at)}">
+          <div class="truncate text-[10px] font-black leading-tight">${escapeHtml(row.task_title)}</div>
+          <div class="truncate text-[9px] font-bold opacity-80">${row.duration_minutes || 0}m</div>
+        </div>`;
+      }).join('');
+      line.innerHTML = segments || '<div class="p-4 text-center text-xs font-black text-slate-400">No task for this date</div>';
+      scale.innerHTML = Array.from({ length: 11 }, (_, index) => {
+        const hour = (6 + index * 2) % 24;
+        const label = hour === 0 ? '12a' : hour < 12 ? `${hour}a` : hour === 12 ? '12p' : `${hour - 12}p`;
+        return `<span>${label}</span>`;
+      }).join('');
+    }
+
+    function renderTimeline(reports) {
+      const list = document.getElementById('timelineList');
+      list.innerHTML = reports.length ? reports.map((row) => `
+        <article class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-black">${escapeHtml(row.task_title)}</p>
+            <p class="text-xs font-semibold text-slate-500">${timeLabel(row.started_at)} - ${timeLabel(row.ended_at)} · ${row.duration_minutes || 0}m · ${row.task_point || 0} pt</p>
+          </div>
+          <span class="shrink-0 rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase text-slate-500">${escapeHtml(row.end_reason || 'running')}</span>
+        </article>
+      `).join('') : '<div class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm font-bold text-slate-400">No timeline rows</div>';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('datePicker').value = new Date().toISOString().split('T')[0];
+      document.getElementById('datePicker').addEventListener('change', loadPersonCard);
+      loadPersonCard().catch((error) => {
+        document.getElementById('timelineList').innerHTML = `<div class="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">${escapeHtml(error.message)}</div>`;
+      });
+    });
+  </script>
+</body>
+</html>
