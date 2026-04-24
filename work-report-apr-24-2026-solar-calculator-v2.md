@@ -29,5 +29,6 @@ REPO NAME : Solar Calculator v2
 - Added PRE Activity live board person card with daily task timeline
 - Fixed PRE Activity person card mobile time axis layout
 - Changed PRE Activity person card to narrative today story
+- Added historical quick date buttons to PRE Activity person card
 
 =====================
