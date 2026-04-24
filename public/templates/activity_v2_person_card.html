@@ -20,6 +20,8 @@
     .work-segment { background: #2563eb; }
     .break-segment { background: #ea580c; }
     .ended-segment { background: #475569; }
+    .time-axis { position: relative; height: 22px; margin-top: 8px; }
+    .time-axis span { position: absolute; top: 0; transform: translateX(-50%); font-size: 10px; font-weight: 900; color: #94a3b8; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -46,7 +48,7 @@
       <div class="mt-4 overflow-x-auto">
         <div class="min-w-[760px]">
           <div id="taskLine" class="timeline-bar"></div>
-          <div id="timeScale" class="mt-2 grid grid-cols-11 text-[10px] font-black uppercase tracking-widest text-slate-400"></div>
+          <div id="timeScale" class="time-axis"></div>
         </div>
       </div>
     </section>
@@ -123,7 +125,7 @@
       scale.innerHTML = Array.from({ length: 11 }, (_, index) => {
         const hour = (6 + index * 2) % 24;
         const label = hour === 0 ? '12a' : hour < 12 ? `${hour}a` : hour === 12 ? '12p' : `${hour - 12}p`;
-        return `<span>${label}</span>`;
+        return `<span style="left:${index * 10}%">${label}</span>`;
       }).join('');
     }
 
