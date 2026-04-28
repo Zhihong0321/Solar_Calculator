@@ -6,5 +6,6 @@ REPO NAME : Solar Calculator v2
 - Checked last 90 days SEDA user and agent ID formats
 - Normalized SEDA ownership to user bubble IDs
 - Removed the domestic v4 panel quantity minus-two reduction limit.
+- Set domestic v4 as the standard domestic calculator and moved the previous calculator to domestic legacy.
 
 =====================

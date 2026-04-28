@@ -310,6 +310,10 @@ app.post('/api/agent/register', async (req, res) => {
 });
 
 app.get('/domestic', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'domestic-v4.html'));
+});
+
+app.get('/domestic-legacy', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic-mobile.html'));
 });
 

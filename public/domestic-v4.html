@@ -201,28 +201,142 @@
             ['调整 panel qty 和 morning offset', 'Adjust panel qty and morning offset'],
             ['白天用电占比', 'Daytime usage ratio'],
             ['当前系统', 'Current system'],
+            ['EN | 切换中文', 'EN | Chinese'],
             ['请先完成账单分析。', 'Please complete bill analysis first.'],
             ['当前方案没有可用的配套，无法创建报价链接。', 'No available package for this plan, so a quotation link cannot be created.']
         ]);
 
+        const EN_PHRASE_REPLACEMENTS = [
+            [/第一步/g, 'Step 1'],
+            [/第二步/g, 'Step 2'],
+            [/第三步/g, 'Step 3'],
+            [/第四步 · 投资回报/g, 'Step 4 · ROI'],
+            [/第五步/g, 'Step 5'],
+            [/输入电费资料/g, 'Enter Bill Details'],
+            [/使用现有计算逻辑/g, 'Using Existing Calculator Logic'],
+            [/分析中\.\.\./g, 'Analysing...'],
+            [/分析账单/g, 'Analyse Bill'],
+            [/账单明细/g, 'Bill Breakdown'],
+            [/匹配精度/g, 'Matching Accuracy'],
+            [/推算用电量/g, 'Estimated Usage'],
+            [/展开组件明细/g, 'Expand Component Details'],
+            [/查看逐项账单组成/g, 'View itemized bill components'],
+            [/太阳能设置/g, 'Solar Setup'],
+            [/已生成/g, 'Generated'],
+            [/待生成/g, 'Pending'],
+            [/日照峰值/g, 'Sun Peak Hours'],
+            [/马来西亚标准/g, 'Malaysia Standard'],
+            [/白天用电/g, 'Daytime Usage'],
+            [/发电时段内/g, 'During generation hours'],
+            [/推荐配套/g, 'Recommended Package'],
+            [/此系统超过当前相位上限，需留意/g, 'This system exceeds the current phase limit. Please note'],
+            [/计算中\.\.\./g, 'Calculating...'],
+            [/生成 ROI/g, 'Generate ROI'],
+            [/每月节省金额/g, 'Monthly Savings'],
+            [/置信度/g, 'Confidence'],
+            [/每月 ·/g, 'Monthly ·'],
+            [/安装前后 · 电费对比/g, 'Before vs After · Bill Comparison'],
+            [/安装前/g, 'Before'],
+            [/安装后/g, 'After Solar'],
+            [/每月电费/g, 'Monthly Bill'],
+            [/现在/g, 'Now'],
+            [/太阳能后/g, 'After Solar'],
+            [/能量流向数据/g, 'Energy Flow Data'],
+            [/能量流向/g, 'Energy Flow'],
+            [/太阳能产出/g, 'Solar Output'],
+            [/家庭用电/g, 'Home Consumption'],
+            [/账单节省分解/g, 'Savings Breakdown'],
+            [/每月节省 = 出售电力收入 \+ 电费减少（含 EEI）/g, 'Monthly savings = export income + bill reduction (including EEI)'],
+            [/卖电收入/g, 'Export Income'],
+            [/FiT 输出/g, 'FiT Export'],
+            [/合计收入/g, 'Total Income'],
+            [/电费减少/g, 'Bill Reduction'],
+            [/用电 \+ 网络 \+ 容量费/g, 'Energy + Network + Capacity'],
+            [/SST \+ KWTBB \+ 零售费/g, 'SST + KWTBB + Retail'],
+            [/EEI 节能奖励/g, 'EEI Incentive'],
+            [/净进口 <= 0 kWh，EEI 自动归零/g, 'Net import <= 0 kWh, EEI becomes zero'],
+            [/合计减少/g, 'Total Reduction'],
+            [/收入 \+ 减少/g, 'Income + Reduction'],
+            [/每月总节省/g, 'Total Monthly Savings'],
+            [/EEI 计算说明/g, 'EEI Calculation'],
+            [/EEI 金额计算方式：/g, 'EEI amount formula:'],
+            [/关闭/g, 'Close'],
+            [/当前结果/g, 'Current Result'],
+            [/25年节省预测/g, '25-Year Savings Forecast'],
+            [/预计25年总回报（含每年3%电价涨幅）/g, 'Estimated 25-year return (with 3% annual tariff increase)'],
+            [/累计节省/g, 'Cumulative Savings'],
+            [/系统费用/g, 'System Cost'],
+            [/系统规模/g, 'System Size'],
+            [/回本期/g, 'Payback'],
+            [/年回报率/g, 'Annual ROI'],
+            [/回本/g, 'payback'],
+            [/贷款可行性/g, 'Loan Feasibility'],
+            [/贷款期间 · 每月净支出/g, 'During Financing · Monthly Net Cost'],
+            [/还款/g, 'Repayment'],
+            [/节省/g, 'Savings'],
+            [/净/g, 'Net'],
+            [/年后太阳能全额回本/g, ' years until full solar payback'],
+            [/持续超过/g, 'continues for over'],
+            [/查看贷款详情/g, 'View Loan Details'],
+            [/首付 · 融资 · 利息/g, 'Downpayment · Financing · Interest'],
+            [/首付/g, 'Downpayment'],
+            [/融资金额/g, 'Financed Amount'],
+            [/每月还款/g, 'Monthly Repayment'],
+            [/每月节省/g, 'Monthly Savings'],
+            [/详细分析/g, 'Detailed Analysis'],
+            [/供参考/g, 'For Reference'],
+            [/账单组件明细/g, 'Bill Component Details'],
+            [/安装前 vs 安装后对比/g, 'Before vs After Comparison'],
+            [/项目/g, 'Item'],
+            [/月用电量/g, 'Monthly Usage'],
+            [/太阳能发电量/g, 'Solar Generation'],
+            [/净从电网进口/g, 'Net Grid Import'],
+            [/输出/g, 'Export'],
+            [/备用发电/g, 'Backup Generation'],
+            [/储能电池（可选）/g, 'Battery Storage (Optional)'],
+            [/提升自用率，减少电网依赖/g, 'Increase self-consumption and reduce grid dependency'],
+            [/无/g, 'None'],
+            [/电池增加月节省/g, 'Added Monthly Battery Savings'],
+            [/高级电池参数/g, 'Advanced Battery Settings'],
+            [/放电深度 · 损耗率/g, 'Depth of Discharge · Loss Rate'],
+            [/放电损耗/g, 'Discharge Loss'],
+            [/放电深度/g, 'Depth of Discharge'],
+            [/充入储能/g, 'Battery Charge'],
+            [/剩余输出/g, 'Remaining Export'],
+            [/正在更新电池测算\.\.\./g, 'Updating battery estimate...'],
+            [/准备好安装太阳能了吗？/g, 'Ready to Install Solar?'],
+            [/为客户生成完整报价链接/g, 'Generate a complete quotation link for the customer'],
+            [/创建报价链接/g, 'Create Quotation Link'],
+            [/调整 panel qty 和 morning offset/g, 'Adjust panel qty and morning offset'],
+            [/白天用电占比/g, 'Daytime usage ratio'],
+            [/当前系统/g, 'Current system'],
+            [/建议/g, 'Recommended'],
+            [/范围/g, 'range'],
+            [/用电费/g, 'Energy Charge'],
+            [/网络费/g, 'Network Charge'],
+            [/容量费/g, 'Capacity Charge'],
+            [/零售费/g, 'Retail Charge'],
+            [/税费/g, 'Taxes & Fees'],
+            [/前/g, 'Before'],
+            [/后/g, 'After'],
+            [/今/g, 'Now'],
+            [/太阳能/g, 'Solar'],
+            [/自用/g, 'Self-use'],
+            [/电网补充/g, 'Grid import'],
+            [/可用/g, 'Available'],
+            [/充入/g, 'charged'],
+            [/个月/g, 'months'],
+            [/月/g, 'month'],
+            [/天/g, 'day'],
+            [/年/g, 'years'],
+            [/切换中文/g, 'Chinese']
+        ];
+
         function translateTextContent(text) {
             let translated = EN_TEXT.get(text) || text;
-            translated = translated
-                .replace(/个月/g, 'months')
-                .replace(/月/g, 'month')
-                .replace(/年后太阳能全额回本/g, ' years until full solar payback')
-                .replace(/持续超过/g, 'continues for over')
-                .replace(/回本/g, ' payback')
-                .replace(/推算用电量/g, 'Estimated usage')
-                .replace(/自用/g, 'Self-use')
-                .replace(/输出 FiT/g, 'FiT export')
-                .replace(/太阳能/g, 'Solar')
-                .replace(/电网补充/g, 'Grid import')
-                .replace(/可用/g, 'Available')
-                .replace(/天/g, 'day')
-                .replace(/充入/g, 'charged')
-                .replace(/建议/g, 'Recommended')
-                .replace(/范围/g, 'range');
+            EN_PHRASE_REPLACEMENTS.forEach(([pattern, replacement]) => {
+                translated = translated.replace(pattern, replacement);
+            });
             return translated;
         }
 
@@ -668,7 +782,7 @@
                                 whiteSpace: 'nowrap'
                             }}
                         >
-                            {isEnglish ? 'EN | 切换中文' : '中文 | Switch EN'}
+                            {isEnglish ? 'EN | Chinese' : '中文 | Switch EN'}
                         </button>
                         <div style={{
                             background: '#1e3a20',
