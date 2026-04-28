@@ -1,5 +1,22 @@
 const sedaRepo = require('./sedaRepo');
 
+async function resolveInvoiceSedaAgentUserBubbleId(client, invoiceId, fallbackUserId) {
+    const invoiceResult = await client.query(
+        `SELECT linked_agent, created_by
+         FROM invoice
+         WHERE bubble_id = $1
+         LIMIT 1`,
+        [invoiceId]
+    );
+    const invoice = invoiceResult.rows[0] || {};
+
+    return (
+        await sedaRepo.resolveUserBubbleId(client, invoice.linked_agent)
+        || await sedaRepo.resolveUserBubbleId(client, invoice.created_by)
+        || await sedaRepo.resolveUserBubbleId(client, fallbackUserId)
+    );
+}
+
 /**
  * Ensure SEDA registration exists for an invoice if customer is present
  * @param {object} client - Database client (in transaction)
@@ -9,6 +26,9 @@ const sedaRepo = require('./sedaRepo');
  */
 async function ensureSedaRegistration(client, invoiceId, customerId, userId) {
     if (!invoiceId || !customerId) return;
+
+    const agentUserBubbleId = await resolveInvoiceSedaAgentUserBubbleId(client, invoiceId, userId);
+    const createdByUserBubbleId = await sedaRepo.resolveUserBubbleId(client, userId) || userId;
 
     // Check if exists
     const existing = await sedaRepo.getSedaByInvoiceId(client, invoiceId);
@@ -24,6 +44,10 @@ async function ensureSedaRegistration(client, invoiceId, customerId, userId) {
         // [Fix] Ensure bi-directional linking is robust (idempotent updates)
         await sedaRepo.linkSedaToCustomer(client, customerId, existing.bubble_id);
         await sedaRepo.linkSedaToInvoice(client, invoiceId, existing.bubble_id);
+        if (agentUserBubbleId && existing.agent !== agentUserBubbleId) {
+            await sedaRepo.updateSedaAgent(client, existing.bubble_id, agentUserBubbleId);
+            existing.agent = agentUserBubbleId;
+        }
 
         return existing;
     }
@@ -32,7 +56,8 @@ async function ensureSedaRegistration(client, invoiceId, customerId, userId) {
     const newSeda = await sedaRepo.createSedaRegistration(client, {
         invoiceId,
         customerId,
-        createdBy: userId
+        createdBy: createdByUserBubbleId,
+        agentUserBubbleId
     });
 
     // Link back

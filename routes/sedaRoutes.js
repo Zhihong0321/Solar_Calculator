@@ -20,7 +20,7 @@ const fs      = require('fs');
 // ─── Core shared modules ──────────────────────────────────────────────────────
 const pool              = require('../src/core/database/pool');
 const { requireAuth }   = require('../src/core/middleware/auth');
-const { resolveAgentBubbleId } = require('../src/core/auth/userIdentity');
+const { getCanonicalUserIdentity } = require('../src/core/auth/userIdentity');
 const {
     createUploader,
     buildPublicUrl,
@@ -42,7 +42,6 @@ const {
 
 // ─── SEDA-specific modules ────────────────────────────────────────────────────
 const sedaRepo          = require('../src/modules/Invoicing/services/sedaRepo');
-const invoiceRepo       = require('../src/modules/Invoicing/services/invoiceRepo');
 const extractionService = require('../src/modules/Invoicing/services/extractionService');
 
 const router = express.Router();
@@ -101,8 +100,7 @@ async function getRegStatusColumn(client) {
 // Confirms the authenticated agent owns or created the SEDA record.
 // Attaches req.sedaRecord for downstream handlers.
 
-async function requireSedaOwnership(req, res, next) {
-    const { id } = req.params;
+async function requireSedaOwnershipForId(req, res, next, id) {
     const client = await pool.connect();
     try {
         const r = await client.query(
@@ -115,22 +113,31 @@ async function requireSedaOwnership(req, res, next) {
 
         const record  = r.rows[0];
         const isAdmin = Array.isArray(req.user?.access_level) && req.user.access_level.includes('admin');
-        const authUserId = String(req.user?.userId || req.user?.id || req.user?.bubbleId || req.user?.bubble_id || '').trim() || null;
+        const authUserId = getCanonicalUserIdentity(req);
+        const authUserBubbleId = authUserId
+            ? await sedaRepo.resolveUserBubbleId(client, authUserId)
+            : null;
 
         let linkedInvoiceAgent = null;
+        let linkedInvoiceCreatedBy = null;
         const linkedInvoiceId = Array.isArray(record.linked_invoice) ? record.linked_invoice[0] : null;
         if (linkedInvoiceId) {
             const invoiceRes = await client.query(
-                'SELECT linked_agent FROM invoice WHERE bubble_id = $1 LIMIT 1',
+                'SELECT linked_agent, created_by FROM invoice WHERE bubble_id = $1 LIMIT 1',
                 [linkedInvoiceId]
             );
             linkedInvoiceAgent = invoiceRes.rows[0]?.linked_agent || null;
+            linkedInvoiceCreatedBy = invoiceRes.rows[0]?.created_by || null;
         }
 
-        const resolvedLinkedAgent = record.agent || linkedInvoiceAgent || null;
-        const isOwner = authUserId
-            ? await invoiceRepo.verifyOwnership(client, authUserId, record.created_by, resolvedLinkedAgent)
-            : false;
+        const ownerCandidates = await Promise.all([
+            record.agent,
+            record.created_by,
+            linkedInvoiceAgent,
+            linkedInvoiceCreatedBy
+        ].map((identity) => sedaRepo.resolveUserBubbleId(client, identity)));
+        const ownerIds = new Set(ownerCandidates.filter(Boolean).map(String));
+        const isOwner = authUserBubbleId ? ownerIds.has(String(authUserBubbleId)) : false;
 
         if (!isAdmin && !isOwner) {
             return res.status(403).json(uploadError(ERROR_CODES.FORBIDDEN, { error: 'You do not have access to this SEDA record.' }));
@@ -144,6 +151,16 @@ async function requireSedaOwnership(req, res, next) {
     } finally {
         client.release();
     }
+}
+
+function requireSedaOwnership(req, res, next) {
+    return requireSedaOwnershipForId(req, res, next, req.params.id);
+}
+
+function requireSedaBodyOwnership(req, res, next) {
+    const sedaId = req.body?.sedaId;
+    if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
+    return requireSedaOwnershipForId(req, res, next, sedaId);
 }
 
 // ─── Core upload handler ──────────────────────────────────────────────────────
@@ -584,8 +601,8 @@ router.post('/api/v1/seda-public/:shareToken/restore/:field', async (req, res) =
 router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
     const client = await pool.connect();
     try {
-        const agentId = await resolveAgentBubbleId(client, req);
-        if (!agentId) return res.json({ success: true, data: [] });
+        const userBubbleId = await sedaRepo.resolveUserBubbleId(client, getCanonicalUserIdentity(req));
+        if (!userBubbleId) return res.json({ success: true, data: [] });
 
         const regStatusCol = await getRegStatusColumn(client);
         const result = await client.query(
@@ -597,11 +614,21 @@ router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
              FROM seda_registration s
              LEFT JOIN customer c ON s.linked_customer = c.customer_id
              LEFT JOIN invoice i ON i.bubble_id = ANY(s.linked_invoice)
-             WHERE (s.agent = $1 OR s.created_by = $1 OR i.linked_agent = $1)
+             LEFT JOIN agent seda_agent ON seda_agent.bubble_id = s.agent
+             LEFT JOIN agent invoice_agent ON invoice_agent.bubble_id = i.linked_agent
+             WHERE (
+                    s.agent = $1
+                 OR s.created_by = $1
+                 OR i.created_by = $1
+                 OR seda_agent.linked_user_login = $1
+                 OR seda_agent.created_by = $1
+                 OR invoice_agent.linked_user_login = $1
+                 OR invoice_agent.created_by = $1
+             )
                AND (s.seda_status IS NULL OR (s.seda_status NOT ILIKE 'Submitted%' AND s.seda_status NOT ILIKE 'Approved%'))
                AND (s.${regStatusCol} IS NULL OR (s.${regStatusCol} NOT ILIKE 'Submitted%' AND s.${regStatusCol} NOT ILIKE 'Approved%'))
              ORDER BY has_payment DESC, i.paid_amount DESC, s.updated_at DESC`,
-            [agentId]
+            [userBubbleId]
         );
         res.json({ success: true, data: result.rows });
     } catch (err) {
@@ -659,7 +686,7 @@ router.get('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, re
 // these handlers entirely.
 // ═════════════════════════════════════════════════════════════════════════════
 
-router.post('/api/v1/seda/extract-tnb', async (req, res) => {
+router.post('/api/v1/seda/extract-tnb', requireAuth, requireSedaBodyOwnership, async (req, res) => {
     const { sedaId, fieldKey = 'tnb_bill_1' } = req.body;
     if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
 
@@ -690,7 +717,7 @@ router.post('/api/v1/seda/extract-tnb', async (req, res) => {
     } finally { client.release(); }
 });
 
-router.post('/api/v1/seda/extract-mykad', async (req, res) => {
+router.post('/api/v1/seda/extract-mykad', requireAuth, requireSedaBodyOwnership, async (req, res) => {
     const { sedaId, fieldKey = 'mykad_front' } = req.body;
     if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
 
@@ -723,7 +750,7 @@ router.post('/api/v1/seda/extract-mykad', async (req, res) => {
     } finally { client.release(); }
 });
 
-router.post('/api/v1/seda/verify-meter', async (req, res) => {
+router.post('/api/v1/seda/verify-meter', requireAuth, requireSedaBodyOwnership, async (req, res) => {
     const { sedaId } = req.body;
     if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
 
@@ -746,7 +773,7 @@ router.post('/api/v1/seda/verify-meter', async (req, res) => {
     } finally { client.release(); }
 });
 
-router.post('/api/v1/seda/verify-ownership', async (req, res) => {
+router.post('/api/v1/seda/verify-ownership', requireAuth, requireSedaBodyOwnership, async (req, res) => {
     const { sedaId, context } = req.body;
     if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
 

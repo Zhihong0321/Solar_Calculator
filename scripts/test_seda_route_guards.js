@@ -47,8 +47,8 @@ createStoredFile('existing-proof.pdf', '%PDF-1.0 proof');
 const sedaRecords = {
     'seda-owned': {
         bubble_id: 'seda-owned',
-        agent: 'agent-1',
-        created_by: 'agent-1',
+        agent: 'user-1',
+        created_by: 'user-1',
         ic_copy_front: '/uploads/seda_registration/existing-mykad.jpg',
         mykad_pdf: '/uploads/seda_registration/existing-bill.pdf',
         tnb_bill_1: '/uploads/seda_registration/existing-bill.pdf',
@@ -60,8 +60,8 @@ const sedaRecords = {
     },
     'seda-foreign': {
         bubble_id: 'seda-foreign',
-        agent: 'agent-2',
-        created_by: 'agent-2',
+        agent: 'user-2',
+        created_by: 'user-2',
         ic_copy_front: '/uploads/seda_registration/existing-mykad.jpg',
         tnb_bill_1: '/uploads/seda_registration/existing-bill.pdf',
         tnb_meter: '/uploads/seda_registration/existing-meter.jpg',
@@ -69,6 +69,18 @@ const sedaRecords = {
         installation_address: '456 Foreign Street',
         linked_customer: 'cust-2',
         linked_invoice: ['inv-2']
+    },
+    'seda-legacy-agent-profile': {
+        bubble_id: 'seda-legacy-agent-profile',
+        agent: 'agent-1',
+        created_by: 'user-9',
+        ic_copy_front: '/uploads/seda_registration/existing-mykad.jpg',
+        tnb_bill_1: '/uploads/seda_registration/existing-bill.pdf',
+        tnb_meter: '/uploads/seda_registration/existing-meter.jpg',
+        property_ownership_prove: '/uploads/seda_registration/existing-proof.pdf',
+        installation_address: '789 Legacy Street',
+        linked_customer: 'cust-3',
+        linked_invoice: ['inv-1']
     }
 };
 
@@ -82,16 +94,25 @@ function createDbClient() {
             const normalized = String(sql).replace(/\s+/g, ' ').trim().toLowerCase();
             const bubbleId = params[0];
 
-            if (normalized.includes('select bubble_id, agent, created_by from seda_registration where bubble_id = $1')) {
+            if (normalized.includes('select bubble_id, agent, created_by') && normalized.includes('from seda_registration where bubble_id = $1')) {
                 const record = sedaRecords[bubbleId];
                 if (!record) return { rows: [] };
                 return {
                     rows: [{
                         bubble_id: record.bubble_id,
                         agent: record.agent,
-                        created_by: record.created_by
+                        created_by: record.created_by,
+                        linked_invoice: record.linked_invoice
                     }]
                 };
+            }
+
+            if (normalized.includes('select linked_agent, created_by from invoice where bubble_id = $1')) {
+                const invoices = {
+                    'inv-1': { linked_agent: 'agent-1', created_by: 'user-1' },
+                    'inv-2': { linked_agent: 'agent-2', created_by: 'user-2' }
+                };
+                return { rows: invoices[bubbleId] ? [invoices[bubbleId]] : [] };
             }
 
             if (normalized.startsWith('select * from seda_registration where bubble_id = $1')) {
@@ -166,9 +187,10 @@ const mockAuth = {
         if (req.headers['x-test-auth'] !== 'ok') {
             return res.status(401).json({ success: false, error: 'Auth required for test.' });
         }
+        const testUser = req.headers['x-test-user'] || 'user-1';
         req.user = {
-            bubbleId: 'user-1',
-            bubble_id: 'user-1',
+            bubbleId: testUser,
+            bubble_id: testUser,
             linked_agent_profile: req.headers['x-test-agent'] || 'agent-1',
             access_level: req.headers['x-test-admin'] === 'yes' ? ['admin'] : []
         };
@@ -177,12 +199,23 @@ const mockAuth = {
 };
 
 const mockUserIdentity = {
+    getCanonicalUserIdentity(req) {
+        return req.user?.bubble_id || req.user?.bubbleId || req.user?.id || null;
+    },
     async resolveAgentBubbleId(_db, req) {
         return req.headers['x-test-agent'] || req.user?.linked_agent_profile || null;
     }
 };
 
 const mockSedaRepo = {
+    async resolveUserBubbleId(_client, identity) {
+        const identityMap = {
+            'agent-1': 'user-1',
+            'agent-2': 'user-2',
+            'agent-9': 'user-9'
+        };
+        return identityMap[identity] || identity || null;
+    },
     async getByShareToken(_client, shareToken) {
         return shareTokens[shareToken] || null;
     }
@@ -293,6 +326,18 @@ const mockUpload = {
     uploadError,
     ERROR_CODES,
     logUpload() {},
+    async listRecycleBinEntries() {
+        return [];
+    },
+    async getActiveRecycleBinEntry() {
+        return null;
+    },
+    async insertRecycleBinEntry() {
+        return null;
+    },
+    async markRecycleBinRestored() {
+        return null;
+    },
     mb(value) {
         return value * 1024 * 1024;
     },
@@ -424,7 +469,7 @@ async function runTests() {
 
     await expectStatus(
         '[OWNERSHIP] GET /api/v1/seda/:id blocks non-owner agent',
-        requestJson('/api/v1/seda/seda-owned', { headers: { 'x-test-auth': 'ok', 'x-test-agent': 'agent-9' } }),
+        requestJson('/api/v1/seda/seda-owned', { headers: { 'x-test-auth': 'ok', 'x-test-user': 'user-9', 'x-test-agent': 'agent-9' } }),
         403
     );
 
@@ -434,6 +479,7 @@ async function runTests() {
             method: 'POST',
             headers: {
                 'x-test-auth': 'ok',
+                'x-test-user': 'user-9',
                 'x-test-agent': 'agent-9'
             }
         }),
@@ -469,6 +515,13 @@ async function runTests() {
                 'x-test-originalname': 'front.jpg',
                 'x-test-mime': 'image/jpeg'
             }
+        })
+    );
+
+    await expectSuccess(
+        '[OWNERSHIP] Legacy agent-profile SEDA owner maps to user bubble ID',
+        requestJson('/api/v1/seda/seda-legacy-agent-profile', {
+            headers: { 'x-test-auth': 'ok', 'x-test-agent': 'agent-1' }
         })
     );
 

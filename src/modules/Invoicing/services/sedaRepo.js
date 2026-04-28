@@ -1,6 +1,39 @@
 const crypto = require('crypto');
 let cachedRegStatusColumn = null;
 
+function normalizeIdentityValue(value) {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+async function resolveUserBubbleId(client, identity) {
+  const normalized = normalizeIdentityValue(identity);
+  if (!normalized) return null;
+
+  const userResult = await client.query(
+    `SELECT bubble_id
+     FROM "user"
+     WHERE bubble_id = $1 OR id::text = $1 OR linked_agent_profile = $1
+     LIMIT 1`,
+    [normalized]
+  );
+  if (userResult.rows[0]?.bubble_id) return userResult.rows[0].bubble_id;
+
+  const agentResult = await client.query(
+    `SELECT linked_user_login, created_by
+     FROM agent
+     WHERE bubble_id = $1
+     LIMIT 1`,
+    [normalized]
+  );
+  const agent = agentResult.rows[0];
+  const candidate = normalizeIdentityValue(agent?.linked_user_login) || normalizeIdentityValue(agent?.created_by);
+  if (!candidate || candidate === normalized) return null;
+
+  return resolveUserBubbleId(client, candidate);
+}
+
 /**
  * Standardized statuses for SEDA registration
  */
@@ -48,6 +81,8 @@ async function createSedaRegistration(client, data) {
   const shareToken = generateShareToken();
   // Share link expires in 30 days by default
   const shareExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const createdByUserBubbleId = await resolveUserBubbleId(client, createdBy) || normalizeIdentityValue(createdBy);
+  const agentUserBubbleId = await resolveUserBubbleId(client, data.agentUserBubbleId || createdByUserBubbleId) || createdByUserBubbleId;
 
   try {
     if (!cachedRegStatusColumn) {
@@ -63,11 +98,11 @@ async function createSedaRegistration(client, data) {
 
     const result = await client.query(
       `INSERT INTO seda_registration
-       (bubble_id, linked_invoice, linked_customer, created_by, created_at, updated_at,
+       (bubble_id, linked_invoice, linked_customer, created_by, agent, created_at, updated_at,
         ${cachedRegStatusColumn}, seda_status, created_date, modified_date, share_token, share_enabled, share_expires_at)
-       VALUES ($1, $2, $3, $4, NOW(), NOW(), 'Draft', 'Pending', NOW(), NOW(), $5, true, $6)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), 'Draft', 'Pending', NOW(), NOW(), $6, true, $7)
        RETURNING *`,
-      [bubbleId, [invoiceId], customerId, createdBy, shareToken, shareExpiresAt]
+      [bubbleId, [invoiceId], customerId, createdByUserBubbleId, agentUserBubbleId, shareToken, shareExpiresAt]
     );
     return result.rows[0];
   } catch (err) {
@@ -193,6 +228,21 @@ async function updateSedaLinkedCustomer(client, sedaId, customerId) {
     }
 }
 
+async function updateSedaAgent(client, sedaId, agentUserBubbleId) {
+    const normalizedAgent = normalizeIdentityValue(agentUserBubbleId);
+    if (!normalizedAgent) return;
+
+    try {
+        await client.query(
+            `UPDATE seda_registration SET agent = $1, updated_at = NOW() WHERE bubble_id = $2`,
+            [normalizedAgent, sedaId]
+        );
+    } catch (err) {
+        console.error('Error updating SEDA agent:', err);
+        throw err;
+    }
+}
+
 module.exports = {
   getSedaByInvoiceId,
   createSedaRegistration,
@@ -202,5 +252,7 @@ module.exports = {
   getShareUrl,
   generateShareToken,
   updateSedaLinkedCustomer,
+  updateSedaAgent,
+  resolveUserBubbleId,
   SedaStatus
 };
