@@ -197,9 +197,6 @@
             ['准备好安装太阳能了吗？', 'Ready to Install Solar?'],
             ['为客户生成完整报价链接', 'Generate a complete quotation link for the customer'],
             ['创建报价链接', 'Create Quotation Link'],
-            ['已允许进一步减配，最低 5 pcs', 'Further panel reduction enabled, minimum 5 pcs'],
-            ['请求进一步减少 Panel Qty', 'Request Further Panel Qty Reduction'],
-            ['默认最低只能减到建议数量 -2。需要更低时，可启用后继续减到最低 5 pcs。', 'Default minimum is recommended quantity -2. Enable this to reduce further to minimum 5 pcs.'],
             ['系统规模', 'System Size'],
             ['调整 panel qty 和 morning offset', 'Adjust panel qty and morning offset'],
             ['白天用电占比', 'Daytime usage ratio'],
@@ -225,8 +222,7 @@
                 .replace(/天/g, 'day')
                 .replace(/充入/g, 'charged')
                 .replace(/建议/g, 'Recommended')
-                .replace(/已启用深度减配，范围/g, 'deep reduction enabled, range')
-                .replace(/默认最低/g, 'default minimum');
+                .replace(/范围/g, 'range');
             return translated;
         }
 
@@ -291,7 +287,6 @@
             sunPeakHour: '3.4',
             morningUsage: '30',
             overridePanels: '',
-            allowDeepPanelReduction: false,
             panelType: '650',
             smpPrice: '0.2703',
             afaRate: '0.0000',
@@ -449,10 +444,6 @@
             const overridePanels = parseInt(inputs.overridePanels, 10);
             if (Number.isFinite(overridePanels) && overridePanels >= 1) {
                 params.overridePanels = overridePanels;
-            }
-
-            if (inputs.allowDeepPanelReduction === true) {
-                params.skipResidentialPanelGate = 'true';
             }
 
             return params;
@@ -2116,7 +2107,7 @@
             );
         }
 
-        function CtaCard({ activeCycle, solarResult, onCreateQuotation, disabled, allowDeepPanelReduction, onRequestFurtherPanelReduction }) {
+        function CtaCard({ activeCycle, solarResult, onCreateQuotation, disabled }) {
             return (
                 <SectionWrap>
                     <div style={{ background: '#0d1f0f', borderRadius: 20, padding: '22px 20px', marginBottom: 20, textAlign: 'center' }}>
@@ -2146,29 +2137,6 @@
                             <span>📋</span>
                             创建报价链接
                         </button>
-                        <button
-                            type="button"
-                            onClick={onRequestFurtherPanelReduction}
-                            disabled={allowDeepPanelReduction}
-                            style={{
-                                width: '100%',
-                                padding: '13px 15px',
-                                background: allowDeepPanelReduction ? '#18371f' : 'transparent',
-                                border: `1.5px solid ${allowDeepPanelReduction ? '#14532d' : ACCENT.light}`,
-                                borderRadius: 14,
-                                fontSize: 14,
-                                fontWeight: 700,
-                                color: allowDeepPanelReduction ? '#86efac' : ACCENT.light,
-                                cursor: allowDeepPanelReduction ? 'not-allowed' : 'pointer',
-                                opacity: allowDeepPanelReduction ? 0.75 : 1,
-                                marginTop: 10
-                            }}
-                        >
-                            {allowDeepPanelReduction ? '已允许进一步减配，最低 5 pcs' : '请求进一步减少 Panel Qty'}
-                        </button>
-                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 8 }}>
-                            默认最低只能减到建议数量 -2。需要更低时，可启用后继续减到最低 5 pcs。
-                        </div>
                         <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 16 }}>
                             {[
                                 { label: '每月节省', value: `RM ${fmt(activeCycle.totalSavings)}` },
@@ -2186,12 +2154,11 @@
             );
         }
 
-        function FloatingAdjustPanel({ solarResult, updating, allowDeepPanelReduction, onAdjustMorningUsage, onAdjustPanels, onResetPanels }) {
+        function FloatingAdjustPanel({ solarResult, updating, onAdjustMorningUsage, onAdjustPanels, onResetPanels }) {
             const actualPanels = toNumber(solarResult?.actualPanels, 0);
             const recommendedPanels = toNumber(solarResult?.recommendedPanels, actualPanels);
             const gate = solarResult?.panelQuantityGate || {};
-            const normalMinPanels = toNumber(gate.min, Math.max(1, recommendedPanels - 2));
-            const minPanels = allowDeepPanelReduction ? Math.min(5, normalMinPanels) : normalMinPanels;
+            const minPanels = toNumber(gate.min, 1);
             const maxPanels = toNumber(gate.max, Math.max(minPanels, actualPanels));
             const morningUsage = clampInteger(solarResult?.config?.morningUsage ?? 30, 1, 100);
 
@@ -2311,9 +2278,7 @@
                             <Stepper
                                 label="Panel Qty"
                                 value={actualPanels}
-                                helper={allowDeepPanelReduction
-                                    ? `建议 ${recommendedPanels} | 已启用深度减配，范围 ${minPanels}-${maxPanels}`
-                                    : `建议 ${recommendedPanels} | 默认最低 ${normalMinPanels}`}
+                                helper={`建议 ${recommendedPanels} | 范围 ${minPanels}-${maxPanels}`}
                                 onMinus={() => onAdjustPanels(actualPanels - 1)}
                                 onPlus={() => onAdjustPanels(actualPanels + 1)}
                                 minusDisabled={actualPanels <= minPanels}
@@ -2352,7 +2317,6 @@
             const [billResult, setBillResult] = useState(null);
             const [solarResult, setSolarResult] = useState(null);
             const [selectedBillCycleMode, setSelectedBillCycleMode] = useState('fullMonth');
-            const [allowDeepPanelReduction, setAllowDeepPanelReduction] = useState(false);
             const [invoiceBaseUrl, setInvoiceBaseUrl] = useState('/create-invoice');
             const [financeBank, setFinanceBank] = useState('Maybank');
             const [financeTenure, setFinanceTenure] = useState(60);
@@ -2413,7 +2377,7 @@
                     return null;
                 }
 
-                const nextInputs = { ...inputs, allowDeepPanelReduction, ...overrides };
+                const nextInputs = { ...inputs, ...overrides };
                 const params = collectSolarParams(nextInputs);
                 const requestId = solarRequestSeqRef.current + 1;
                 solarRequestSeqRef.current = requestId;
@@ -2463,7 +2427,6 @@
                 setAnalysingBill(true);
                 setSolarResult(null);
                 setSelectedBillCycleMode('fullMonth');
-                setAllowDeepPanelReduction(false);
 
                 try {
                     const response = await fetch(`/api/calculate-bill?amount=${encodeURIComponent(toNumber(inputs.billAmount))}&afaRate=${encodeURIComponent(toNumber(inputs.historicalAfaRate))}`);
@@ -2527,8 +2490,7 @@
 
                 const gate = solarResult.panelQuantityGate || {};
                 const recommended = toNumber(solarResult.recommendedPanels, 1);
-                const normalMinPanels = toNumber(gate.min, Math.max(1, recommended - 2));
-                const minPanels = allowDeepPanelReduction ? Math.min(5, normalMinPanels) : normalMinPanels;
+                const minPanels = toNumber(gate.min, 1);
                 const maxPanels = toNumber(gate.max, Math.max(minPanels, recommended));
                 const normalized = clampInteger(nextValue, minPanels, maxPanels);
                 await runSolarPlan({ overridePanels: String(normalized) }, 'plan');
@@ -2540,11 +2502,6 @@
                 }
 
                 await runSolarPlan({ overridePanels: '' }, 'plan');
-            }
-
-            function handleRequestFurtherPanelReduction() {
-                setAllowDeepPanelReduction(true);
-                setInputs((prev) => ({ ...prev, allowDeepPanelReduction: true }));
             }
 
             function handleToggleLanguage() {
@@ -2630,13 +2587,10 @@
                                 solarResult={solarResult}
                                 onCreateQuotation={handleCreateQuotation}
                                 disabled={!solarResult?.selectedPackage?.linked_package}
-                                allowDeepPanelReduction={allowDeepPanelReduction}
-                                onRequestFurtherPanelReduction={handleRequestFurtherPanelReduction}
                             />
                             <FloatingAdjustPanel
                                 solarResult={solarResult}
                                 updating={planLoading || batteryUpdating}
-                                allowDeepPanelReduction={allowDeepPanelReduction}
                                 onAdjustMorningUsage={handleQuickMorningUsage}
                                 onAdjustPanels={handleQuickPanelAdjust}
                                 onResetPanels={handleQuickPanelReset}

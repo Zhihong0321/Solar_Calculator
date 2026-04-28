@@ -174,10 +174,9 @@ const resolveActualEeiValue = (tariffRow, netImportKwh) => {
 
 const getResidentialPanelQuantityGate = (recommendedPanels, systemPhase = 3) => {
   const safeRecommendedPanels = Math.max(1, Math.floor(parseCurrencyValue(recommendedPanels, 1)));
-  const baseMin = Math.max(1, safeRecommendedPanels - 2);
 
   return {
-    min: baseMin,
+    min: 1,
     max: safeRecommendedPanels + 20
   };
 };
