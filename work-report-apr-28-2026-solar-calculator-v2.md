@@ -8,5 +8,6 @@ REPO NAME : Solar Calculator v2
 - Removed the domestic v4 panel quantity minus-two reduction limit.
 - Set domestic v4 as the standard domestic calculator and moved the previous calculator to domestic legacy.
 - Fixed agent registration profile photo upload blocking.
+- Updated invoice ballast pricing to RM160 in create and edit invoice flows.
 
 =====================

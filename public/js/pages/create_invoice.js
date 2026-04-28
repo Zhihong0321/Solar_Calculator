@@ -30,7 +30,7 @@ const BATTERY_PRODUCT_REF = '1776182988047x800815659516747800';
 const BATTERY_PRODUCT_NAME = 'B3-16.0-LV Battery';
 const BATTERY_MODULE_SIZE_KWH = 16;
 const BATTERY_UNIT_PRICE = 7500;
-const BALLAST_UNIT_PRICE = 120;
+const BALLAST_UNIT_PRICE = 160;
 let loadedPromotionSelections = {
     earnNowApplied: false,
     earthMonthApplied: false

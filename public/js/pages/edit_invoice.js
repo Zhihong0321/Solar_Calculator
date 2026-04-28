@@ -33,7 +33,7 @@ let loadedPromotionSelections = {
     earnNowApplied: false,
     earthMonthApplied: false
 };
-const BALLAST_UNIT_PRICE = 120;
+const BALLAST_UNIT_PRICE = 160;
 const APRIL_2026_PROMO_END = new Date('2026-05-01T00:00:00');
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
