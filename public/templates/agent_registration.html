@@ -324,50 +324,147 @@
         };
 
         let cropper = null;
+        const MAX_PROFILE_PHOTO_MB = 15;
+
+        function showPhotoError(title, text) {
+            Swal.fire({
+                icon: 'warning',
+                title,
+                text,
+                confirmButtonColor: '#0f172a'
+            });
+        }
+
+        function setProfilePicture(base64Data) {
+            fileData.profile_picture = base64Data;
+
+            const preview = document.getElementById('profilePreview');
+            preview.src = base64Data;
+            preview.classList.remove('hidden');
+            document.getElementById('profilePlaceholder').classList.add('hidden');
+        }
+
+        function resetProfileUploadInput() {
+            document.getElementById('profile_upload').value = '';
+        }
+
+        function isSupportedImageFile(file) {
+            const type = (file.type || '').toLowerCase();
+            if (type.startsWith('image/')) return true;
+            return /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name || '');
+        }
+
+        function compressProfilePhoto(imageSrc) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const size = 400;
+                    canvas.width = size;
+                    canvas.height = size;
+
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        reject(new Error('Unable to prepare this photo.'));
+                        return;
+                    }
+
+                    const scale = Math.max(size / image.width, size / image.height);
+                    const drawWidth = image.width * scale;
+                    const drawHeight = image.height * scale;
+                    const offsetX = (size - drawWidth) / 2;
+                    const offsetY = (size - drawHeight) / 2;
+
+                    ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
+                };
+                image.onerror = () => reject(new Error('This photo format could not be read. Please choose a JPG or PNG image.'));
+                image.src = imageSrc;
+            });
+        }
 
         function initCropper(input) {
             const file = input.files[0];
             if (!file) return;
 
+            if (!isSupportedImageFile(file)) {
+                resetProfileUploadInput();
+                return showPhotoError('Unsupported Photo', 'Please upload a valid image file.');
+            }
+
+            if (file.size > MAX_PROFILE_PHOTO_MB * 1024 * 1024) {
+                resetProfileUploadInput();
+                return showPhotoError('Photo Too Large', `Please upload a profile photo below ${MAX_PROFILE_PHOTO_MB}MB.`);
+            }
+
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onerror = () => {
+                resetProfileUploadInput();
+                showPhotoError('Photo Error', 'Unable to read this photo. Please choose another image.');
+            };
+            reader.onload = async (e) => {
                 const image = document.getElementById('imageToCrop');
-                image.src = e.target.result;
-                document.getElementById('cropModal').style.display = 'flex';
-                
-                if (cropper) cropper.destroy();
-                cropper = new Cropper(image, {
-                    aspectRatio: 1,
-                    viewMode: 1,
-                    guides: true,
-                    background: false,
-                    autoCropArea: 1,
-                    zoomable: true
-                });
+                const imageSrc = e.target.result;
+
+                if (typeof Cropper !== 'function') {
+                    try {
+                        const compressedPhoto = await compressProfilePhoto(imageSrc);
+                        setProfilePicture(compressedPhoto);
+                    } catch (err) {
+                        showPhotoError('Photo Error', err.message);
+                    } finally {
+                        resetProfileUploadInput();
+                    }
+                    return;
+                }
+
+                image.onload = () => {
+                    document.getElementById('cropModal').style.display = 'flex';
+
+                    if (cropper) cropper.destroy();
+                    cropper = new Cropper(image, {
+                        aspectRatio: 1,
+                        viewMode: 1,
+                        guides: true,
+                        background: false,
+                        autoCropArea: 1,
+                        zoomable: true
+                    });
+                };
+                image.onerror = () => {
+                    resetProfileUploadInput();
+                    showPhotoError('Unsupported Photo', 'This photo could not be opened. Please choose a JPG or PNG image.');
+                };
+                image.src = imageSrc;
             };
             reader.readAsDataURL(file);
         }
 
         function closeCropModal() {
             document.getElementById('cropModal').style.display = 'none';
-            document.getElementById('profile_upload').value = '';
-            if (cropper) cropper.destroy();
+            resetProfileUploadInput();
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
         }
 
         function applyCrop() {
+            if (!cropper) {
+                return showPhotoError('Photo Not Ready', 'Please wait for the photo to finish loading, then try again.');
+            }
+
             const canvas = cropper.getCroppedCanvas({
                 width: 400,
                 height: 400
             });
-            const base64Data = canvas.toDataURL('image/jpeg', 0.8);
-            
-            fileData.profile_picture = base64Data;
-            
-            const preview = document.getElementById('profilePreview');
-            preview.src = base64Data;
-            preview.classList.remove('hidden');
-            document.getElementById('profilePlaceholder').classList.add('hidden');
-            
+
+            if (!canvas) {
+                return showPhotoError('Photo Error', 'Unable to crop this photo. Please choose another image.');
+            }
+
+            setProfilePicture(canvas.toDataURL('image/jpeg', 0.8));
+
             closeCropModal();
         }
 
