@@ -167,11 +167,17 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.discount_given && !invoiceRequestPayload.discountGiven) {
         invoiceRequestPayload.discountGiven = invoiceRequestPayload.discount_given;
     }
-    if (invoiceRequestPayload.epp_fee_amount && !invoiceRequestPayload.eppFeeAmount) {
+    if (invoiceRequestPayload.apply_sst !== undefined && invoiceRequestPayload.applySst === undefined) {
+        invoiceRequestPayload.applySst = normalizeBoolean(invoiceRequestPayload.apply_sst);
+    }
+    if (invoiceRequestPayload.epp_fee_amount !== undefined && invoiceRequestPayload.eppFeeAmount === undefined) {
         invoiceRequestPayload.eppFeeAmount = invoiceRequestPayload.epp_fee_amount;
     }
-    if (invoiceRequestPayload.epp_fee_description && !invoiceRequestPayload.eppFeeDescription) {
+    if (invoiceRequestPayload.epp_fee_description !== undefined && invoiceRequestPayload.eppFeeDescription === undefined) {
         invoiceRequestPayload.eppFeeDescription = invoiceRequestPayload.epp_fee_description;
+    }
+    if (invoiceRequestPayload.payment_structure !== undefined && invoiceRequestPayload.paymentStructure === undefined) {
+        invoiceRequestPayload.paymentStructure = invoiceRequestPayload.payment_structure;
     }
     if (invoiceRequestPayload.extra_items && !invoiceRequestPayload.extraItems) {
         invoiceRequestPayload.extraItems = invoiceRequestPayload.extra_items;
@@ -217,6 +223,12 @@ async function createInvoice(pool, invoiceRequestPayload) {
     }
     if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
         invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
+    }
+    if (invoiceRequestPayload.remove_earn_now_rebate !== undefined && invoiceRequestPayload.removeEarnNowRebate === undefined) {
+        invoiceRequestPayload.removeEarnNowRebate = normalizeBoolean(invoiceRequestPayload.remove_earn_now_rebate);
+    }
+    if (invoiceRequestPayload.remove_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.removeEarthMonthGoGreenBonus === undefined) {
+        invoiceRequestPayload.removeEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.remove_earth_month_go_green_bonus);
     }
     if (invoiceRequestPayload.hybrid_upgrade_rule_id !== undefined && invoiceRequestPayload.hybridUpgradeRuleId === undefined) {
         invoiceRequestPayload.hybridUpgradeRuleId = invoiceRequestPayload.hybrid_upgrade_rule_id;
@@ -383,11 +395,17 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.discount_given && !invoiceRequestPayload.discountGiven) {
         invoiceRequestPayload.discountGiven = invoiceRequestPayload.discount_given;
     }
-    if (invoiceRequestPayload.epp_fee_amount && !invoiceRequestPayload.eppFeeAmount) {
+    if (invoiceRequestPayload.apply_sst !== undefined && invoiceRequestPayload.applySst === undefined) {
+        invoiceRequestPayload.applySst = normalizeBoolean(invoiceRequestPayload.apply_sst);
+    }
+    if (invoiceRequestPayload.epp_fee_amount !== undefined && invoiceRequestPayload.eppFeeAmount === undefined) {
         invoiceRequestPayload.eppFeeAmount = invoiceRequestPayload.epp_fee_amount;
     }
-    if (invoiceRequestPayload.epp_fee_description && !invoiceRequestPayload.eppFeeDescription) {
+    if (invoiceRequestPayload.epp_fee_description !== undefined && invoiceRequestPayload.eppFeeDescription === undefined) {
         invoiceRequestPayload.eppFeeDescription = invoiceRequestPayload.epp_fee_description;
+    }
+    if (invoiceRequestPayload.payment_structure !== undefined && invoiceRequestPayload.paymentStructure === undefined) {
+        invoiceRequestPayload.paymentStructure = invoiceRequestPayload.payment_structure;
     }
     if (invoiceRequestPayload.extra_items && !invoiceRequestPayload.extraItems) {
         invoiceRequestPayload.extraItems = invoiceRequestPayload.extra_items;
@@ -433,6 +451,12 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     }
     if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
         invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
+    }
+    if (invoiceRequestPayload.remove_earn_now_rebate !== undefined && invoiceRequestPayload.removeEarnNowRebate === undefined) {
+        invoiceRequestPayload.removeEarnNowRebate = normalizeBoolean(invoiceRequestPayload.remove_earn_now_rebate);
+    }
+    if (invoiceRequestPayload.remove_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.removeEarthMonthGoGreenBonus === undefined) {
+        invoiceRequestPayload.removeEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.remove_earth_month_go_green_bonus);
     }
     if (invoiceRequestPayload.hybrid_upgrade_rule_id !== undefined && invoiceRequestPayload.hybridUpgradeRuleId === undefined) {
         invoiceRequestPayload.hybridUpgradeRuleId = invoiceRequestPayload.hybrid_upgrade_rule_id;
@@ -490,7 +514,10 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       packageId: invoiceRequestPayload.packageId || null,
       discountFixed: discountFixed,
       discountPercent: discountPercent,
-      applySst: invoiceRequestPayload.applySst || false,
+      discountWasProvided: invoiceRequestPayload.discountGiven !== undefined
+        || invoiceRequestPayload.discountFixed !== undefined
+        || invoiceRequestPayload.discountPercent !== undefined,
+      applySst: invoiceRequestPayload.applySst,
       // templateId: We reuse original
       voucherCode: invoiceRequestPayload.voucherCode,
       voucherCodes: invoiceRequestPayload.voucherCodes,
@@ -508,11 +535,16 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       estimatedNewBillAmount: invoiceRequestPayload.estimatedNewBillAmount,
       solarSunPeakHour: invoiceRequestPayload.solarSunPeakHour,
       solarMorningUsagePercent: invoiceRequestPayload.solarMorningUsagePercent,
+      applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate,
+      applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus,
+      removeEarnNowRebate: invoiceRequestPayload.removeEarnNowRebate,
+      removeEarthMonthGoGreenBonus: invoiceRequestPayload.removeEarthMonthGoGreenBonus,
+      itemEditIntent: invoiceRequestPayload.item_edit_intent || invoiceRequestPayload.itemEditIntent || {},
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
       hybridUpgradeRuleId: invoiceRequestPayload.hybridUpgradeRuleId || null,
-      extraItems: invoiceRequestPayload.extraItems || [],
+      extraItems: invoiceRequestPayload.extraItems,
       followUpDate: followUpDate
     };
 

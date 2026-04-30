@@ -31,8 +31,23 @@ let selectedDraftVouchers = [];
 let loadedInvoiceItems = [];
 let loadedPromotionSelections = {
     earnNowApplied: false,
-    earthMonthApplied: false
+    earthMonthApplied: false,
+    earnNowAmount: 0,
+    earthMonthAmount: 0
 };
+let promoSelectionTouched = {
+    earnNow: false,
+    earthMonth: false
+};
+let itemEditIntent = {
+    package: false,
+    discount: false,
+    extraItems: false,
+    voucher: false,
+    payment: false,
+    sst: false
+};
+let voucherStepHydrating = false;
 const BALLAST_UNIT_PRICE = 120;
 const APRIL_2026_PROMO_END = new Date('2026-05-01T00:00:00');
 
@@ -489,8 +504,10 @@ function getEarthMonthGoGreenBonusAmount(panelQty) {
 
 function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
     const normalizedPanelQty = parseInt(panelQty, 10) || 0;
-    const earnNowEligibleAmount = getEarnNowRebateAmount(normalizedPanelQty);
-    const earthMonthEligibleAmount = getEarthMonthGoGreenBonusAmount(normalizedPanelQty);
+    const preservedEarnNowAmount = parseFloat(loadedPromotionSelections.earnNowAmount) || 0;
+    const preservedEarthMonthAmount = parseFloat(loadedPromotionSelections.earthMonthAmount) || 0;
+    const earnNowEligibleAmount = preservedEarnNowAmount || getEarnNowRebateAmount(normalizedPanelQty);
+    const earthMonthEligibleAmount = preservedEarthMonthAmount || getEarthMonthGoGreenBonusAmount(normalizedPanelQty);
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
     const promotionsEnabled = isApril2026PromotionActive();
@@ -606,10 +623,18 @@ function hydratePromotionSelections(items = []) {
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
     const earnNowApplied = items.some((item) => String(item?.description || '').toLowerCase().includes('earn now rebate'));
     const earthMonthApplied = items.some((item) => String(item?.description || '').toLowerCase().includes('earth month go green bonus'));
+    const earnNowAmount = items
+        .filter((item) => String(item?.description || '').toLowerCase().includes('earn now rebate'))
+        .reduce((sum, item) => sum + Math.abs(parseFloat(item?.total_price ?? item?.amount ?? 0) || 0), 0);
+    const earthMonthAmount = items
+        .filter((item) => String(item?.description || '').toLowerCase().includes('earth month go green bonus'))
+        .reduce((sum, item) => sum + Math.abs(parseFloat(item?.total_price ?? item?.amount ?? 0) || 0), 0);
 
     loadedPromotionSelections = {
         earnNowApplied,
-        earthMonthApplied
+        earthMonthApplied,
+        earnNowAmount,
+        earthMonthAmount
     };
 
     if (earnNowToggle) {
@@ -737,6 +762,7 @@ function addManualItem(data = { description: '', qty: 1, unit_price: 0 }) {
 
 // Remove a manual item row
 function removeManualItem(id) {
+    itemEditIntent.extraItems = true;
     manualItems = manualItems.filter(item => item.id !== id);
     renderManualItems();
     updateInvoicePreview();
@@ -746,6 +772,7 @@ function removeManualItem(id) {
 function updateManualItem(id, field, value) {
     const item = manualItems.find(i => i.id === id);
     if (item) {
+        itemEditIntent.extraItems = true;
         if (field === 'qty' || field === 'unit_price') {
             item[field] = parseFloat(value) || 0;
         } else {
@@ -1037,6 +1064,9 @@ async function loadDraftVoucherStepForPackage(packageId, { selectedIds = [], scr
             embedded: true,
             showFooter: false,
             onChange: ({ selectedVouchers = [] }) => {
+                if (!voucherStepHydrating) {
+                    itemEditIntent.voucher = true;
+                }
                 selectedDraftVouchers = selectedVouchers;
                 updateInvoicePreview();
                 updateWorkspaceStatuses();
@@ -1048,9 +1078,14 @@ async function loadDraftVoucherStepForPackage(packageId, { selectedIds = [], scr
         const payload = await fetchVoucherPreviewData(packageId);
         hint?.classList.add('hidden');
         root.classList.remove('hidden');
-        await inlineVoucherStep.loadPayload(payload, {
-            selectedIds
-        });
+        voucherStepHydrating = true;
+        try {
+            await inlineVoucherStep.loadPayload(payload, {
+                selectedIds
+            });
+        } finally {
+            voucherStepHydrating = false;
+        }
         updateWorkspaceStatuses();
         if (scrollToSection) {
             scrollToWorkspaceSection('voucher-selection');
@@ -1281,6 +1316,7 @@ function openChangePackageModal() {
                     if (!selectedPackage) {
                         throw new Error('Failed to load the selected package.');
                     }
+                    itemEditIntent.package = true;
                     if (selectedPanelRating > 0) {
                         window.currentPanelRating = selectedPanelRating;
                     }
@@ -1596,6 +1632,7 @@ function attachPaymentMethodListeners(row, index) {
 
     if (methodSelect) {
         methodSelect.addEventListener('change', () => {
+            itemEditIntent.payment = true;
             updatePaymentMethodInfo(index);
             updateInvoicePreview();
         });
@@ -1603,6 +1640,7 @@ function attachPaymentMethodListeners(row, index) {
 
     if (amountTypeSelect) {
         amountTypeSelect.addEventListener('change', () => {
+            itemEditIntent.payment = true;
             updatePaymentMethodInfo(index);
             updateInvoicePreview();
         });
@@ -1610,6 +1648,7 @@ function attachPaymentMethodListeners(row, index) {
 
     if (amountValueInput) {
         amountValueInput.addEventListener('input', () => {
+            itemEditIntent.payment = true;
             updatePaymentMethodInfo(index);
             updateInvoicePreview();
         });
@@ -1617,6 +1656,7 @@ function attachPaymentMethodListeners(row, index) {
 
     if (bankSelect) {
         bankSelect.addEventListener('change', () => {
+            itemEditIntent.payment = true;
             updateTenureOptions(index);
             updatePaymentMethodInfo(index);
             updateInvoicePreview();
@@ -1625,6 +1665,7 @@ function attachPaymentMethodListeners(row, index) {
 
     if (tenureSelect) {
         tenureSelect.addEventListener('change', () => {
+            itemEditIntent.payment = true;
             updatePaymentMethodInfo(index);
             updateInvoicePreview();
         });
@@ -1632,6 +1673,7 @@ function attachPaymentMethodListeners(row, index) {
 
     if (removeBtn) {
         removeBtn.addEventListener('click', () => {
+            itemEditIntent.payment = true;
             removePaymentMethodRow(index);
         });
     }
@@ -2059,7 +2101,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Manual Item Listener
     const addManualItemBtn = document.getElementById('addManualItemBtn');
     if (addManualItemBtn) {
-        addManualItemBtn.addEventListener('click', () => addManualItem());
+        addManualItemBtn.addEventListener('click', () => {
+            itemEditIntent.extraItems = true;
+            addManualItem();
+        });
     }
 
     const assignedReferralSelect = document.getElementById('assignedReferralSelect');
@@ -2072,34 +2117,51 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Update preview when SST toggle changes
     const sstToggle = document.getElementById('applySST');
     if (sstToggle) {
-        sstToggle.addEventListener('change', updateInvoicePreview);
+        sstToggle.addEventListener('change', () => {
+            itemEditIntent.sst = true;
+            updateInvoicePreview();
+        });
     }
 
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     if (earnNowToggle) {
-        earnNowToggle.addEventListener('change', updateInvoicePreview);
+        earnNowToggle.addEventListener('change', () => {
+            promoSelectionTouched.earnNow = true;
+            updateInvoicePreview();
+        });
     }
 
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
     if (earthMonthToggle) {
-        earthMonthToggle.addEventListener('change', updateInvoicePreview);
+        earthMonthToggle.addEventListener('change', () => {
+            promoSelectionTouched.earthMonth = true;
+            updateInvoicePreview();
+        });
     }
 
     // Update preview when discount input changes
     const discountInput = document.getElementById('discountGiven');
     if (discountInput) {
-        discountInput.addEventListener('input', updateInvoicePreview);
-        discountInput.addEventListener('change', updateInvoicePreview);
+        discountInput.addEventListener('input', () => {
+            itemEditIntent.discount = true;
+            updateInvoicePreview();
+        });
+        discountInput.addEventListener('change', () => {
+            itemEditIntent.discount = true;
+            updateInvoicePreview();
+        });
     }
 
     const ballastQtyInput = document.getElementById('ballastQty');
     if (ballastQtyInput) {
         ballastQtyInput.addEventListener('input', () => {
             getBallastQty();
+            itemEditIntent.extraItems = true;
             updateInvoicePreview();
         });
         ballastQtyInput.addEventListener('change', () => {
             getBallastQty();
+            itemEditIntent.extraItems = true;
             updateInvoicePreview();
         });
     }
@@ -2107,7 +2169,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Add payment method button
     const addBtn = document.getElementById('addPaymentMethodBtn');
     if (addBtn) {
-        addBtn.addEventListener('click', addPaymentMethodRow);
+        addBtn.addEventListener('click', () => {
+            itemEditIntent.payment = true;
+            addPaymentMethodRow();
+        });
     }
 
     const changePackageBtn = document.getElementById('changePackageBtn');
@@ -2315,15 +2380,33 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
         profilePicture: document.getElementById('profilePicture').value || null,
         lead_source: document.getElementById('customerLeadSource')?.value || null,
         remark: document.getElementById('customerRemark')?.value || null,
-        discount_given: data.discount_given || null,
-        apply_sst: document.getElementById('applySST')?.checked || false,
         applyEarnNowRebate: document.getElementById('applyEarnNowRebate')?.checked || false,
         applyEarthMonthGoGreenBonus: document.getElementById('applyEarthMonthGoGreenBonus')?.checked || false,
-        hybrid_upgrade_rule_id: document.getElementById('hybridUpgradeRuleId')?.value || null,
-        payment_structure: eppData.payment_structure,
-        extra_items: extraItems,
-        voucher_ids: getSelectedDraftVoucherIds()
+        hybrid_upgrade_rule_id: itemEditIntent.package ? (document.getElementById('hybridUpgradeRuleId')?.value || null) : null,
+        item_edit_intent: { ...itemEditIntent }
     };
+
+    if (itemEditIntent.discount) {
+        requestData.discount_given = data.discount_given || null;
+    }
+
+    if (itemEditIntent.sst) {
+        requestData.apply_sst = document.getElementById('applySST')?.checked || false;
+    }
+
+    if (itemEditIntent.payment) {
+        requestData.payment_structure = eppData.payment_structure;
+        requestData.epp_fee_amount = eppData.total_fee || 0;
+        requestData.epp_fee_description = eppData.description || null;
+    }
+
+    if (itemEditIntent.extraItems) {
+        requestData.extra_items = extraItems;
+    }
+
+    if (itemEditIntent.voucher) {
+        requestData.voucher_ids = getSelectedDraftVoucherIds();
+    }
 
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
@@ -2333,13 +2416,16 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     requestData.applyEarthMonthGoGreenBonus = earthMonthToggle?.disabled
         ? Boolean(loadedPromotionSelections.earthMonthApplied)
         : Boolean(earthMonthToggle?.checked);
-
-
-    // Add EPP fee data if exists
-    if (eppData.total_fee > 0 && eppData.description) {
-        requestData.epp_fee_amount = eppData.total_fee;
-        requestData.epp_fee_description = eppData.description;
-    }
+    requestData.removeEarnNowRebate = Boolean(
+        loadedPromotionSelections.earnNowApplied
+        && promoSelectionTouched.earnNow
+        && !earnNowToggle?.checked
+    );
+    requestData.removeEarthMonthGoGreenBonus = Boolean(
+        loadedPromotionSelections.earthMonthApplied
+        && promoSelectionTouched.earthMonth
+        && !earthMonthToggle?.checked
+    );
 
     // Always use version endpoint for edit mode
     const endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;

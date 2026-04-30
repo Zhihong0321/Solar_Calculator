@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "build": "npm run build:css",
     "build:css": "tailwindcss -c tailwind.config.js -i ./src/styles/tailwind.css -o ./public/css/tailwind.css --minify",
+    "test:invoice-edit-promo-preservation": "node scripts/test_invoice_edit_promo_preservation.js",
     "db:migrate": "node database/run_migrations.js",
     "test:solar-estimate-consistency": "node scripts/test_invoice_solar_estimate_consistency.js",
     "test:navigation": "playwright test tests/navigation.mobile.spec.js",

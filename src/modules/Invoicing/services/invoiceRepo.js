@@ -76,6 +76,132 @@ function getEarthMonthGoGreenBonusDiscount(panelQty) {
   return 0;
 }
 
+async function getExistingAprilPromoAmounts(client, invoiceId) {
+  const result = await client.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN description ILIKE '%Earn Now Rebate%' THEN ABS(COALESCE(amount, 0)) ELSE 0 END), 0) AS earn_now_amount,
+       COALESCE(SUM(CASE WHEN description ILIKE '%Earth Month Go Green Bonus%' THEN ABS(COALESCE(amount, 0)) ELSE 0 END), 0) AS earth_month_amount
+     FROM invoice_item
+     WHERE linked_invoice = $1`,
+    [invoiceId]
+  );
+
+  return {
+    earnNowAmount: parseFloat(result.rows[0]?.earn_now_amount) || 0,
+    earthMonthAmount: parseFloat(result.rows[0]?.earth_month_amount) || 0
+  };
+}
+
+async function getExistingInvoiceItems(client, invoiceId) {
+  const result = await client.query(
+    `SELECT bubble_id, description, qty, unit_price, amount, inv_item_type, sort, created_at, is_a_package, linked_package
+     FROM invoice_item
+     WHERE linked_invoice = $1
+     ORDER BY sort ASC, created_at ASC`,
+    [invoiceId]
+  );
+
+  return result.rows;
+}
+
+function isEarnNowRebateItem(item) {
+  return String(item?.description || '').toLowerCase().includes('earn now rebate');
+}
+
+function isEarthMonthGoGreenBonusItem(item) {
+  return String(item?.description || '').toLowerCase().includes('earth month go green bonus');
+}
+
+function isAprilPromoItem(item) {
+  return isEarnNowRebateItem(item) || isEarthMonthGoGreenBonusItem(item);
+}
+
+function mapExistingExtraItems(items) {
+  return items
+    .filter((item) => item.inv_item_type === 'extra')
+    .map((item) => ({
+      description: item.description,
+      qty: parseFloat(item.qty) || 1,
+      unit_price: parseFloat(item.unit_price) || 0,
+      total_price: parseFloat(item.amount) || 0
+    }));
+}
+
+function sumExistingItemsByType(items, itemType) {
+  return items
+    .filter((item) => item.inv_item_type === itemType)
+    .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+}
+
+function sumExistingPackageItems(items) {
+  return items
+    .filter((item) => item.is_a_package || item.inv_item_type === 'package')
+    .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+}
+
+function sumExistingManualDiscountItems(items) {
+  return items
+    .filter((item) => item.inv_item_type === 'discount' && !isAprilPromoItem(item))
+    .reduce((sum, item) => sum + Math.abs(parseFloat(item.amount) || 0), 0);
+}
+
+async function deleteInvoiceItemsByIds(client, itemIds) {
+  const normalizedIds = [...new Set((Array.isArray(itemIds) ? itemIds : []).map((id) => String(id || '').trim()).filter(Boolean))];
+  if (!normalizedIds.length) return;
+
+  await client.query(
+    `DELETE FROM invoice_item
+     WHERE bubble_id = ANY($1::text[])`,
+    [normalizedIds]
+  );
+}
+
+async function refreshLinkedInvoiceItemIds(client, invoiceId) {
+  await client.query(
+    `UPDATE invoice
+     SET linked_invoice_item = COALESCE(
+       (
+         SELECT array_agg(bubble_id ORDER BY sort ASC, created_at ASC)
+         FROM invoice_item
+         WHERE linked_invoice = $1
+       ),
+       ARRAY[]::text[]
+     )
+     WHERE bubble_id = $1`,
+    [invoiceId]
+  );
+}
+
+function getEditReplacementItemIds(existingItems, options = {}) {
+  const {
+    replacePackageItems = false,
+    replaceDiscountItems = false,
+    replaceExtraItems = false,
+    replaceVoucherItems = false,
+    replacePaymentItems = false,
+    replaceSstItems = false,
+    removeEarnNowRebate = false,
+    removeEarthMonthGoGreenBonus = false
+  } = options;
+
+  return existingItems
+    .filter((item) => {
+      const itemType = item.inv_item_type;
+
+      if (replacePackageItems && (item.is_a_package || itemType === 'package')) return true;
+      if (replaceDiscountItems && itemType === 'discount' && !isAprilPromoItem(item)) return true;
+      if (replaceExtraItems && itemType === 'extra') return true;
+      if (replaceVoucherItems && itemType === 'voucher') return true;
+      if (replacePaymentItems && (itemType === 'epp_fee' || itemType === 'notice')) return true;
+      if (replaceSstItems && itemType === 'sst') return true;
+      if (removeEarnNowRebate && isEarnNowRebateItem(item)) return true;
+      if (removeEarthMonthGoGreenBonus && isEarthMonthGoGreenBonusItem(item)) return true;
+
+      return false;
+    })
+    .map((item) => item.bubble_id);
+}
+
 /**
  * Generate a unique share token
  * @returns {string} Share token
@@ -1276,11 +1402,15 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
     eppFeeAmount = 0,
     extraItems = [],
     applyEarnNowRebate = false,
-    applyEarthMonthGoGreenBonus = false
+    applyEarthMonthGoGreenBonus = false,
+    existingManualDiscountAmount = 0
   } = data;
 
   const markupAmount = parseFloat(agentMarkup) || 0;
-  const priceWithMarkup = packagePrice + markupAmount;
+  const existingPackageAmount = parseFloat(data.existingPackageAmount) || 0;
+  const priceWithMarkup = data.preserveExistingPackageItem && existingPackageAmount > 0
+    ? existingPackageAmount
+    : packagePrice + markupAmount;
 
   // Calculate total of extra items
   let extraItemsTotal = 0;
@@ -1305,15 +1435,23 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
     percentDiscountVal = (packagePrice * discountPercent) / 100;
   }
 
-  const earnNowRebateDiscount = applyEarnNowRebate ? getEarnNowRebateDiscount(panelQty) : 0;
-  const earthMonthGoGreenBonusDiscount = applyEarthMonthGoGreenBonus ? getEarthMonthGoGreenBonusDiscount(panelQty) : 0;
+  const existingEarnNowRebateDiscount = parseFloat(data.existingEarnNowRebateAmount) || 0;
+  const existingEarthMonthGoGreenBonusDiscount = parseFloat(data.existingEarthMonthGoGreenBonusAmount) || 0;
+  const earnNowRebateDiscount = applyEarnNowRebate
+    ? (existingEarnNowRebateDiscount > 0 ? existingEarnNowRebateDiscount : getEarnNowRebateDiscount(panelQty))
+    : 0;
+  const earthMonthGoGreenBonusDiscount = applyEarthMonthGoGreenBonus
+    ? (existingEarthMonthGoGreenBonusDiscount > 0 ? existingEarthMonthGoGreenBonusDiscount : getEarthMonthGoGreenBonusDiscount(panelQty))
+    : 0;
 
   // Subtotal after ALL adjustments (discounts, vouchers, epp fees, extra items)
   // taxable subtotal = package + markup + extra items - discounts - vouchers - promo
+  const preservedManualDiscountVal = parseFloat(existingManualDiscountAmount) || 0;
   const trueSubtotal = priceWithMarkup
     + extraItemsTotal
     - discountFixed
     - percentDiscountVal
+    - preservedManualDiscountVal
     - totalVoucherAmount
     - earnNowRebateDiscount
     - earthMonthGoGreenBonusDiscount;
@@ -1325,8 +1463,9 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
   const taxableSubtotal = Math.max(0, trueSubtotal);
 
   // Calculate SST (6% rate)
+  const existingSstAmount = parseFloat(data.existingSstAmount) || 0;
   const sstRate = applySst ? 6.0 : 0;
-  const sstAmount = applySst ? (taxableSubtotal * sstRate) / 100 : 0;
+  const sstAmount = data.preserveExistingSstItem ? existingSstAmount : (applySst ? (taxableSubtotal * sstRate) / 100 : 0);
 
   // Total amount including SST and EPP fees
   const finalTotalAmount = taxableSubtotal + sstAmount + parseFloat(eppFeeAmount);
@@ -1335,6 +1474,7 @@ function _calculateFinancials(data, packagePrice, totalVoucherAmount, panelQty =
     markupAmount,
     priceWithMarkup,
     percentDiscountVal,
+    preservedManualDiscountVal,
     taxableSubtotal,
     sstRate,
     sstAmount,
@@ -1732,27 +1872,30 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   const createdItemIds = [];
 
   // 1. Package Item
-  const packageItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-  await client.query(
-    `INSERT INTO invoice_item
-     (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package, linked_package)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9, $10)`,
-    [
-      packageItemBubbleId,
-      invoiceId,
-      pkg.invoice_desc || pkg.name || 'Solar Package',
-      1,
-      priceWithMarkup,
-      priceWithMarkup,
-      'package',
-      0,
-      true,
-      pkg.bubble_id || null
-    ]
-  );
-  createdItemIds.push(packageItemBubbleId);
+  let packageItemBubbleId = null;
+  if (!data.preserveExistingPackageItem) {
+    packageItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+    await client.query(
+      `INSERT INTO invoice_item
+       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package, linked_package)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9, $10)`,
+      [
+        packageItemBubbleId,
+        invoiceId,
+        pkg.invoice_desc || pkg.name || 'Solar Package',
+        1,
+        priceWithMarkup,
+        priceWithMarkup,
+        'package',
+        0,
+        true,
+        pkg.bubble_id || null
+      ]
+    );
+    createdItemIds.push(packageItemBubbleId);
+  }
 
-  if (financials.earnNowRebateDiscount > 0) {
+  if (!data.preserveExistingEarnNowRebateItem && financials.earnNowRebateDiscount > 0) {
     const earnNowItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
@@ -1773,7 +1916,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     createdItemIds.push(earnNowItemBubbleId);
   }
 
-  if (financials.earthMonthGoGreenBonusDiscount > 0) {
+  if (!data.preserveExistingEarthMonthGoGreenBonusItem && financials.earthMonthGoGreenBonusDiscount > 0) {
     const earthMonthItemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
@@ -1795,7 +1938,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   }
 
   // 1.5 Extra Items
-  if (Array.isArray(data.extraItems) && data.extraItems.length > 0) {
+  if (!data.preserveExistingExtraItems && Array.isArray(data.extraItems) && data.extraItems.length > 0) {
     let extraItemSortOrder = 50;
     for (const item of data.extraItems) {
       const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
@@ -1821,7 +1964,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
 
   // 2. Discount Items
   let sortOrder = 100;
-  if (discountFixed > 0) {
+  if (!data.preserveExistingDiscountItems && discountFixed > 0) {
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
@@ -1842,7 +1985,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     createdItemIds.push(itemBubbleId);
   }
 
-  if (discountPercent > 0) {
+  if (!data.preserveExistingDiscountItems && discountPercent > 0) {
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
@@ -1864,29 +2007,31 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   }
 
   // 3. Voucher Items
-  for (const vItem of voucherItemsToCreate) {
-    const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
-    await client.query(
-      `INSERT INTO invoice_item
-       (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
-      [
-        itemBubbleId,
-        invoiceId,
-        vItem.description,
-        1,
-        -vItem.amount,
-        -vItem.amount,
-        'voucher',
-        101,
-        false
-      ]
-    );
-    createdItemIds.push(itemBubbleId);
+  if (!data.preserveExistingVoucherItems) {
+    for (const vItem of voucherItemsToCreate) {
+      const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
+      await client.query(
+        `INSERT INTO invoice_item
+         (bubble_id, linked_invoice, description, qty, unit_price, amount, inv_item_type, sort, created_at, updated_at, is_a_package)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), $9)`,
+        [
+          itemBubbleId,
+          invoiceId,
+          vItem.description,
+          1,
+          -vItem.amount,
+          -vItem.amount,
+          'voucher',
+          101,
+          false
+        ]
+      );
+      createdItemIds.push(itemBubbleId);
+    }
   }
 
   // 4. EPP Fee Item
-  if (eppFeeAmount > 0) {
+  if (!data.preserveExistingPaymentItems && eppFeeAmount > 0) {
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
@@ -1908,7 +2053,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   }
 
   // 5. Payment Structure Notice
-  if (paymentStructure) {
+  if (!data.preserveExistingPaymentItems && paymentStructure) {
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
@@ -1930,7 +2075,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
   }
 
   // 6. SST Line Item (Dynamic derivation support)
-  if (financials.sstAmount > 0) {
+  if (!data.preserveExistingSstItem && financials.sstAmount > 0) {
     const itemBubbleId = `item_${crypto.randomBytes(8).toString('hex')}`;
     await client.query(
       `INSERT INTO invoice_item
@@ -2402,6 +2547,58 @@ async function updateInvoiceTransaction(client, data) {
     const currentData = currentRes.rows[0];
     if (!currentData) throw new Error('Invoice not found');
 
+    const existingInvoiceItems = await getExistingInvoiceItems(client, bubbleId);
+    const existingAprilPromoAmounts = await getExistingAprilPromoAmounts(client, bubbleId);
+    data.existingEarnNowRebateAmount = existingAprilPromoAmounts.earnNowAmount;
+    data.existingEarthMonthGoGreenBonusAmount = existingAprilPromoAmounts.earthMonthAmount;
+    data.preserveExistingEarnNowRebateItem = existingAprilPromoAmounts.earnNowAmount > 0 && data.removeEarnNowRebate !== true;
+    data.preserveExistingEarthMonthGoGreenBonusItem = existingAprilPromoAmounts.earthMonthAmount > 0 && data.removeEarthMonthGoGreenBonus !== true;
+
+    if (existingAprilPromoAmounts.earnNowAmount > 0 && data.removeEarnNowRebate !== true) {
+      data.applyEarnNowRebate = true;
+    } else if (data.applyEarnNowRebate === undefined) {
+      data.applyEarnNowRebate = existingAprilPromoAmounts.earnNowAmount > 0;
+    }
+    if (existingAprilPromoAmounts.earthMonthAmount > 0 && data.removeEarthMonthGoGreenBonus !== true) {
+      data.applyEarthMonthGoGreenBonus = true;
+    } else if (data.applyEarthMonthGoGreenBonus === undefined) {
+      data.applyEarthMonthGoGreenBonus = existingAprilPromoAmounts.earthMonthAmount > 0;
+    }
+
+    const editIntent = data.itemEditIntent || data.item_edit_intent || {};
+    const replaceExtraItems = editIntent.extraItems === true || Array.isArray(data.extraItems);
+    const replaceVoucherItems = Array.isArray(data.voucherCodes)
+      || data.voucherCode !== undefined
+      || Array.isArray(data.voucherIds)
+      || editIntent.voucher === true;
+    const replacePaymentItems = editIntent.payment === true
+      || data.paymentStructure !== undefined
+      || data.eppFeeAmount !== undefined
+      || data.eppFeeDescription !== undefined;
+    const replaceSstItems = editIntent.sst === true || data.applySst !== undefined;
+    const replaceDiscountItems = editIntent.discount === true || data.discountWasProvided === true;
+
+    if (!replaceExtraItems) {
+      data.extraItems = mapExistingExtraItems(existingInvoiceItems);
+      data.preserveExistingExtraItems = true;
+    }
+    if (!replaceDiscountItems) {
+      data.existingManualDiscountAmount = sumExistingManualDiscountItems(existingInvoiceItems);
+      data.preserveExistingDiscountItems = true;
+    }
+    if (!replaceVoucherItems) {
+      data.preserveExistingVoucherItems = true;
+    }
+    if (!replacePaymentItems) {
+      data.eppFeeAmount = sumExistingItemsByType(existingInvoiceItems, 'epp_fee');
+      data.preserveExistingPaymentItems = true;
+    }
+    if (!replaceSstItems) {
+      data.preserveExistingSstItem = true;
+      data.applySst = existingInvoiceItems.some((item) => item.inv_item_type === 'sst');
+      data.existingSstAmount = sumExistingItemsByType(existingInvoiceItems, 'sst');
+    }
+
     const linkedReferral = await _resolveLinkedReferral(
       client,
       data.userId,
@@ -2483,9 +2680,20 @@ async function updateInvoiceTransaction(client, data) {
 
     // 4. Calculate Financials
     const packagePrice = parseFloat(pkg.price) || 0;
-    const voucherInfo = Array.isArray(data.voucherCodes) || data.voucherCode || (Array.isArray(data.voucherIds) && data.voucherIds.length > 0)
+    let voucherInfo = Array.isArray(data.voucherCodes) || data.voucherCode || (Array.isArray(data.voucherIds) && data.voucherIds.length > 0)
       ? await _processVouchers(client, data, packagePrice)
       : await _processExistingInvoiceVouchers(client, bubbleId, currentData.voucher_code, packagePrice);
+    if (!replaceVoucherItems) {
+      voucherInfo = {
+        ...voucherInfo,
+        totalVoucherAmount: Math.abs(sumExistingItemsByType(existingInvoiceItems, 'voucher')),
+        voucherItemsToCreate: []
+      };
+    }
+    data.preserveExistingPackageItem = !isPackageChange;
+    if (data.preserveExistingPackageItem) {
+      data.existingPackageAmount = sumExistingPackageItems(existingInvoiceItems);
+    }
     const financials = _calculateFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
 
     // Validate tiered max discount policy (vouchers excluded)
@@ -2589,10 +2797,20 @@ async function updateInvoiceTransaction(client, data) {
     `;
     await client.query(updateQuery, updateValues);
 
-    // 6. Item Update (Smart: Delete old and insert new for consistency)
-    // We stick to delete/insert here but ensure they keep the same linked_invoice (UID)
-    await client.query('DELETE FROM invoice_item WHERE linked_invoice = $1', [bubbleId]);
+    // 6. Item Update: preserve by default, replace only items owned by this edit payload.
+    const itemIdsToReplace = getEditReplacementItemIds(existingInvoiceItems, {
+      replacePackageItems: isPackageChange,
+      replaceDiscountItems,
+      replaceExtraItems,
+      replaceVoucherItems,
+      replacePaymentItems,
+      replaceSstItems,
+      removeEarnNowRebate: data.removeEarnNowRebate === true,
+      removeEarthMonthGoGreenBonus: data.removeEarthMonthGoGreenBonus === true
+    });
+    await deleteInvoiceItemsByIds(client, itemIdsToReplace);
     await _createLineItems(client, bubbleId, data, financials, { pkg, linkedAgent }, voucherInfo);
+    await refreshLinkedInvoiceItemIds(client, bubbleId);
 
     await _syncReferralInvoiceLink(client, bubbleId, data.linkedReferral);
 
