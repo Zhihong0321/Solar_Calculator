@@ -1,51 +1,52 @@
 # Last Session Handoff
-(overwritten every session — this is not a history file)
+(overwritten every session - this is not a history file)
 
-- date: 2026-04-28
+- date: 2026-05-01
 - model: GPT-5 Codex
 - session type: action
 
 ## Task This Session
-Normalize SEDA ownership away from agent-profile IDs and fix Chong Shek Har/Vincent SEDA access mismatch.
+Extended the April invoice promotions through May 31, checked create/edit invoice promotion preservation, then committed and pushed the change.
 
 ## Files Modified
-- routes/sedaRoutes.js — changed authenticated SEDA ownership/list checks to resolve identities to user.bubble_id, kept legacy agent-profile compatibility, and added auth/ownership guards to extraction endpoints.
-- src/modules/Invoicing/services/sedaRepo.js — added user identity resolver, writes new SEDA agent/created_by as user.bubble_id, and added SEDA agent update helper.
-- src/modules/Invoicing/services/sedaService.js — resolves invoice linked agent/creator to user.bubble_id when ensuring SEDA records and repairs existing SEDA agent during ensure flow.
-- scripts/test_seda_route_guards.js — updated mocked identities to user-based SEDA ownership and added a legacy agent-profile mapping case.
-- database/migrations/028_normalize_seda_agent_to_user_bubble_id.sql — added deterministic backup-and-normalize SQL for SEDA agent identities.
-- .agents/decisions.md — recorded the canonical SEDA ownership decision.
-- .agents/last-session.md — this handoff.
-- work-report-apr-28-2026-solar-calculator-v2.md — logged completed work.
+- public/js/pages/create_invoice.js - changed April promotion cutoff to 2026-06-01T00:00:00 so May 31 remains active.
+- public/js/pages/edit_invoice.js - changed April promotion cutoff to 2026-06-01T00:00:00 so May 31 remains active.
+- public/templates/create_invoice.html - updated promotion heading to mention extension to May 31.
+- public/templates/edit_invoice.html - updated promotion heading to mention extension to May 31.
+- src/modules/Invoicing/services/invoiceFinancials.js - changed backend promotion cutoff to 2026-06-01T00:00:00.
+- work-report-may-1-2026-solar-calculator-v2.md - logged the completed promotion extension and verification work.
+- .agents/last-session.md - refreshed this handoff after the push.
 
 ## Files Read But Not Changed
 - AGENTS.md
-- src/core/auth/userIdentity.js
-- src/core/middleware/auth.js
+- C:/Users/Eternalgy/.codex/skills/real-progress-protocol/SKILL.md
+- C:/Users/Eternalgy/.codex/plugins/cache/openai-curated/github/3c463363/skills/yeet/SKILL.md
+- E:/Solar Calculator v2/.agents/skills/ai-first-maintenance-bundle/session-handoff/SKILL.md
+- skill-release/work-report-updater/SKILL.md
+- skill-release/work-report-updater/scripts/update_work_report.py
+- scripts/test_invoice_financials.js
+- scripts/test_invoice_version_promotions.js
 - src/modules/Invoicing/services/invoiceRepo.js
 - src/modules/Invoicing/services/invoiceService.js
-- src/modules/Invoicing/services/invoiceDependencySupport.js
-- package.json
 
 ## Work Status
 complete
-Code was patched and tested. Production SEDA data was backed up and normalized through the PG proxy full-access token.
+Commit 0b5445d, "Extend April invoice promotions through May", was pushed to origin/codex/pre-activity-report-v2.
 
 ## Pending Decisions
 - none
 
 ## Discovered But Not Acted On
-- 102 production SEDA rows still have blank agent after normalization; sampled rows have no agent, no created_by, and linked invoices with no owner fields, so they were left untouched.
-- Production backup table `seda_agent_identity_backup_20260428` has 2186 backup rows for 2041 distinct SEDA rows because the first backup insert used a non-deduped candidate query before the migration SQL was tightened; backup is harmless but contains duplicates.
+- Existing unrelated dirty worktree changes remain in files such as .agents/ai-first-maintenance-log.md, .agents/maintenance-map.md, package.json, public/js/app.js, database/tariff files, invoiceHtmlGeneratorV2.js, eeiOptimizerService.js, several older work reports, and untracked scratch/experiment files. These were intentionally not staged or committed.
 
 ## Do Not Touch Next Session
-- production SEDA blank-owner rows: do not guess owners; only patch if a reliable source field or user-provided mapping is found.
+- Existing unrelated dirty worktree files: they predated or were outside this promotion task and should not be reverted or staged without user confirmation.
 
 ## Recommended First Action Next Session
-If continuing this work, deploy the code changes, then have Vincent retest SEDA form `1770090266807x655856972591005700` from invoice `1008548`.
+Run git status -sb first and decide whether the remaining dirty files belong to a separate task before editing or staging anything else.
 
 ## Open Ambiguities Added
-none
+- none
 
 ## Decisions Recorded
-- 2026-04-28 — SEDA ownership uses user bubble IDs
+- none
