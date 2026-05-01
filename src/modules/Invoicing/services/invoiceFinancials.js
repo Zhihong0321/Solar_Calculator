@@ -10,7 +10,7 @@ const MANUAL_DISCOUNT_POLICY = [
   { minPrice: 18000, maxPercent: 5 }
 ];
 
-const APRIL_2026_PROMO_END = new Date('2026-05-01T00:00:00');
+const APRIL_2026_PROMO_END = new Date('2026-06-01T00:00:00');
 
 function getManualDiscountPolicy(packagePrice) {
   const normalizedPrice = parseFloat(packagePrice) || 0;
