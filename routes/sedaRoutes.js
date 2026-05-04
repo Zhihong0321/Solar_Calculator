@@ -57,7 +57,7 @@ const FILE_FIELDS = {
     tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_1'               },
     tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_2'               },
     tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_3'               },
-    property_proof: { label: 'Property Ownership Proof', accept: ['image/*'],                         maxMB: 25, column: 'property_ownership_prove'  },
+    property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'property_ownership_prove'  },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                         maxMB: 20, column: 'tnb_meter'                },
 };
 

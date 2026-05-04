@@ -55,7 +55,7 @@ const FILE_FIELDS = {
     tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
-    property_proof: { label: 'Property Ownership Proof', accept: ['image/*'],                    maxMB: 25 },
+    property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                    maxMB: 20 },
 };
 
@@ -184,11 +184,12 @@ async function test_all_fields_accept_correct_types() {
         { field: 'tnb_bill_2',     buf: MINIMAL_JPG, file: 'b2.jpg',    mime: 'image/jpeg'      },
         { field: 'tnb_bill_3',     buf: MINIMAL_PDF, file: 'b3.pdf',    mime: 'application/pdf' },
         { field: 'property_proof', buf: MINIMAL_JPG, file: 'sp.jpg',    mime: 'image/jpeg'      },
+        { field: 'property_proof', buf: MINIMAL_PDF, file: 'geran.pdf', mime: 'application/pdf' },
         { field: 'tnb_meter',      buf: MINIMAL_JPG, file: 'm.jpg',     mime: 'image/jpeg'      },
     ];
 
     for (const c of cases) {
-        const name = `[FIELD] ${FILE_FIELDS[c.field].label} → correct type`;
+        const name = `[FIELD] ${FILE_FIELDS[c.field].label} — ${c.file}`;
         try {
             const { ok, status, json } = await upload(c.field, c.buf, c.file, c.mime);
             if (!ok || !json?.success) { fail(name, `HTTP ${status}: ${json?.error}`); continue; }
