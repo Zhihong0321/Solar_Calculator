@@ -1,6 +1,24 @@
 const pool = require('../../../core/database/pool');
 
+const SHARED_EMAIL_ACCOUNTS = Object.freeze([
+  { full_email: 'claude01@eternalgy.com', label: 'Claude 01' },
+  { full_email: 'chatgpt01@eternalgy.com', label: 'ChatGPT 01' }
+]);
+
 class EmailService {
+  normalizeEmail(fullEmail) {
+    return String(fullEmail || '').trim().toLowerCase();
+  }
+
+  getSharedEmailAccounts() {
+    return SHARED_EMAIL_ACCOUNTS.map(account => ({ ...account }));
+  }
+
+  isSharedEmailAccount(fullEmail) {
+    const normalizedEmail = this.normalizeEmail(fullEmail);
+    return SHARED_EMAIL_ACCOUNTS.some(account => account.full_email === normalizedEmail);
+  }
+
   async getAgentEmailAccounts(agentBubbleId) {
     const query = 'SELECT * FROM agent_email_accounts WHERE agent_bubble_id = $1 ORDER BY created_at DESC';
     const { rows } = await pool.query(query, [agentBubbleId]);
@@ -59,7 +77,9 @@ class EmailService {
   }
 
   async getReceivedEmails(fullEmail, limit = 50, offset = 0) {
-    const response = await fetch(`https://ee-mail-production.up.railway.app/received-emails?domain=${fullEmail.split('@')[1]}&limit=${limit}&to=${fullEmail}`);
+    const normalizedEmail = this.normalizeEmail(fullEmail);
+    const domain = normalizedEmail.split('@')[1];
+    const response = await fetch(`https://ee-mail-production.up.railway.app/received-emails?domain=${encodeURIComponent(domain)}&limit=${limit}&to=${encodeURIComponent(normalizedEmail)}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch received emails');
 
@@ -82,16 +102,19 @@ class EmailService {
   }
 
   async getSentEmails(fullEmail, limit = 50, offset = 0) {
-    const response = await fetch(`https://ee-mail-production.up.railway.app/emails?domain=${fullEmail.split('@')[1]}&limit=${limit}&from=${fullEmail}`);
+    const normalizedEmail = this.normalizeEmail(fullEmail);
+    const domain = normalizedEmail.split('@')[1];
+    const response = await fetch(`https://ee-mail-production.up.railway.app/emails?domain=${encodeURIComponent(domain)}&limit=${limit}&from=${encodeURIComponent(normalizedEmail)}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch sent emails');
 
     return data.data || [];
   }
 
-  async getEmailDetails(id, type = 'received') {
+  async getEmailDetails(id, type = 'received', options = {}) {
+    const { markAsRead = true } = options;
     const endpoint = type === 'received' ? 'received-emails' : 'emails';
-    const response = await fetch(`https://ee-mail-production.up.railway.app/${endpoint}/${id}`);
+    const response = await fetch(`https://ee-mail-production.up.railway.app/${endpoint}/${encodeURIComponent(id)}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to fetch email details');
 
@@ -106,7 +129,7 @@ class EmailService {
         email.is_read = rows.length > 0 ? rows[0].is_read : false;
 
         // Automatically mark as read if it's currently unread
-        if (!email.is_read) {
+        if (markAsRead && !email.is_read) {
           await this.markAsRead(id);
           email.is_read = true;
         }
@@ -123,7 +146,7 @@ class EmailService {
 
   async isEmailOwnedByAgent(fullEmail, agentBubbleId) {
     const query = 'SELECT id FROM agent_email_accounts WHERE full_email = $1 AND agent_bubble_id = $2';
-    const { rows } = await pool.query(query, [fullEmail, agentBubbleId]);
+    const { rows } = await pool.query(query, [this.normalizeEmail(fullEmail), agentBubbleId]);
     return rows.length > 0;
   }
 

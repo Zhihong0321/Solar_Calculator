@@ -429,6 +429,56 @@
         let accounts = [];
         let selectedFiles = []; // Track files for composition
 
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function jsString(value) {
+            return JSON.stringify(String(value ?? ''));
+        }
+
+        function jsAttrString(value) {
+            return escapeHtml(jsString(value));
+        }
+
+        function formatEmailDate(value) {
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
+        }
+
+        function buildAttachmentDownloadUrl(email, attachment) {
+            const emailId = encodeURIComponent(String(email?.email_id || email?.id || ''));
+            const filename = encodeURIComponent(String(attachment?.filename || ''));
+            return `https://ee-mail-production.up.railway.app/attachments/${emailId}/${filename}/download`;
+        }
+
+        function renderEmailBody(email) {
+            const body = document.getElementById('emailBodyContent');
+            if (!body) return;
+            body.textContent = '';
+
+            if (email.html_content) {
+                const frame = document.createElement('iframe');
+                frame.className = 'w-full min-h-[420px] border-0';
+                frame.setAttribute('sandbox', '');
+                frame.setAttribute('referrerpolicy', 'no-referrer');
+                frame.srcdoc = String(email.html_content);
+                body.appendChild(frame);
+                return;
+            }
+
+            const text = document.createElement('div');
+            text.className = 'whitespace-pre-wrap';
+            text.textContent = email.text_content || '';
+            body.appendChild(text);
+        }
+
         function toggleMobileSidebar() {
             const sidebar = document.getElementById('mobileSidebar');
             if (sidebar) {
@@ -486,9 +536,9 @@
             const list = document.getElementById('accountList');
             if (list) {
                 list.innerHTML = accounts.map(acc => `
-                    <button onclick="selectAccount('${acc.full_email}')" class="nav-link w-full text-left ${currentEmail === acc.full_email ? 'active' : ''}">
+                    <button onclick='selectAccount(${jsAttrString(acc.full_email)})' class="nav-link w-full text-left ${currentEmail === acc.full_email ? 'active' : ''}">
                         <i class="fa-solid fa-at w-5"></i>
-                        <span class="truncate">${acc.email_prefix}</span>
+                        <span class="truncate">${escapeHtml(acc.email_prefix)}</span>
                     </button>
                 `).join('');
             }
@@ -497,14 +547,14 @@
             const listMobile = document.getElementById('accountListMobile');
             if (listMobile) {
                 listMobile.innerHTML = accounts.map(acc => `
-                    <button onclick="selectAccount('${acc.full_email}'); toggleMobileSidebar();" 
+                    <button onclick='selectAccount(${jsAttrString(acc.full_email)}); toggleMobileSidebar();'
                         class="flex items-center gap-4 w-full p-4 rounded-2xl border transition-all text-left ${currentEmail === acc.full_email ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white text-slate-600 border-slate-100 active:bg-slate-50'}">
                         <div class="w-10 h-10 rounded-xl ${currentEmail === acc.full_email ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'} flex items-center justify-center flex-shrink-0">
                             <i class="fa-solid fa-at text-lg"></i>
                         </div>
                         <div class="flex-1 overflow-hidden">
-                            <p class="font-bold text-sm truncate">${acc.email_prefix}</p>
-                            <p class="text-[10px] opacity-60 truncate">${acc.full_email}</p>
+                            <p class="font-bold text-sm truncate">${escapeHtml(acc.email_prefix)}</p>
+                            <p class="text-[10px] opacity-60 truncate">${escapeHtml(acc.full_email)}</p>
                         </div>
                         ${currentEmail === acc.full_email ? '<i class="fa-solid fa-circle-check text-brand-blue"></i>' : ''}
                     </button>
@@ -568,7 +618,7 @@
             list.innerHTML = selectedFiles.map((file, index) => `
                 <div class="flex items-center gap-2 px-2 py-1 bg-blue-50 border border-blue-100 rounded text-[10px] font-bold text-blue-600">
                     <i class="fa-solid fa-file"></i>
-                    <span class="max-w-[100px] truncate">${file.name}</span>
+                    <span class="max-w-[100px] truncate">${escapeHtml(file.name)}</span>
                     <button onclick="removeFile(${index})" class="text-blue-400 hover:text-blue-600 ml-1">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
@@ -683,27 +733,27 @@
             }
 
             list.innerHTML = emails.map(email => `
-                <div onclick="loadEmailDetail(${email.id})" class="email-item p-4 ${currentTab === 'received' && !email.is_read ? 'unread' : ''}" data-email-id="${email.id}">
+                <div onclick='loadEmailDetail(${jsAttrString(email.id)})' class="email-item p-4 ${currentTab === 'received' && !email.is_read ? 'unread' : ''}" data-email-id="${escapeHtml(email.id)}">
                     <div class="flex justify-between items-start mb-1">
                         <span class="text-xs font-bold text-slate-900 truncate max-w-[150px]">
-                            ${currentTab === 'received' ? email.from_email : email.to_email}
+                            ${escapeHtml(currentTab === 'received' ? email.from_email : email.to_email)}
                         </span>
                         <div class="flex flex-col items-end">
                             <span class="text-[9px] text-slate-400 font-bold uppercase whitespace-nowrap">
-                                ${new Date(email.received_at || email.sent_at).toLocaleDateString()}
+                                ${formatEmailDate(email.received_at || email.sent_at)}
                             </span>
                             ${currentTab === 'sent' ? `
                                 <span class="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md mt-1 ${email.status === 'sent' ? 'bg-blue-50 text-blue-600' :
                         email.status === 'delivered' ? 'bg-green-50 text-green-600' :
                             'bg-slate-50 text-slate-500'
                     }">
-                                    ${email.status}
+                                    ${escapeHtml(email.status)}
                                 </span>
                             ` : ''}
                         </div>
                     </div>
-                    <p class="text-[11px] font-bold text-slate-700 truncate">${email.subject || '(No Subject)'}</p>
-                    <p class="text-[10px] text-slate-400 line-clamp-2 mt-1">${email.text_content || '...'}</p>
+                    <p class="text-[11px] font-bold text-slate-700 truncate">${escapeHtml(email.subject || '(No Subject)')}</p>
+                    <p class="text-[10px] text-slate-400 line-clamp-2 mt-1">${escapeHtml(email.text_content || '...')}</p>
                 </div>
             `).join('');
         }
@@ -722,7 +772,8 @@
                 if (data.success) {
                     renderEmailDetail(data.email);
                     // Mark as read in UI
-                    const el = document.querySelector(`.email-item[data-email-id="${id}"]`);
+                    const el = Array.from(document.querySelectorAll('.email-item'))
+                        .find(item => item.dataset.emailId === String(id));
                     if (el) el.classList.remove('unread');
                 }
             } catch (err) {
@@ -735,22 +786,22 @@
             detail.innerHTML = `
                 <div class="space-y-6">
                     <div class="overflow-hidden">
-                        <h1 class="text-lg md:text-xl font-extrabold text-slate-900 tracking-tight leading-tight">${email.subject || '(No Subject)'}</h1>
+                        <h1 class="text-lg md:text-xl font-extrabold text-slate-900 tracking-tight leading-tight">${escapeHtml(email.subject || '(No Subject)')}</h1>
                         <div class="flex items-center gap-3 mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
                             <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(email.from_email)}&background=random" class="w-8 h-8 rounded-full flex-shrink-0">
                             <div class="flex-1 overflow-hidden">
-                                <p class="text-xs font-bold text-slate-900 truncate">${email.from_email}</p>
-                                <p class="text-[10px] text-slate-400 font-medium truncate">To: ${email.to_email}</p>
+                                <p class="text-xs font-bold text-slate-900 truncate">${escapeHtml(email.from_email)}</p>
+                                <p class="text-[10px] text-slate-400 font-medium truncate">To: ${escapeHtml(email.to_email)}</p>
                             </div>
                             <div class="flex flex-col items-end gap-1 flex-shrink-0">
                                 <div class="text-[9px] text-slate-400 font-bold uppercase">
-                                    ${new Date(email.date).toLocaleDateString()}
+                                    ${formatEmailDate(email.date)}
                                 </div>
                                 ${email.status ? `
                                     <span class="text-[8px] font-black uppercase px-2 py-0.5 rounded-lg ${email.status === 'sent' ? 'bg-blue-100 text-blue-700' :
                         email.status === 'delivered' ? 'bg-green-100 text-green-700' :
                             'bg-slate-100 text-slate-600'
-                    }">${email.status}</span>
+                    }">${escapeHtml(email.status)}</span>
                                 ` : ''}
                             </div>
                         </div>
@@ -759,7 +810,7 @@
                     <div class="line-divider"></div>
                     
                     <div class="email-body text-sm text-slate-700 leading-relaxed overflow-x-auto">
-                        ${email.html_content || `<div class="whitespace-pre-wrap">${email.text_content}</div>`}
+                        <div id="emailBodyContent"></div>
                     </div>
 
                     ${email.attachments && email.attachments.length > 0 ? `
@@ -767,9 +818,9 @@
                             <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Attachments</h4>
                             <div class="flex flex-wrap gap-2">
                                 ${email.attachments.map(att => `
-                                    <a href="https://ee-mail-production.up.railway.app/attachments/${email.email_id || email.id}/${encodeURIComponent(att.filename)}/download" target="_blank" class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">
+                                    <a href="${escapeHtml(buildAttachmentDownloadUrl(email, att))}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">
                                         <i class="fa-solid fa-file"></i>
-                                        <span class="max-w-[150px] truncate">${att.filename || 'Attachment'}</span>
+                                        <span class="max-w-[150px] truncate">${escapeHtml(att.filename || 'Attachment')}</span>
                                         <i class="fa-solid fa-download ml-2 text-[10px] text-slate-400"></i>
                                     </a>
                                 `).join('')}
@@ -778,6 +829,7 @@
                     ` : ''}
                 </div>
             `;
+            renderEmailBody(email);
         }
 
         function showClaimModal() {

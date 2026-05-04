@@ -39,6 +39,67 @@ router.get('/api/email/accounts', requireAuth, resolveAgent, async (req, res) =>
 });
 
 /**
+ * GET /api/email/shared/accounts
+ * List predefined shared inboxes available to authenticated users
+ */
+router.get('/api/email/shared/accounts', requireAuth, async (req, res) => {
+  try {
+    const accounts = emailService.getSharedEmailAccounts();
+    res.json({ success: true, accounts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/email/shared/received
+ * List received emails for an allowlisted shared inbox
+ */
+router.get('/api/email/shared/received', requireAuth, async (req, res) => {
+  const { email, limit, offset } = req.query;
+  try {
+    if (!emailService.isSharedEmailAccount(email)) {
+      return res.status(403).json({ error: 'Unauthorized access to this shared inbox.' });
+    }
+
+    const normalizedEmail = emailService.normalizeEmail(email);
+    const emails = await emailService.getReceivedEmails(normalizedEmail, parseInt(limit) || 50, parseInt(offset) || 0);
+    res.json({ success: true, emails });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/email/shared/details/:id
+ * Get full details of a received email from an allowlisted shared inbox
+ */
+router.get('/api/email/shared/details/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { email } = req.query;
+  try {
+    if (!emailService.isSharedEmailAccount(email)) {
+      return res.status(403).json({ error: 'Unauthorized access to this shared inbox.' });
+    }
+
+    const normalizedEmail = emailService.normalizeEmail(email);
+    const emailDetails = await emailService.getEmailDetails(id, 'received', { markAsRead: false });
+
+    if (!emailDetails) {
+      return res.status(404).json({ error: 'Email not found.' });
+    }
+
+    if (emailService.normalizeEmail(emailDetails.to_email) !== normalizedEmail) {
+      return res.status(403).json({ error: 'Email address mismatch.' });
+    }
+
+    res.json({ success: true, email: emailDetails });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/email/accounts
  * Claim a new email account
  */

@@ -109,6 +109,21 @@
             mobileHideSelectors: ['body > main > header']
         },
         {
+            pageKey: 'shared-email-access',
+            path: '/shared-email-access',
+            title: 'Shared Access',
+            rootTab: TOOLS_ROOT_KEY,
+            routeType: 'tool',
+            stack: 'email',
+            showBack: true,
+            parentPage: 'agent-home',
+            toolGroup: 'Workspace',
+            toolLabel: 'Shared Access',
+            toolDescription: 'Team inboxes',
+            icon: 'mail',
+            mobileHideSelectors: ['body > main > header']
+        },
+        {
             pageKey: 'chat-dashboard',
             path: '/chat-dashboard',
             title: 'Chat',
