@@ -14,7 +14,8 @@ function sanitizeUserForClient(user = {}) {
         email: user.email || null,
         access_level: user.access_level || [],
         name: user.name || null,
-        contact: user.contact || null
+        contact: user.contact || null,
+        user_signature: user.user_signature || null
     };
 }
 
@@ -40,7 +41,7 @@ router.get('/api/user/me', requireAuth, async (req, res) => {
         client = await pool.connect();
         
         const query = `
-            SELECT a.name, a.contact, u.email
+            SELECT a.name, a.contact, u.email, u.user_signature
             FROM "user" u
             LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
             WHERE u.id::text = $1 OR u.bubble_id = $1
@@ -53,7 +54,8 @@ router.get('/api/user/me', requireAuth, async (req, res) => {
             ...req.user,
             name: dbUser.name || req.user.name,
             contact: dbUser.contact || req.user.contact,
-            email: dbUser.email || req.user.email
+            email: dbUser.email || req.user.email,
+            user_signature: dbUser.user_signature || req.user.user_signature
         });
 
         res.json({

@@ -449,6 +449,25 @@ app.get('/help/new-user', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'help_new_user.html'));
 });
 
+function normalizeUserSignature(signature) {
+  if (signature == null || signature === '') return null;
+  if (typeof signature !== 'string') {
+    const err = new Error('User signature must be a PNG data URL.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const trimmed = signature.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 2 * 1024 * 1024 || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(trimmed)) {
+    const err = new Error('User signature must be a transparent PNG data URL.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return trimmed;
+}
+
 /**
  * API: Get full agent profile
  */
@@ -462,6 +481,7 @@ app.get('/api/agent/profile', requireAuth, async (req, res) => {
         a.name, 
         u.email, 
         u.profile_picture,
+        u.user_signature,
         a.contact,
         a.banker,
         a.bankin_account
@@ -483,9 +503,11 @@ app.get('/api/agent/profile', requireAuth, async (req, res) => {
 app.put('/api/agent/profile', requireAuth, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { name, contact, email, banker, bankin_account } = req.body;
+    const { name, contact, email, banker, bankin_account, user_signature } = req.body;
     const userId = getRequestLegacyUserId(req);
     const bubbleId = getRequestUserBubbleId(req);
+    const shouldUpdateSignature = Object.prototype.hasOwnProperty.call(req.body, 'user_signature');
+    const normalizedSignature = shouldUpdateSignature ? normalizeUserSignature(user_signature) : null;
 
     // Validation: Phone must start with 0 and be 10-11 digits
     if (!/^0\d{9,10}$/.test(contact)) {
@@ -494,11 +516,14 @@ app.put('/api/agent/profile', requireAuth, async (req, res) => {
 
     await client.query('BEGIN');
 
-    // 1. Update User table (No 'name' column in user table)
+    // 1. Update User table
     await client.query(
-      `UPDATE "user" SET email = $1, updated_at = NOW() 
-       WHERE id::text = $2 OR bubble_id = $3`,
-      [email, userId, bubbleId]
+      `UPDATE "user"
+       SET email = $1,
+           user_signature = CASE WHEN $2::boolean THEN $3 ELSE user_signature END,
+           updated_at = NOW()
+       WHERE id::text = $4 OR bubble_id = $5`,
+      [email, shouldUpdateSignature, normalizedSignature, userId, bubbleId]
     );
 
     // 2. Update Agent table
@@ -513,7 +538,7 @@ app.put('/api/agent/profile', requireAuth, async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Update Profile Error:', err);
-    res.status(500).json({ error: 'Failed to update profile' });
+    res.status(err.statusCode || 500).json({ error: err.statusCode ? err.message : 'Failed to update profile' });
   } finally {
     client.release();
   }
@@ -540,6 +565,7 @@ app.get('/api/agent/me', requireAuth, async (req, res) => {
         a.name, 
         u.email, 
         u.profile_picture,
+        u.user_signature,
         u.access_level,
         a.contact as phone
       FROM "user" u
