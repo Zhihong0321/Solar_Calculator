@@ -2,24 +2,11 @@
 
 const { parseOptionalCurrency, normalizeSolarEstimateFields } = require('./solarEstimateValues');
 
-function buildTigerNeoPresentationUrl(invoice) {
-    const presentationPath = '/t3_html_presentation/solar-proposal-2026-tiger-neo-3/';
-    const params = new URLSearchParams();
-    if (invoice.customer_name) params.set('customer_name', invoice.customer_name);
-    if (invoice.customer_address) params.set('customer_address', invoice.customer_address);
-
-    const panelQty = parseFloat(invoice.panel_qty) || 0;
-    const panelRating = parseFloat(invoice.panel_rating) || 0;
-    const systemSizeKwp = parseFloat(invoice.system_size_kwp) || (panelQty && panelRating ? (panelQty * panelRating) / 1000 : 0);
-
-    if (panelQty > 0) params.set('panel_qty', String(panelQty));
-    if (panelRating > 0) params.set('panel_rating', String(panelRating));
-    if (systemSizeKwp > 0) params.set('system_size_kwp', systemSizeKwp.toFixed(2));
-
-    const query = params.toString();
-    return query ? `${presentationPath}?${query}` : presentationPath;
+function buildTigerNeoProposalUrl(invoice) {
+    const invoiceUid = String(invoice.bubble_id || invoice.id || '').trim();
+    if (!invoiceUid) return '';
+    return `https://ee-proposal-production.up.railway.app/?uid=${encodeURIComponent(invoiceUid)}`;
 }
-
 function normalizeInvoicePackageType(...rawValues) {
     const values = rawValues
         .map((value) => String(value || '').trim().toLowerCase())
@@ -61,6 +48,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const templateData = template || {};
 
     const hasTigerNeo3 = items.some(item => (item.description || '').toLowerCase().includes('tiger neo 3'));
+    const tigerNeoProposalUrl = hasTigerNeo3 ? buildTigerNeoProposalUrl(invoice) : '';
     const layoutMode = String(options.layout || options.viewMode || '').toLowerCase();
     const isA4Preview = layoutMode === 'a4' || layoutMode === 'a4-preview' || layoutMode === 'print';
     const showInteractiveControls = !options.forPdf && !isA4Preview;
@@ -2063,6 +2051,11 @@ body.a4-preview .terms-signature {
                     <span>SEDA Form</span>
                   </button>
                   ` : ''}
+                  ${hasTigerNeo3 && tigerNeoProposalUrl ? `
+                  <button onclick='window.open(${JSON.stringify(tigerNeoProposalUrl)}, "_blank", "noopener")' class="action-btn btn-proposal">
+                    <span>GENERATE TIGER NEO 3 PROPOSAL</span>
+                  </button>
+                  ` : ''}
                   ${!hasTigerNeo3 && (invoice.share_token || invoice.bubble_id) && invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
                   <button onclick="viewProposal('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-proposal">
                     <span>View Proposal</span>
@@ -2373,12 +2366,12 @@ body.a4-preview .terms-signature {
         </section>
 
         <!-- Tiger Neo 3 Promotional Banner -->
-        ${hasTigerNeo3 && !isA4Preview ? `
-        <a class="promotional-banner no-print" href="${buildTigerNeoPresentationUrl(invoice)}" target="_blank" rel="noopener noreferrer" style="display: block; padding: 0 50px; margin-bottom: 40px; cursor: pointer;">
+        ${hasTigerNeo3 && tigerNeoProposalUrl && !isA4Preview ? `
+        <a class="promotional-banner no-print" href="${tigerNeoProposalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; padding: 0 50px; margin-bottom: 40px; cursor: pointer;">
             <div style="border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
                 <img src="/slide-001.webp" alt="Rise With Tiger Neo 3" style="width: 100%; display: block; object-fit: cover;">
                 <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 20px 15px 10px; color: white; text-align: right; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">
-                    Click to view Interactive Proposal <i class='bx bx-right-arrow-alt' style="vertical-align: middle; font-size: 14px;"></i>
+                    Generate Tiger Neo 3 Proposal <i class='bx bx-right-arrow-alt' style="vertical-align: middle; font-size: 14px;"></i>
                 </div>
             </div>
         </a>
