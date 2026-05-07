@@ -26,7 +26,7 @@ const {
 } = require('./invoiceItemSupport');
 const {
   fetchInvoiceDependencies,
-  findOrCreateCustomer,
+  createInvoiceCustomer,
   resolveLinkedReferral,
   syncReferralInvoiceLink
 } = require('./invoiceDependencySupport');
@@ -45,6 +45,7 @@ const {
   isVoucherCategoryEligible,
   normalizeVoucherCategoryPackageType
 } = require('./invoiceVoucherSupport');
+const { writeInvoiceAuditEntry } = require('./auditWriter');
 
 let beginAgentAuditTransaction = async (client) => {
   await client.query('BEGIN');
@@ -1200,7 +1201,7 @@ async function createInvoiceOnTheFly(client, data) {
       getPackageById,
       getTemplateById,
       getDefaultTemplate,
-      findOrCreateCustomer
+      createInvoiceCustomer
     });
 
     // 2. Process Vouchers
@@ -1249,6 +1250,26 @@ async function createInvoiceOnTheFly(client, data) {
     }
 
     await syncReferralInvoiceLink(client, invoice.bubble_id, data.linkedReferral || null);
+
+    await writeInvoiceAuditEntry(client, {
+      invoiceBubbleId: invoice.bubble_id,
+      entityType: 'invoice',
+      actionType: 'insert',
+      entityId: invoice.bubble_id,
+      changes: [
+        { field: 'Invoice Number', after: invoice.invoice_number },
+        { field: 'Status', after: invoice.status },
+        { field: 'Total Amount', after: invoice.total_amount },
+        { field: 'Linked Customer', after: invoice.linked_customer },
+        { field: 'Linked Package', after: invoice.linked_package }
+      ],
+      actorName: data.auditContext?.userName || null,
+      actorPhone: data.auditContext?.userPhone || null,
+      actorRole: data.auditContext?.userRole || null,
+      actorUserId: String(data.userId),
+      sourceApp: data.auditContext?.sourceApp || 'agent-os',
+      strict: true
+    });
 
     // Commit transaction
     await client.query('COMMIT');
@@ -1659,18 +1680,17 @@ async function updateInvoiceTransaction(client, data) {
     }
 
     // Resolve Customer
-    let customerBubbleId = currentData.linked_customer;
+    let customerBubbleId = null;
 
     if (data.customerName) {
-      const custResult = await findOrCreateCustomer(client, {
+      const custResult = await createInvoiceCustomer(client, {
         name: data.customerName,
         phone: data.customerPhone,
         address: data.customerAddress,
         profilePicture: data.profilePicture || null,
         leadSource: data.leadSource,
         remark: data.remark,
-        createdBy: data.userId,
-        existingCustomerBubbleId: currentData.linked_customer // Pass existing customer to update instead of create new
+        createdBy: data.userId
       });
       if (custResult) {
         customerBubbleId = custResult.bubbleId;
