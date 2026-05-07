@@ -640,5 +640,21 @@
             }
         }
     </script>
+    <script>
+        (function () {
+            const pathParts = window.location.pathname.split('/').filter(Boolean);
+            const shareToken = pathParts[pathParts.length - 1] || '';
+            if (!shareToken || shareToken === 'proposal') return;
+            window.EternalgyInvoiceTracker = {
+                invoiceIdentifier: shareToken,
+                pageType: 'proposal',
+                endpoint: '/api/invoice-view-activity'
+            };
+            const script = document.createElement('script');
+            script.src = '/js/invoice-view-tracker.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    </script>
 </body>
 </html>

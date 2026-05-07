@@ -59,6 +59,8 @@ function normalizeInvoicePackageType(...rawValues) {
 
 function buildTigerNeoPresentationUrl(invoice) {
   const params = new URLSearchParams();
+  const invoiceUid = String(invoice.share_token || invoice.bubble_id || invoice.id || '').trim();
+  if (invoiceUid) params.set('invoice_id', invoiceUid);
   if (invoice.customer_name) params.set('customer_name', invoice.customer_name);
   if (invoice.customer_address) params.set('customer_address', invoice.customer_address);
   const panelQty = parseFloat(invoice.panel_qty) || 0;
@@ -253,6 +255,7 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
     || containsKeyword(packageSearchText, 'master-tec');
   const presentationLabel = hasTigerNeo3 ? 'TigerNeo 3 Presentation' : 'Tiger Neo Presentation';
   const presentationUrl = buildTigerNeoPresentationUrl(invoice);
+  const trackerIdentifier = invoice.share_token || invoice.bubble_id || invoice.id || '';
 
   const token = invoice.share_token || invoice.bubble_id || '';
   const currentViewUrl = options.currentViewUrl || `/view-v3/${encodeURIComponent(token)}`;
@@ -862,6 +865,16 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
       switchTab(initialTab);
     });
   </script>
+  ${trackerIdentifier ? `
+  <script>
+    window.EternalgyInvoiceTracker = {
+      invoiceIdentifier: ${JSON.stringify(trackerIdentifier)},
+      pageType: 'invoice',
+      endpoint: '/api/invoice-view-activity'
+    };
+  </script>
+  <script src="/js/invoice-view-tracker.js" defer></script>
+  ` : ''}
 </body>
 </html>`;
 }

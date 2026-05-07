@@ -29,6 +29,74 @@ try {
 
 const router = express.Router();
 
+function safeJson(value) {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'object') return value;
+    try {
+        return JSON.parse(value);
+    } catch (err) {
+        return null;
+    }
+}
+
+function getChangeAfter(changes, field) {
+    if (!Array.isArray(changes)) return null;
+    const match = changes.find((change) => String(change?.field || '').toLowerCase() === field);
+    return match ? match.after : null;
+}
+
+function normalizeViewerActivityRow(row) {
+    const changes = safeJson(row.changes) || [];
+    const eventType = String(row.action_type || getChangeAfter(changes, 'event_type') || '').toLowerCase();
+    const pageType = String(getChangeAfter(changes, 'page_type') || '').toLowerCase();
+    const duration = Number(getChangeAfter(changes, 'duration_seconds'));
+    const deviceHash = String(row.entity_id || getChangeAfter(changes, 'device_hash') || '').trim();
+
+    return {
+        id: row.id,
+        event_type: eventType,
+        page_type: pageType,
+        device_hash: deviceHash,
+        visitor_label: row.actor_user_id ? `user ${row.actor_user_id}` : `device ${deviceHash.slice(0, 8)}`,
+        viewer_type: row.actor_user_id ? 'logged_in' : (getChangeAfter(changes, 'viewer_type') || 'anonymous'),
+        actor_user_id: row.actor_user_id || null,
+        button_name: getChangeAfter(changes, 'button_name'),
+        duration_seconds: Number.isFinite(duration) ? duration : null,
+        viewed_at: row.edited_at,
+        created_at: row.edited_at
+    };
+}
+
+function summarizeViewerActivity(events) {
+    const uniqueVisitors = new Set(events.map((event) => event.device_hash).filter(Boolean));
+    const invoiceVisitors = new Set(events
+        .filter((event) => event.event_type === 'invoice_viewed')
+        .map((event) => event.device_hash)
+        .filter(Boolean));
+    const proposalVisitors = new Set(events
+        .filter((event) => event.event_type === 'proposal_viewed')
+        .map((event) => event.device_hash)
+        .filter(Boolean));
+    const durations = events
+        .filter((event) => event.duration_seconds !== null)
+        .map((event) => event.duration_seconds);
+    const averageDuration = durations.length > 0
+        ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)
+        : 0;
+
+    return {
+        total_events: events.length,
+        invoice_views: events.filter((event) => event.event_type === 'invoice_viewed').length,
+        proposal_views: events.filter((event) => event.event_type === 'proposal_viewed').length,
+        button_clicks: events.filter((event) => event.event_type.endsWith('_button_clicked')).length,
+        unique_visitors: uniqueVisitors.size,
+        unique_invoice_visitors: invoiceVisitors.size,
+        unique_proposal_visitors: proposalVisitors.size,
+        average_duration_seconds: averageDuration,
+        last_activity_at: events[0]?.created_at || null
+    };
+}
+
 /**
  * PAGE ROUTES
  */
@@ -399,6 +467,56 @@ router.get('/api/v1/invoices/:bubbleId/history', requireAuth, async (req, res) =
 
         res.json({ success: true, data: result.rows });
     } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * GET /api/v1/invoices/:bubbleId/viewer-activity
+ * Summarize public invoice/proposal visitor activity recorded in invoice_audit_log.
+ */
+router.get('/api/v1/invoices/:bubbleId/viewer-activity', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        const invoice = await invoiceRepo.getInvoiceByBubbleId(client, bubbleId);
+        if (!invoice) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        const isOwner = await invoiceRepo.verifyOwnership(client, userId, invoice.created_by, invoice.linked_agent);
+        if (!isOwner) {
+            return res.status(403).json({ success: false, error: 'Access denied' });
+        }
+
+        const auditRows = await client.query(
+            `SELECT id, action_type, entity_id, actor_user_id, actor_role, changes, edited_at
+               FROM invoice_audit_log
+              WHERE invoice_id = $1
+                AND entity_type = 'viewer_activity'
+              ORDER BY edited_at DESC
+              LIMIT 500`,
+            [invoice.id]
+        );
+        const events = auditRows.rows.map(normalizeViewerActivityRow);
+
+        res.json({
+            success: true,
+            data: {
+                summary: summarizeViewerActivity(events),
+                events
+            }
+        });
+    } catch (err) {
+        console.error('Error fetching invoice viewer activity:', err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();

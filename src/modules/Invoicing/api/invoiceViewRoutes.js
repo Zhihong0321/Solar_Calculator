@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../../../core/database/pool');
 const tariffPool = require('../../../core/database/tariffPool');
@@ -14,6 +15,7 @@ const { normalizeSolarEstimateFields } = require('../services/solarEstimateValue
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
 const { getBillCycleMetrics, normalizeBillCycleMode } = require('../../SolarCalculator/services/billCycleModeService');
 const { normalizeIdentityValue } = require('../../../core/auth/userIdentity');
+const { writeInvoiceAuditEntry } = require('../services/auditWriter');
 
 const router = express.Router();
 
@@ -34,6 +36,221 @@ function detectAuthenticatedViewer(req) {
     return identity ? { identity } : null;
   } catch (err) {
     return null;
+  }
+}
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+function normalizeTrackerText(value, fallback = null, maxLength = 160) {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim();
+  return normalized ? normalized.slice(0, maxLength) : fallback;
+}
+
+function getRequestIp(req) {
+  return String(
+    req.headers['x-forwarded-for']
+    || req.socket?.remoteAddress
+    || req.ip
+    || ''
+  ).split(',')[0].trim();
+}
+
+function resolveTrackerDeviceHash(req, body = {}) {
+  const explicitHash = normalizeTrackerText(body.device_hash || body.deviceHash, null, 96);
+  if (explicitHash && /^[a-f0-9]{16,96}$/i.test(explicitHash)) {
+    return explicitHash.toLowerCase();
+  }
+
+  const cookieHash = normalizeTrackerText(req.cookies?.eg_viewer_device, null, 96);
+  if (cookieHash && /^[a-f0-9]{16,96}$/i.test(cookieHash)) {
+    return cookieHash.toLowerCase();
+  }
+
+  return sha256([
+    getRequestIp(req),
+    req.get('user-agent') || '',
+    req.get('accept-language') || '',
+    body.invoice_identifier || body.invoiceIdentifier || ''
+  ].join('|')).slice(0, 32);
+}
+
+function buildTrackerChanges(req, body, eventType, pageType, deviceHash) {
+  const metadata = body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
+  const duration = Number(body.duration_seconds ?? body.durationSeconds);
+  const buttonName = normalizeTrackerText(body.button_name || body.buttonName);
+  const changes = [
+    { field: 'event_type', after: eventType },
+    { field: 'page_type', after: pageType },
+    { field: 'device_hash', after: deviceHash },
+    { field: 'viewer_type', after: detectAuthenticatedViewer(req) ? 'logged_in' : 'anonymous' }
+  ];
+
+  if (buttonName) changes.push({ field: 'button_name', after: buttonName });
+  if (Number.isFinite(duration) && duration >= 0) {
+    changes.push({ field: 'duration_seconds', after: Math.round(duration) });
+  }
+
+  changes.push({
+    field: 'visitor_context',
+    after: {
+      path: normalizeTrackerText(metadata.path || req.get('referer') || req.originalUrl, null, 240),
+      referrer: normalizeTrackerText(metadata.referrer || req.get('referer'), null, 240),
+      timezone: normalizeTrackerText(metadata.timezone, null, 80),
+      screen: normalizeTrackerText(metadata.screen, null, 40),
+      user_agent_hash: sha256(req.get('user-agent') || '').slice(0, 32),
+      ip_hash: sha256(getRequestIp(req)).slice(0, 32)
+    }
+  });
+
+  return changes;
+}
+
+async function writeViewerActivity(req, {
+  invoiceIdentifier,
+  eventType,
+  pageType,
+  deviceHash,
+  buttonName = null,
+  durationSeconds = null,
+  metadata = null
+}) {
+  const normalizedEventType = normalizeTrackerText(eventType, '').toLowerCase();
+  const allowedEvents = new Set([
+    'invoice_viewed',
+    'invoice_session_ended',
+    'invoice_button_clicked',
+    'proposal_viewed',
+    'proposal_session_ended',
+    'proposal_button_clicked'
+  ]);
+  if (!allowedEvents.has(normalizedEventType)) {
+    return { ok: false, status: 400, error: 'Unsupported tracking event.' };
+  }
+
+  const normalizedPageType = normalizeTrackerText(pageType, 'invoice', 80);
+  const client = await pool.connect();
+  try {
+    const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, invoiceIdentifier);
+    if (!bubbleId) {
+      return { ok: false, status: 404, error: 'Invoice not found.' };
+    }
+
+    const authenticatedViewer = detectAuthenticatedViewer(req);
+    const body = {
+      device_hash: deviceHash,
+      button_name: buttonName,
+      duration_seconds: durationSeconds,
+      invoice_identifier: invoiceIdentifier,
+      metadata
+    };
+
+    await writeInvoiceAuditEntry(client, {
+      invoiceBubbleId: bubbleId,
+      entityType: 'viewer_activity',
+      actionType: normalizedEventType,
+      entityId: deviceHash,
+      changes: buildTrackerChanges(req, body, normalizedEventType, normalizedPageType, deviceHash),
+      actorUserId: authenticatedViewer?.identity || null,
+      actorRole: authenticatedViewer ? 'logged_in_viewer' : 'anonymous_viewer',
+      sourceApp: 'public-view-tracker'
+    });
+
+    return { ok: true };
+  } finally {
+    client.release();
+  }
+}
+
+async function handleViewerActivity(req, res) {
+  try {
+    const body = req.body || {};
+    const invoiceIdentifier = normalizeTrackerText(
+      body.invoice_identifier
+      || body.invoiceIdentifier
+      || req.params.tokenOrId
+      || req.query.uid
+      || req.query.invoice_id,
+      null,
+      120
+    );
+
+    if (!invoiceIdentifier) {
+      return res.status(400).json({ success: false, error: 'invoice_identifier is required.' });
+    }
+
+    const pageType = normalizeTrackerText(body.page_type || body.pageType, 'invoice', 80);
+    const eventType = normalizeTrackerText(body.event_type || body.eventType, `${pageType}_viewed`, 80).toLowerCase();
+    const deviceHash = resolveTrackerDeviceHash(req, body);
+    res.cookie('eg_viewer_device', deviceHash, {
+      maxAge: 1000 * 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+      httpOnly: false,
+      secure: req.secure || req.get('x-forwarded-proto') === 'https',
+      path: '/'
+    });
+
+    const result = await writeViewerActivity(req, {
+      invoiceIdentifier,
+      eventType,
+      pageType,
+      deviceHash,
+      buttonName: body.button_name || body.buttonName || null,
+      durationSeconds: body.duration_seconds ?? body.durationSeconds ?? null,
+      metadata: body.metadata || null
+    });
+
+    if (!result.ok) {
+      return res.status(result.status || 400).json({ success: false, error: result.error || 'Tracking failed.' });
+    }
+
+    return res.json({ success: true, device_hash: deviceHash });
+  } catch (err) {
+    console.error('[viewerActivity] Failed to track viewer activity:', err);
+    return res.status(500).json({ success: false, error: 'Failed to track viewer activity.' });
+  }
+}
+
+async function openTigerNeo3Proposal(req, res) {
+  const { tokenOrId } = req.params;
+  const client = await pool.connect();
+  try {
+    const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
+    if (!invoice) {
+      return res.status(404).send('Invoice not found');
+    }
+
+    const invoiceIdentifier = invoice.bubble_id || tokenOrId;
+    const deviceHash = resolveTrackerDeviceHash(req, { invoice_identifier: invoiceIdentifier });
+    res.cookie('eg_viewer_device', deviceHash, {
+      maxAge: 1000 * 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+      httpOnly: false,
+      secure: req.secure || req.get('x-forwarded-proto') === 'https',
+      path: '/'
+    });
+
+    await writeViewerActivity(req, {
+      invoiceIdentifier,
+      eventType: 'proposal_viewed',
+      pageType: 'tiger_neo_3_proposal',
+      deviceHash,
+      metadata: {
+        path: req.originalUrl,
+        referrer: req.get('referer') || '',
+        destination: 'https://ee-proposal-production.up.railway.app/'
+      }
+    });
+
+    const targetUrl = new URL('https://ee-proposal-production.up.railway.app/');
+    targetUrl.searchParams.set('uid', invoiceIdentifier);
+    return res.redirect(302, targetUrl.toString());
+  } catch (err) {
+    console.error('[viewerActivity] Failed to open Tiger Neo 3 proposal:', err);
+    return res.status(500).send('Error opening Tiger Neo 3 proposal');
+  } finally {
+    client.release();
   }
 }
 
@@ -664,6 +881,13 @@ router.post('/view-v3/:tokenOrId/signature', async (req, res) => {
 router.post('/view/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 router.post('/view2/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 router.post('/view-v3/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
+router.post('/api/invoice-view-activity', handleViewerActivity);
+router.post('/view/:tokenOrId/activity', handleViewerActivity);
+router.post('/view2/:tokenOrId/activity', handleViewerActivity);
+router.post('/view-v3/:tokenOrId/activity', handleViewerActivity);
+router.get('/view/:tokenOrId/tiger-neo-3-proposal', openTigerNeo3Proposal);
+router.get('/view2/:tokenOrId/tiger-neo-3-proposal', openTigerNeo3Proposal);
+router.get('/view-v3/:tokenOrId/tiger-neo-3-proposal', openTigerNeo3Proposal);
 
 /**
  * GET /proposal/:shareToken

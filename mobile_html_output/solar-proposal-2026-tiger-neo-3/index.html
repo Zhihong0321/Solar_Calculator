@@ -528,5 +528,21 @@
             setTimeout(() => hint.classList.add('is-hidden'), 2800);
         })();
     </script>
+    <script>
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const invoiceIdentifier = params.get('invoice_id') || params.get('uid') || '';
+            if (!invoiceIdentifier) return;
+            window.EternalgyInvoiceTracker = {
+                invoiceIdentifier,
+                pageType: 'tiger_neo_3_proposal',
+                endpoint: '/api/invoice-view-activity'
+            };
+            const script = document.createElement('script');
+            script.src = '/js/invoice-view-tracker.js';
+            script.defer = true;
+            document.head.appendChild(script);
+        })();
+    </script>
 </body>
 </html>

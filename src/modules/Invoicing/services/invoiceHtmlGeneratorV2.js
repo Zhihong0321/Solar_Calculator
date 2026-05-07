@@ -3,9 +3,9 @@
 const { parseOptionalCurrency, normalizeSolarEstimateFields } = require('./solarEstimateValues');
 
 function buildTigerNeoProposalUrl(invoice) {
-    const invoiceUid = String(invoice.bubble_id || invoice.id || '').trim();
+    const invoiceUid = String(invoice.share_token || invoice.bubble_id || invoice.id || '').trim();
     if (!invoiceUid) return '';
-    return `https://ee-proposal-production.up.railway.app/?uid=${encodeURIComponent(invoiceUid)}`;
+    return `/view/${encodeURIComponent(invoiceUid)}/tiger-neo-3-proposal`;
 }
 function normalizeInvoicePackageType(...rawValues) {
     const values = rawValues
@@ -57,6 +57,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const estimatePanelQty = parseFloat(invoice.panel_qty) || 0;
     const estimatePanelRating = parseFloat(invoice.panel_rating) || 0;
     const canEstimateSolarSavings = estimatePanelQty > 0 && estimatePanelRating > 0 && Boolean(estimateIdentifier);
+    const trackerIdentifier = invoice.share_token || invoice.bubble_id || invoice.id || '';
 
     // Calculate totals from items
     const sstAmount = parseFloat(invoice.sst_amount) || 0;
@@ -2052,7 +2053,7 @@ body.a4-preview .terms-signature {
                   </button>
                   ` : ''}
                   ${hasTigerNeo3 && tigerNeoProposalUrl ? `
-                  <button onclick='window.open(${JSON.stringify(tigerNeoProposalUrl)}, "_blank", "noopener")' class="action-btn btn-proposal">
+                  <button data-track-button="Generate Tiger Neo 3 Proposal" onclick='window.open(${JSON.stringify(tigerNeoProposalUrl)}, "_blank", "noopener")' class="action-btn btn-proposal">
                     <span>GENERATE TIGER NEO 3 PROPOSAL</span>
                   </button>
                   ` : ''}
@@ -2367,7 +2368,7 @@ body.a4-preview .terms-signature {
 
         <!-- Tiger Neo 3 Promotional Banner -->
         ${hasTigerNeo3 && tigerNeoProposalUrl && !isA4Preview ? `
-        <a class="promotional-banner no-print" href="${tigerNeoProposalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; padding: 0 50px; margin-bottom: 40px; cursor: pointer;">
+        <a class="promotional-banner no-print" data-track-button="Tiger Neo 3 Promotional Banner" href="${tigerNeoProposalUrl}" target="_blank" rel="noopener noreferrer" style="display: block; padding: 0 50px; margin-bottom: 40px; cursor: pointer;">
             <div style="border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
                 <img src="/slide-001.webp" alt="Rise With Tiger Neo 3" style="width: 100%; display: block; object-fit: cover;">
                 <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 20px 15px 10px; color: white; text-align: right; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">
@@ -2441,6 +2442,16 @@ body.a4-preview .terms-signature {
         </footer>
         <div class="footer-bottom-bar"></div>
     </div>
+    ${showInteractiveControls && trackerIdentifier ? `
+    <script>
+      window.EternalgyInvoiceTracker = {
+        invoiceIdentifier: ${JSON.stringify(trackerIdentifier)},
+        pageType: 'invoice',
+        endpoint: '/api/invoice-view-activity'
+      };
+    </script>
+    <script src="/js/invoice-view-tracker.js" defer></script>
+    ` : ''}
 </body>
 </html>
   `;
