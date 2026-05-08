@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 let cachedRegStatusColumn = null;
+let cachedSedaColumns = null;
 
 function normalizeIdentityValue(value) {
   if (value === null || value === undefined) return null;
@@ -32,6 +33,18 @@ async function resolveUserBubbleId(client, identity) {
   if (!candidate || candidate === normalized) return null;
 
   return resolveUserBubbleId(client, candidate);
+}
+
+async function getSedaColumns(client) {
+  if (cachedSedaColumns) return cachedSedaColumns;
+
+  const result = await client.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_name = 'seda_registration'`
+  );
+  cachedSedaColumns = new Set(result.rows.map(row => row.column_name));
+  return cachedSedaColumns;
 }
 
 /**
@@ -161,10 +174,25 @@ async function linkSedaToInvoice(client, invoiceId, sedaId) {
  */
 async function getByShareToken(client, shareToken) {
     try {
+        const sedaColumns = await getSedaColumns(client);
+        const customerNameSelect = sedaColumns.has('applicant_name')
+          ? `COALESCE(NULLIF(TRIM(s.applicant_name), ''), c.name) as customer_name`
+          : `c.name as customer_name`;
+        const applicantFallbackSelects = [
+          sedaColumns.has('applicant_name') ? null : 'NULL::text as applicant_name',
+          sedaColumns.has('applicant_phone') ? null : 'NULL::text as applicant_phone',
+          sedaColumns.has('applicant_email') ? null : 'NULL::text as applicant_email',
+          sedaColumns.has('applicant_ic') ? null : 'NULL::text as applicant_ic'
+        ].filter(Boolean);
+        const applicantFallbackSql = applicantFallbackSelects.length
+          ? `${applicantFallbackSelects.join(',\n                ')},`
+          : '';
+
         const result = await client.query(
             `SELECT
                 s.*,
-                c.name as customer_name,
+                ${customerNameSelect},
+                ${applicantFallbackSql}
                 c.name as customer_profile_name,
                 c.phone as customer_phone,
                 c.email as customer_email,

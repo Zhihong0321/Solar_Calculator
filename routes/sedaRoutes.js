@@ -63,9 +63,10 @@ async function getLinkedInvoiceBubbleId(client, sedaId) {
 
 let _customerColumns = null;
 let _invoiceColumns = null;
+let _sedaColumns = null;
 
 async function getTableColumns(client, tableName, cacheKey) {
-    const cache = cacheKey === 'customer' ? _customerColumns : _invoiceColumns;
+    const cache = cacheKey === 'customer' ? _customerColumns : (cacheKey === 'seda' ? _sedaColumns : _invoiceColumns);
     if (cache) return cache;
 
     const result = await client.query(
@@ -76,6 +77,7 @@ async function getTableColumns(client, tableName, cacheKey) {
     );
     const columns = new Set(result.rows.map(row => row.column_name));
     if (cacheKey === 'customer') _customerColumns = columns;
+    if (cacheKey === 'seda') _sedaColumns = columns;
     if (cacheKey === 'invoice') _invoiceColumns = columns;
     return columns;
 }
@@ -520,9 +522,16 @@ function addAuditChange(changes, field, before, after) {
 }
 
 async function getSedaEditableSnapshot(client, sedaId) {
+    const sedaColumns = await getTableColumns(client, 'seda_registration', 'seda');
+    const applicantNameSelect = sedaColumns.has('applicant_name') ? 's.applicant_name' : 'NULL::text AS applicant_name';
+    const applicantPhoneSelect = sedaColumns.has('applicant_phone') ? 's.applicant_phone' : 'NULL::text AS applicant_phone';
+    const applicantEmailSelect = sedaColumns.has('applicant_email') ? 's.applicant_email' : 'NULL::text AS applicant_email';
+    const applicantIcSelect = sedaColumns.has('applicant_ic') ? 's.applicant_ic' : 'NULL::text AS applicant_ic';
+
     const result = await client.query(
         `SELECT
              s.bubble_id, s.linked_customer, s.linked_invoice, s.created_by, s.agent,
+             ${applicantNameSelect}, ${applicantPhoneSelect}, ${applicantEmailSelect}, ${applicantIcSelect},
              s.installation_address, s.city, s.state, s.postcode, s.tnb_account_no, s.phase_type,
              s.e_contact_name, s.e_contact_relationship, s.e_contact_no, s.e_contact_mykad,
              s.ic_no, s.email, s.e_email,
@@ -539,13 +548,13 @@ async function getSedaEditableSnapshot(client, sedaId) {
 
 function buildSedaFormAuditChanges(snapshot, payload) {
     const changes = [];
+    addAuditChange(changes, 'Applicant Name', snapshot.applicant_name || snapshot.customer_name, payload.customer_name);
+    addAuditChange(changes, 'Applicant Phone', snapshot.applicant_phone || snapshot.customer_phone, payload.phone);
     if (!snapshot.linked_customer) {
-        addAuditChange(changes, 'Applicant Name', null, payload.customer_name);
-        addAuditChange(changes, 'Applicant Phone', null, payload.phone);
         addAuditChange(changes, 'Registered Address', null, payload.registered_address);
     }
-    addAuditChange(changes, 'Applicant Email', snapshot.email || snapshot.customer_email, payload.email);
-    addAuditChange(changes, 'IC Number', snapshot.ic_no || snapshot.customer_ic_number, payload.ic_no);
+    addAuditChange(changes, 'Applicant Email', snapshot.applicant_email || snapshot.email || snapshot.customer_email, payload.email);
+    addAuditChange(changes, 'IC Number', snapshot.applicant_ic || snapshot.ic_no || snapshot.customer_ic_number, payload.ic_no);
     addAuditChange(changes, 'Installation Address', snapshot.installation_address, payload.installation_address);
     addAuditChange(changes, 'City', snapshot.city, payload.city);
     addAuditChange(changes, 'State', snapshot.state, payload.state);
@@ -558,6 +567,45 @@ function buildSedaFormAuditChanges(snapshot, payload) {
     addAuditChange(changes, 'Emergency Contact Email', snapshot.e_email, payload.e_email);
     addAuditChange(changes, 'Emergency Contact MyKad', snapshot.e_contact_mykad, payload.e_contact_mykad);
     return changes;
+}
+
+function buildSedaTextUpdate(recordId, formValues, sedaColumns) {
+    const assignments = [];
+    const values = [];
+
+    function addColumn(column, value) {
+        if (!sedaColumns.has(column)) return;
+        values.push(value);
+        assignments.push(`${column} = COALESCE($${values.length}, ${column})`);
+    }
+
+    addColumn('applicant_name', formValues.customer_name);
+    addColumn('applicant_phone', formValues.phone);
+    addColumn('applicant_email', formValues.email);
+    addColumn('applicant_ic', formValues.ic_no);
+    addColumn('installation_address', formValues.installation_address);
+    addColumn('city', formValues.city);
+    addColumn('state', formValues.state);
+    addColumn('postcode', formValues.postcode);
+    addColumn('tnb_account_no', formValues.tnb_account_no);
+    addColumn('phase_type', formValues.phase_type);
+    addColumn('e_contact_name', formValues.e_contact_name);
+    addColumn('e_contact_relationship', formValues.e_contact_relationship);
+    addColumn('e_contact_no', formValues.e_contact_no);
+    addColumn('e_contact_mykad', formValues.e_contact_mykad);
+    addColumn('ic_no', formValues.ic_no);
+    addColumn('email', formValues.email);
+    addColumn('e_email', formValues.e_email);
+
+    assignments.push('modified_date = NOW()', 'updated_at = NOW()');
+    values.push(recordId);
+
+    return {
+        sql: `UPDATE seda_registration
+              SET ${assignments.join(', ')}
+              WHERE bubble_id = $${values.length}`,
+        values
+    };
 }
 
 async function softDeleteSedaFile(req, res, recordId, source) {
@@ -753,7 +801,7 @@ router.get('/api/v1/seda-public/:shareToken', async (req, res) => {
             data: {
                 ...seda,
                 customer_profile: {
-                    name: seda.customer_profile_name || seda.customer_name,
+                    name: seda.customer_profile_name,
                     phone: seda.customer_phone,
                     email: seda.customer_email,
                     address: seda.customer_address,
@@ -804,20 +852,8 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
         const auditChanges = buildSedaFormAuditChanges(snapshot, formValues);
 
         await client.query('BEGIN');
-        await client.query(
-            `UPDATE seda_registration
-             SET installation_address = COALESCE($1, installation_address),
-                 city = COALESCE($2, city), state = COALESCE($3, state), postcode = COALESCE($4, postcode),
-                 tnb_account_no = COALESCE($5, tnb_account_no), phase_type = COALESCE($6, phase_type),
-                 e_contact_name = COALESCE($7, e_contact_name), e_contact_relationship = COALESCE($8, e_contact_relationship),
-                 e_contact_no = COALESCE($9, e_contact_no), e_contact_mykad = COALESCE($10, e_contact_mykad),
-                 ic_no = COALESCE($11, ic_no), email = COALESCE($12, email), e_email = COALESCE($13, e_email),
-                 modified_date = NOW(), updated_at = NOW()
-             WHERE bubble_id = $14`,
-            [formValues.installation_address, formValues.city, formValues.state, formValues.postcode,
-             formValues.tnb_account_no, formValues.phase_type, formValues.e_contact_name, formValues.e_contact_relationship,
-             formValues.e_contact_no, formValues.e_contact_mykad, formValues.ic_no, formValues.email, formValues.e_email, seda.bubble_id]
-        );
+        const textUpdate = buildSedaTextUpdate(seda.bubble_id, formValues, await getTableColumns(client, 'seda_registration', 'seda'));
+        await client.query(textUpdate.sql, textUpdate.values);
 
         if (!snapshot.linked_customer) {
             await createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues, null);
@@ -910,9 +946,13 @@ router.get('/api/v1/seda/my-seda', requireAuth, async (req, res) => {
         if (!userBubbleId) return res.json({ success: true, data: [] });
 
         const regStatusCol = await getRegStatusColumn(client);
+        const sedaColumns = await getTableColumns(client, 'seda_registration', 'seda');
+        const applicantNameExpr = sedaColumns.has('applicant_name')
+            ? "NULLIF(TRIM(s.applicant_name), '')"
+            : 'NULL::text';
         const result = await client.query(
             `SELECT s.bubble_id, s.${regStatusCol} AS reg_status, s.seda_status, s.updated_at,
-                    COALESCE(c.name, i.customer_name_snapshot, s.e_contact_name, 'Unnamed Customer') as customer_name,
+                    COALESCE(${applicantNameExpr}, c.name, i.customer_name_snapshot, s.e_contact_name, 'Unnamed Customer') as customer_name,
                     i.invoice_number, COALESCE(i.paid, false) as invoice_paid,
                     COALESCE(i.total_amount, 0) as invoice_total, COALESCE(i.paid_amount, 0) as invoice_paid_amount,
                     (COALESCE(i.paid_amount, 0) > 0) as has_payment
@@ -1138,20 +1178,8 @@ router.post('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, r
         const auditChanges = buildSedaFormAuditChanges(snapshot, formValues);
 
         await client.query('BEGIN');
-        await client.query(
-            `UPDATE seda_registration
-             SET installation_address = COALESCE($1, installation_address),
-                 city = COALESCE($2, city), state = COALESCE($3, state), postcode = COALESCE($4, postcode),
-                 tnb_account_no = COALESCE($5, tnb_account_no), phase_type = COALESCE($6, phase_type),
-                 e_contact_name = COALESCE($7, e_contact_name), e_contact_relationship = COALESCE($8, e_contact_relationship),
-                 e_contact_no = COALESCE($9, e_contact_no), e_contact_mykad = COALESCE($10, e_contact_mykad),
-                 ic_no = COALESCE($11, ic_no), email = COALESCE($12, email), e_email = COALESCE($13, e_email),
-                 modified_date = NOW(), updated_at = NOW()
-             WHERE bubble_id = $14`,
-            [formValues.installation_address, formValues.city, formValues.state, formValues.postcode,
-             formValues.tnb_account_no, formValues.phase_type, formValues.e_contact_name, formValues.e_contact_relationship,
-             formValues.e_contact_no, formValues.e_contact_mykad, formValues.ic_no, formValues.email, formValues.e_email, req.params.id]
-        );
+        const textUpdate = buildSedaTextUpdate(req.params.id, formValues, await getTableColumns(client, 'seda_registration', 'seda'));
+        await client.query(textUpdate.sql, textUpdate.values);
 
         if (!snapshot.linked_customer) {
             await createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues, getCanonicalUserIdentity(req));
