@@ -1115,7 +1115,7 @@
                 document.getElementById('applicantPhone').value = d.customer_profile?.phone || d.phone || '';
                 document.getElementById('applicantEmail').value = d.email || d.customer_profile?.email || '';
                 document.getElementById('applicantIC').value = d.ic_no || '';
-                document.getElementById('applicantAddress').value = [d.customer_profile?.address, d.customer_profile?.city, d.customer_profile?.state, d.customer_profile?.postcode].filter(Boolean).join(', ');
+                document.getElementById('applicantAddress').value = d.customer_profile?.address || d.address || '';
                 document.getElementById('installAddress').value = d.installation_address || '';
                 document.getElementById('city').value = d.city || '';
                 document.getElementById('state').value = d.state || '';
@@ -1195,6 +1195,9 @@
             showSpinner('Saving...');
             try {
                 const payload = {
+                    customer_name: document.getElementById('applicantName').value,
+                    phone: document.getElementById('applicantPhone').value,
+                    registered_address: document.getElementById('applicantAddress').value,
                     installation_address: document.getElementById('installAddress').value,
                     city: document.getElementById('city').value,
                     state: document.getElementById('state').value,

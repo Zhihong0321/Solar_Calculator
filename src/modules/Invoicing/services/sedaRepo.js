@@ -165,12 +165,13 @@ async function getByShareToken(client, shareToken) {
             `SELECT
                 s.*,
                 COALESCE(c.name, s.linked_customer_name) as customer_name,
-                c.phone,
-                c.email,
-                c.address,
-                c.city,
-                c.state,
-                c.postcode
+                c.name as customer_profile_name,
+                c.phone as customer_phone,
+                c.email as customer_email,
+                c.address as customer_address,
+                c.city as customer_city,
+                c.state as customer_state,
+                c.postcode as customer_postcode
              FROM seda_registration s
              LEFT JOIN customer c ON s.linked_customer = c.customer_id
              WHERE s.share_token = $1

@@ -43,8 +43,22 @@ const {
 // ─── SEDA-specific modules ────────────────────────────────────────────────────
 const sedaRepo          = require('../src/modules/Invoicing/services/sedaRepo');
 const extractionService = require('../src/modules/Invoicing/services/extractionService');
+const { writeInvoiceAuditEntry } = require('../src/modules/Invoicing/services/auditWriter');
 
 const router = express.Router();
+
+async function getLinkedInvoiceBubbleId(client, sedaId) {
+    try {
+        const r = await client.query(
+            'SELECT linked_invoice FROM seda_registration WHERE bubble_id = $1 LIMIT 1',
+            [sedaId]
+        );
+        const linked = r.rows[0]?.linked_invoice;
+        if (Array.isArray(linked) && linked.length > 0) return linked[0];
+        if (typeof linked === 'string' && linked.trim()) return linked.trim();
+    } catch (_) {}
+    return null;
+}
 
 // ─── SEDA field config ────────────────────────────────────────────────────────
 // Maps fieldKey → DB column, accepted MIME types, size limit, and display label.
@@ -241,6 +255,16 @@ async function handleUpload(req, res, recordId) {
                  WHERE bubble_id = $2`,
                 [fileUrl, recordId]
             );
+            const _auditInvoiceId = await getLinkedInvoiceBubbleId(client, recordId);
+            const _auditActor = getSedaActor(req, recordId);
+            await writeInvoiceAuditEntry(client, {
+                invoiceBubbleId: _auditInvoiceId,
+                entityType: 'seda_upload',
+                actionType: 'ADDED',
+                changes: [{ field: rule.label, after: fileUrl }],
+                actorName: _auditActor.name,
+                actorRole: _auditActor.role,
+            });
         } catch (dbErr) {
             console.error('[SEDA Upload] DB update failed — orphaned file:', req.file.path, dbErr.message);
             logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'error', code: ERROR_CODES.DB_FAILED, error: dbErr.message });
@@ -317,6 +341,69 @@ function getSedaActor(req, fallbackId) {
     };
 }
 
+function normalizeOptionalText(value) {
+    if (value === undefined || value === null) return null;
+    return String(value).trim();
+}
+
+function comparableAuditText(value) {
+    const normalized = normalizeOptionalText(value);
+    return normalized === '' ? null : normalized;
+}
+
+function sameAuditValue(before, after) {
+    return comparableAuditText(before) === comparableAuditText(after);
+}
+
+function addAuditChange(changes, field, before, after) {
+    const normalizedAfter = normalizeOptionalText(after);
+    if (normalizedAfter === null || sameAuditValue(before, normalizedAfter)) return;
+    changes.push({
+        field,
+        before: normalizeOptionalText(before),
+        after: normalizedAfter
+    });
+}
+
+async function getSedaEditableSnapshot(client, sedaId) {
+    const result = await client.query(
+        `SELECT
+             s.bubble_id, s.linked_customer, s.linked_invoice, s.linked_customer_name,
+             s.installation_address, s.city, s.state, s.postcode, s.tnb_account_no, s.phase_type,
+             s.e_contact_name, s.e_contact_relationship, s.e_contact_no, s.e_contact_mykad,
+             s.ic_no, s.email, s.e_email,
+             c.name AS customer_name, c.phone AS customer_phone, c.email AS customer_email,
+             c.ic_number AS customer_ic_number, c.address AS customer_address
+         FROM seda_registration s
+         LEFT JOIN customer c ON s.linked_customer = c.customer_id
+         WHERE s.bubble_id = $1
+         LIMIT 1`,
+        [sedaId]
+    );
+    return result.rows[0] || null;
+}
+
+function buildSedaFormAuditChanges(snapshot, payload) {
+    const changes = [];
+    addAuditChange(changes, 'Applicant Name', snapshot.customer_name || snapshot.linked_customer_name, payload.customer_name);
+    if (snapshot.linked_customer) addAuditChange(changes, 'Applicant Phone', snapshot.customer_phone, payload.phone);
+    addAuditChange(changes, 'Applicant Email', snapshot.email || snapshot.customer_email, payload.email);
+    addAuditChange(changes, 'IC Number', snapshot.ic_no || snapshot.customer_ic_number, payload.ic_no);
+    if (snapshot.linked_customer) addAuditChange(changes, 'Registered Address', snapshot.customer_address, payload.registered_address);
+    addAuditChange(changes, 'Installation Address', snapshot.installation_address, payload.installation_address);
+    addAuditChange(changes, 'City', snapshot.city, payload.city);
+    addAuditChange(changes, 'State', snapshot.state, payload.state);
+    addAuditChange(changes, 'Postcode', snapshot.postcode, payload.postcode);
+    addAuditChange(changes, 'TNB Account No', snapshot.tnb_account_no, payload.tnb_account_no);
+    addAuditChange(changes, 'Phase Type', snapshot.phase_type, payload.phase_type);
+    addAuditChange(changes, 'Emergency Contact Name', snapshot.e_contact_name, payload.e_contact_name);
+    addAuditChange(changes, 'Emergency Contact Relationship', snapshot.e_contact_relationship, payload.e_contact_relationship);
+    addAuditChange(changes, 'Emergency Contact Phone', snapshot.e_contact_no, payload.e_contact_no);
+    addAuditChange(changes, 'Emergency Contact Email', snapshot.e_email, payload.e_email);
+    addAuditChange(changes, 'Emergency Contact MyKad', snapshot.e_contact_mykad, payload.e_contact_mykad);
+    return changes;
+}
+
 async function softDeleteSedaFile(req, res, recordId, source) {
     const { field } = req.params;
     const { url } = req.body || {};
@@ -373,6 +460,15 @@ async function softDeleteSedaFile(req, res, recordId, source) {
             }
         });
         await client.query('COMMIT');
+        const _deleteInvoiceId = await getLinkedInvoiceBubbleId(client, recordId);
+        await writeInvoiceAuditEntry(client, {
+            invoiceBubbleId: _deleteInvoiceId,
+            entityType: 'seda_upload',
+            actionType: 'DELETED',
+            changes: [{ field: rule.label, before: url }],
+            actorName: actor.name,
+            actorRole: actor.role,
+        });
 
         return res.json({ success: true });
     } catch (err) {
@@ -438,6 +534,15 @@ async function restoreSedaFile(req, res, recordId, source) {
         const actor = getSedaActor(req, recordId);
         await markRecycleBinRestored(client, recycleEntry.recycleBinId, actor.id, actor.name);
         await client.query('COMMIT');
+        const _restoreInvoiceId = await getLinkedInvoiceBubbleId(client, recordId);
+        await writeInvoiceAuditEntry(client, {
+            invoiceBubbleId: _restoreInvoiceId,
+            entityType: 'seda_upload',
+            actionType: 'ADDED',
+            changes: [{ field: rule.label, after: recycleEntry.fileUrl }],
+            actorName: actor.name,
+            actorRole: actor.role,
+        });
 
         return res.json({
             success: true,
@@ -491,7 +596,15 @@ router.get('/api/v1/seda-public/:shareToken', async (req, res) => {
             success: true,
             data: {
                 ...seda,
-                customer_profile: { name: seda.customer_name, phone: seda.phone, email: seda.email, address: seda.address, city: seda.city, state: seda.state, postcode: seda.postcode },
+                customer_profile: {
+                    name: seda.customer_profile_name || seda.customer_name,
+                    phone: seda.customer_phone,
+                    email: seda.customer_email,
+                    address: seda.customer_address,
+                    city: seda.customer_city,
+                    state: seda.customer_state,
+                    postcode: seda.customer_postcode
+                },
                 invoice_details: invoice,
                 deleted_uploads: await getSedaDeletedUploads(client, seda.bubble_id)
             }
@@ -508,29 +621,77 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
         const seda = await sedaRepo.getByShareToken(client, req.params.shareToken);
         if (!seda) return res.status(404).json({ success: false, error: 'Not found or expired.' });
 
-        const { installation_address, city, state, postcode, tnb_account_no, phase_type,
+        const { customer_name, phone, registered_address,
+                installation_address, city, state, postcode, tnb_account_no, phase_type,
                 e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad,
                 ic_no, email, e_email } = req.body;
+        const snapshot = await getSedaEditableSnapshot(client, seda.bubble_id);
+        if (!snapshot) return res.status(404).json({ success: false, error: 'Not found or expired.' });
+        const formValues = {
+            customer_name: normalizeOptionalText(customer_name),
+            phone: normalizeOptionalText(phone),
+            registered_address: normalizeOptionalText(registered_address),
+            installation_address: normalizeOptionalText(installation_address),
+            city: normalizeOptionalText(city),
+            state: normalizeOptionalText(state),
+            postcode: normalizeOptionalText(postcode),
+            tnb_account_no: normalizeOptionalText(tnb_account_no),
+            phase_type: normalizeOptionalText(phase_type),
+            e_contact_name: normalizeOptionalText(e_contact_name),
+            e_contact_relationship: normalizeOptionalText(e_contact_relationship),
+            e_contact_no: normalizeOptionalText(e_contact_no),
+            e_contact_mykad: normalizeOptionalText(e_contact_mykad),
+            ic_no: normalizeOptionalText(ic_no),
+            email: normalizeOptionalText(email),
+            e_email: normalizeOptionalText(e_email)
+        };
+        const auditChanges = buildSedaFormAuditChanges(snapshot, formValues);
 
         await client.query(
             `UPDATE seda_registration
-             SET installation_address = COALESCE($1, installation_address),
-                 city = COALESCE($2, city), state = COALESCE($3, state), postcode = COALESCE($4, postcode),
-                 tnb_account_no = COALESCE($5, tnb_account_no), phase_type = COALESCE($6, phase_type),
-                 e_contact_name = COALESCE($7, e_contact_name), e_contact_relationship = COALESCE($8, e_contact_relationship),
-                 e_contact_no = COALESCE($9, e_contact_no), e_contact_mykad = COALESCE($10, e_contact_mykad),
-                 ic_no = COALESCE($11, ic_no), email = COALESCE($12, email), e_email = COALESCE($13, e_email),
+             SET linked_customer_name = COALESCE($1, linked_customer_name),
+                 installation_address = COALESCE($2, installation_address),
+                 city = COALESCE($3, city), state = COALESCE($4, state), postcode = COALESCE($5, postcode),
+                 tnb_account_no = COALESCE($6, tnb_account_no), phase_type = COALESCE($7, phase_type),
+                 e_contact_name = COALESCE($8, e_contact_name), e_contact_relationship = COALESCE($9, e_contact_relationship),
+                 e_contact_no = COALESCE($10, e_contact_no), e_contact_mykad = COALESCE($11, e_contact_mykad),
+                 ic_no = COALESCE($12, ic_no), email = COALESCE($13, email), e_email = COALESCE($14, e_email),
                  modified_date = NOW(), updated_at = NOW()
-             WHERE bubble_id = $14`,
-            [installation_address, city, state, postcode, tnb_account_no, phase_type,
-             e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad || null,
-             ic_no, email || null, e_email || null, seda.bubble_id]
+             WHERE bubble_id = $15`,
+            [formValues.customer_name, formValues.installation_address, formValues.city, formValues.state, formValues.postcode,
+             formValues.tnb_account_no, formValues.phase_type, formValues.e_contact_name, formValues.e_contact_relationship,
+             formValues.e_contact_no, formValues.e_contact_mykad, formValues.ic_no, formValues.email, formValues.e_email, seda.bubble_id]
         );
 
-        if (ic_no || email) {
+        if (snapshot.linked_customer) {
             const r = await client.query('SELECT linked_customer FROM seda_registration WHERE bubble_id = $1', [seda.bubble_id]);
             const cid = r.rows[0]?.linked_customer;
-            if (cid) await client.query(`UPDATE customer SET ic_number = COALESCE($1, ic_number), email = COALESCE($2, email), updated_at = NOW() WHERE customer_id = $3`, [ic_no || null, email || null, cid]);
+            if (cid) {
+                await client.query(
+                    `UPDATE customer
+                     SET name = COALESCE($1, name),
+                         phone = COALESCE($2, phone),
+                         email = COALESCE($3, email),
+                         ic_number = COALESCE($4, ic_number),
+                         address = COALESCE($5, address),
+                         updated_at = NOW()
+                     WHERE customer_id = $6`,
+                    [formValues.customer_name, formValues.phone, formValues.email, formValues.ic_no, formValues.registered_address, cid]
+                );
+            }
+        }
+
+        const _pubInvoiceId = await getLinkedInvoiceBubbleId(client, seda.bubble_id);
+        if (auditChanges.length) {
+            await writeInvoiceAuditEntry(client, {
+                invoiceBubbleId: _pubInvoiceId,
+                entityType: 'seda_registration',
+                actionType: 'UPDATED',
+                entityId: seda.bubble_id,
+                changes: auditChanges,
+                actorName: 'Customer (public form)',
+                actorRole: 'customer',
+            });
         }
 
         res.json({ success: true });
@@ -803,31 +964,82 @@ router.post('/api/v1/seda/verify-ownership', requireAuth, requireSedaBodyOwnersh
 
 // ─── Generic record save — must come AFTER all literal /seda/* action routes ──
 router.post('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, res) => {
-    const { installation_address, city, state, postcode, tnb_account_no, phase_type,
+    const { customer_name, phone, registered_address,
+            installation_address, city, state, postcode, tnb_account_no, phase_type,
             e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad,
             ic_no, email, e_email } = req.body;
 
     const client = await pool.connect();
     try {
+        const snapshot = await getSedaEditableSnapshot(client, req.params.id);
+        if (!snapshot) return res.status(404).json({ success: false, error: 'Not found.' });
+        const formValues = {
+            customer_name: normalizeOptionalText(customer_name),
+            phone: normalizeOptionalText(phone),
+            registered_address: normalizeOptionalText(registered_address),
+            installation_address: normalizeOptionalText(installation_address),
+            city: normalizeOptionalText(city),
+            state: normalizeOptionalText(state),
+            postcode: normalizeOptionalText(postcode),
+            tnb_account_no: normalizeOptionalText(tnb_account_no),
+            phase_type: normalizeOptionalText(phase_type),
+            e_contact_name: normalizeOptionalText(e_contact_name),
+            e_contact_relationship: normalizeOptionalText(e_contact_relationship),
+            e_contact_no: normalizeOptionalText(e_contact_no),
+            e_contact_mykad: normalizeOptionalText(e_contact_mykad),
+            ic_no: normalizeOptionalText(ic_no),
+            email: normalizeOptionalText(email),
+            e_email: normalizeOptionalText(e_email)
+        };
+        const auditChanges = buildSedaFormAuditChanges(snapshot, formValues);
+
         await client.query(
             `UPDATE seda_registration
-             SET installation_address = COALESCE($1, installation_address),
-                 city = COALESCE($2, city), state = COALESCE($3, state), postcode = COALESCE($4, postcode),
-                 tnb_account_no = COALESCE($5, tnb_account_no), phase_type = COALESCE($6, phase_type),
-                 e_contact_name = COALESCE($7, e_contact_name), e_contact_relationship = COALESCE($8, e_contact_relationship),
-                 e_contact_no = COALESCE($9, e_contact_no), e_contact_mykad = COALESCE($10, e_contact_mykad),
-                 ic_no = COALESCE($11, ic_no), email = COALESCE($12, email), e_email = COALESCE($13, e_email),
+             SET linked_customer_name = COALESCE($1, linked_customer_name),
+                 installation_address = COALESCE($2, installation_address),
+                 city = COALESCE($3, city), state = COALESCE($4, state), postcode = COALESCE($5, postcode),
+                 tnb_account_no = COALESCE($6, tnb_account_no), phase_type = COALESCE($7, phase_type),
+                 e_contact_name = COALESCE($8, e_contact_name), e_contact_relationship = COALESCE($9, e_contact_relationship),
+                 e_contact_no = COALESCE($10, e_contact_no), e_contact_mykad = COALESCE($11, e_contact_mykad),
+                 ic_no = COALESCE($12, ic_no), email = COALESCE($13, email), e_email = COALESCE($14, e_email),
                  modified_date = NOW(), updated_at = NOW()
-             WHERE bubble_id = $14`,
-            [installation_address, city, state, postcode, tnb_account_no, phase_type,
-             e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad || null,
-             ic_no, email || null, e_email || null, req.params.id]
+             WHERE bubble_id = $15`,
+            [formValues.customer_name, formValues.installation_address, formValues.city, formValues.state, formValues.postcode,
+             formValues.tnb_account_no, formValues.phase_type, formValues.e_contact_name, formValues.e_contact_relationship,
+             formValues.e_contact_no, formValues.e_contact_mykad, formValues.ic_no, formValues.email, formValues.e_email, req.params.id]
         );
 
-        if (ic_no || email) {
+        if (snapshot.linked_customer) {
             const r = await client.query('SELECT linked_customer FROM seda_registration WHERE bubble_id = $1', [req.params.id]);
             const cid = r.rows[0]?.linked_customer;
-            if (cid) await client.query(`UPDATE customer SET ic_number = COALESCE($1, ic_number), email = COALESCE($2, email), updated_at = NOW() WHERE customer_id = $3`, [ic_no || null, email || null, cid]);
+            if (cid) {
+                await client.query(
+                    `UPDATE customer
+                     SET name = COALESCE($1, name),
+                         phone = COALESCE($2, phone),
+                         email = COALESCE($3, email),
+                         ic_number = COALESCE($4, ic_number),
+                         address = COALESCE($5, address),
+                         updated_at = NOW()
+                     WHERE customer_id = $6`,
+                    [formValues.customer_name, formValues.phone, formValues.email, formValues.ic_no, formValues.registered_address, cid]
+                );
+            }
+        }
+
+        const _saveInvoiceId = await getLinkedInvoiceBubbleId(client, req.params.id);
+        const _saveActor = getSedaActor(req, req.params.id);
+        if (auditChanges.length) {
+            await writeInvoiceAuditEntry(client, {
+                invoiceBubbleId: _saveInvoiceId,
+                entityType: 'seda_registration',
+                actionType: 'UPDATED',
+                entityId: req.params.id,
+                changes: auditChanges,
+                actorName: _saveActor.name,
+                actorRole: _saveActor.role,
+                actorUserId: _saveActor.id,
+            });
         }
 
         res.json({ success: true });
@@ -862,6 +1074,20 @@ router.patch('/api/v1/seda/:id/status', requireAuth, requireSedaOwnership, async
         if (!sets.length) return res.status(400).json({ success: false, error: 'No status provided.' });
 
         await client.query(`UPDATE seda_registration SET ${sets.join(', ')}, updated_at = NOW() WHERE bubble_id = $1`, vals);
+        const _statusInvoiceId = await getLinkedInvoiceBubbleId(client, req.params.id);
+        const _statusActor = getSedaActor(req, req.params.id);
+        const _statusChanges = [
+            reg_status  && { field: 'SEDA Status',  after: reg_status  },
+            seda_status && { field: 'Admin Status', after: seda_status },
+        ].filter(Boolean);
+        await writeInvoiceAuditEntry(client, {
+            invoiceBubbleId: _statusInvoiceId,
+            entityType: 'seda_registration',
+            actionType: 'UPDATED',
+            changes: _statusChanges,
+            actorName: _statusActor.name,
+            actorRole: _statusActor.role,
+        });
         res.json({ success: true });
     } catch (err) {
         console.error('[SEDA Status] Error:', err.message);
