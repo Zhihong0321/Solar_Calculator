@@ -3,5 +3,6 @@ REPO NAME : Solar Calculator v2
 
 - Fixed SEDA applicant edits and audit logging.
 - Added a visible logout button to the agent dashboard.
+- Restored invoice customer helper compatibility.
 
 =====================
