@@ -539,11 +539,13 @@ async function getSedaEditableSnapshot(client, sedaId) {
 
 function buildSedaFormAuditChanges(snapshot, payload) {
     const changes = [];
-    addAuditChange(changes, 'Applicant Name', snapshot.customer_name, payload.customer_name);
-    if (snapshot.linked_customer) addAuditChange(changes, 'Applicant Phone', snapshot.customer_phone, payload.phone);
+    if (!snapshot.linked_customer) {
+        addAuditChange(changes, 'Applicant Name', null, payload.customer_name);
+        addAuditChange(changes, 'Applicant Phone', null, payload.phone);
+        addAuditChange(changes, 'Registered Address', null, payload.registered_address);
+    }
     addAuditChange(changes, 'Applicant Email', snapshot.email || snapshot.customer_email, payload.email);
     addAuditChange(changes, 'IC Number', snapshot.ic_no || snapshot.customer_ic_number, payload.ic_no);
-    if (snapshot.linked_customer) addAuditChange(changes, 'Registered Address', snapshot.customer_address, payload.registered_address);
     addAuditChange(changes, 'Installation Address', snapshot.installation_address, payload.installation_address);
     addAuditChange(changes, 'City', snapshot.city, payload.city);
     addAuditChange(changes, 'State', snapshot.state, payload.state);
@@ -817,23 +819,7 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
              formValues.e_contact_no, formValues.e_contact_mykad, formValues.ic_no, formValues.email, formValues.e_email, seda.bubble_id]
         );
 
-        if (snapshot.linked_customer) {
-            const r = await client.query('SELECT linked_customer FROM seda_registration WHERE bubble_id = $1', [seda.bubble_id]);
-            const cid = r.rows[0]?.linked_customer;
-            if (cid) {
-                await client.query(
-                    `UPDATE customer
-                     SET name = COALESCE($1, name),
-                         phone = COALESCE($2, phone),
-                         email = COALESCE($3, email),
-                         ic_number = COALESCE($4, ic_number),
-                         address = COALESCE($5, address),
-                         updated_at = NOW()
-                     WHERE customer_id = $6`,
-                    [formValues.customer_name, formValues.phone, formValues.email, formValues.ic_no, formValues.registered_address, cid]
-                );
-            }
-        } else {
+        if (!snapshot.linked_customer) {
             await createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues, null);
         }
 
@@ -1167,23 +1153,7 @@ router.post('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, r
              formValues.e_contact_no, formValues.e_contact_mykad, formValues.ic_no, formValues.email, formValues.e_email, req.params.id]
         );
 
-        if (snapshot.linked_customer) {
-            const r = await client.query('SELECT linked_customer FROM seda_registration WHERE bubble_id = $1', [req.params.id]);
-            const cid = r.rows[0]?.linked_customer;
-            if (cid) {
-                await client.query(
-                    `UPDATE customer
-                     SET name = COALESCE($1, name),
-                         phone = COALESCE($2, phone),
-                         email = COALESCE($3, email),
-                         ic_number = COALESCE($4, ic_number),
-                         address = COALESCE($5, address),
-                         updated_at = NOW()
-                     WHERE customer_id = $6`,
-                    [formValues.customer_name, formValues.phone, formValues.email, formValues.ic_no, formValues.registered_address, cid]
-                );
-            }
-        } else {
+        if (!snapshot.linked_customer) {
             await createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues, getCanonicalUserIdentity(req));
         }
 
