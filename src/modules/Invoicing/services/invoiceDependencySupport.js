@@ -23,9 +23,9 @@ async function findOrCreateCustomer(client, data) {
         const bubbleId = customer.customer_id;
 
         await client.query(
-          `UPDATE customer 
+          `UPDATE customer
            SET name = COALESCE($1, name),
-               phone = COALESCE($2, phone), 
+               phone = COALESCE($2, phone),
                address = COALESCE($3, address),
                profile_picture = COALESCE($6, profile_picture),
                lead_source = COALESCE($7, lead_source),
@@ -57,8 +57,8 @@ async function findOrCreateCustomer(client, data) {
         (remark && remark !== customer.remark)
       ) {
         await client.query(
-          `UPDATE customer 
-           SET phone = COALESCE($1, phone), 
+          `UPDATE customer
+           SET phone = COALESCE($1, phone),
                address = COALESCE($2, address),
                profile_picture = COALESCE($5, profile_picture),
                lead_source = COALESCE($6, lead_source),
@@ -85,6 +85,8 @@ async function findOrCreateCustomer(client, data) {
     return null;
   }
 }
+
+const createInvoiceCustomer = findOrCreateCustomer;
 
 async function resolveLinkedReferral(client, userId, referralBubbleId, deps, currentInvoiceBubbleId = null) {
   if (!referralBubbleId) {
@@ -159,7 +161,8 @@ async function fetchInvoiceDependencies(client, data, deps) {
     getPackageById,
     getTemplateById,
     getDefaultTemplate,
-    findOrCreateCustomer
+    findOrCreateCustomer,
+    createInvoiceCustomer
   } = deps;
   const { userId, packageId, customerName, customerPhone, customerAddress, templateId, profilePicture, leadSource, remark } = data;
 
@@ -181,7 +184,8 @@ async function fetchInvoiceDependencies(client, data, deps) {
     throw new Error(`Package with ID '${packageId}' not found`);
   }
 
-  const customerResult = await findOrCreateCustomer(client, {
+  const customerHelper = findOrCreateCustomer || createInvoiceCustomer;
+  const customerResult = await customerHelper(client, {
     name: customerName,
     phone: customerPhone,
     address: customerAddress,
@@ -208,6 +212,7 @@ async function fetchInvoiceDependencies(client, data, deps) {
 module.exports = {
   fetchInvoiceDependencies,
   findOrCreateCustomer,
+  createInvoiceCustomer,
   resolveLinkedReferral,
   syncReferralInvoiceLink
 };
