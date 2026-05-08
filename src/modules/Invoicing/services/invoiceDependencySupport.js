@@ -39,39 +39,6 @@ async function findOrCreateCustomer(client, data) {
       }
     }
 
-    const findRes = await client.query(
-      'SELECT id, customer_id, phone, address, profile_picture, lead_source, remark FROM customer WHERE name = $1 LIMIT 1',
-      [name]
-    );
-
-    if (findRes.rows.length > 0) {
-      const customer = findRes.rows[0];
-      const id = customer.id;
-      const bubbleId = customer.customer_id;
-
-      if (
-        (phone && phone !== customer.phone) ||
-        (address && address !== customer.address) ||
-        (profilePicture && profilePicture !== customer.profile_picture) ||
-        (leadSource && leadSource !== customer.lead_source) ||
-        (remark && remark !== customer.remark)
-      ) {
-        await client.query(
-          `UPDATE customer
-           SET phone = COALESCE($1, phone),
-               address = COALESCE($2, address),
-               profile_picture = COALESCE($5, profile_picture),
-               lead_source = COALESCE($6, lead_source),
-               remark = COALESCE($7, remark),
-               updated_at = NOW(),
-               updated_by = $4
-           WHERE id = $3`,
-          [phone, address, id, String(createdBy), profilePicture, leadSource, remark]
-        );
-      }
-      return { id, bubbleId };
-    }
-
     const customerBubbleId = `cust_${crypto.randomBytes(4).toString('hex')}`;
     const insertRes = await client.query(
       `INSERT INTO customer (customer_id, name, phone, address, created_by, created_at, updated_at, profile_picture, lead_source, remark)
