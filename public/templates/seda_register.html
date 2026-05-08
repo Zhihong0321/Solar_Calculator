@@ -1111,10 +1111,12 @@
                 if (!json.success) throw new Error(json.error || 'Load failed.');
 
                 const d = json.data;
-                const applicantName = d.applicant_name || d.customer_profile?.name || d.customer_name || '';
-                const applicantPhone = d.applicant_phone || d.customer_profile?.phone || d.phone || '';
-                const applicantEmail = d.applicant_email || d.email || d.customer_profile?.email || '';
-                const applicantIC = d.applicant_ic || d.ic_no || '';
+                // Auto-fill from Customer Profile ONLY IF SEDA applicant columns are empty
+                const applicantName = d.applicant_name?.trim() || d.customer_profile?.name || d.customer_name || '';
+                const applicantPhone = d.applicant_phone?.trim() || d.customer_profile?.phone || d.phone || '';
+                const applicantEmail = d.applicant_email?.trim() || d.email || d.customer_profile?.email || '';
+                const applicantIC = d.applicant_ic?.trim() || d.ic_no || '';
+                const applicantAddress = d.customer_profile?.address || d.address || '';
                 customerName = applicantName;
                 customerPhone = applicantPhone;
                 document.getElementById('noCustomerLinkedHeader')?.classList.toggle('hidden', !!d.linked_customer);
@@ -1125,7 +1127,7 @@
                 document.getElementById('applicantPhone').value = applicantPhone;
                 document.getElementById('applicantEmail').value = applicantEmail;
                 document.getElementById('applicantIC').value = applicantIC;
-                document.getElementById('applicantAddress').value = d.customer_profile?.address || d.address || '';
+                document.getElementById('applicantAddress').value = applicantAddress;
                 document.getElementById('installAddress').value = d.installation_address || '';
                 document.getElementById('city').value = d.city || '';
                 document.getElementById('state').value = d.state || '';
