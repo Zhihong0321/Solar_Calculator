@@ -216,6 +216,45 @@ async function createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues
     return customerBubbleId;
 }
 
+/**
+ * Update linked customer profile from SEDA form values
+ * @param {object} client - Database client
+ * @param {string} customerBubbleId - Customer bubble ID
+ * @param {object} formValues - Form values from SEDA save
+ */
+async function updateLinkedCustomerFromSeda(client, customerBubbleId, formValues) {
+    if (!customerBubbleId) return;
+
+    const customerColumns = await getTableColumns(client, 'customer', 'customer');
+    const assignments = ['updated_at = NOW()'];
+    const values = [];
+    let param = 1;
+
+    function addUpdate(column, value) {
+        if (!customerColumns.has(column)) return;
+        if (value === null || value === undefined) return;
+        values.push(value);
+        assignments.push(`${column} = $${param++}`);
+    }
+
+    addUpdate('name', formValues.customer_name);
+    addUpdate('phone', formValues.phone);
+    addUpdate('email', formValues.email);
+    addUpdate('address', formValues.registered_address);
+    addUpdate('city', formValues.city);
+    addUpdate('state', formValues.state);
+    addUpdate('postcode', formValues.postcode);
+    addUpdate('ic_number', formValues.ic_no);
+
+    if (values.length === 0) return;
+
+    values.push(customerBubbleId);
+    await client.query(
+        `UPDATE customer SET ${assignments.join(', ')} WHERE customer_id = $${param}`,
+        values
+    );
+}
+
 // ─── SEDA field config ────────────────────────────────────────────────────────
 // Maps fieldKey → DB column, accepted MIME types, size limit, and display label.
 // This config stays in sedaRoutes — it is SEDA-specific, not generic upload logic.
@@ -1183,6 +1222,9 @@ router.post('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, r
 
         if (!snapshot.linked_customer) {
             await createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues, getCanonicalUserIdentity(req));
+        } else {
+            // Update linked customer profile with form values
+            await updateLinkedCustomerFromSeda(client, snapshot.linked_customer, formValues);
         }
 
         const _saveInvoiceId = await getLinkedInvoiceBubbleId(client, req.params.id);
