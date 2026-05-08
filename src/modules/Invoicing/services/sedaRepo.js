@@ -164,7 +164,7 @@ async function getByShareToken(client, shareToken) {
         const result = await client.query(
             `SELECT
                 s.*,
-                COALESCE(c.name, s.linked_customer_name) as customer_name,
+                c.name as customer_name,
                 c.name as customer_profile_name,
                 c.phone as customer_phone,
                 c.email as customer_email,

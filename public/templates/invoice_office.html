@@ -1199,7 +1199,7 @@
             document.getElementById('sedaAdminStatusBadge').textContent = `ADMIN: ${seda.seda_status || 'PENDING'}`;
             
             const checks = [
-                { id: 'dot-name', val: !!(seda.linked_customer_name || seda.customer_profile?.name) },
+                { id: 'dot-name', val: !!(seda.customer_profile?.name || seda.customer_name) },
                 { id: 'dot-ic', val: !!seda.ic_no },
                 { id: 'dot-contact', val: !!(seda.e_contact_no || seda.customer_profile?.phone) },
                 { id: 'dot-addr', val: !!seda.installation_address },
