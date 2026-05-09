@@ -100,14 +100,22 @@ const buildBreakdown = (tariffRow, overrideEei = undefined) => {
   };
 };
 
+const resolveEeiRatePerKwh = (tariffRow) => {
+  const usageKwh = parseNumber(tariffRow?.usage_kwh);
+  if (usageKwh <= 0) {
+    return 0;
+  }
+
+  const eeiAmount = parseNumber(tariffRow?.energy_efficiency_incentive ?? tariffRow?.eei, 0);
+  return eeiAmount / usageKwh;
+};
+
 const resolveActualEeiValue = (tariffRow, netImportKwh) => {
   if (netImportKwh <= 0) {
     return 0;
   }
 
-  const candidate = tariffRow?.energy_efficiency_incentive ?? tariffRow?.eei ?? 0;
-  const numeric = parseNumber(candidate, 0);
-  return Number.isFinite(numeric) ? numeric : 0;
+  return resolveEeiRatePerKwh(tariffRow) * parseNumber(netImportKwh, 0);
 };
 
 const calculateSuggestedMaxPanelQty = (usageKwh, panelRating, sunPeakHour) => {
@@ -131,14 +139,11 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
   const donatedKwh = Math.max(0, potentialExportKwh - totalExportKwh);
   const netImportKwh = Math.max(0, importAfterSolarKwh - totalExportKwh);
   const importAfterSolarLookupKwh = Math.max(0, Math.floor(importAfterSolarKwh));
-  const netImportLookupKwh = Math.max(0, Math.floor(netImportKwh));
 
   const importTariff = await lookupTariffByUsage(tariffClient, importAfterSolarLookupKwh);
-  const netImportTariff = netImportKwh > 0
-    ? await lookupTariffByUsage(tariffClient, netImportLookupKwh)
-    : null;
 
-  const actualEei = resolveActualEeiValue(netImportTariff, netImportKwh);
+  const eeiRatePerKwh = resolveEeiRatePerKwh(importTariff);
+  const actualEei = resolveActualEeiValue(importTariff, netImportKwh);
   const exportRate = importAfterSolarKwh > 1500 ? HIGH_USAGE_EXPORT_RATE : DEFAULT_EXPORT_RATE;
   const exportEarning = totalExportKwh * exportRate;
   const billAfterSolarAmountBreakdown = buildBreakdown(importTariff);
@@ -172,6 +177,7 @@ const buildPanelScenario = async (tariffClient, packageClient, context, panelQty
     exportEarning: roundMoney(exportEarning),
     actualEei: roundMoney(actualEei),
     actualEeiAfterDeductExport: roundMoney(actualEei),
+    eeiRatePerKwh: Number(eeiRatePerKwh.toFixed(6)),
     netImportKwh: roundMoney(netImportKwh),
     totalExportKwh: roundMoney(totalExportKwh),
     donatedKwh: roundMoney(donatedKwh),

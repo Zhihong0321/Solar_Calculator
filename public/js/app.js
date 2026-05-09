@@ -579,18 +579,26 @@ class SolarCalculator {
         return match || [...this.tariffs].sort((a, b) => a.usage_kwh - b.usage_kwh)[0];
     }
 
-    resolveActualUsageKwh(usageAfterOffsetKwh, exportKwh) {
+    resolveNetImportKwh(usageAfterOffsetKwh, exportKwh) {
         return Math.max(0, Number(usageAfterOffsetKwh || 0) - Number(exportKwh || 0));
     }
 
-    resolveActualEeiValue(tariffRow, eeiTariffRow, actualUsageKwh) {
-        if (actualUsageKwh <= 0) {
+    resolveEeiRatePerKwh(tariffRow) {
+        const usageKwh = Number(tariffRow?.usage_kwh || 0);
+        if (usageKwh <= 0) {
             return 0;
         }
 
-        const candidate = eeiTariffRow?.eei ?? tariffRow?.eei ?? 0;
-        const numeric = Number(candidate);
-        return Number.isFinite(numeric) ? numeric : 0;
+        const eeiAmount = Number(tariffRow?.eei || 0);
+        return eeiAmount / usageKwh;
+    }
+
+    resolveActualEeiValue(tariffRow, netImportKwh) {
+        if (netImportKwh <= 0) {
+            return 0;
+        }
+
+        return this.resolveEeiRatePerKwh(tariffRow) * Number(netImportKwh || 0);
     }
 
     buildBreakdown(tariffRow, afaRate, options = {}) {
@@ -701,10 +709,10 @@ class SolarCalculator {
         // ATAP Solar Malaysia: Max export = reduced import from grid
         const potentialExport = Math.max(0, monthlySolarGeneration - morningUsageKwh - batteryFlow.monthlySolarToBatteryInputKwh);
         const exportKwh = Math.min(potentialExport, netUsageKwh);
-        const actualUsageBaselineKwh = this.resolveActualUsageKwh(netUsageBaseline, exportKwhBaseline);
-        const actualUsageBaselineForLookup = Math.max(0, Math.floor(actualUsageBaselineKwh));
-        const actualUsageKwh = this.resolveActualUsageKwh(netUsageKwh, exportKwh);
-        const actualUsageForLookup = Math.max(0, Math.floor(actualUsageKwh));
+        const netImportBaselineKwh = this.resolveNetImportKwh(netUsageBaseline, exportKwhBaseline);
+        const netImportBaselineForLookup = Math.max(0, Math.floor(netImportBaselineKwh));
+        const netImportKwh = this.resolveNetImportKwh(netUsageKwh, exportKwh);
+        const netImportForLookup = Math.max(0, Math.floor(netImportKwh));
 
         // Backup Generation Logic:
         // Exceeded generation is used as a weather buffer, capped at 10% of reduced import
@@ -715,19 +723,19 @@ class SolarCalculator {
         // 8. Financials
         const baselineTariff = this.lookupTariffByUsage(netUsageBaseline);
         const afterTariff = this.lookupTariffByUsage(netUsageKwh);
-        const baselineEeiTariff = actualUsageBaselineKwh > 0 ? this.lookupTariffByUsage(actualUsageBaselineForLookup) : null;
-        const afterEeiTariff = actualUsageKwh > 0 ? this.lookupTariffByUsage(actualUsageForLookup) : null;
-        const actualEeiBaseline = this.resolveActualEeiValue(baselineTariff, baselineEeiTariff, actualUsageBaselineKwh);
-        const actualEei = this.resolveActualEeiValue(afterTariff, afterEeiTariff, actualUsageKwh);
+        const actualEeiRateBaseline = this.resolveEeiRatePerKwh(baselineTariff);
+        const actualEeiRate = this.resolveEeiRatePerKwh(afterTariff);
+        const actualEeiBaseline = this.resolveActualEeiValue(baselineTariff, netImportBaselineKwh);
+        const actualEei = this.resolveActualEeiValue(afterTariff, netImportKwh);
 
         const beforeBreakdown = this.buildBreakdown(tariff, afaRate);
         const afterBreakdown = this.buildBreakdown(afterTariff, afaRate, {
             overrideEei: actualEei,
-            eeiUsageKwh: actualUsageForLookup
+            eeiUsageKwh: netImportForLookup
         });
         const baselineBreakdown = this.buildBreakdown(baselineTariff, afaRate, {
             overrideEei: actualEeiBaseline,
-            eeiUsageKwh: actualUsageBaselineForLookup
+            eeiUsageKwh: netImportBaselineForLookup
         });
 
         // Confidence Level Calculation
@@ -816,8 +824,9 @@ class SolarCalculator {
                 billReduction: billReduction.toFixed(2), exportSaving: exportSaving.toFixed(2), exportSavingRaw: exportSavingRaw.toFixed(2),
                 estimatedPayableAfterSolar: estimatedPayableAfterSolar.toFixed(2),
                 netUsageKwh: netUsageKwh.toFixed(2), exportKwh: exportKwh.toFixed(2),
-                actualUsageForEeiKwh: actualUsageKwh.toFixed(2),
-                actualUsageForEeiLookupKwh: actualUsageForLookup,
+                actualUsageForEeiKwh: netImportKwh.toFixed(2),
+                actualUsageForEeiLookupKwh: netImportForLookup,
+                actualEeiRatePerKwh: actualEeiRate.toFixed(6),
                 actualEei: actualEei.toFixed(2),
                 actualEeiSaving: actualEeiSaving.toFixed(2),
                 backupGenerationKwh: backupGenerationKwh.toFixed(2),
@@ -839,8 +848,9 @@ class SolarCalculator {
                         grossBillReduction: grossBillReductionBaseline,
                         totalSavings: totalMonthlySavingsBaseline.toFixed(2), billAfter: baselineBreakdown.total,
                         estimatedPayableAfterSolar: Math.max(0, baselineBreakdown.total - exportSavingBaselineRaw),
-                        actualUsageForEeiKwh: actualUsageBaselineKwh.toFixed(2),
-                        actualUsageForEeiLookupKwh: actualUsageBaselineForLookup,
+                        actualUsageForEeiKwh: netImportBaselineKwh.toFixed(2),
+                        actualUsageForEeiLookupKwh: netImportBaselineForLookup,
+                        actualEeiRatePerKwh: actualEeiRateBaseline.toFixed(6),
                         actualEei: actualEeiBaseline.toFixed(2),
                         billBreakdown: {
                             items: [

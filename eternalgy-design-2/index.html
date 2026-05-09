@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Eternalgy Design System v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gp:#16a34a;--gl:#22c55e;--gb:#dcfce7;--gbd:#86efac;--gd:#14532d;
+  --nb:#0d1f0f;--dk:#1a2e1c;--dkx:#091407;
+  --g50:#fafafa;--g100:#f3f4f6;--g200:#e5e7eb;--g300:#d1d5db;
+  --g400:#9ca3af;--g500:#6b7280;--g700:#374151;--g900:#111827;
+  --wb:#fffbeb;--wbd:#fde68a;--wt:#d97706;--wdk:#92400e;
+  --eb:#fef2f2;--ebd:#fecaca;--et:#991b1b;
+  --ib:#eff6ff;--it:#3b82f6;
+  --f:'Plus Jakarta Sans',-apple-system,sans-serif;
+}
+html{background:#e2e8f0}
+body{font-family:var(--f);color:var(--g900);background:#e2e8f0;min-height:100vh}
+.page{max-width:1020px;margin:0 auto;padding:32px 18px 80px}
+/* HEADER */
+.hdr{background:var(--nb);border-radius:18px;padding:24px 28px;margin-bottom:36px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.hdr-logo{width:40px;height:40px;background:var(--gp);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;font-weight:800}
+.hdr-t{color:#fff;font-size:20px;font-weight:800}
+.hdr-s{color:var(--g500);font-size:11px;margin-top:2px}
+.hdr-b{background:#1e3a20;color:var(--gl);font-size:11px;font-weight:700;padding:5px 12px;border-radius:7px}
+/* SECTION */
+.sec{margin-bottom:48px}
+.sn{font-size:10px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+.sh{font-size:22px;font-weight:800;margin-bottom:3px}
+.sd{font-size:12px;color:var(--g500);margin-bottom:16px}
+.hr{height:1px;background:var(--g200);margin-bottom:20px}
+/* GRID */
+.g{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.g3{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+.g4{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+@media(max-width:560px){.g2,.g3,.g4{grid-template-columns:1fr}}
+/* DEMO BOX */
+.d{background:#fff;border-radius:14px;padding:18px;border:1px solid var(--g200)}
+.dl{font-size:9px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+/* SWATCHES */
+.sw{display:flex;flex-wrap:wrap;gap:8px}
+.swi{border-radius:8px;overflow:hidden;width:80px}
+.swc{height:42px}
+.swn{font-size:9px;font-weight:700;color:var(--g700);padding:3px 6px;background:#fff}
+.swh{font-size:8px;color:var(--g400);font-family:monospace;padding:0 6px 4px;background:#fff}
+/* TYPE */
+.tr{display:flex;align-items:baseline;gap:12px;padding:8px 0;border-bottom:1px solid var(--g100)}
+.tr:last-child{border-bottom:none}
+.tm{min-width:100px;font-size:9px;color:var(--g400);font-family:monospace;flex-shrink:0}
+/* COMPONENTS */
+.c-nav{background:var(--nb);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-radius:10px}
+.c-nav-n{color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em}
+.c-nav-s{color:#4b5563;font-size:10px}
+.c-nav-lang{background:transparent;border:1px solid rgba(255,255,255,.22);border-radius:7px;padding:5px 9px;color:rgba(255,255,255,.78);font-size:10px;font-weight:700;cursor:pointer;font-family:var(--f)}
+.c-nav-live{background:#1e3a20;border-radius:7px;padding:5px 9px;color:var(--gl);font-size:11px;font-weight:700}
+.c-step-bar{background:#fff;padding:9px 12px;display:flex;align-items:center;border:1px solid var(--g100);border-radius:12px}
+.csc{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+.csc.on{background:var(--gp)}.csc.off{background:var(--g300)}
+.csl{font-size:9px;margin-top:2px}.csl.on{font-weight:700;color:var(--g700)}.csl.off{color:var(--g400)}
+.csc-step{display:flex;flex-direction:column;align-items:center}
+.csc-con{flex:1;height:2px;margin:0 2px;margin-bottom:12px;border-radius:1px}
+.csc-con.done{background:var(--gp)}.csc-con.pend{background:var(--g200)}
+.c-card{background:#fff;border-radius:14px;padding:16px}
+.c-card-dk{background:var(--dk);border-radius:14px;padding:16px}
+.c-chdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.c-cstep{font-size:10px;color:var(--g400);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.c-ctitle{font-size:17px;font-weight:700;margin-top:2px}
+.c-tag{display:inline-block;background:var(--gb);color:var(--gp);font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px}
+.c-tag.warn{background:var(--wb);color:var(--wt)}
+.c-tag.err{background:var(--eb);color:var(--et)}
+.c-tag.blue{background:var(--ib);color:var(--it)}
+.c-tag.dark{background:#1a2e1c;color:var(--gl)}
+.c-tag.gray{background:var(--g100);color:var(--g500)}
+.c-fl{font-size:10px;color:var(--g500);font-weight:600;margin-bottom:5px}
+.c-tf{display:flex;align-items:center;gap:7px;border:1px solid var(--g300);border-radius:11px;padding:10px 12px;background:#fff}
+.c-tf:focus-within{border-color:var(--gp)}
+.c-tf-p{color:var(--g500);font-weight:700;font-size:13px}
+.c-tf-i{width:100%;border:none;outline:none;background:transparent;font-size:17px;font-weight:700;color:var(--g900);font-family:var(--f)}
+.c-sf{border:1px solid var(--g300);border-radius:11px;background:#fff;overflow:hidden}
+.c-sf select{width:100%;border:none;outline:none;background:transparent;padding:12px 10px;font-size:13px;font-weight:600;color:var(--g900);font-family:var(--f);cursor:pointer}
+.c-seg{display:flex;gap:7px}
+.c-sb{flex:1;padding:9px 7px;border-radius:9px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--f);border:2px solid var(--g200);background:#fff;color:var(--g500)}
+.c-sb.on{border-color:var(--gp);background:var(--gb);color:var(--gp);font-weight:700}
+.c-mc-row{display:flex;gap:7px}
+.c-mc{flex:1;background:#f8faf8;border-radius:11px;padding:10px 6px;text-align:center}
+.c-mc-ic{font-size:18px;margin-bottom:3px}
+.c-mc-v{font-size:20px;font-weight:800;line-height:1}
+.c-mc-l{font-size:9px;color:var(--g500);margin-top:3px;font-weight:600}
+.c-mc-s{font-size:8px;color:var(--g400)}
+.c-btn{display:block;width:100%;padding:13px;border:none;border-radius:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--f);text-align:center}
+.c-btn.dark{background:var(--g900);color:#fff}
+.c-btn.green{background:var(--gp);color:#fff}
+.c-btn.outline{background:transparent;color:var(--gp);border:2px solid var(--gp)}
+.c-btn:disabled{opacity:.6;cursor:not-allowed}
+.c-exp{width:100%;background:#f8faf8;border:none;border-radius:9px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-family:var(--f)}
+.c-exp-t{font-size:12px;font-weight:600;color:var(--g900);text-align:left}
+.c-exp-s{font-size:10px;color:var(--g500);margin-top:1px}
+.c-ban{border-radius:11px;padding:11px 13px;font-size:11px;font-weight:600}
+.c-ban.ok{background:var(--gb);border:1px solid var(--gbd);color:var(--gp)}
+.c-ban.warn{background:var(--wb);border:1px solid var(--wbd);color:var(--wdk)}
+.c-ban.err{background:var(--eb);border:1px solid var(--ebd);color:var(--et)}
+.c-ban.info{background:var(--ib);color:var(--it)}
+.c-pkg{background:var(--nb);border-radius:11px;padding:11px 13px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.c-div{height:1px;background:var(--g200);margin:10px 0}
+.c-hero{background:var(--nb);border-radius:18px;overflow:hidden}
+.c-hero-b{padding:18px 18px 0}
+.c-hero-step{font-size:9px;color:var(--gl);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.c-hero-val{font-size:52px;font-weight:800;color:var(--gl);letter-spacing:-2px;line-height:1;margin-top:4px}
+.c-hero-cy{font-size:11px;color:var(--g500);margin-top:4px;padding-bottom:16px}
+.c-hero-strip{display:flex;background:var(--dkx)}
+.c-hm{flex:1;padding:12px 4px;text-align:center;border-right:1px solid #1a2e1a}
+.c-hm:last-child{border-right:none}
+.c-hm-v{font-size:18px;font-weight:800;color:#fff}
+.c-hm-l{font-size:9px;color:var(--gl);margin-top:2px;font-weight:600}
+.c-ba{display:flex;gap:9px;align-items:stretch}
+.c-bap{flex:1;border-radius:11px;padding:12px 10px;text-align:center}
+.c-bap.bef{background:var(--g100)}
+.c-bap.aft{background:var(--gb);border:2px solid var(--gbd)}
+.c-tbl{border-radius:9px;overflow:hidden;border:1px solid var(--g100)}
+.c-tbl-h{display:grid;background:#f8faf8;padding:7px 11px;font-size:9px;font-weight:700;color:var(--g400);text-transform:uppercase}
+.c-tbl-r{display:grid;padding:8px 11px;font-size:11px;border-top:1px solid var(--g100)}
+.c-tbl-r.ev{background:#fff}.c-tbl-r.od{background:var(--g50)}
+.c-eq{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.c-ec{padding:4px 9px;border-radius:7px;font-size:11px;font-weight:600}
+.c-ec.rep{background:#fff;color:var(--g700);border:1px solid var(--g200)}
+.c-ec.sav{background:var(--gb);color:var(--gp)}
+.c-ec.net{background:var(--wb);color:var(--wt);border:1px solid var(--wbd)}
+.c-eq-op{color:var(--g400);font-weight:700}
+.c-modal-ov{background:rgba(13,31,15,.48);padding:16px;display:flex;align-items:center;justify-content:center;border-radius:11px;min-height:160px}
+.c-modal{width:100%;max-width:300px;background:#f0fdf4;border:1px solid var(--gbd);border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,.24);overflow:hidden}
+.c-modal-h{background:var(--nb);color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
+.c-modal-t{font-size:14px;font-weight:800}
+.c-modal-st{font-size:10px;color:var(--g400);margin-top:2px}
+.c-modal-cl{border:none;background:transparent;color:var(--gbd);font-size:12px;font-weight:800;cursor:pointer;font-family:var(--f)}
+.c-modal-bd{padding:14px;font-size:11px;color:var(--g700);line-height:1.6}
+.c-toast{border-radius:11px;padding:10px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:9px;box-shadow:0 6px 20px rgba(0,0,0,.10);margin-bottom:7px}
+.c-toast.ok{background:var(--gb);color:var(--gp);border:1px solid var(--gbd)}
+.c-toast.err{background:var(--eb);color:var(--et);border:1px solid var(--ebd)}
+.c-toast.warn{background:var(--wb);color:var(--wdk);border:1px solid var(--wbd)}
+.c-ske{background:linear-gradient(90deg,var(--g100) 25%,var(--g200) 50%,var(--g100) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:7px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.c-stat{background:#f8faf8;border-radius:11px;padding:12px 14px;text-align:center}
+.c-stat-l{font-size:10px;color:var(--g400);font-weight:600;margin-bottom:3px}
+.c-stat-v{font-size:26px;font-weight:800;line-height:1}
+.c-stat-s{font-size:10px;color:var(--g400);margin-top:3px}
+.c-tabs{display:flex;gap:2px;background:var(--g100);border-radius:11px;padding:3px}
+.c-tab{flex:1;padding:7px 10px;border-radius:8px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;color:var(--g500);border:none;background:transparent;font-family:var(--f)}
+.c-tab.on{background:#fff;color:var(--gp);font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.c-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:28px 14px}
+.c-help{width:20px;height:20px;border:1px solid var(--gbd);background:#ecfdf5;color:var(--gp);border-radius:50%;padding:0;font-size:13px;font-weight:900;line-height:1;cursor:pointer;font-family:var(--f)}
+.sp-r{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.sp-b{background:var(--gb);border-radius:3px;height:14px}
+code{font-family:monospace;background:var(--g100);padding:1px 4px;border-radius:3px;font-size:10px}
+/* TOC */
+.toc{position:fixed;top:20px;right:18px;background:#fff;border:1px solid var(--g200);border-radius:12px;padding:12px;width:155px;box-shadow:0 6px 20px rgba(0,0,0,.08);z-index:100}
+.toc-t{font-size:9px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.toc a{display:block;font-size:10px;color:var(--g500);font-weight:500;padding:2px 0;text-decoration:none}
+.toc a:hover{color:var(--gp)}
+@media(max-width:860px){.toc{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="toc">
+  <div class="toc-t">Contents</div>
+  <a href="#s1">Colours</a><a href="#s2">Typography</a><a href="#s3">Spacing</a>
+  <a href="#s4">NavBar</a><a href="#s5">Stepper</a><a href="#s6">Cards</a>
+  <a href="#s7">Tags</a><a href="#s8">Inputs</a><a href="#s9">Buttons</a>
+  <a href="#s10">Metrics</a><a href="#s11">Banners</a><a href="#s12">Hero</a>
+  <a href="#s13">Before/After</a><a href="#s14">Flow Bars</a>
+  <a href="#s15">Table</a><a href="#s16">Modal</a><a href="#s17">Extended</a>
+</nav>
+
+<div class="page">
+<div class="hdr">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="hdr-logo">E</div>
+    <div><div class="hdr-t">Eternalgy Design System</div><div class="hdr-s">v2 · Source: public/domestic-v4.html · Solar PV Planner</div></div>
+  </div>
+  <div class="hdr-b">UI Foundation</div>
+</div>
+
+<!-- 1. COLOURS -->
+<section class="sec" id="s1">
+  <div class="sn">01</div><div class="sh">Colour Palette</div>
+  <div class="sd">All tokens from <code>domestic-v4.html</code>. Green = brand signal only — never decorative.</div>
+  <div class="hr"></div>
+  <div class="d" style="margin-bottom:12px">
+    <div class="dl">Primary Green Accent</div>
+    <div class="sw">
+      <div class="swi"><div class="swc" style="background:#22c55e"></div><div class="swn">light</div><div class="swh">#22c55e</div></div>
+      <div class="swi"><div class="swc" style="background:#16a34a"></div><div class="swn">primary</div><div class="swh">#16a34a</div></div>
+      <div class="swi"><div class="swc" style="background:#dcfce7"></div><div class="swn">bg</div><div class="swh">#dcfce7</div></div>
+      <div class="swi"><div class="swc" style="background:#86efac"></div><div class="swn">border</div><div class="swh">#86efac</div></div>
+      <div class="swi"><div class="swc" style="background:#14532d"></div><div class="swn">dark</div><div class="swh">#14532d</div></div>
+    </div>
+  </div>
+  <div class="d" style="margin-bottom:12px">
+    <div class="dl">App Shell</div>
+    <div class="sw">
+      <div class="swi"><div class="swc" style="background:#bbf7d0;border:1px solid #e5e7eb"></div><div class="swn">page-bg</div><div class="swh">#bbf7d0</div></div>
+      <div class="swi"><div class="swc" style="background:#f1f5f1;border:1px solid #e5e7eb"></div><div class="swn">app-bg</div><div class="swh">#f1f5f1</div></div>
+      <div class="swi"><div class="swc" style="background:#0d1f0f"></div><div class="swn">navbar</div><div class="swh">#0d1f0f</div></div>
+      <div class="swi"><div class="swc" style="background:#1a2e1c"></div><div class="swn">dark-card</div><div class="swh">#1a2e1c</div></div>
+      <div class="swi"><div class="swc" style="background:#091407"></div><div class="swn">darkest</div><div class="swh">#091407</div></div>
+    </div>
+  </div>
+  <div class="g g3" style="margin-bottom:12px">
+    <div class="d"><div class="dl">Warning</div><div class="sw">
+      <div class="swi"><div class="swc" style="background:#fffbeb"></div><div class="swn">bg</div><div class="swh">#fffbeb</div></div>
+      <div class="swi"><div class="swc" style="background:#fde68a"></div><div class="swn">border</div><div class="swh">#fde68a</div></div>
+      <div class="swi"><div class="swc" style="background:#d97706"></div><div class="swn">text</div><div class="swh">#d97706</div></div>
+    </div></div>
+    <div class="d"><div class="dl">Error</div><div class="sw">
+      <div class="swi"><div class="swc" style="background:#fef2f2"></div><div class="swn">bg</div><div class="swh">#fef2f2</div></div>
+      <div class="swi"><div class="swc" style="background:#fecaca"></div><div class="swn">border</div><div class="swh">#fecaca</div></div>
+      <div class="swi"><div class="swc" style="background:#991b1b"></div><div class="swn">text</div><div class="swh">#991b1b</div></div>
+    </div></div>
+    <div class="d"><div class="dl">Info Blue</div><div class="sw">
+      <div class="swi"><div class="swc" style="background:#eff6ff"></div><div class="swn">bg</div><div class="swh">#eff6ff</div></div>
+      <div class="swi"><div class="swc" style="background:#60a5fa"></div><div class="swn">light</div><div class="swh">#60a5fa</div></div>
+      <div class="swi"><div class="swc" style="background:#3b82f6"></div><div class="swn">strong</div><div class="swh">#3b82f6</div></div>
+    </div></div>
+  </div>
+  <div class="d"><div class="dl">Neutral Scale</div><div class="sw">
+    <div class="swi"><div class="swc" style="background:#fafafa;border:1px solid #e5e7eb"></div><div class="swn">g-50</div><div class="swh">#fafafa</div></div>
+    <div class="swi"><div class="swc" style="background:#f3f4f6;border:1px solid #e5e7eb"></div><div class="swn">g-100</div><div class="swh">#f3f4f6</div></div>
+    <div class="swi"><div class="swc" style="background:#e5e7eb"></div><div class="swn">g-200</div><div class="swh">#e5e7eb</div></div>
+    <div class="swi"><div class="swc" style="background:#d1d5db"></div><div class="swn">g-300</div><div class="swh">#d1d5db</div></div>
+    <div class="swi"><div class="swc" style="background:#9ca3af"></div><div class="swn">g-400</div><div class="swh">#9ca3af</div></div>
+    <div class="swi"><div class="swc" style="background:#6b7280"></div><div class="swn">g-500</div><div class="swh">#6b7280</div></div>
+    <div class="swi"><div class="swc" style="background:#374151"></div><div class="swn">g-700</div><div class="swh">#374151</div></div>
+    <div class="swi"><div class="swc" style="background:#111827"></div><div class="swn">g-900</div><div class="swh">#111827</div></div>
+  </div></div>
+</section>
+
+<!-- 2. TYPOGRAPHY -->
+<section class="sec" id="s2">
+  <div class="sn">02</div><div class="sh">Typography</div>
+  <div class="sd">Font: <strong>Plus Jakarta Sans</strong> · Weights 400/500/600/700/800 · All numbers → weight 800</div>
+  <div class="hr"></div>
+  <div class="d">
+    <div class="dl">Type Scale</div>
+    <div class="tr"><div class="tm">58px/800/hero</div><div style="font-size:52px;font-weight:800;color:#22c55e;letter-spacing:-2px;line-height:1">RM 342</div></div>
+    <div class="tr"><div class="tm">36px/800</div><div style="font-size:36px;font-weight:800;color:#d97706;line-height:1">RM 89.50</div></div>
+    <div class="tr"><div class="tm">26px/800</div><div style="font-size:26px;font-weight:800;color:#16a34a">RM 98k+</div></div>
+    <div class="tr"><div class="tm">22px/800/chip</div><div style="font-size:22px;font-weight:800;color:#d97706">3.4h</div></div>
+    <div class="tr"><div class="tm">18px/700/card-h</div><div style="font-size:18px;font-weight:700">Enter Bill Details</div></div>
+    <div class="tr"><div class="tm">15px/700/CTA</div><div style="font-size:15px;font-weight:700">Analyse Bill</div></div>
+    <div class="tr"><div class="tm">13px/600/body</div><div style="font-size:13px;font-weight:600;color:#374151">View itemized bill components</div></div>
+    <div class="tr"><div class="tm">11px/700/STEP</div><div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Step 1</div></div>
+    <div class="tr"><div class="tm">11px/600/label</div><div style="font-size:11px;font-weight:600;color:#6b7280">Monthly TNB Bill</div></div>
+    <div class="tr"><div class="tm">10px/caption</div><div style="font-size:10px;font-weight:600;color:#9ca3af">Malaysia Standard</div></div>
+    <div class="tr"><div class="tm">9px/axis</div><div style="font-size:9px;color:#9ca3af">50k · 100k · 150k</div></div>
+  </div>
+</section>
+
+<!-- 3. SPACING -->
+<section class="sec" id="s3">
+  <div class="sn">03</div><div class="sh">Spacing &amp; Radius</div>
+  <div class="sd">Spacing multiples. Radius follows hierarchy — larger containers = larger radius.</div>
+  <div class="hr"></div>
+  <div class="g g2">
+    <div class="d"><div class="dl">Spacing Tokens</div>
+      <div class="sp-r"><div class="sp-b" style="width:3px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">3px · xs</div></div>
+      <div class="sp-r"><div class="sp-b" style="width:8px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">8px · sm</div></div>
+      <div class="sp-r"><div class="sp-b" style="width:12px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">12px · md</div></div>
+      <div class="sp-r"><div class="sp-b" style="width:14px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">14px · lg · card px / field gap</div></div>
+      <div class="sp-r"><div class="sp-b" style="width:16px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">16px · lg+</div></div>
+      <div class="sp-r"><div class="sp-b" style="width:18px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">18px · xl · card padding</div></div>
+      <div class="sp-r"><div class="sp-b" style="width:28px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">28px · 2xl · desktop body</div></div>
+    </div>
+    <div class="d"><div class="dl">Border Radius</div>
+      <div style="display:grid;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:18px;background:var(--gb);border-radius:36px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">36px · app shell</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:18px;background:var(--gb);border-radius:22px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">22px · modal</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:18px;background:var(--gb);border-radius:20px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">20px · hero / tag pill</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:18px;background:var(--gb);border-radius:16px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">16px · standard card</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:18px;background:var(--gb);border-radius:14px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">14px · CTA button</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:18px;background:var(--gb);border-radius:12px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">12px · input / banner</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:18px;background:var(--gb);border-radius:10px"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">10px · expand / seg btn</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:18px;height:18px;background:var(--gb);border-radius:50%"></div><div style="font-size:10px;color:var(--g500);font-family:monospace">50% · step circles</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. NAVBAR -->
+<section class="sec" id="s4">
+  <div class="sn">04</div><div class="sh">NavBar</div>
+  <div class="sd">Sticky, <code>#0d1f0f</code> bg. Logo + brand name + language toggle + LIVE badge.</div>
+  <div class="hr"></div>
+  <div class="d">
+    <div class="dl">Full NavBar</div>
+    <div class="c-nav">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:18px;height:18px;background:var(--gp);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;font-weight:800">E</div>
+        <div><div class="c-nav-n">ETERNALGY</div><div class="c-nav-s">Domestic V4 · Solar PV Planner</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px">
+        <button class="c-nav-lang">EN | Chinese</button>
+        <div class="c-nav-live">LIVE</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. STEPPER -->
+<section class="sec" id="s5">
+  <div class="sn">05</div><div class="sh">Step Progress</div>
+  <div class="sd">5-step horizontal stepper. Active = green filled circle. Done = ✓. Connectors green when done.</div>
+  <div class="hr"></div>
+  <div class="d" style="margin-bottom:10px">
+    <div class="dl">Step 1 active</div>
+    <div class="c-step-bar">
+      <div class="csc-step"><div class="csc on">1</div><div class="csl on">Bill</div></div>
+      <div class="csc-con pend"></div>
+      <div class="csc-step"><div class="csc off">2</div><div class="csl off">Details</div></div>
+      <div class="csc-con pend"></div>
+      <div class="csc-step"><div class="csc off">3</div><div class="csl off">Setup</div></div>
+      <div class="csc-con pend"></div>
+      <div class="csc-step"><div class="csc off">4</div><div class="csl off">ROI</div></div>
+      <div class="csc-con pend"></div>
+      <div class="csc-step"><div class="csc off">5</div><div class="csl off">More</div></div>
+    </div>
+  </div>
+  <div class="d">
+    <div class="dl">Step 3 active — steps 1 &amp; 2 done</div>
+    <div class="c-step-bar">
+      <div class="csc-step"><div class="csc on" style="font-size:11px">✓</div><div class="csl on">Bill</div></div>
+      <div class="csc-con done"></div>
+      <div class="csc-step"><div class="csc on" style="font-size:11px">✓</div><div class="csl on">Details</div></div>
+      <div class="csc-con done"></div>
+      <div class="csc-step"><div class="csc on">3</div><div class="csl on">Setup</div></div>
+      <div class="csc-con pend"></div>
+      <div class="csc-step"><div class="csc off">4</div><div class="csl off">ROI</div></div>
+      <div class="csc-con pend"></div>
+      <div class="csc-step"><div class="csc off">5</div><div class="csl off">More</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. CARDS -->
+<section class="sec" id="s6">
+  <div class="sn">06</div><div class="sh">Cards</div>
+  <div class="sd">White on <code>#f1f5f1</code> — no shadow needed. Dark card for hero/featured. All wrapped in SectionWrap.</div>
+  <div class="hr"></div>
+  <div class="g g2">
+    <div class="d"><div class="dl">Standard Card with Header</div>
+      <div class="c-card" style="border:1px solid var(--g100)">
+        <div class="c-chdr"><div><div class="c-cstep">Step 1</div><div class="c-ctitle">Enter Bill Details</div></div><span class="c-tag">Using Existing Logic</span></div>
+        <div style="font-size:12px;color:var(--g500)">Card content area…</div>
+      </div>
+    </div>
+    <div class="d"><div class="dl">Dark Card</div>
+      <div class="c-card-dk">
+        <div style="font-size:9px;color:var(--gl);font-weight:700;margin-bottom:3px">RECOMMENDED PACKAGE</div>
+        <div style="font-size:12px;color:var(--g400);margin-bottom:8px">Tiger Neo 30 · 14 × 650W</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:10px;color:var(--g500)">System Price</span>
+          <span style="font-size:20px;font-weight:800;color:#fff">RM 28,800</span>
+        </div>
+      </div>
+    </div>
+    <div class="d"><div class="dl">Bill Summary Row</div>
+      <div class="c-card" style="border:1px solid var(--g100);padding:11px 14px">
+        <div style="display:flex;align-items:center;gap:9px">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--gp);display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;flex-shrink:0">✓</div>
+          <div style="flex:1"><div style="font-size:10px;color:var(--g400)">Step 1 · TNB Bill</div><div style="font-size:17px;font-weight:800;color:var(--g900)">RM 500.00 / month</div></div>
+          <span class="c-tag">850 kWh</span>
+        </div>
+      </div>
+    </div>
+    <div class="d"><div class="dl">Dark Package Banner</div>
+      <div class="c-pkg">
+        <div><div style="font-size:9px;color:var(--gl);font-weight:700;margin-bottom:1px">Recommended Package</div><div style="font-size:10px;color:var(--g400)">Tiger Neo 30 · String Inverter</div></div>
+        <div style="font-size:15px;font-weight:700;color:#fff">RM 28,800</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7. TAGS -->
+<section class="sec" id="s7">
+  <div class="sn">07</div><div class="sh">Tags &amp; Badges</div>
+  <div class="sd">Pill shape (20px radius). 11px/700. Status, labels, callouts.</div>
+  <div class="hr"></div>
+  <div class="d">
+    <div class="dl">All Variants</div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px">
+      <span class="c-tag">Using Existing Logic</span>
+      <span class="c-tag">Generated ✓</span>
+      <span class="c-tag">850 kWh</span>
+      <span class="c-tag">−42%</span>
+      <span class="c-tag warn">⚠ SEDA Fee</span>
+      <span class="c-tag err">Error</span>
+      <span class="c-tag blue">FiT Export</span>
+      <span class="c-tag dark">LIVE</span>
+      <span class="c-tag gray">Pending</span>
+    </div>
+  </div>
+</section>
+
+<!-- 8. INPUTS -->
+<section class="sec" id="s8">
+  <div class="sn">08</div><div class="sh">Inputs</div>
+  <div class="sd">TextField · SelectField · SegmentedButton · TabBar. 11–12px radius. Focus = primary green border.</div>
+  <div class="hr"></div>
+  <div class="g g2">
+    <div class="d"><div class="dl">TextField — with prefix</div>
+      <div class="c-fl">Monthly TNB Bill</div>
+      <div class="c-tf"><span class="c-tf-p">RM</span><input class="c-tf-i" type="number" value="500"/></div>
+    </div>
+    <div class="d"><div class="dl">SelectField</div>
+      <div class="c-fl">AFA Bill Month</div>
+      <div class="c-sf"><select><option>APR 2026 (-0.47 sen)</option><option>MAR 2026 (-2.15 sen)</option></select></div>
+    </div>
+    <div class="d"><div class="dl">Segmented Button — 2 options</div>
+      <div class="c-fl">Electrical Phase</div>
+      <div class="c-seg" style="margin-bottom:10px">
+        <button class="c-sb on" onclick="seg(this)">3-Phase</button>
+        <button class="c-sb" onclick="seg(this)">1-Phase</button>
+      </div>
+      <div class="c-fl">Inverter Type</div>
+      <div class="c-seg">
+        <button class="c-sb on" onclick="seg(this)">String</button>
+        <button class="c-sb" onclick="seg(this)">Hybrid</button>
+      </div>
+    </div>
+    <div class="d"><div class="dl">Segmented — 4 options (battery)</div>
+      <div class="c-seg">
+        <button class="c-sb on" onclick="seg(this)">None</button>
+        <button class="c-sb" onclick="seg(this)">16 kWh</button>
+        <button class="c-sb" onclick="seg(this)">32 kWh</button>
+        <button class="c-sb" onclick="seg(this)">48 kWh</button>
+      </div>
+    </div>
+    <div class="d"><div class="dl">Tab Bar (Bill Cycle Toggle)</div>
+      <div class="c-tabs">
+        <button class="c-tab on" onclick="tab(this)">Full Month</button>
+        <button class="c-tab" onclick="tab(this)">&lt;28 Days</button>
+      </div>
+    </div>
+    <div class="d"><div class="dl">2-Column Inputs (Solar Setup)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><div class="c-fl">Sun Peak Hour</div><div class="c-tf"><input class="c-tf-i" type="number" value="3.4"/></div></div>
+        <div><div class="c-fl">Daytime Usage %</div><div class="c-tf"><input class="c-tf-i" type="number" value="30"/></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. BUTTONS -->
+<section class="sec" id="s9">
+  <div class="sn">09</div><div class="sh">Buttons</div>
+  <div class="sd">Full-width CTA: 15px/700, 13px radius. Dark for primary, green for secondary, outline for tertiary.</div>
+  <div class="hr"></div>
+  <div class="g g2">
+    <div class="d"><div class="dl">Primary Dark</div><button class="c-btn dark">Analyse Bill</button></div>
+    <div class="d"><div class="dl">Primary Green</div><button class="c-btn green">Generate ROI</button></div>
+    <div class="d"><div class="dl">Outline</div><button class="c-btn outline">Create Quotation Link</button></div>
+    <div class="d"><div class="dl">Disabled</div><button class="c-btn green" disabled>Calculating...</button></div>
+    <div class="d"><div class="dl">Expand / Accordion</div>
+      <button class="c-exp" onclick="var a=this.querySelector('.ea');a.textContent=a.textContent==='▼'?'▲':'▼'">
+        <div><div class="c-exp-t">📊 Bill Component Details</div><div class="c-exp-s">Before vs After Comparison</div></div>
+        <span class="ea" style="color:var(--g400);font-size:10px">▼</span>
+      </button>
+    </div>
+    <div class="d"><div class="dl">Help / Info Button</div>
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="font-size:12px;font-weight:600;color:var(--g700)">EEI Incentive (TNB)</span>
+        <button class="c-help" title="Explain EEI">+</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. METRIC CHIPS -->
+<section class="sec" id="s10">
+  <div class="sn">10</div><div class="sh">Metric Chips &amp; Stat Cards</div>
+  <div class="sd">Always 3 in a row. Icon → value (22px/800) → label → sub. Full-width stat cards for dashboards.</div>
+  <div class="hr"></div>
+  <div class="d" style="margin-bottom:12px">
+    <div class="dl">Solar Setup Metrics</div>
+    <div class="c-mc-row">
+      <div class="c-mc"><div class="c-mc-ic">☀️</div><div class="c-mc-v" style="color:#d97706">3.4h</div><div class="c-mc-l">Sun Peak Hours</div><div class="c-mc-s">Malaysia Standard</div></div>
+      <div class="c-mc"><div class="c-mc-ic">🏠</div><div class="c-mc-v" style="color:#16a34a">30%</div><div class="c-mc-l">Daytime Usage</div><div class="c-mc-s">During generation</div></div>
+      <div class="c-mc"><div class="c-mc-ic">⚡</div><div class="c-mc-v" style="color:#111827">9.1</div><div class="c-mc-l">kWp System</div><div class="c-mc-s">14 × 650W</div></div>
+    </div>
+  </div>
+  <div class="d"><div class="dl">Stat Cards (Extended)</div>
+    <div class="g g3">
+      <div class="c-stat"><div class="c-stat-l">Payback Period</div><div class="c-stat-v" style="color:#16a34a">6.8yr</div><div class="c-stat-s">from system cost</div></div>
+      <div class="c-stat"><div class="c-stat-l">Annual ROI</div><div class="c-stat-v" style="color:#d97706">14.7%</div><div class="c-stat-s">year-on-year</div></div>
+      <div class="c-stat"><div class="c-stat-l">25-Year Return</div><div class="c-stat-v" style="color:#16a34a">RM 98k</div><div class="c-stat-s">+3% escalation</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 11. BANNERS -->
+<section class="sec" id="s11">
+  <div class="sn">11</div><div class="sh">Info Banners</div>
+  <div class="sd">4 semantic states. 12px radius. Pair with icon emoji.</div>
+  <div class="hr"></div>
+  <div style="display:grid;gap:9px">
+    <div class="c-ban ok">✅ Bill analysis complete. Matching accuracy ±0.01%</div>
+    <div class="c-ban warn">⚠️ This system exceeds phase limit. Note the SEDA oversize registration fee.</div>
+    <div class="c-ban err">❌ Unable to reach server. Check connection and retry.</div>
+    <div class="c-ban info">ℹ️ Net import ≤ 0 kWh — EEI incentive automatically set to zero.</div>
+  </div>
+</section>
+
+<!-- 12. HERO CARD -->
+<section class="sec" id="s12">
+  <div class="sn">12</div><div class="sh">Hero Savings Card</div>
+  <div class="sd">Dark green card for primary ROI result. 52px hero value + SVG confidence ring + 3-metric strip.</div>
+  <div class="hr"></div>
+  <div class="d">
+    <div class="dl">Full Hero Card</div>
+    <div class="c-hero">
+      <div class="c-hero-b">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="c-hero-step">Step 4 · Return on Investment</div>
+            <div style="font-size:12px;color:var(--g500);margin-top:4px">Monthly Savings</div>
+          </div>
+          <div style="text-align:center">
+            <svg width="60" height="60" viewBox="0 0 60 60">
+              <circle cx="30" cy="30" r="24" fill="none" stroke="#1a3a1a" stroke-width="5"/>
+              <circle cx="30" cy="30" r="24" fill="none" stroke="#22c55e" stroke-width="5"
+                stroke-dasharray="120 151" stroke-linecap="round" transform="rotate(-90 30 30)"/>
+              <text x="30" y="34" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="'Plus Jakarta Sans',sans-serif">80%</text>
+            </svg>
+            <div style="font-size:8px;color:var(--g400)">Confidence</div>
+          </div>
+        </div>
+        <div class="c-hero-val">RM 342.80</div>
+        <div class="c-hero-cy">Monthly · Full Month Bill Cycle</div>
+      </div>
+      <div class="c-hero-strip">
+        <div class="c-hm"><div class="c-hm-v">6.8yr</div><div class="c-hm-l">Payback</div></div>
+        <div class="c-hm"><div class="c-hm-v">14.7%</div><div class="c-hm-l">Annual ROI</div></div>
+        <div class="c-hm"><div class="c-hm-v">RM 28,800</div><div class="c-hm-l">System Cost</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 13. BEFORE/AFTER -->
+<section class="sec" id="s13">
+  <div class="sn">13</div><div class="sh">Before / After Comparison</div>
+  <div class="sd">Side-by-side panels. Before = gray/strikethrough. After = green-accented. % tag + horizontal bar chart.</div>
+  <div class="hr"></div>
+  <div class="d">
+    <div class="dl">Bill Comparison</div>
+    <div class="c-ba">
+      <div class="c-bap bef"><div style="font-size:9px;color:var(--g400);margin-bottom:3px">Before Solar</div><div style="font-size:26px;font-weight:800;color:var(--g400);text-decoration:line-through">RM 500</div><div style="font-size:10px;color:var(--g400);margin-top:2px">Monthly Bill</div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px"><span class="c-tag">−42%</span><span style="font-size:18px;color:var(--gp)">→</span></div>
+      <div class="c-bap aft"><div style="font-size:9px;color:var(--gp);font-weight:700;margin-bottom:3px">☀️ After Solar</div><div style="font-size:26px;font-weight:800;color:var(--gp)">RM 157</div><div style="font-size:10px;color:var(--gp);margin-top:2px">Monthly Bill</div></div>
+    </div>
+    <div style="margin-top:10px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+        <div style="width:46px;font-size:10px;color:var(--g500);text-align:right;flex-shrink:0">Now</div>
+        <div style="flex:1;height:20px;background:var(--g100);border-radius:5px;overflow:hidden"><div style="height:100%;width:100%;background:var(--g300);border-radius:5px;display:flex;align-items:center;padding-left:7px"><span style="font-size:9px;font-weight:700;color:var(--g500)">RM 500</span></div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:46px;font-size:10px;color:var(--g500);text-align:right;flex-shrink:0">After Solar</div>
+        <div style="flex:1;height:20px;background:var(--g100);border-radius:5px;overflow:hidden"><div style="height:100%;width:58%;background:var(--gp);border-radius:5px;display:flex;align-items:center;padding-left:7px"><span style="font-size:9px;font-weight:700;color:#fff">RM 157</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 14. FLOW BARS -->
+<section class="sec" id="s14">
+  <div class="sn">14</div><div class="sh">Flow Bars</div>
+  <div class="sd">8px track. Green = solar/self-use, Yellow = FiT/export, Blue = grid import.</div>
+  <div class="hr"></div>
+  <div class="g g2">
+    <div class="d"><div class="dl">☀️ Solar Output</div>
+      <div style="background:#f8faf8;border-radius:11px;padding:10px">
+        <div style="font-size:16px;font-weight:800;color:#d97706;margin-bottom:8px">412.5 kWh</div>
+        <div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-size:10px;color:var(--g500)">Self-use 68%</span><span style="font-size:10px;font-weight:700;color:#16a34a">280.5 kWh</span></div><div style="height:7px;background:#dcfce7;border-radius:4px;overflow:hidden"><div style="height:100%;width:68%;background:#16a34a;border-radius:4px"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-size:10px;color:var(--g500)">FiT Export 32%</span><span style="font-size:10px;font-weight:700;color:#d97706">132 kWh</span></div><div style="height:7px;background:#fef3c7;border-radius:4px;overflow:hidden"><div style="height:100%;width:32%;background:#d97706;border-radius:4px"></div></div></div>
+        <div style="margin-top:7px;background:#fffbeb;border-radius:7px;padding:7px 9px;display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g400)">FiT Income</div><div style="font-size:14px;font-weight:800;color:#d97706">+RM 35.70</div></div>
+      </div>
+    </div>
+    <div class="d"><div class="dl">🏠 Home Consumption</div>
+      <div style="background:#f8faf8;border-radius:11px;padding:10px">
+        <div style="font-size:16px;font-weight:800;color:var(--g900);margin-bottom:8px">850 kWh</div>
+        <div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-size:10px;color:var(--g500)">Solar 33%</span><span style="font-size:10px;font-weight:700;color:#16a34a">280.5 kWh</span></div><div style="height:7px;background:#dcfce7;border-radius:4px;overflow:hidden"><div style="height:100%;width:33%;background:#16a34a;border-radius:4px"></div></div></div>
+        <div><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-size:10px;color:var(--g500)">Grid 67%</span><span style="font-size:10px;font-weight:700;color:#3b82f6">569.5 kWh</span></div><div style="height:7px;background:#eff6ff;border-radius:4px;overflow:hidden"><div style="height:100%;width:67%;background:#60a5fa;border-radius:4px"></div></div></div>
+        <div style="margin-top:7px;background:#eff6ff;border-radius:7px;padding:7px 9px;display:flex;justify-content:space-between;align-items:center"><div style="font-size:10px;color:var(--g400)">Grid Backup</div><div style="font-size:12px;font-weight:700;color:#3b82f6">569.5 kWh</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 15. TABLE -->
+<section class="sec" id="s15">
+  <div class="sn">15</div><div class="sh">Data Table</div>
+  <div class="sd">Grid-layout rows. Header <code>#f8faf8</code> / 9px/700/uppercase. Alternating rows. Positive delta in green.</div>
+  <div class="hr"></div>
+  <div class="d">
+    <div class="dl">Bill Component Breakdown</div>
+    <div class="c-tbl">
+      <div class="c-tbl-h" style="grid-template-columns:1fr 56px 56px 56px"><div>Item</div><div style="text-align:right">Before</div><div style="text-align:right">After</div><div style="text-align:right">Savings</div></div>
+      <div class="c-tbl-r ev" style="grid-template-columns:1fr 56px 56px 56px"><span style="color:var(--g700)">Energy Charge</span><span style="text-align:right;color:var(--g500)">189.40</span><span style="text-align:right;color:var(--g500)">89.10</span><span style="text-align:right;font-weight:700;color:#16a34a">−100.30</span></div>
+      <div class="c-tbl-r od" style="grid-template-columns:1fr 56px 56px 56px"><span style="color:var(--g700)">Network Charge</span><span style="text-align:right;color:var(--g500)">62.80</span><span style="text-align:right;color:var(--g500)">29.60</span><span style="text-align:right;font-weight:700;color:#16a34a">−33.20</span></div>
+      <div class="c-tbl-r ev" style="grid-template-columns:1fr 56px 56px 56px"><span style="color:var(--g700)">SST</span><span style="text-align:right;color:var(--g500)">25.60</span><span style="text-align:right;color:var(--g500)">12.08</span><span style="text-align:right;font-weight:700;color:#16a34a">−13.52</span></div>
+      <div class="c-tbl-r od" style="grid-template-columns:1fr 56px 56px 56px"><span style="color:var(--g700)">EEI</span><span style="text-align:right;color:var(--g500)">−28.50</span><span style="text-align:right;color:var(--g500)">−13.44</span><span style="text-align:right;font-weight:700;color:var(--g400)">0.00</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 16. MODAL -->
+<section class="sec" id="s16">
+  <div class="sn">16</div><div class="sh">Modal Overlay</div>
+  <div class="sd">Overlay: dark tinted green. Card: <code>#f0fdf4</code>, green border, 20px radius. Dark header strip.</div>
+  <div class="hr"></div>
+  <div class="d">
+    <div class="dl">EEI Calculation Modal</div>
+    <div class="c-modal-ov">
+      <div class="c-modal">
+        <div class="c-modal-h">
+          <div><div class="c-modal-t">EEI Calculation</div><div class="c-modal-st">Energy Efficiency Incentive</div></div>
+          <button class="c-modal-cl">Close</button>
+        </div>
+        <div class="c-modal-bd">
+          <div style="font-size:11px;color:#14532d;font-weight:700;margin-bottom:8px">EEI amount formula:</div>
+          <div style="margin-bottom:4px">1. Total Import = 569.50 kWh</div>
+          <div style="margin-bottom:4px">2. EEI Rate = RM 0.023600 / kWh</div>
+          <div style="margin-bottom:4px">3. Total Export = 132.00 kWh</div>
+          <div style="margin-bottom:4px">4. Net Import = 437.50 kWh</div>
+          <div style="margin-bottom:10px">5. 437.50 × RM 0.023600 = <strong>RM 10.32</strong></div>
+          <div style="background:#dcfce7;border:1px solid #86efac;border-radius:12px;padding:10px 12px">
+            <div style="font-size:10px;color:#166534;font-weight:800;margin-bottom:4px">Current Result</div>
+            <div style="font-size:11px;color:#14532d">Actual EEI: RM 10.32</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 17. EXTENDED ELEMENTS -->
+<section class="sec" id="s17">
+  <div class="sn">17</div><div class="sh">Extended Elements</div>
+  <div class="sd">New components designed with the same tokens — ready to apply on other pages.</div>
+  <div class="hr"></div>
+  <div class="g g2">
+
+    <div class="d"><div class="dl">Toast Notifications</div>
+      <div class="c-toast ok"><span style="font-size:16px">✅</span>Bill analysis complete!</div>
+      <div class="c-toast warn"><span style="font-size:16px">⚠️</span>SEDA oversize fee may apply</div>
+      <div class="c-toast err"><span style="font-size:16px">❌</span>Server unreachable. Retry.</div>
+    </div>
+
+    <div class="d"><div class="dl">Loading Skeletons</div>
+      <div class="c-ske" style="height:22px;margin-bottom:8px;width:55%"></div>
+      <div class="c-ske" style="height:48px;margin-bottom:8px;border-radius:11px"></div>
+      <div class="c-ske" style="height:12px;margin-bottom:5px;width:75%"></div>
+      <div class="c-ske" style="height:12px;width:45%"></div>
+    </div>
+
+    <div class="d"><div class="dl">Finance Equation Chips</div>
+      <div style="font-size:10px;color:var(--wt);font-weight:700;margin-bottom:6px">During Financing · Monthly Net Cost</div>
+      <div style="font-size:32px;font-weight:800;color:var(--wt);line-height:1;margin-bottom:9px">RM 89.50<span style="font-size:13px;font-weight:500;color:var(--g400)"> /month</span></div>
+      <div class="c-eq">
+        <div class="c-ec rep">Repayment RM 432</div>
+        <div class="c-eq-op">−</div>
+        <div class="c-ec sav">Savings RM 342</div>
+        <div class="c-eq-op">=</div>
+        <div class="c-ec net">Net RM 90</div>
+      </div>
+    </div>
+
+    <div class="d"><div class="dl">Confidence Rings</div>
+      <div style="display:flex;gap:20px;justify-content:center;padding:8px 0">
+        <div style="text-align:center">
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="#f3f4f6" stroke-width="6"/>
+            <circle cx="32" cy="32" r="26" fill="none" stroke="#16a34a" stroke-width="6"
+              stroke-dasharray="122 163" stroke-linecap="round" transform="rotate(-90 32 32)"/>
+            <text x="32" y="36" text-anchor="middle" font-size="12" font-weight="800" fill="#16a34a" font-family="'Plus Jakarta Sans',sans-serif">75%</text>
+          </svg>
+          <div style="font-size:9px;color:var(--g400);font-weight:600;margin-top:3px">On light bg</div>
+        </div>
+        <div style="text-align:center;background:#0d1f0f;border-radius:12px;padding:10px">
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="#1a3a1a" stroke-width="6"/>
+            <circle cx="32" cy="32" r="26" fill="none" stroke="#22c55e" stroke-width="6"
+              stroke-dasharray="81 163" stroke-linecap="round" transform="rotate(-90 32 32)"/>
+            <text x="32" y="36" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="'Plus Jakarta Sans',sans-serif">50%</text>
+          </svg>
+          <div style="font-size:9px;color:var(--g400);font-weight:600;margin-top:3px">On dark bg</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d"><div class="dl">Empty State</div>
+      <div class="c-empty">
+        <div style="font-size:36px;margin-bottom:10px">☀️</div>
+        <div style="font-size:15px;font-weight:700;color:var(--g900);margin-bottom:5px">No Solar Data Yet</div>
+        <div style="font-size:12px;color:var(--g500);margin-bottom:14px;line-height:1.5">Complete the bill analysis to see your solar potential and estimated savings.</div>
+        <button class="c-btn green" style="width:auto;padding:10px 22px;font-size:12px;border-radius:9px">Analyse Bill</button>
+      </div>
+    </div>
+
+    <div class="d"><div class="dl">Emoji Language Guide</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div style="display:flex;align-items:center;gap:7px;padding:7px;background:var(--g50);border-radius:7px"><span style="font-size:16px">☀️</span><span style="font-size:10px;color:var(--g700)">Solar output</span></div>
+        <div style="display:flex;align-items:center;gap:7px;padding:7px;background:var(--g50);border-radius:7px"><span style="font-size:16px">🏠</span><span style="font-size:10px;color:var(--g700)">Home usage</span></div>
+        <div style="display:flex;align-items:center;gap:7px;padding:7px;background:var(--g50);border-radius:7px"><span style="font-size:16px">⚡</span><span style="font-size:10px;color:var(--g700)">Energy flow</span></div>
+        <div style="display:flex;align-items:center;gap:7px;padding:7px;background:var(--g50);border-radius:7px"><span style="font-size:16px">💰</span><span style="font-size:10px;color:var(--g700)">FiT income</span></div>
+        <div style="display:flex;align-items:center;gap:7px;padding:7px;background:var(--g50);border-radius:7px"><span style="font-size:16px">📉</span><span style="font-size:10px;color:var(--g700)">Bill reduction</span></div>
+        <div style="display:flex;align-items:center;gap:7px;padding:7px;background:var(--g50);border-radius:7px"><span style="font-size:16px">💳</span><span style="font-size:10px;color:var(--g700)">Financing</span></div>
+        <div style="display:flex;align-items:center;gap:7px;padding:7px;background:var(--g50);border-radius:7px"><span style="font-size:16px">🔋</span><span style="font-size:10px;color:var(--g700)">Battery</span></div>
+        <div style="display:flex;align-items:center;gap:7px;padding:7px;background:var(--g50);border-radius:7px"><span style="font-size:16px">🎯</span><span style="font-size:10px;color:var(--g700)">Payback target</span></div>
+      </div>
+    </div>
+
+    <!-- DO / DON'T -->
+    <div class="d" style="grid-column:1/-1"><div class="dl">Do / Don't</div>
+      <div class="g g2">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#16a34a;margin-bottom:8px">✅ Do</div>
+          <div style="display:grid;gap:6px;font-size:11px;color:var(--g700)">
+            <div>Use <strong>weight 800</strong> for all monetary values</div>
+            <div>Use green only for <strong>positive outcomes</strong></div>
+            <div>Step labels: <strong>uppercase, gray</strong></div>
+            <div>Keep cards white on <strong>muted green page bg</strong></div>
+            <div>Use <code>#0d1f0f</code> for <strong>hero / featured</strong> info</div>
+            <div>Use <code>#22c55e</code> (light green) <strong>on dark bg only</strong></div>
+            <div>Pill tags: <strong>border-radius 20px</strong></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#991b1b;margin-bottom:8px">❌ Don't</div>
+          <div style="display:grid;gap:6px;font-size:11px;color:var(--g700)">
+            <div>Use light weights (300/400) for numbers</div>
+            <div>Use green decoratively without meaning</div>
+            <div>Use step labels as section headings</div>
+            <div>Add drop shadows to cards</div>
+            <div>Overuse the dark card style</div>
+            <div>Use light green on white (fails contrast)</div>
+            <div>Use square or rectangular badges</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div style="text-align:center;padding:20px 0;border-top:1px solid var(--g200)">
+  <div style="font-size:11px;color:var(--g400)">Eternalgy Design System v2 · May 2026 · Source: <code>public/domestic-v4.html</code></div>
+</div>
+
+</div>
+<script>
+function seg(b){var g=b.parentElement;g.querySelectorAll('.c-sb').forEach(function(x){x.classList.remove('on')});b.classList.add('on')}
+function tab(b){var g=b.parentElement;g.querySelectorAll('.c-tab').forEach(function(x){x.classList.remove('on')});b.classList.add('on')}
+</script>
+</body>
+</html>

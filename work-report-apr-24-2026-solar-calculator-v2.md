@@ -36,5 +36,11 @@ REPO NAME : Solar Calculator v2
 - Applied Claude live board design to latest PRE Activity logic
 - Changed PRE Activity pages to business minimalist typography
 - Reduced PRE Activity typography weight and fixed live board legend spacing
+- Built local mobile 3D roof panel experiment prototype.
+- Improved mobile 3D roof experiment visual styling and panel proportions.
+- Polished 3D roof experiment with roof-only model, tile details, trim, and background depth.
+- Adjusted 3D roof experiment for Malaysian portrait panel scale and 20-panel house capacity.
+- Added Semi-D and bungalow roof presets as visual complexity cues in the 3D roof experiment.
+- Applied generated roof tile texture and refined panel mounting in the 3D roof experiment.
 
 =====================

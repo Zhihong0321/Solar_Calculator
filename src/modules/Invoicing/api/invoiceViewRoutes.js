@@ -39,6 +39,78 @@ function detectAuthenticatedViewer(req) {
   }
 }
 
+function extractViewerCandidates(decoded) {
+  return [
+    decoded?.bubbleId,
+    decoded?.bubble_id,
+    decoded?.userId,
+    decoded?.id,
+    decoded?.sub
+  ]
+    .filter((value) => value !== null && value !== undefined && String(value).trim() !== '')
+    .map((value) => String(value).trim());
+}
+
+async function resolveAuthenticatedViewerRecord(client, req) {
+  const token = req.cookies?.auth_token;
+  if (!token) return null;
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    return null;
+  }
+
+  const candidates = [...new Set(extractViewerCandidates(decoded))];
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const result = await client.query(
+    `SELECT
+        u.id::text AS user_id,
+        u.bubble_id,
+        u.linked_agent_profile,
+        u.email,
+        u.access_level,
+        a.name AS agent_name,
+        a.contact AS agent_contact
+     FROM "user" u
+     LEFT JOIN agent a ON a.bubble_id = u.linked_agent_profile
+     WHERE u.id::text = ANY($1::text[])
+        OR u.bubble_id = ANY($1::text[])
+     ORDER BY
+        CASE
+          WHEN u.bubble_id = ANY($1::text[]) THEN 1
+          WHEN u.id::text = ANY($1::text[]) THEN 2
+          ELSE 3
+        END,
+        u.id DESC
+     LIMIT 1`,
+    [candidates]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  const row = result.rows[0];
+  const role = Array.isArray(row.access_level)
+    ? row.access_level.join(', ')
+    : normalizeTrackerText(row.access_level, null, 120);
+
+  return {
+    identity: normalizeIdentityValue(row.bubble_id || row.user_id || candidates[0]),
+    userId: row.user_id || null,
+    bubbleId: row.bubble_id || null,
+    name: normalizeTrackerText(row.agent_name || row.email || row.bubble_id || row.user_id, 'Logged in viewer', 120),
+    phone: normalizeTrackerText(row.agent_contact, null, 40),
+    role: role || 'logged_in_viewer',
+    email: normalizeTrackerText(row.email, null, 120)
+  };
+}
+
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value || '')).digest('hex');
 }
@@ -76,7 +148,7 @@ function resolveTrackerDeviceHash(req, body = {}) {
   ].join('|')).slice(0, 32);
 }
 
-function buildTrackerChanges(req, body, eventType, pageType, deviceHash) {
+function buildTrackerChanges(req, body, eventType, pageType, deviceHash, isLoggedInViewer) {
   const metadata = body.metadata && typeof body.metadata === 'object' ? body.metadata : {};
   const duration = Number(body.duration_seconds ?? body.durationSeconds);
   const buttonName = normalizeTrackerText(body.button_name || body.buttonName);
@@ -84,7 +156,7 @@ function buildTrackerChanges(req, body, eventType, pageType, deviceHash) {
     { field: 'event_type', after: eventType },
     { field: 'page_type', after: pageType },
     { field: 'device_hash', after: deviceHash },
-    { field: 'viewer_type', after: detectAuthenticatedViewer(req) ? 'logged_in' : 'anonymous' }
+    { field: 'viewer_type', after: isLoggedInViewer ? 'logged_in' : 'anonymous' }
   ];
 
   if (buttonName) changes.push({ field: 'button_name', after: buttonName });
@@ -138,6 +210,7 @@ async function writeViewerActivity(req, {
     }
 
     const authenticatedViewer = detectAuthenticatedViewer(req);
+    const viewerRecord = authenticatedViewer ? await resolveAuthenticatedViewerRecord(client, req) : null;
     const body = {
       device_hash: deviceHash,
       button_name: buttonName,
@@ -151,9 +224,11 @@ async function writeViewerActivity(req, {
       entityType: 'viewer_activity',
       actionType: normalizedEventType,
       entityId: deviceHash,
-      changes: buildTrackerChanges(req, body, normalizedEventType, normalizedPageType, deviceHash),
-      actorUserId: authenticatedViewer?.identity || null,
-      actorRole: authenticatedViewer ? 'logged_in_viewer' : 'anonymous_viewer',
+      changes: buildTrackerChanges(req, body, normalizedEventType, normalizedPageType, deviceHash, Boolean(authenticatedViewer)),
+      actorUserId: viewerRecord?.bubbleId || viewerRecord?.userId || authenticatedViewer?.identity || null,
+      actorName: viewerRecord?.name || viewerRecord?.email || (authenticatedViewer ? 'Logged in viewer' : null),
+      actorPhone: viewerRecord?.phone || null,
+      actorRole: viewerRecord?.role || (authenticatedViewer ? 'logged_in_viewer' : 'anonymous_viewer'),
       sourceApp: 'public-view-tracker'
     });
 

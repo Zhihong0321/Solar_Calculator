@@ -6,6 +6,7 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
+const { writeInvoiceAuditEntry } = require('../services/auditWriter');
 
 const router = express.Router();
 
@@ -37,6 +38,7 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        let newPaymentId = null; // Will hold ID for new payments
 
         // 1. Verify invoice exists
         const invoiceCheck = await client.query(
@@ -152,7 +154,7 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
             }
         } else {
             // Insert New Payment
-            const newPaymentId = `pay_${crypto.randomBytes(8).toString('hex')}`;
+            newPaymentId = `pay_${crypto.randomBytes(8).toString('hex')}`;
             await client.query(
                 `INSERT INTO submitted_payment (
                     bubble_id, amount, payment_date, attachment, remark, 
@@ -182,6 +184,31 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
         }
 
         await client.query('COMMIT');
+
+        // Audit log for payment operation
+        const auditAction = paymentId ? 'update' : 'insert';
+        const auditChanges = [
+            { field: 'Amount', after: finalAmount },
+            { field: 'Method', after: standardMethod },
+            { field: 'Date', after: date },
+            { field: 'Status', after: 'pending' }
+        ];
+        if (epp) {
+            auditChanges.push({ field: 'EPP Bank', after: epp.bank });
+            auditChanges.push({ field: 'EPP Tenure', after: epp.tenure });
+        }
+        await writeInvoiceAuditEntry(client, {
+            invoiceBubbleId: bubbleId,
+            entityType: 'submitted_payment',
+            actionType: auditAction,
+            entityId: paymentId || newPaymentId,
+            changes: auditChanges,
+            actorName: req.user?.name || req.user?.displayName,
+            actorPhone: req.user?.contact || req.user?.phone,
+            actorRole: req.user?.role || 'agent',
+            actorUserId: userId
+        });
+
         res.json({ success: true, paymentId: paymentId || 'new' });
 
     } catch (err) {
@@ -286,8 +313,21 @@ router.delete('/api/v1/submitted-payments/:paymentId', requireAuth, async (req, 
         }
 
         await client.query('DELETE FROM submitted_payment WHERE bubble_id = $1', [paymentId]);
-
         await client.query('COMMIT');
+
+        // Audit log for payment deletion
+        await writeInvoiceAuditEntry(client, {
+            invoiceBubbleId: payment.linked_invoice,
+            entityType: 'submitted_payment',
+            actionType: 'delete',
+            entityId: paymentId,
+            changes: [{ field: 'Status', before: payment.status, after: 'deleted' }],
+            actorName: req.user?.name || req.user?.displayName,
+            actorPhone: req.user?.contact || req.user?.phone,
+            actorRole: req.user?.role || 'agent',
+            actorUserId: userId
+        });
+
         return res.json({ success: true });
     } catch (err) {
         if (client) await client.query('ROLLBACK');

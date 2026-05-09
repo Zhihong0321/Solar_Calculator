@@ -1,35 +1,34 @@
 # Maintenance Map
 
-Date: 2026-04-21
+Date: 2026-04-22
 Stage: map-ready
 
 Top digestion candidates:
 - `src/modules/Invoicing/services/invoiceHtmlGeneratorV2.js`
-  - 2459 lines in the current tree.
-  - It combines server-side invoice rendering with a very large embedded browser script for signature capture, sharing, PDF download, and solar estimate interactions.
-  - Strong digestion target now that invoiceRepo.js has already been reduced through earlier helper extractions.
+  - 2459 lines in the current tree and currently the largest active invoicing service file.
+  - It still mixes server-side quotation rendering with a large embedded browser script for signature capture, sharing, PDF download, and solar estimate interactions.
+  - `src/modules/Invoicing/api/invoiceViewRoutes.js` still calls it for live quotation and PDF views, so it remains a high-value but well-scoped digestion target.
 - `public/js/app.js`
-  - 2034 lines and still mixes calculator math, data loading, DOM event wiring, chart rendering, billing-cycle logic, battery tuning, and invoice-link generation.
-  - High-value front-end digestion target, but broader blast radius than the cleanup and optimization candidates.
+  - 2034 lines and still mixes calculator state, tariff/package data loading, billing-cycle logic, battery modeling, chart rendering, and invoice-link generation.
+  - Valuable digestion target, but broader blast radius than the invoicing renderer slice above.
 
 Top cleanup candidates:
-- `docs/SALES_TEAM_INVOICE_LINK_GUIDE.md`
-  - 789 lines and still presents `package_id` as the default invoice-link format even though the guide also documents `linked_package` as the current required parameter.
-  - It also points readers to a Python/uvicorn localhost flow that does not match this Node/Express repo.
-  - Strong cleanup candidate because it appears stale, is unreferenced in the repo, and creates instruction noise for both humans and AI.
 - `legacy_t3_html_presentation/`
   - Context-noise inventory still flags it as a likely residual folder.
-  - It was not sampled deeply in this run, so it remains a secondary cleanup candidate rather than the next action.
+  - Repo search found active `/t3_html_presentation` usage pointing at `mobile_html_output`, not this folder, so `legacy_t3_html_presentation/` looks like a plausible cleanup target after a dedicated validation pass.
+- `database/migrations/010_patch_legacy_invoices.sql`
+  - Flagged only by the context-noise keyword scan because of `legacy` in the filename.
+  - This is a lower-confidence cleanup candidate and should not be touched without a dedicated migration-history check.
 
 Top optimization candidates:
 - `public/js/pages/create_invoice.js` and `public/js/pages/edit_invoice.js`
-  - 2113 and 2116 lines respectively, with sampled sections showing duplicated voucher preview calls, package/referral handling, customer field hydration, and submit payload construction.
-  - Strong optimization candidate because a shared invoice-page support boundary would reduce duplicate business rules without reopening the repository-layer work immediately.
-- Invoicing link parameter normalization flow.
-  - URL parameter aliases like `linked_package` and `package_id` are normalized across front-end page scripts and back-end service code.
-  - This is a follow-on optimization target after the larger create/edit duplication is clarified.
+  - They are now down to 1842 and 1854 lines, with shared startup, prefill, listener wiring, and workspace shell behavior already moved into `public/js/pages/invoice_page_shared.js` (435 lines).
+  - More optimization is still possible, but the last three maintenance runs already reduced this slice, so it is no longer the clearest immediate next target.
+- Invoice rendering overlap across `invoiceHtmlGenerator.js`, `invoiceHtmlGeneratorV2.js`, and `invoiceHtmlGeneratorV3.js`
+  - Multiple renderer generations remain in the tree with overlapping presentation-link and quotation-output responsibilities.
+  - This looks structurally important, but it is a wider optimization question than the next single maintenance move.
 
 Recommended next target:
-- `docs/SALES_TEAM_INVOICE_LINK_GUIDE.md` cleanup pass.
-  - Reason: best balance of clarity, confidence, and value.
-  - It appears stale, is unreferenced in the repo, and is safer to remove from the active docs path before taking on the larger duplicated invoice-page optimization work.
+- `src/modules/Invoicing/services/invoiceHtmlGeneratorV2.js` digestion pass.
+  - Reason: best balance of clarity, confidence, and value after the invoice-page optimization work.
+  - It is the clearest current large mixed-responsibility file, and extracting its embedded browser interaction helpers would shrink a live invoicing hotspot without reopening the broader calculator front end.

@@ -3,6 +3,7 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
+const { writeInvoiceAuditEntry } = require('../services/auditWriter');
 const {
     createUploader,
     buildPublicUrl,
@@ -222,6 +223,15 @@ async function handleInvoiceOfficeUpload(req, res) {
                 [[fileUrl], bubbleId]
             );
             await client.query('COMMIT');
+            await writeInvoiceAuditEntry(client, {
+                invoiceBubbleId: bubbleId,
+                entityType: 'invoice_upload',
+                actionType: 'ADDED',
+                changes: [{ field: rule.label, after: fileUrl }],
+                actorName: auditContext?.userName,
+                actorPhone: auditContext?.userPhone,
+                actorRole: auditContext?.userRole,
+            });
         } catch (dbErr) {
             await client.query('ROLLBACK').catch(() => {});
             if (isMissingColumnError(dbErr, rule.column)) {
@@ -512,6 +522,15 @@ async function softDeleteInvoiceOfficeFile(client, { bubbleId, fieldKey, url, us
         }
     });
     await client.query('COMMIT');
+    await writeInvoiceAuditEntry(client, {
+        invoiceBubbleId: bubbleId,
+        entityType: 'invoice_upload',
+        actionType: 'DELETED',
+        changes: [{ field: rule.label, before: url }],
+        actorName: auditContext?.userName,
+        actorPhone: auditContext?.userPhone,
+        actorRole: auditContext?.userRole,
+    });
 
     return { ok: true };
 }
@@ -549,6 +568,15 @@ async function restoreInvoiceOfficeFile(client, { bubbleId, fieldKey, recycleBin
     );
     await markRecycleBinRestored(client, recycleEntry.id, userId, auditContext?.userName || null);
     await client.query('COMMIT');
+    await writeInvoiceAuditEntry(client, {
+        invoiceBubbleId: bubbleId,
+        entityType: 'invoice_upload',
+        actionType: 'ADDED',
+        changes: [{ field: rule.label, after: recycleEntry.file_url }],
+        actorName: auditContext?.userName,
+        actorPhone: auditContext?.userPhone,
+        actorRole: auditContext?.userRole,
+    });
 
     return { ok: true, url: recycleEntry.file_url };
 }

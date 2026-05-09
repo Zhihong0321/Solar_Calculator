@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Comparison Layout V4</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:
+                radial-gradient(circle at top left, rgba(245, 158, 11, 0.14), transparent 22%),
+                radial-gradient(circle at top right, rgba(59, 130, 246, 0.10), transparent 18%),
+                linear-gradient(180deg, #f9f5ee 0%, #efe7da 100%);
+            --ink: #233247;
+            --muted: #6c7686;
+            --frame: rgba(36, 49, 69, 0.08);
+            --line: rgba(36, 49, 69, 0.08);
+            --panel: rgba(255, 255, 255, 0.88);
+            --shadow: 0 22px 60px rgba(36, 49, 69, 0.10);
+            --section-shadow: 0 18px 42px rgba(36, 49, 69, 0.08);
+            --block-border: rgba(36, 49, 69, 0.24);
+            --block-shadow: 0 14px 28px rgba(36, 49, 69, 0.12);
+            --gain: #8c5a10;
+            --saved: #35597d;
+            --surface-warm: linear-gradient(180deg, rgba(255, 250, 242, 0.98) 0%, rgba(255, 255, 255, 0.9) 100%);
+            --surface-cool: linear-gradient(180deg, rgba(245, 248, 255, 0.98) 0%, rgba(255, 255, 255, 0.9) 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Manrope", sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .page {
+            width: min(100%, 430px);
+            margin: 0 auto;
+            padding: 14px 10px 24px;
+        }
+
+        .stack {
+            display: grid;
+            gap: 20px;
+        }
+
+        .table {
+            position: relative;
+            overflow: hidden;
+            border: none;
+            border-radius: 24px;
+            background: var(--panel);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(14px);
+        }
+
+        .table::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.68), transparent 24%),
+                radial-gradient(circle at top left, rgba(255, 255, 255, 0.82), transparent 28%);
+            pointer-events: none;
+        }
+
+        .table-grid {
+            display: grid;
+            grid-template-columns: 108px 1fr 1fr;
+            column-gap: 4px;
+        }
+
+        .cell {
+            min-width: 0;
+            position: relative;
+            background: transparent;
+        }
+
+        .label {
+            display: flex;
+            align-items: center;
+            padding: 0 10px 0 14px;
+            color: var(--ink);
+            font-size: 0.72rem;
+            line-height: 1.15;
+            font-weight: 600;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.04)),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 85%);
+        }
+
+        .multiline {
+            white-space: pre-line;
+        }
+
+        .slot {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 14px 2px;
+            background: transparent;
+        }
+
+        .slot.after {
+            justify-content: flex-start;
+            padding-left: 2px;
+        }
+
+        .h-export {
+            height: 214px;
+        }
+
+        .h-row {
+            height: 222px;
+        }
+
+        .block {
+            width: 72px;
+            height: var(--h, 18px);
+            min-height: 18px;
+            border-radius: 16px;
+            border: 1px solid var(--tone-border, var(--block-border));
+            background: var(--tone-fill);
+            box-shadow: var(--block-shadow);
+            position: relative;
+            overflow: hidden;
+            transform: translateY(0);
+            transition: transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .block::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 14px;
+            background: rgba(255, 255, 255, 0.28);
+        }
+
+        .block::after {
+            content: "";
+            position: absolute;
+            inset: auto 8px 8px 8px;
+            height: 12px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0));
+            opacity: 0.5;
+        }
+
+        .block .value {
+            position: absolute;
+            inset: auto 0 28px 0;
+            text-align: center;
+            font-size: 0.56rem;
+            font-weight: 600;
+            color: rgba(52, 62, 79, 0.92);
+            letter-spacing: 0.01em;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .ghost {
+            opacity: 0;
+            box-shadow: none;
+            border-color: transparent;
+        }
+
+        .tone-export-before {
+            --tone-fill: linear-gradient(180deg, #f8e8c8 0%, #ecd7b0 100%);
+            --tone-border: rgba(166, 106, 5, 0.22);
+        }
+
+        .tone-export-after {
+            --tone-fill: linear-gradient(180deg, #f9d98c 0%, #e1a22a 100%);
+            --tone-border: rgba(166, 106, 5, 0.30);
+        }
+
+        .tone-eei-before {
+            --tone-fill: linear-gradient(180deg, #e7f3e8 0%, #cfe4d1 100%);
+            --tone-border: rgba(46, 125, 82, 0.22);
+        }
+
+        .tone-eei-after {
+            --tone-fill: linear-gradient(180deg, #9ce0b5 0%, #2e9d5b 100%);
+            --tone-border: rgba(46, 125, 82, 0.30);
+        }
+
+        .tone-fee-before {
+            --tone-fill: linear-gradient(180deg, #f3e1dc 0%, #e7cfc8 100%);
+            --tone-border: rgba(170, 95, 66, 0.22);
+        }
+
+        .tone-fee-after {
+            --tone-fill: linear-gradient(180deg, #efb69e 0%, #cb6d4e 100%);
+            --tone-border: rgba(170, 95, 66, 0.30);
+        }
+
+        .tone-usage-before {
+            --tone-fill: linear-gradient(180deg, #dfe8f6 0%, #cad6ea 100%);
+            --tone-border: rgba(67, 108, 175, 0.22);
+        }
+
+        .tone-usage-after {
+            --tone-fill: linear-gradient(180deg, #97baef 0%, #4f78c5 100%);
+            --tone-border: rgba(67, 108, 175, 0.30);
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 6px 2px 0;
+            color: var(--gain);
+        }
+
+        .total-row.saved-tone {
+            color: var(--saved);
+        }
+
+        .total-row .caption {
+            flex: 1;
+            text-align: left;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .total-row .amount {
+            min-width: 104px;
+            text-align: right;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+
+        .summary-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 14px 0;
+        }
+
+        .summary-line .caption {
+            flex: 1;
+            text-align: center;
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .summary-line .amount {
+            min-width: 104px;
+            text-align: right;
+            font-size: 0.84rem;
+            font-weight: 800;
+        }
+
+        .grand-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 2px 2px 0;
+            color: var(--saved);
+            font-size: 0.98rem;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+            text-transform: uppercase;
+        }
+
+        .grand-total-card {
+            border-radius: 22px;
+            border: 1px solid rgba(53, 89, 125, 0.14);
+            background: var(--surface-cool);
+            box-shadow: var(--section-shadow);
+            padding: 18px 16px;
+        }
+
+        @media (min-width: 400px) {
+            .page {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .table-grid {
+                grid-template-columns: 122px 1fr 1fr;
+                column-gap: 6px;
+            }
+
+            .label {
+                font-size: 0.78rem;
+                padding-left: 16px;
+            }
+
+            .block {
+                width: 78px;
+            }
+
+            .block .value {
+                font-size: 0.62rem;
+            }
+
+            .total-row .caption,
+            .total-row .amount {
+                font-size: 0.78rem;
+            }
+
+            .summary-line .caption {
+                font-size: 0.82rem;
+            }
+
+            .summary-line .amount {
+                font-size: 0.92rem;
+            }
+
+            .grand-total {
+                font-size: 1.08rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <div class="stack">
+            <section>
+                <div class="table">
+                    <div class="table-grid">
+                        <div class="cell label h-export">Export</div>
+                        <div class="cell slot h-export">
+                            <div class="block ghost" style="--h: 18px;"></div>
+                        </div>
+                        <div class="cell slot after h-export">
+                            <div class="block tone-export-after" style="--h: 160px;">
+                                <div class="value">RM 1,460</div>
+                            </div>
+                        </div>
+
+                        <div class="cell label h-row last-row">EEI</div>
+                        <div class="cell slot h-row last-row">
+                            <div class="block tone-eei-before" style="--h: 104px;">
+                                <div class="value">RM 320</div>
+                            </div>
+                        </div>
+                        <div class="cell slot after h-row last-row">
+                            <div class="block tone-eei-after" style="--h: 160px;">
+                                <div class="value">RM 620</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="total-row">
+                    <div class="summary-line">
+                        <div></div>
+                        <div class="caption">Total Gain</div>
+                        <div class="amount">RM 1,760</div>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <div class="table">
+                    <div class="table-grid">
+                        <div class="cell label multiline h-row">SST+
+KWTBB
+Retail Fee</div>
+                        <div class="cell slot h-row">
+                            <div class="block tone-fee-before" style="--h: 160px;">
+                                <div class="value">RM 1,180</div>
+                            </div>
+                        </div>
+                        <div class="cell slot after h-row">
+                            <div class="block tone-fee-after" style="--h: 104px;">
+                                <div class="value">RM 760</div>
+                            </div>
+                        </div>
+
+                        <div class="cell label multiline h-row last-row">usage +
+network +
+capacity</div>
+                        <div class="cell slot h-row last-row">
+                            <div class="block tone-usage-before" style="--h: 160px;">
+                                <div class="value">RM 8,940</div>
+                            </div>
+                        </div>
+                        <div class="cell slot after h-row last-row">
+                            <div class="block tone-usage-after" style="--h: 104px;">
+                                <div class="value">RM 3,860</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="total-row saved-tone">
+                    <div class="summary-line">
+                        <div></div>
+                        <div class="caption">Total Reduce</div>
+                        <div class="amount">RM 5,500</div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grand-total-card">
+                <div class="grand-total">
+                    <span>Total Saved</span>
+                    <span>RM 7,260</span>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

@@ -51,15 +51,22 @@ function normalizeViewerActivityRow(row) {
     const pageType = String(getChangeAfter(changes, 'page_type') || '').toLowerCase();
     const duration = Number(getChangeAfter(changes, 'duration_seconds'));
     const deviceHash = String(row.entity_id || getChangeAfter(changes, 'device_hash') || '').trim();
+    const actorName = String(row.actor_name || '').trim();
+    const actorPhone = String(row.actor_phone || '').trim();
+    const actorRole = String(row.actor_role || '').trim();
+    const hasLoggedInViewer = Boolean(row.actor_user_id || actorName || actorPhone);
 
     return {
         id: row.id,
         event_type: eventType,
         page_type: pageType,
         device_hash: deviceHash,
-        visitor_label: row.actor_user_id ? `user ${row.actor_user_id}` : `device ${deviceHash.slice(0, 8)}`,
-        viewer_type: row.actor_user_id ? 'logged_in' : (getChangeAfter(changes, 'viewer_type') || 'anonymous'),
+        visitor_label: actorName || (row.actor_user_id ? `user ${row.actor_user_id}` : `device ${deviceHash.slice(0, 8)}`),
+        viewer_type: hasLoggedInViewer ? 'logged_in' : (getChangeAfter(changes, 'viewer_type') || 'anonymous'),
         actor_user_id: row.actor_user_id || null,
+        actor_name: actorName || null,
+        actor_phone: actorPhone || null,
+        actor_role: actorRole || null,
         button_name: getChangeAfter(changes, 'button_name'),
         duration_seconds: Number.isFinite(duration) ? duration : null,
         viewed_at: row.edited_at,
@@ -498,7 +505,7 @@ router.get('/api/v1/invoices/:bubbleId/viewer-activity', requireAuth, async (req
         }
 
         const auditRows = await client.query(
-            `SELECT id, action_type, entity_id, actor_user_id, actor_role, changes, edited_at
+            `SELECT id, action_type, entity_id, actor_user_id, actor_name, actor_phone, actor_role, changes, edited_at
                FROM invoice_audit_log
               WHERE invoice_id = $1
                 AND entity_type = 'viewer_activity'

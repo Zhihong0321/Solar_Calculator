@@ -209,3 +209,29 @@
 - blockers: none
 - next exact action: Re-run codebase-mapper to identify the next highest-value maintenance target now that the invoice page duplication slice is substantially reduced.
 - next recommended stage: map-ready
+
+## 2026-04-22
+
+- mode: planning
+- chosen stage: map-ready
+- chosen target: Updated repo maintenance map and ranked next target after invoice-page optimization
+- reason: The last completed maintenance run explicitly called for a remap, and the next best single maintenance target was no longer obvious after the create/edit quotation page duplication slice was reduced.
+- status: complete
+- action taken: Re-ran the large-file and context-noise inventory, sampled the current invoicing rendering and frontend hotspots, verified the shared invoice page boundary remains in place, and refreshed the maintenance map.
+- verification: Inventory now shows invoiceHtmlGeneratorV2.js at 2459 lines, public/js/app.js at 2034 lines, create_invoice.js at 1842 lines, edit_invoice.js at 1854 lines, and invoice_page_shared.js at 435 lines; repo search confirmed both invoice pages still load and call invoice_page_shared.js; invoiceViewRoutes.js still uses invoiceHtmlGeneratorV2.js for live quotation rendering.
+- blockers: No blocker for planning. Cleanup candidates remain available, but the clearest next high-value single target is now a digestion slice rather than another cleanup or invoice-page optimization pass.
+- next exact action: Run a digestion-ready pass targeting src/modules/Invoicing/services/invoiceHtmlGeneratorV2.js to extract the embedded browser interaction helpers from the server-side renderer.
+- next recommended stage: digestion-ready
+
+## 2026-04-22
+
+- mode: action
+- chosen stage: digestion-ready
+- chosen target: src/modules/Invoicing/services/invoiceHtmlGeneratorV2.js embedded browser interaction helpers
+- reason: The refreshed maintenance map ranked invoiceHtmlGeneratorV2.js as the clearest large mixed-responsibility file, and its inline browser interaction layer was a stable extraction boundary inside the live quotation renderer.
+- status: complete
+- action taken: Extracted the floating preview button, signature modal, and inline client-side interaction script for share, PDF, signature, and solar-estimate behavior into src/modules/Invoicing/services/invoiceHtmlGeneratorV2InteractiveSupport.js, then rewired invoiceHtmlGeneratorV2.js to delegate that browser layer to the new support module.
+- verification: node --check passed for src/modules/Invoicing/services/invoiceHtmlGeneratorV2.js and src/modules/Invoicing/services/invoiceHtmlGeneratorV2InteractiveSupport.js; node scripts/test_invoice_solar_estimate_consistency.js passed with live calculator checks skipped because DATABASE_URL and DATABASE_URL_TARIFF were unavailable; a fixture comparison against the previous committed renderer confirmed the current output still includes the same signature, share, PDF, and solar-estimate interaction markers; invoiceHtmlGeneratorV2.js is down to 1607 lines and the extracted support module is 924 lines.
+- blockers: none
+- next exact action: If continuing digestion on invoiceHtmlGeneratorV2.js, extract the solar estimate section markup into a focused renderer partial so the main file keeps only page orchestration and core quotation layout.
+- next recommended stage: digestion-ready

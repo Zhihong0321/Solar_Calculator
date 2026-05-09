@@ -259,7 +259,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
         }
     }
 
-    // 2.6 Validate lead_source and remark when customer name is provided
+    // 2.6 Validate lead_source and remark when customer details will create a new customer.
     if (invoiceRequestPayload.customerName && invoiceRequestPayload.customerName.trim() !== "") {
         if (!invoiceRequestPayload.leadSource) {
             return {
@@ -467,7 +467,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
         // If not provided, we might want to preserve or recalculate, but the prompt implies setting it during flow.
     }
 
-    // 2.6 Validate lead_source and remark when customer name is provided
+    // 2.6 Validate lead_source and remark when customer details will create a new customer.
     if (invoiceRequestPayload.customerName && invoiceRequestPayload.customerName.trim() !== "") {
         if (!invoiceRequestPayload.leadSource) {
             return {
