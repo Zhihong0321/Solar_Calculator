@@ -98,6 +98,85 @@
                 </div>
             </div>
 
+            <!-- Period Summary Cards -->
+            <div id="periodSummary" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white rounded-xl border border-slate-200 p-5">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                            <i class="fa-solid fa-calendar-week text-blue-600 text-sm"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-slate-900">This Week</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-500">Total Leads</span>
+                            <span id="weekLeads" class="text-lg font-black text-slate-900">-</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-500">New Quotations</span>
+                            <span id="weekQuotations" class="text-lg font-black text-slate-900">-</span>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-2">
+                            <span class="text-xs text-slate-500">Revenue (Paid)</span>
+                            <div class="text-right">
+                                <span id="weekRevenue" class="text-lg font-black text-green-600">-</span>
+                                <p id="weekPaidCount" class="text-[10px] text-slate-400">0 invoices</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-5">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                            <i class="fa-solid fa-calendar-days text-purple-600 text-sm"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-slate-900">This Month</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-500">Total Leads</span>
+                            <span id="monthLeads" class="text-lg font-black text-slate-900">-</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-500">New Quotations</span>
+                            <span id="monthQuotations" class="text-lg font-black text-slate-900">-</span>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-2">
+                            <span class="text-xs text-slate-500">Revenue (Paid)</span>
+                            <div class="text-right">
+                                <span id="monthRevenue" class="text-lg font-black text-green-600">-</span>
+                                <p id="monthPaidCount" class="text-[10px] text-slate-400">0 invoices</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-5">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                            <i class="fa-solid fa-calendar text-amber-600 text-sm"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-slate-900">This Year</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-500">Total Leads</span>
+                            <span id="yearLeads" class="text-lg font-black text-slate-900">-</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-slate-500">New Quotations</span>
+                            <span id="yearQuotations" class="text-lg font-black text-slate-900">-</span>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-2">
+                            <span class="text-xs text-slate-500">Revenue (Paid)</span>
+                            <div class="text-right">
+                                <span id="yearRevenue" class="text-lg font-black text-green-600">-</span>
+                                <p id="yearPaidCount" class="text-[10px] text-slate-400">0 invoices</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Team Stats Leaderboard -->
             <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200">
@@ -143,7 +222,7 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             setDefaultDates();
-            await Promise.all([loadAgents(), loadConfig(), loadData()]);
+            await Promise.all([loadAgents(), loadConfig(), loadData(), loadPeriodSummary()]);
         });
 
         function setDefaultDates() {
@@ -152,6 +231,37 @@
             weekAgo.setDate(today.getDate() - 7);
             document.getElementById('startDate').value = weekAgo.toISOString().split('T')[0];
             document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        }
+
+        function formatRM(amount) {
+            return 'RM ' + Number(amount).toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+
+        async function loadPeriodSummary() {
+            try {
+                const res = await fetch('/api/activity/manager-period-summary');
+                const data = await res.json();
+                if (data.success) {
+                    const { thisWeek, thisMonth, thisYear } = data.data;
+
+                    document.getElementById('weekLeads').textContent = thisWeek.totalLeads;
+                    document.getElementById('weekQuotations').textContent = thisWeek.totalQuotations;
+                    document.getElementById('weekRevenue').textContent = formatRM(thisWeek.totalRevenue);
+                    document.getElementById('weekPaidCount').textContent = `${thisWeek.paidInvoices} invoices`;
+
+                    document.getElementById('monthLeads').textContent = thisMonth.totalLeads;
+                    document.getElementById('monthQuotations').textContent = thisMonth.totalQuotations;
+                    document.getElementById('monthRevenue').textContent = formatRM(thisMonth.totalRevenue);
+                    document.getElementById('monthPaidCount').textContent = `${thisMonth.paidInvoices} invoices`;
+
+                    document.getElementById('yearLeads').textContent = thisYear.totalLeads;
+                    document.getElementById('yearQuotations').textContent = thisYear.totalQuotations;
+                    document.getElementById('yearRevenue').textContent = formatRM(thisYear.totalRevenue);
+                    document.getElementById('yearPaidCount').textContent = `${thisYear.paidInvoices} invoices`;
+                }
+            } catch (e) {
+                console.error('Load period summary error:', e);
+            }
         }
 
         async function loadAgents() {

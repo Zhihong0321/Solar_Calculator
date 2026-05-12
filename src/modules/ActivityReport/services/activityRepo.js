@@ -754,6 +754,114 @@ async function getActivityTypeBreakdown(client, options = {}) {
   return result.rows;
 }
 
+/**
+ * Get period summary for manager view (This Week, This Month, This Year)
+ * Returns total leads, new quotations, and revenue (paid invoices) for each period.
+ * @param {object} client - Database client
+ */
+async function getManagerPeriodSummary(client) {
+  const today = new Date();
+
+  // This Week (Monday to Sunday)
+  const dayOfWeek = today.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() + mondayOffset);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  // This Month
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+  // This Year
+  const yearStart = new Date(today.getFullYear(), 0, 1);
+  const yearEnd = new Date(today.getFullYear(), 11, 31);
+
+  const fmt = (d) => d.toISOString().split('T')[0];
+
+  const periods = [
+    { key: 'thisWeek', start: fmt(weekStart), end: fmt(weekEnd) },
+    { key: 'thisMonth', start: fmt(monthStart), end: fmt(monthEnd) },
+    { key: 'thisYear', start: fmt(yearStart), end: fmt(yearEnd) }
+  ];
+
+  const salesTeamClause = buildSalesTeamAccessClause('u');
+
+  const results = {};
+
+  for (const period of periods) {
+    const [leadsResult, quotationsResult, revenueResult] = await Promise.all([
+      // Total Leads: customers created by sales team agents in the period
+      client.query(
+        `SELECT COUNT(*) as total_leads
+         FROM customer c
+         WHERE c.created_at >= $1::date
+           AND c.created_at < ($2::date + INTERVAL '1 day')
+           AND EXISTS (
+             SELECT 1 FROM "user" u
+             WHERE (u.bubble_id = c.created_by OR u.linked_agent_profile = c.created_by)
+               AND ${salesTeamClause}
+           )`,
+        [period.start, period.end]
+      ),
+      // New Quotations: invoices created in the period (not deleted, linked to a customer, not sample)
+      client.query(
+        `SELECT COUNT(*) as total_quotations
+         FROM invoice i
+         LEFT JOIN customer c ON c.customer_id = i.linked_customer
+         WHERE i.is_latest = true
+           AND (i.status IS NULL OR i.status != 'deleted')
+           AND i.linked_customer IS NOT NULL
+           AND LOWER(COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), '')) != 'sample quotation'
+           AND COALESCE(i.invoice_date, i.created_at) >= $1::date
+           AND COALESCE(i.invoice_date, i.created_at) < ($2::date + INTERVAL '1 day')
+           AND EXISTS (
+             SELECT 1 FROM "user" u
+             WHERE (u.bubble_id = i.linked_agent OR u.bubble_id = i.created_by
+                    OR u.linked_agent_profile = i.linked_agent OR u.linked_agent_profile = i.created_by)
+               AND ${salesTeamClause}
+           )`,
+        [period.start, period.end]
+      ),
+      // Revenue: invoices that have a verified payment in the period, sum of invoice total_amount
+      client.query(
+        `SELECT
+           COUNT(DISTINCT i.bubble_id) as paid_invoices,
+           COALESCE(SUM(DISTINCT i.total_amount), 0) as total_revenue
+         FROM invoice i
+         JOIN payment p ON (p.linked_invoice = i.bubble_id OR p.bubble_id = ANY(COALESCE(i.linked_payment, ARRAY[]::text[])))
+         LEFT JOIN customer c ON c.customer_id = i.linked_customer
+         WHERE i.is_latest = true
+           AND (i.status IS NULL OR i.status != 'deleted')
+           AND i.linked_customer IS NOT NULL
+           AND LOWER(COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), '')) != 'sample quotation'
+           AND p.payment_date >= $1::date
+           AND p.payment_date < ($2::date + INTERVAL '1 day')
+           AND EXISTS (
+             SELECT 1 FROM "user" u
+             WHERE (u.bubble_id = i.linked_agent OR u.bubble_id = i.created_by
+                    OR u.linked_agent_profile = i.linked_agent OR u.linked_agent_profile = i.created_by)
+               AND ${salesTeamClause}
+           )`,
+        [period.start, period.end]
+      )
+    ]);
+
+    results[period.key] = {
+      startDate: period.start,
+      endDate: period.end,
+      totalLeads: parseInt(leadsResult.rows[0]?.total_leads || 0, 10),
+      totalQuotations: parseInt(quotationsResult.rows[0]?.total_quotations || 0, 10),
+      paidInvoices: parseInt(revenueResult.rows[0]?.paid_invoices || 0, 10),
+      totalRevenue: parseFloat(revenueResult.rows[0]?.total_revenue || 0)
+    };
+  }
+
+  return results;
+}
+
 module.exports = {
   ACTIVITY_POINTS,
   FOLLOW_UP_SUBTYPES,
@@ -771,5 +879,6 @@ module.exports = {
   getTeamStats,
   getAllActivitiesForReview,
   getAgentPerformanceRanking,
-  getActivityTypeBreakdown
+  getActivityTypeBreakdown,
+  getManagerPeriodSummary
 };

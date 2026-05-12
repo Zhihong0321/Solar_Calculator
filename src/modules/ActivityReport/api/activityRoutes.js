@@ -613,6 +613,24 @@ router.get('/api/activity/focus/weekly', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/activity/manager-period-summary
+ * Get period summary (This Week, This Month, This Year) for manager view
+ */
+router.get('/api/activity/manager-period-summary', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    client = await pool.connect();
+    const summary = await activityRepo.getManagerPeriodSummary(client);
+    res.json({ success: true, data: summary });
+  } catch (err) {
+    console.error('Error fetching manager period summary:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * GET /api/activity/team-stats
  * Get team statistics (Manager view)
  */
