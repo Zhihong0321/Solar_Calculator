@@ -78,7 +78,7 @@ async function loadData(startDate, endDate) {
 }
 
 function renderDashboard(data) {
-    const { agentRanking, activityBreakdown, leadSourceStats } = data;
+    const { agentRanking, activityBreakdown, leadSourceStats, periodSummary, pendingReferrals } = data;
 
     // 1. Top Stats
     const totalPoints = agentRanking.reduce((sum, a) => sum + parseInt(a.total_points || 0), 0);
@@ -88,6 +88,14 @@ function renderDashboard(data) {
     document.getElementById('totalPoints').textContent = totalPoints.toLocaleString();
     document.getElementById('totalActivities').textContent = totalActivities.toLocaleString();
     document.getElementById('totalClosed').textContent = totalClosed.toLocaleString();
+
+    // Period Summary
+    if (periodSummary) {
+        renderPeriodSummary(periodSummary);
+    }
+
+    // Pending Referrals
+    renderPendingReferrals(pendingReferrals || []);
 
     // 2. Ranking Table
     const tbody = document.querySelector('#rankingTable tbody');
@@ -199,4 +207,53 @@ function clearChart(canvasId) {
     // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     // ctx.textAlign = 'center';
     // ctx.fillText('No Data', ctx.canvas.width / 2, ctx.canvas.height / 2);
+}
+
+function formatRM(amount) {
+    return 'RM ' + Number(amount).toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function renderPeriodSummary(summary) {
+    const { thisWeek, thisMonth, thisYear } = summary;
+
+    document.getElementById('weekLeads').textContent = thisWeek.totalLeads;
+    document.getElementById('weekQuotations').textContent = thisWeek.totalQuotations;
+    document.getElementById('weekRevenue').textContent = formatRM(thisWeek.totalRevenue);
+    document.getElementById('weekPaidCount').textContent = `${thisWeek.paidInvoices} invoices`;
+
+    document.getElementById('monthLeads').textContent = thisMonth.totalLeads;
+    document.getElementById('monthQuotations').textContent = thisMonth.totalQuotations;
+    document.getElementById('monthRevenue').textContent = formatRM(thisMonth.totalRevenue);
+    document.getElementById('monthPaidCount').textContent = `${thisMonth.paidInvoices} invoices`;
+
+    document.getElementById('yearLeads').textContent = thisYear.totalLeads;
+    document.getElementById('yearQuotations').textContent = thisYear.totalQuotations;
+    document.getElementById('yearRevenue').textContent = formatRM(thisYear.totalRevenue);
+    document.getElementById('yearPaidCount').textContent = `${thisYear.paidInvoices} invoices`;
+}
+
+function renderPendingReferrals(referrals) {
+    const container = document.getElementById('pendingReferralsContainer');
+
+    if (!referrals || referrals.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color: var(--text-muted); font-size: 0.875rem; padding: 1rem 0;">No pending referral leads.</p>';
+        return;
+    }
+
+    const totalPending = referrals.reduce((sum, r) => sum + parseInt(r.pending_count || 0), 0);
+
+    container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
+            <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">TOTAL PENDING</span>
+            <span style="font-size: 1.25rem; font-weight: 700; color: #f59e0b;">${totalPending}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            ${referrals.map(r => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: #fffbeb; border-radius: 0.5rem;">
+                    <span style="font-size: 0.875rem; font-weight: 500;">${escapeHtml(r.agent_name || 'Unassigned')}</span>
+                    <span style="font-size: 0.875rem; font-weight: 700; color: #d97706;">${r.pending_count}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
 }

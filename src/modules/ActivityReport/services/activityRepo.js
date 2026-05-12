@@ -862,6 +862,52 @@ async function getManagerPeriodSummary(client) {
   return results;
 }
 
+/**
+ * Get pending referral leads grouped by assigned agent (for manager KPI view)
+ * @param {object} client - Database client
+ */
+async function getPendingReferralsByAgent(client) {
+  const columns = await _getReferralColumnsCache(client);
+  const assignmentExpr = columns.has('assigned_agent')
+    ? `COALESCE(NULLIF(r.assigned_agent, ''), r.linked_agent)`
+    : 'r.linked_agent';
+  const statusExpr = columns.has('workflow_status')
+    ? `COALESCE(r.workflow_status, r.status)`
+    : 'r.status';
+
+  const result = await client.query(
+    `SELECT
+       COALESCE(a.name, u.name, ${assignmentExpr}) AS agent_name,
+       ${assignmentExpr} AS agent_key,
+       COUNT(*) AS pending_count
+     FROM referral r
+     LEFT JOIN agent a
+       ON (a.id::text = ${assignmentExpr}
+           OR a.bubble_id = ${assignmentExpr}
+           OR a.linked_user_login = ${assignmentExpr})
+     LEFT JOIN "user" u
+       ON (u.id::text = ${assignmentExpr}
+           OR u.bubble_id = ${assignmentExpr})
+     WHERE ${statusExpr} = 'Pending'
+     GROUP BY ${assignmentExpr}, a.name, u.name
+     ORDER BY pending_count DESC`
+  );
+  return result.rows;
+}
+
+/**
+ * Cache-friendly referral column check
+ */
+let _referralColumnsCache = null;
+async function _getReferralColumnsCache(client) {
+  if (_referralColumnsCache) return _referralColumnsCache;
+  const colResult = await client.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'referral' AND table_schema = 'public'`
+  );
+  _referralColumnsCache = new Set(colResult.rows.map(r => r.column_name));
+  return _referralColumnsCache;
+}
+
 module.exports = {
   ACTIVITY_POINTS,
   FOLLOW_UP_SUBTYPES,
@@ -880,5 +926,6 @@ module.exports = {
   getAllActivitiesForReview,
   getAgentPerformanceRanking,
   getActivityTypeBreakdown,
-  getManagerPeriodSummary
+  getManagerPeriodSummary,
+  getPendingReferralsByAgent
 };

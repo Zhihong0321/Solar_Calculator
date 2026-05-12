@@ -342,6 +342,78 @@
             </div>
         </div>
 
+        <!-- Period Summary: This Week / This Month / This Year -->
+        <div class="grid" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="card" style="border-left: 4px solid #3b82f6;">
+                <div class="card-title">This Week <i class="fa-solid fa-calendar-week" style="color: #3b82f6;"></i></div>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Total Leads</span>
+                        <span id="weekLeads" style="font-size: 1.25rem; font-weight: 700;">-</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">New Quotations</span>
+                        <span id="weekQuotations" style="font-size: 1.25rem; font-weight: 700;">-</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 0.5rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Revenue (Paid)</span>
+                        <div style="text-align: right;">
+                            <span id="weekRevenue" style="font-size: 1.25rem; font-weight: 700; color: var(--success);">-</span>
+                            <div id="weekPaidCount" style="font-size: 0.625rem; color: var(--text-muted);">0 invoices</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="border-left: 4px solid #8b5cf6;">
+                <div class="card-title">This Month <i class="fa-solid fa-calendar-days" style="color: #8b5cf6;"></i></div>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Total Leads</span>
+                        <span id="monthLeads" style="font-size: 1.25rem; font-weight: 700;">-</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">New Quotations</span>
+                        <span id="monthQuotations" style="font-size: 1.25rem; font-weight: 700;">-</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 0.5rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Revenue (Paid)</span>
+                        <div style="text-align: right;">
+                            <span id="monthRevenue" style="font-size: 1.25rem; font-weight: 700; color: var(--success);">-</span>
+                            <div id="monthPaidCount" style="font-size: 0.625rem; color: var(--text-muted);">0 invoices</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="border-left: 4px solid #f59e0b;">
+                <div class="card-title">This Year <i class="fa-solid fa-calendar" style="color: #f59e0b;"></i></div>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Total Leads</span>
+                        <span id="yearLeads" style="font-size: 1.25rem; font-weight: 700;">-</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">New Quotations</span>
+                        <span id="yearQuotations" style="font-size: 1.25rem; font-weight: 700;">-</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 0.5rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Revenue (Paid)</span>
+                        <div style="text-align: right;">
+                            <span id="yearRevenue" style="font-size: 1.25rem; font-weight: 700; color: var(--success);">-</span>
+                            <div id="yearPaidCount" style="font-size: 0.625rem; color: var(--text-muted);">0 invoices</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Referral Leads -->
+        <div class="card">
+            <div class="card-title">Pending Referral Leads (by Agent) <i class="fa-solid fa-user-clock" style="color: #f59e0b;"></i></div>
+            <div id="pendingReferralsContainer" style="margin-top: 0.75rem;">
+                <p style="text-align:center; color: var(--text-muted); font-size: 0.875rem;">Loading...</p>
+            </div>
+        </div>
+
         <div class="grid" style="grid-template-columns: 2fr 1fr;">
             <div class="card">
                 <div class="card-title">Agent Performance Ranking</div>

@@ -722,10 +722,12 @@ router.get('/api/kpi/overview', requireAuth, async (req, res) => {
 
     client = await pool.connect();
 
-    const [agentRanking, activityBreakdown, leadSourceStats] = await Promise.all([
+    const [agentRanking, activityBreakdown, leadSourceStats, periodSummary, pendingReferrals] = await Promise.all([
       activityRepo.getAgentPerformanceRanking(client, { startDate, endDate }),
       activityRepo.getActivityTypeBreakdown(client, { startDate, endDate }),
-      customerRepo.getLeadSourceStatistics(client, { startDate, endDate })
+      customerRepo.getLeadSourceStatistics(client, { startDate, endDate }),
+      activityRepo.getManagerPeriodSummary(client),
+      activityRepo.getPendingReferralsByAgent(client)
     ]);
 
     res.json({
@@ -733,7 +735,9 @@ router.get('/api/kpi/overview', requireAuth, async (req, res) => {
       data: {
         agentRanking,
         activityBreakdown,
-        leadSourceStats
+        leadSourceStats,
+        periodSummary,
+        pendingReferrals
       }
     });
 
