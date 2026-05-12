@@ -613,6 +613,44 @@ router.get('/api/activity/focus/weekly', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/activity/agent-period-summary
+ * Get period summary (This Week, This Month, This Year) + referral stats for a specific agent
+ */
+router.get('/api/activity/agent-period-summary', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const fallbackActorId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
+    const requestedAgentId = req.query.agentId;
+    const actorId = requestedAgentId || fallbackActorId;
+
+    client = await pool.connect();
+
+    const identifiers = await resolveAgentIdentifiers(client, actorId);
+    if (identifiers.length === 0) {
+      return res.status(403).json({ success: false, error: 'No valid user or agent identifiers found' });
+    }
+
+    const [periodSummary, referralStats] = await Promise.all([
+      activityRepo.getAgentPeriodSummary(client, identifiers),
+      activityRepo.getAgentReferralStats(client, identifiers)
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        periodSummary,
+        referralStats
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching agent period summary:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * GET /api/activity/manager-period-summary
  * Get period summary (This Week, This Month, This Year) for manager view
  */

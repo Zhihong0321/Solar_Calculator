@@ -221,6 +221,93 @@
                 </div>
             </section>
 
+            <!-- Period Summary: This Week / This Month / This Year -->
+            <section class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div class="p-5 md:p-6 border-b border-slate-200">
+                    <h2 class="text-sm font-black uppercase tracking-[0.2em] text-slate-900">Performance Summary</h2>
+                    <p class="text-sm text-slate-500 mt-1">Leads, quotations, and revenue by period.</p>
+                </div>
+                <div class="p-5 md:p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 mb-3"><i class="fa-solid fa-calendar-week mr-1"></i> This Week</p>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-slate-600">Total Leads</span>
+                                    <span id="agentWeekLeads" class="text-lg font-black text-slate-900">-</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-slate-600">New Quotations</span>
+                                    <span id="agentWeekQuotations" class="text-lg font-black text-slate-900">-</span>
+                                </div>
+                                <div class="flex justify-between items-center border-t border-blue-200 pt-2">
+                                    <span class="text-xs text-slate-600">Revenue</span>
+                                    <div class="text-right">
+                                        <span id="agentWeekRevenue" class="text-base font-black text-emerald-600">-</span>
+                                        <p id="agentWeekPaid" class="text-[10px] text-slate-400">0 invoices</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="rounded-xl border border-purple-200 bg-purple-50/50 p-4">
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-purple-600 mb-3"><i class="fa-solid fa-calendar-days mr-1"></i> This Month</p>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-slate-600">Total Leads</span>
+                                    <span id="agentMonthLeads" class="text-lg font-black text-slate-900">-</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-slate-600">New Quotations</span>
+                                    <span id="agentMonthQuotations" class="text-lg font-black text-slate-900">-</span>
+                                </div>
+                                <div class="flex justify-between items-center border-t border-purple-200 pt-2">
+                                    <span class="text-xs text-slate-600">Revenue</span>
+                                    <div class="text-right">
+                                        <span id="agentMonthRevenue" class="text-base font-black text-emerald-600">-</span>
+                                        <p id="agentMonthPaid" class="text-[10px] text-slate-400">0 invoices</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600 mb-3"><i class="fa-solid fa-calendar mr-1"></i> This Year</p>
+                            <div class="space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-slate-600">Total Leads</span>
+                                    <span id="agentYearLeads" class="text-lg font-black text-slate-900">-</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-slate-600">New Quotations</span>
+                                    <span id="agentYearQuotations" class="text-lg font-black text-slate-900">-</span>
+                                </div>
+                                <div class="flex justify-between items-center border-t border-amber-200 pt-2">
+                                    <span class="text-xs text-slate-600">Revenue</span>
+                                    <div class="text-right">
+                                        <span id="agentYearRevenue" class="text-base font-black text-emerald-600">-</span>
+                                        <p id="agentYearPaid" class="text-[10px] text-slate-400">0 invoices</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Referral Stats -->
+                    <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                                <i class="fa-solid fa-user-clock text-amber-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold text-slate-900">Referral Leads</p>
+                                <p class="text-[10px] text-slate-500">Pending / Total received</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xl font-black text-amber-600"><span id="agentPendingReferrals">-</span> <span class="text-slate-400 font-medium text-sm">/ <span id="agentTotalReferrals">-</span></span></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Daily Report Feed -->
             <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
                 <div class="p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -356,7 +443,7 @@
             // document.getElementById('filterDate').value = new Date().toISOString().split('T')[0];
             configurePageMode();
             setupActivityInfiniteScroll();
-            await Promise.all([loadConfig(), loadWeeklyFocus(), loadStats(), loadActivities()]);
+            await Promise.all([loadConfig(), loadWeeklyFocus(), loadStats(), loadActivities(), loadAgentPeriodSummary()]);
         });
 
         function configurePageMode() {
@@ -366,6 +453,51 @@
             document.getElementById('pageTitle').textContent = `${agentLabel} Activity Report`;
             document.getElementById('pageSubtitle').textContent = 'Viewing agent activity from team review';
             document.getElementById('submitActivityButton').classList.add('hidden');
+        }
+
+        function toggleActivityExpand(el) {
+            const remark = el.querySelector('.activity-remark');
+            if (!remark) return;
+            remark.classList.toggle('truncate');
+            remark.classList.toggle('whitespace-pre-wrap');
+        }
+
+        function formatRM(amount) {
+            return 'RM ' + Number(amount).toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+
+        async function loadAgentPeriodSummary() {
+            try {
+                const params = new URLSearchParams();
+                if (isAgentViewerMode) params.append('agentId', selectedAgentId);
+
+                const res = await fetch(`/api/activity/agent-period-summary?${params.toString()}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    const { periodSummary, referralStats } = data.data;
+
+                    document.getElementById('agentWeekLeads').textContent = periodSummary.thisWeek.totalLeads;
+                    document.getElementById('agentWeekQuotations').textContent = periodSummary.thisWeek.totalQuotations;
+                    document.getElementById('agentWeekRevenue').textContent = formatRM(periodSummary.thisWeek.totalRevenue);
+                    document.getElementById('agentWeekPaid').textContent = `${periodSummary.thisWeek.paidInvoices} invoices`;
+
+                    document.getElementById('agentMonthLeads').textContent = periodSummary.thisMonth.totalLeads;
+                    document.getElementById('agentMonthQuotations').textContent = periodSummary.thisMonth.totalQuotations;
+                    document.getElementById('agentMonthRevenue').textContent = formatRM(periodSummary.thisMonth.totalRevenue);
+                    document.getElementById('agentMonthPaid').textContent = `${periodSummary.thisMonth.paidInvoices} invoices`;
+
+                    document.getElementById('agentYearLeads').textContent = periodSummary.thisYear.totalLeads;
+                    document.getElementById('agentYearQuotations').textContent = periodSummary.thisYear.totalQuotations;
+                    document.getElementById('agentYearRevenue').textContent = formatRM(periodSummary.thisYear.totalRevenue);
+                    document.getElementById('agentYearPaid').textContent = `${periodSummary.thisYear.paidInvoices} invoices`;
+
+                    document.getElementById('agentPendingReferrals').textContent = referralStats.pendingReferrals;
+                    document.getElementById('agentTotalReferrals').textContent = referralStats.totalReferrals;
+                }
+            } catch (e) {
+                console.error('Load agent period summary error:', e);
+            }
         }
 
         async function loadConfig() {
@@ -694,7 +826,7 @@
 
                 return `
                     ${dateHeader}
-                    <div class="p-4 hover:bg-slate-50 flex items-start gap-4" data-id="${a.id}" data-type="${a.activity_type || ''}" data-subtype="${a.follow_up_subtype || ''}" data-time-slot="${a.time_of_day || ''}" data-remark="${(a.remark || '').replace(/"/g, '&quot;')}" data-date="${a.report_date ? a.report_date.split('T')[0] : ''}" data-report-date-key="${dateKey}">
+                    <div class="p-4 hover:bg-slate-50 flex items-start gap-4 cursor-pointer" data-id="${a.id}" data-type="${a.activity_type || ''}" data-subtype="${a.follow_up_subtype || ''}" data-time-slot="${a.time_of_day || ''}" data-remark="${(a.remark || '').replace(/"/g, '&quot;')}" data-date="${a.report_date ? a.report_date.split('T')[0] : ''}" data-report-date-key="${dateKey}" onclick="toggleActivityExpand(this)">
                         <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
                             <span class="text-sm font-bold text-slate-600">${a.report_point || 0}</span>
                         </div>
@@ -704,11 +836,11 @@
                                 ${a.follow_up_subtype ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">${a.follow_up_subtype}</span>` : ''}
                                 ${a.time_of_day ? `<span class="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-semibold">${formatTimeOfDay(a.time_of_day)}</span>` : ''}
                             </div>
-                            <p class="text-xs text-slate-500 mt-0.5 truncate">${a.remark || 'No description'}</p>
+                            <p class="text-xs text-slate-500 mt-0.5 activity-remark truncate">${a.remark || 'No description'}</p>
                         </div>
                         ${isAgentViewerMode ? '' : `
-                            <button onclick="editActivityFromRow(this.parentElement)" class="text-slate-400 hover:text-blue-500 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
-                            <button onclick="deleteActivity(${a.id})" class="text-slate-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
+                            <button onclick="event.stopPropagation(); editActivityFromRow(this.closest('[data-id]'))" class="text-slate-400 hover:text-blue-500 p-1"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <button onclick="event.stopPropagation(); deleteActivity(${a.id})" class="text-slate-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
                         `}
                     </div>
                 `;

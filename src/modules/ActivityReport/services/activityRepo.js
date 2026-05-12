@@ -863,6 +863,125 @@ async function getManagerPeriodSummary(client) {
 }
 
 /**
+ * Get period summary for a specific agent (This Week, This Month, This Year)
+ * Returns total leads, new quotations, and revenue for each period.
+ * @param {object} client - Database client
+ * @param {string[]} identifiers - Agent identifiers array
+ */
+async function getAgentPeriodSummary(client, identifiers) {
+  const today = new Date();
+
+  // This Week (Monday to Sunday)
+  const dayOfWeek = today.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() + mondayOffset);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  // This Month
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+  // This Year
+  const yearStart = new Date(today.getFullYear(), 0, 1);
+  const yearEnd = new Date(today.getFullYear(), 11, 31);
+
+  const fmt = (d) => d.toISOString().split('T')[0];
+
+  const periods = [
+    { key: 'thisWeek', start: fmt(weekStart), end: fmt(weekEnd) },
+    { key: 'thisMonth', start: fmt(monthStart), end: fmt(monthEnd) },
+    { key: 'thisYear', start: fmt(yearStart), end: fmt(yearEnd) }
+  ];
+
+  const results = {};
+
+  for (const period of periods) {
+    const [leadsResult, quotationsResult, revenueResult] = await Promise.all([
+      client.query(
+        `SELECT COUNT(*) as total_leads
+         FROM customer c
+         WHERE c.created_by = ANY($1)
+           AND c.created_at >= $2::date
+           AND c.created_at < ($3::date + INTERVAL '1 day')`,
+        [identifiers, period.start, period.end]
+      ),
+      client.query(
+        `SELECT COUNT(*) as total_quotations
+         FROM invoice i
+         LEFT JOIN customer c ON c.customer_id = i.linked_customer
+         WHERE i.is_latest = true
+           AND (i.status IS NULL OR i.status != 'deleted')
+           AND i.linked_customer IS NOT NULL
+           AND LOWER(COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), '')) != 'sample quotation'
+           AND (i.linked_agent = ANY($1) OR i.created_by = ANY($1))
+           AND COALESCE(i.invoice_date, i.created_at) >= $2::date
+           AND COALESCE(i.invoice_date, i.created_at) < ($3::date + INTERVAL '1 day')`,
+        [identifiers, period.start, period.end]
+      ),
+      client.query(
+        `SELECT
+           COUNT(DISTINCT i.bubble_id) as paid_invoices,
+           COALESCE(SUM(DISTINCT i.total_amount), 0) as total_revenue
+         FROM invoice i
+         JOIN payment p ON (p.linked_invoice = i.bubble_id OR p.bubble_id = ANY(COALESCE(i.linked_payment, ARRAY[]::text[])))
+         LEFT JOIN customer c ON c.customer_id = i.linked_customer
+         WHERE i.is_latest = true
+           AND (i.status IS NULL OR i.status != 'deleted')
+           AND i.linked_customer IS NOT NULL
+           AND LOWER(COALESCE(NULLIF(TRIM(c.name), ''), NULLIF(TRIM(i.customer_name_snapshot), ''), '')) != 'sample quotation'
+           AND (i.linked_agent = ANY($1) OR i.created_by = ANY($1))
+           AND p.payment_date >= $2::date
+           AND p.payment_date < ($3::date + INTERVAL '1 day')`,
+        [identifiers, period.start, period.end]
+      )
+    ]);
+
+    results[period.key] = {
+      startDate: period.start,
+      endDate: period.end,
+      totalLeads: parseInt(leadsResult.rows[0]?.total_leads || 0, 10),
+      totalQuotations: parseInt(quotationsResult.rows[0]?.total_quotations || 0, 10),
+      paidInvoices: parseInt(revenueResult.rows[0]?.paid_invoices || 0, 10),
+      totalRevenue: parseFloat(revenueResult.rows[0]?.total_revenue || 0)
+    };
+  }
+
+  return results;
+}
+
+/**
+ * Get referral stats for a specific agent (pending / total)
+ * @param {object} client - Database client
+ * @param {string[]} identifiers - Agent identifiers array
+ */
+async function getAgentReferralStats(client, identifiers) {
+  const columns = await _getReferralColumnsCache(client);
+  const assignmentExpr = columns.has('assigned_agent')
+    ? `COALESCE(NULLIF(r.assigned_agent, ''), r.linked_agent)`
+    : 'r.linked_agent';
+  const statusExpr = columns.has('workflow_status')
+    ? `COALESCE(r.workflow_status, r.status)`
+    : 'r.status';
+
+  const result = await client.query(
+    `SELECT
+       COUNT(*) as total_referrals,
+       COUNT(*) FILTER (WHERE ${statusExpr} = 'Pending') as pending_referrals
+     FROM referral r
+     WHERE ${assignmentExpr} = ANY($1::text[])`,
+    [identifiers]
+  );
+
+  return {
+    totalReferrals: parseInt(result.rows[0]?.total_referrals || 0, 10),
+    pendingReferrals: parseInt(result.rows[0]?.pending_referrals || 0, 10)
+  };
+}
+
+/**
  * Get pending referral leads grouped by assigned agent (for manager KPI view)
  * @param {object} client - Database client
  */
@@ -927,5 +1046,7 @@ module.exports = {
   getAgentPerformanceRanking,
   getActivityTypeBreakdown,
   getManagerPeriodSummary,
+  getAgentPeriodSummary,
+  getAgentReferralStats,
   getPendingReferralsByAgent
 };
