@@ -34,6 +34,8 @@ let loadedPromotionSelections = {
     earthMonthApplied: false
 };
 const BALLAST_UNIT_PRICE = 160;
+const ATS_ADDON_PRICE = 500;
+const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
 const APRIL_2026_PROMO_END = new Date('2026-06-01T00:00:00');
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
@@ -113,6 +115,61 @@ function isBallastItem(item) {
     return /Upgrade\s+\d+\s+panel\s+with\s+Ballast\s+System\.?/i.test(description)
         && qty > 0
         && (Math.abs(unitPrice - BALLAST_UNIT_PRICE) < 0.01 || Math.abs(totalPrice - (qty * BALLAST_UNIT_PRICE)) < 0.01);
+}
+
+function isATSItem(item) {
+    if (!item) return false;
+    return String(item.description || '').trim().toUpperCase().includes('ADD ON ATS')
+        || String(item.description || '').trim().toUpperCase() === 'ATS';
+}
+
+function isHybridPackage(packageName) {
+    const name = String(packageName || '').toUpperCase();
+    return name.includes('HYBRID') || name.includes('HYBIRD');
+}
+
+function hasATSInManualItems() {
+    return manualItems.some(item => isATSItem(item));
+}
+
+function hasATSInLoadedItems() {
+    return Array.isArray(loadedInvoiceItems) && loadedInvoiceItems.some(item => isATSItem(item));
+}
+
+function syncATSAddonBanner() {
+    const banner = document.getElementById('atsAddonBanner');
+    const checkbox = document.getElementById('atsAddonCheckbox');
+    if (!banner || !checkbox) return;
+
+    const packageName = document.getElementById('packageName')?.value || '';
+    const isHybrid = isHybridPackage(packageName);
+    const alreadyHasATS = hasATSInManualItems() || hasATSInLoadedItems();
+
+    if (isHybrid && !alreadyHasATS) {
+        banner.classList.remove('hidden');
+        checkbox.checked = false;
+    } else {
+        banner.classList.add('hidden');
+        checkbox.checked = false;
+    }
+}
+
+function onATSAddonToggle(checked) {
+    // Remove any existing ATS item first
+    manualItems = manualItems.filter(item => !isATSItem(item));
+
+    if (checked) {
+        manualItems.push({
+            id: 'item_ats_addon',
+            description: ATS_ADDON_DESCRIPTION,
+            qty: 1,
+            unit_price: ATS_ADDON_PRICE,
+            linked_product: null
+        });
+    }
+
+    renderManualItems();
+    updateInvoicePreview();
 }
 
 function getAdditionalInvoiceItems() {
@@ -1619,6 +1676,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 console.warn('[Edit Invoice] No items found in invoice data');
             }
             hydratePromotionSelections(loadedInvoiceItems);
+            syncATSAddonBanner();
             // 7. Trigger preview update
             updateInvoicePreview();
 
@@ -1744,6 +1802,7 @@ function showPackage(pkg) {
     }
 
     loadHybridUpgradeOptions(pkg.bubble_id);
+    syncATSAddonBanner();
     updateInvoicePreview();
 }
 

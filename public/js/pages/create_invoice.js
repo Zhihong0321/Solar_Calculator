@@ -31,6 +31,8 @@ const BATTERY_PRODUCT_NAME = 'B3-16.0-LV Battery';
 const BATTERY_MODULE_SIZE_KWH = 16;
 const BATTERY_UNIT_PRICE = 8000;
 const BALLAST_UNIT_PRICE = 160;
+const ATS_ADDON_PRICE = 500;
+const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
 let loadedPromotionSelections = {
     earnNowApplied: false,
     earthMonthApplied: false
@@ -114,6 +116,57 @@ function isBallastItem(item) {
     return /Upgrade\s+\d+\s+panel\s+with\s+Ballast\s+System\.?/i.test(description)
         && qty > 0
         && (Math.abs(unitPrice - BALLAST_UNIT_PRICE) < 0.01 || Math.abs(totalPrice - (qty * BALLAST_UNIT_PRICE)) < 0.01);
+}
+
+function isATSItem(item) {
+    if (!item) return false;
+    return String(item.description || '').trim().toUpperCase().includes('ADD ON ATS')
+        || String(item.description || '').trim().toUpperCase() === 'ATS';
+}
+
+function isHybridPackage(packageName) {
+    const name = String(packageName || '').toUpperCase();
+    return name.includes('HYBRID') || name.includes('HYBIRD');
+}
+
+function hasATSInManualItems() {
+    return manualItems.some(item => isATSItem(item));
+}
+
+function syncATSAddonBanner() {
+    const banner = document.getElementById('atsAddonBanner');
+    const checkbox = document.getElementById('atsAddonCheckbox');
+    if (!banner || !checkbox) return;
+
+    const packageName = document.getElementById('packageName')?.value || '';
+    const isHybrid = isHybridPackage(packageName);
+    const alreadyHasATS = hasATSInManualItems();
+
+    if (isHybrid && !alreadyHasATS) {
+        banner.classList.remove('hidden');
+        checkbox.checked = false;
+    } else {
+        banner.classList.add('hidden');
+        checkbox.checked = false;
+    }
+}
+
+function onATSAddonToggle(checked) {
+    // Remove any existing ATS item first
+    manualItems = manualItems.filter(item => !isATSItem(item));
+
+    if (checked) {
+        manualItems.push({
+            id: 'item_ats_addon',
+            description: ATS_ADDON_DESCRIPTION,
+            qty: 1,
+            unit_price: ATS_ADDON_PRICE,
+            linked_product: null
+        });
+    }
+
+    renderManualItems();
+    updateInvoicePreview();
 }
 
 function getAdditionalInvoiceItems() {
@@ -1679,6 +1732,7 @@ function showPackage(pkg) {
     });
 
     loadHybridUpgradeOptions(pkg.bubble_id);
+    syncATSAddonBanner();
     updateInvoicePreview();
 }
 
