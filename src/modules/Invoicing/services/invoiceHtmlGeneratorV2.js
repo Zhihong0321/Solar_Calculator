@@ -89,7 +89,9 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         invoice.package_name
     );
     const isCommercialPackage = normalizedPackageType === 'commercial';
-    const showSolarSavingsSection = !isCommercialPackage && (hasSolarSavingsSection || (showInteractiveControls && canEstimateSolarSavings));
+    const _showSolarSavingsSection = !isCommercialPackage && (hasSolarSavingsSection || (showInteractiveControls && canEstimateSolarSavings));
+    // TODO: Temporarily hidden — energy saving comparison is wrong/misleading, pending fix
+    const showSolarSavingsSection = false;
     const solarSavingsSectionBadge = hasSolarSavingsSection ? 'Monthly Estimate' : 'Package Estimate';
     const solarSavingsSectionIntro = hasSolarSavingsSection
         ? 'Your solar estimate at a glance'
