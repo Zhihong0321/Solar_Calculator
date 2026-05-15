@@ -105,6 +105,9 @@ app.get('/domestic-mobile', (req, res) => {
 app.get('/legacy-domestic', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic.html'));
 });
+app.get('/battery_guide', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'battery-explanation-opus.html'));
+});
 app.use('/proposal', express.static('portable-proposal'));
 app.use('/t3_html_presentation', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');

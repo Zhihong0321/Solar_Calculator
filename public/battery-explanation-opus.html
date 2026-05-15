@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0f172a" />
+<title>Battery Savings — Visual Explainer · 电池节省 — 图解</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7fb;
+    --card:#ffffff;
+    --ink:#0f172a;
+    --ink2:#475569;
+    --ink3:#94a3b8;
+    --line:#e5e7eb;
+    --sun:#f59e0b;       --sun-bg:#fef3c7;
+    --bat:#059669;       --bat-bg:#d1fae5;
+    --grid:#2563eb;      --grid-bg:#dbeafe;
+    --loss:#dc2626;      --loss-bg:#fee2e2;
+    --r:14px;
+    --shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.06);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Inter','Noto Sans SC',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;padding-bottom:48px;}
+  body.zh{font-family:'Noto Sans SC','Inter',system-ui,-apple-system,sans-serif;}
+  .wrap{max-width:520px;margin:0 auto;padding:14px;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  /* Language Toggle */
+  .lang{display:flex;justify-content:flex-end;margin-bottom:10px;}
+  .lang-toggle{display:inline-flex;background:#fff;border:1px solid var(--line);border-radius:99px;padding:3px;box-shadow:var(--shadow);}
+  .lang-toggle button{border:none;background:transparent;padding:6px 14px;font-size:12px;font-weight:700;border-radius:99px;cursor:pointer;color:var(--ink3);font-family:inherit;transition:all .2s;}
+  .lang-toggle button.active{background:var(--ink);color:#fff;}
+
+  /* Hero */
+  .hero{
+    background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 60%,#059669 130%);
+    color:#fff;border-radius:var(--r);padding:22px 20px;margin-bottom:14px;
+    position:relative;overflow:hidden;
+  }
+  .hero::after{content:'';position:absolute;inset:auto -60px -60px auto;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.35),transparent 70%);}
+  .hero .eyebrow{font-size:10px;letter-spacing:.2em;text-transform:uppercase;opacity:.65;margin-bottom:6px;font-weight:600;}
+  .hero h1{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1.25;}
+  .hero h1 .h{background:linear-gradient(90deg,#fbbf24,#34d399);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .hero p{font-size:13px;opacity:.78;margin-top:6px;}
+
+  /* Card */
+  .card{background:var(--card);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:var(--shadow);border:1px solid var(--line);}
+  .card h2{font-size:15px;font-weight:800;display:flex;align-items:center;gap:10px;margin-bottom:6px;letter-spacing:-.2px;}
+  .card .sub{font-size:12px;color:var(--ink2);margin-bottom:14px;}
+
+  /* Step number */
+  .stp{width:28px;height:28px;border-radius:8px;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0;}
+
+  /* Badges */
+  .b{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;}
+  .b-sun{background:var(--sun-bg);color:#92400e;}
+  .b-bat{background:var(--bat-bg);color:#065f46;}
+  .b-grid{background:var(--grid-bg);color:#1e40af;}
+  .b-loss{background:var(--loss-bg);color:#991b1b;}
+  .b-ink{background:#e2e8f0;color:var(--ink2);}
+
+  /* Flow */
+  .flow{display:flex;flex-direction:column;align-items:center;gap:6px;margin:8px 0 4px;}
+  .flow-box{width:100%;padding:11px 14px;border-radius:10px;text-align:center;font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .flow-box .ico{font-size:18px;}
+  .flow-box .v{font-weight:800;font-size:14px;}
+  .fb-sun{background:var(--sun-bg);color:#92400e;}
+  .fb-home{background:#e0e7ff;color:#3730a3;}
+  .fb-bat{background:var(--bat-bg);color:#065f46;}
+  .fb-grid{background:#fce7f3;color:#9d174d;}
+  .fb-loss{background:var(--loss-bg);color:#991b1b;}
+  .arr{font-size:14px;color:var(--ink3);font-weight:700;}
+
+  /* 3 caps */
+  .caps{display:flex;flex-direction:column;gap:8px;}
+  .cap{display:flex;gap:12px;padding:12px;border-radius:10px;border:1px solid var(--line);background:#fafbff;}
+  .cap-icn{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .cap-1 .cap-icn{background:var(--sun-bg);}
+  .cap-2 .cap-icn{background:var(--grid-bg);}
+  .cap-3 .cap-icn{background:var(--bat-bg);}
+  .cap .t{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .cap .d{font-size:11px;color:var(--ink2);margin-top:3px;}
+
+  /* Round trip 3-col */
+  .rt{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:6px;align-items:center;margin:10px 0;}
+  .rt .col{background:#fafbff;border:1px solid var(--line);border-radius:10px;padding:10px 6px;text-align:center;}
+  .rt .col .lbl{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:700;}
+  .rt .col .v{font-size:20px;font-weight:800;margin-top:2px;}
+  .rt .col .u{font-size:9px;color:var(--ink3);}
+  .rt .arr2{color:var(--loss);font-weight:800;font-size:14px;}
+
+  /* Slider section */
+  .scen{background:#f1f5f9;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--ink2);line-height:1.7;}
+  .scen b{color:var(--ink);}
+  .slider-wrap{margin:6px 0 4px;}
+  .sl-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;margin-bottom:6px;}
+  .sl-val{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .sl-val.lo{color:var(--bat);}
+  .sl-val.mid{color:var(--sun);}
+  .sl-val.hi{color:var(--loss);}
+  input[type=range]{-webkit-appearance:none;width:100%;height:8px;border-radius:99px;background:linear-gradient(90deg,#10b981 0%,#f59e0b 50%,#dc2626 100%);outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;height:24px;width:24px;border-radius:50%;background:#fff;border:3px solid var(--ink);cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2);}
+  input[type=range]::-moz-range-thumb{height:24px;width:24px;border-radius:50%;background:#fff;border:3px solid var(--ink);cursor:pointer;}
+  .ticks{display:flex;justify-content:space-between;font-size:9px;color:var(--ink3);margin-top:4px;font-weight:600;}
+
+  /* Stat grid */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+  .stat{background:#fafbff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;}
+  .stat .lbl{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);font-weight:700;}
+  .stat .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:2px;}
+  .stat .u{font-size:10px;color:var(--ink3);}
+  .stat.in .v{color:var(--grid);}
+  .stat.out .v{color:var(--bat);}
+  .stat.lost .v{color:var(--loss);}
+  .stat.exp .v{color:#9d174d;}
+
+  /* Saving big card */
+  .save{background:linear-gradient(135deg,#ecfdf5,#dbeafe);border:1px solid #a7f3d0;border-radius:12px;padding:14px;margin-top:12px;}
+  .save .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .save .lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);font-weight:700;}
+  .save .big{font-size:32px;font-weight:900;color:var(--bat);font-variant-numeric:tabular-nums;letter-spacing:-1px;}
+  .save .delta{font-size:11px;color:var(--ink2);margin-top:2px;}
+
+  /* Bottleneck pill */
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:99px;font-size:11px;font-weight:700;}
+  .pill-bat{background:var(--bat-bg);color:#065f46;}
+  .pill-sun{background:var(--sun-bg);color:#92400e;}
+  .pill-loss{background:var(--loss-bg);color:#991b1b;}
+  .pill .dot{width:6px;height:6px;border-radius:99px;background:currentColor;}
+
+  /* Comparison table */
+  table.cmp{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+  table.cmp th{text-align:left;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);padding:8px 6px;border-bottom:2px solid var(--line);font-weight:700;}
+  table.cmp td{padding:9px 6px;border-bottom:1px solid var(--line);font-weight:500;}
+  table.cmp td.same{color:var(--bat);font-weight:800;}
+  table.cmp td.diff{color:var(--loss);font-weight:800;}
+  table.cmp tr.tot td{font-weight:800;border-top:2px solid var(--ink);border-bottom:none;padding-top:11px;}
+
+  /* Insight */
+  .insight{border-left:4px solid var(--bat);background:var(--bat-bg);padding:10px 12px;border-radius:0 10px 10px 0;font-size:12px;margin-top:12px;font-weight:500;color:#065f46;}
+  .insight.warn{border-color:var(--sun);background:var(--sun-bg);color:#92400e;}
+  .insight b{font-weight:800;}
+
+  /* Matters list */
+  .ml{display:flex;flex-direction:column;gap:6px;}
+  .ml-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#fafbff;border:1px solid var(--line);font-size:12px;}
+
+  /* FAQ */
+  details.faq{border-bottom:1px solid var(--line);padding:10px 0;}
+  details.faq:last-child{border-bottom:none;}
+  details.faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;gap:10px;}
+  details.faq summary::-webkit-details-marker{display:none;}
+  details.faq summary::after{content:'+';font-size:18px;color:var(--ink3);font-weight:400;transition:transform .2s;flex-shrink:0;}
+  details.faq[open] summary::after{content:'−';}
+  details.faq .a{font-size:12px;color:var(--ink2);margin-top:6px;line-height:1.7;}
+
+  /* Math */
+  details.math summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;}
+  details.math summary::-webkit-details-marker{display:none;}
+  .formula{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.9;margin-top:10px;overflow-x:auto;}
+  .formula .hl{color:#fbbf24;}
+  .formula .hg{color:#34d399;}
+  .formula .hr{color:#f87171;}
+  .formula .c{color:#64748b;}
+
+  .foot{text-align:center;font-size:10px;color:var(--ink3);margin-top:14px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- LANGUAGE TOGGLE -->
+  <div class="lang">
+    <div class="lang-toggle">
+      <button id="btnEn" class="active" onclick="setLang('en')">EN</button>
+      <button id="btnZh" onclick="setLang('zh')">中文</button>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="eyebrow" data-en="⚡ Visual Walkthrough" data-zh="⚡ 图解讲堂">⚡ Visual Walkthrough</div>
+    <h1 data-en='How your <span class="h">battery saving</span> is actually calculated' data-zh='你的<span class="h">电池节省</span>是怎么算出来的'>How your <span class="h">battery saving</span> is actually calculated</h1>
+    <p data-en="Step by step — from surplus solar, into the battery, out to your home, down to the final bill." data-zh="一步一步 — 从多余的太阳能 → 进入电池 → 输出到家中 → 最终账单。">Step by step — from surplus solar, into the battery, out to your home, down to the final bill.</p>
+  </div>
+
+  <!-- 1. WHERE BATTERY ENTERS -->
+  <div class="card">
+    <h2><span class="stp">1</span> <span data-en="Where the battery enters" data-zh="电池从哪里开始介入">Where the battery enters</span></h2>
+    <p class="sub" data-en="Solar first powers the house directly. Battery only touches what's <b>left over</b>." data-zh="太阳能先供应家中正在用的电。电池只处理<b>剩下的</b>那部分。">Solar first powers the house directly. Battery only touches what's <b>left over</b>.</p>
+
+    <div class="flow">
+      <div class="flow-box fb-sun"><span><span class="ico">☀️</span> <span data-en="Solar generated" data-zh="太阳能发电量">Solar generated</span></span><span class="v">800 kWh/mo</span></div>
+      <span class="arr">↓</span>
+      <div class="flow-box fb-home"><span><span class="ico">🏠</span> <span data-en="Direct morning use" data-zh="白天直接使用">Direct morning use</span></span><span class="v">−240 kWh</span></div>
+      <span class="arr">↓</span>
+      <div class="flow-box fb-bat"><span><span class="ico">📦</span> <span data-en="Surplus → battery pool" data-zh="剩余 → 电池可用">Surplus → battery pool</span></span><span class="v">560 kWh</span></div>
+    </div>
+
+    <div class="insight" data-en="<b>Key:</b> battery only redirects <em>surplus</em> solar. It doesn't create energy." data-zh="<b>重点：</b>电池只是把<em>多余</em>的太阳能导去夜间使用，它不会凭空产生能量。"><b>Key:</b> battery only redirects <em>surplus</em> solar. It doesn't create energy.</div>
+  </div>
+
+  <!-- 2. THREE CAPS -->
+  <div class="card">
+    <h2><span class="stp">2</span> <span data-en="Three limits on charging" data-zh="电池充电的三大限制">Three limits on charging</span></h2>
+    <p class="sub" data-en="Battery charges the <b>smallest</b> of these three:" data-zh="电池每天只会充入这三者中<b>最小</b>的那一个：">Battery charges the <b>smallest</b> of these three:</p>
+
+    <div class="caps">
+      <div class="cap cap-1">
+        <div class="cap-icn">☀️</div>
+        <div>
+          <div class="t"><span data-en="Surplus solar available" data-zh="剩余可用的太阳能">Surplus solar available</span> <span class="b b-sun">CAP A</span></div>
+          <div class="d" data-en="Can't store what isn't there." data-zh="没有的电，就存不进去。">Can't store what isn't there.</div>
+        </div>
+      </div>
+      <div class="cap cap-2">
+        <div class="cap-icn">🔋</div>
+        <div>
+          <div class="t"><span data-en="Battery physical size" data-zh="电池实际容量">Battery physical size</span> <span class="b b-grid">CAP B</span></div>
+          <div class="d" data-en="16 / 32 / 48 kWh − DoD reserve." data-zh="16 / 32 / 48 kWh，扣除保护容量（DoD）。">16 / 32 / 48 kWh − DoD reserve.</div>
+        </div>
+      </div>
+      <div class="cap cap-3">
+        <div class="cap-icn">🌙</div>
+        <div>
+          <div class="t"><span data-en="Night usage need" data-zh="夜间用电需求">Night usage need</span> <span class="b b-bat">CAP C</span></div>
+          <div class="d" data-en="Don't over-charge if night load is small." data-zh="夜间用得少，就不必充满电池。">Don't over-charge if night load is small.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="insight warn" data-en="<b>Most homes:</b> CAP C (night usage) wins. Battery only stores what night needs." data-zh="<b>一般家庭：</b>CAP C（夜间用电）最常胜出。电池只存够晚上要用的量。"><b>Most homes:</b> CAP C (night usage) wins. Battery only stores what night needs.</div>
+  </div>
+
+  <!-- 3. ROUND TRIP -->
+  <div class="card">
+    <h2><span class="stp">3</span> <span data-en="Round-trip loss" data-zh="充放电损耗">Round-trip loss</span></h2>
+    <p class="sub" data-en="Energy in → stored → out. Each leg loses heat." data-zh="能量进 → 存储 → 输出。每一段都会损耗一点（变成热）。">Energy in → stored → out. Each leg loses heat.</p>
+
+    <div class="rt">
+      <div class="col">
+        <div class="lbl" data-en="In" data-zh="输入">In</div>
+        <div class="v num">10.5</div>
+        <div class="u">kWh</div>
+      </div>
+      <div class="arr2">→</div>
+      <div class="col">
+        <div class="lbl" data-en="Stored" data-zh="存储">Stored</div>
+        <div class="v num" style="color:var(--bat)">10.0</div>
+        <div class="u">kWh</div>
+      </div>
+      <div class="arr2">→</div>
+      <div class="col">
+        <div class="lbl" data-en="Out" data-zh="输出">Out</div>
+        <div class="v num" style="color:var(--bat)">9.5</div>
+        <div class="u">kWh</div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--ink3);text-align:center;" data-en="~10% loss example. System pulls extra solar to compensate." data-zh="举例：10% 损耗。系统会多抽一点太阳能来补偿。">~10% loss example. System pulls extra solar to compensate.</p>
+  </div>
+
+  <!-- 4. INTERACTIVE -->
+  <div class="card">
+    <h2><span class="stp">4</span> <span data-en="Try it — drag the slider" data-zh="动手试试 — 拉动滑杆">Try it — drag the slider</span></h2>
+
+    <div class="scen">
+      <span data-en="<b>Scenario:</b> Solar 800 · Morning 30% · Usage 1000 · Battery 16 kWh" data-zh="<b>情境：</b>太阳能 800 · 白天用 30% · 总用电 1000 · 电池 16 kWh"><b>Scenario:</b> Solar 800 · Morning 30% · Usage 1000 · Battery 16 kWh</span><br>
+      <span data-en="Surplus: <b id='sExc'>18.7</b> kWh/d · Night: <b id='sNgt'>25.3</b> kWh/d · Usable: <b>15.2</b> kWh" data-zh="剩余：<b id='sExc'>18.7</b> kWh/天 · 夜间：<b id='sNgt'>25.3</b> kWh/天 · 可用电池：<b>15.2</b> kWh">Surplus: <b id="sExc">18.7</b> kWh/d · Night: <b id="sNgt">25.3</b> kWh/d · Usable: <b>15.2</b> kWh</span>
+    </div>
+
+    <div class="slider-wrap">
+      <div class="sl-row">
+        <span data-en="🔋 Battery loss" data-zh="🔋 电池损耗">🔋 Battery loss</span>
+        <span class="sl-val lo" id="sVal">0%</span>
+      </div>
+      <input type="range" id="sl" min="0" max="20" value="0" step="1">
+      <div class="ticks">
+        <span data-en="0% perfect" data-zh="0% 完美">0% perfect</span>
+        <span>10%</span>
+        <span data-en="20% worst" data-zh="20% 最差">20% worst</span>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;text-align:center;">
+      <span class="pill" id="sPill">
+        <span class="dot"></span>
+        <span id="sPillTxt">Night usage is the bottleneck</span>
+      </span>
+    </div>
+
+    <div class="stats">
+      <div class="stat in">
+        <div class="lbl" data-en="Solar → Battery" data-zh="太阳能 → 电池">Solar → Battery</div>
+        <div class="v num" id="sIn">15.2</div>
+        <div class="u" data-en="kWh / day" data-zh="kWh / 天">kWh / day</div>
+      </div>
+      <div class="stat out">
+        <div class="lbl" data-en="Battery → Home" data-zh="电池 → 家中">Battery → Home</div>
+        <div class="v num" id="sOut">15.2</div>
+        <div class="u" data-en="kWh / day" data-zh="kWh / 天">kWh / day</div>
+      </div>
+      <div class="stat lost">
+        <div class="lbl" data-en="Lost as heat" data-zh="变成热损耗">Lost as heat</div>
+        <div class="v num" id="sLost">0.0</div>
+        <div class="u" data-en="kWh / day" data-zh="kWh / 天">kWh / day</div>
+      </div>
+      <div class="stat exp">
+        <div class="lbl" data-en="Export sacrificed" data-zh="少卖给电网">Export sacrificed</div>
+        <div class="v num" id="sExpLost">0</div>
+        <div class="u" data-en="kWh / mo" data-zh="kWh / 月">kWh / mo</div>
+      </div>
+    </div>
+
+    <div class="save">
+      <div class="top">
+        <span class="lbl" data-en="Monthly Bill Saving" data-zh="每月账单节省">Monthly Bill Saving</span>
+        <span class="b b-bat" data-en="battery only" data-zh="仅电池部分">battery only</span>
+      </div>
+      <div class="big" id="sSave">RM 228</div>
+      <div class="delta" id="sDelta">Bill reduction stays flat — efficiency only nibbles export credit.</div>
+    </div>
+  </div>
+
+  <!-- ACT 2 SUB-HERO -->
+  <div class="hero" style="background:linear-gradient(135deg,#7c2d12 0%,#1e3a8a 100%);margin-top:22px;">
+    <div class="eyebrow" data-en="🤔 The Big Question" data-zh="🤔 核心疑问">🤔 The Big Question</div>
+    <h1 data-en='Why your <span class="h">battery saving</span> barely changes when efficiency drops' data-zh='为什么调整<span class="h">电池效率</span>，节省金额几乎不变？'>Why your <span class="h">battery saving</span> barely changes when efficiency drops</h1>
+    <p data-en="From the moment battery enters → all the way to your final bill." data-zh="从电池介入的那一刻 → 一路到最终账单。">From the moment battery enters → all the way to your final bill.</p>
+  </div>
+
+  <!-- 5. COMPARISON TABLE -->
+  <div class="card">
+    <h2><span class="stp">5</span> <span data-en="0% vs 20% loss — side by side" data-zh="0% vs 20% 损耗 — 同台比较">0% vs 20% loss — side by side</span></h2>
+    <p class="sub" data-en="Same scenario. Watch which numbers move." data-zh="同样的情境。注意哪些数字会变。">Same scenario. Watch which numbers move.</p>
+
+    <table class="cmp">
+      <tr>
+        <th data-en="What" data-zh="项目">What</th>
+        <th data-en="0% loss" data-zh="0% 损耗">0% loss</th>
+        <th data-en="20% loss" data-zh="20% 损耗">20% loss</th>
+        <th data-en="Δ" data-zh="变化">Δ</th>
+      </tr>
+      <tr>
+        <td data-en="Energy delivered to home" data-zh="送入家中的能量">Energy delivered to home</td>
+        <td class="num">456</td>
+        <td class="same num">456</td>
+        <td class="same" data-en="Same ✓" data-zh="不变 ✓">Same ✓</td>
+      </tr>
+      <tr>
+        <td data-en="<b>Bill reduction</b>" data-zh="<b>账单减少</b>"><b>Bill reduction</b></td>
+        <td class="num">RM 228</td>
+        <td class="same num">RM 228</td>
+        <td class="same" data-en="Same ✓" data-zh="不变 ✓">Same ✓</td>
+      </tr>
+      <tr>
+        <td data-en="Solar consumed by battery" data-zh="被电池吃掉的太阳能">Solar consumed by battery</td>
+        <td class="num">456</td>
+        <td class="diff num">570</td>
+        <td class="diff">+114 kWh</td>
+      </tr>
+      <tr>
+        <td data-en="Export credit" data-zh="卖电收入">Export credit</td>
+        <td class="num">RM 28</td>
+        <td class="diff num">RM 0</td>
+        <td class="diff">−RM 28</td>
+      </tr>
+      <tr class="tot">
+        <td data-en="Total saving" data-zh="总节省">Total saving</td>
+        <td class="num">RM 256</td>
+        <td class="num">RM 228</td>
+        <td style="color:var(--loss);">−11%</td>
+      </tr>
+    </table>
+
+    <div class="insight" data-en="Only the <b>cheap part</b> (export credit @ RM 0.21) drops. The <b>expensive part</b> (avoided grid @ RM 0.49) stays flat." data-zh="只有<b>便宜的那部分</b>（卖电 @ RM 0.21）会少。<b>贵的那部分</b>（省下来的电费 @ RM 0.49）完全不变。">
+      Only the <b>cheap part</b> (export credit @ RM 0.21) drops. The <b>expensive part</b> (avoided grid @ RM 0.49) stays flat.
+    </div>
+  </div>
+
+  <!-- 6. WHEN IT MATTERS -->
+  <div class="card">
+    <h2><span class="stp">6</span> <span data-en="When efficiency really bites" data-zh="什么情况下电池效率才真的有影响">When efficiency really bites</span></h2>
+    <div class="ml">
+      <div class="ml-row"><span class="b b-loss" data-en="HURTS" data-zh="影响大">HURTS</span> <span data-en="Small solar + big battery + heavy night load" data-zh="太阳能小 + 电池大 + 夜间用电重">Small solar + big battery + heavy night load</span></div>
+      <div class="ml-row"><span class="b b-loss" data-en="HURTS" data-zh="影响大">HURTS</span> <span data-en="Very high morning use → little surplus left" data-zh="白天用电极高 → 剩余太阳能少">Very high morning use → little surplus left</span></div>
+      <div class="ml-row"><span class="b b-bat" data-en="FLAT" data-zh="几乎不变">FLAT</span> <span data-en="Well-sized system, plenty of surplus" data-zh="系统配置合理，剩余太阳能充足">Well-sized system, plenty of surplus</span></div>
+      <div class="ml-row"><span class="b b-bat" data-en="FLAT" data-zh="几乎不变">FLAT</span> <span data-en="Battery already covers full night use" data-zh="电池已能覆盖整夜用电">Battery already covers full night use</span></div>
+    </div>
+  </div>
+
+  <!-- 7. FAQ -->
+  <div class="card">
+    <h2><span data-en="❓ Common doubts" data-zh="❓ 常见疑问">❓ Common doubts</span></h2>
+
+    <details class="faq">
+      <summary data-en="Is the calculator hiding the loss?" data-zh="计算器是不是把损耗藏起来了？">Is the calculator hiding the loss?</summary>
+      <div class="a" data-en="No. Loss is fully tracked. At 20% loss the system pulls 17 kWh from solar to deliver 13.6 kWh — the 3.4 kWh gap is the loss. It just gets paid out of <em>export credit</em>, not your bill." data-zh="没有。损耗完全有计算。20% 损耗时，系统从太阳能抽 17 kWh 才能输出 13.6 kWh — 中间差的 3.4 kWh 就是损耗。只是它从「卖电收入」里扣，不是从账单。">No. Loss is fully tracked. At 20% loss the system pulls 17 kWh from solar to deliver 13.6 kWh — the 3.4 kWh gap is the loss. It just gets paid out of <em>export credit</em>, not your bill.</div>
+    </details>
+
+    <details class="faq">
+      <summary data-en="Why doesn't 20% loss = 20% less saving?" data-zh="为什么 20% 损耗 ≠ 节省减少 20%？">Why doesn't 20% loss = 20% less saving?</summary>
+      <div class="a" data-en="Because 20% loss only means you need 25% more solar input to deliver the same output. If surplus solar is available, output stays the same. Like a leaky pipe with a deep well — the bucket still fills." data-zh="因为 20% 损耗只代表你需要多 25% 的太阳能输入，就能产生同样的输出。只要太阳能够，输出就不变。就像漏水的水管搭配充足的井水 — 水桶照样装满。">Because 20% loss only means you need 25% more solar input to deliver the same output. If surplus solar is available, output stays the same. Like a leaky pipe with a deep well — the bucket still fills.</div>
+    </details>
+
+    <details class="faq">
+      <summary data-en="So efficiency doesn't matter at all?" data-zh="那电池效率完全不重要吗？">So efficiency doesn't matter at all?</summary>
+      <div class="a" data-en="It does — but in a small way. Lower efficiency = less surplus left to export. Typical impact: RM 5–30 / month between best and worst battery." data-zh="有影响 — 但很小。效率低 = 可卖给电网的剩余电变少。一般每月差距约 RM 5–30。不是零，但也不是关键。">It does — but in a small way. Lower efficiency = less surplus left to export. Typical impact: RM 5–30 / month between best and worst battery.</div>
+    </details>
+
+    <details class="faq">
+      <summary data-en="What do I tell a doubting customer?" data-zh="客户怀疑时，我该怎么解释？">What do I tell a doubting customer?</summary>
+      <div class="a" data-en="Show this page. The math is <code>min(surplus, batterySize, nightUse ÷ efficiency)</code>. Efficiency only bites when it pushes the third term above the surplus. Standard engineering — not a trick." data-zh="让他看这一页。计算公式：<code>min(剩余太阳能, 电池容量, 夜间用电 ÷ 效率)</code>。效率只有把第三项推高超过剩余太阳能时，才会真的咬人。标准工程逻辑，不是耍花招。">Show this page. The math is <code>min(surplus, batterySize, nightUse ÷ efficiency)</code>. Efficiency only bites when it pushes the third term above the surplus. Standard engineering — not a trick.</div>
+    </details>
+  </div>
+
+  <!-- 8. MATH -->
+  <div class="card">
+    <details class="math">
+      <summary>
+        <span class="stp" style="background:#e2e8f0;color:var(--ink);">𝑓</span>
+        <span style="font-size:14px;font-weight:700;" data-en="For the curious — actual formulas" data-zh="想看公式 — 实际计算式">For the curious — actual formulas</span>
+        <span style="margin-left:auto;color:var(--ink3);font-size:11px;" data-en="tap to open" data-zh="点击展开">tap to open</span>
+      </summary>
+      <div class="formula">
+<span class="c"># <span data-en="Efficiency" data-zh="效率">Efficiency</span></span>
+RTE = 1 − loss%
+η   = √RTE          <span class="c"># <span data-en="per direction" data-zh="单向">per direction</span></span>
+usable = size × (1 − DoD%)
+
+<span class="c"># <span data-en="Charge input (the 3 caps)" data-zh="充电输入（三个限制）">Charge input (the 3 caps)</span></span>
+input = <span class="hl">min</span>(
+   surplus,
+   usable / η,
+   nightUse / RTE
+)
+
+<span class="c"># <span data-en="Battery flow" data-zh="电池流动">Battery flow</span></span>
+stored    = input × η
+delivered = <span class="hl">min</span>(stored × η, nightUse)
+
+<span class="c"># <span data-en="Bill" data-zh="账单">Bill</span></span>
+bill_offset   = delivered × <span class="hg">RM 0.49</span>
+export_credit = (surplus − input) × <span class="hr">RM 0.21</span>
+      </div>
+      <p style="font-size:11px;color:var(--ink3);margin-top:8px;" data-en="When CAP C wins → <b>delivered = nightUse</b>, independent of η. That's why the bill stays flat." data-zh="当 CAP C 胜出 → <b>delivered = 夜间用电</b>，与 η 无关。这就是账单不变的原因。">When CAP C wins → <b>delivered = nightUse</b>, independent of η. That's why the bill stays flat.</p>
+    </details>
+  </div>
+
+  <p class="foot">
+    <span data-en="Eternalgy Solar Calculator · Battery model walkthrough" data-zh="Eternalgy Solar Calculator · 电池计算讲解">Eternalgy Solar Calculator · Battery model walkthrough</span><br>
+    <span data-en="Numbers are illustrative — actual bills use TNB tariff lookup." data-zh="数字仅供说明 — 实际账单使用 TNB 电费表查询。">Numbers are illustrative — actual bills use TNB tariff lookup.</span>
+  </p>
+
+</div>
+
+<script>
+  // ===== Language System =====
+  const T = {
+    en: {
+      bn_night: '✅ Night usage is the bottleneck — bill flat',
+      bn_batt:  '⚠️ Battery size is the bottleneck — bill drops',
+      bn_solar: '🔴 Solar surplus exhausted — losses bite directly',
+      d_best:   'Best case — no heat loss. Pure delivery.',
+      d_night:  (bill, drop) => `Bill saving = RM ${bill} (flat). Lost RM ${drop} only from export credit.`,
+      d_batt:   (drop) => `Battery-limited — delivery drops, bill saving falls by RM ${drop}/mo.`,
+      d_solar:  (drop) => `Solar starved — losses cut directly into the bill (−RM ${drop}/mo).`
+    },
+    zh: {
+      bn_night: '✅ 瓶颈：夜间用电 — 账单不变',
+      bn_batt:  '⚠️ 瓶颈：电池容量 — 账单下降',
+      bn_solar: '🔴 剩余太阳能用尽 — 损耗直接影响账单',
+      d_best:   '最佳情况 — 零热损耗，全部输出。',
+      d_night:  (bill, drop) => `账单节省 = RM ${bill}（不变）。只有 RM ${drop} 从卖电收入中扣除。`,
+      d_batt:   (drop) => `电池容量限制 — 输出减少，账单节省减少 RM ${drop}/月。`,
+      d_solar:  (drop) => `太阳能不够 — 损耗直接咬掉账单（−RM ${drop}/月）。`
+    }
+  };
+  let LANG = 'en';
+
+  function setLang(l){
+    LANG = l;
+    document.documentElement.lang = l === 'zh' ? 'zh-CN' : 'en';
+    document.body.classList.toggle('zh', l === 'zh');
+    document.getElementById('btnEn').classList.toggle('active', l === 'en');
+    document.getElementById('btnZh').classList.toggle('active', l === 'zh');
+    document.querySelectorAll('[data-en]').forEach(el => {
+      const html = el.getAttribute('data-' + l);
+      if (html !== null) el.innerHTML = html;
+    });
+    update();
+  }
+
+  // ===== Interactive Slider =====
+  const sl = document.getElementById('sl');
+  const sVal = document.getElementById('sVal');
+  const sIn = document.getElementById('sIn');
+  const sOut = document.getElementById('sOut');
+  const sLost = document.getElementById('sLost');
+  const sExpLost = document.getElementById('sExpLost');
+  const sSave = document.getElementById('sSave');
+  const sDelta = document.getElementById('sDelta');
+  const sPill = document.getElementById('sPill');
+  const sPillTxt = document.getElementById('sPillTxt');
+
+  const monthlySolar = 800, morningPct = 30, monthlyUsage = 1000, batterySize = 16, dodPct = 5;
+  const usable = batterySize * (1 - dodPct/100);
+  const morningUse = monthlySolar * morningPct/100;
+  const surplus = monthlySolar - morningUse;
+  const dailySurplus = surplus / 30;
+  const dailyNight = Math.max(0, monthlyUsage - morningUse) / 30;
+  const GRID = 0.49, EXPORT = 0.21;
+
+  // Set scenario numbers (re-bound after language swap, since innerHTML rewrites them)
+  function bindScenarioNums(){
+    const e = document.getElementById('sExc');
+    const n = document.getElementById('sNgt');
+    if (e) e.textContent = dailySurplus.toFixed(1);
+    if (n) n.textContent = dailyNight.toFixed(1);
+  }
+
+  function calc(loss){
+    const RTE = Math.max(0.0001, 1 - loss/100);
+    const eta = Math.sqrt(RTE);
+    const cap1 = dailySurplus;
+    const cap2 = usable / eta;
+    const cap3 = dailyNight / RTE;
+    const input = Math.min(cap1, cap2, cap3);
+    const stored = input * eta;
+    const delivered = Math.min(stored * eta, dailyNight);
+    const lost = input - delivered;
+    return {input, delivered, lost, cap1, cap2, cap3, RTE};
+  }
+  const base = calc(0);
+  const baseExportable = surplus - base.input * 30;
+
+  function update(){
+    bindScenarioNums();
+    const loss = parseInt(sl.value);
+    const r = calc(loss);
+    const monthlyDelivered = r.delivered * 30;
+    const monthlyInput = r.input * 30;
+    const exportable = surplus - monthlyInput;
+    const exportSacrificed = Math.max(0, baseExportable - exportable);
+
+    const billRed = monthlyDelivered * GRID;
+    const exportCredit = Math.max(0, exportable) * EXPORT;
+    const total = billRed + exportCredit;
+    const baseTotal = base.delivered * 30 * GRID + Math.max(0, baseExportable) * EXPORT;
+    const deltaRM = baseTotal - total;
+
+    sVal.textContent = loss + '%';
+    sVal.className = 'sl-val ' + (loss <= 5 ? 'lo' : loss <= 12 ? 'mid' : 'hi');
+    sIn.textContent = r.input.toFixed(1);
+    sOut.textContent = r.delivered.toFixed(1);
+    sLost.textContent = r.lost.toFixed(1);
+    sExpLost.textContent = exportSacrificed.toFixed(0);
+    sSave.textContent = 'RM ' + total.toFixed(0);
+
+    const t = T[LANG];
+    let bn, cls;
+    if (r.input >= r.cap3 - 0.05) { bn = 'night'; cls = 'pill-bat'; sPillTxt.textContent = t.bn_night; }
+    else if (r.input >= r.cap2 - 0.05) { bn = 'batt'; cls = 'pill-sun'; sPillTxt.textContent = t.bn_batt; }
+    else { bn = 'solar'; cls = 'pill-loss'; sPillTxt.textContent = t.bn_solar; }
+    sPill.className = 'pill ' + cls;
+
+    if (loss === 0) sDelta.textContent = t.d_best;
+    else if (bn === 'night') sDelta.textContent = t.d_night(billRed.toFixed(0), deltaRM.toFixed(0));
+    else if (bn === 'batt') sDelta.textContent = t.d_batt(deltaRM.toFixed(0));
+    else sDelta.textContent = t.d_solar(deltaRM.toFixed(0));
+  }
+  sl.addEventListener('input', update);
+  update();
+</script>
+</body>
+</html>
