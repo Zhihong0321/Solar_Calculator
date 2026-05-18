@@ -130,6 +130,11 @@
             earthMonthToggle.addEventListener('change', updateInvoicePreview);
         }
 
+        const parentsDayToggle = document.getElementById('applyParentsDayPromo');
+        if (parentsDayToggle) {
+            parentsDayToggle.addEventListener('change', updateInvoicePreview);
+        }
+
         const discountInput = document.getElementById('discountGiven');
         if (discountInput) {
             discountInput.addEventListener('input', updateInvoicePreview);

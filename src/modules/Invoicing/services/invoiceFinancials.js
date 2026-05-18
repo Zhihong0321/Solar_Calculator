@@ -58,6 +58,17 @@ function getEarthMonthGoGreenBonusDiscount(panelQty) {
   return 0;
 }
 
+function getParentsDayPromoDiscount(panelQty) {
+  if (!isApril2026PromotionActive()) return 0;
+
+  const qty = parseInt(panelQty, 10) || 0;
+  if (qty >= 11 && qty <= 15) return 300;
+  if (qty >= 16 && qty <= 19) return 500;
+  if (qty >= 20 && qty <= 29) return 800;
+  if (qty >= 30) return 1300;
+  return 0;
+}
+
 function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, panelQty = 0) {
   const {
     agentMarkup = 0,
@@ -67,7 +78,8 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
     eppFeeAmount = 0,
     extraItems = [],
     applyEarnNowRebate = false,
-    applyEarthMonthGoGreenBonus = false
+    applyEarthMonthGoGreenBonus = false,
+    applyParentsDayPromo = false
   } = data;
 
   const markupAmount = parseFloat(agentMarkup) || 0;
@@ -97,6 +109,7 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
 
   const earnNowRebateDiscount = applyEarnNowRebate ? getEarnNowRebateDiscount(panelQty) : 0;
   const earthMonthGoGreenBonusDiscount = applyEarthMonthGoGreenBonus ? getEarthMonthGoGreenBonusDiscount(panelQty) : 0;
+  const parentsDayPromoDiscount = applyParentsDayPromo ? getParentsDayPromoDiscount(panelQty) : 0;
 
   const trueSubtotal = priceWithMarkup
     + extraItemsTotal
@@ -104,7 +117,8 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
     - percentDiscountVal
     - totalVoucherAmount
     - earnNowRebateDiscount
-    - earthMonthGoGreenBonusDiscount;
+    - earthMonthGoGreenBonusDiscount
+    - parentsDayPromoDiscount;
 
   if (trueSubtotal <= 0) {
     throw new Error('Total amount cannot be zero or negative after applying discounts and vouchers.');
@@ -124,7 +138,8 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
     sstAmount,
     finalTotalAmount,
     earnNowRebateDiscount,
-    earthMonthGoGreenBonusDiscount
+    earthMonthGoGreenBonusDiscount,
+    parentsDayPromoDiscount
   };
 }
 

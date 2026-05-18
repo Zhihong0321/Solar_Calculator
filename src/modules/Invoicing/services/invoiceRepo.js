@@ -1035,6 +1035,19 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     createdItemIds.push(earthMonthItemBubbleId);
   }
 
+  if (financials.parentsDayPromoDiscount > 0) {
+    const parentsDayItemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: `Parents' Day PROMO 双亲节优惠 (Panel Qty: ${pkg.panel_qty})`,
+      qty: 1,
+      unitPrice: -financials.parentsDayPromoDiscount,
+      amount: -financials.parentsDayPromoDiscount,
+      itemType: 'discount',
+      sort: 7,
+      isPackage: false
+    });
+    createdItemIds.push(parentsDayItemBubbleId);
+  }
+
   // 1.5 Extra Items
   if (Array.isArray(data.extraItems) && data.extraItems.length > 0) {
     let extraItemSortOrder = 50;

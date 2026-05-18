@@ -218,6 +218,9 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
         invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
     }
+    if (invoiceRequestPayload.apply_parents_day_promo !== undefined && invoiceRequestPayload.applyParentsDayPromo === undefined) {
+        invoiceRequestPayload.applyParentsDayPromo = normalizeBoolean(invoiceRequestPayload.apply_parents_day_promo);
+    }
     if (invoiceRequestPayload.hybrid_upgrade_rule_id !== undefined && invoiceRequestPayload.hybridUpgradeRuleId === undefined) {
         invoiceRequestPayload.hybridUpgradeRuleId = invoiceRequestPayload.hybrid_upgrade_rule_id;
     }
@@ -303,6 +306,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
       solarMorningUsagePercent: invoiceRequestPayload.solarMorningUsagePercent,
       applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate || false,
       applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus || false,
+      applyParentsDayPromo: invoiceRequestPayload.applyParentsDayPromo || false,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
@@ -434,6 +438,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.apply_earth_month_go_green_bonus !== undefined && invoiceRequestPayload.applyEarthMonthGoGreenBonus === undefined) {
         invoiceRequestPayload.applyEarthMonthGoGreenBonus = normalizeBoolean(invoiceRequestPayload.apply_earth_month_go_green_bonus);
     }
+    if (invoiceRequestPayload.apply_parents_day_promo !== undefined && invoiceRequestPayload.applyParentsDayPromo === undefined) {
+        invoiceRequestPayload.applyParentsDayPromo = normalizeBoolean(invoiceRequestPayload.apply_parents_day_promo);
+    }
     if (invoiceRequestPayload.hybrid_upgrade_rule_id !== undefined && invoiceRequestPayload.hybridUpgradeRuleId === undefined) {
         invoiceRequestPayload.hybridUpgradeRuleId = invoiceRequestPayload.hybrid_upgrade_rule_id;
     }
@@ -498,6 +505,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       // promo items that were already applied on the existing invoice.
       applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate || false,
       applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus || false,
+      applyParentsDayPromo: invoiceRequestPayload.applyParentsDayPromo || false,
       // templateId: We reuse original
       voucherCode: invoiceRequestPayload.voucherCode,
       voucherCodes: invoiceRequestPayload.voucherCodes,

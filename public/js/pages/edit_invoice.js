@@ -31,7 +31,8 @@ let selectedDraftVouchers = [];
 let loadedInvoiceItems = [];
 let loadedPromotionSelections = {
     earnNowApplied: false,
-    earthMonthApplied: false
+    earthMonthApplied: false,
+    parentsDayApplied: false
 };
 const BALLAST_UNIT_PRICE = 160;
 const ATS_ADDON_PRICE = 500;
@@ -252,12 +253,25 @@ function getEarthMonthGoGreenBonusAmount(panelQty) {
     return 0;
 }
 
+function getParentsDayPromoAmount(panelQty) {
+    if (!isApril2026PromotionActive()) return 0;
+
+    const qty = parseInt(panelQty, 10) || 0;
+    if (qty >= 11 && qty <= 15) return 300;
+    if (qty >= 16 && qty <= 19) return 500;
+    if (qty >= 20 && qty <= 29) return 800;
+    if (qty >= 30) return 1300;
+    return 0;
+}
+
 function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
     const normalizedPanelQty = parseInt(panelQty, 10) || 0;
     const earnNowEligibleAmount = getEarnNowRebateAmount(normalizedPanelQty);
     const earthMonthEligibleAmount = getEarthMonthGoGreenBonusAmount(normalizedPanelQty);
+    const parentsDayEligibleAmount = getParentsDayPromoAmount(normalizedPanelQty);
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const parentsDayToggle = document.getElementById('applyParentsDayPromo');
     const promotionsEnabled = isApril2026PromotionActive();
     const isLoadedPromoEdit = Boolean(window.isEditMode);
 
@@ -273,13 +287,21 @@ function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
             : isLoadedPromoEdit && Boolean(loadedPromotionSelections.earthMonthApplied)
     ) ? earthMonthEligibleAmount : 0;
 
+    const parentsDayAppliedAmount = (
+        promotionsEnabled
+            ? Boolean(parentsDayToggle?.checked)
+            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.parentsDayApplied)
+    ) ? parentsDayEligibleAmount : 0;
+
     return {
         panelQty: normalizedPanelQty,
         earnNowEligibleAmount,
         earthMonthEligibleAmount,
+        parentsDayEligibleAmount,
         earnNowAppliedAmount,
         earthMonthAppliedAmount,
-        totalAppliedAmount: earnNowAppliedAmount + earthMonthAppliedAmount
+        parentsDayAppliedAmount,
+        totalAppliedAmount: earnNowAppliedAmount + earthMonthAppliedAmount + parentsDayAppliedAmount
     };
 }
 
@@ -287,13 +309,16 @@ function updatePromotionOptionsUI() {
     const section = document.getElementById('promotionOptionsSection');
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const parentsDayToggle = document.getElementById('applyParentsDayPromo');
     const earnNowAmountDisplay = document.getElementById('earnNowAmountDisplay');
     const earthMonthAmountDisplay = document.getElementById('earthMonthBonusAmountDisplay');
+    const parentsDayAmountDisplay = document.getElementById('parentsDayAmountDisplay');
     const earnNowHint = document.getElementById('earnNowHint');
     const earthMonthHint = document.getElementById('earthMonthBonusHint');
+    const parentsDayHint = document.getElementById('parentsDayHint');
     const promotionsEnabled = isApril2026PromotionActive();
-    const hasPersistedPromo = Boolean(loadedPromotionSelections.earnNowApplied || loadedPromotionSelections.earthMonthApplied);
-    const { panelQty, earnNowEligibleAmount, earthMonthEligibleAmount } = getAppliedPromotionAmounts();
+    const hasPersistedPromo = Boolean(loadedPromotionSelections.earnNowApplied || loadedPromotionSelections.earthMonthApplied || loadedPromotionSelections.parentsDayApplied);
+    const { panelQty, earnNowEligibleAmount, earthMonthEligibleAmount, parentsDayEligibleAmount } = getAppliedPromotionAmounts();
 
     if (section) {
         section.classList.toggle('hidden', !promotionsEnabled && !hasPersistedPromo);
@@ -302,6 +327,7 @@ function updatePromotionOptionsUI() {
     if (!promotionsEnabled) {
         const hasLoadedEarnNow = Boolean(loadedPromotionSelections.earnNowApplied);
         const hasLoadedEarthMonth = Boolean(loadedPromotionSelections.earthMonthApplied);
+        const hasLoadedParentsDay = Boolean(loadedPromotionSelections.parentsDayApplied);
 
         if (earnNowToggle) {
             earnNowToggle.checked = hasLoadedEarnNow;
@@ -311,8 +337,12 @@ function updatePromotionOptionsUI() {
             earthMonthToggle.checked = hasLoadedEarthMonth;
             earthMonthToggle.disabled = true;
         }
+        if (parentsDayToggle) {
+            parentsDayToggle.checked = hasLoadedParentsDay;
+            parentsDayToggle.disabled = true;
+        }
 
-        if (!hasLoadedEarnNow && !hasLoadedEarthMonth) {
+        if (!hasLoadedEarnNow && !hasLoadedEarthMonth && !hasLoadedParentsDay) {
             return;
         }
 
@@ -321,6 +351,9 @@ function updatePromotionOptionsUI() {
         }
         if (earthMonthAmountDisplay) {
             earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
+        }
+        if (parentsDayAmountDisplay) {
+            parentsDayAmountDisplay.textContent = `RM ${parentsDayEligibleAmount.toFixed(2)}`;
         }
 
         if (earnNowHint) {
@@ -334,6 +367,12 @@ function updatePromotionOptionsUI() {
                 ? 'This bonus was already applied to the quotation and will be preserved on save.'
                 : 'Eligible for 11 to 36 solar panels only.';
         }
+
+        if (parentsDayHint) {
+            parentsDayHint.textContent = hasLoadedParentsDay
+                ? 'This discount was already applied to the quotation and will be preserved on save.'
+                : 'Eligible for 11+ solar panels.';
+        }
         return;
     }
 
@@ -343,6 +382,9 @@ function updatePromotionOptionsUI() {
     if (earthMonthAmountDisplay) {
         earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
     }
+    if (parentsDayAmountDisplay) {
+        parentsDayAmountDisplay.textContent = `RM ${parentsDayEligibleAmount.toFixed(2)}`;
+    }
 
     if (earnNowToggle) {
         earnNowToggle.disabled = earnNowEligibleAmount <= 0;
@@ -351,6 +393,10 @@ function updatePromotionOptionsUI() {
     if (earthMonthToggle) {
         earthMonthToggle.disabled = earthMonthEligibleAmount <= 0;
         if (earthMonthToggle.disabled) earthMonthToggle.checked = false;
+    }
+    if (parentsDayToggle) {
+        parentsDayToggle.disabled = parentsDayEligibleAmount <= 0;
+        if (parentsDayToggle.disabled) parentsDayToggle.checked = false;
     }
 
     if (earnNowHint) {
@@ -364,17 +410,26 @@ function updatePromotionOptionsUI() {
             ? `${panelQty} panels detected. Toggle to apply this bonus.`
             : 'Eligible for 11 to 36 solar panels only.';
     }
+
+    if (parentsDayHint) {
+        parentsDayHint.textContent = parentsDayEligibleAmount > 0
+            ? `${panelQty} panels detected. Toggle to apply this discount.`
+            : 'Eligible for 11+ solar panels.';
+    }
 }
 
 function hydratePromotionSelections(items = []) {
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const parentsDayToggle = document.getElementById('applyParentsDayPromo');
     const earnNowApplied = items.some((item) => String(item?.description || '').toLowerCase().includes('earn now rebate'));
     const earthMonthApplied = items.some((item) => String(item?.description || '').toLowerCase().includes('earth month go green bonus'));
+    const parentsDayApplied = items.some((item) => String(item?.description || '').toLowerCase().includes('parents\' day promo') || String(item?.description || '').includes('双亲节'));
 
     loadedPromotionSelections = {
         earnNowApplied,
-        earthMonthApplied
+        earthMonthApplied,
+        parentsDayApplied
     };
 
     if (earnNowToggle) {
@@ -383,6 +438,10 @@ function hydratePromotionSelections(items = []) {
 
     if (earthMonthToggle) {
         earthMonthToggle.checked = earthMonthApplied;
+    }
+
+    if (parentsDayToggle) {
+        parentsDayToggle.checked = parentsDayApplied;
     }
 }
 
@@ -1341,6 +1400,19 @@ function updateInvoicePreview() {
         itemsList.appendChild(earthMonthItem);
     }
 
+    if (promotionAmounts.parentsDayAppliedAmount > 0) {
+        const parentsDayItem = document.createElement('div');
+        parentsDayItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        parentsDayItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-pink-600">Parents' Day PROMO 双亲节优惠</div>
+                        <div class="text-[10px] text-pink-500 font-bold uppercase tracking-tight">Auto-applied discount (Panel Qty: ${promotionAmounts.panelQty})</div>
+                    </div>
+                    <div class="font-semibold text-pink-600">-RM ${promotionAmounts.parentsDayAppliedAmount.toFixed(2)}</div>
+                `;
+        itemsList.appendChild(parentsDayItem);
+    }
+
     // Calculate subtotal (starting with package price)
     let subtotal = packagePrice - promotionAmounts.totalAppliedAmount;
 
@@ -1846,6 +1918,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
 
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const parentsDayToggle = document.getElementById('applyParentsDayPromo');
     // If the promo toggles are disabled because the promo period already ended,
     // we still MUST carry the original invoice setting forward on save.
     // DO NOT replace persisted promo state with false just because the edit UI is locked.
@@ -1855,6 +1928,9 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     requestData.applyEarthMonthGoGreenBonus = earthMonthToggle?.disabled
         ? Boolean(loadedPromotionSelections.earthMonthApplied)
         : Boolean(earthMonthToggle?.checked);
+    requestData.applyParentsDayPromo = parentsDayToggle?.disabled
+        ? Boolean(loadedPromotionSelections.parentsDayApplied)
+        : Boolean(parentsDayToggle?.checked);
     // Always use version endpoint for edit mode
     const endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;
     // Preserve markup
