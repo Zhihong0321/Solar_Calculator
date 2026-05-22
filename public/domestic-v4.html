@@ -1304,26 +1304,7 @@
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', background: '#091407' }}>
-                            {[
-                                { value: `${solarResult?.paybackPeriod || '—'}yr`, label: '回本期' },
-                                { value: `${annualRoi.toFixed(1)}%`, label: '年回报率' },
-                                { value: `RM ${fmt(solarResult?.finalSystemCost || 0)}`, label: '系统费用' }
-                            ].map((metric, index) => (
-                                <div
-                                    key={metric.label}
-                                    style={{
-                                        flex: 1,
-                                        padding: '14px 6px',
-                                        textAlign: 'center',
-                                        borderRight: index < 2 ? '1px solid #1a2e1a' : 'none'
-                                    }}
-                                >
-                                    <div style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>{metric.value}</div>
-                                    <div style={{ fontSize: 10, color: ACCENT.light, marginTop: 2, fontWeight: 600 }}>{metric.label}</div>
-                                </div>
-                            ))}
-                        </div>
+
                     </div>
                 </SectionWrap>
             );

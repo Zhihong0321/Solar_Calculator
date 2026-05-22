@@ -182,7 +182,8 @@ async function getByShareToken(client, shareToken) {
           sedaColumns.has('applicant_name') ? null : 'NULL::text as applicant_name',
           sedaColumns.has('applicant_phone') ? null : 'NULL::text as applicant_phone',
           sedaColumns.has('applicant_email') ? null : 'NULL::text as applicant_email',
-          sedaColumns.has('applicant_ic') ? null : 'NULL::text as applicant_ic'
+          sedaColumns.has('applicant_ic') ? null : 'NULL::text as applicant_ic',
+          sedaColumns.has('applicant_tin') ? null : 'NULL::text as applicant_tin'
         ].filter(Boolean);
         const applicantFallbackSql = applicantFallbackSelects.length
           ? `${applicantFallbackSelects.join(',\n                ')},`

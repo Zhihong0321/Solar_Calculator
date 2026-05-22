@@ -566,11 +566,12 @@ async function getSedaEditableSnapshot(client, sedaId) {
     const applicantPhoneSelect = sedaColumns.has('applicant_phone') ? 's.applicant_phone' : 'NULL::text AS applicant_phone';
     const applicantEmailSelect = sedaColumns.has('applicant_email') ? 's.applicant_email' : 'NULL::text AS applicant_email';
     const applicantIcSelect = sedaColumns.has('applicant_ic') ? 's.applicant_ic' : 'NULL::text AS applicant_ic';
+    const applicantTinSelect = sedaColumns.has('applicant_tin') ? 's.applicant_tin' : 'NULL::text AS applicant_tin';
 
     const result = await client.query(
         `SELECT
              s.bubble_id, s.linked_customer, s.linked_invoice, s.created_by, s.agent,
-             ${applicantNameSelect}, ${applicantPhoneSelect}, ${applicantEmailSelect}, ${applicantIcSelect},
+             ${applicantNameSelect}, ${applicantPhoneSelect}, ${applicantEmailSelect}, ${applicantIcSelect}, ${applicantTinSelect},
              s.installation_address, s.city, s.state, s.postcode, s.tnb_account_no, s.phase_type,
              s.e_contact_name, s.e_contact_relationship, s.e_contact_no, s.e_contact_mykad,
              s.ic_no, s.email, s.e_email,
@@ -594,6 +595,7 @@ function buildSedaFormAuditChanges(snapshot, payload) {
     }
     addAuditChange(changes, 'Applicant Email', snapshot.applicant_email || snapshot.email || snapshot.customer_email, payload.email);
     addAuditChange(changes, 'IC Number', snapshot.applicant_ic || snapshot.ic_no || snapshot.customer_ic_number, payload.ic_no);
+    addAuditChange(changes, 'TIN', snapshot.applicant_tin, payload.tin);
     addAuditChange(changes, 'Installation Address', snapshot.installation_address, payload.installation_address);
     addAuditChange(changes, 'City', snapshot.city, payload.city);
     addAuditChange(changes, 'State', snapshot.state, payload.state);
@@ -622,6 +624,7 @@ function buildSedaTextUpdate(recordId, formValues, sedaColumns) {
     addColumn('applicant_phone', formValues.phone);
     addColumn('applicant_email', formValues.email);
     addColumn('applicant_ic', formValues.ic_no);
+    addColumn('applicant_tin', formValues.tin);
     addColumn('installation_address', formValues.installation_address);
     addColumn('city', formValues.city);
     addColumn('state', formValues.state);
@@ -867,7 +870,7 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
         const { customer_name, phone, registered_address,
                 installation_address, city, state, postcode, tnb_account_no, phase_type,
                 e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad,
-                ic_no, email, e_email } = req.body;
+                ic_no, email, e_email, tin } = req.body;
         const snapshot = await getSedaEditableSnapshot(client, seda.bubble_id);
         if (!snapshot) return res.status(404).json({ success: false, error: 'Not found or expired.' });
         const formValues = {
@@ -886,7 +889,8 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
             e_contact_mykad: normalizeOptionalText(e_contact_mykad),
             ic_no: normalizeOptionalText(ic_no),
             email: normalizeOptionalText(email),
-            e_email: normalizeOptionalText(e_email)
+            e_email: normalizeOptionalText(e_email),
+            tin: normalizeOptionalText(tin)
         };
         const auditChanges = buildSedaFormAuditChanges(snapshot, formValues);
 
@@ -1190,7 +1194,7 @@ router.post('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, r
     const { customer_name, phone, registered_address,
             installation_address, city, state, postcode, tnb_account_no, phase_type,
             e_contact_name, e_contact_relationship, e_contact_no, e_contact_mykad,
-            ic_no, email, e_email } = req.body;
+            ic_no, email, e_email, tin } = req.body;
 
     const client = await pool.connect();
     try {
@@ -1212,7 +1216,8 @@ router.post('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, r
             e_contact_mykad: normalizeOptionalText(e_contact_mykad),
             ic_no: normalizeOptionalText(ic_no),
             email: normalizeOptionalText(email),
-            e_email: normalizeOptionalText(e_email)
+            e_email: normalizeOptionalText(e_email),
+            tin: normalizeOptionalText(tin)
         };
         const auditChanges = buildSedaFormAuditChanges(snapshot, formValues);
 

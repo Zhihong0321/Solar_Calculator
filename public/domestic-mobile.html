@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -2291,22 +2291,7 @@
                 </div>
             </div>
 
-            <div style="margin-top:18px; height:1px; background:rgba(255,255,255,0.15);"></div>
 
-            <div class="roi-meta" style="margin-top:14px;">
-                <div class="roi-meta-item">
-                    <div class="roi-meta-num">${data.paybackPeriod}<span style="font-size:14px; font-weight:500;">yr</span></div>
-                    <div class="roi-meta-label">${t('lbl_payback')}</div>
-                </div>
-                <div class="roi-meta-item">
-                    <div class="roi-meta-num">${roiPct !== 'N/A' ? roiPct + '%' : 'N/A'}</div>
-                    <div class="roi-meta-label">${t('lbl_annualRoi')}</div>
-                </div>
-                <div class="roi-meta-item">
-                    <div class="roi-meta-num" style="font-size:16px;">RM ${fmt(data.finalSystemCost)}</div>
-                    <div class="roi-meta-label">${t('lbl_netCost')}</div>
-                </div>
-            </div>
 
             ${data.requiresSedaFee ? `
             <div class="seda-warning" style="background:rgba(254,243,199,0.15); border-color:rgba(217,119,6,0.6); margin-top:12px;">

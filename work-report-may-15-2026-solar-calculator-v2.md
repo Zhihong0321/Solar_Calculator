@@ -11,3 +11,6 @@
 - Restructured the explainer page into two acts: main hero now leads with "How your battery saving is actually calculated" (educational/foundational), and a second sub-hero introduces the "Why barely changes when efficiency drops" deep-dive section.
 - Added EN / 中文 language toggle to the explainer with `data-en` / `data-zh` attribute system, JS `setLang()` swap, and a translation dictionary for dynamic slider feedback (bottleneck pill + savings delta line). Added Noto Sans SC font preload for Simplified Chinese rendering.
 - Added clean public route `/battery_guide` in `server.js` that serves `public/battery-explanation-opus.html`, so the explainer is accessible at `https://<domain>/battery_guide` after deploy. Route is public (no auth) for customer-facing sharing.
+- Hid misleading energy saving comparison section on invoice view page (temporary fix pending correction)
+
+=====================
