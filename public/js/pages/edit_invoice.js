@@ -34,6 +34,10 @@ let loadedPromotionSelections = {
     earthMonthApplied: false,
     parentsDayApplied: false
 };
+const MICRO_INVERTER_MODELS = [
+    { id: 'mi_s2', name: 'SAJ M2-1.0K S2 Micro Inverter', price: 700, originalPrice: 1000 },
+    { id: 'mi_s4', name: 'SAJ M2-1.8K S4 Micro Inverter', price: 1300, originalPrice: 1500 }
+];
 const BALLAST_UNIT_PRICE = 160;
 const ATS_ADDON_PRICE = 500;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
@@ -55,6 +59,54 @@ function getManualDiscountPolicy(packagePrice) {
         maxPercent,
         maxAmount: normalizedPrice * (maxPercent / 100)
     };
+}
+
+function getMicroInverterItems() {
+    const items = [];
+    MICRO_INVERTER_MODELS.forEach(model => {
+        const qtyInput = document.getElementById(`${model.id}_qty`);
+        const qty = parseInt(qtyInput?.value, 10) || 0;
+        if (qty > 0) {
+            items.push({
+                description: `${model.name} (RM${model.originalPrice.toLocaleString()} → RM${model.price.toLocaleString()})`,
+                qty,
+                unit_price: model.price,
+                total_price: qty * model.price,
+                item_kind: 'micro_inverter'
+            });
+        }
+    });
+    return items;
+}
+
+function isMicroInverterItem(item) {
+    if (!item) return false;
+    const normalizedDescription = String(item.description || '').toUpperCase();
+    return normalizedDescription.includes('MICRO INVERTER')
+        || normalizedDescription.includes('M2-1.0K-S2')
+        || normalizedDescription.includes('M2-1.8K-S4');
+}
+
+function hydrateMicroInverterFromItems(items = []) {
+    MICRO_INVERTER_MODELS.forEach((model) => {
+        const input = document.getElementById(`${model.id}_qty`);
+        if (input) input.value = '0';
+    });
+
+    items.forEach((item) => {
+        const description = String(item.description || '').toUpperCase();
+        const qty = parseInt(item.qty, 10) || 0;
+
+        if (description.includes('M2-1.0K') && description.includes('S2')) {
+            const input = document.getElementById('mi_s2_qty');
+            if (input) input.value = String(Math.max(0, qty));
+        }
+
+        if ((description.includes('M2-1.8K') || description.includes('M4-1.8K')) && description.includes('S4')) {
+            const input = document.getElementById('mi_s4_qty');
+            if (input) input.value = String(Math.max(0, qty));
+        }
+    });
 }
 
 function getCurrentPanelQty() {
@@ -193,6 +245,8 @@ function getAdditionalInvoiceItems() {
     if (ballastItem) {
         items.push(ballastItem);
     }
+
+    getMicroInverterItems().forEach(item => items.push(item));
 
     return items;
 }
@@ -1728,9 +1782,12 @@ document.addEventListener('DOMContentLoaded', async function () {
 
                 // Load extra items as manual items (editable)
                 let ballastQty = 0;
+                const microInverterItems = [];
                 extraItems.forEach(item => {
                     if (isBallastItem(item)) {
                         ballastQty += parseInt(item.qty, 10) || Math.round((parseFloat(item.total_price) || 0) / BALLAST_UNIT_PRICE) || 0;
+                    } else if (isMicroInverterItem(item)) {
+                        microInverterItems.push(item);
                     } else {
                         addManualItem({
                             description: item.description,
@@ -1741,6 +1798,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     }
                 });
                 setBallastQty(ballastQty);
+                hydrateMicroInverterFromItems(microInverterItems);
 
                 // Note: Package, discount, and EPP fee items are handled
                 // by their respective form fields and will be recreated on submit
@@ -1792,6 +1850,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     updateBallastLimitText();
+    MICRO_INVERTER_MODELS.forEach(model => {
+        const input = document.getElementById(`${model.id}_qty`);
+        if (input) {
+            input.addEventListener('input', updateInvoicePreview);
+            input.addEventListener('change', updateInvoicePreview);
+        }
+    });
     updatePromotionOptionsUI();
     updatePackageChangeControls();
     updateWorkspaceStatuses();

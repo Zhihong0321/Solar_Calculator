@@ -23,8 +23,8 @@ const EPP_RATES = {
 // Initialize it in DOMContentLoaded for inline mode
 
 const MICRO_INVERTER_MODELS = [
-    { id: 'mi_s2', name: 'SAJ M2-1.0K S2 Micro Inverter', price: 500, originalPrice: 1000 },
-    { id: 'mi_s4', name: 'SAJ M4-1.8K S4 Micro Inverter', price: 1000, originalPrice: 1500 }
+    { id: 'mi_s2', name: 'SAJ M2-1.0K S2 Micro Inverter', price: 700, originalPrice: 1000 },
+    { id: 'mi_s4', name: 'SAJ M2-1.8K S4 Micro Inverter', price: 1300, originalPrice: 1500 }
 ];
 const BATTERY_PRODUCT_REF = '1776182988047x800815659516747800';
 const BATTERY_PRODUCT_NAME = 'B3-16.0-LV Battery';
