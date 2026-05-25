@@ -112,6 +112,10 @@ router.get('/create-invoice', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, '../../../../public/templates/create_invoice.html'));
 });
 
+router.get('/create-ev-charger-invoice', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, '../../../../public/templates/create_ev_charger_invoice.html'));
+});
+
 router.get('/edit-invoice', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, '../../../../public/templates/edit_invoice.html'));
 });

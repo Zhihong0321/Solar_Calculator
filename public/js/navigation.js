@@ -305,6 +305,16 @@
             parentPage: 'my-invoice'
         },
         {
+            pageKey: 'create-ev-charger-invoice',
+            path: '/create-ev-charger-invoice',
+            title: 'EV Charger Quote',
+            rootTab: 'invoices',
+            routeType: 'child',
+            stack: 'invoice',
+            showBack: true,
+            parentPage: 'my-invoice'
+        },
+        {
             pageKey: 'edit-invoice',
             path: '/edit-invoice',
             title: 'Edit Quote',

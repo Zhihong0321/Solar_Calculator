@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Create EV Charger Quotation</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/tailwind.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { padding-top: env(safe-area-inset-top); padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+        .pkg-card { transition: all 0.2s ease; cursor: pointer; }
+        .pkg-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1); }
+        .pkg-card.selected { border-color: #3b82f6; background: #eff6ff; box-shadow: 0 0 0 2px #3b82f6; }
+        .pkg-card.selected .pkg-check { display: flex; }
+        .pkg-card .pkg-check { display: none; }
+    </style>
+</head>
+
+<body class="min-h-screen bg-slate-100 pb-28 text-slate-900">
+    <div class="mx-auto max-w-3xl px-4 py-4 lg:px-6 lg:py-6">
+
+        <!-- Header -->
+        <div class="mb-6 flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-slate-900">EV Charger Quotation</h1>
+                <p class="text-sm text-slate-500 mt-1">Select a package and fill in customer details</p>
+            </div>
+            <div id="userWelcome" class="hidden flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-1.5">
+                <span class="text-xs font-medium text-blue-800">Welcome, <span id="userNameDisplay" class="font-bold">User</span></span>
+            </div>
+        </div>
+
+        <form id="evChargerForm" class="space-y-6">
+
+            <!-- Step 1: Package Selection -->
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-slate-500 mb-4">1. Select Package</h2>
+                <div id="packageGrid" class="grid gap-3 sm:grid-cols-2">
+                    <!-- Cards injected by JS -->
+                </div>
+                <input type="hidden" name="linked_package" id="selectedPackageId" value="">
+            </section>
+
+            <!-- Step 2: Customer Info -->
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-slate-500 mb-4">2. Customer Details</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Customer Name</label>
+                        <input type="text" id="customerName" name="customer_name"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                            placeholder="Full name">
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Phone</label>
+                            <input type="tel" id="customerPhone" name="customer_phone"
+                                class="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                                placeholder="+60 12-345 6789">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Lead Source</label>
+                            <select id="customerLeadSource"
+                                class="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white">
+                                <option value="">-- Select --</option>
+                                <option value="walk_in">Walk-in</option>
+                                <option value="online">Online</option>
+                                <option value="referral">Referral</option>
+                                <option value="social_media">Social Media</option>
+                                <option value="exhibition">Exhibition</option>
+                                <option value="repeat_customer">Repeat Customer</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Address</label>
+                        <textarea id="customerAddress" name="customer_address" rows="2"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none"
+                            placeholder="Installation address"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Remark</label>
+                        <input type="text" id="customerRemark"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                            placeholder="Any notes or special requests">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 3: Extra Items (optional) -->
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-slate-500 mb-4">3. Extra Items <span class="font-normal normal-case text-slate-400">(optional)</span></h2>
+                <div id="presetExtras" class="flex flex-wrap gap-1.5 mb-3">
+                    <!-- Quick-add buttons injected by JS -->
+                </div>
+                <div id="extraItemsContainer" class="space-y-2">
+                    <!-- rows injected by JS -->
+                </div>
+                <button type="button" id="addExtraItemBtn"
+                    class="mt-3 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+                    + Add Custom Item
+                </button>
+            </section>
+
+            <!-- Summary & Submit -->
+            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">Summary</h2>
+                <div id="summaryBody" class="space-y-2 text-sm">
+                    <div class="flex justify-between text-slate-500">
+                        <span>Package</span>
+                        <span id="summaryPackage">—</span>
+                    </div>
+                    <div id="summaryExtraItems"></div>
+                    <div class="border-t pt-2 flex justify-between font-bold text-slate-900">
+                        <span>Total</span>
+                        <span id="summaryTotal">RM 0.00</span>
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-3">
+                    <button type="submit" id="submitBtn"
+                        class="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled>
+                        Create Quotation
+                    </button>
+                </div>
+            </section>
+
+        </form>
+    </div>
+
+    <script src="/js/pages/ev_charger_invoice.js"></script>
+</body>
+
+</html>
