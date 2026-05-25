@@ -54,6 +54,9 @@ function normalizeInvoicePackageType(...rawValues) {
   if (values.some((value) => value === 'residential' || value.includes('residential'))) {
     return 'residential';
   }
+  if (values.some((value) => value === 'ev charger' || value.includes('ev charger') || value.includes('ev_charger'))) {
+    return 'ev_charger';
+  }
   return values[0];
 }
 

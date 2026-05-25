@@ -54,6 +54,9 @@ function normalizeVoucherCategoryPackageType(rawType) {
   if (value === 'non-resi' || value === 'non_resi' || value === 'non residential' || value === 'non-residential' || value === 'commercial') {
     return 'non-resi';
   }
+  if (value === 'ev charger' || value === 'ev_charger' || value.includes('ev charger')) {
+    return 'ev_charger';
+  }
   return value.includes('residential') ? 'resi' : 'non-resi';
 }
 

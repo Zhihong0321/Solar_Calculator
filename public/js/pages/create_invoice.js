@@ -1868,6 +1868,13 @@ function normalizePackageTypeHeader(rawType) {
         };
     }
 
+    if (value === 'ev charger' || value === 'ev_charger') {
+        return {
+            label: 'EV CHARGER',
+            classes: ['bg-green-900']
+        };
+    }
+
     return null;
 }
 
