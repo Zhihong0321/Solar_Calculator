@@ -88,6 +88,9 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         invoice.type,
         invoice.package_name
     );
+    const isEvCharger = 
+        (invoice.package_name && invoice.package_name.toLowerCase().includes('ev charger')) ||
+        ['1779719505392x510517187223558528', '1779719505392x532985182726628480', '1779719505392x185856407051952896', '1779719505392x930851860072331776', '1779719505392x911258790790266368'].includes(invoice.linked_package);
     const isCommercialPackage = normalizedPackageType === 'commercial';
     const _showSolarSavingsSection = !isCommercialPackage && (hasSolarSavingsSection || (showInteractiveControls && canEstimateSolarSavings));
     // TODO: Temporarily hidden — energy saving comparison is wrong/misleading, pending fix
@@ -1198,7 +1201,7 @@ body.a4-preview .terms-signature {
                     <span>Refer Program</span>
                   </button>
                   ` : ''}
-                  ${invoice.linked_seda_registration ? `
+                  ${!isEvCharger && invoice.linked_seda_registration ? `
                   <button onclick="window.open('/seda-register?id=${invoice.linked_seda_registration}', '_blank')" class="action-btn btn-seda">
                     <span>SEDA Form</span>
                   </button>
@@ -1208,7 +1211,7 @@ body.a4-preview .terms-signature {
                     <span>GENERATE TIGER NEO 3 PROPOSAL</span>
                   </button>
                   ` : ''}
-                  ${!hasTigerNeo3 && (invoice.share_token || invoice.bubble_id) && invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
+                  ${!isEvCharger && !hasTigerNeo3 && (invoice.share_token || invoice.bubble_id) && invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
                   <button onclick="viewProposal('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-proposal">
                     <span>View Proposal</span>
                   </button>
@@ -1218,7 +1221,7 @@ body.a4-preview .terms-signature {
                     <span>A4 Preview</span>
                   </button>
                   ` : ''}
-                  ${(invoice.share_token || invoice.bubble_id) ? `
+                  ${!isEvCharger && (invoice.share_token || invoice.bubble_id) ? `
                   <button onclick="downloadInvoicePdf('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-pdf">
                     <span id="pdfButtonText">Download PDF</span>
                   </button>

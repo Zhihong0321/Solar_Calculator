@@ -84,6 +84,9 @@ function generateInvoiceHtml(invoice, template, options = {}) {
     invoice.type,
     invoice.package_name
   );
+  const isEvCharger = 
+    (invoice.package_name && invoice.package_name.toLowerCase().includes('ev charger')) ||
+    ['1779719505392x510517187223558528', '1779719505392x532985182726628480', '1779719505392x185856407051952896', '1779719505392x930851860072331776', '1779719505392x911258790790266368'].includes(invoice.linked_package);
   const isCommercialQuotation = !isConfirmed && normalizedPackageType === 'commercial';
   const hasSiteVisitItem = items.some(item => {
     const sourceText = `${item.description || ''} ${item.product_name || ''}`.toLowerCase();
@@ -387,7 +390,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         <span>Customer Refer Customer Program</span>
       </button>
       ` : ''}
-      ${invoice.linked_seda_registration ? `
+      ${!isEvCharger && invoice.linked_seda_registration ? `
       <button onclick="window.open('/seda-register?id=${invoice.linked_seda_registration}', '_blank')"
          class="inline-flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -396,7 +399,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         <span>SEDA Form</span>
       </button>
       ` : ''}
-      ${(invoice.share_token || invoice.bubble_id) && invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
+      ${!isEvCharger && (invoice.share_token || invoice.bubble_id) && invoice.customer_name && invoice.customer_name !== 'Sample Quotation' ? `
       <button onclick="viewProposal('${invoice.share_token || invoice.bubble_id}')"
          class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -405,7 +408,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         <span>View Proposal</span>
       </button>
       ` : ''}
-      ${(invoice.share_token || invoice.bubble_id) ? `
+      ${!isEvCharger && (invoice.share_token || invoice.bubble_id) ? `
       <button onclick="downloadInvoicePdf('${invoice.share_token || invoice.bubble_id}')"
          class="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded shadow transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
