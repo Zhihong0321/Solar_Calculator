@@ -748,6 +748,10 @@ async function getInvoiceByBubbleId(client, bubbleId) {
       .filter(item => item.description?.includes('Earth Month Go Green Bonus'))
       .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
 
+    invoice.suria_rebate_amount = invoice.items
+      .filter(item => item.description?.includes('SuRIA Rebate'))
+      .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+
     invoice.discount_amount = invoice.items
       .filter(item =>
         item.item_type === 'discount'
@@ -755,6 +759,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         && !item.description?.includes('Holiday Boost Reward')
         && !item.description?.includes('Earn Now Rebate')
         && !item.description?.includes('Earth Month Go Green Bonus')
+        && !item.description?.includes('SuRIA Rebate')
       )
       .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
 
@@ -1046,6 +1051,19 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
       isPackage: false
     });
     createdItemIds.push(parentsDayItemBubbleId);
+  }
+
+  if (financials.suriaRebateDiscount > 0) {
+    const suriaItemBubbleId = await insertInvoiceItem(client, invoiceId, {
+      description: 'SuRIA Rebate (RM600/kWac, max RM3,000)',
+      qty: 1,
+      unitPrice: -financials.suriaRebateDiscount,
+      amount: -financials.suriaRebateDiscount,
+      itemType: 'discount',
+      sort: 8,
+      isPackage: false
+    });
+    createdItemIds.push(suriaItemBubbleId);
   }
 
   // 1.5 Extra Items

@@ -133,6 +133,17 @@
                         </div>
                     </div>
 
+                    <!-- SuRIA Rebate - always visible -->
+                    <div class="p-4 border-2 border-emerald-200 bg-emerald-50/50 rounded-xl">
+                        <label class="flex items-center justify-between gap-3 cursor-pointer">
+                            <div>
+                                <div class="text-[11px] uppercase tracking-wide font-bold text-emerald-700 underline cursor-pointer hover:text-emerald-900" onclick="event.stopPropagation(); showSuriaTncPopup();">🏷️ SuRIA Rebate</div>
+                                <div class="text-sm font-bold text-emerald-800 mt-0.5">-RM 3,000.00 <span class="text-[10px] font-normal tier-3">(all packages)</span></div>
+                            </div>
+                            <input type="checkbox" id="suriaRebateToggle" checked onchange="triggerSpontaneousUpdate('suriaRebateToggle')" class="h-6 w-6 accent-emerald-600">
+                        </label>
+                    </div>
+
                     <details class="pref-hide-human">
                         <summary class="text-[11px] uppercase tracking-widest tier-3 font-semibold"><span class="chev">▸</span> Advanced (AFA, discounts)</summary>
                         <div class="mt-3 grid grid-cols-1 gap-3">
@@ -149,15 +160,6 @@
                                     <label class="text-[11px] uppercase tracking-wide tier-3 font-semibold block mb-1">Discount RM</label>
                                     <div class="border-b-2 border-divider focus-within:border-fact pb-1"><input type="number" id="fixedDiscount" value="0" step="0.01" min="0" oninput="triggerSpontaneousUpdate('fixedDiscount')" class="w-full text-lg font-bold bg-transparent border-none outline-none"></div>
                                 </div>
-                            </div>
-                            <div class="mt-4 pt-3 border-t border-divider/50">
-                                <label class="flex items-center justify-between gap-3 cursor-pointer">
-                                    <div>
-                                        <div class="text-[10px] uppercase tracking-wide tier-3 font-semibold underline cursor-pointer hover:text-fact" onclick="event.stopPropagation(); showSuriaTncPopup();">SuRIA - Sustainable Rebate and Incentive Assistance (SuRIA) Home Initiative</div>
-                                        <div class="text-xs font-bold tier-2">-RM 3,000.00 (all packages)</div>
-                                    </div>
-                                    <input type="checkbox" id="suriaRebateToggle" checked onchange="triggerSpontaneousUpdate('suriaRebateToggle')" class="h-5 w-5 accent-black">
-                                </label>
                             </div>
                         </div>
                     </details>

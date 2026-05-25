@@ -86,6 +86,11 @@
         setCheckboxValue('applySST', urlParams.get('apply_sst') === 'true');
         setInputValue('templateIdHidden', urlParams.get('template_id'));
 
+        // SuRIA rebate carry-forward from calculator
+        if (urlParams.get('suria_rebate') === 'true') {
+            setCheckboxValue('applySuriaRebate', true);
+        }
+
         if (typeof applySolarSavingsParams === 'function') {
             applySolarSavingsParams(urlParams);
         }
@@ -133,6 +138,11 @@
         const parentsDayToggle = document.getElementById('applyParentsDayPromo');
         if (parentsDayToggle) {
             parentsDayToggle.addEventListener('change', updateInvoicePreview);
+        }
+
+        const suriaRebateToggle = document.getElementById('applySuriaRebate');
+        if (suriaRebateToggle) {
+            suriaRebateToggle.addEventListener('change', updateInvoicePreview);
         }
 
         const discountInput = document.getElementById('discountGiven');

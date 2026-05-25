@@ -393,6 +393,8 @@
             'OCBC': { 6: 4.00, 12: 5.00, 18: 6.00, 24: 7.00, 36: 8.00, 48: 9.00 }
         };
 
+        const SURIA_REBATE_AMOUNT = 3000;
+
         const DEFAULT_INPUTS = {
             billAmount: '500',
             historicalAfaRate: '-0.0047',
@@ -406,6 +408,7 @@
             afaRate: '0.0000',
             percentDiscount: '0',
             fixedDiscount: '0',
+            suriaRebate: true,
             batterySize: 0,
             batteryLossPercent: 0,
             batteryDodPercent: 5
@@ -538,6 +541,7 @@
         }
 
         function collectSolarParams(inputs) {
+            const suriaAmount = inputs.suriaRebate ? SURIA_REBATE_AMOUNT : 0;
             const params = {
                 amount: toNumber(inputs.billAmount),
                 sunPeakHour: toNumber(inputs.sunPeakHour),
@@ -547,7 +551,7 @@
                 afaRate: toNumber(inputs.afaRate),
                 historicalAfaRate: toNumber(inputs.historicalAfaRate),
                 percentDiscount: toNumber(inputs.percentDiscount),
-                fixedDiscount: toNumber(inputs.fixedDiscount),
+                fixedDiscount: toNumber(inputs.fixedDiscount) + suriaAmount,
                 systemPhase: parseInt(inputs.systemPhase, 10) || 3,
                 inverterType: inputs.inverterType || 'string',
                 batterySize: toNumber(inputs.batterySize),
@@ -580,6 +584,9 @@
             }
             if (discountParts.length > 0) {
                 params.set('discount_given', discountParts.join(' '));
+            }
+            if (inputs.suriaRebate) {
+                params.set('suria_rebate', 'true');
             }
 
             const cycles = buildBillCycleMetrics(solarData);
@@ -1177,6 +1184,23 @@
                             <div>
                                 <FieldLabel>Fixed Discount (RM)</FieldLabel>
                                 <TextField prefix="RM" value={inputs.fixedDiscount} onChange={(value) => setInputs((prev) => ({ ...prev, fixedDiscount: value }))} />
+                            </div>
+
+                            <div style={{
+                                background: '#ecfdf5',
+                                border: '2px solid #6ee7b7',
+                                borderRadius: 12,
+                                padding: '14px 16px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: 12
+                            }}>
+                                <div>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🏷️ SuRIA Rebate</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#047857', marginTop: 2 }}>-RM 3,000.00 <span style={{ fontSize: 10, fontWeight: 400, color: '#6b7280' }}>(all packages)</span></div>
+                                </div>
+                                <input type="checkbox" checked={inputs.suriaRebate} onChange={(e) => setInputs((prev) => ({ ...prev, suriaRebate: e.target.checked }))} style={{ width: 24, height: 24, accentColor: '#059669' }} />
                             </div>
 
                             {selectedPackage && (

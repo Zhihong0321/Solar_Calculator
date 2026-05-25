@@ -23923,7 +23923,7 @@ window.generateInvoiceLink = async function () {
 
     const pDisc = latestSolarParams.percentDiscount || 0;
     const baseFixedDisc = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
-    const suriaDisc = isSuriaRebateEnabled() ? SURIA_REBATE_AMOUNT : 0;
+    const suriaEnabled = isSuriaRebateEnabled();
 
 
 
@@ -23972,7 +23972,6 @@ window.generateInvoiceLink = async function () {
 
 
     if (baseFixedDisc > 0) discountStr += `${baseFixedDisc}`;
-    if (suriaDisc > 0) discountStr += (discountStr ? ' ' : '') + `${suriaDisc}`;
 
 
 
@@ -24069,6 +24068,7 @@ window.generateInvoiceLink = async function () {
 
 
     if (discountStr) params.set('discount_given', discountStr);
+    if (suriaEnabled) params.set('suria_rebate', 'true');
 
 
 

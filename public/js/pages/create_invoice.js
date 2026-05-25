@@ -33,10 +33,12 @@ const BATTERY_UNIT_PRICE = 8000;
 const BALLAST_UNIT_PRICE = 160;
 const ATS_ADDON_PRICE = 500;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
+const SURIA_REBATE_AMOUNT = 3000;
 let loadedPromotionSelections = {
     earnNowApplied: false,
     earthMonthApplied: false,
-    parentsDayApplied: false
+    parentsDayApplied: false,
+    suriaRebateApplied: false
 };
 
 // Read micro inverter qty inputs and return items with qty > 0
@@ -564,6 +566,7 @@ function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
     const earnNowToggle = document.getElementById('applyEarnNowRebate');
     const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
     const parentsDayToggle = document.getElementById('applyParentsDayPromo');
+    const suriaRebateToggle = document.getElementById('applySuriaRebate');
     const promotionsEnabled = isApril2026PromotionActive();
     const isLoadedPromoEdit = Boolean(window.isEditMode);
 
@@ -585,6 +588,10 @@ function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
             : isLoadedPromoEdit && Boolean(loadedPromotionSelections.parentsDayApplied)
     ) ? parentsDayEligibleAmount : 0;
 
+    const suriaRebateAppliedAmount = (
+        suriaRebateToggle?.checked || (isLoadedPromoEdit && Boolean(loadedPromotionSelections.suriaRebateApplied))
+    ) ? SURIA_REBATE_AMOUNT : 0;
+
     return {
         panelQty: normalizedPanelQty,
         earnNowEligibleAmount,
@@ -593,7 +600,8 @@ function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
         earnNowAppliedAmount,
         earthMonthAppliedAmount,
         parentsDayAppliedAmount,
-        totalAppliedAmount: earnNowAppliedAmount + earthMonthAppliedAmount + parentsDayAppliedAmount
+        suriaRebateAppliedAmount,
+        totalAppliedAmount: earnNowAppliedAmount + earthMonthAppliedAmount + parentsDayAppliedAmount + suriaRebateAppliedAmount
     };
 }
 
@@ -1151,6 +1159,19 @@ function updateInvoicePreview() {
         itemsList.appendChild(parentsDayItem);
     }
 
+    if (promotionAmounts.suriaRebateAppliedAmount > 0) {
+        const suriaItem = document.createElement('div');
+        suriaItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+        suriaItem.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-emerald-700">SuRIA Rebate</div>
+                        <div class="text-[10px] text-emerald-600 font-bold uppercase tracking-tight">Sustainable Rebate and Incentive Assistance (SuRIA) Home Initiative</div>
+                    </div>
+                    <div class="font-semibold text-emerald-700">-RM ${promotionAmounts.suriaRebateAppliedAmount.toFixed(2)}</div>
+                `;
+        itemsList.appendChild(suriaItem);
+    }
+
     let subtotal = packagePrice - promotionAmounts.totalAppliedAmount;
 
     // Add Extra Items
@@ -1594,17 +1615,21 @@ document.addEventListener('DOMContentLoaded', async function () {
                 const earnNowApplied = inv.items.some((item) => String(item?.description || '').toLowerCase().includes('earn now rebate'));
                 const earthMonthApplied = inv.items.some((item) => String(item?.description || '').toLowerCase().includes('earth month go green bonus'));
                 const parentsDayApplied = inv.items.some((item) => String(item?.description || '').toLowerCase().includes('parents\' day promo') || String(item?.description || '').includes('双亲节'));
+                const suriaRebateApplied = inv.items.some((item) => String(item?.description || '').toLowerCase().includes('suria rebate'));
                 loadedPromotionSelections = {
                     earnNowApplied,
                     earthMonthApplied,
-                    parentsDayApplied
+                    parentsDayApplied,
+                    suriaRebateApplied
                 };
                 const earnNowToggle = document.getElementById('applyEarnNowRebate');
                 const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
                 const parentsDayToggle = document.getElementById('applyParentsDayPromo');
+                const suriaRebateToggle = document.getElementById('applySuriaRebate');
                 if (earnNowToggle) earnNowToggle.checked = earnNowApplied;
                 if (earthMonthToggle) earthMonthToggle.checked = earthMonthApplied;
                 if (parentsDayToggle) parentsDayToggle.checked = parentsDayApplied;
+                if (suriaRebateToggle) suriaRebateToggle.checked = suriaRebateApplied;
 
                 // Clear loading warning if everything is okay
                 document.getElementById('warningMessage').classList.add('hidden');
@@ -1915,6 +1940,7 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
                 apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,
                 apply_earth_month_go_green_bonus: promotionAmounts.earthMonthAppliedAmount > 0,
                 apply_parents_day_promo: promotionAmounts.parentsDayAppliedAmount > 0,
+                apply_suria_rebate: promotionAmounts.suriaRebateAppliedAmount > 0,
                 followUpDays: data.follow_up_days || null
             }
         });
@@ -1938,6 +1964,9 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
             requestData.apply_parents_day_promo = document.getElementById('applyParentsDayPromo')?.disabled
                 ? Boolean(loadedPromotionSelections.parentsDayApplied)
                 : Boolean(document.getElementById('applyParentsDayPromo')?.checked);
+            requestData.apply_suria_rebate = document.getElementById('applySuriaRebate')?.disabled
+                ? Boolean(loadedPromotionSelections.suriaRebateApplied)
+                : Boolean(document.getElementById('applySuriaRebate')?.checked);
         }
 
         // Call the API
