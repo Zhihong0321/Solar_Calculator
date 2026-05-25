@@ -734,7 +734,7 @@ const DEFAULT_BATTERY_DOD_PERCENT = 5;
 
 
 
-const SURYA_REBATE_AMOUNT = 3000;
+const SURIA_REBATE_AMOUNT = 3000;
 
 
 
@@ -1342,8 +1342,8 @@ function normalizeBatteryDodPercent(value) {
 
 
 
-function isSuryaRebateEnabled() {
-    const toggle = document.getElementById('suryaRebateToggle');
+function isSuriaRebateEnabled() {
+    const toggle = document.getElementById('suriaRebateToggle');
     return toggle ? Boolean(toggle.checked) : false;
 }
 
@@ -18193,7 +18193,7 @@ function collectLiveSolarParams(overrides = {}) {
 
 
 
-        fixedDiscount: (parseFloat(document.getElementById('fixedDiscount')?.value) || 0) + (isSuryaRebateEnabled() ? SURYA_REBATE_AMOUNT : 0),
+        fixedDiscount: (parseFloat(document.getElementById('fixedDiscount')?.value) || 0) + (isSuriaRebateEnabled() ? SURIA_REBATE_AMOUNT : 0),
 
 
 
@@ -18673,7 +18673,7 @@ window.triggerSpontaneousUpdate = function (source) {
 
 
 
-    latestSolarParams.fixedDiscount = (parseFloat(document.getElementById('fixedDiscount')?.value) || 0) + (isSuryaRebateEnabled() ? SURYA_REBATE_AMOUNT : 0);
+    latestSolarParams.fixedDiscount = (parseFloat(document.getElementById('fixedDiscount')?.value) || 0) + (isSuriaRebateEnabled() ? SURIA_REBATE_AMOUNT : 0);
 
 
 
@@ -23923,7 +23923,7 @@ window.generateInvoiceLink = async function () {
 
     const pDisc = latestSolarParams.percentDiscount || 0;
     const baseFixedDisc = parseFloat(document.getElementById('fixedDiscount')?.value) || 0;
-    const suryaDisc = isSuryaRebateEnabled() ? SURYA_REBATE_AMOUNT : 0;
+    const suriaDisc = isSuriaRebateEnabled() ? SURIA_REBATE_AMOUNT : 0;
 
 
 
@@ -23972,7 +23972,7 @@ window.generateInvoiceLink = async function () {
 
 
     if (baseFixedDisc > 0) discountStr += `${baseFixedDisc}`;
-    if (suryaDisc > 0) discountStr += (discountStr ? ' ' : '') + `${suryaDisc}`;
+    if (suriaDisc > 0) discountStr += (discountStr ? ' ' : '') + `${suriaDisc}`;
 
 
 
@@ -25492,7 +25492,7 @@ function displayBillBreakdown(data) {
 
 
 
-                                        <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">SURYA Rebate</div>
+                                        <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">SuRIA - Sustainable Rebate and Incentive Assistance (SuRIA) Home Initiative</div>
 
 
 
@@ -25504,7 +25504,7 @@ function displayBillBreakdown(data) {
 
 
 
-                                    <input type="checkbox" id="suryaRebateToggle" checked onchange="triggerSpontaneousUpdate('suryaRebateToggle')" class="h-5 w-5 accent-black">
+                                    <input type="checkbox" id="suriaRebateToggle" checked onchange="triggerSpontaneousUpdate('suriaRebateToggle')" class="h-5 w-5 accent-black">
 
 
 
