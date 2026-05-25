@@ -34,6 +34,35 @@ const BALLAST_UNIT_PRICE = 160;
 const ATS_ADDON_PRICE = 500;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
 const SURIA_REBATE_AMOUNT = 3000;
+
+function showSuriaTncPopup() {
+    const p = document.createElement('div');
+    p.className = 'fixed inset-0 z-[10001] flex items-center justify-center p-4';
+    p.style.background = 'rgba(0,0,0,0.4)';
+    p.style.backdropFilter = 'blur(4px)';
+    p.onclick = function(e) { if (e.target === p) p.remove(); };
+    p.innerHTML = `
+        <div class="w-full max-w-xl bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-sm font-bold uppercase tracking-wide">SuRIA — Terms & Conditions</h3>
+                <button onclick="this.closest('.fixed').remove()" class="text-2xl leading-none">&times;</button>
+            </div>
+            <div class="border-t pt-4 text-sm text-slate-700 space-y-2 max-h-[60vh] overflow-y-auto">
+                <p><b>Target Audience:</b> Individual domestic low voltage (LV) consumers only.</p>
+                <p><b>Nationality:</b> Must be a Malaysian citizen.</p>
+                <p><b>Prerequisite:</b> Must be registered under Solar ATAP programme.</p>
+                <p><b>Operational Approval:</b> Must have commenced operations with TNB.</p>
+                <p><b>Rebate Quantum:</b> RM600 per 1kWac, capped at RM3,000 (5kWac max).</p>
+                <p><b>Claim Limit:</b> One (1) rebate per eligible individual.</p>
+                <p><b>Timeline:</b> Begins June 1, 2026. Systems must commence by Dec 31, 2026.</p>
+                <p><b>Quota:</b> 250MW cumulative capacity or RM150 million total. First-come, first-served.</p>
+                <p><b>Penalty:</b> Abuse of the system will result in blacklisting from future incentive programmes.</p>
+            </div>
+            <button onclick="this.closest('.fixed').remove()" class="mt-4 w-full bg-slate-900 text-white py-3 rounded-xl text-xs font-bold uppercase tracking-wide">Close</button>
+        </div>
+    `;
+    document.body.appendChild(p);
+}
 let loadedPromotionSelections = {
     earnNowApplied: false,
     earthMonthApplied: false,

@@ -395,6 +395,33 @@
 
         const SURIA_REBATE_AMOUNT = 3000;
 
+        function showSuriaTncPopup() {
+            const p = document.createElement('div');
+            p.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:16px;';
+            p.onclick = function(e) { if (e.target === p) p.remove(); };
+            p.innerHTML = `
+                <div style="width:100%;max-width:520px;background:#fff;border:1px solid #111;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,0.2);border-radius:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">SuRIA — Terms & Conditions</div>
+                        <button onclick="this.closest('div[style*=fixed]').remove()" style="font-size:24px;border:none;background:none;cursor:pointer;">&times;</button>
+                    </div>
+                    <div style="border-top:1px solid #e5e7eb;padding-top:16px;font-size:13px;color:#374151;line-height:1.6;">
+                        <p><b>Target Audience:</b> Individual domestic low voltage (LV) consumers only.</p>
+                        <p style="margin-top:8px;"><b>Nationality:</b> Must be a Malaysian citizen.</p>
+                        <p style="margin-top:8px;"><b>Prerequisite:</b> Must be registered under Solar ATAP programme.</p>
+                        <p style="margin-top:8px;"><b>Operational Approval:</b> Must have commenced operations with TNB.</p>
+                        <p style="margin-top:8px;"><b>Rebate Quantum:</b> RM600 per 1kWac, capped at RM3,000 (5kWac max).</p>
+                        <p style="margin-top:8px;"><b>Claim Limit:</b> One (1) rebate per eligible individual.</p>
+                        <p style="margin-top:8px;"><b>Timeline:</b> Begins June 1, 2026. Systems must commence by Dec 31, 2026.</p>
+                        <p style="margin-top:8px;"><b>Quota:</b> 250MW cumulative capacity or RM150 million total. First-come, first-served.</p>
+                        <p style="margin-top:8px;"><b>Penalty:</b> Abuse of the system will result in blacklisting from future incentive programmes.</p>
+                    </div>
+                    <button onclick="this.closest('div[style*=fixed]').remove()" style="margin-top:16px;width:100%;background:#111;color:#fff;border:none;padding:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;cursor:pointer;border-radius:8px;">Close</button>
+                </div>
+            `;
+            document.body.appendChild(p);
+        }
+
         const DEFAULT_INPUTS = {
             billAmount: '500',
             historicalAfaRate: '-0.0047',
@@ -1197,7 +1224,7 @@
                                 gap: 12
                             }}>
                                 <div>
-                                    <div style={{ fontSize: 11, fontWeight: 700, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.05em' }}>🏷️ SuRIA Rebate</div>
+                                    <div onClick={showSuriaTncPopup} style={{ fontSize: 11, fontWeight: 700, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer', textDecoration: 'underline' }}>🏷️ SuRIA Rebate</div>
                                     <div style={{ fontSize: 14, fontWeight: 700, color: '#047857', marginTop: 2 }}>-RM 3,000.00 <span style={{ fontSize: 10, fontWeight: 400, color: '#6b7280' }}>(all packages)</span></div>
                                 </div>
                                 <input type="checkbox" checked={inputs.suriaRebate} onChange={(e) => setInputs((prev) => ({ ...prev, suriaRebate: e.target.checked }))} style={{ width: 24, height: 24, accentColor: '#059669' }} />
