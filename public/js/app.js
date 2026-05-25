@@ -25492,7 +25492,7 @@ function displayBillBreakdown(data) {
 
 
 
-                                        <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">SuRIA - Sustainable Rebate and Incentive Assistance (SuRIA) Home Initiative</div>
+                                        <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold underline cursor-pointer hover:text-fact" onclick="event.stopPropagation(); showSuriaTncPopup();">SuRIA - Sustainable Rebate and Incentive Assistance (SuRIA) Home Initiative</div>
 
 
 
@@ -31639,6 +31639,70 @@ function showNotification(m, t = 'info') {
 
 
 
+
+function showSuriaTncPopup() {
+    const p = document.createElement('div');
+    p.className = 'fixed inset-0 z-[10001] bg-black/40 backdrop-blur-sm overflow-y-auto';
+    p.onclick = function(e) { if (e.target === p) p.remove(); };
+
+    p.innerHTML = `
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="w-full max-w-xl border border-fact bg-paper p-6 md:p-8 shadow-xl space-y-5 text-left my-auto">
+                <div class="flex items-center justify-between">
+                    <div class="text-xs md:text-sm font-bold uppercase tracking-wide">SuRIA — Terms &amp; Conditions</div>
+                    <button onclick="this.closest('.fixed').remove()" class="text-2xl leading-none">&times;</button>
+                </div>
+                <div class="border-t border-divider/50"></div>
+                <div class="space-y-4 text-xs md:text-sm tier-2 max-h-[60vh] overflow-y-auto pr-2">
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">Target Audience &amp; Customer Type</div>
+                        <div>Only open to individual domestic low voltage (LV) consumers.</div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">Nationality Requirement</div>
+                        <div>Must be a Malaysian citizen.</div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">Prerequisite Programme</div>
+                        <div>Solar installations must be registered and approved under the Solar Accelerated Transition Action Programme (Solar ATAP).</div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">Operational Approval</div>
+                        <div>Applicants must have successfully commenced operations of their Solar ATAP systems with Tenaga Nasional Berhad (TNB).</div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">Rebate Quantum</div>
+                        <div>RM600 for every 1kWac of installed capacity, capped at a maximum of RM3,000 (equivalent to 5kWac).</div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">Claim Limit</div>
+                        <div>Strictly limited to one (1) rebate claim per eligible individual.</div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">Timeline &amp; Deadlines</div>
+                        <div>Rebate implementation begins June 1, 2026. Solar systems must commence operations by December 31, 2026.</div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">Quota Cap</div>
+                        <div>Subject to a total cumulative solar capacity quota of 250MW (or a total financial allocation of RM150 million). The programme will end once the quota is fully taken up, even if it is before December 31, 2026.</div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">Distribution Basis</div>
+                        <div>Allocation is processed on a first-come, first-served basis.</div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-fact text-[11px] md:text-xs uppercase tracking-wide mb-1">System Misuse &amp; Penalty</div>
+                        <div>Any party, including consumers or solar providers, found abusing the application system provided by the Sustainable Energy Development Authority (SEDA) Malaysia and TNB will be blacklisted from future incentive programmes.</div>
+                    </div>
+                </div>
+                <div class="border-t border-divider/50 pt-4">
+                    <button onclick="this.closest('.fixed').remove()" class="w-full bg-black text-white py-3 text-[10px] md:text-xs font-bold uppercase tracking-wide">Close</button>
+                </div>
+            </div>
+        </div>`;
+
+    document.body.appendChild(p);
+}
 
 function showPanelRecommendationPopup(data) {
 
