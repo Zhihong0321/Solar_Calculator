@@ -24068,7 +24068,6 @@ window.generateInvoiceLink = async function () {
 
 
     if (discountStr) params.set('discount_given', discountStr);
-    if (suriaEnabled) params.set('suria_rebate', 'true');
 
 
 

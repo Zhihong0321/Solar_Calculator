@@ -612,9 +612,6 @@
             if (discountParts.length > 0) {
                 params.set('discount_given', discountParts.join(' '));
             }
-            if (inputs.suriaRebate) {
-                params.set('suria_rebate', 'true');
-            }
 
             const cycles = buildBillCycleMetrics(solarData);
             const activeCycle = cycles[selectedBillCycleMode] || cycles.fullMonth;

@@ -221,9 +221,6 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.apply_parents_day_promo !== undefined && invoiceRequestPayload.applyParentsDayPromo === undefined) {
         invoiceRequestPayload.applyParentsDayPromo = normalizeBoolean(invoiceRequestPayload.apply_parents_day_promo);
     }
-    if (invoiceRequestPayload.apply_suria_rebate !== undefined && invoiceRequestPayload.applySuriaRebate === undefined) {
-        invoiceRequestPayload.applySuriaRebate = normalizeBoolean(invoiceRequestPayload.apply_suria_rebate);
-    }
     if (invoiceRequestPayload.hybrid_upgrade_rule_id !== undefined && invoiceRequestPayload.hybridUpgradeRuleId === undefined) {
         invoiceRequestPayload.hybridUpgradeRuleId = invoiceRequestPayload.hybrid_upgrade_rule_id;
     }
@@ -310,7 +307,6 @@ async function createInvoice(pool, invoiceRequestPayload) {
       applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate || false,
       applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus || false,
       applyParentsDayPromo: invoiceRequestPayload.applyParentsDayPromo || false,
-      applySuriaRebate: invoiceRequestPayload.applySuriaRebate || false,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
@@ -445,9 +441,6 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.apply_parents_day_promo !== undefined && invoiceRequestPayload.applyParentsDayPromo === undefined) {
         invoiceRequestPayload.applyParentsDayPromo = normalizeBoolean(invoiceRequestPayload.apply_parents_day_promo);
     }
-    if (invoiceRequestPayload.apply_suria_rebate !== undefined && invoiceRequestPayload.applySuriaRebate === undefined) {
-        invoiceRequestPayload.applySuriaRebate = normalizeBoolean(invoiceRequestPayload.apply_suria_rebate);
-    }
     if (invoiceRequestPayload.hybrid_upgrade_rule_id !== undefined && invoiceRequestPayload.hybridUpgradeRuleId === undefined) {
         invoiceRequestPayload.hybridUpgradeRuleId = invoiceRequestPayload.hybrid_upgrade_rule_id;
     }
@@ -513,7 +506,6 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate || false,
       applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus || false,
       applyParentsDayPromo: invoiceRequestPayload.applyParentsDayPromo || false,
-      applySuriaRebate: invoiceRequestPayload.applySuriaRebate || false,
       // templateId: We reuse original
       voucherCode: invoiceRequestPayload.voucherCode,
       voucherCodes: invoiceRequestPayload.voucherCodes,

@@ -79,8 +79,7 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
     extraItems = [],
     applyEarnNowRebate = false,
     applyEarthMonthGoGreenBonus = false,
-    applyParentsDayPromo = false,
-    applySuriaRebate = false
+    applyParentsDayPromo = false
   } = data;
 
   const markupAmount = parseFloat(agentMarkup) || 0;
@@ -111,7 +110,6 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
   const earnNowRebateDiscount = applyEarnNowRebate ? getEarnNowRebateDiscount(panelQty) : 0;
   const earthMonthGoGreenBonusDiscount = applyEarthMonthGoGreenBonus ? getEarthMonthGoGreenBonusDiscount(panelQty) : 0;
   const parentsDayPromoDiscount = applyParentsDayPromo ? getParentsDayPromoDiscount(panelQty) : 0;
-  const suriaRebateDiscount = applySuriaRebate ? 3000 : 0;
 
   const trueSubtotal = priceWithMarkup
     + extraItemsTotal
@@ -120,8 +118,7 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
     - totalVoucherAmount
     - earnNowRebateDiscount
     - earthMonthGoGreenBonusDiscount
-    - parentsDayPromoDiscount
-    - suriaRebateDiscount;
+    - parentsDayPromoDiscount;
 
   if (trueSubtotal <= 0) {
     throw new Error('Total amount cannot be zero or negative after applying discounts and vouchers.');
@@ -142,8 +139,7 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
     finalTotalAmount,
     earnNowRebateDiscount,
     earthMonthGoGreenBonusDiscount,
-    parentsDayPromoDiscount,
-    suriaRebateDiscount
+    parentsDayPromoDiscount
   };
 }
 
