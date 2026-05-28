@@ -452,6 +452,11 @@ app.get('/help/new-user', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'help_new_user.html'));
 });
 
+// Company Cloud
+app.get('/company-cloud', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'company_cloud.html'));
+});
+
 function normalizeUserSignature(signature) {
   if (signature == null || signature === '') return null;
   if (typeof signature !== 'string') {
