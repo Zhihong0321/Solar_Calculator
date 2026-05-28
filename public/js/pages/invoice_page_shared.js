@@ -1,6 +1,20 @@
 (function attachInvoicePageShared(global) {
     // CEO Discount: only these login phone numbers may use the unlimited CEO discount field
+    // Stored in normalized format (no spaces, no dashes). Matching handles 60xxx and 0xxx variants.
     const CEO_DISCOUNT_PHONES = ['60127299201', '601121000099'];
+
+    function normalizeCeoPhone(phone) {
+        // Strip spaces, dashes, plus sign
+        let p = String(phone || '').replace(/[\s\-\+]/g, '');
+        // Convert local format (0xxx) to international (60xxx)
+        if (p.startsWith('0')) p = '60' + p.substring(1);
+        return p;
+    }
+
+    function isCeoPhone(phone) {
+        const normalized = normalizeCeoPhone(phone);
+        return CEO_DISCOUNT_PHONES.includes(normalized);
+    }
 
     function setInputValue(id, value) {
         const input = document.getElementById(id);
@@ -57,9 +71,9 @@
             if (!response.ok) return;
 
             const data = await response.json();
-            const phone = String(data.phone || '').trim().replace(/\s+/g, '');
+            const phone = String(data.phone || '').trim();
 
-            if (!CEO_DISCOUNT_PHONES.includes(phone)) return;
+            if (!isCeoPhone(phone)) return;
 
             // Show the CEO discount section
             const ceoSection = document.getElementById('ceoDiscountSection');
