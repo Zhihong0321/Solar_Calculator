@@ -1069,9 +1069,10 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
 
   // 2. Discount Items
   let sortOrder = 100;
+  const discountLabel = data.ceoDiscount ? "CEO's SPECIAL DISCOUNT" : 'Discount';
   if (discountFixed > 0) {
     const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
-      description: `Discount (RM ${discountFixed})`,
+      description: `${discountLabel} (RM ${discountFixed})`,
       qty: 1,
       unitPrice: -discountFixed,
       amount: -discountFixed,
@@ -1084,7 +1085,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
 
   if (discountPercent > 0) {
     const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
-      description: `Discount (${discountPercent}%)`,
+      description: `${discountLabel} (${discountPercent}%)`,
       qty: 1,
       unitPrice: -percentDiscountVal,
       amount: -percentDiscountVal,

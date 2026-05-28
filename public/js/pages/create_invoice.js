@@ -1227,12 +1227,13 @@ function updateInvoicePreview() {
     }
 
     // Add fixed discount item if exists
+    const discountLabel = ceoDiscountValue ? "CEO's SPECIAL DISCOUNT" : 'Discount';
     if (discount.fixed > 0) {
         const fixedDiscountItem = document.createElement('div');
         fixedDiscountItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
         fixedDiscountItem.innerHTML = `
                     <div class="flex-1">
-                        <div class="font-medium text-red-600">Discount (RM ${discount.fixed.toFixed(2)})</div>
+                        <div class="font-medium text-red-600">${discountLabel} (RM ${discount.fixed.toFixed(2)})</div>
                     </div>
                     <div class="font-semibold text-red-600">-RM ${discount.fixed.toFixed(2)}</div>
                 `;
@@ -1247,7 +1248,7 @@ function updateInvoicePreview() {
         percentDiscountItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
         percentDiscountItem.innerHTML = `
                     <div class="flex-1">
-                        <div class="font-medium text-red-600">Discount (${discount.percent}%)</div>
+                        <div class="font-medium text-red-600">${discountLabel} (${discount.percent}%)</div>
                     </div>
                     <div class="font-semibold text-red-600">-RM ${percentAmount.toFixed(2)}</div>
                 `;
