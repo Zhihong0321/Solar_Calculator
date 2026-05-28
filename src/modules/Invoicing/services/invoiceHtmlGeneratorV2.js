@@ -144,10 +144,19 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         const isNegative = totalPrice < 0;
         const priceColor = isNegative ? 'color: red;' : '';
 
+        const descText = item.description || '';
+        const isDiscountOrVoucher = isNegative || 
+            descText.toLowerCase().includes('discount') || 
+            descText.toLowerCase().includes('voucher') || 
+            descText.toLowerCase().includes('promo') ||
+            descText.toLowerCase().includes('rebate') ||
+            descText.toLowerCase().includes('bonus') ||
+            descText.toLowerCase().includes('reward');
+
         itemsHtml += `
-      <tr class="${index % 2 !== 0 ? 'alternate-row' : ''}">
+      <tr class="${index % 2 !== 0 ? 'alternate-row' : ''}${isDiscountOrVoucher ? ' discount-row' : ''}">
           <td class="col-no" data-label="#">${String(index + 1).padStart(2, '0')}</td>
-          <td class="col-desc" data-label="DESCRIPTION">${item.description ? item.description.replace(/\\n/g, '<br>') : ''}</td>
+          <td class="col-desc" data-label="DESCRIPTION">${descText ? descText.replace(/\\n/g, '<br>') : ''}</td>
           <td class="col-price" data-label="PRICE">RM ${Math.abs(unitPrice).toFixed(2)}</td>
           <td class="col-qty" data-label="QUANTITY">${qty}</td>
           <td class="col-amount" data-label="AMOUNT" style="${priceColor}">${isNegative ? '-' : ''}RM ${Math.abs(totalPrice).toFixed(2)}</td>
@@ -951,6 +960,45 @@ body.a4-preview .terms-signature {
     
     .items-table .col-desc {
         text-align: right;
+    }
+
+    .items-table tr.discount-row {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 12px 15px !important;
+    }
+
+    .items-table tr.discount-row .col-no,
+    .items-table tr.discount-row .col-price,
+    .items-table tr.discount-row .col-qty {
+        display: none !important;
+    }
+
+    .items-table tr.discount-row td {
+        display: block !important;
+        width: auto !important;
+        padding: 0 !important;
+        border-bottom: none !important;
+    }
+
+    .items-table tr.discount-row td::before {
+        content: none !important;
+    }
+
+    .items-table tr.discount-row .col-desc {
+        text-align: left !important;
+        font-weight: 600 !important;
+        color: #222 !important;
+        flex: 1 !important;
+        margin-right: 15px !important;
+    }
+
+    .items-table tr.discount-row .col-amount {
+        text-align: right !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
     }
 
     .summary-section {

@@ -20,3 +20,16 @@ Added a CEO Discount input field to both the Create Invoice and Edit Invoice pag
 - `public/js/pages/edit_invoice.js` — same updates as create_invoice.js
 - `src/modules/Invoicing/services/invoiceService.js` — passed `ceoDiscount` flag through to repo payload in both `createInvoice` and `createInvoiceVersion`
 - `src/modules/Invoicing/services/invoiceRepo.js` — bypassed `validateManualDiscountLimit` when `data.ceoDiscount` is true, for both create and update paths
+
+### Invoice Mobile View Optimization
+
+Optimized the presentation of discount and voucher rows in the responsive layout (mobile view) to prevent unnecessary vertical expansion and display more compactly.
+
+**Behaviour:**
+- Detects discount, voucher, promo, rebate, bonus, and reward items using negative pricing or description text matching.
+- Applies a `discount-row` class to target rows.
+- Restructures layout on mobile to hide unit price, quantity, and item number details for these entries.
+- Renders the description on the left and the total discount amount on the right in a single, clean horizontal row inside the card.
+
+**Files changed:**
+- `src/modules/Invoicing/services/invoiceHtmlGeneratorV2.js` — added `discount-row` class detection/assignment and added compact mobile CSS rules inside max-width 768px media query.
