@@ -286,6 +286,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
       packageId: invoiceRequestPayload.packageId,
       discountFixed: discountFixed,
       discountPercent: discountPercent,
+      ceoDiscount: normalizeBoolean(invoiceRequestPayload.ceo_discount || invoiceRequestPayload.ceoDiscount),
       applySst: invoiceRequestPayload.applySst || false,
       templateId: invoiceRequestPayload.templateId,
       voucherCode: invoiceRequestPayload.voucherCode,
@@ -497,6 +498,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       packageId: invoiceRequestPayload.packageId || null,
       discountFixed: discountFixed,
       discountPercent: discountPercent,
+      ceoDiscount: normalizeBoolean(invoiceRequestPayload.ceo_discount || invoiceRequestPayload.ceoDiscount),
       applySst: invoiceRequestPayload.applySst || false,
       // VERSION / EDIT RULE:
       // CREATE invoice: promo default is OFF unless explicitly enabled.

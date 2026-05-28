@@ -192,6 +192,12 @@
                                 <input type="text" name="discount_given" id="discountGiven" class="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none" placeholder="e.g., '500 10%' for RM500 fixed + 10% discount">
                                 <div class="mt-1 flex justify-between gap-3"><p class="text-xs text-slate-600">Format: Fixed amount and/or percentage (e.g., "500 10%" or "500" or "10%")</p><p id="inputMaxDiscountRow" class="hidden text-xs font-bold text-red-600">Max Allowed: <span id="inputMaxDiscountDisplay">RM 0.00</span></p></div>
                             </div>
+                            <!-- CEO Discount — visible only to authorised users -->
+                            <div class="mt-4 hidden" id="ceoDiscountSection">
+                                <label class="mb-2 block text-sm font-semibold text-purple-900">CEO Discount <span class="ml-1 rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-purple-700">CEO Only</span></label>
+                                <input type="text" name="ceo_discount" id="ceoDiscount" class="w-full rounded-xl border-2 border-purple-400 bg-purple-50 px-3 py-2 text-slate-900 focus:border-purple-600 focus:outline-none" placeholder="e.g., '1000' or '15%' or '1000 15%' — no limit">
+                                <p class="mt-1 text-xs text-purple-600">When CEO Discount is entered, the Discount Given field above is automatically disabled.</p>
+                            </div>
                             <div class="mt-4 rounded-2xl border-2 border-indigo-200 bg-indigo-50 p-4">
                                 <div class="mb-3 flex items-center justify-between gap-3">
                                     <h3 class="text-lg font-bold text-slate-900">Additional Items</h3>

@@ -1222,7 +1222,8 @@ function updatePaymentMethodInfo(index) {
 function calculateAllEPPFees() {
     // Calculate package price after discount
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
-    const discountInput = document.getElementById('discountGiven')?.value || '';
+    const ceoDiscountValue = document.getElementById('ceoDiscount')?.value?.trim() || '';
+    const discountInput = ceoDiscountValue || document.getElementById('discountGiven')?.value || '';
     const discount = parseDiscount(discountInput);
 
     // Calculate extra items total
@@ -1404,7 +1405,9 @@ function attachPaymentMethodListeners(row, index) {
 // Update invoice items preview
 function updateInvoicePreview() {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
-    const discountInput = document.getElementById('discountGiven')?.value || '';
+    // CEO discount takes priority over regular discount when entered
+    const ceoDiscountValue = document.getElementById('ceoDiscount')?.value?.trim() || '';
+    const discountInput = ceoDiscountValue || document.getElementById('discountGiven')?.value || '';
     const discount = parseDiscount(discountInput);
     updatePromotionOptionsUI();
     const promotionAmounts = getAppliedPromotionAmounts();
@@ -1546,11 +1549,13 @@ function updateInvoicePreview() {
     });
 
     // Validation for tiered manual discount limit
+    // Skip when CEO discount is active (no limit applies)
+    const ceoDiscountActive = (document.getElementById('ceoDiscount')?.value?.trim() || '').length > 0;
     const totalDiscountValue = (discount.fixed || 0) + (packagePrice * (discount.percent || 0) / 100);
     const discountInputField = document.getElementById('discountGiven');
     const maxDiscountAllowed = Number(window.maxDiscountAllowed) || 0;
     const allowedDiscountPercent = window.maxDiscountPercentAllowed || 0;
-    if (totalDiscountValue > (maxDiscountAllowed + 0.01)) {
+    if (!ceoDiscountActive && totalDiscountValue > (maxDiscountAllowed + 0.01)) {
         window._maxDiscountExceeded = true;
         if (discountInputField) {
             discountInputField.classList.add('border-red-500', 'bg-red-50');
@@ -1860,6 +1865,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     updatePromotionOptionsUI();
     updatePackageChangeControls();
     updateWorkspaceStatuses();
+
+    // CEO Discount: check access and wire up the field
+    window.InvoicePageShared.fetchAndApplyCeoDiscountAccess();
 });
 
 async function fetchPackageDetails(packageId) {

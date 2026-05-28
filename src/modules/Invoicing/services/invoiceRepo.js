@@ -1225,8 +1225,11 @@ async function createInvoiceOnTheFly(client, data) {
     const financials = calculateInvoiceFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, deps.pkg ? deps.pkg.panel_qty : 0);
 
     // 3.5 Validate tiered max discount policy (vouchers excluded)
-    const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
-    validateManualDiscountLimit(packagePrice, totalDiscountValue);
+    // CEO discount bypasses this limit entirely
+    if (!data.ceoDiscount) {
+      const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
+      validateManualDiscountLimit(packagePrice, totalDiscountValue);
+    }
 
     // 4. Create Invoice Header
     const invoice = await _createInvoiceRecord(client, data, financials, deps, voucherInfo);
@@ -1718,8 +1721,11 @@ async function updateInvoiceTransaction(client, data) {
     const financials = calculateInvoiceFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
 
     // Validate tiered max discount policy (vouchers excluded)
-    const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
-    validateManualDiscountLimit(packagePrice, totalDiscountValue);
+    // CEO discount bypasses this limit entirely
+    if (!data.ceoDiscount) {
+      const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
+      validateManualDiscountLimit(packagePrice, totalDiscountValue);
+    }
 
     const { finalTotalAmount } = financials;
 

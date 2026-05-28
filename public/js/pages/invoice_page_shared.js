@@ -1,4 +1,7 @@
 (function attachInvoicePageShared(global) {
+    // CEO Discount: only these login phone numbers may use the unlimited CEO discount field
+    const CEO_DISCOUNT_PHONES = ['60127299201', '601121000099'];
+
     function setInputValue(id, value) {
         const input = document.getElementById(id);
         if (!input || value == null || value === '') return;
@@ -40,6 +43,63 @@
             }
         } catch (err) {
             console.error('Error fetching user profile:', err);
+        }
+    }
+
+    /**
+     * Fetch the current agent's phone number and show the CEO Discount section
+     * if the phone matches an authorised CEO number.
+     * Also wires up the CEO discount input to disable/enable the regular discount field.
+     */
+    async function fetchAndApplyCeoDiscountAccess() {
+        try {
+            const response = await fetch('/api/agent/me', { credentials: 'same-origin' });
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const phone = String(data.phone || '').trim().replace(/\s+/g, '');
+
+            if (!CEO_DISCOUNT_PHONES.includes(phone)) return;
+
+            // Show the CEO discount section
+            const ceoSection = document.getElementById('ceoDiscountSection');
+            if (ceoSection) ceoSection.classList.remove('hidden');
+
+            // Wire up the CEO discount input
+            const ceoInput = document.getElementById('ceoDiscount');
+            const regularInput = document.getElementById('discountGiven');
+            if (!ceoInput || !regularInput) return;
+
+            function syncCeoDiscountState() {
+                const hasCeoValue = ceoInput.value.trim().length > 0;
+                regularInput.disabled = hasCeoValue;
+                regularInput.style.opacity = hasCeoValue ? '0.4' : '';
+                regularInput.style.cursor = hasCeoValue ? 'not-allowed' : '';
+                if (hasCeoValue) {
+                    regularInput.value = '';
+                    // Clear max-discount exceeded flag so submit is not blocked
+                    global._maxDiscountExceeded = false;
+                }
+            }
+
+            ceoInput.addEventListener('input', () => {
+                syncCeoDiscountState();
+                // Trigger preview recalculation if available
+                if (typeof global.updateInvoicePreview === 'function') {
+                    global.updateInvoicePreview();
+                }
+            });
+            ceoInput.addEventListener('change', () => {
+                syncCeoDiscountState();
+                if (typeof global.updateInvoicePreview === 'function') {
+                    global.updateInvoicePreview();
+                }
+            });
+
+            // Apply initial state in case value was pre-filled
+            syncCeoDiscountState();
+        } catch (err) {
+            console.error('[CeoDiscount] Error checking CEO access:', err);
         }
     }
 
@@ -325,7 +385,9 @@
             return false;
         }
 
-        if (global._maxDiscountExceeded) {
+        // Skip max discount check when CEO discount is active
+        const ceoDiscountActive = document.getElementById('ceoDiscount')?.value?.trim().length > 0;
+        if (global._maxDiscountExceeded && !ceoDiscountActive) {
             Swal.fire({
                 icon: 'error',
                 title: 'Max Discount Exceeded',
@@ -392,6 +454,7 @@
         voucherIds = [],
         additionalFields = {}
     }) {
+        const ceoDiscountValue = document.getElementById('ceoDiscount')?.value?.trim() || null;
         const requestData = {
             linked_package: formValues.linked_package,
             template_id: formValues.template_id || null,
@@ -402,7 +465,9 @@
             profilePicture: document.getElementById('profilePicture')?.value || null,
             lead_source: document.getElementById('customerLeadSource')?.value || null,
             remark: document.getElementById('customerRemark')?.value || null,
-            discount_given: formValues.discount_given || null,
+            // When CEO discount is active, send it as discount_given and flag ceo_discount
+            discount_given: ceoDiscountValue || formValues.discount_given || null,
+            ceo_discount: ceoDiscountValue ? true : false,
             apply_sst: document.getElementById('applySST')?.checked || false,
             payment_structure: eppData.payment_structure,
             extra_items: mapExtraItemsForRequest(extraItems),
@@ -423,6 +488,7 @@
         applyCommonInvoiceQueryPrefill,
         applyDiscountValue,
         buildInvoiceRequestData,
+        fetchAndApplyCeoDiscountAccess,
         fetchVoucherPreviewData,
         fetchUserProfile,
         formatDiscountValue,
