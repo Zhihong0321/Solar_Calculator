@@ -497,7 +497,9 @@ router.get('/api/v1/vouchers/preview', requireAuth, async (req, res) => {
     let client = null;
     try {
         client = await pool.connect();
-        const data = await invoiceRepo.getVoucherPreviewDataByPackage(client, packageId);
+        const userAccessTags = Array.isArray(req.user?.access_level) ? req.user.access_level : [];
+        const userBubbleId = req.user?.bubbleId || req.user?.bubble_id || userId || null;
+        const data = await invoiceRepo.getVoucherPreviewDataByPackage(client, packageId, { userAccessTags, userBubbleId });
         res.json({ success: true, data });
     } catch (err) {
         console.error('Error fetching voucher preview data:', err);

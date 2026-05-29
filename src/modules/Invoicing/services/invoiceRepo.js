@@ -527,7 +527,7 @@ async function _getInvoicePaymentState(client, invoiceBubbleId, linkedPaymentIds
   };
 }
 
-async function getVoucherPreviewDataByPackage(client, packageId) {
+async function getVoucherPreviewDataByPackage(client, packageId, userContext = {}) {
   const pkg = await getPackageById(client, packageId);
   if (!pkg) {
     throw new Error('Package not found');
@@ -558,7 +558,11 @@ async function getVoucherPreviewDataByPackage(client, packageId) {
     };
   }
 
-  const categories = await loadVoucherCategoriesForSummary(client, packageSummary, { getTableColumns });
+  const categories = await loadVoucherCategoriesForSummary(client, packageSummary, {
+    getTableColumns,
+    userAccessTags: userContext.userAccessTags || [],
+    userBubbleId: userContext.userBubbleId || null
+  });
 
   return {
     invoice: packageSummary,
