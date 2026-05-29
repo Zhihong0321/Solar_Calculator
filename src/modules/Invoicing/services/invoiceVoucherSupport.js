@@ -175,7 +175,7 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
 
     // Filter vouchers by access_tag and allowed_users in JavaScript
     const filteredRows = vouchers.rows.filter((row) => {
-      const vAccessTag = row.access_tag || '';
+      const vAccessTag = (row.access_tag || '').trim();
       const vAllowedUsers = Array.isArray(row.allowed_users) ? row.allowed_users : [];
       const hasTagRestriction = vAccessTag !== '';
       const hasUserRestriction = vAllowedUsers.length > 0;
@@ -189,6 +189,7 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
       // Check allowed_users match
       if (hasUserRestriction && userBubbleId && vAllowedUsers.includes(String(userBubbleId))) return true;
 
+      console.log('[VoucherAccessFilter] BLOCKED:', row.voucher_code, '| access_tag:', vAccessTag, '| allowed_users:', JSON.stringify(vAllowedUsers), '| userBubbleId:', userBubbleId, '| userAccessTags:', JSON.stringify(userAccessTags));
       return false;
     });
 
