@@ -388,6 +388,63 @@ router.get('/api/v1/invoices/:bubbleId/voucher-step', requireAuth, async (req, r
     }
 });
 
+// DEBUG: voucher access filter diagnostic endpoint
+router.get('/api/v1/debug/voucher-access', requireAuth, async (req, res) => {
+    const BUILD_HASH = '20260529-v4-jsfilter';
+    const userId = getAuthenticatedUserId(req);
+    const userBubbleId = req.user?.bubbleId || req.user?.bubble_id || userId || null;
+    const userAccessTags = Array.isArray(req.user?.access_level) ? req.user.access_level : [];
+    
+    let client = null;
+    try {
+        client = await pool.connect();
+        const voucherResult = await client.query(
+            `SELECT bubble_id, voucher_code, title, access_tag, allowed_users, active 
+             FROM voucher 
+             WHERE bubble_id LIKE 'voucher_panel_%' 
+             ORDER BY discount_amount`
+        );
+        
+        const results = voucherResult.rows.map(v => {
+            const vAccessTag = (v.access_tag || '').trim();
+            const vAllowedUsers = Array.isArray(v.allowed_users) ? v.allowed_users : [];
+            const hasTagRestriction = vAccessTag !== '';
+            const hasUserRestriction = vAllowedUsers.length > 0;
+            
+            let pass = false;
+            let reason = '';
+            if (!hasTagRestriction && !hasUserRestriction) { pass = true; reason = 'no restriction'; }
+            else if (hasTagRestriction && userAccessTags.includes(vAccessTag)) { pass = true; reason = 'tag match'; }
+            else if (hasUserRestriction && userBubbleId && vAllowedUsers.includes(String(userBubbleId))) { pass = true; reason = 'user in allowed_users'; }
+            else { reason = 'BLOCKED - no match'; }
+            
+            return {
+                voucher_code: v.voucher_code,
+                active: v.active,
+                access_tag: vAccessTag || null,
+                allowed_users: vAllowedUsers,
+                allowed_users_type: typeof v.allowed_users,
+                allowed_users_isArray: Array.isArray(v.allowed_users),
+                pass,
+                reason
+            };
+        });
+        
+        res.json({
+            build: BUILD_HASH,
+            your_userId: userId,
+            your_bubbleId: userBubbleId,
+            your_access_level: userAccessTags,
+            req_user_keys: Object.keys(req.user || {}),
+            vouchers: results
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message, build: BUILD_HASH });
+    } finally {
+        if (client) client.release();
+    }
+});
+
 router.put('/api/v1/invoices/:bubbleId/vouchers', requireAuth, async (req, res) => {
     const { bubbleId } = req.params;
     const userId = getAuthenticatedUserId(req);

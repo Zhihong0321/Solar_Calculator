@@ -310,6 +310,11 @@ async function getInvoiceVoucherStepSummary(client, invoiceId) {
 
 async function getVoucherStepData(client, invoiceId, deps) {
   const { hasTable, getTableColumns, getInvoiceSelectedVoucherRows, userAccessTags, userBubbleId } = deps;
+  
+  // Debug: version hash + received user context
+  const BUILD_HASH = '20260529-v4-jsfilter';
+  console.log(`[VoucherStep][${BUILD_HASH}] invoiceId=${invoiceId} | userBubbleId=${userBubbleId} | userAccessTags=${JSON.stringify(userAccessTags)}`);
+  
   const invoiceSummary = await getInvoiceVoucherStepSummary(client, invoiceId);
   if (!invoiceSummary) {
     throw new Error('Invoice not found');
