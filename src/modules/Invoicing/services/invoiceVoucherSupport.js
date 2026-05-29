@@ -151,17 +151,14 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
   );
 
   // Build access filter for vouchers
+  // Only apply filtering if user context is provided
+  // If no user context, skip filtering entirely (show all vouchers)
   let accessFilterClause = '';
-  if (hasAccessTag || hasAllowedUsers) {
+  const shouldFilter = (hasAccessTag || hasAllowedUsers) && (userBubbleId || (Array.isArray(userAccessTags) && userAccessTags.length > 0));
+  if (shouldFilter) {
     const conditions = [];
-    // No restriction (both null/empty)
-    if (hasAccessTag && hasAllowedUsers) {
-      conditions.push(`((access_tag IS NULL OR access_tag = '') AND (allowed_users IS NULL OR allowed_users = '{}'))`);
-    } else if (hasAccessTag) {
-      conditions.push(`(access_tag IS NULL OR access_tag = '')`);
-    } else if (hasAllowedUsers) {
-      conditions.push(`(allowed_users IS NULL OR allowed_users = '{}')`);
-    }
+    // Always allow unrestricted vouchers (no access_tag AND no allowed_users)
+    conditions.push(`((${hasAccessTag ? "access_tag IS NULL OR access_tag = ''" : 'TRUE'}) AND (${hasAllowedUsers ? "allowed_users IS NULL OR allowed_users = '{}'" : 'TRUE'}))`);
     // User matches access_tag
     if (hasAccessTag && Array.isArray(userAccessTags) && userAccessTags.length > 0) {
       const escapedTags = userAccessTags.map(t => t.replace(/'/g, "''")).join("', '");
@@ -172,9 +169,7 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
       const escapedUserId = String(userBubbleId).replace(/'/g, "''");
       conditions.push(`'${escapedUserId}' = ANY(allowed_users)`);
     }
-    if (conditions.length > 0) {
-      accessFilterClause = `AND (${conditions.join(' OR ')})`;
-    }
+    accessFilterClause = `AND (${conditions.join(' OR ')})`;
   }
 
   const categories = [];

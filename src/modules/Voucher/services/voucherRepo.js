@@ -623,28 +623,20 @@ async function getVoucherGroupsForInvoiceStep(pool, invoiceId, userAccessTags = 
         const hasUserId = userBubbleId && userBubbleId.trim();
         
         if (hasUserTags || hasUserId) {
-            const conditions = ['(v.access_tag IS NULL OR v.access_tag = \'\')'];
+            const conditions = [];
+            // Always allow unrestricted vouchers
+            conditions.push(`((v.access_tag IS NULL OR v.access_tag = '') AND (v.allowed_users IS NULL OR v.allowed_users = '{}'))`);
+            // User matches access_tag
             if (hasUserTags) {
                 const escapedTags = userAccessTags.map(tag => tag.replace(/'/g, "''")).join("', '");
                 conditions.push(`v.access_tag = ANY(ARRAY['${escapedTags}']::text[])`);
             }
+            // User is in allowed_users
             if (hasUserId) {
                 const escapedUserId = userBubbleId.replace(/'/g, "''");
                 conditions.push(`'${escapedUserId}' = ANY(v.allowed_users)`);
             }
-            accessFilter = `AND ((v.allowed_users IS NULL OR v.allowed_users = '{}') AND (${conditions.join(' OR ')})) OR ('${userBubbleId.replace(/'/g, "''")}' = ANY(v.allowed_users))`;
-            // Simplified: show voucher if:
-            //   1. No restrictions at all (both null/empty)
-            //   2. User matches access_tag
-            //   3. User is in allowed_users list
-            accessFilter = `AND (
-                ((v.access_tag IS NULL OR v.access_tag = '') AND (v.allowed_users IS NULL OR v.allowed_users = '{}'))
-                ${hasUserTags ? `OR v.access_tag = ANY(ARRAY['${userAccessTags.map(t => t.replace(/'/g, "''")).join("', '")}']::text[])` : ''}
-                ${hasUserId ? `OR '${userBubbleId.replace(/'/g, "''")}' = ANY(v.allowed_users)` : ''}
-            )`;
-        } else {
-            // No user identity - only show unrestricted vouchers
-            accessFilter = `AND (v.access_tag IS NULL OR v.access_tag = '') AND (v.allowed_users IS NULL OR v.allowed_users = '{}')`;
+            accessFilter = `AND (${conditions.join(' OR ')})`;
         }
         
         const voucherResult = await client.query(
