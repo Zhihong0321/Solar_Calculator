@@ -619,10 +619,12 @@ async function _processExistingInvoiceVouchers(client, invoiceId, fallbackVouche
   return buildVoucherInfoFromRows(voucherRows, packagePrice);
 }
 
-async function getVoucherStepData(client, invoiceId) {
+async function getVoucherStepData(client, invoiceId, userContext = {}) {
   return loadVoucherStepData(client, invoiceId, {
     hasTable,
     getTableColumns,
+    userAccessTags: userContext.userAccessTags || [],
+    userBubbleId: userContext.userBubbleId || null,
     getInvoiceSelectedVoucherRows: (innerClient, innerInvoiceId, innerFallbackVoucherCode) => getInvoiceSelectedVoucherRows(
       innerClient,
       innerInvoiceId,

@@ -126,10 +126,12 @@ function buildVoucherAvailabilityClause(columns) {
 }
 
 async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
-  const { getTableColumns } = deps;
+  const { getTableColumns, userAccessTags, userBubbleId } = deps;
   const categoryColumns = await getTableColumns(client, 'voucher_category');
   const voucherColumns = await getTableColumns(client, 'voucher');
   const hasCategoryLink = voucherColumns.has('linked_voucher_category');
+  const hasAccessTag = voucherColumns.has('access_tag');
+  const hasAllowedUsers = voucherColumns.has('allowed_users');
 
   const categoryResult = await client.query(
     `SELECT *,
@@ -148,6 +150,33 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
      ORDER BY ${buildVoucherCategoryOrderClause(categoryColumns)}`
   );
 
+  // Build access filter for vouchers
+  let accessFilterClause = '';
+  if (hasAccessTag || hasAllowedUsers) {
+    const conditions = [];
+    // No restriction (both null/empty)
+    if (hasAccessTag && hasAllowedUsers) {
+      conditions.push(`((access_tag IS NULL OR access_tag = '') AND (allowed_users IS NULL OR allowed_users = '{}'))`);
+    } else if (hasAccessTag) {
+      conditions.push(`(access_tag IS NULL OR access_tag = '')`);
+    } else if (hasAllowedUsers) {
+      conditions.push(`(allowed_users IS NULL OR allowed_users = '{}')`);
+    }
+    // User matches access_tag
+    if (hasAccessTag && Array.isArray(userAccessTags) && userAccessTags.length > 0) {
+      const escapedTags = userAccessTags.map(t => t.replace(/'/g, "''")).join("', '");
+      conditions.push(`access_tag = ANY(ARRAY['${escapedTags}']::text[])`);
+    }
+    // User is in allowed_users
+    if (hasAllowedUsers && userBubbleId) {
+      const escapedUserId = String(userBubbleId).replace(/'/g, "''");
+      conditions.push(`'${escapedUserId}' = ANY(allowed_users)`);
+    }
+    if (conditions.length > 0) {
+      accessFilterClause = `AND (${conditions.join(' OR ')})`;
+    }
+  }
+
   const categories = [];
   for (const rawCategory of categoryResult.rows) {
     const category = normalizeVoucherCategoryRow(rawCategory);
@@ -161,6 +190,7 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
          WHERE linked_voucher_category = $1
            AND ${voucherColumns.has('active') ? 'active = TRUE' : 'TRUE'}
            AND ${buildVoucherAvailabilityClause(voucherColumns)}
+           ${accessFilterClause}
          ORDER BY ${buildVoucherOrderClause(voucherColumns)}`,
         [category.bubble_id]
       )
@@ -282,7 +312,7 @@ async function getInvoiceVoucherStepSummary(client, invoiceId) {
 }
 
 async function getVoucherStepData(client, invoiceId, deps) {
-  const { hasTable, getTableColumns, getInvoiceSelectedVoucherRows } = deps;
+  const { hasTable, getTableColumns, getInvoiceSelectedVoucherRows, userAccessTags, userBubbleId } = deps;
   const invoiceSummary = await getInvoiceVoucherStepSummary(client, invoiceId);
   if (!invoiceSummary) {
     throw new Error('Invoice not found');
@@ -315,7 +345,11 @@ async function getVoucherStepData(client, invoiceId, deps) {
     if (voucher?.id !== undefined && voucher?.id !== null) selectedVoucherIds.add(String(voucher.id));
   });
 
-  const categories = await loadVoucherCategoriesForSummary(client, invoiceSummary, { getTableColumns });
+  const categories = await loadVoucherCategoriesForSummary(client, invoiceSummary, {
+    getTableColumns,
+    userAccessTags: userAccessTags || [],
+    userBubbleId: userBubbleId || null
+  });
 
   return {
     invoice: invoiceSummary,

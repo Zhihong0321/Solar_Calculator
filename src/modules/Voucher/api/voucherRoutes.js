@@ -169,7 +169,9 @@ router.post('/api/voucher-categories/:id/restore', requireAuth, async (req, res)
  */
 router.get('/api/vouchers/step/:invoiceId/categories', requireAuth, async (req, res) => {
     try {
-        const data = await voucherRepo.getVoucherGroupsForInvoiceStep(pool, req.params.invoiceId);
+        const userAccessTags = Array.isArray(req.user?.access_level) ? req.user.access_level : [];
+        const userBubbleId = req.user?.bubbleId || req.user?.bubble_id || req.user?.userId || null;
+        const data = await voucherRepo.getVoucherGroupsForInvoiceStep(pool, req.params.invoiceId, userAccessTags, userBubbleId);
         res.json({ success: true, data });
     } catch (err) {
         console.error('Error loading voucher step categories:', err);
@@ -193,10 +195,12 @@ router.get('/api/vouchers/step/:invoiceId/selections', requireAuth, async (req, 
 router.put('/api/vouchers/step/:invoiceId/selections', requireAuth, async (req, res) => {
     try {
         const voucherBubbleIds = Array.isArray(req.body?.voucherBubbleIds) ? req.body.voucherBubbleIds : [];
+        const userAccessTags = Array.isArray(req.user?.access_level) ? req.user.access_level : [];
         const selections = await voucherRepo.replaceInvoiceVoucherSelections(pool, {
             invoiceId: req.params.invoiceId,
             voucherBubbleIds,
-            createdBy: req.user?.bubbleId || req.user?.userId || null
+            createdBy: req.user?.bubbleId || req.user?.userId || null,
+            userAccessTags
         });
 
         res.json({ success: true, selections });
@@ -273,6 +277,8 @@ router.post('/api/vouchers', requireAuth, async (req, res) => {
             voucher_code: voucherCode,
             active: req.body?.active === undefined ? true : toBoolean(req.body.active, true),
             public: req.body?.public === undefined ? true : toBoolean(req.body.public, true),
+            access_tag: req.body?.access_tag || null,
+            allowed_users: Array.isArray(req.body?.allowed_users) ? req.body.allowed_users : null,
             created_by: req.user?.bubbleId || req.user?.userId || null
         };
 
@@ -331,7 +337,9 @@ router.put('/api/vouchers/:id', requireAuth, async (req, res) => {
             ...req.body,
             voucher_code: voucherCode,
             active: toBoolean(req.body?.active, false),
-            public: toBoolean(req.body?.public, false)
+            public: toBoolean(req.body?.public, false),
+            access_tag: req.body?.access_tag || null,
+            allowed_users: Array.isArray(req.body?.allowed_users) ? req.body.allowed_users : null
         });
 
         if (!voucher) {
@@ -354,6 +362,49 @@ router.delete('/api/vouchers/:id', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('Error deleting voucher:', err);
         res.status(500).json({ error: 'Failed to delete voucher' });
+    }
+});
+
+/**
+ * User search for allowed_users picker
+ */
+router.get('/api/vouchers/users/search', requireAuth, async (req, res) => {
+    try {
+        const query = String(req.query.q || '').trim();
+        if (!query || query.length < 2) {
+            return res.json({ success: true, users: [] });
+        }
+
+        const result = await pool.query(
+            `SELECT
+                u.bubble_id,
+                u.name,
+                u.email,
+                a.name AS agent_name
+             FROM "user" u
+             LEFT JOIN agent a ON a.bubble_id = u.linked_agent_profile
+             WHERE (
+                LOWER(u.name) LIKE $1
+                OR LOWER(u.email) LIKE $1
+                OR LOWER(a.name) LIKE $1
+                OR u.bubble_id = $2
+             )
+             ORDER BY COALESCE(a.name, u.name, u.email) ASC
+             LIMIT 20`,
+            [`%${query.toLowerCase()}%`, query]
+        );
+
+        res.json({
+            success: true,
+            users: result.rows.map(u => ({
+                bubble_id: u.bubble_id,
+                name: u.agent_name || u.name || u.email || u.bubble_id,
+                email: u.email
+            }))
+        });
+    } catch (err) {
+        console.error('Error searching users:', err);
+        res.status(500).json({ success: false, error: 'Failed to search users' });
     }
 });
 

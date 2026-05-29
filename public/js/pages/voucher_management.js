@@ -1,6 +1,7 @@
 let currentVouchers = [];
 let currentCategories = [];
 let currentTab = 'active';
+let allowedUsersSelected = [];
 
 const voucherList = document.getElementById('voucherList');
 const categoryList = document.getElementById('categoryList');
@@ -38,6 +39,25 @@ function bindEvents() {
 
     voucherForm?.addEventListener('submit', handleVoucherSubmit);
     categoryForm?.addEventListener('submit', handleCategorySubmit);
+
+    // Allowed users search
+    const searchInput = document.getElementById('allowed_users_search');
+    let searchTimeout = null;
+    searchInput?.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        const query = searchInput.value.trim();
+        if (query.length < 2) {
+            document.getElementById('allowed_users_dropdown')?.classList.add('hidden');
+            return;
+        }
+        searchTimeout = setTimeout(() => searchAllowedUsers(query), 300);
+    });
+
+    searchInput?.addEventListener('blur', () => {
+        setTimeout(() => {
+            document.getElementById('allowed_users_dropdown')?.classList.add('hidden');
+        }, 200);
+    });
 }
 
 async function loadInitialData() {
@@ -249,6 +269,10 @@ function renderVouchers() {
                 <button onclick="deleteVoucher('${voucher.bubble_id}')" class="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100">Delete</button>
             `;
 
+        const accessTag = voucher.access_tag ? `<span class="rounded-full bg-purple-100 px-2 py-1 text-purple-700">Tag: ${voucher.access_tag}</span>` : '';
+        const allowedUsersCount = Array.isArray(voucher.allowed_users) && voucher.allowed_users.length > 0 ? voucher.allowed_users.length : 0;
+        const accessTagDisplay = accessTag ? `<div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Access</span>${accessTag}</div>` : '';
+
         return `
             <article class="voucher-card ${cardClass} p-6 rounded-3xl shadow-sm border flex flex-col gap-5">
                 <div class="flex items-start justify-between gap-4">
@@ -260,6 +284,8 @@ function renderVouchers() {
                         ${active && !deleted ? '<span class="rounded-full bg-green-200 px-2 py-1 text-green-700">Active</span>' : ''}
                         ${!active && !deleted ? '<span class="rounded-full bg-slate-200 px-2 py-1 text-slate-600">Inactive</span>' : ''}
                         ${deleted ? '<span class="rounded-full bg-slate-200 px-2 py-1 text-slate-600">Deleted</span>' : ''}
+                        ${voucher.access_tag ? `<span class="rounded-full bg-purple-100 px-2 py-1 text-purple-700">${voucher.access_tag}</span>` : ''}
+                        ${allowedUsersCount > 0 ? `<span class="rounded-full bg-indigo-100 px-2 py-1 text-indigo-700">${allowedUsersCount} users</span>` : ''}
                     </div>
                 </div>
                 <div class="space-y-2 text-sm text-slate-700">
@@ -291,6 +317,8 @@ function openModal(id = null) {
     voucherIdInput.value = '';
     modalTitle.textContent = 'Create New Voucher';
     populateCategoryOptions();
+    allowedUsersSelected = [];
+    renderAllowedUsersList();
 
     if (id) {
         const voucher = currentVouchers.find((item) => item.bubble_id === id);
@@ -306,9 +334,16 @@ function openModal(id = null) {
             document.getElementById('voucher_availability').value = voucher.voucher_availability || '';
             document.getElementById('available_until').value = voucher.available_until ? voucher.available_until.split('T')[0] : '';
             document.getElementById('terms_conditions').value = voucher.terms_conditions || '';
+            document.getElementById('access_tag').value = voucher.access_tag || '';
             document.getElementById('active').checked = !!voucher.active;
             document.getElementById('public').checked = !!voucher.public;
             populateCategoryOptions(voucher.linked_voucher_category || '');
+
+            // Load allowed users
+            if (Array.isArray(voucher.allowed_users) && voucher.allowed_users.length > 0) {
+                allowedUsersSelected = voucher.allowed_users.map((uid) => ({ bubble_id: uid, name: uid }));
+                renderAllowedUsersList();
+            }
         }
     }
 
@@ -342,7 +377,9 @@ async function handleVoucherSubmit(event) {
         terms_conditions: document.getElementById('terms_conditions').value.trim(),
         active: document.getElementById('active').checked,
         public: document.getElementById('public').checked,
-        linked_voucher_category: document.getElementById('linked_voucher_category').value || null
+        linked_voucher_category: document.getElementById('linked_voucher_category').value || null,
+        access_tag: document.getElementById('access_tag').value.trim() || null,
+        allowed_users: allowedUsersSelected.length > 0 ? allowedUsersSelected.map((u) => u.bubble_id) : null
     };
 
     try {
@@ -535,4 +572,72 @@ function showToast(message, type = 'success') {
     setTimeout(() => {
         toast.classList.add('translate-y-20', 'opacity-0');
     }, 2800);
+}
+
+// --- Allowed Users Functions ---
+
+async function searchAllowedUsers(query) {
+    const dropdown = document.getElementById('allowed_users_dropdown');
+    if (!dropdown) return;
+
+    try {
+        const json = await fetchJson(`/api/vouchers/users/search?q=${encodeURIComponent(query)}`);
+        const users = Array.isArray(json.users) ? json.users : [];
+
+        if (!users.length) {
+            dropdown.innerHTML = '<div class="px-4 py-3 text-sm text-slate-400">No users found</div>';
+            dropdown.classList.remove('hidden');
+            return;
+        }
+
+        dropdown.innerHTML = users
+            .filter((user) => !allowedUsersSelected.some((s) => s.bubble_id === user.bubble_id))
+            .map((user) => `
+                <div class="px-4 py-3 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-700 border-b border-slate-100 last:border-0"
+                     onclick="addAllowedUser('${user.bubble_id}', '${(user.name || '').replace(/'/g, "\\'")}')">
+                    <span class="font-bold">${user.name || 'Unknown'}</span>
+                    ${user.email ? `<span class="text-slate-400 ml-2">${user.email}</span>` : ''}
+                </div>
+            `).join('');
+
+        dropdown.classList.remove('hidden');
+    } catch (err) {
+        console.error('Error searching users:', err);
+        dropdown.classList.add('hidden');
+    }
+}
+
+function addAllowedUser(bubbleId, name) {
+    if (allowedUsersSelected.some((u) => u.bubble_id === bubbleId)) return;
+
+    allowedUsersSelected.push({ bubble_id: bubbleId, name: name || bubbleId });
+    renderAllowedUsersList();
+
+    const searchInput = document.getElementById('allowed_users_search');
+    if (searchInput) searchInput.value = '';
+    document.getElementById('allowed_users_dropdown')?.classList.add('hidden');
+}
+
+function removeAllowedUser(bubbleId) {
+    allowedUsersSelected = allowedUsersSelected.filter((u) => u.bubble_id !== bubbleId);
+    renderAllowedUsersList();
+}
+
+function renderAllowedUsersList() {
+    const container = document.getElementById('allowed_users_list');
+    if (!container) return;
+
+    if (!allowedUsersSelected.length) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = allowedUsersSelected.map((user) => `
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1.5 text-xs font-bold text-purple-700">
+            ${user.name || user.bubble_id}
+            <button type="button" onclick="removeAllowedUser('${user.bubble_id}')" class="hover:text-purple-900 transition-colors">
+                <i class="fa-solid fa-xmark text-[10px]"></i>
+            </button>
+        </span>
+    `).join('');
 }

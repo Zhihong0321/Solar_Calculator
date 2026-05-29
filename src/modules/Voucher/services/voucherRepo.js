@@ -385,6 +385,9 @@ async function createVoucher(pool, data) {
     const safePercent = data.discount_percent ? parseInt(data.discount_percent, 10) : null;
     const safeAmount = data.discount_amount ? parseFloat(data.discount_amount) : null;
     const safeDeductable = data.deductable_from_commission ? parseFloat(data.deductable_from_commission) : 0;
+    const safeAllowedUsers = Array.isArray(data.allowed_users) && data.allowed_users.length > 0
+        ? data.allowed_users.map(u => String(u).trim()).filter(Boolean)
+        : null;
 
     const result = await pool.query(
         `INSERT INTO voucher (
@@ -392,12 +395,14 @@ async function createVoucher(pool, data) {
             discount_amount, discount_percent, active,
             voucher_availability, terms_conditions, available_until,
             public, created_by, deductable_from_commission, invoice_description, linked_voucher_category,
+            access_tag, allowed_users,
             created_at, updated_at, created_date
          ) VALUES (
             $1, $2, $3, $4,
             $5, $6, $7,
             $8, $9, $10,
             $11, $12, $13, $14, $15,
+            $16, $17,
             NOW(), NOW(), NOW()
          ) RETURNING *`,
         [
@@ -415,7 +420,9 @@ async function createVoucher(pool, data) {
             data.created_by || null,
             safeDeductable,
             data.invoice_description || null,
-            data.linked_voucher_category || null
+            data.linked_voucher_category || null,
+            data.access_tag || null,
+            safeAllowedUsers
         ]
     );
 
@@ -443,7 +450,9 @@ async function duplicateVoucher(pool, id, createdBy = null) {
         created_by: createdBy,
         deductable_from_commission: originalVoucher.deductable_from_commission,
         invoice_description: originalVoucher.invoice_description,
-        linked_voucher_category: originalVoucher.linked_voucher_category || null
+        linked_voucher_category: originalVoucher.linked_voucher_category || null,
+        access_tag: originalVoucher.access_tag || null,
+        allowed_users: originalVoucher.allowed_users || null
     });
 }
 
@@ -480,9 +489,11 @@ async function updateVoucher(pool, id, data) {
             deductable_from_commission = $11,
             invoice_description = $12,
             linked_voucher_category = $13,
+            access_tag = $14,
+            allowed_users = $15,
             updated_at = NOW(),
             modified_date = NOW()
-         WHERE ${identifierColumn} = $14
+         WHERE ${identifierColumn} = $16
          RETURNING *`,
         [
             data.title,
@@ -498,6 +509,10 @@ async function updateVoucher(pool, id, data) {
             safeDeductable,
             data.invoice_description ?? null,
             data.linked_voucher_category ?? null,
+            data.access_tag ?? null,
+            Array.isArray(data.allowed_users) && data.allowed_users.length > 0
+                ? data.allowed_users.map(u => String(u).trim()).filter(Boolean)
+                : null,
             id
         ]
     );
@@ -574,7 +589,7 @@ async function _getInvoiceVoucherContext(client, invoiceId) {
     };
 }
 
-async function getVoucherGroupsForInvoiceStep(pool, invoiceId) {
+async function getVoucherGroupsForInvoiceStep(pool, invoiceId, userAccessTags = [], userBubbleId = null) {
     const client = await pool.connect();
     try {
         const invoiceContext = await _getInvoiceVoucherContext(client, invoiceId);
@@ -597,6 +612,41 @@ async function getVoucherGroupsForInvoiceStep(pool, invoiceId) {
         }
 
         const categoryIds = categories.map(c => c.bubble_id);
+        
+        // Build access filter condition
+        // Vouchers with NULL access_tag AND NULL allowed_users are visible to all users
+        // Vouchers with access_tag set are visible to users with that tag
+        // Vouchers with allowed_users set are visible to users in the list
+        // If both are set, user must match EITHER condition (OR logic)
+        let accessFilter = '';
+        const hasUserTags = userAccessTags && userAccessTags.length > 0;
+        const hasUserId = userBubbleId && userBubbleId.trim();
+        
+        if (hasUserTags || hasUserId) {
+            const conditions = ['(v.access_tag IS NULL OR v.access_tag = \'\')'];
+            if (hasUserTags) {
+                const escapedTags = userAccessTags.map(tag => tag.replace(/'/g, "''")).join("', '");
+                conditions.push(`v.access_tag = ANY(ARRAY['${escapedTags}']::text[])`);
+            }
+            if (hasUserId) {
+                const escapedUserId = userBubbleId.replace(/'/g, "''");
+                conditions.push(`'${escapedUserId}' = ANY(v.allowed_users)`);
+            }
+            accessFilter = `AND ((v.allowed_users IS NULL OR v.allowed_users = '{}') AND (${conditions.join(' OR ')})) OR ('${userBubbleId.replace(/'/g, "''")}' = ANY(v.allowed_users))`;
+            // Simplified: show voucher if:
+            //   1. No restrictions at all (both null/empty)
+            //   2. User matches access_tag
+            //   3. User is in allowed_users list
+            accessFilter = `AND (
+                ((v.access_tag IS NULL OR v.access_tag = '') AND (v.allowed_users IS NULL OR v.allowed_users = '{}'))
+                ${hasUserTags ? `OR v.access_tag = ANY(ARRAY['${userAccessTags.map(t => t.replace(/'/g, "''")).join("', '")}']::text[])` : ''}
+                ${hasUserId ? `OR '${userBubbleId.replace(/'/g, "''")}' = ANY(v.allowed_users)` : ''}
+            )`;
+        } else {
+            // No user identity - only show unrestricted vouchers
+            accessFilter = `AND (v.access_tag IS NULL OR v.access_tag = '') AND (v.allowed_users IS NULL OR v.allowed_users = '{}')`;
+        }
+        
         const voucherResult = await client.query(
             `SELECT
                 v.*,
@@ -612,6 +662,7 @@ async function getVoucherGroupsForInvoiceStep(pool, invoiceId) {
                     OR NULLIF(TRIM(v.available_until::text), '')::timestamptz >= NOW()
                )
                AND (v.voucher_availability IS NULL OR v.voucher_availability > 0)
+               ${accessFilter}
              ORDER BY c.sort_order ASC, v.created_at DESC`,
             [categoryIds]
         );
@@ -643,7 +694,7 @@ async function getVoucherGroupsForInvoiceStep(pool, invoiceId) {
     }
 }
 
-async function replaceInvoiceVoucherSelections(pool, { invoiceId, voucherBubbleIds, createdBy }) {
+async function replaceInvoiceVoucherSelections(pool, { invoiceId, voucherBubbleIds, createdBy, userAccessTags = [] }) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -656,7 +707,8 @@ async function replaceInvoiceVoucherSelections(pool, { invoiceId, voucherBubbleI
         const previousSelectionsResult = await client.query(
             `SELECT
                 ivs.linked_voucher,
-                v.voucher_availability
+                v.voucher_availability,
+                v.access_tag
              FROM invoice_voucher_selection ivs
              INNER JOIN voucher v ON v.bubble_id = ivs.linked_voucher
              WHERE ivs.linked_invoice = $1
@@ -691,6 +743,34 @@ async function replaceInvoiceVoucherSelections(pool, { invoiceId, voucherBubbleI
 
         if (voucherRows.length !== nextVoucherIds.length) {
             throw new Error('One or more vouchers are invalid');
+        }
+
+        // Validate user access tags and allowed_users for selected vouchers
+        const accessibleVoucherIds = [];
+        for (const voucher of voucherRows) {
+            const voucherAccessTag = voucher.access_tag;
+            const voucherAllowedUsers = voucher.allowed_users;
+            const hasAccessTagRestriction = voucherAccessTag && voucherAccessTag !== '';
+            const hasAllowedUsersRestriction = Array.isArray(voucherAllowedUsers) && voucherAllowedUsers.length > 0;
+            
+            if (hasAccessTagRestriction || hasAllowedUsersRestriction) {
+                let hasAccess = false;
+                
+                // Check access_tag match
+                if (hasAccessTagRestriction && userAccessTags && userAccessTags.includes(voucherAccessTag)) {
+                    hasAccess = true;
+                }
+                
+                // Check allowed_users match
+                if (hasAllowedUsersRestriction && createdBy && voucherAllowedUsers.includes(createdBy)) {
+                    hasAccess = true;
+                }
+                
+                if (!hasAccess) {
+                    throw new Error(`Voucher ${voucher.voucher_code || voucher.bubble_id} is not accessible to you`);
+                }
+            }
+            accessibleVoucherIds.push(voucher.bubble_id);
         }
 
         const voucherById = new Map(voucherRows.map(v => [v.bubble_id, v]));
