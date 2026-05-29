@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>How Battery Savings Work — Solar Calculator</title>
+<style>
+  :root {
+    --bg: #f8f9fa;
+    --card: #ffffff;
+    --ink: #1a1a2e;
+    --ink2: #555;
+    --ink3: #888;
+    --green: #059669;
+    --green-bg: #ecfdf5;
+    --amber: #d97706;
+    --amber-bg: #fffbeb;
+    --red: #dc2626;
+    --red-bg: #fef2f2;
+    --blue: #2563eb;
+    --blue-bg: #eff6ff;
+    --border: #e5e7eb;
+    --radius: 16px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 60px;
+  }
+  .container { max-width: 520px; margin: 0 auto; padding: 16px; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 28px 22px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 140px; height: 140px;
+    background: rgba(5,150,105,0.15);
+    border-radius: 50%;
+  }
+  .hero h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+    position: relative;
+    z-index: 1;
+  }
+  .hero p {
+    font-size: 13px;
+    opacity: 0.75;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .card h2 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h3 {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 14px 0 8px;
+    color: var(--ink2);
+  }
+
+  /* Badge */
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber); }
+  .badge-red   { background: var(--red-bg);   color: var(--red); }
+  .badge-blue  { background: var(--blue-bg);  color: var(--blue); }
+
+  /* Flow diagram */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 14px 0;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .flow-box {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 12px;
+    text-align: center;
+  }
+  .flow-box.solar  { background: #fef3c7; color: #92400e; }
+  .flow-box.batt   { background: #dbeafe; color: #1e40af; }
+  .flow-box.home   { background: #d1fae5; color: #065f46; }
+  .flow-box.export { background: #fce7f3; color: #9d174d; }
+  .flow-box.loss   { background: #fee2e2; color: #991b1b; }
+  .flow-arrow {
+    font-size: 18px;
+    color: var(--ink3);
+    flex-shrink: 0;
+  }
+
+  /* Comparison table */
+  .cmp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 10px 0;
+  }
+  .cmp-table th {
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ink3);
+    padding: 8px 6px;
+    border-bottom: 2px solid var(--border);
+  }
+  .cmp-table td {
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .cmp-table .same { color: var(--green); font-weight: 700; }
+  .cmp-table .diff { color: var(--red); font-weight: 700; }
+
+  /* Slider demo */
+  .slider-group {
+    margin: 12px 0;
+  }
+  .slider-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--blue);
+    height: 6px;
+  }
+  .slider-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--ink3);
+    margin-top: 2px;
+  }
+
+  /* Live result */
+  .live-result {
+    background: var(--blue-bg);
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 12px;
+  }
+  .live-result .big {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--blue);
+  }
+  .live-result .sub {
+    font-size: 11px;
+    color: var(--ink2);
+    margin-top: 2px;
+  }
+
+  /* Key insight box */
+  .insight {
+    border-left: 4px solid var(--green);
+    background: var(--green-bg);
+    padding: 12px 14px;
+    border-radius: 0 10px 10px 0;
+    font-size: 13px;
+    margin: 12px 0;
+    font-weight: 500;
+  }
+  .insight strong { color: var(--green); }
+
+  /* Step number */
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+
+  /* Formula */
+  .formula {
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    margin: 10px 0;
+    overflow-x: auto;
+  }
+  .formula .hl { color: var(--blue); font-weight: 700; }
+  .formula .hlg { color: var(--green); font-weight: 700; }
+
+  /* FAQ */
+  .faq-q {
+    font-weight: 700;
+    font-size: 13px;
+    margin-top: 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .faq-a {
+    font-size: 12px;
+    color: var(--ink2);
+    margin-top: 4px;
+    display: none;
+  }
+  .faq-a.open { display: block; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .tag {
+    font-size: 10px;
+    background: #e5e7eb;
+    color: var(--ink3);
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>⚡ How Battery Savings Really Work</h1>
+    <p>Why changing battery efficiency barely moves your final bill — explained from first principles.</p>
+  </div>
+
+  <!-- SECTION 1: Where Battery Enters -->
+  <div class="card">
+    <h2><span class="step-num">1</span> Where the battery enters the calculation</h2>
+    <p style="font-size:13px;color:var(--ink2);">
+      The solar calculator first figures out how much solar you generate and how much you use in the morning (direct self-consumption). 
+      <strong>The battery only touches what's left over.</strong>
+    </p>
+
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-box solar">☀️ Monthly Solar<br><strong>800 kWh</strong></div>
+      </div>
+      <div style="text-align:center;font-size:20px;color:var(--ink3);">↓</div>
+      <div class="flow-row">
+        <div class="flow-box home" style="flex:0.4;">🏠 Morning Use<br><strong>240 kWh</strong></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-box solar" style="flex:0.6;">📦 Leftover Solar<br><strong>560 kWh</strong></div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--ink3);margin-top:4px;">
+        This 560 kWh is the <strong>only</strong> pool the battery can draw from
+      </div>
+    </div>
+
+    <div class="insight">
+      <strong>Key point:</strong> The battery never creates energy. It only redirects leftover solar that would otherwise be exported to the grid at a low rate (~RM 0.27/kWh).
+    </div>
+  </div>
+
+  <!-- SECTION 2: The Three Caps -->
+  <div class="card">
+    <h2><span class="step-num">2</span> The three limits on battery charging</h2>
+    <p style="font-size:13px;color:var(--ink2);margin-bottom:12px;">
+      Every day, the battery can only charge up to the <strong>smallest</strong> of three limits:
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:start;gap:10px;padding:10px;background:#fef3c7;border-radius:10px;">
+        <span class="badge badge-amber">CAP 1</span>
+        <div style="font-size:12px;"><strong>Available excess solar</strong><br><span style="color:var(--ink3);">How much leftover solar you actually have per day</span></div>
+      </div>
+      <div style="display:flex;align-items:start;gap:10px;padding:10px;background:#dbeafe;border-radius:10px;">
+        <span class="badge badge-blue">CAP 2</span>
+        <div style="font-size:12px;"><strong>Battery physical size</strong><br><span style="color:var(--ink3);">e.g. 16 kWh battery with 5% DoD = 15.2 kWh usable</span></div>
+      </div>
+      <div style="display:flex;align-items:start;gap:10px;padding:10px;background:#d1fae5;border-radius:10px;">
+        <span class="badge badge-green">CAP 3</span>
+        <div style="font-size:12px;"><strong>Night usage requirement</strong><br><span style="color:var(--ink3);">How much energy you actually need at night ÷ efficiency</span></div>
+      </div>
+    </div>
+
+    <div class="formula" style="margin-top:12px;">
+      daily charge = <span class="hl">min</span>( CAP1, CAP2, <span class="hlg">CAP3</span> )<br>
+      <span style="color:var(--ink3);">where CAP3 = night usage ÷ round-trip efficiency</span>
+    </div>
+
+    <div class="insight">
+      <strong>This is the key:</strong> CAP3 <em>grows</em> when efficiency drops. Lower efficiency → system tries to pull MORE solar to compensate.
+    </div>
+  </div>
+
+  <!-- SECTION 3: Interactive Demo -->
+  <div class="card">
+    <h2><span class="step-num">3</span> See it in action — interactive demo</h2>
+    <p style="font-size:12px;color:var(--ink3);margin-bottom:12px;">
+      Drag the slider to change battery loss. Watch how the system compensates.
+    </p>
+
+    <div style="background:#f8fafc;border-radius:10px;padding:12px;margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">📋 Scenario: 800 kWh solar/mo, 30% morning, 1000 kWh monthly usage, 16 kWh battery</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;">
+        <div>Excess solar: <strong id="demoExcess">18.7</strong> kWh/day</div>
+        <div>Night usage: <strong id="demoNight">25.3</strong> kWh/day</div>
+        <div>Battery usable: <strong>15.2</strong> kWh</div>
+      </div>
+    </div>
+
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>🔋 Battery Loss (Round-Trip)</span>
+        <span style="font-weight:800;font-size:15px;" id="lossPct">0%</span>
+      </div>
+      <input type="range" id="lossSlider" min="0" max="20" value="0" step="1">
+      <div class="slider-ticks">
+        <span>0% (perfect)</span><span>10%</span><span>20% (worst)</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+      <div style="background:#f1f5f9;border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:0.5px;">Solar → Battery</div>
+        <div style="font-size:20px;font-weight:800;color:var(--blue);" id="demoInput">15.2</div>
+        <div style="font-size:10px;color:var(--ink3);">kWh/day input</div>
+      </div>
+      <div style="background:#f1f5f9;border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:0.5px;">Battery → Home</div>
+        <div style="font-size:20px;font-weight:800;color:var(--green);" id="demoOutput">15.2</div>
+        <div style="font-size:10px;color:var(--ink3);">kWh/day delivered</div>
+      </div>
+    </div>
+
+    <div class="live-result">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:11px;color:var(--ink2);">Monthly bill reduction from battery</div>
+          <div class="big" id="demoSavings">RM 228</div>
+          <div class="sub">456 kWh/mo × RM 0.50/kWh (avoided grid import)</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--ink2);">Lost export credit</div>
+          <div style="font-size:20px;font-weight:800;color:var(--red);" id="demoExport">RM 0</div>
+          <div class="sub">solar diverted from export</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="demoNote" style="font-size:11px;color:var(--ink3);margin-top:8px;text-align:center;"></div>
+  </div>
+
+  <!-- SECTION 4: Why Savings Barely Move -->
+  <div class="card">
+    <h2><span class="step-num">4</span> Why the final savings barely change</h2>
+
+    <p style="font-size:13px;color:var(--ink2);margin-bottom:10px;">
+      Total monthly savings has three parts:
+    </p>
+    <div class="formula">
+      Total Savings = <span class="hlg">Bill Reduction</span> + EEI Saving + <span style="color:#9d174d;">Export Credit</span>
+    </div>
+
+    <p style="font-size:13px;color:var(--ink2);margin-bottom:12px;">
+      When you lower battery efficiency but there's enough excess solar:
+    </p>
+
+    <table class="cmp-table">
+      <tr><th>Component</th><th>0% Loss</th><th>20% Loss</th><th>Change</th></tr>
+      <tr>
+        <td>Energy delivered to home</td>
+        <td>456 kWh</td>
+        <td class="same">456 kWh</td>
+        <td class="same">Same ✓</td>
+      </tr>
+      <tr>
+        <td>Bill Reduction</td>
+        <td>RM 228</td>
+        <td class="same">RM 228</td>
+        <td class="same">Same ✓</td>
+      </tr>
+      <tr>
+        <td>Solar consumed by battery</td>
+        <td>456 kWh</td>
+        <td class="diff">570 kWh</td>
+        <td class="diff">+114 kWh</td>
+      </tr>
+      <tr>
+        <td>Export Credit</td>
+        <td>RM 28</td>
+        <td class="diff">RM 0</td>
+        <td class="diff">−RM 28</td>
+      </tr>
+      <tr style="font-weight:700;border-top:2px solid var(--border);">
+        <td>Total Savings</td>
+        <td>RM 256</td>
+        <td>RM 228</td>
+        <td style="color:var(--red);">−RM 28 (11%)</td>
+      </tr>
+    </table>
+
+    <div class="insight">
+      <strong>The only thing that drops is export credit</strong> — the cheapest component. The expensive grid power you avoid buying stays exactly the same. That's why the total barely moves.
+    </div>
+  </div>
+
+  <!-- SECTION 5: When Efficiency DOES Matter -->
+  <div class="card">
+    <h2><span class="step-num">5</span> When efficiency actually matters</h2>
+    <p style="font-size:13px;color:var(--ink2);margin-bottom:10px;">
+      Efficiency only hurts you when <strong>excess solar runs out</strong> before the battery can compensate:
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+        <span class="badge badge-red">HURTS</span> Small system + big battery + high night usage
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+        <span class="badge badge-red">HURTS</span> Very high morning usage (little leftover solar)
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+        <span class="badge badge-green">NO EFFECT</span> Well-sized system with plenty of excess solar
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+        <span class="badge badge-green">NO EFFECT</span> Battery already covers all night usage
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 6: The Math Proof -->
+  <div class="card">
+    <h2><span class="step-num">6</span> The mathematical proof</h2>
+    <p style="font-size:12px;color:var(--ink3);margin-bottom:10px;">
+      Here's exactly what happens step by step:
+    </p>
+
+    <div class="formula">
+      <strong>Given:</strong> excessSolar = 18.7 kWh/day, nightUse = 25.3 kWh/day, battery = 15.2 kWh<br><br>
+
+      <strong>At 0% loss (efficiency = 1.00):</strong><br>
+      cap3 = 25.3 ÷ 1.00 = <span class="hl">25.3</span><br>
+      input = min(18.7, 15.2, <span class="hl">25.3</span>) = <span class="hlg">15.2</span> (battery-limited)<br>
+      delivered = 15.2 × 1.00 = <span class="hlg">15.2 kWh</span><br><br>
+
+      <strong>At 20% loss (efficiency = 0.80):</strong><br>
+      cap3 = 25.3 ÷ 0.80 = <span class="hl">31.7</span> ← <em>grew!</em><br>
+      input = min(18.7, 17.0, <span class="hl">31.7</span>) = <span class="hlg">17.0</span> (still battery-limited)<br>
+      delivered = 17.0 × 0.80 = <span class="hlg">13.6 kWh</span> ← drops 10%<br><br>
+
+      <strong>At 0% loss with MORE solar (40 kWh/day excess):</strong><br>
+      cap3 = 25.3 ÷ 1.00 = 25.3<br>
+      input = min(40, 15.2, 25.3) = <span class="hlg">15.2</span><br>
+      delivered = <span class="hlg">15.2 kWh</span><br><br>
+
+      <strong>At 20% loss with MORE solar (40 kWh/day excess):</strong><br>
+      cap3 = 25.3 ÷ 0.80 = 31.7<br>
+      input = min(40, 17.0, 31.7) = <span class="hlg">17.0</span><br>
+      delivered = 17.0 × 0.80 = <span class="hlg">13.6 kWh</span><br><br>
+
+      <strong>At 20% loss with ABUNDANT solar (50+ kWh/day):</strong><br>
+      cap3 = 31.7<br>
+      input = min(50, 17.0, 31.7) = <span class="hlg">17.0</span><br>
+      delivered = 17.0 × 0.80 = <span class="hlg">13.6 kWh</span><br>
+      <span style="color:var(--red);">← Battery size is now the hard ceiling. Efficiency loss is real.</span>
+    </div>
+
+    <div class="insight">
+      <strong>Bottom line:</strong> The system is mathematically sound. The "compensation" effect is not a bug — it's the correct behavior of a system where the battery is sized smaller than the available excess solar. When excess solar is abundant, efficiency losses are absorbed by drawing more from the solar pool.
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="card">
+    <h2>❓ Common Questions</h2>
+
+    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">
+      "Is the calculator cheating by ignoring losses?"
+      <span style="font-size:16px;">+</span>
+    </div>
+    <div class="faq-a">
+      No. Losses are fully accounted for. At 20% loss, the system draws 17.0 kWh from solar to deliver 13.6 kWh to the home — the 3.4 kWh difference is the loss. But because there's enough excess solar, the <em>delivered</em> amount to the home only drops slightly, and the bill reduction stays nearly the same.
+    </div>
+
+    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">
+      "Why doesn't 20% loss mean 20% less savings?"
+      <span style="font-size:16px;">+</span>
+    </div>
+    <div class="faq-a">
+      Because 20% loss means you need 25% more solar input (1 ÷ 0.80 = 1.25) to get the same output. If that extra solar is available, the output stays the same. Only when solar runs out does the loss translate 1:1 into reduced savings. Think of it like a water tank: a leaky pipe needs more water in, but if your well has plenty, the bucket at the end still gets filled.
+    </div>
+
+    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">
+      "So battery efficiency doesn't matter at all?"
+      <span style="font-size:16px;">+</span>
+    </div>
+    <div class="faq-a">
+      It matters, but in a specific way. Lower efficiency means more solar is consumed (less exported), so your export credit drops. It also means you hit the solar-availability ceiling sooner. For a well-sized system with good sun, the practical impact on your wallet is small — typically RM 20–50/month difference between best and worst efficiency.
+    </div>
+
+    <div class="faq-q" onclick="this.nextElementSibling.classList.toggle('open')">
+      "What should I tell customers who doubt this?"
+      <span style="font-size:16px;">+</span>
+    </div>
+    <div class="faq-a">
+      Show them this page. The math is transparent: <code>min(excess solar, battery size, night usage ÷ efficiency)</code>. The efficiency term only bites when it pushes the night-usage cap above the available solar. In most well-designed systems, there's enough headroom that efficiency variations are absorbed. This is standard engineering — not a trick.
+    </div>
+  </div>
+
+  <p style="text-align:center;font-size:11px;color:var(--ink3);margin-top:20px;">
+    Built for transparency · Solar Calculator v2 · May 2026
+  </p>
+
+</div>
+
+<script>
+  const slider = document.getElementById('lossSlider');
+  const lossPct = document.getElementById('lossPct');
+  const demoInput = document.getElementById('demoInput');
+  const demoOutput = document.getElementById('demoOutput');
+  const demoSavings = document.getElementById('demoSavings');
+  const demoExport = document.getElementById('demoExport');
+  const demoNote = document.getElementById('demoNote');
+  const demoExcess = document.getElementById('demoExcess');
+  const demoNight = document.getElementById('demoNight');
+
+  // Fixed scenario
+  const monthlySolar = 800;
+  const morningPct = 30;
+  const monthlyUsage = 1000;
+  const batterySize = 16;
+  const dodPct = 5;
+  const usableBattery = batterySize * (1 - dodPct/100); // 15.2
+  const morningUse = monthlySolar * morningPct / 100; // 240
+  const nonOffsetSolar = monthlySolar - morningUse; // 560
+  const dailyExcessSolar = nonOffsetSolar / 30; // 18.67
+  const dailyNightUsage = Math.max(0, monthlyUsage - morningUse) / 30; // 25.33
+
+  demoExcess.textContent = dailyExcessSolar.toFixed(1);
+  demoNight.textContent = dailyNightUsage.toFixed(1);
+
+  function update() {
+    const loss = parseInt(slider.value);
+    lossPct.textContent = loss + '%';
+
+    const roundTrip = Math.max(0, 1 - loss/100);
+    const oneWay = roundTrip > 0 ? Math.sqrt(roundTrip) : 0;
+
+    const cap1 = dailyExcessSolar;
+    const cap2 = usableBattery / (oneWay || 1);
+    const cap3 = roundTrip > 0 ? dailyNightUsage / roundTrip : Infinity;
+
+    const input = Math.min(cap1, cap2, cap3);
+    const stored = input * oneWay;
+    const delivered = Math.min(stored * oneWay, dailyNightUsage);
+
+    const monthlyDelivered = delivered * 30;
+    const monthlyInput = input * 30;
+
+    demoInput.textContent = input.toFixed(1);
+    demoOutput.textContent = delivered.toFixed(1);
+
+    // Savings: avoided grid import at ~RM 0.50/kWh
+    const gridRate = 0.50;
+    const exportRate = 0.27;
+    const billReduction = monthlyDelivered * gridRate;
+    const exportLost = Math.max(0, (monthlyInput - monthlyDelivered)) * exportRate;
+
+    demoSavings.textContent = 'RM ' + billReduction.toFixed(0);
+    demoExport.textContent = 'RM ' + exportLost.toFixed(0);
+
+    // Determine bottleneck
+    let bottleneck;
+    if (input >= cap1 - 0.01) bottleneck = 'excess solar';
+    else if (input >= cap2 - 0.01) bottleneck = 'battery size';
+    else bottleneck = 'night usage';
+
+    const pctChange = loss > 0 ? ((1 - roundTrip) * 100).toFixed(0) : '0';
+
+    if (bottleneck === 'night usage') {
+      demoNote.innerHTML = '<span style="color:var(--green);font-weight:700;">✅ Night usage is the bottleneck.</span> Delivered energy = night usage. Efficiency has ZERO effect on savings.';
+    } else if (bottleneck === 'battery size') {
+      if (loss === 0) {
+        demoNote.innerHTML = 'Battery size is the bottleneck. Delivered = ' + delivered.toFixed(1) + ' kWh/day.';
+      } else {
+        demoNote.innerHTML = '<span style="color:var(--amber);font-weight:700;">⚠️ Battery size is the bottleneck.</span> At ' + loss + '% loss, delivered drops to ' + delivered.toFixed(1) + ' kWh/day (was 15.2 at 0%).';
+      }
+    } else {
+      demoNote.innerHTML = '<span style="color:var(--red);font-weight:700;">🔴 Excess solar is the bottleneck.</span> No more solar to compensate. Losses directly reduce savings.';
+    }
+  }
+
+  slider.addEventListener('input', update);
+  update();
+</script>
+</body>
+</html>

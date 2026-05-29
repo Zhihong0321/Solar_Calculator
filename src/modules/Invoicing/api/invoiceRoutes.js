@@ -376,7 +376,9 @@ router.get('/api/v1/invoices/:bubbleId/voucher-step', requireAuth, async (req, r
             return res.status(403).json({ success: false, error: 'Access denied' });
         }
 
-        const data = await invoiceRepo.getVoucherStepData(client, bubbleId);
+        const userAccessTags = Array.isArray(req.user?.access_level) ? req.user.access_level : [];
+        const userBubbleId = req.user?.bubbleId || req.user?.bubble_id || userId || null;
+        const data = await invoiceRepo.getVoucherStepData(client, bubbleId, { userAccessTags, userBubbleId });
         res.json({ success: true, data });
     } catch (err) {
         console.error('Error fetching voucher-step data:', err);
