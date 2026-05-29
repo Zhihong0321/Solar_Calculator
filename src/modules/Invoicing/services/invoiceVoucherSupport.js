@@ -151,26 +151,8 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
   );
 
   // Build access filter for vouchers
-  // Only apply filtering if user context is provided
-  // If no user context, skip filtering entirely (show all vouchers)
+  // Filter is applied in JavaScript after query to avoid complex SQL string building issues
   let accessFilterClause = '';
-  const shouldFilter = (hasAccessTag || hasAllowedUsers) && (userBubbleId || (Array.isArray(userAccessTags) && userAccessTags.length > 0));
-  if (shouldFilter) {
-    const conditions = [];
-    // Always allow unrestricted vouchers (no access_tag AND no allowed_users)
-    conditions.push(`((${hasAccessTag ? "access_tag IS NULL OR access_tag = ''" : 'TRUE'}) AND (${hasAllowedUsers ? "allowed_users IS NULL OR allowed_users = '{}'" : 'TRUE'}))`);
-    // User matches access_tag
-    if (hasAccessTag && Array.isArray(userAccessTags) && userAccessTags.length > 0) {
-      const escapedTags = userAccessTags.map(t => t.replace(/'/g, "''")).join("', '");
-      conditions.push(`access_tag = ANY(ARRAY['${escapedTags}']::text[])`);
-    }
-    // User is in allowed_users
-    if (hasAllowedUsers && userBubbleId) {
-      const escapedUserId = String(userBubbleId).replace(/'/g, "''");
-      conditions.push(`'${escapedUserId}' = ANY(allowed_users)`);
-    }
-    accessFilterClause = `AND (${conditions.join(' OR ')})`;
-  }
 
   const categories = [];
   for (const rawCategory of categoryResult.rows) {
@@ -191,12 +173,31 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
       )
       : { rows: [] };
 
-    if (!vouchers.rows.length) continue;
+    // Filter vouchers by access_tag and allowed_users in JavaScript
+    const filteredRows = vouchers.rows.filter((row) => {
+      const vAccessTag = row.access_tag || '';
+      const vAllowedUsers = Array.isArray(row.allowed_users) ? row.allowed_users : [];
+      const hasTagRestriction = vAccessTag !== '';
+      const hasUserRestriction = vAllowedUsers.length > 0;
+
+      // No restrictions = visible to all
+      if (!hasTagRestriction && !hasUserRestriction) return true;
+
+      // Check access_tag match
+      if (hasTagRestriction && Array.isArray(userAccessTags) && userAccessTags.includes(vAccessTag)) return true;
+
+      // Check allowed_users match
+      if (hasUserRestriction && userBubbleId && vAllowedUsers.includes(String(userBubbleId))) return true;
+
+      return false;
+    });
+
+    if (!filteredRows.length) continue;
 
     categories.push({
       ...category,
       eligible,
-      vouchers: vouchers.rows.map((voucher) => normalizeVoucherRow(voucher))
+      vouchers: filteredRows.map((voucher) => normalizeVoucherRow(voucher))
     });
   }
 

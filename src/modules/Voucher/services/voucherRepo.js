@@ -613,32 +613,7 @@ async function getVoucherGroupsForInvoiceStep(pool, invoiceId, userAccessTags = 
 
         const categoryIds = categories.map(c => c.bubble_id);
         
-        // Build access filter condition
-        // Vouchers with NULL access_tag AND NULL allowed_users are visible to all users
-        // Vouchers with access_tag set are visible to users with that tag
-        // Vouchers with allowed_users set are visible to users in the list
-        // If both are set, user must match EITHER condition (OR logic)
-        let accessFilter = '';
-        const hasUserTags = userAccessTags && userAccessTags.length > 0;
-        const hasUserId = userBubbleId && userBubbleId.trim();
-        
-        if (hasUserTags || hasUserId) {
-            const conditions = [];
-            // Always allow unrestricted vouchers
-            conditions.push(`((v.access_tag IS NULL OR v.access_tag = '') AND (v.allowed_users IS NULL OR v.allowed_users = '{}'))`);
-            // User matches access_tag
-            if (hasUserTags) {
-                const escapedTags = userAccessTags.map(tag => tag.replace(/'/g, "''")).join("', '");
-                conditions.push(`v.access_tag = ANY(ARRAY['${escapedTags}']::text[])`);
-            }
-            // User is in allowed_users
-            if (hasUserId) {
-                const escapedUserId = userBubbleId.replace(/'/g, "''");
-                conditions.push(`'${escapedUserId}' = ANY(v.allowed_users)`);
-            }
-            accessFilter = `AND (${conditions.join(' OR ')})`;
-        }
-        
+        // Build access filter - removed SQL filter, using JS filter below instead
         const voucherResult = await client.query(
             `SELECT
                 v.*,
@@ -654,13 +629,25 @@ async function getVoucherGroupsForInvoiceStep(pool, invoiceId, userAccessTags = 
                     OR NULLIF(TRIM(v.available_until::text), '')::timestamptz >= NOW()
                )
                AND (v.voucher_availability IS NULL OR v.voucher_availability > 0)
-               ${accessFilter}
              ORDER BY c.sort_order ASC, v.created_at DESC`,
             [categoryIds]
         );
 
+        // JS filter: access_tag / allowed_users check
+        const accessibleVouchers = voucherResult.rows.filter(v => {
+            const tag = (v.access_tag || '').trim();
+            const users = Array.isArray(v.allowed_users) ? v.allowed_users : [];
+            // No restriction
+            if (!tag && users.length === 0) return true;
+            // Tag matches
+            if (tag && Array.isArray(userAccessTags) && userAccessTags.includes(tag)) return true;
+            // User in allowed list
+            if (users.length > 0 && userBubbleId && users.includes(String(userBubbleId))) return true;
+            return false;
+        });
+
         const vouchersByCategory = new Map();
-        voucherResult.rows.forEach(v => {
+        accessibleVouchers.forEach(v => {
             if (!vouchersByCategory.has(v.linked_voucher_category)) {
                 vouchersByCategory.set(v.linked_voucher_category, []);
             }
