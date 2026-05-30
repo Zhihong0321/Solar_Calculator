@@ -5,7 +5,8 @@
       "PowerShell(*)",
       "mcp__stitch__list_projects",
       "mcp__stitch__list_screens",
-      "WebFetch(domain:contribution.usercontent.google.com)"
+      "WebFetch(domain:contribution.usercontent.google.com)",
+      "mcp__postgres-multi__execute_sql"
     ]
   }
 }
