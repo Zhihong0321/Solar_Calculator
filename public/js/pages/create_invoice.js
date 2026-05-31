@@ -358,13 +358,15 @@ function addCustomDiscount(type, value, description) {
     } else if (type === 'percent') {
         amount = packagePrice * ((parseFloat(value) || 0) / 100);
     } else if (type === 'max_minus_percent') {
-        // "Keep X% discount quota" → apply max_discount minus X% of package price.
-        // E.g. max=25% of pkg, enter 5% → apply 20% of pkg = max - (pkg × 5/100).
+        // "Keep X% Quota" → fill remaining budget minus X% of max_discount as reserve.
+        // Formula: max_discount - already_applied - (X% × max_discount)
         if (max <= 0) return { ok: false, reason: 'No maximum discount is configured for this package.' };
         const pct = parseFloat(value) || 0;
         if (pct < 0 || pct >= 100) return { ok: false, reason: 'Enter a percentage between 0 and 99.' };
-        amount = max - (packagePrice * pct / 100);
-        if (amount <= 0) return { ok: false, reason: `Keeping ${pct}% quota leaves no discount to apply (max RM ${max.toFixed(2)} − RM ${(packagePrice * pct / 100).toFixed(2)} ≤ 0).` };
+        const alreadyApplied = getTotalTowardMax() - getReplacedAmount(type);
+        const reserve = max * (pct / 100);
+        amount = max - alreadyApplied - reserve;
+        if (amount <= 0) return { ok: false, reason: `No room left after keeping ${pct}% quota (reserve RM ${reserve.toFixed(2)}, already used RM ${alreadyApplied.toFixed(2)}).` };
     }
 
     amount = Math.max(0, amount);
