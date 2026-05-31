@@ -284,21 +284,328 @@ async function loadHybridUpgradeOptions() {
 }
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
-const MANUAL_DISCOUNT_POLICY = [
-    { minPrice: 40000, maxPercent: 7 },
-    { minPrice: 30000, maxPercent: 6 },
-    { minPrice: 18000, maxPercent: 5 }
+
+// ── Discount Manager (2026-05-31 redesign) ───────────────────────────────────
+// Max discount now comes from package.max_discount (window.packageMaxDiscount).
+// NULL/0 means no cap is enforced yet. Everything that lowers the invoice counts
+// toward the cap: custom discounts + promotions + visible voucher discount
+// + hidden commission deductions + abs(negative extra items).
+// CEO discount bypasses the cap entirely.
+
+// Structured custom discounts: [{ id, type:'fixed'|'percent', value, description, amount }]
+let customDiscounts = [];
+
+function getMaxDiscount() {
+    return parseFloat(window.packageMaxDiscount) || 0;
+}
+
+function getVoucherHiddenDiscount() {
+    return selectedDraftVouchers.reduce((sum, v) => {
+        return sum + (parseFloat(v?.deductableFromCommission ?? v?.deductable_from_commission) || 0);
+    }, 0);
+}
+
+function getCustomDiscountTotal() {
+    return customDiscounts.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+}
+
+// All non-manual discount load (promotions + visible vouchers + hidden + negative items)
+function getNonManualDiscountTotal() {
+    const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+    return getAppliedPromotionAmounts().totalAppliedAmount
+        + getSelectedDraftVoucherTotal(packagePrice)
+        + getVoucherHiddenDiscount()
+        + Math.abs(getExtraItemsNegativeTotal());
+}
+
+function getTotalTowardMax() {
+    return getCustomDiscountTotal() + getNonManualDiscountTotal();
+}
+
+function getAvailableDiscount() {
+    const max = getMaxDiscount();
+    if (max <= 0) return 0; // no cap configured
+    return Math.max(0, max - getNonManualDiscountTotal());
+}
+
+// Validate — sets window._maxDiscountExceeded. CEO discount bypasses. NULL/0 = no cap.
+function validateDiscountLimit() {
+    const ceoDiscountActive = (document.getElementById('ceoDiscount')?.value?.trim() || '').length > 0;
+    if (ceoDiscountActive) {
+        window._maxDiscountExceeded = false;
+        return true;
+    }
+    const max = getMaxDiscount();
+    if (max <= 0) {
+        window._maxDiscountExceeded = false;
+        return true;
+    }
+    if (getTotalTowardMax() > max + 0.01) {
+        window._maxDiscountExceeded = true;
+        return false;
+    }
+    window._maxDiscountExceeded = false;
+    return true;
+}
+
+function addCustomDiscount(type, value, description) {
+    const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+    let amount = 0;
+    if (type === 'fixed') amount = parseFloat(value) || 0;
+    if (type === 'percent') amount = packagePrice * ((parseFloat(value) || 0) / 100);
+    amount = Math.max(0, amount);
+    if (amount <= 0) return { ok: false, reason: 'Enter a discount amount greater than zero.' };
+
+    const max = getMaxDiscount();
+    if (max > 0) {
+        const available = getAvailableDiscount() - getCustomDiscountTotal();
+        if (amount > available + 0.01) {
+            return { ok: false, reason: `Only RM ${Math.max(0, available).toFixed(2)} of discount budget remains.` };
+        }
+    }
+    customDiscounts.push({ id: Date.now(), type, value, description: description || '', amount });
+    syncDiscountGivenBridge();
+    updateInvoicePreview();
+    return { ok: true };
+}
+
+function removeCustomDiscount(id) {
+    customDiscounts = customDiscounts.filter(d => String(d.id) !== String(id));
+    syncDiscountGivenBridge();
+    updateInvoicePreview();
+}
+
+// Bridge structured custom discounts back into the legacy discount_given hidden
+// input so the existing backend request contract keeps working.
+function syncDiscountGivenBridge() {
+    const field = document.getElementById('discountGiven');
+    if (!field) return;
+    // CEO discount, when active, owns discount_given (handled by shared code).
+    const ceoDiscountActive = (document.getElementById('ceoDiscount')?.value?.trim() || '').length > 0;
+    if (ceoDiscountActive) return;
+
+    const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+    let fixedTotal = 0;
+    customDiscounts.forEach(d => {
+        if (d.type === 'fixed') fixedTotal += parseFloat(d.amount) || 0;
+        else if (d.type === 'percent') fixedTotal += packagePrice * ((parseFloat(d.value) || 0) / 100);
+    });
+    field.value = fixedTotal > 0 ? String(Number(fixedTotal.toFixed(2))) : '';
+}
+
+function renderAppliedDiscounts() {
+    const list = document.getElementById('appliedDiscountsList');
+    if (!list) return;
+    list.innerHTML = '';
+    customDiscounts.forEach(d => {
+        const label = d.type === 'percent' ? `${d.value}%` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-white p-3';
+        row.innerHTML = `
+            <div class="min-w-0 flex-1">
+                <div class="text-sm font-semibold text-slate-900">Custom Discount (${label})</div>
+                ${d.description ? `<div class="truncate text-xs text-slate-500">${d.description}</div>` : ''}
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-red-600">-RM ${(parseFloat(d.amount) || 0).toFixed(2)}</span>
+                <button type="button" data-remove-discount="${d.id}" class="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50">Remove</button>
+            </div>
+        `;
+        list.appendChild(row);
+    });
+    list.querySelectorAll('[data-remove-discount]').forEach(btn => {
+        btn.addEventListener('click', () => removeCustomDiscount(btn.getAttribute('data-remove-discount')));
+    });
+}
+
+function updateDiscountSummaryBar() {
+    const max = getMaxDiscount();
+    const maxEl = document.getElementById('maxDiscountValue');
+    const hiddenEl = document.getElementById('hiddenDiscountConsumed');
+    const availEl = document.getElementById('availableDiscountValue');
+    const note = document.getElementById('discountBudgetNote');
+    if (maxEl) maxEl.textContent = max > 0 ? `RM ${max.toFixed(2)}` : 'No cap';
+    if (hiddenEl) hiddenEl.textContent = `RM ${getVoucherHiddenDiscount().toFixed(2)}`;
+    if (availEl) availEl.textContent = max > 0 ? `RM ${getAvailableDiscount().toFixed(2)}` : '—';
+    if (note) {
+        note.textContent = max > 0
+            ? 'Available = Maximum − promotions − vouchers − hidden costs − negative items − custom discounts.'
+            : 'Maximum discount is not configured for this package, so no discount cap is enforced.';
+    }
+}
+
+function getCustomDiscountFixedTotal() {
+    return customDiscounts
+        .filter(d => d.type === 'fixed')
+        .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+}
+
+function getCustomDiscountPercentAmount() {
+    const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+    return customDiscounts
+        .filter(d => d.type === 'percent')
+        .reduce((sum, d) => sum + packagePrice * ((parseFloat(d.value) || 0) / 100), 0);
+}
+
+// ── Preset Discounts & Countdown (Phase 4, config-based — no DB columns) ──────
+// Presets are defined in code (like the Earn Now / Earth Month promos). Each
+// preset is a sales-gimmick card the agent can apply as a custom discount.
+// countdownExpiresAt (optional ISO string) drives a live UTC+8 countdown; when
+// it expires the preset auto-sets to RM0 and shows EXPIRED.
+const DISCOUNT_PRESETS = [
+    // Example shape (left empty by default; populate when business provides them):
+    // { id: 'first5', description: 'Company first 5 customer of current month', amount: 500 },
+    // { id: 'cd1', description: 'Countdown discount, confirm before {TIME} = Discount RM1000', amount: 1000, countdownExpiresAt: '2026-05-31T15:30:00+08:00' }
 ];
 
-function getManualDiscountPolicy(packagePrice) {
-    const normalizedPrice = parseFloat(packagePrice) || 0;
-    const matchedTier = MANUAL_DISCOUNT_POLICY.find(tier => normalizedPrice >= tier.minPrice);
-    const maxPercent = matchedTier ? matchedTier.maxPercent : 0;
+function formatCountdown(ms) {
+    if (ms <= 0) return '00:00:00';
+    const totalSec = Math.floor(ms / 1000);
+    const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+    const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+    const s = String(totalSec % 60).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+}
 
-    return {
-        maxPercent,
-        maxAmount: normalizedPrice * (maxPercent / 100)
-    };
+// Remaining ms until expiry, comparing "now" against the preset expiry. Both are
+// absolute instants, so a plain Date diff already respects UTC+8 offsets baked
+// into the ISO string.
+function getCountdownRemaining(expiresAt) {
+    if (!expiresAt) return null;
+    const expiry = new Date(expiresAt).getTime();
+    if (Number.isNaN(expiry)) return null;
+    return expiry - Date.now();
+}
+
+function renderPresetDiscountCards() {
+    const container = document.getElementById('presetDiscountsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    DISCOUNT_PRESETS.forEach((preset) => {
+        const remaining = getCountdownRemaining(preset.countdownExpiresAt);
+        const expired = remaining !== null && remaining <= 0;
+        const amount = parseFloat(preset.amount) || 0;
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-rose-200 bg-rose-50 p-3';
+
+        const descText = (preset.description || '').replace('{TIME}',
+            preset.countdownExpiresAt ? new Date(preset.countdownExpiresAt).toLocaleTimeString('en-GB', { timeZone: 'Asia/Kuala_Lumpur' }) : '');
+
+        if (expired) {
+            card.innerHTML = `
+                <div class="text-xs font-bold uppercase text-red-600">Expired</div>
+                <div class="text-sm text-slate-500 line-through">${descText}</div>
+                <div class="mt-1 text-sm font-bold text-slate-500">Discount: RM 0.00</div>
+            `;
+        } else {
+            const countdownHtml = remaining !== null
+                ? `<div class="mt-1 text-sm font-bold text-amber-600">Countdown: ${formatCountdown(remaining)}</div>`
+                : '';
+            card.innerHTML = `
+                <div class="text-sm font-semibold text-slate-900">${descText}</div>
+                ${countdownHtml}
+                <div class="mt-1 flex items-center justify-between gap-3">
+                    <span class="text-sm font-bold text-rose-700">Discount: RM ${amount.toFixed(2)}</span>
+                    <button type="button" data-apply-preset="${preset.id}" class="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-rose-700">Apply</button>
+                </div>
+            `;
+        }
+        container.appendChild(card);
+    });
+
+    container.querySelectorAll('[data-apply-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const preset = DISCOUNT_PRESETS.find(p => String(p.id) === btn.getAttribute('data-apply-preset'));
+            if (!preset) return;
+            if (getCountdownRemaining(preset.countdownExpiresAt) !== null && getCountdownRemaining(preset.countdownExpiresAt) <= 0) return;
+            const result = addCustomDiscount('fixed', preset.amount, preset.description?.replace('{TIME}', '') || 'Preset discount');
+            if (!result.ok) showCustomDiscountError(result.reason);
+        });
+    });
+}
+
+// Refresh countdowns once per second; only does DOM work when presets exist.
+function tickPresetCountdowns() {
+    if (!DISCOUNT_PRESETS.some(p => p.countdownExpiresAt)) return;
+    renderPresetDiscountCards();
+}
+
+function renderDiscountVoucherSummary() {
+    const container = document.getElementById('discountVoucherSummary');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!selectedDraftVouchers.length) return;
+
+    const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+    const heading = document.createElement('h3');
+    heading.className = 'text-sm font-bold uppercase tracking-wide text-slate-500';
+    heading.textContent = 'Selected Vouchers';
+    container.appendChild(heading);
+
+    selectedDraftVouchers.forEach((v) => {
+        const fixedAmount = parseFloat(v?.discountAmount || 0) || 0;
+        const percentValue = parseFloat(v?.discountPercent || 0) || 0;
+        const visible = fixedAmount > 0 ? fixedAmount : packagePrice * (percentValue / 100);
+        const hidden = parseFloat(v?.deductableFromCommission ?? v?.deductable_from_commission) || 0;
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3';
+        row.innerHTML = `
+            <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-semibold text-slate-900">${v?.title || 'Voucher'}</div>
+                <div class="text-xs text-slate-500">${v?.code || ''}${hidden > 0 ? ` • Commission Deduct: RM ${hidden.toFixed(2)}` : ''}</div>
+            </div>
+            <span class="text-sm font-bold text-amber-700">-RM ${visible.toFixed(2)}</span>
+        `;
+        container.appendChild(row);
+    });
+}
+
+function showCustomDiscountError(message) {
+    const el = document.getElementById('customDiscountError');
+    if (!el) return;
+    if (!message) {
+        el.classList.add('hidden');
+        el.textContent = '';
+        return;
+    }
+    el.textContent = message;
+    el.classList.remove('hidden');
+}
+
+// Move the promotions block from Price Controls into the dedicated discount
+// section, and wire the custom-discount panel + preset countdown timer.
+function initDiscountSection() {
+    const promo = document.getElementById('promotionOptionsSection');
+    const slot = document.getElementById('promotionOptionsSlot');
+    if (promo && slot && promo.parentElement !== slot) {
+        slot.appendChild(promo);
+    }
+
+    const addBtn = document.getElementById('addCustomDiscountBtn');
+    if (addBtn && !addBtn.dataset.wired) {
+        addBtn.dataset.wired = '1';
+        addBtn.addEventListener('click', () => {
+            const type = document.getElementById('customDiscountType')?.value || 'fixed';
+            const value = document.getElementById('customDiscountValue')?.value || '';
+            const description = document.getElementById('customDiscountDescription')?.value || '';
+            const result = addCustomDiscount(type, value, description);
+            if (!result.ok) {
+                showCustomDiscountError(result.reason);
+            } else {
+                showCustomDiscountError(null);
+                const valueInput = document.getElementById('customDiscountValue');
+                const descInput = document.getElementById('customDiscountDescription');
+                if (valueInput) valueInput.value = '';
+                if (descInput) descInput.value = '';
+            }
+        });
+    }
+
+    renderPresetDiscountCards();
+    if (!window._presetCountdownTimer) {
+        window._presetCountdownTimer = window.setInterval(tickPresetCountdowns, 1000);
+    }
 }
 
 // Calculate total negative amount from all extra items (manual + micro inverters)
@@ -890,16 +1197,21 @@ function updatePaymentMethodInfo(index) {
 
     // Calculate package price after discount
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
-    const discountInput = document.getElementById('discountGiven')?.value || '';
-    const discount = parseDiscount(discountInput);
+    const ceoDiscountValue = document.getElementById('ceoDiscount')?.value?.trim() || '';
 
     // Calculate extra items total
     const extraItemsTotal = getAdditionalInvoiceItems()
         .reduce((sum, item) => sum + item.total_price, 0);
 
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
-    if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
-    if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+    if (ceoDiscountValue) {
+        const ceoDiscount = parseDiscount(ceoDiscountValue);
+        if (ceoDiscount.fixed > 0) subtotalAfterDiscount -= ceoDiscount.fixed;
+        if (ceoDiscount.percent > 0) subtotalAfterDiscount -= (packagePrice * ceoDiscount.percent / 100);
+    } else {
+        subtotalAfterDiscount -= getCustomDiscountFixedTotal();
+        subtotalAfterDiscount -= getCustomDiscountPercentAmount();
+    }
 
     const promotionAmounts = getAppliedPromotionAmounts();
     subtotalAfterDiscount -= promotionAmounts.totalAppliedAmount;
@@ -938,16 +1250,20 @@ function calculateAllEPPFees() {
     // Calculate package price after discount
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     const ceoDiscountValue = document.getElementById('ceoDiscount')?.value?.trim() || '';
-    const discountInput = ceoDiscountValue || document.getElementById('discountGiven')?.value || '';
-    const discount = parseDiscount(discountInput);
 
     // Calculate extra items total
     const extraItemsTotal = getAdditionalInvoiceItems()
         .reduce((sum, item) => sum + item.total_price, 0);
 
     let subtotalAfterDiscount = packagePrice + extraItemsTotal;
-    if (discount.fixed > 0) subtotalAfterDiscount -= discount.fixed;
-    if (discount.percent > 0) subtotalAfterDiscount -= (packagePrice * discount.percent / 100);
+    if (ceoDiscountValue) {
+        const ceoDiscount = parseDiscount(ceoDiscountValue);
+        if (ceoDiscount.fixed > 0) subtotalAfterDiscount -= ceoDiscount.fixed;
+        if (ceoDiscount.percent > 0) subtotalAfterDiscount -= (packagePrice * ceoDiscount.percent / 100);
+    } else {
+        subtotalAfterDiscount -= getCustomDiscountFixedTotal();
+        subtotalAfterDiscount -= getCustomDiscountPercentAmount();
+    }
 
     const promotionAmounts = getAppliedPromotionAmounts();
     subtotalAfterDiscount -= promotionAmounts.totalAppliedAmount;
@@ -1123,10 +1439,9 @@ function attachPaymentMethodListeners(row, index) {
 // Update invoice items preview
 function updateInvoicePreview() {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
-    // CEO discount takes priority over regular discount when entered
+    // CEO discount takes priority over custom discounts when entered.
     const ceoDiscountValue = document.getElementById('ceoDiscount')?.value?.trim() || '';
-    const discountInput = ceoDiscountValue || document.getElementById('discountGiven')?.value || '';
-    const discount = parseDiscount(discountInput);
+    const ceoDiscount = parseDiscount(ceoDiscountValue);
     updatePromotionOptionsUI();
 
     const itemsList = document.getElementById('quotationItemsList');
@@ -1226,34 +1541,53 @@ function updateInvoicePreview() {
         if (extraItemsDiscountWarning) extraItemsDiscountWarning.classList.add('hidden');
     }
 
-    // Add fixed discount item if exists
+    // Add discount line items.
+    // When CEO discount is active, it replaces all custom discounts (no cap applies).
+    // Otherwise render each structured custom discount.
     const discountLabel = ceoDiscountValue ? "CEO's SPECIAL DISCOUNT" : 'Discount';
-    if (discount.fixed > 0) {
-        const fixedDiscountItem = document.createElement('div');
-        fixedDiscountItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-        fixedDiscountItem.innerHTML = `
+    if (ceoDiscountValue) {
+        if (ceoDiscount.fixed > 0) {
+            const fixedDiscountItem = document.createElement('div');
+            fixedDiscountItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+            fixedDiscountItem.innerHTML = `
                     <div class="flex-1">
-                        <div class="font-medium text-red-600">${discountLabel} (RM ${discount.fixed.toFixed(2)})</div>
+                        <div class="font-medium text-red-600">${discountLabel} (RM ${ceoDiscount.fixed.toFixed(2)})</div>
                     </div>
-                    <div class="font-semibold text-red-600">-RM ${discount.fixed.toFixed(2)}</div>
+                    <div class="font-semibold text-red-600">-RM ${ceoDiscount.fixed.toFixed(2)}</div>
                 `;
-        itemsList.appendChild(fixedDiscountItem);
-        subtotal -= discount.fixed;
-    }
-
-    // Add percentage discount item if exists
-    if (discount.percent > 0) {
-        const percentAmount = packagePrice * (discount.percent / 100);
-        const percentDiscountItem = document.createElement('div');
-        percentDiscountItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
-        percentDiscountItem.innerHTML = `
+            itemsList.appendChild(fixedDiscountItem);
+            subtotal -= ceoDiscount.fixed;
+        }
+        if (ceoDiscount.percent > 0) {
+            const percentAmount = packagePrice * (ceoDiscount.percent / 100);
+            const percentDiscountItem = document.createElement('div');
+            percentDiscountItem.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+            percentDiscountItem.innerHTML = `
                     <div class="flex-1">
-                        <div class="font-medium text-red-600">${discountLabel} (${discount.percent}%)</div>
+                        <div class="font-medium text-red-600">${discountLabel} (${ceoDiscount.percent}%)</div>
                     </div>
                     <div class="font-semibold text-red-600">-RM ${percentAmount.toFixed(2)}</div>
                 `;
-        itemsList.appendChild(percentDiscountItem);
-        subtotal -= percentAmount;
+            itemsList.appendChild(percentDiscountItem);
+            subtotal -= percentAmount;
+        }
+    } else {
+        customDiscounts.forEach((d) => {
+            const amount = parseFloat(d.amount) || 0;
+            if (amount <= 0) return;
+            const label = d.type === 'percent' ? `${d.value}%` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+            const item = document.createElement('div');
+            item.className = 'flex justify-between items-center py-2 border-b border-gray-200';
+            item.innerHTML = `
+                    <div class="flex-1">
+                        <div class="font-medium text-red-600">Discount (${label})</div>
+                        ${d.description ? `<div class="text-xs text-gray-500">${d.description}</div>` : ''}
+                    </div>
+                    <div class="font-semibold text-red-600">-RM ${amount.toFixed(2)}</div>
+                `;
+            itemsList.appendChild(item);
+            subtotal -= amount;
+        });
     }
 
     const voucherRows = buildDraftVoucherRows(packagePrice);
@@ -1271,38 +1605,13 @@ function updateInvoicePreview() {
         subtotal -= voucher.amount;
     });
 
-    // Validation for tiered manual discount limit
-    // Skip when CEO discount is active (no limit applies)
-    const ceoDiscountActive = (document.getElementById('ceoDiscount')?.value?.trim() || '').length > 0;
-    const totalDiscountValue = (discount.fixed || 0) + (packagePrice * (discount.percent || 0) / 100);
-    const discountInputField = document.getElementById('discountGiven');
-    const maxDiscountAllowed = Number(window.maxDiscountAllowed) || 0;
-    const allowedDiscountPercent = window.maxDiscountPercentAllowed || 0;
-    if (!ceoDiscountActive && totalDiscountValue > (maxDiscountAllowed + 0.01)) {
-        window._maxDiscountExceeded = true;
-        if (discountInputField) {
-            discountInputField.classList.add('border-red-500', 'bg-red-50');
-            discountInputField.classList.remove('border-gray-300', 'bg-white');
-        }
-        const warningMsg = document.createElement('div');
-        warningMsg.className = 'text-xs text-red-600 font-bold mt-1';
-        warningMsg.id = 'discountLimitWarning';
-        warningMsg.textContent = `⚠️ Exceeds max allowed discount of RM ${maxDiscountAllowed.toFixed(2)} (${allowedDiscountPercent}% of package price)`;
-
-        // Remove existing warning if any
-        const existingWarning = document.getElementById('discountLimitWarning');
-        if (existingWarning) existingWarning.remove();
-
-        if (discountInputField) discountInputField.parentNode.appendChild(warningMsg);
-    } else {
-        window._maxDiscountExceeded = false;
-        if (discountInputField) {
-            discountInputField.classList.remove('border-red-500', 'bg-red-50');
-            discountInputField.classList.add('border-gray-300', 'bg-white');
-        }
-        const existingWarning = document.getElementById('discountLimitWarning');
-        if (existingWarning) existingWarning.remove();
-    }
+    // Validation for package max-discount limit (replaces tiered policy).
+    // CEO discount bypasses; NULL/0 max_discount = no cap enforced.
+    syncDiscountGivenBridge();
+    validateDiscountLimit();
+    renderAppliedDiscounts();
+    updateDiscountSummaryBar();
+    renderDiscountVoucherSummary();
 
     const trueSubtotal = subtotal;
     if (trueSubtotal <= 0) {
@@ -1723,6 +2032,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         addPaymentMethodRow
     });
 
+    initDiscountSection();
+
     MICRO_INVERTER_MODELS.forEach(model => {
         const input = document.getElementById(`${model.id}_qty`);
         if (input) {
@@ -1813,24 +2124,9 @@ function showPackage(pkg) {
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
     updatePromotionOptionsUI();
 
-    // Handle tiered max discount policy
-    const pkgPriceForLimit = parseFloat(pkg.price) || 0;
-    const { maxPercent, maxAmount } = getManualDiscountPolicy(pkgPriceForLimit);
-    window.maxDiscountAllowed = maxAmount;
-    window.maxDiscountPercentAllowed = maxPercent;
-    const maxDiscountRow = document.getElementById('maxDiscountRow');
-    const maxDiscountDisplay = document.getElementById('maxDiscountDisplay');
-
-    // New persistent display under input
-    const inputMaxDiscountRow = document.getElementById('inputMaxDiscountRow');
-    const inputMaxDiscountDisplay = document.getElementById('inputMaxDiscountDisplay');
-
-    // Always show — limit is unconditional
-    if (maxDiscountRow) maxDiscountRow.classList.remove('hidden');
-    if (maxDiscountDisplay) maxDiscountDisplay.textContent = `RM ${window.maxDiscountAllowed.toFixed(2)} (${maxPercent}% of package price)`;
-
-    if (inputMaxDiscountRow) inputMaxDiscountRow.classList.remove('hidden');
-    if (inputMaxDiscountDisplay) inputMaxDiscountDisplay.textContent = `Max discount: RM ${window.maxDiscountAllowed.toFixed(2)} (${maxPercent}% of package price)`;
+    // Max discount now comes from package.max_discount (NULL/0 = no cap enforced).
+    window.packageMaxDiscount = parseFloat(pkg.max_discount) || 0;
+    updateDiscountSummaryBar();
 
     if (pkg.invoice_desc) {
         const descContainer = document.getElementById('packageDescContainer');

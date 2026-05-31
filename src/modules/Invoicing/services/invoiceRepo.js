@@ -9,7 +9,8 @@
 const crypto = require('crypto');
 const {
   calculateInvoiceFinancials,
-  validateManualDiscountLimit
+  validateDiscountLimit,
+  computeTotalTowardMax
 } = require('./invoiceFinancials');
 const {
   getInvoiceColumns,
@@ -543,8 +544,10 @@ async function getVoucherPreviewDataByPackage(client, packageId, userContext = {
     package_price: pkg.price,
     panel_qty: pkg.panel_qty,
     package_type: pkg.type,
+    max_discount: pkg.max_discount ?? null,
     packagePrice: parseFloat(pkg.price) || 0,
     panelQty: parseInt(pkg.panel_qty, 10) || 0,
+    maxDiscount: parseFloat(pkg.max_discount) || 0,
     packageTypeScope: normalizeVoucherCategoryPackageType(pkg.type)
   };
 
@@ -1231,11 +1234,24 @@ async function createInvoiceOnTheFly(client, data) {
     // 3. Calculate Financials
     const financials = calculateInvoiceFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, deps.pkg ? deps.pkg.panel_qty : 0);
 
-    // 3.5 Validate tiered max discount policy (vouchers excluded)
-    // CEO discount bypasses this limit entirely
+    // 3.5 Validate discount against package.max_discount.
+    // Everything that reduces the invoice counts toward the cap: manual discount,
+    // promotions, visible voucher discount, hidden commission deductions, and the
+    // absolute value of any negative extra items.
+    // CEO discount bypasses this limit entirely. NULL/0 max_discount = no cap yet.
     if (!data.ceoDiscount) {
-      const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
-      validateManualDiscountLimit(packagePrice, totalDiscountValue);
+      const manualDiscount = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
+      const promoAmount = (financials.earnNowRebateDiscount || 0)
+        + (financials.earthMonthGoGreenBonusDiscount || 0)
+        + (financials.parentsDayPromoDiscount || 0);
+      const totalTowardMax = computeTotalTowardMax({
+        manualDiscount,
+        promoAmount,
+        voucherVisibleDiscount: voucherInfo.totalVoucherAmount,
+        totalHiddenDiscount: voucherInfo.totalHiddenDiscount,
+        negativeExtraItems: financials.extraItemsNegativeTotal
+      });
+      validateDiscountLimit(deps.pkg ? deps.pkg.max_discount : null, totalTowardMax, voucherInfo.totalHiddenDiscount);
     }
 
     // 4. Create Invoice Header
@@ -1727,11 +1743,21 @@ async function updateInvoiceTransaction(client, data) {
       : await _processExistingInvoiceVouchers(client, bubbleId, currentData.voucher_code, packagePrice);
     const financials = calculateInvoiceFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
 
-    // Validate tiered max discount policy (vouchers excluded)
-    // CEO discount bypasses this limit entirely
+    // Validate discount against package.max_discount (see create path for rationale).
+    // CEO discount bypasses this limit entirely. NULL/0 max_discount = no cap yet.
     if (!data.ceoDiscount) {
-      const totalDiscountValue = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
-      validateManualDiscountLimit(packagePrice, totalDiscountValue);
+      const manualDiscount = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
+      const promoAmount = (financials.earnNowRebateDiscount || 0)
+        + (financials.earthMonthGoGreenBonusDiscount || 0)
+        + (financials.parentsDayPromoDiscount || 0);
+      const totalTowardMax = computeTotalTowardMax({
+        manualDiscount,
+        promoAmount,
+        voucherVisibleDiscount: voucherInfo.totalVoucherAmount,
+        totalHiddenDiscount: voucherInfo.totalHiddenDiscount,
+        negativeExtraItems: financials.extraItemsNegativeTotal
+      });
+      validateDiscountLimit(pkg ? pkg.max_discount : null, totalTowardMax, voucherInfo.totalHiddenDiscount);
     }
 
     const { finalTotalAmount } = financials;

@@ -402,10 +402,11 @@
         // Skip max discount check when CEO discount is active
         const ceoDiscountActive = document.getElementById('ceoDiscount')?.value?.trim().length > 0;
         if (global._maxDiscountExceeded && !ceoDiscountActive) {
+            const maxDiscount = Number(global.packageMaxDiscount) || 0;
             Swal.fire({
                 icon: 'error',
                 title: 'Max Discount Exceeded',
-                text: `The discount entered exceeds the maximum allowed discount of RM ${(Number(global.maxDiscountAllowed) || 0).toFixed(2)} (${Number(global.maxDiscountPercentAllowed) || 0}% of package price).`
+                text: `The total discount (including promotions, vouchers, hidden voucher costs, and negative items) exceeds this package's maximum discount of RM ${maxDiscount.toFixed(2)}.`
             });
             return false;
         }

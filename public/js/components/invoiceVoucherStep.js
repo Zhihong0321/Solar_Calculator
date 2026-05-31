@@ -60,6 +60,7 @@
                     code: voucher?.voucher_code || '',
                     discountAmount: voucher?.discount_amount,
                     discountPercent: voucher?.discount_percent,
+                    deductableFromCommission: voucher?.deductable_from_commission ?? 0,
                     active: voucher?.active !== false,
                     disabled: voucher?.disabled === true
                 })).filter((voucher) => voucher.id)
