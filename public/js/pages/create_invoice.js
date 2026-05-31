@@ -453,6 +453,40 @@ function renderAppliedDiscounts() {
     });
 }
 
+// Auto-trim: when total exceeds max, remove the biggest custom discount first.
+// Shows a Swal popup listing what was removed.
+function autoTrimCustomDiscounts() {
+    const max = getMaxDiscount();
+    if (max <= 0 || customDiscounts.length === 0) return;
+
+    const removed = [];
+    while (getTotalTowardMax() > max + 0.01 && customDiscounts.length > 0) {
+        // Find the biggest custom discount
+        let biggestIdx = 0;
+        for (let i = 1; i < customDiscounts.length; i++) {
+            if ((parseFloat(customDiscounts[i].amount) || 0) > (parseFloat(customDiscounts[biggestIdx].amount) || 0)) {
+                biggestIdx = i;
+            }
+        }
+        removed.push(customDiscounts[biggestIdx]);
+        customDiscounts.splice(biggestIdx, 1);
+    }
+
+    if (removed.length > 0) {
+        syncDiscountGivenBridge();
+        const lines = removed.map(d => {
+            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+            return `• ${label} (RM ${(parseFloat(d.amount) || 0).toFixed(2)})`;
+        }).join('<br>');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Custom Discount Removed',
+            html: `The following custom discount was removed because vouchers/promotions pushed the total over the maximum discount budget:<br><br>${lines}`,
+            confirmButtonText: 'OK'
+        });
+    }
+}
+
 function updateDiscountSummaryBar() {
     const max = getMaxDiscount();
     const maxEl = document.getElementById('maxDiscountValue');
@@ -1643,6 +1677,8 @@ function updateInvoicePreview() {
         subtotal -= voucher.amount;
     });
 
+    // Auto-trim custom discounts if vouchers/promos pushed over budget.
+    autoTrimCustomDiscounts();
     // Validation for package max-discount limit (replaces tiered policy).
     // CEO discount bypasses; NULL/0 max_discount = no cap enforced.
     syncDiscountGivenBridge();
