@@ -350,23 +350,52 @@ function validateDiscountLimit() {
 
 function addCustomDiscount(type, value, description) {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+    const max = getMaxDiscount();
     let amount = 0;
-    if (type === 'fixed') amount = parseFloat(value) || 0;
-    if (type === 'percent') amount = packagePrice * ((parseFloat(value) || 0) / 100);
+
+    if (type === 'fixed') {
+        amount = parseFloat(value) || 0;
+    } else if (type === 'percent') {
+        amount = packagePrice * ((parseFloat(value) || 0) / 100);
+    } else if (type === 'max_minus_percent') {
+        // "Max Discount - X%" → applies max_discount * (100 - X) / 100 as a fixed RM discount.
+        if (max <= 0) return { ok: false, reason: 'No maximum discount is configured for this package.' };
+        const pct = parseFloat(value) || 0;
+        if (pct < 0 || pct >= 100) return { ok: false, reason: 'Enter a percentage between 0 and 99.' };
+        amount = max * (1 - pct / 100);
+    }
+
     amount = Math.max(0, amount);
     if (amount <= 0) return { ok: false, reason: 'Enter a discount amount greater than zero.' };
 
-    const max = getMaxDiscount();
     if (max > 0) {
-        const available = getAvailableDiscount();
-        if (amount > available + 0.01) {
-            return { ok: false, reason: `Only RM ${Math.max(0, available).toFixed(2)} of discount budget remains.` };
+        // For the budget check, simulate replacing existing same-type entry.
+        const replacedAmount = getReplacedAmount(type);
+        const budgetAfterReplace = getAvailableDiscount() + replacedAmount;
+        if (amount > budgetAfterReplace + 0.01) {
+            return { ok: false, reason: `Only RM ${Math.max(0, budgetAfterReplace).toFixed(2)} of discount budget remains.` };
         }
     }
+
+    // Replace rule: only one fixed, one percent allowed. max_minus_percent replaces fixed.
+    const effectiveType = type === 'max_minus_percent' ? 'fixed' : type;
+    customDiscounts = customDiscounts.filter(d => {
+        const dEffective = d.type === 'max_minus_percent' ? 'fixed' : d.type;
+        return dEffective !== effectiveType;
+    });
+
     customDiscounts.push({ id: Date.now(), type, value, description: description || '', amount });
     syncDiscountGivenBridge();
     updateInvoicePreview();
     return { ok: true };
+}
+
+// How much budget would be freed by replacing the existing entry of the same effective type.
+function getReplacedAmount(type) {
+    const effectiveType = type === 'max_minus_percent' ? 'fixed' : type;
+    return customDiscounts
+        .filter(d => (d.type === 'max_minus_percent' ? 'fixed' : d.type) === effectiveType)
+        .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
 }
 
 function removeCustomDiscount(id) {
@@ -387,7 +416,7 @@ function syncDiscountGivenBridge() {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     let fixedTotal = 0;
     customDiscounts.forEach(d => {
-        if (d.type === 'fixed') fixedTotal += parseFloat(d.amount) || 0;
+        if (d.type === 'fixed' || d.type === 'max_minus_percent') fixedTotal += parseFloat(d.amount) || 0;
         else if (d.type === 'percent') fixedTotal += packagePrice * ((parseFloat(d.value) || 0) / 100);
     });
     field.value = fixedTotal > 0 ? String(Number(fixedTotal.toFixed(2))) : '';
@@ -398,7 +427,7 @@ function renderAppliedDiscounts() {
     if (!list) return;
     list.innerHTML = '';
     customDiscounts.forEach(d => {
-        const label = d.type === 'percent' ? `${d.value}%` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+        const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Max \u2212 ${d.value}%` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-white p-3';
         row.innerHTML = `
@@ -436,7 +465,7 @@ function updateDiscountSummaryBar() {
 
 function getCustomDiscountFixedTotal() {
     return customDiscounts
-        .filter(d => d.type === 'fixed')
+        .filter(d => d.type === 'fixed' || d.type === 'max_minus_percent')
         .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
 }
 
@@ -1575,7 +1604,7 @@ function updateInvoicePreview() {
         customDiscounts.forEach((d) => {
             const amount = parseFloat(d.amount) || 0;
             if (amount <= 0) return;
-            const label = d.type === 'percent' ? `${d.value}%` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Max \u2212 ${d.value}%` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
             const item = document.createElement('div');
             item.className = 'flex justify-between items-center py-2 border-b border-gray-200';
             item.innerHTML = `
