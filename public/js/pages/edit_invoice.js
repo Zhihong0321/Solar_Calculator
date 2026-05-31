@@ -83,7 +83,7 @@ function getTotalTowardMax() {
 function getAvailableDiscount() {
     const max = getMaxDiscount();
     if (max <= 0) return 0;
-    return Math.max(0, max - getNonManualDiscountTotal());
+    return Math.max(0, max - getTotalTowardMax());
 }
 
 function validateDiscountLimit() {
@@ -115,7 +115,7 @@ function addCustomDiscount(type, value, description) {
 
     const max = getMaxDiscount();
     if (max > 0) {
-        const available = getAvailableDiscount() - getCustomDiscountTotal();
+        const available = getAvailableDiscount();
         if (amount > available + 0.01) {
             return { ok: false, reason: `Only RM ${Math.max(0, available).toFixed(2)} of discount budget remains.` };
         }
