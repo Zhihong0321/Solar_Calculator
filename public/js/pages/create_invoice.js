@@ -358,11 +358,13 @@ function addCustomDiscount(type, value, description) {
     } else if (type === 'percent') {
         amount = packagePrice * ((parseFloat(value) || 0) / 100);
     } else if (type === 'max_minus_percent') {
-        // "Max Discount - X%" → applies max_discount * (100 - X) / 100 as a fixed RM discount.
+        // "Keep X% discount quota" → apply max_discount minus X% of package price.
+        // E.g. max=25% of pkg, enter 5% → apply 20% of pkg = max - (pkg × 5/100).
         if (max <= 0) return { ok: false, reason: 'No maximum discount is configured for this package.' };
         const pct = parseFloat(value) || 0;
         if (pct < 0 || pct >= 100) return { ok: false, reason: 'Enter a percentage between 0 and 99.' };
-        amount = max * (1 - pct / 100);
+        amount = max - (packagePrice * pct / 100);
+        if (amount <= 0) return { ok: false, reason: `Keeping ${pct}% quota leaves no discount to apply (max RM ${max.toFixed(2)} − RM ${(packagePrice * pct / 100).toFixed(2)} ≤ 0).` };
     }
 
     amount = Math.max(0, amount);
@@ -427,7 +429,7 @@ function renderAppliedDiscounts() {
     if (!list) return;
     list.innerHTML = '';
     customDiscounts.forEach(d => {
-        const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Max \u2212 ${d.value}%` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+        const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-white p-3';
         row.innerHTML = `
@@ -1604,7 +1606,7 @@ function updateInvoicePreview() {
         customDiscounts.forEach((d) => {
             const amount = parseFloat(d.amount) || 0;
             if (amount <= 0) return;
-            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Max \u2212 ${d.value}%` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
             const item = document.createElement('div');
             item.className = 'flex justify-between items-center py-2 border-b border-gray-200';
             item.innerHTML = `
