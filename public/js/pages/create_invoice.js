@@ -358,15 +358,17 @@ function addCustomDiscount(type, value, description) {
     } else if (type === 'percent') {
         amount = packagePrice * ((parseFloat(value) || 0) / 100);
     } else if (type === 'max_minus_percent') {
-        // "Keep X% Quota" → fill remaining budget minus X% of max_discount as reserve.
-        // Formula: max_discount - already_applied - (X% × max_discount)
+        // "Keep X% Quota" — X is percentage points of package price to reserve.
+        // Formula: max_discount - already_applied - (packagePrice × X / 100)
+        // E.g. max=25% of pkg, enter 25 → keep full quota, discount=0.
+        //      max=25% of pkg, enter 5 → reserve 5% of pkg, apply the rest.
         if (max <= 0) return { ok: false, reason: 'No maximum discount is configured for this package.' };
         const pct = parseFloat(value) || 0;
-        if (pct < 0 || pct >= 100) return { ok: false, reason: 'Enter a percentage between 0 and 99.' };
+        if (pct < 0) return { ok: false, reason: 'Enter a percentage of 0 or above.' };
         const alreadyApplied = getTotalTowardMax() - getReplacedAmount(type);
-        const reserve = max * (pct / 100);
+        const reserve = packagePrice * (pct / 100);
         amount = max - alreadyApplied - reserve;
-        if (amount <= 0) return { ok: false, reason: `No room left after keeping ${pct}% quota (reserve RM ${reserve.toFixed(2)}, already used RM ${alreadyApplied.toFixed(2)}).` };
+        if (amount <= 0) return { ok: false, reason: `No room left after keeping ${pct}% quota (reserve RM ${reserve.toFixed(2)}, already used RM ${alreadyApplied.toFixed(2)}, max RM ${max.toFixed(2)}).` };
     }
 
     amount = Math.max(0, amount);

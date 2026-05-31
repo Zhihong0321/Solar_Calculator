@@ -117,11 +117,11 @@ function addCustomDiscount(type, value, description) {
     } else if (type === 'max_minus_percent') {
         if (max <= 0) return { ok: false, reason: 'No maximum discount is configured for this package.' };
         const pct = parseFloat(value) || 0;
-        if (pct < 0 || pct >= 100) return { ok: false, reason: 'Enter a percentage between 0 and 99.' };
+        if (pct < 0) return { ok: false, reason: 'Enter a percentage of 0 or above.' };
         const alreadyApplied = getTotalTowardMax() - getReplacedAmount(type);
-        const reserve = max * (pct / 100);
+        const reserve = packagePrice * (pct / 100);
         amount = max - alreadyApplied - reserve;
-        if (amount <= 0) return { ok: false, reason: `No room left after keeping ${pct}% quota (reserve RM ${reserve.toFixed(2)}, already used RM ${alreadyApplied.toFixed(2)}).` };
+        if (amount <= 0) return { ok: false, reason: `No room left after keeping ${pct}% quota (reserve RM ${reserve.toFixed(2)}, already used RM ${alreadyApplied.toFixed(2)}, max RM ${max.toFixed(2)}).` };
     }
 
     amount = Math.max(0, amount);
