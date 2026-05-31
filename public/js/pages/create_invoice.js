@@ -456,10 +456,13 @@ function renderAppliedDiscounts() {
 function updateDiscountSummaryBar() {
     const max = getMaxDiscount();
     const maxEl = document.getElementById('maxDiscountValue');
+    const appliedEl = document.getElementById('appliedDiscountTotal');
     const hiddenEl = document.getElementById('hiddenDiscountConsumed');
     const availEl = document.getElementById('availableDiscountValue');
     const note = document.getElementById('discountBudgetNote');
+    const totalApplied = getTotalTowardMax();
     if (maxEl) maxEl.textContent = max > 0 ? `RM ${max.toFixed(2)}` : 'No cap';
+    if (appliedEl) appliedEl.textContent = `RM ${totalApplied.toFixed(2)}`;
     if (hiddenEl) hiddenEl.textContent = `RM ${getVoucherHiddenDiscount().toFixed(2)}`;
     if (availEl) availEl.textContent = max > 0 ? `RM ${getAvailableDiscount().toFixed(2)}` : '—';
     if (note) {
