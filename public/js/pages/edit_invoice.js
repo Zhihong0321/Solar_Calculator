@@ -41,7 +41,7 @@ const MICRO_INVERTER_MODELS = [
 const BALLAST_UNIT_PRICE = 160;
 const ATS_ADDON_PRICE = 500;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
-const APRIL_2026_PROMO_END = new Date('2026-06-01T00:00:00');
+const APRIL_2026_PROMO_END = new Date('2026-07-01T00:00:00');
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
 // ── Discount Manager (2026-05-31 redesign) ───────────────────────────────────

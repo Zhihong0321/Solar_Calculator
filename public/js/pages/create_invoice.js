@@ -856,7 +856,7 @@ function parseDiscount(discountStr) {
     return { fixed: discountFixed, percent: discountPercent };
 }
 
-const APRIL_2026_PROMO_END = new Date('2026-06-01T00:00:00');
+const APRIL_2026_PROMO_END = new Date('2026-07-01T00:00:00');
 
 function isApril2026PromotionActive() {
     return new Date() < APRIL_2026_PROMO_END;

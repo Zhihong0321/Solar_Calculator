@@ -14,7 +14,7 @@
  *     later). Enforcement only kicks in once a package has a positive max_discount.
  *   - CEO discount bypasses the cap entirely (handled by the caller).
  */
-const APRIL_2026_PROMO_END = new Date('2026-06-01T00:00:00');
+const APRIL_2026_PROMO_END = new Date('2026-07-01T00:00:00');
 
 /**
  * Normalize a package max_discount value into a usable cap.
