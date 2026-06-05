@@ -404,7 +404,7 @@ function addCustomDiscount(type, value, description) {
     amount = Math.max(0, amount);
     if (amount <= 0) return { ok: false, reason: 'Enter a discount amount greater than zero.' };
 
-    if (max > 0) {
+    if (cap > 0) {
         // For the budget check, simulate replacing existing same-type entry.
         const replacedAmount = getReplacedAmount(type);
         const budgetAfterReplace = getAvailableDiscount() + replacedAmount;
