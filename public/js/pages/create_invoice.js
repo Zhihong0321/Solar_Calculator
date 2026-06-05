@@ -390,6 +390,15 @@ function addCustomDiscount(type, value, description) {
         const reserve = packagePrice * (pct / 100);
         amount = cap - alreadyApplied - reserve;
         if (amount <= 0) return { ok: false, reason: `No room left after keeping ${pct}% quota (reserve RM ${reserve.toFixed(2)}, already used RM ${alreadyApplied.toFixed(2)}, budget RM ${cap.toFixed(2)}).` };
+    } else if (type === 'max_minus_fixed') {
+        // "Keep RM X Quota" — reserve a fixed RM amount from the discount budget.
+        // Formula: cap - already_applied - fixedReserveAmount
+        if (cap <= 0) return { ok: false, reason: 'No discount budget is configured for this package.' };
+        const fixedReserve = parseFloat(value) || 0;
+        if (fixedReserve < 0) return { ok: false, reason: 'Enter an amount of 0 or above.' };
+        const alreadyApplied = getTotalTowardMax() - getReplacedAmount(type);
+        amount = cap - alreadyApplied - fixedReserve;
+        if (amount <= 0) return { ok: false, reason: `No room left after keeping RM ${fixedReserve.toFixed(2)} quota (already used RM ${alreadyApplied.toFixed(2)}, budget RM ${cap.toFixed(2)}).` };
     }
 
     amount = Math.max(0, amount);
@@ -404,10 +413,11 @@ function addCustomDiscount(type, value, description) {
         }
     }
 
-    // Replace rule: only one fixed, one percent allowed. max_minus_percent replaces fixed.
-    const effectiveType = type === 'max_minus_percent' ? 'fixed' : type;
+    // Replace rule: only one fixed, one percent allowed.
+    // max_minus_percent and max_minus_fixed both replace fixed-type entries.
+    const effectiveType = (type === 'max_minus_percent' || type === 'max_minus_fixed') ? 'fixed' : type;
     customDiscounts = customDiscounts.filter(d => {
-        const dEffective = d.type === 'max_minus_percent' ? 'fixed' : d.type;
+        const dEffective = (d.type === 'max_minus_percent' || d.type === 'max_minus_fixed') ? 'fixed' : d.type;
         return dEffective !== effectiveType;
     });
 
@@ -419,9 +429,9 @@ function addCustomDiscount(type, value, description) {
 
 // How much budget would be freed by replacing the existing entry of the same effective type.
 function getReplacedAmount(type) {
-    const effectiveType = type === 'max_minus_percent' ? 'fixed' : type;
+    const effectiveType = (type === 'max_minus_percent' || type === 'max_minus_fixed') ? 'fixed' : type;
     return customDiscounts
-        .filter(d => (d.type === 'max_minus_percent' ? 'fixed' : d.type) === effectiveType)
+        .filter(d => ((d.type === 'max_minus_percent' || d.type === 'max_minus_fixed') ? 'fixed' : d.type) === effectiveType)
         .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
 }
 
@@ -443,7 +453,7 @@ function syncDiscountGivenBridge() {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     let fixedTotal = 0;
     customDiscounts.forEach(d => {
-        if (d.type === 'fixed' || d.type === 'max_minus_percent') fixedTotal += parseFloat(d.amount) || 0;
+        if (d.type === 'fixed' || d.type === 'max_minus_percent' || d.type === 'max_minus_fixed') fixedTotal += parseFloat(d.amount) || 0;
         else if (d.type === 'percent') fixedTotal += packagePrice * ((parseFloat(d.value) || 0) / 100);
     });
     field.value = fixedTotal > 0 ? String(Number(fixedTotal.toFixed(2))) : '';
@@ -454,7 +464,7 @@ function renderAppliedDiscounts() {
     if (!list) return;
     list.innerHTML = '';
     customDiscounts.forEach(d => {
-        const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+        const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : d.type === 'max_minus_fixed' ? `Keep RM ${(parseFloat(d.value) || 0).toFixed(2)} Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-white p-3';
         row.innerHTML = `
@@ -496,7 +506,7 @@ function autoTrimCustomDiscounts() {
     if (removed.length > 0) {
         syncDiscountGivenBridge();
         const lines = removed.map(d => {
-            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : d.type === 'max_minus_fixed' ? `Keep RM ${(parseFloat(d.value) || 0).toFixed(2)} Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
             return `• ${label} (RM ${(parseFloat(d.amount) || 0).toFixed(2)})`;
         }).join('<br>');
         Swal.fire({
@@ -534,7 +544,7 @@ function updateDiscountSummaryBar() {
 
 function getCustomDiscountFixedTotal() {
     return customDiscounts
-        .filter(d => d.type === 'fixed' || d.type === 'max_minus_percent')
+        .filter(d => d.type === 'fixed' || d.type === 'max_minus_percent' || d.type === 'max_minus_fixed')
         .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
 }
 
@@ -954,7 +964,7 @@ function parseDiscount(discountStr) {
     return { fixed: discountFixed, percent: discountPercent };
 }
 
-const LEGACY_INVOICE_PROMOTIONS_ENABLED = false;
+const LEGACY_INVOICE_PROMOTIONS_ENABLED = false; // PROMOS DISABLED — do not re-enable
 const APRIL_2026_PROMO_END = new Date('2026-07-01T00:00:00');
 
 function isApril2026PromotionActive() {
@@ -1674,7 +1684,7 @@ function updateInvoicePreview() {
         customDiscounts.forEach((d) => {
             const amount = parseFloat(d.amount) || 0;
             if (amount <= 0) return;
-            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : d.type === 'max_minus_fixed' ? `Keep RM ${(parseFloat(d.value) || 0).toFixed(2)} Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
             const item = document.createElement('div');
             item.className = 'flex justify-between items-center py-2 border-b border-gray-200';
             item.innerHTML = `
@@ -1804,6 +1814,73 @@ function updateInvoicePreview() {
     }
     document.getElementById('totalAmount').textContent = `RM ${totalAmount.toFixed(2)}`;
     updateWorkspaceStatuses();
+    updateRoiCalculator(totalAmount);
+}
+
+function updateRoiCalculator(finalTotalAmount) {
+    const section = document.getElementById('roiCalculatorSection');
+    const badge = document.getElementById('roiLiveBadge');
+    if (!section) return;
+
+    // Final total = system cost for ROI purposes
+    const systemCost = parseFloat(finalTotalAmount) || 0;
+
+    // Monthly savings: override takes priority, else fall back to estimated_saving hidden field
+    const overrideEl = document.getElementById('roiMonthlySavingsOverride');
+    const overrideVal = parseFloat(overrideEl?.value);
+    const hasOverride = Number.isFinite(overrideVal) && overrideVal >= 0;
+
+    let monthlySavings = null;
+    if (hasOverride) {
+        monthlySavings = overrideVal;
+    } else {
+        const estimatedSavingEl = document.getElementById('estimatedSaving');
+        const estimatedSaving = parseFloat(estimatedSavingEl?.value);
+        if (Number.isFinite(estimatedSaving) && estimatedSaving > 0) {
+            monthlySavings = estimatedSaving;
+        }
+    }
+
+    // Update display elements
+    const monthlySavingsEl = document.getElementById('roiMonthlySavings');
+    const systemCostEl = document.getElementById('roiSystemCost');
+    const annualPercentEl = document.getElementById('roiAnnualPercent');
+    const paybackEl = document.getElementById('roiPaybackPeriod');
+
+    if (monthlySavingsEl) {
+        monthlySavingsEl.textContent = monthlySavings !== null
+            ? `RM ${monthlySavings.toFixed(2)}`
+            : 'RM —';
+    }
+    if (systemCostEl) {
+        systemCostEl.textContent = systemCost > 0
+            ? `RM ${systemCost.toFixed(2)}`
+            : 'RM —';
+    }
+
+    let annualRoiDisplay = '— %';
+    let paybackDisplay = '— yr';
+
+    if (monthlySavings !== null && systemCost > 0 && monthlySavings > 0) {
+        const annualSavings = monthlySavings * 12;
+        const annualRoi = (annualSavings / systemCost) * 100;
+        const payback = systemCost / annualSavings;
+
+        annualRoiDisplay = `${annualRoi.toFixed(1)}%`;
+        paybackDisplay = `${payback.toFixed(1)} yr`;
+    }
+
+    if (annualPercentEl) annualPercentEl.textContent = annualRoiDisplay;
+    if (paybackEl) paybackEl.textContent = paybackDisplay;
+
+    // Live badge styling based on data quality
+    if (badge) {
+        if (monthlySavings !== null && systemCost > 0) {
+            badge.className = 'rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wide';
+        } else {
+            badge.className = 'rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide';
+        }
+    }
 }
 
 function hideAllUI() {
@@ -2420,3 +2497,18 @@ function checkWhatsApp() {
 function fillWhatsAppInfo(photoUrl, phone) {
     CustomerManager.fillWhatsAppInfo(photoUrl, phone, 'profilePicture', 'profilePreview');
 }
+
+// ============================================
+// Live ROI Calculator - Manual override listener
+// ============================================
+document.addEventListener('DOMContentLoaded', function () {
+    const roiOverride = document.getElementById('roiMonthlySavingsOverride');
+    if (roiOverride) {
+        roiOverride.addEventListener('input', function () {
+            const totalAmountText = document.getElementById('totalAmount')?.textContent || '';
+            const match = totalAmountText.replace(/[^0-9.]/g, '');
+            const totalAmount = parseFloat(match) || 0;
+            updateRoiCalculator(totalAmount);
+        });
+    }
+});

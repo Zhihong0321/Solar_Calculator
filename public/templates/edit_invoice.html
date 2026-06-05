@@ -73,6 +73,26 @@
                                         <div class="mb-2 flex items-center justify-between"><span class="font-semibold text-slate-900">Subtotal:</span><span class="font-semibold text-slate-900" id="subtotal">RM 0.00</span></div>
                                         <div class="mb-2 flex items-center justify-between" id="sstRow" style="display: none;"><span class="text-slate-700">SST (6%):</span><span class="text-slate-700" id="sstAmount">RM 0.00</span></div>
                                         <div class="flex items-center justify-between border-t border-slate-200 pt-3"><span class="text-xl font-bold text-slate-900">Total Amount:</span><span class="text-xl font-bold text-green-600" id="totalAmount">RM 0.00</span></div>
+
+                                        <!-- Live ROI Calculator -->
+                                        <div id="roiCalculatorSection" class="mt-4 border-t-2 border-emerald-200 pt-4 space-y-2">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="text-xs font-bold uppercase tracking-[0.20em] text-emerald-600">Live ROI Calculator</span>
+                                                <span id="roiLiveBadge" class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wide">Live</span>
+                                            </div>
+                                            <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                                                <div class="flex justify-between"><span class="text-sm text-slate-600">Monthly Savings:</span><span class="text-sm font-semibold text-slate-800" id="roiMonthlySavings">RM —</span></div>
+                                                <div class="flex justify-between"><span class="text-sm text-slate-600">System Cost:</span><span class="text-sm font-semibold text-slate-800" id="roiSystemCost">RM —</span></div>
+                                                <div class="flex justify-between border-t border-slate-100 pt-1 mt-1"><span class="text-sm text-slate-600">Annual ROI:</span><span class="text-sm font-bold text-emerald-600" id="roiAnnualPercent">— %</span></div>
+                                                <div class="flex justify-between border-t border-slate-100 pt-1 mt-1"><span class="text-sm text-slate-600">Payback:</span><span class="text-sm font-bold text-blue-600" id="roiPaybackPeriod">— yr</span></div>
+                                            </div>
+                                            <div class="mt-2 flex items-center gap-2">
+                                                <label for="roiMonthlySavingsOverride" class="text-[11px] text-slate-500 whitespace-nowrap">Override Monthly Savings (RM):</label>
+                                                <input type="number" id="roiMonthlySavingsOverride" placeholder="Auto from quote" min="0" step="0.01"
+                                                    class="flex-1 rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none">
+                                            </div>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
@@ -112,7 +132,7 @@
                         <input type="hidden" id="packageName" value="">
                         <input type="hidden" id="profilePicture">
                         <input type="hidden" name="linked_referral" id="linkedReferral">
-
+                        <input type="hidden" name="estimated_saving" id="estimatedSaving">
                         <section id="customer-lead" data-section="customer-lead" class="rounded-3xl border border-emerald-200 bg-white p-6 shadow-sm">
                             <p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-700">Section 2</p>
                             <h2 class="mt-1 text-xl font-bold text-slate-900">Customer & Lead</h2>
@@ -259,6 +279,7 @@
                                         <option value="fixed">Fixed (RM)</option>
                                         <option value="percent">Percentage (%)</option>
                                         <option value="max_minus_percent">Keep X% Quota</option>
+                                        <option value="max_minus_fixed">Keep RM X Quota</option>
                                     </select>
                                     <input type="number" id="customDiscountValue" min="0" step="0.01" class="rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none" placeholder="Amount">
                                     <button type="button" id="addCustomDiscountBtn" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold uppercase tracking-widest text-white shadow-sm transition-all hover:bg-indigo-700">Add</button>

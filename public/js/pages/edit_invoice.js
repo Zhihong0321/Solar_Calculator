@@ -41,7 +41,7 @@ const MICRO_INVERTER_MODELS = [
 const BALLAST_UNIT_PRICE = 160;
 const ATS_ADDON_PRICE = 500;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
-const LEGACY_INVOICE_PROMOTIONS_ENABLED = false;
+const LEGACY_INVOICE_PROMOTIONS_ENABLED = false; // PROMOS DISABLED — do not re-enable
 const APRIL_2026_PROMO_END = new Date('2026-07-01T00:00:00');
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
@@ -135,6 +135,15 @@ function addCustomDiscount(type, value, description) {
         const reserve = packagePrice * (pct / 100);
         amount = cap - alreadyApplied - reserve;
         if (amount <= 0) return { ok: false, reason: `No room left after keeping ${pct}% quota (reserve RM ${reserve.toFixed(2)}, already used RM ${alreadyApplied.toFixed(2)}, budget RM ${cap.toFixed(2)}).` };
+    } else if (type === 'max_minus_fixed') {
+        // "Keep RM X Quota" — reserve a fixed RM amount from the discount budget.
+        // Formula: cap - already_applied - fixedReserveAmount
+        if (cap <= 0) return { ok: false, reason: 'No discount budget is configured for this package.' };
+        const fixedReserve = parseFloat(value) || 0;
+        if (fixedReserve < 0) return { ok: false, reason: 'Enter an amount of 0 or above.' };
+        const alreadyApplied = getTotalTowardMax() - getReplacedAmount(type);
+        amount = cap - alreadyApplied - fixedReserve;
+        if (amount <= 0) return { ok: false, reason: `No room left after keeping RM ${fixedReserve.toFixed(2)} quota (already used RM ${alreadyApplied.toFixed(2)}, budget RM ${cap.toFixed(2)}).` };
     }
 
     amount = Math.max(0, amount);
@@ -148,9 +157,9 @@ function addCustomDiscount(type, value, description) {
         }
     }
 
-    const effectiveType = type === 'max_minus_percent' ? 'fixed' : type;
+    const effectiveType = (type === 'max_minus_percent' || type === 'max_minus_fixed') ? 'fixed' : type;
     customDiscounts = customDiscounts.filter(d => {
-        const dEffective = d.type === 'max_minus_percent' ? 'fixed' : d.type;
+        const dEffective = (d.type === 'max_minus_percent' || d.type === 'max_minus_fixed') ? 'fixed' : d.type;
         return dEffective !== effectiveType;
     });
 
@@ -161,9 +170,9 @@ function addCustomDiscount(type, value, description) {
 }
 
 function getReplacedAmount(type) {
-    const effectiveType = type === 'max_minus_percent' ? 'fixed' : type;
+    const effectiveType = (type === 'max_minus_percent' || type === 'max_minus_fixed') ? 'fixed' : type;
     return customDiscounts
-        .filter(d => (d.type === 'max_minus_percent' ? 'fixed' : d.type) === effectiveType)
+        .filter(d => ((d.type === 'max_minus_percent' || d.type === 'max_minus_fixed') ? 'fixed' : d.type) === effectiveType)
         .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
 }
 
@@ -182,7 +191,7 @@ function syncDiscountGivenBridge() {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
     let fixedTotal = 0;
     customDiscounts.forEach(d => {
-        if (d.type === 'fixed' || d.type === 'max_minus_percent') fixedTotal += parseFloat(d.amount) || 0;
+        if (d.type === 'fixed' || d.type === 'max_minus_percent' || d.type === 'max_minus_fixed') fixedTotal += parseFloat(d.amount) || 0;
         else if (d.type === 'percent') fixedTotal += packagePrice * ((parseFloat(d.value) || 0) / 100);
     });
     field.value = fixedTotal > 0 ? String(Number(fixedTotal.toFixed(2))) : '';
@@ -193,7 +202,7 @@ function renderAppliedDiscounts() {
     if (!list) return;
     list.innerHTML = '';
     customDiscounts.forEach(d => {
-        const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+        const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : d.type === 'max_minus_fixed' ? `Keep RM ${(parseFloat(d.value) || 0).toFixed(2)} Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-white p-3';
         row.innerHTML = `
@@ -232,7 +241,7 @@ function autoTrimCustomDiscounts() {
     if (removed.length > 0) {
         syncDiscountGivenBridge();
         const lines = removed.map(d => {
-            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : d.type === 'max_minus_fixed' ? `Keep RM ${(parseFloat(d.value) || 0).toFixed(2)} Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
             return `• ${label} (RM ${(parseFloat(d.amount) || 0).toFixed(2)})`;
         }).join('<br>');
         Swal.fire({
@@ -270,7 +279,7 @@ function updateDiscountSummaryBar() {
 
 function getCustomDiscountFixedTotal() {
     return customDiscounts
-        .filter(d => d.type === 'fixed' || d.type === 'max_minus_percent')
+        .filter(d => d.type === 'fixed' || d.type === 'max_minus_percent' || d.type === 'max_minus_fixed')
         .reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
 }
 
@@ -708,43 +717,17 @@ function getParentsDayPromoAmount(panelQty) {
 }
 
 function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
-    const normalizedPanelQty = parseInt(panelQty, 10) || 0;
-    const earnNowEligibleAmount = getEarnNowRebateAmount(normalizedPanelQty);
-    const earthMonthEligibleAmount = getEarthMonthGoGreenBonusAmount(normalizedPanelQty);
-    const parentsDayEligibleAmount = getParentsDayPromoAmount(normalizedPanelQty);
-    const earnNowToggle = document.getElementById('applyEarnNowRebate');
-    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
-    const parentsDayToggle = document.getElementById('applyParentsDayPromo');
-    const promotionsEnabled = isApril2026PromotionActive();
-    const isLoadedPromoEdit = Boolean(window.isEditMode);
-
-    const earnNowAppliedAmount = (
-        promotionsEnabled
-            ? Boolean(earnNowToggle?.checked)
-            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.earnNowApplied)
-    ) ? earnNowEligibleAmount : 0;
-
-    const earthMonthAppliedAmount = (
-        promotionsEnabled
-            ? Boolean(earthMonthToggle?.checked)
-            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.earthMonthApplied)
-    ) ? earthMonthEligibleAmount : 0;
-
-    const parentsDayAppliedAmount = (
-        promotionsEnabled
-            ? Boolean(parentsDayToggle?.checked)
-            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.parentsDayApplied)
-    ) ? parentsDayEligibleAmount : 0;
-
+    // PROMOS DISABLED — always return zero amounts regardless of loaded selections
     return {
-        panelQty: normalizedPanelQty,
-        earnNowEligibleAmount,
-        earthMonthEligibleAmount,
-        parentsDayEligibleAmount,
-        earnNowAppliedAmount,
-        earthMonthAppliedAmount,
-        parentsDayAppliedAmount,
-        totalAppliedAmount: earnNowAppliedAmount + earthMonthAppliedAmount + parentsDayAppliedAmount
+        panelQty: parseInt(panelQty, 10) || 0,
+        earnNowEligibleAmount: 0,
+        earthMonthEligibleAmount: 0,
+        parentsDayEligibleAmount: 0,
+        earnNowAppliedAmount: 0,
+        earthMonthAppliedAmount: 0,
+        parentsDayAppliedAmount: 0,
+        suriaRebateAppliedAmount: 0,
+        totalAppliedAmount: 0
     };
 }
 
@@ -1935,7 +1918,7 @@ function updateInvoicePreview() {
         customDiscounts.forEach((d) => {
             const amount = parseFloat(d.amount) || 0;
             if (amount <= 0) return;
-            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
+            const label = d.type === 'percent' ? `${d.value}%` : d.type === 'max_minus_percent' ? `Keep ${d.value}% Quota` : d.type === 'max_minus_fixed' ? `Keep RM ${(parseFloat(d.value) || 0).toFixed(2)} Quota` : `RM ${(parseFloat(d.value) || 0).toFixed(2)}`;
             const item = document.createElement('div');
             item.className = 'flex justify-between items-center py-2 border-b border-gray-200';
             item.innerHTML = `
@@ -2065,6 +2048,65 @@ function updateInvoicePreview() {
     }
     document.getElementById('totalAmount').textContent = `RM ${totalAmount.toFixed(2)}`;
     updateWorkspaceStatuses();
+    updateRoiCalculator(totalAmount);
+}
+
+// Live ROI Calculator
+function updateRoiCalculator(finalTotalAmount) {
+    const section = document.getElementById('roiCalculatorSection');
+    const badge = document.getElementById('roiLiveBadge');
+    if (!section) return;
+
+    const systemCost = parseFloat(finalTotalAmount) || 0;
+
+    const overrideEl = document.getElementById('roiMonthlySavingsOverride');
+    const overrideVal = parseFloat(overrideEl?.value);
+    const hasOverride = Number.isFinite(overrideVal) && overrideVal >= 0;
+
+    let monthlySavings = null;
+    if (hasOverride) {
+        monthlySavings = overrideVal;
+    } else {
+        const estimatedSavingEl = document.getElementById('estimatedSaving');
+        const estimatedSaving = parseFloat(estimatedSavingEl?.value);
+        if (Number.isFinite(estimatedSaving) && estimatedSaving > 0) {
+            monthlySavings = estimatedSaving;
+        }
+    }
+
+    const monthlySavingsEl = document.getElementById('roiMonthlySavings');
+    const systemCostEl = document.getElementById('roiSystemCost');
+    const annualPercentEl = document.getElementById('roiAnnualPercent');
+    const paybackEl = document.getElementById('roiPaybackPeriod');
+
+    if (monthlySavingsEl) {
+        monthlySavingsEl.textContent = monthlySavings !== null ? `RM ${monthlySavings.toFixed(2)}` : 'RM —';
+    }
+    if (systemCostEl) {
+        systemCostEl.textContent = systemCost > 0 ? `RM ${systemCost.toFixed(2)}` : 'RM —';
+    }
+
+    let annualRoiDisplay = '— %';
+    let paybackDisplay = '— yr';
+
+    if (monthlySavings !== null && systemCost > 0 && monthlySavings > 0) {
+        const annualSavings = monthlySavings * 12;
+        const annualRoi = (annualSavings / systemCost) * 100;
+        const payback = systemCost / annualSavings;
+        annualRoiDisplay = `${annualRoi.toFixed(1)}%`;
+        paybackDisplay = `${payback.toFixed(1)} yr`;
+    }
+
+    if (annualPercentEl) annualPercentEl.textContent = annualRoiDisplay;
+    if (paybackEl) paybackEl.textContent = paybackDisplay;
+
+    if (badge) {
+        if (monthlySavings !== null && systemCost > 0) {
+            badge.className = 'rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 uppercase tracking-wide';
+        } else {
+            badge.className = 'rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 uppercase tracking-wide';
+        }
+    }
 }
 
 // Load invoice data on page load
@@ -2156,6 +2198,11 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             // 4. SST
             if (inv.sst_amount > 0) document.getElementById('applySST').checked = true;
+
+            // 4.5 Estimated savings (for ROI calculator)
+            if (inv.estimated_saving) {
+                document.getElementById('estimatedSaving').value = inv.estimated_saving;
+            }
 
             // 5. Markup (Preserve)
             window.currentAgentMarkup = inv.agent_markup || 0;
@@ -2443,3 +2490,18 @@ async function promptManualName(phone, photoUrl) {
         await fillWhatsAppInfo(name, photoUrl, phone);
     }
 }
+
+// ============================================
+// Live ROI Calculator - Manual override listener
+// ============================================
+document.addEventListener('DOMContentLoaded', function () {
+    const roiOverride = document.getElementById('roiMonthlySavingsOverride');
+    if (roiOverride) {
+        roiOverride.addEventListener('input', function () {
+            const totalAmountText = document.getElementById('totalAmount')?.textContent || '';
+            const match = totalAmountText.replace(/[^0-9.]/g, '');
+            const totalAmount = parseFloat(match) || 0;
+            updateRoiCalculator(totalAmount);
+        });
+    }
+});
