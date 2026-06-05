@@ -8,7 +8,8 @@
     "price": "numeric - Package price",
     "type": "text - Package type/category",
     "active": "boolean - Whether package is active/available",
-    "max_discount": "integer - Maximum discount allowed",
+    "max_discount": "integer - Legacy maximum discount allowed; being phased out",
+    "nett_price": "numeric - Package floor price used to derive discount budget",
     "special": "boolean - Special package flag",
     "need_approval": "boolean - Requires approval flag"
   },

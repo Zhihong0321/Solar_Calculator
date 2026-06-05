@@ -31,7 +31,7 @@ function buildVoucherInfoFromRows(voucherRows, packagePrice) {
     }
 
     // Hidden discount: cost deducted from agent commission, not shown as a
-    // line item but still counts toward the package max discount budget.
+    // line item but still counts toward the package discount budget.
     // Accumulate it for every provided voucher row so validation sees the full
     // hidden cost, regardless of whether the voucher has a visible discount.
     const hiddenDiscount = parseFloat(voucher.deductable_from_commission) || 0;
@@ -298,7 +298,8 @@ async function getInvoiceVoucherStepSummary(client, invoiceId) {
         pkg.price AS package_price,
         pkg.panel_qty,
         pkg.type AS package_type,
-        pkg.max_discount
+        pkg.max_discount,
+        pkg.nett_price
      FROM invoice i
      LEFT JOIN customer c ON i.linked_customer = c.customer_id
      LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text
@@ -315,6 +316,7 @@ async function getInvoiceVoucherStepSummary(client, invoiceId) {
     packagePrice: parseFloat(invoice.package_price) || 0,
     panelQty: parseInt(invoice.panel_qty, 10) || 0,
     maxDiscount: parseFloat(invoice.max_discount) || 0,
+    nettPrice: parseFloat(invoice.nett_price) || 0,
     packageTypeScope: normalizeVoucherCategoryPackageType(invoice.package_type)
   };
 }

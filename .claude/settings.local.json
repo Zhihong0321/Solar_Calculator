@@ -6,7 +6,16 @@
       "mcp__stitch__list_projects",
       "mcp__stitch__list_screens",
       "WebFetch(domain:contribution.usercontent.google.com)",
-      "mcp__postgres-multi__execute_sql"
+      "mcp__postgres-multi__execute_sql",
+      "mcp__postgres-multi__list_tables",
+      "mcp__postgres-multi__list_connections",
+      "mcp__postgres-multi__describe_table"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "postgres-multi"
+  ],
+  "disabledMcpjsonServers": [
+    "stitch"
+  ]
 }

@@ -305,9 +305,9 @@ async function createInvoice(pool, invoiceRequestPayload) {
       estimatedNewBillAmount: invoiceRequestPayload.estimatedNewBillAmount,
       solarSunPeakHour: invoiceRequestPayload.solarSunPeakHour,
       solarMorningUsagePercent: invoiceRequestPayload.solarMorningUsagePercent,
-      applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate || false,
-      applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus || false,
-      applyParentsDayPromo: invoiceRequestPayload.applyParentsDayPromo || false,
+      applyEarnNowRebate: false,
+      applyEarthMonthGoGreenBonus: false,
+      applyParentsDayPromo: false,
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
@@ -500,14 +500,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       discountPercent: discountPercent,
       ceoDiscount: normalizeBoolean(invoiceRequestPayload.ceo_discount || invoiceRequestPayload.ceoDiscount),
       applySst: invoiceRequestPayload.applySst || false,
-      // VERSION / EDIT RULE:
-      // CREATE invoice: promo default is OFF unless explicitly enabled.
-      // EDIT invoice version: MUST carry the saved invoice promo setting.
-      // DO NOT drop or reset these flags here, otherwise version save will silently cancel
-      // promo items that were already applied on the existing invoice.
-      applyEarnNowRebate: invoiceRequestPayload.applyEarnNowRebate || false,
-      applyEarthMonthGoGreenBonus: invoiceRequestPayload.applyEarthMonthGoGreenBonus || false,
-      applyParentsDayPromo: invoiceRequestPayload.applyParentsDayPromo || false,
+      applyEarnNowRebate: false,
+      applyEarthMonthGoGreenBonus: false,
+      applyParentsDayPromo: false,
       // templateId: We reuse original
       voucherCode: invoiceRequestPayload.voucherCode,
       voucherCodes: invoiceRequestPayload.voucherCodes,

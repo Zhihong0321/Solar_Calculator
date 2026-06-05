@@ -1,10 +1,14 @@
 const assert = require('assert/strict');
 
+function assertMoneyEqual(actual, expected) {
+  assert.ok(Math.abs(actual - expected) < 0.001, `Expected ${actual} to equal ${expected}`);
+}
+
 const {
   calculateInvoiceFinancials,
   validateDiscountLimit,
   computeTotalTowardMax,
-  normalizePackageMaxDiscount
+  normalizeDiscountCap
 } = require('../src/modules/Invoicing/services/invoiceFinancials');
 
 function testBasicFinancialCalculation() {
@@ -45,22 +49,29 @@ function testNegativeExtraItemGuard() {
 }
 
 function testDiscountLimitNoCap() {
-  // NULL or 0 max_discount means no cap is enforced yet — should never throw.
+  // Invalid package price means no cap can be computed — should never throw.
   assert.doesNotThrow(() => validateDiscountLimit(null, 99999, 0));
   assert.doesNotThrow(() => validateDiscountLimit(0, 99999, 0));
-  assert.equal(normalizePackageMaxDiscount(null), 0);
-  assert.equal(normalizePackageMaxDiscount(0), 0);
-  assert.equal(normalizePackageMaxDiscount(-5), 0);
-  assert.equal(normalizePackageMaxDiscount('1500'), 1500);
+  assert.equal(normalizeDiscountCap(null, 99999), 0);
+  assert.equal(normalizeDiscountCap(0, 99999), 0);
+  assert.equal(normalizeDiscountCap(-5, 99999), 0);
 }
 
 function testDiscountLimitWithCap() {
-  // Within cap — allowed.
-  assert.doesNotThrow(() => validateDiscountLimit(2000, 2000, 0));
-  // Exceeds cap — blocked, error mentions the package maximum.
+  // With nett_price set, cap is package price minus nett_price.
+  assert.equal(normalizeDiscountCap(10000, 8500), 1500);
+  assert.doesNotThrow(() => validateDiscountLimit(10000, 8500, 1500));
   assert.throws(
-    () => validateDiscountLimit(2000, 2000.5, 500),
-    /exceeds package maximum/
+    () => validateDiscountLimit(10000, 8500, 1500.5, 500),
+    /exceeds the allowed budget/
+  );
+
+  // Without nett_price, fallback cap is 7% of package price.
+  assertMoneyEqual(normalizeDiscountCap(10000, null), 700);
+  assert.doesNotThrow(() => validateDiscountLimit(10000, null, 700));
+  assert.throws(
+    () => validateDiscountLimit(10000, null, 700.5, 0),
+    /exceeds the allowed budget/
   );
 }
 

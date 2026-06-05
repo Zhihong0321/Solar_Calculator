@@ -622,6 +622,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         panelWattage: panelWattage,
         type: selectedPackage.type,
         maxDiscount: selectedPackage.max_discount,
+        nettPrice: selectedPackage.nett_price,
         special: selectedPackage.special,
         invoiceDesc: selectedPackage.invoice_desc,
         id: selectedPackage.id,

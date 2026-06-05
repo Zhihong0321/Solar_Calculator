@@ -1,0 +1,3 @@
+[mcp_servers.postgres-multi]
+command = "node"
+args = ['E:\mcp\postgres-multi\server.mjs']

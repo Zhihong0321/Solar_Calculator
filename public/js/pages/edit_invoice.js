@@ -41,22 +41,35 @@ const MICRO_INVERTER_MODELS = [
 const BALLAST_UNIT_PRICE = 160;
 const ATS_ADDON_PRICE = 500;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
+const LEGACY_INVOICE_PROMOTIONS_ENABLED = false;
 const APRIL_2026_PROMO_END = new Date('2026-07-01T00:00:00');
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
-// ── Discount Manager (2026-05-31 redesign) ───────────────────────────────────
-// Max discount now comes from package.max_discount (window.packageMaxDiscount).
-// NULL/0 means no cap is enforced yet. Everything that lowers the invoice counts
-// toward the cap: custom discounts + promotions + visible voucher discount
-// + hidden commission deductions + abs(negative extra items).
+// ── Discount Manager (2026-06-03 redesign) ────────────────────────────────────
+// Guardrail: invoice total cannot go below nett_price.
+//   - If nett_price is set: cap = price - nett_price (max allowable discount)
+//   - If not set: cap = price * 0.07 (7% of package price)
+// Everything that reduces the invoice counts toward the cap:
+//   custom discounts + promotions + visible voucher discount
+//   + hidden commission deductions + abs(negative extra items).
 // CEO discount bypasses the cap entirely.
+
+/**
+ * Returns the maximum allowable discount (cap) for the current package.
+ * Uses nett_price if set, otherwise falls back to 7% of package price.
+ */
+function getDiscountCap() {
+    const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+    const nettPrice = parseFloat(window.packageNettPrice) || 0;
+    if (packagePrice <= 0) return 0;
+    if (nettPrice > 0) {
+        return Math.max(0, packagePrice - nettPrice);
+    }
+    return packagePrice * 0.07;
+}
 
 // Structured custom discounts: [{ id, type:'fixed'|'percent', value, description, amount }]
 let customDiscounts = [];
-
-function getMaxDiscount() {
-    return parseFloat(window.packageMaxDiscount) || 0;
-}
 
 function getVoucherHiddenDiscount() {
     return selectedDraftVouchers.reduce((sum, v) => {
@@ -81,9 +94,9 @@ function getTotalTowardMax() {
 }
 
 function getAvailableDiscount() {
-    const max = getMaxDiscount();
-    if (max <= 0) return 0;
-    return Math.max(0, max - getTotalTowardMax());
+    const cap = getDiscountCap();
+    if (cap <= 0) return 0;
+    return Math.max(0, cap - getTotalTowardMax());
 }
 
 function validateDiscountLimit() {
@@ -92,12 +105,12 @@ function validateDiscountLimit() {
         window._maxDiscountExceeded = false;
         return true;
     }
-    const max = getMaxDiscount();
-    if (max <= 0) {
+    const cap = getDiscountCap();
+    if (cap <= 0) {
         window._maxDiscountExceeded = false;
         return true;
     }
-    if (getTotalTowardMax() > max + 0.01) {
+    if (getTotalTowardMax() > cap + 0.01) {
         window._maxDiscountExceeded = true;
         return false;
     }
@@ -107,7 +120,7 @@ function validateDiscountLimit() {
 
 function addCustomDiscount(type, value, description) {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
-    const max = getMaxDiscount();
+    const cap = getDiscountCap();
     let amount = 0;
 
     if (type === 'fixed') {
@@ -115,19 +128,19 @@ function addCustomDiscount(type, value, description) {
     } else if (type === 'percent') {
         amount = packagePrice * ((parseFloat(value) || 0) / 100);
     } else if (type === 'max_minus_percent') {
-        if (max <= 0) return { ok: false, reason: 'No maximum discount is configured for this package.' };
+        if (cap <= 0) return { ok: false, reason: 'No discount budget is configured for this package.' };
         const pct = parseFloat(value) || 0;
         if (pct < 0) return { ok: false, reason: 'Enter a percentage of 0 or above.' };
         const alreadyApplied = getTotalTowardMax() - getReplacedAmount(type);
         const reserve = packagePrice * (pct / 100);
-        amount = max - alreadyApplied - reserve;
-        if (amount <= 0) return { ok: false, reason: `No room left after keeping ${pct}% quota (reserve RM ${reserve.toFixed(2)}, already used RM ${alreadyApplied.toFixed(2)}, max RM ${max.toFixed(2)}).` };
+        amount = cap - alreadyApplied - reserve;
+        if (amount <= 0) return { ok: false, reason: `No room left after keeping ${pct}% quota (reserve RM ${reserve.toFixed(2)}, already used RM ${alreadyApplied.toFixed(2)}, budget RM ${cap.toFixed(2)}).` };
     }
 
     amount = Math.max(0, amount);
     if (amount <= 0) return { ok: false, reason: 'Enter a discount amount greater than zero.' };
 
-    if (max > 0) {
+    if (cap > 0) {
         const replacedAmount = getReplacedAmount(type);
         const budgetAfterReplace = getAvailableDiscount() + replacedAmount;
         if (amount > budgetAfterReplace + 0.01) {
@@ -201,11 +214,11 @@ function renderAppliedDiscounts() {
 }
 
 function autoTrimCustomDiscounts() {
-    const max = getMaxDiscount();
-    if (max <= 0 || customDiscounts.length === 0) return;
+    const cap = getDiscountCap();
+    if (cap <= 0 || customDiscounts.length === 0) return;
 
     const removed = [];
-    while (getTotalTowardMax() > max + 0.01 && customDiscounts.length > 0) {
+    while (getTotalTowardMax() > cap + 0.01 && customDiscounts.length > 0) {
         let biggestIdx = 0;
         for (let i = 1; i < customDiscounts.length; i++) {
             if ((parseFloat(customDiscounts[i].amount) || 0) > (parseFloat(customDiscounts[biggestIdx].amount) || 0)) {
@@ -232,21 +245,26 @@ function autoTrimCustomDiscounts() {
 }
 
 function updateDiscountSummaryBar() {
-    const max = getMaxDiscount();
+    const cap = getDiscountCap();
     const maxEl = document.getElementById('maxDiscountValue');
     const appliedEl = document.getElementById('appliedDiscountTotal');
     const hiddenEl = document.getElementById('hiddenDiscountConsumed');
     const availEl = document.getElementById('availableDiscountValue');
     const note = document.getElementById('discountBudgetNote');
     const totalApplied = getTotalTowardMax();
-    if (maxEl) maxEl.textContent = max > 0 ? `RM ${max.toFixed(2)}` : 'No cap';
+    if (maxEl) maxEl.textContent = cap > 0 ? `RM ${cap.toFixed(2)}` : 'No cap';
     if (appliedEl) appliedEl.textContent = `RM ${totalApplied.toFixed(2)}`;
     if (hiddenEl) hiddenEl.textContent = `RM ${getVoucherHiddenDiscount().toFixed(2)}`;
-    if (availEl) availEl.textContent = max > 0 ? `RM ${getAvailableDiscount().toFixed(2)}` : '—';
+    if (availEl) availEl.textContent = cap > 0 ? `RM ${Math.max(0, cap - totalApplied).toFixed(2)}` : '—';
     if (note) {
-        note.textContent = max > 0
-            ? 'Available = Maximum − promotions − vouchers − hidden costs − negative items − custom discounts.'
-            : 'Maximum discount is not configured for this package, so no discount cap is enforced.';
+        const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+        const nettPrice = parseFloat(window.packageNettPrice) || 0;
+        const pctNote = nettPrice > 0
+            ? 'Discount budget = package price − nett price.'
+            : 'No nett price set — fallback is 7% of package price.';
+        note.textContent = cap > 0
+            ? `Available = budget RM ${cap.toFixed(2)} − applied discounts. ${pctNote}`
+            : 'No discount budget is configured for this package, so no cap is enforced.';
     }
 }
 
@@ -654,7 +672,7 @@ async function loadHybridUpgradeOptions() {
 }
 
 function isApril2026PromotionActive() {
-    return new Date() < APRIL_2026_PROMO_END;
+    return LEGACY_INVOICE_PROMOTIONS_ENABLED && new Date() < APRIL_2026_PROMO_END;
 }
 
 function getEarnNowRebateAmount(panelQty) {
@@ -742,7 +760,7 @@ function updatePromotionOptionsUI() {
     const earthMonthHint = document.getElementById('earthMonthBonusHint');
     const parentsDayHint = document.getElementById('parentsDayHint');
     const promotionsEnabled = isApril2026PromotionActive();
-    const hasPersistedPromo = Boolean(loadedPromotionSelections.earnNowApplied || loadedPromotionSelections.earthMonthApplied || loadedPromotionSelections.parentsDayApplied);
+    const hasPersistedPromo = false;
     const { panelQty, earnNowEligibleAmount, earthMonthEligibleAmount, parentsDayEligibleAmount } = getAppliedPromotionAmounts();
 
     if (section) {
@@ -1949,8 +1967,8 @@ function updateInvoicePreview() {
 
     // Auto-trim custom discounts if vouchers/promos pushed over budget.
     autoTrimCustomDiscounts();
-    // Validation for package max-discount limit (replaces tiered policy).
-    // CEO discount bypasses; NULL/0 max_discount = no cap enforced.
+    // Validation for package discount budget.
+    // CEO discount bypasses; missing nett_price falls back to 7% of package price.
     syncDiscountGivenBridge();
     validateDiscountLimit();
     renderAppliedDiscounts();
@@ -2289,8 +2307,8 @@ function showPackage(pkg) {
     setBallastQty(document.getElementById('ballastQty')?.value || 0);
     updatePromotionOptionsUI();
 
-    // Max discount now comes from package.max_discount (NULL/0 = no cap enforced).
-    window.packageMaxDiscount = parseFloat(pkg.max_discount) || 0;
+    // Guardrail: nett_price as floor. Falls back to 7% of price if not set.
+    window.packageNettPrice = parseFloat(pkg.nett_price) || 0;
     updateDiscountSummaryBar();
 
     if (pkg.invoice_desc) {
@@ -2360,15 +2378,9 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
     // If the promo toggles are disabled because the promo period already ended,
     // we still MUST carry the original invoice setting forward on save.
     // DO NOT replace persisted promo state with false just because the edit UI is locked.
-    requestData.applyEarnNowRebate = earnNowToggle?.disabled
-        ? Boolean(loadedPromotionSelections.earnNowApplied)
-        : Boolean(earnNowToggle?.checked);
-    requestData.applyEarthMonthGoGreenBonus = earthMonthToggle?.disabled
-        ? Boolean(loadedPromotionSelections.earthMonthApplied)
-        : Boolean(earthMonthToggle?.checked);
-    requestData.applyParentsDayPromo = parentsDayToggle?.disabled
-        ? Boolean(loadedPromotionSelections.parentsDayApplied)
-        : Boolean(parentsDayToggle?.checked);
+    requestData.applyEarnNowRebate = false;
+    requestData.applyEarthMonthGoGreenBonus = false;
+    requestData.applyParentsDayPromo = false;
     // Always use version endpoint for edit mode
     const endpoint = `/api/v1/invoices/${window.editInvoiceId}/version`;
     // Preserve markup

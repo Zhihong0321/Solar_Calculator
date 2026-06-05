@@ -434,6 +434,7 @@ async function clonePackageWithHybridUpgrade(client, sourcePackageId, ruleBubble
   if (packageColumns.has('panel')) pushColumn('panel', sourcePackage.panel);
   if (packageColumns.has('type')) pushColumn('type', sourcePackage.type);
   if (packageColumns.has('max_discount')) pushColumn('max_discount', sourcePackage.max_discount);
+  if (packageColumns.has('nett_price')) pushColumn('nett_price', sourcePackage.nett_price);
   if (packageColumns.has('need_approval')) pushColumn('need_approval', sourcePackage.need_approval);
   if (packageColumns.has('active')) pushColumn('active', false);
   if (packageColumns.has('modified_date')) pushColumn('modified_date', new Date());
@@ -458,7 +459,7 @@ async function clonePackageWithHybridUpgrade(client, sourcePackageId, ruleBubble
   const insertQuery = `
     INSERT INTO package (${columnNames.join(', ')})
     VALUES (${placeholders})
-    RETURNING bubble_id, package_name AS name, price, panel, panel_qty, invoice_desc, type, max_discount
+    RETURNING bubble_id, package_name AS name, price, panel, panel_qty, invoice_desc, type, max_discount, nett_price
   `;
 
   const insertRes = await client.query(insertQuery, insertValues);
@@ -545,9 +546,11 @@ async function getVoucherPreviewDataByPackage(client, packageId, userContext = {
     panel_qty: pkg.panel_qty,
     package_type: pkg.type,
     max_discount: pkg.max_discount ?? null,
+    nett_price: pkg.nett_price ?? null,
     packagePrice: parseFloat(pkg.price) || 0,
     panelQty: parseInt(pkg.panel_qty, 10) || 0,
     maxDiscount: parseFloat(pkg.max_discount) || 0,
+    nettPrice: parseFloat(pkg.nett_price) || 0,
     packageTypeScope: normalizeVoucherCategoryPackageType(pkg.type)
   };
 
@@ -1234,11 +1237,14 @@ async function createInvoiceOnTheFly(client, data) {
     // 3. Calculate Financials
     const financials = calculateInvoiceFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, deps.pkg ? deps.pkg.panel_qty : 0);
 
-    // 3.5 Validate discount against package.max_discount.
-    // Everything that reduces the invoice counts toward the cap: manual discount,
+    // 3.5 Validate discount against package nett_price floor.
+    // Guardrail: invoice total cannot go below nett_price.
+    //   - If nett_price is set: cap = price - nett_price
+    //   - If not set: cap = price * 0.07 (7% of package price)
+    // Everything that reduces the invoice counts toward the cap: custom discounts,
     // promotions, visible voucher discount, hidden commission deductions, and the
     // absolute value of any negative extra items.
-    // CEO discount bypasses this limit entirely. NULL/0 max_discount = no cap yet.
+    // CEO discount bypasses this limit entirely.
     if (!data.ceoDiscount) {
       const manualDiscount = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
       const promoAmount = (financials.earnNowRebateDiscount || 0)
@@ -1251,7 +1257,8 @@ async function createInvoiceOnTheFly(client, data) {
         totalHiddenDiscount: voucherInfo.totalHiddenDiscount,
         negativeExtraItems: financials.extraItemsNegativeTotal
       });
-      validateDiscountLimit(deps.pkg ? deps.pkg.max_discount : null, totalTowardMax, voucherInfo.totalHiddenDiscount);
+      const pkgNettPrice = deps.pkg ? deps.pkg.nett_price : null;
+      validateDiscountLimit(packagePrice, pkgNettPrice, totalTowardMax, voucherInfo.totalHiddenDiscount);
     }
 
     // 4. Create Invoice Header
@@ -1743,8 +1750,8 @@ async function updateInvoiceTransaction(client, data) {
       : await _processExistingInvoiceVouchers(client, bubbleId, currentData.voucher_code, packagePrice);
     const financials = calculateInvoiceFinancials(data, packagePrice, voucherInfo.totalVoucherAmount, pkg.panel_qty);
 
-    // Validate discount against package.max_discount (see create path for rationale).
-    // CEO discount bypasses this limit entirely. NULL/0 max_discount = no cap yet.
+    // Validate discount against package nett_price floor (see create path for rationale).
+    // CEO discount bypasses this limit entirely.
     if (!data.ceoDiscount) {
       const manualDiscount = financials.percentDiscountVal + (parseFloat(data.discountFixed) || 0);
       const promoAmount = (financials.earnNowRebateDiscount || 0)
@@ -1757,7 +1764,8 @@ async function updateInvoiceTransaction(client, data) {
         totalHiddenDiscount: voucherInfo.totalHiddenDiscount,
         negativeExtraItems: financials.extraItemsNegativeTotal
       });
-      validateDiscountLimit(pkg ? pkg.max_discount : null, totalTowardMax, voucherInfo.totalHiddenDiscount);
+      const pkgNettPrice = pkg ? pkg.nett_price : null;
+      validateDiscountLimit(packagePrice, pkgNettPrice, totalTowardMax, voucherInfo.totalHiddenDiscount);
     }
 
     const { finalTotalAmount } = financials;

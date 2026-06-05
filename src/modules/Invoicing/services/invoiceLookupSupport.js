@@ -7,7 +7,7 @@
 async function getPackageById(client, packageId) {
   try {
     const result = await client.query(
-      `SELECT COALESCE(bubble_id, id::text) AS bubble_id, id, package_name as name, price, panel, panel_qty, invoice_desc, type, max_discount
+      `SELECT COALESCE(bubble_id, id::text) AS bubble_id, id, package_name as name, price, panel, panel_qty, invoice_desc, type, max_discount, nett_price
        FROM package
        WHERE bubble_id = $1 OR id::text = $1
        LIMIT 1`,

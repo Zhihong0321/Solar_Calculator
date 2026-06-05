@@ -56,28 +56,31 @@ async function runCase(payload) {
     apply_earth_month_go_green_bonus: true
   });
 
-  assert.strictEqual(snakeCasePayload.applyEarnNowRebate, true, 'Snake-case Earn Now flag should reach repo payload');
+  assert.strictEqual(snakeCasePayload.applyEarnNowRebate, false, 'Snake-case Earn Now flag should be disabled');
   assert.strictEqual(
     snakeCasePayload.applyEarthMonthGoGreenBonus,
-    true,
-    'Snake-case Earth Month flag should reach repo payload'
+    false,
+    'Snake-case Earth Month flag should be disabled'
   );
+  assert.strictEqual(snakeCasePayload.applyParentsDayPromo, false, 'Parents Day flag should be disabled');
 
   const camelCasePayload = await runCase({
     applyEarnNowRebate: false,
-    applyEarthMonthGoGreenBonus: true
+    applyEarthMonthGoGreenBonus: true,
+    applyParentsDayPromo: true
   });
 
-  assert.strictEqual(camelCasePayload.applyEarnNowRebate, false, 'Camel-case Earn Now flag should reach repo payload');
+  assert.strictEqual(camelCasePayload.applyEarnNowRebate, false, 'Camel-case Earn Now flag should be disabled');
   assert.strictEqual(
     camelCasePayload.applyEarthMonthGoGreenBonus,
-    true,
-    'Camel-case Earth Month flag should reach repo payload'
+    false,
+    'Camel-case Earth Month flag should be disabled'
   );
+  assert.strictEqual(camelCasePayload.applyParentsDayPromo, false, 'Camel-case Parents Day flag should be disabled');
 
-  console.log('Invoice version promotion flag regression test passed.');
+  console.log('Invoice version legacy promotion disable test passed.');
 })().catch((error) => {
-  console.error('Invoice version promotion flag regression test failed.');
+  console.error('Invoice version legacy promotion disable test failed.');
   console.error(error);
   process.exit(1);
 });

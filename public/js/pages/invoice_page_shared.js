@@ -399,14 +399,19 @@
             return false;
         }
 
-        // Skip max discount check when CEO discount is active
+        // Skip discount budget check when CEO discount is active
         const ceoDiscountActive = document.getElementById('ceoDiscount')?.value?.trim().length > 0;
         if (global._maxDiscountExceeded && !ceoDiscountActive) {
-            const maxDiscount = Number(global.packageMaxDiscount) || 0;
+            // Recompute cap for error message
+            const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0) || 0;
+            const nettPrice = parseFloat(global.packageNettPrice) || 0;
+            const cap = nettPrice > 0 ? Math.max(0, packagePrice - nettPrice) : (packagePrice * 0.07);
+            const capDisplay = cap > 0 ? `RM ${cap.toFixed(2)}` : 'not set';
+            const pctDisplay = packagePrice > 0 && cap > 0 ? ` (${((cap / packagePrice) * 100).toFixed(1)}% of price)` : '';
             Swal.fire({
                 icon: 'error',
-                title: 'Max Discount Exceeded',
-                text: `The total discount (including promotions, vouchers, hidden voucher costs, and negative items) exceeds this package's maximum discount of RM ${maxDiscount.toFixed(2)}.`
+                title: 'Discount Budget Exceeded',
+                text: `Total discounts exceed the allowed budget of ${capDisplay}${pctDisplay}. Remove or reduce discounts to proceed.`
             });
             return false;
         }

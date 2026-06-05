@@ -4,54 +4,78 @@
  * Primary Responsibility: Pure calculations and validation helpers for invoice pricing.
  * Stability: Keep this file side-effect free so repository code can stay focused on persistence work.
  *
- * Discount cap model (2026-05-31 redesign):
- *   - The maximum discount allowed on an invoice comes from `package.max_discount`.
- *   - The old tiered MANUAL_DISCOUNT_POLICY (percentage-of-price tiers) is removed.
+ * Discount cap model (2026-06-03 redesign):
+ *   - The guardrail is now `nett_price` — invoice total cannot go below it.
+ *   - For packages WITH nett_price set: cap = price - nett_price (fixed RM floor).
+ *   - For packages WITHOUT nett_price: cap = price * 0.07 (7% of package price).
  *   - Everything that reduces the invoice counts toward the cap ("total toward max"):
- *       manual discount + promo amount + visible voucher discount
+ *       custom discounts + promo amount + visible voucher discount
  *       + SUM(voucher.deductable_from_commission) + abs(negative extra items)
- *   - max_discount NULL or <= 0 means NO CAP is enforced yet (admins populate it
- *     later). Enforcement only kicks in once a package has a positive max_discount.
+ *   - cap = 0 (or null/zero price) means NO CAP is enforced.
  *   - CEO discount bypasses the cap entirely (handled by the caller).
  */
+const LEGACY_INVOICE_PROMOTIONS_ENABLED = false;
 const APRIL_2026_PROMO_END = new Date('2026-07-01T00:00:00');
 
 /**
- * Normalize a package max_discount value into a usable cap.
- * Returns a positive number when a cap is set, or 0 meaning "no cap enforced".
+ * Compute the maximum allowable discount from a package's nett_price.
+ *
+ * @param {number} packagePrice - package.price
+ * @param {number} nettPrice - package.nett_price (nullable/0 = fallback to 7% cap)
+ * @returns {number} Positive cap amount, or 0 meaning no cap enforced.
+ *
+ * Logic:
+ *   - If nett_price is set and positive: cap = price - nett_price
+ *   - Otherwise: cap = price * 0.07 (7% of package price)
+ *   - If resulting cap is 0 or price is invalid: no cap enforced.
  */
-function normalizePackageMaxDiscount(packageMaxDiscount) {
-  const value = parseFloat(packageMaxDiscount);
-  if (!Number.isFinite(value) || value <= 0) return 0;
-  return value;
+function normalizeDiscountCap(packagePrice, nettPrice) {
+  const price = parseFloat(packagePrice) || 0;
+  if (price <= 0) return 0;
+
+  const nett = parseFloat(nettPrice) || 0;
+  let cap;
+  if (nett > 0) {
+    cap = price - nett;
+  } else {
+    cap = price * 0.07;
+  }
+
+  return cap > 0 ? cap : 0;
 }
 
 /**
- * Validate the combined discount load against the package max_discount cap.
+ * Validate the final invoice total against the nett_price floor.
  *
- * @param {number} packageMaxDiscount - package.max_discount (NULL/0 = no cap yet)
- * @param {number} totalTowardMax - sum of all amounts counting toward the cap
+ * @param {number} packagePrice - package.price
+ * @param {number} nettPrice - package.nett_price (nullable/0 = fallback to 7% cap)
+ * @param {number} totalTowardMax - sum of all amounts counting toward the discount budget
  * @param {number} totalHiddenDiscount - hidden commission deductions, surfaced
  *        separately so the error message can explain the breakdown.
- * @throws {Error} when a positive cap is set and totalTowardMax exceeds it.
+ * @throws {Error} when a cap is set and totalTowardMax exceeds it.
  */
-function validateDiscountLimit(packageMaxDiscount, totalTowardMax, totalHiddenDiscount = 0) {
-  const cap = normalizePackageMaxDiscount(packageMaxDiscount);
+function validateDiscountLimit(packagePrice, nettPrice, totalTowardMax, totalHiddenDiscount = 0) {
+  const cap = normalizeDiscountCap(packagePrice, nettPrice);
 
-  // No cap configured for this package yet — nothing to enforce.
+  // No cap configured for this package — nothing to enforce.
   if (cap <= 0) return;
 
   const total = parseFloat(totalTowardMax) || 0;
   if (total > cap + 0.01) {
     const hidden = parseFloat(totalHiddenDiscount) || 0;
+    const maxAllowed = cap.toFixed(2);
+    const pkgPrice = parseFloat(packagePrice) || 0;
+    const maxPercent = pkgPrice > 0 ? ((cap / pkgPrice) * 100).toFixed(2) : '0';
     throw new Error(
-      `Total discount (RM ${total.toFixed(2)}) including hidden voucher costs (RM ${hidden.toFixed(2)}) exceeds package maximum (RM ${cap.toFixed(2)}).`
+      `Total discount (RM ${total.toFixed(2)}) exceeds the allowed budget (RM ${maxAllowed} / ${maxPercent}% of package price). ` +
+      `Hidden voucher costs (RM ${hidden.toFixed(2)}) count toward the limit. ` +
+      `Reduce discounts or remove vouchers to proceed.`
     );
   }
 }
 
 function isApril2026PromotionActive() {
-  return new Date() < APRIL_2026_PROMO_END;
+  return LEGACY_INVOICE_PROMOTIONS_ENABLED && new Date() < APRIL_2026_PROMO_END;
 }
 
 function getEarnNowRebateDiscount(panelQty) {
@@ -163,11 +187,13 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
 }
 
 /**
- * Compute the total discount load that counts toward package.max_discount.
+ * Compute the total discount load that counts toward the discount budget.
  * Mirrors the plan's core formula. All inputs are coerced to numbers.
  *
- *   totalTowardMax = manualDiscount + promoAmount + voucherVisibleDiscount
+ *   totalTowardMax = customDiscount + promoAmount + voucherVisibleDiscount
  *                  + totalHiddenDiscount + abs(negativeExtraItems)
+ *
+ * The budget cap is: price - nett_price (or price * 0.07 if nett_price not set).
  */
 function computeTotalTowardMax({
   manualDiscount = 0,
@@ -187,6 +213,6 @@ function computeTotalTowardMax({
 module.exports = {
   calculateInvoiceFinancials,
   validateDiscountLimit,
-  computeTotalTowardMax,
-  normalizePackageMaxDiscount
+  normalizeDiscountCap,
+  computeTotalTowardMax
 };
