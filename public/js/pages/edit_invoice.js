@@ -42,7 +42,16 @@ const BALLAST_UNIT_PRICE = 160;
 const ATS_ADDON_PRICE = 500;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
 const LEGACY_INVOICE_PROMOTIONS_ENABLED = false; // PROMOS DISABLED — do not re-enable
+const PARENTS_DAY_2026_ENABLED = true;
 const APRIL_2026_PROMO_END = new Date('2026-07-01T00:00:00');
+
+function isApril2026PromotionActive() {
+    return LEGACY_INVOICE_PROMOTIONS_ENABLED && new Date() < APRIL_2026_PROMO_END;
+}
+
+function isParentsDay2026Active() {
+    return PARENTS_DAY_2026_ENABLED && new Date() < APRIL_2026_PROMO_END;
+}
 
 const EXTRA_ITEMS_MAX_DISCOUNT_PERCENT = 5; // Max negative extra items = 5% of package price
 // ── Discount Manager (2026-06-03 redesign) ────────────────────────────────────
@@ -725,10 +734,6 @@ async function loadHybridUpgradeOptions() {
     hideRetiredHybridUpgradeControls();
 }
 
-function isApril2026PromotionActive() {
-    return LEGACY_INVOICE_PROMOTIONS_ENABLED && new Date() < APRIL_2026_PROMO_END;
-}
-
 function getEarnNowRebateAmount(panelQty) {
     if (!isApril2026PromotionActive()) return 0;
 
@@ -751,7 +756,7 @@ function getEarthMonthGoGreenBonusAmount(panelQty) {
 }
 
 function getParentsDayPromoAmount(panelQty) {
-    if (!isApril2026PromotionActive()) return 0;
+    if (!isParentsDay2026Active()) return 0;
 
     const qty = parseInt(panelQty, 10) || 0;
     if (qty >= 11 && qty <= 15) return 300;
@@ -762,17 +767,47 @@ function getParentsDayPromoAmount(panelQty) {
 }
 
 function getAppliedPromotionAmounts(panelQty = window.currentPanelQty) {
-    // PROMOS DISABLED — always return zero amounts regardless of loaded selections
+    const normalizedPanelQty = parseInt(panelQty, 10) || 0;
+    const earnNowEligibleAmount = getEarnNowRebateAmount(normalizedPanelQty);
+    const earthMonthEligibleAmount = getEarthMonthGoGreenBonusAmount(normalizedPanelQty);
+    const parentsDayEligibleAmount = getParentsDayPromoAmount(normalizedPanelQty);
+    const earnNowToggle = document.getElementById('applyEarnNowRebate');
+    const earthMonthToggle = document.getElementById('applyEarthMonthGoGreenBonus');
+    const parentsDayToggle = document.getElementById('applyParentsDayPromo');
+    const suriaRebateToggle = document.getElementById('applySuriaRebate');
+    const promotionsEnabled = isApril2026PromotionActive();
+    const isLoadedPromoEdit = Boolean(window.isEditMode);
+
+    const earnNowAppliedAmount = (
+        promotionsEnabled
+            ? Boolean(earnNowToggle?.checked)
+            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.earnNowApplied)
+    ) ? earnNowEligibleAmount : 0;
+
+    const earthMonthAppliedAmount = (
+        promotionsEnabled
+            ? Boolean(earthMonthToggle?.checked)
+            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.earthMonthApplied)
+    ) ? earthMonthEligibleAmount : 0;
+
+    const parentsDayAppliedAmount = (
+        isParentsDay2026Active()
+            ? Boolean(parentsDayToggle?.checked)
+            : isLoadedPromoEdit && Boolean(loadedPromotionSelections.parentsDayApplied)
+    ) ? parentsDayEligibleAmount : 0;
+
+    const suriaRebateAppliedAmount = 0;
+
     return {
-        panelQty: parseInt(panelQty, 10) || 0,
-        earnNowEligibleAmount: 0,
-        earthMonthEligibleAmount: 0,
-        parentsDayEligibleAmount: 0,
-        earnNowAppliedAmount: 0,
-        earthMonthAppliedAmount: 0,
-        parentsDayAppliedAmount: 0,
-        suriaRebateAppliedAmount: 0,
-        totalAppliedAmount: 0
+        panelQty: normalizedPanelQty,
+        earnNowEligibleAmount,
+        earthMonthEligibleAmount,
+        parentsDayEligibleAmount,
+        earnNowAppliedAmount,
+        earthMonthAppliedAmount,
+        parentsDayAppliedAmount,
+        suriaRebateAppliedAmount,
+        totalAppliedAmount: earnNowAppliedAmount + earthMonthAppliedAmount + parentsDayAppliedAmount + suriaRebateAppliedAmount
     };
 }
 
@@ -788,74 +823,80 @@ function updatePromotionOptionsUI() {
     const earthMonthHint = document.getElementById('earthMonthBonusHint');
     const parentsDayHint = document.getElementById('parentsDayHint');
     const promotionsEnabled = isApril2026PromotionActive();
+    const parentsDayEnabled = isParentsDay2026Active();
     const hasPersistedPromo = false;
     const { panelQty, earnNowEligibleAmount, earthMonthEligibleAmount, parentsDayEligibleAmount } = getAppliedPromotionAmounts();
 
+    // Show section if any promo is active
     if (section) {
-        section.classList.toggle('hidden', !promotionsEnabled && !hasPersistedPromo);
+        section.classList.toggle('hidden', !promotionsEnabled && !parentsDayEnabled && !hasPersistedPromo);
     }
 
-    if (!promotionsEnabled) {
+    // Case 1: Both promos disabled — show persisted selections as read-only
+    if (!promotionsEnabled && !parentsDayEnabled) {
         const hasLoadedEarnNow = Boolean(loadedPromotionSelections.earnNowApplied);
         const hasLoadedEarthMonth = Boolean(loadedPromotionSelections.earthMonthApplied);
         const hasLoadedParentsDay = Boolean(loadedPromotionSelections.parentsDayApplied);
 
-        if (earnNowToggle) {
-            earnNowToggle.checked = hasLoadedEarnNow;
-            earnNowToggle.disabled = true;
-        }
-        if (earthMonthToggle) {
-            earthMonthToggle.checked = hasLoadedEarthMonth;
-            earthMonthToggle.disabled = true;
-        }
+        if (earnNowToggle) { earnNowToggle.checked = hasLoadedEarnNow; earnNowToggle.disabled = true; }
+        if (earthMonthToggle) { earthMonthToggle.checked = hasLoadedEarthMonth; earthMonthToggle.disabled = true; }
+        if (parentsDayToggle) { parentsDayToggle.checked = hasLoadedParentsDay; parentsDayToggle.disabled = true; }
+
+        if (!hasLoadedEarnNow && !hasLoadedEarthMonth && !hasLoadedParentsDay) return;
+
+        if (earnNowAmountDisplay) earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
+        if (earthMonthAmountDisplay) earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
+        if (parentsDayAmountDisplay) parentsDayAmountDisplay.textContent = `RM ${parentsDayEligibleAmount.toFixed(2)}`;
+
+        if (earnNowHint) earnNowHint.textContent = hasLoadedEarnNow
+            ? 'This rebate was already applied to the quotation and will be preserved on save.'
+            : 'Eligible for 11 to 36 solar panels only.';
+        if (earthMonthHint) earthMonthHint.textContent = hasLoadedEarthMonth
+            ? 'This bonus was already applied to the quotation and will be preserved on save.'
+            : 'Eligible for 11 to 36 solar panels only.';
+        if (parentsDayHint) parentsDayHint.textContent = hasLoadedParentsDay
+            ? 'This discount was already applied to the quotation and will be preserved on save.'
+            : 'Eligible for 11+ solar panels.';
+        return;
+    }
+
+    // Case 2: Parents Day only (Earn Now / Earth Month disabled) — mixed state
+    if (!promotionsEnabled && parentsDayEnabled) {
+        const hasLoadedEarnNow = Boolean(loadedPromotionSelections.earnNowApplied);
+        const hasLoadedEarthMonth = Boolean(loadedPromotionSelections.earthMonthApplied);
+
+        if (earnNowToggle) { earnNowToggle.checked = hasLoadedEarnNow; earnNowToggle.disabled = true; }
+        if (earthMonthToggle) { earthMonthToggle.checked = hasLoadedEarthMonth; earthMonthToggle.disabled = true; }
+
         if (parentsDayToggle) {
-            parentsDayToggle.checked = hasLoadedParentsDay;
-            parentsDayToggle.disabled = true;
+            parentsDayToggle.disabled = parentsDayEligibleAmount <= 0;
+            if (parentsDayToggle.disabled) parentsDayToggle.checked = false;
         }
 
-        if (!hasLoadedEarnNow && !hasLoadedEarthMonth && !hasLoadedParentsDay) {
-            return;
-        }
+        if (earnNowAmountDisplay) earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
+        if (earthMonthAmountDisplay) earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
+        if (parentsDayAmountDisplay) parentsDayAmountDisplay.textContent = `RM ${parentsDayEligibleAmount.toFixed(2)}`;
 
-        if (earnNowAmountDisplay) {
-            earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
-        }
-        if (earthMonthAmountDisplay) {
-            earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
-        }
-        if (parentsDayAmountDisplay) {
-            parentsDayAmountDisplay.textContent = `RM ${parentsDayEligibleAmount.toFixed(2)}`;
-        }
-
-        if (earnNowHint) {
-            earnNowHint.textContent = hasLoadedEarnNow
-                ? 'This rebate was already applied to the quotation and will be preserved on save.'
-                : 'Eligible for 11 to 36 solar panels only.';
-        }
-
-        if (earthMonthHint) {
-            earthMonthHint.textContent = hasLoadedEarthMonth
-                ? 'This bonus was already applied to the quotation and will be preserved on save.'
-                : 'Eligible for 11 to 36 solar panels only.';
-        }
-
+        if (earnNowHint) earnNowHint.textContent = hasLoadedEarnNow
+            ? 'This rebate was already applied to the quotation and will be preserved on save.'
+            : 'Eligible for 11 to 36 solar panels only.';
+        if (earthMonthHint) earthMonthHint.textContent = hasLoadedEarthMonth
+            ? 'This bonus was already applied to the quotation and will be preserved on save.'
+            : 'Eligible for 11 to 36 solar panels only.';
         if (parentsDayHint) {
-            parentsDayHint.textContent = hasLoadedParentsDay
-                ? 'This discount was already applied to the quotation and will be preserved on save.'
-                : 'Eligible for 11+ solar panels.';
+            if (parentsDayEligibleAmount > 0) {
+                parentsDayHint.textContent = `${panelQty} panels detected. Toggle to apply this discount.`;
+            } else {
+                parentsDayHint.textContent = 'Eligible for 11+ solar panels.';
+            }
         }
         return;
     }
 
-    if (earnNowAmountDisplay) {
-        earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
-    }
-    if (earthMonthAmountDisplay) {
-        earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
-    }
-    if (parentsDayAmountDisplay) {
-        parentsDayAmountDisplay.textContent = `RM ${parentsDayEligibleAmount.toFixed(2)}`;
-    }
+    // Case 3: All promos active — fully interactive
+    if (earnNowAmountDisplay) earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
+    if (earthMonthAmountDisplay) earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
+    if (parentsDayAmountDisplay) parentsDayAmountDisplay.textContent = `RM ${parentsDayEligibleAmount.toFixed(2)}`;
 
     if (earnNowToggle) {
         earnNowToggle.disabled = earnNowEligibleAmount <= 0;

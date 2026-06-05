@@ -15,7 +15,16 @@
  *   - CEO discount bypasses the cap entirely (handled by the caller).
  */
 const LEGACY_INVOICE_PROMOTIONS_ENABLED = false;
+const PARENTS_DAY_2026_ENABLED = true;
 const APRIL_2026_PROMO_END = new Date('2026-07-01T00:00:00');
+
+function isApril2026PromotionActive() {
+    return LEGACY_INVOICE_PROMOTIONS_ENABLED && new Date() < APRIL_2026_PROMO_END;
+}
+
+function isParentsDay2026Active() {
+    return PARENTS_DAY_2026_ENABLED && new Date() < APRIL_2026_PROMO_END;
+}
 
 /**
  * Compute the maximum allowable discount from a package's nett_price.
@@ -74,10 +83,6 @@ function validateDiscountLimit(packagePrice, nettPrice, totalTowardMax, totalHid
   }
 }
 
-function isApril2026PromotionActive() {
-  return LEGACY_INVOICE_PROMOTIONS_ENABLED && new Date() < APRIL_2026_PROMO_END;
-}
-
 function getEarnNowRebateDiscount(panelQty) {
   if (!isApril2026PromotionActive()) return 0;
 
@@ -100,7 +105,7 @@ function getEarthMonthGoGreenBonusDiscount(panelQty) {
 }
 
 function getParentsDayPromoDiscount(panelQty) {
-  if (!isApril2026PromotionActive()) return 0;
+  if (!isParentsDay2026Active()) return 0;
 
   const qty = parseInt(panelQty, 10) || 0;
   if (qty >= 11 && qty <= 15) return 300;
