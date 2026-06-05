@@ -433,22 +433,67 @@ function initDiscountSection() {
         slot.appendChild(promo);
     }
 
+    // Wire preset description selector toggle
+    const presetSelect = document.getElementById('discountDescriptionPreset');
+    const customDescInput = document.getElementById('customDiscountDescription');
+    if (presetSelect && !presetSelect.dataset.wired) {
+        presetSelect.dataset.wired = '1';
+        presetSelect.addEventListener('change', () => {
+            if (presetSelect.value === '__custom__') {
+                customDescInput?.classList.remove('hidden');
+                presetSelect.classList.add('hidden');
+                customDescInput?.focus();
+            }
+        });
+        if (customDescInput) {
+            customDescInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    customDescInput.classList.add('hidden');
+                    presetSelect.classList.remove('hidden');
+                    presetSelect.value = '';
+                    customDescInput.value = '';
+                }
+            });
+        }
+    }
+
     const addBtn = document.getElementById('addCustomDiscountBtn');
     if (addBtn && !addBtn.dataset.wired) {
         addBtn.dataset.wired = '1';
         addBtn.addEventListener('click', () => {
             const type = document.getElementById('customDiscountType')?.value || 'fixed';
             const value = document.getElementById('customDiscountValue')?.value || '';
-            const description = document.getElementById('customDiscountDescription')?.value || '';
+
+            // Resolve preset description with substitutions
+            let description = '';
+            const presetVal = document.getElementById('discountDescriptionPreset')?.value || '';
+            if (presetVal && presetVal !== '__custom__') {
+                const customerName = document.getElementById('customerName')?.value || 'Customer';
+                const now = new Date();
+                const monthNames = ['January','February','March','April','May','June',
+                                    'July','August','September','October','November','December'];
+                const currentMonth = monthNames[now.getMonth()];
+                description = presetVal
+                    .replace(/\{customer_name\}/gi, customerName)
+                    .replace(/\{current_month\}/gi, currentMonth);
+            } else {
+                description = customDescInput?.value || '';
+            }
+
             const result = addCustomDiscount(type, value, description);
             if (!result.ok) {
                 showCustomDiscountError(result.reason);
             } else {
                 showCustomDiscountError(null);
                 const valueInput = document.getElementById('customDiscountValue');
-                const descInput = document.getElementById('customDiscountDescription');
                 if (valueInput) valueInput.value = '';
-                if (descInput) descInput.value = '';
+                if (customDescInput) customDescInput.value = '';
+                const preset = document.getElementById('discountDescriptionPreset');
+                if (preset) {
+                    preset.value = '';
+                    preset.classList.remove('hidden');
+                    customDescInput?.classList.add('hidden');
+                }
             }
         });
     }
