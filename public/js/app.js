@@ -2321,7 +2321,6 @@ function getResidentialPanelQuantityGate(data) {
 
 
 
-    const systemPhase = parseInt(data?.config?.systemPhase, 10) || 3;
 
 
 
@@ -2337,7 +2336,6 @@ function getResidentialPanelQuantityGate(data) {
 
 
 
-    const baseMin = Math.max(1, recommendedPanels - 2);
 
 
 
@@ -2401,7 +2399,7 @@ function getResidentialPanelQuantityGate(data) {
 
 
 
-        min: systemPhase === 1 ? Math.min(baseMin, 10) : baseMin,
+        min: 1,
 
 
 
@@ -10513,7 +10511,7 @@ class SolarCalculator {
 
 
 
-        const recommendedPanels = Math.max(1, Math.floor(monthlyUsageKwh / sunPeakHour / 30 / 0.62)) + 1;
+        const recommendedPanels = Math.max(1, Math.floor(monthlyUsageKwh / sunPeakHour / 30 / 0.62));
 
 
 
@@ -23313,6 +23311,39 @@ window.syncAndTrigger = function (id, value) {
 
 
 
+function getPackageLinkId(pkg) {
+    return pkg?.linked_package || pkg?.resolved_package_id || pkg?.bubble_id || (pkg?.id ? String(pkg.id) : '');
+}
+
+async function resolveQuotationPackageFromVisibleSpecs(data) {
+    const fallbackPackage = data?.selectedPackage || null;
+    const panelQty = parseInt(data?.actualPanels, 10);
+    const panelType = parseInt(data?.config?.panelType, 10);
+
+    if (!Number.isInteger(panelQty) || panelQty <= 0 || !Number.isInteger(panelType) || panelType <= 0) {
+        return fallbackPackage;
+    }
+
+    const lookupParams = new URLSearchParams({
+        panelQty: String(panelQty),
+        panelType: String(panelType),
+        type: 'Residential'
+    });
+
+    if (data?.config?.systemPhase) lookupParams.set('systemPhase', String(data.config.systemPhase));
+    if (data?.config?.inverterType) lookupParams.set('inverterType', String(data.config.inverterType));
+
+    try {
+        const res = await fetch(`/readonly/package/lookup?${lookupParams.toString()}`);
+        if (!res.ok) return fallbackPackage;
+        const lookupData = await res.json();
+        return lookupData.package || (lookupData.packages && lookupData.packages[0]) || fallbackPackage;
+    } catch (err) {
+        console.warn('[generateInvoiceLink] Package lookup fallback used:', err);
+        return fallbackPackage;
+    }
+}
+
 window.generateInvoiceLink = async function () {
 
 
@@ -23729,7 +23760,10 @@ window.generateInvoiceLink = async function () {
 
 
 
-    if (!latestSolarData || !latestSolarData.selectedPackage || !latestSolarData.selectedPackage.linked_package) {
+    const quotationPackage = await resolveQuotationPackageFromVisibleSpecs(latestSolarData);
+    const quotationPackageId = getPackageLinkId(quotationPackage);
+
+    if (!latestSolarData || !quotationPackageId) {
 
 
 
@@ -23857,7 +23891,7 @@ window.generateInvoiceLink = async function () {
 
 
 
-    params.set('linked_package', latestSolarData.selectedPackage.linked_package);
+    params.set('linked_package', quotationPackageId);
 
 
 
