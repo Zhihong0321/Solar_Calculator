@@ -26,6 +26,7 @@ const ActivityReport = require('./src/modules/ActivityReport');
 const ActivityReportV2 = require('./src/modules/ActivityReportV2');
 const Health = require('./src/modules/Health');
 const BugReport = require('./src/modules/BugReport');
+const HostedHtml = require('./src/modules/HostedHtml');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -92,6 +93,7 @@ app.use(sedaRoutes);
 app.use(ActivityReport.router);
 app.use(ActivityReportV2.router);
 app.use(Health.router);
+app.use(HostedHtml.router);
 app.use('/api/v1/bug', BugReport.bugRoutes);
 
 // --- Global Routes & Static Files ---
@@ -620,6 +622,94 @@ app.get('/bug-dashboard', requireAuth, (req, res) => {
 app.get('/bug-chat', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'bug_chat.html'));
 });
+
+// ── Hosted HTML Apps ───────────────────────────────────────────────────────
+app.get('/hosted-html', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'hosted_html_manager.html'));
+});
+
+async function serveHostedApp(app, label, res) {
+  if (!app || app.status !== 'published') {
+    return res.status(404).type('html').send(hostedHtmlNotFoundHtml(label));
+  }
+
+  let html;
+  try {
+    html = await fs.promises.readFile(app.storagePath, 'utf8');
+  } catch (err) {
+    console.error(`[HostedHtml] missing file for ${label}=${app.slug} at ${app.storagePath}:`, err.message);
+    return res.status(404).type('html').send(hostedHtmlNotFoundHtml(label));
+  }
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'public, max-age=60');
+  res.setHeader("Content-Security-Policy", "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors *;");
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
+  res.send(html);
+
+  // Fire-and-forget view count
+  HostedHtml.service.incrementViewCount(app.id);
+  return undefined;
+}
+
+app.get('/h/:slug', async (req, res) => {
+  const { slug } = req.params;
+  if (!/^[a-f0-9]{16}$/.test(slug)) {
+    return res.status(404).type('html').send(hostedHtmlNotFoundHtml(slug));
+  }
+  let app;
+  try {
+    app = await HostedHtml.service.getAppBySlug(slug);
+  } catch (err) {
+    console.error('[HostedHtml] public lookup error:', err);
+    return res.status(500).type('html').send('Internal error');
+  }
+  return serveHostedApp(app, slug, res);
+});
+
+// Stable, human-readable aliases served at /app/:friendlySlug.
+// e.g. /app/scoreboard -> the WC2026 demo scoreboard.
+app.get('/app/:friendlySlug', async (req, res) => {
+  const { friendlySlug } = req.params;
+  if (!HostedHtml.service.FRIENDLY_SLUG_RE.test(friendlySlug)) {
+    return res.status(404).type('html').send(hostedHtmlNotFoundHtml(friendlySlug));
+  }
+  let app;
+  try {
+    app = await HostedHtml.service.getAppByFriendlySlug(friendlySlug);
+  } catch (err) {
+    console.error('[HostedHtml] friendly lookup error:', err);
+    return res.status(500).type('html').send('Internal error');
+  }
+  return serveHostedApp(app, friendlySlug, res);
+});
+
+function hostedHtmlNotFoundHtml(slug) {
+  const safe = String(slug || '').replace(/[<&>]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App not found</title>
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { max-width: 420px; text-align: center; padding: 40px 24px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 12px rgba(15,23,42,0.05); }
+    h1 { font-size: 1.5rem; margin: 0 0 8px; }
+    p { color: #64748b; margin: 4px 0; font-size: 0.95rem; }
+    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>App not found</h1>
+    <p>This hosted app may have been removed or disabled.</p>
+    <p>Reference: <code>${safe}</code></p>
+  </div>
+</body>
+</html>`;
+}
 
 // API endpoint to test database connection (Core Health)
 app.get('/api/health', async (req, res) => {
