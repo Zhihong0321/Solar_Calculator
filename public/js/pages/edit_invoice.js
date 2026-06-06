@@ -827,6 +827,11 @@ function updatePromotionOptionsUI() {
     const hasPersistedPromo = false;
     const { panelQty, earnNowEligibleAmount, earthMonthEligibleAmount, parentsDayEligibleAmount } = getAppliedPromotionAmounts();
 
+    // Promo card <label> elements (parent of each checkbox)
+    const earnNowCard = earnNowToggle?.closest('label');
+    const earthMonthCard = earthMonthToggle?.closest('label');
+    const parentsDayCard = parentsDayToggle?.closest('label');
+
     // Show section if any promo is active
     if (section) {
         section.classList.toggle('hidden', !promotionsEnabled && !parentsDayEnabled && !hasPersistedPromo);
@@ -841,6 +846,10 @@ function updatePromotionOptionsUI() {
         if (earnNowToggle) { earnNowToggle.checked = hasLoadedEarnNow; earnNowToggle.disabled = true; }
         if (earthMonthToggle) { earthMonthToggle.checked = hasLoadedEarthMonth; earthMonthToggle.disabled = true; }
         if (parentsDayToggle) { parentsDayToggle.checked = hasLoadedParentsDay; parentsDayToggle.disabled = true; }
+
+        if (earnNowCard) earnNowCard.classList.toggle('hidden', !hasLoadedEarnNow);
+        if (earthMonthCard) earthMonthCard.classList.toggle('hidden', !hasLoadedEarthMonth);
+        if (parentsDayCard) parentsDayCard.classList.toggle('hidden', !hasLoadedParentsDay);
 
         if (!hasLoadedEarnNow && !hasLoadedEarthMonth && !hasLoadedParentsDay) return;
 
@@ -868,6 +877,10 @@ function updatePromotionOptionsUI() {
         if (earnNowToggle) { earnNowToggle.checked = hasLoadedEarnNow; earnNowToggle.disabled = true; }
         if (earthMonthToggle) { earthMonthToggle.checked = hasLoadedEarthMonth; earthMonthToggle.disabled = true; }
 
+        if (earnNowCard) earnNowCard.classList.toggle('hidden', !hasLoadedEarnNow);
+        if (earthMonthCard) earthMonthCard.classList.toggle('hidden', !hasLoadedEarthMonth);
+        if (parentsDayCard) parentsDayCard.classList.remove('hidden');
+
         if (parentsDayToggle) {
             parentsDayToggle.disabled = parentsDayEligibleAmount <= 0;
             if (parentsDayToggle.disabled) parentsDayToggle.checked = false;
@@ -894,6 +907,10 @@ function updatePromotionOptionsUI() {
     }
 
     // Case 3: All promos active — fully interactive
+    if (earnNowCard) earnNowCard.classList.remove('hidden');
+    if (earthMonthCard) earthMonthCard.classList.remove('hidden');
+    if (parentsDayCard) parentsDayCard.classList.remove('hidden');
+
     if (earnNowAmountDisplay) earnNowAmountDisplay.textContent = `RM ${earnNowEligibleAmount.toFixed(2)}`;
     if (earthMonthAmountDisplay) earthMonthAmountDisplay.textContent = `RM ${earthMonthEligibleAmount.toFixed(2)}`;
     if (parentsDayAmountDisplay) parentsDayAmountDisplay.textContent = `RM ${parentsDayEligibleAmount.toFixed(2)}`;
