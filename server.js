@@ -685,6 +685,166 @@ app.get('/app/:friendlySlug', async (req, res) => {
   return serveHostedApp(app, friendlySlug, res);
 });
 
+// ── /debug — temporary diagnostic for the scoreboard 404 hunt. ─────────────
+app.get('/debug', async (req, res) => {
+  const checks = [];
+  const add = (name, value) => checks.push({ name, value });
+
+  // 1. Environment
+  add('env.RAILWAY_VOLUME_MOUNT_PATH', process.env.RAILWAY_VOLUME_MOUNT_PATH || '(unset)');
+  add('env.NODE_ENV', process.env.NODE_ENV || '(unset)');
+  add('env.DATABASE_URL', process.env.DATABASE_URL ? `(set, length=${process.env.DATABASE_URL.length})` : '(unset)');
+  add('env.HOSTED_HTML_API_KEY', process.env.HOSTED_HTML_API_KEY || '(unset — using default "hostmyapp")');
+  add('process.cwd()', process.cwd());
+  add('__dirname', __dirname);
+  add('process.version', process.version);
+  add('process.platform', process.platform);
+
+  // 2. Storage path resolution
+  const root = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.resolve(__dirname, 'storage');
+  add('storage.root.computed', root);
+  add('storage.root.exists', fs.existsSync(root));
+  try {
+    fs.accessSync(root, fs.constants.W_OK);
+    add('storage.root.writable', true);
+  } catch (e) {
+    add('storage.root.writable', `false (${e.code}: ${e.message})`);
+  }
+
+  // 3. List the hosted_html directory
+  const hostedDir = path.join(root, 'hosted_html');
+  add('storage.hosted_html.path', hostedDir);
+  add('storage.hosted_html.exists', fs.existsSync(hostedDir));
+  if (fs.existsSync(hostedDir)) {
+    try {
+      const entries = fs.readdirSync(hostedDir).sort();
+      add('storage.hosted_html.entries', entries);
+    } catch (e) {
+      add('storage.hosted_html.list_error', `${e.code}: ${e.message}`);
+    }
+  }
+
+  // 4. Roundtrip write/read test under storage root
+  const testFile = path.join(root, 'hosted_html', '_debug_roundtrip.txt');
+  try {
+    fs.mkdirSync(path.dirname(testFile), { recursive: true });
+    const payload = 'debug-' + Date.now();
+    fs.writeFileSync(testFile, payload, 'utf8');
+    const readBack = fs.readFileSync(testFile, 'utf8');
+    add('storage.roundtrip.path', testFile);
+    add('storage.roundtrip.ok', readBack === payload);
+    add('storage.roundtrip.persists_after_write', readBack);
+    try { fs.unlinkSync(testFile); add('storage.roundtrip.cleanup', 'ok'); }
+    catch (e) { add('storage.roundtrip.cleanup', `${e.code}: ${e.message}`); }
+  } catch (e) {
+    add('storage.roundtrip.error', `${e.code}: ${e.message}`);
+  }
+
+  // 5. Same roundtrip but one second later — catches ephemeral volumes
+  //    that survive in-process reads but not time-based ones.
+  try {
+    const f = path.join(root, 'hosted_html', '_debug_persist.txt');
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, 'persist-' + Date.now(), 'utf8');
+    await new Promise(r => setTimeout(r, 1100));
+    const still = fs.readFileSync(f, 'utf8');
+    add('storage.persist_test.after_1.1s_ok', !!still);
+    fs.unlinkSync(f);
+  } catch (e) {
+    add('storage.persist_test.error', `${e.code}: ${e.message}`);
+  }
+
+  // 6. DB row inspection — scoreboard + all rows
+  try {
+    const one = await pool.query(
+      `SELECT id, slug, friendly_slug, status, storage_path, size_bytes,
+              created_at, updated_at, view_count
+         FROM hosted_html_app
+        WHERE friendly_slug = $1
+        LIMIT 1`,
+      ['scoreboard']
+    );
+    if (one.rows.length === 0) {
+      add('db.scoreboard_row', '(not found)');
+    } else {
+      const r = one.rows[0];
+      add('db.scoreboard_row.id', String(r.id));
+      add('db.scoreboard_row.slug', r.slug);
+      add('db.scoreboard_row.friendly_slug', r.friendly_slug);
+      add('db.scoreboard_row.status', r.status);
+      add('db.scoreboard_row.storage_path', r.storage_path);
+      add('db.scoreboard_row.size_bytes', String(r.size_bytes));
+      add('db.scoreboard_row.created_at', r.created_at && r.created_at.toISOString());
+      add('db.scoreboard_row.updated_at', r.updated_at && r.updated_at.toISOString());
+      add('db.scoreboard_row.view_count', String(r.view_count));
+      // Does the file actually exist at storage_path right now?
+      add('db.scoreboard_row.file_exists', fs.existsSync(r.storage_path));
+      if (fs.existsSync(r.storage_path)) {
+        try {
+          const stat = fs.statSync(r.storage_path);
+          add('db.scoreboard_row.file_size', stat.size);
+          add('db.scoreboard_row.file_mtime', stat.mtime.toISOString());
+        } catch (e) { add('db.scoreboard_row.stat_error', e.message); }
+      }
+    }
+  } catch (e) {
+    add('db.query_error', e.message);
+  }
+
+  try {
+    const all = await pool.query(
+      `SELECT id, slug, friendly_slug, status, storage_path
+         FROM hosted_html_app
+        ORDER BY id`
+    );
+    add('db.all_rows.count', String(all.rows.length));
+    add('db.all_rows', all.rows.map(r => ({
+      id: String(r.id), slug: r.slug, friendly: r.friendly_slug,
+      status: r.status, path: r.storage_path,
+      file_on_disk: fs.existsSync(r.storage_path)
+    })));
+  } catch (e) {
+    add('db.all_rows.error', e.message);
+  }
+
+  // 7. What would the controller compute for buildStoragePath(slug) right now?
+  if (HostedHtml.service && typeof HostedHtml.service.buildStoragePath === 'function') {
+    add('buildStoragePath("scoreboard")', HostedHtml.service.buildStoragePath('scoreboard'));
+  } else {
+    add('buildStoragePath', '(not exposed on service)');
+  }
+
+  // 8. Render as plain HTML (no auth — for the user to inspect in a browser).
+  const escape = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const rows = checks.map(c => `<tr><th>${escape(c.name)}</th><td><pre>${escape(typeof c.value === 'string' ? c.value : JSON.stringify(c.value, null, 2))}</pre></td></tr>`).join('');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>/debug — hosted_html diagnostic</title>
+  <style>
+    body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #0f172a; color: #e2e8f0; padding: 20px; }
+    h1 { color: #f0c24b; margin: 0 0 6px; font-size: 1.1rem; }
+    p.sub { color: #94a3b8; margin: 0 0 16px; font-size: 0.85rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; width: 36%; color: #94a3b8; padding: 8px 10px; border-bottom: 1px solid #1e293b; font-weight: 500; vertical-align: top; }
+    td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: top; }
+    td pre { margin: 0; white-space: pre-wrap; word-break: break-all; color: #fbbf24; font-size: 0.82rem; }
+    .meta { background: #1e293b; border-left: 3px solid #f0c24b; padding: 10px 12px; border-radius: 4px; margin-bottom: 16px; font-size: 0.78rem; color: #cbd5e1; }
+  </style>
+</head>
+<body>
+  <h1>/debug — hosted_html diagnostic</h1>
+  <p class="sub">Prod-only diagnostic. Delete the route after the 404 is fixed.</p>
+  <div class="meta">Run at ${new Date().toISOString()} · node ${process.version} · ${process.platform}</div>
+  <table>${rows}</table>
+</body>
+</html>`);
+});
+
 function hostedHtmlNotFoundHtml(slug) {
   const safe = String(slug || '').replace(/[<&>]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
   return `<!DOCTYPE html>
