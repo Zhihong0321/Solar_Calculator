@@ -814,6 +814,41 @@ app.get('/debug', async (req, res) => {
     add('buildStoragePath', '(not exposed on service)');
   }
 
+  // 7b. Route-handler simulation — run the exact same lookups + reads the live
+  //     routes do, so we can tell whether the 404 is "row not found" or "file read failed".
+  add('route.friendly_regex.test("scoreboard")', HostedHtml.service.FRIENDLY_SLUG_RE.test('scoreboard'));
+  add('route.slug_regex(/^[a-f0-9]{16}$/).test("e9c02e34f48b430d")', /^[a-f0-9]{16}$/.test('e9c02e34f48b430d'));
+
+  let routeApp1 = null;
+  try {
+    routeApp1 = await HostedHtml.service.getAppByFriendlySlug('scoreboard');
+    add('route.getAppByFriendlySlug("scoreboard")', routeApp1 || '(null)');
+  } catch (e) { add('route.getAppByFriendlySlug.error', e.message); }
+
+  let routeApp2 = null;
+  try {
+    routeApp2 = await HostedHtml.service.getAppBySlug('e9c02e34f48b430d');
+    add('route.getAppBySlug("e9c02e34f48b430d")', routeApp2 || '(null)');
+  } catch (e) { add('route.getAppBySlug.error', e.message); }
+
+  // The exact read the route does:
+  for (const [label, appObj] of [['friendly', routeApp1], ['canonical', routeApp2]]) {
+    if (!appObj) continue;
+    add(`route.${label}.status_check_pass`, appObj.status === 'published');
+    add(`route.${label}.storagePath`, appObj.storagePath);
+    add(`route.${label}.fs.existsSync`, fs.existsSync(appObj.storagePath));
+    try {
+      const stat = fs.statSync(appObj.storagePath);
+      add(`route.${label}.fs.statSync.isFile`, stat.isFile());
+      add(`route.${label}.fs.statSync.size`, stat.size);
+    } catch (e) { add(`route.${label}.fs.statSync.error`, `${e.code}: ${e.message}`); }
+    try {
+      const buf = await fs.promises.readFile(appObj.storagePath);
+      add(`route.${label}.fs.promises.readFile.bytes`, buf.length);
+      add(`route.${label}.fs.promises.readFile.first60`, buf.toString('utf8', 0, 60));
+    } catch (e) { add(`route.${label}.fs.promises.readFile.error`, `${e.code}: ${e.message}`); }
+  }
+
   // 8. Render as plain HTML (no auth — for the user to inspect in a browser).
   const escape = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const rows = checks.map(c => `<tr><th>${escape(c.name)}</th><td><pre>${escape(typeof c.value === 'string' ? c.value : JSON.stringify(c.value, null, 2))}</pre></td></tr>`).join('');
