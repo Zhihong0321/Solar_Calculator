@@ -91,6 +91,7 @@ function normalizeVoucherRow(row) {
   return {
     ...row,
     active: row.active ?? row._ai_active ?? true,
+    disabled: row.disabled ?? row._ai_disabled ?? false,
     delete: row.delete ?? row._ai_deleted ?? false
   };
 }
@@ -171,7 +172,8 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
       ? await client.query(
         `SELECT *,
             ${voucherColumns.has('active') ? 'active' : 'TRUE'} AS _ai_active,
-            ${voucherColumns.has('delete') ? 'COALESCE("delete", FALSE)' : 'FALSE'} AS _ai_deleted
+            ${voucherColumns.has('delete') ? 'COALESCE("delete", FALSE)' : 'FALSE'} AS _ai_deleted,
+            ${voucherColumns.has('voucher_availability') ? 'COALESCE(voucher_availability, 1) <= 0' : 'FALSE'} AS _ai_disabled
          FROM voucher
          WHERE linked_voucher_category = $1
            AND ${voucherColumns.has('active') ? 'active = TRUE' : 'TRUE'}
@@ -182,20 +184,17 @@ async function loadVoucherCategoriesForSummary(client, invoiceSummary, deps) {
       )
       : { rows: [] };
 
-    // Filter vouchers by access_tag and allowed_users in JavaScript
+    if (!vouchers.rows.length) continue;
+
+    // Filter by access_tag and allowed_users, then expose disabled flag
     const filteredRows = vouchers.rows.filter((row) => {
       const vAccessTag = (row.access_tag || '').trim();
       const vAllowedUsers = Array.isArray(row.allowed_users) ? row.allowed_users : [];
       const hasTagRestriction = vAccessTag !== '';
       const hasUserRestriction = vAllowedUsers.length > 0;
 
-      // No restrictions = visible to all
       if (!hasTagRestriction && !hasUserRestriction) return true;
-
-      // Check access_tag match
       if (hasTagRestriction && Array.isArray(userAccessTags) && userAccessTags.includes(vAccessTag)) return true;
-
-      // Check allowed_users match
       if (hasUserRestriction && userBubbleId && vAllowedUsers.includes(String(userBubbleId))) return true;
 
       console.log('[VoucherAccessFilter] BLOCKED:', row.voucher_code, '| access_tag:', vAccessTag, '| allowed_users:', JSON.stringify(vAllowedUsers), '| userBubbleId:', userBubbleId, '| userAccessTags:', JSON.stringify(userAccessTags));
