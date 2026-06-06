@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>恒浩世界杯 2026 · 实时积分榜 (DEMO)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0E1B2E; --navy2:#16273F; --card:#1B2D49; --line:#2B406A;
+    --gold:#F0C24B; --gold-soft:#E8B339; --ink:#EAF0FB; --muted:#9DB0CE;
+    --fire:#E5533C; --green:#37B26B; --blue:#5AA9E6;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Noto Sans SC',sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%, rgba(240,194,75,.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 20%, rgba(229,83,60,.10), transparent 55%), var(--navy);
+    color:var(--ink); line-height:1.5; padding:0 0 60px;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 16px}
+
+  .hero{text-align:center;padding:30px 16px 18px}
+  .hero .kick{font-family:'Anton',sans-serif;letter-spacing:.28em;color:var(--gold);font-size:11px;text-transform:uppercase}
+  .hero h1{font-weight:900;font-size:clamp(22px,5.5vw,34px);margin-top:8px;line-height:1.1}
+  .hero h1 .en{display:block;font-family:'Anton',sans-serif;color:var(--gold);font-size:clamp(13px,3vw,18px);letter-spacing:.08em;font-weight:400;margin-top:4px}
+  .updated{color:var(--muted);font-size:12px;margin-top:10px}
+
+  .sec-title{display:flex;align-items:center;gap:10px;margin:26px 0 12px}
+  .sec-title .bar{width:5px;height:22px;background:var(--gold);border-radius:3px}
+  .sec-title h2{font-size:17px;font-weight:900}
+  .sec-title h2 small{color:var(--gold-soft);font-family:'Anton',sans-serif;font-weight:400;font-size:11px;letter-spacing:.12em;margin-left:6px}
+
+  /* TEAM CARD */
+  .team{background:linear-gradient(160deg,var(--card),var(--navy2));border:1px solid var(--line);
+    border-radius:14px;padding:14px 16px;margin-bottom:11px;position:relative;overflow:hidden}
+  .team::before{content:"";position:absolute;top:0;left:0;bottom:0;width:5px;background:var(--accent,#E8B339)}
+  .team .top{display:flex;align-items:center;gap:10px}
+  .team .rank{font-family:'Anton',sans-serif;font-size:24px;min-width:34px;text-align:center;color:var(--gold)}
+  .team .id{flex:1;min-width:0}
+  .team .id .nm{font-weight:900;font-size:15px}
+  .team .id .nm .flag{font-size:17px;margin-right:3px}
+  .team .id .sub{color:var(--muted);font-size:11.5px;margin-top:1px}
+  .team .fig{text-align:right;white-space:nowrap}
+  .team .fig .big{font-family:'Anton',sans-serif;font-size:22px;color:var(--gold);line-height:1}
+  .team .fig .cap{color:var(--muted);font-size:10px}
+  .bar-wrap{height:7px;background:rgba(255,255,255,.07);border-radius:5px;margin:10px 0 8px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent,#E8B339),var(--gold));transition:width .4s}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;font-size:11px}
+  .chip{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:20px;padding:2px 9px;color:var(--muted)}
+  .chip b{color:var(--ink)}
+  .chip.on{border-color:var(--green);color:var(--green)}
+  .chip.bonus{border-color:var(--gold);color:var(--gold)}
+
+  /* GOLDEN BOOT + GOALS */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .panel h3{font-size:14px;font-weight:900;margin-bottom:10px}
+  .panel h3 small{color:var(--gold-soft);font-weight:400;font-size:10px;font-family:'Anton',sans-serif;letter-spacing:.1em}
+  .boot-row,.goal-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed rgba(157,176,206,.15);font-size:13px}
+  .boot-row:last-child,.goal-row:last-child{border:none}
+  .boot-row .medal{font-size:14px;min-width:20px}
+  .boot-row .who{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .boot-row .who span{color:var(--muted);font-size:11px}
+  .boot-row .amt{color:var(--gold);font-weight:700;font-size:12.5px;white-space:nowrap}
+  .goal-row .g{font-size:14px}
+  .goal-row .gtxt{flex:1;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .goal-row .gtxt b{color:var(--ink)}
+  .goal-row .gtxt span{color:var(--muted)}
+  .goal-row .gamt{color:var(--gold);font-weight:700;font-size:12px;white-space:nowrap}
+  .empty{color:var(--muted);font-size:12.5px;text-align:center;padding:14px 0}
+
+  /* ADMIN */
+  .admin{background:rgba(255,255,255,.03);border:1px dashed var(--line);border-radius:16px;padding:18px 16px;margin-top:30px}
+  .admin h3{font-size:15px;font-weight:900;color:var(--gold);margin-bottom:4px}
+  .admin .hint{color:var(--muted);font-size:11.5px;margin-bottom:14px}
+  .field{margin-bottom:11px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  select,input[type=number]{width:100%;background:var(--navy);border:1px solid var(--line);color:var(--ink);
+    border-radius:10px;padding:11px 12px;font-size:15px;font-family:inherit}
+  .toggle{display:flex;gap:8px}
+  .toggle button{flex:1;background:var(--navy);border:1px solid var(--line);color:var(--muted);
+    border-radius:10px;padding:11px;font-size:13px;font-family:inherit;cursor:pointer;font-weight:700}
+  .toggle button.sel{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+  .addbtn{width:100%;background:linear-gradient(90deg,var(--gold),var(--gold-soft));color:var(--navy);
+    border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;margin-top:4px}
+  .addbtn:active{transform:scale(.99)}
+  .counted{font-size:11.5px;color:var(--green);margin-top:6px;min-height:16px}
+
+  .entries{margin-top:16px}
+  .entries .et{display:flex;align-items:center;gap:8px;font-size:12px;padding:7px 0;border-top:1px solid var(--line)}
+  .entries .et .x{color:var(--fire);cursor:pointer;font-weight:900;padding:0 6px;font-size:14px}
+  .entries .et .et-main{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+  .entries .et .et-main b{color:var(--ink)}
+  .reset{width:100%;background:transparent;border:1px solid var(--fire);color:var(--fire);border-radius:10px;
+    padding:10px;font-size:12px;font-family:inherit;cursor:pointer;margin-top:14px;font-weight:700}
+  .savenote{text-align:center;color:var(--muted);font-size:11px;margin-top:10px}
+  .foot{text-align:center;color:var(--muted);font-size:11px;margin-top:28px;border-top:1px solid var(--line);padding-top:18px;line-height:1.7}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="kick">⚽ DEMO · 以 5 月业绩模拟 5月 data ⚽</div>
+  <h1>恒浩世界杯 · 实时积分榜<span class="en">LIVE SCOREBOARD</span></h1>
+  <div class="updated" id="updated">— 等待第一粒进球 —</div>
+</div>
+
+<div class="wrap">
+
+  <!-- LEAGUE TABLE -->
+  <div class="sec-title"><div class="bar"></div><h2>积分榜<small>STANDINGS · 按竞赛业绩</small></h2></div>
+  <div id="league"></div>
+
+  <!-- GOLDEN BOOT + RECENT GOALS -->
+  <div class="grid2">
+    <div class="panel">
+      <h3>👑 金靴榜<small>GOLDEN BOOT</small></h3>
+      <div id="boot"><div class="empty">尚无进球</div></div>
+    </div>
+    <div class="panel">
+      <h3>⚽ 最新战报<small>RECENT GOALS</small></h3>
+      <div id="goals"><div class="empty">尚无进球</div></div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="admin">
+    <h3>⚙️ 记录进球 Record a Goal</h3>
+    <div class="hint">每签一单录入一次,系统自动计算让步、工商封顶、出场率与排名。数据自动保存并对所有访客同步。</div>
+
+    <div class="field">
+      <label>① 选择战队 Team</label>
+      <select id="selTeam"></select>
+    </div>
+    <div class="field">
+      <label>② 射手 Scorer(队员)</label>
+      <select id="selMember"></select>
+    </div>
+    <div class="field">
+      <label>③ 单据金额 Deal Amount (RM)</label>
+      <input type="number" id="inAmt" placeholder="例 25000" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>④ 单据类型 Type</label>
+      <div class="toggle">
+        <button id="tRes" class="sel" onclick="setType('res')">🏠 住宅 Residential</button>
+        <button id="tCI" onclick="setType('ci')">🏭 工商 C&amp;I</button>
+      </div>
+      <div class="counted" id="counted"></div>
+    </div>
+    <button class="addbtn" onclick="addDeal()">⚽ 记录进球 GOAL!</button>
+
+    <div class="entries" id="entries"></div>
+
+    <button class="reset" onclick="resetAll()">🗑️ 清空所有数据 Reset All</button>
+    <div class="savenote" id="savenote">💾 数据已保存</div>
+  </div>
+
+  <div class="foot">
+    恒浩世界杯 2026 · 实时积分榜<br>
+    为国家而战 · 为战队而拼 · 赢下荣耀
+  </div>
+</div>
+
+<script>
+const TEAMS=[
+ {id:'jb1',code:'JB 1',cn:'英格兰',en:'England',flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',cap:'Vincent',target:600000,hcap:0,color:'#E8B339',
+  members:['Vincent','Ye Hong','Denise','Jia Keat','Olivier','Winson']},
+ {id:'jb2',code:'JB 2',cn:'法国',en:'France',flag:'🇫🇷',cap:'Sunny',target:600000,hcap:0,color:'#3B6FB5',
+  members:['Sunny','Zulkarnain','Martin','Jia Xuan','Wilson','Caryn']},
+ {id:'jb3',code:'JB 3',cn:'德国',en:'Germany',flag:'🇩🇪',cap:'Carol',target:600000,hcap:0,color:'#C9A227',
+  members:['Carol','Azhar','LK','CJ','Ivan']},
+ {id:'klang',code:'KLANG',cn:'巴西',en:'Brazil',flag:'🇧🇷',cap:'Jiawei',target:550000,hcap:50000,color:'#37B26B',
+  members:['Jiawei','Zhe Hang','Jia Hao','Joshua','Wei Feng']},
+ {id:'kluang1',code:'KLUANG 1',cn:'西班牙',en:'Spain',flag:'🇪🇸',cap:'Kent',target:450000,hcap:150000,color:'#E5533C',
+  members:['Kent','Louis','Anisha','Najwa','Elyn']},
+ {id:'kluang2',code:'KLUANG 2',cn:'葡萄牙',en:'Portugal',flag:'🇵🇹',cap:'Wing On',target:450000,hcap:150000,color:'#9B59B6',
+  members:['Wing On','Jerry','LG','Cheak Chin','Dean']},
+];
+const KEY='wc2026_demo_v1';
+const SEED=[{"id": "demo000", "teamId": "jb1", "member": "Ye Hong", "amount": 33350, "type": "res", "ts": 1748736000000}, {"id": "demo001", "teamId": "jb1", "member": "Ye Hong", "amount": 27146, "type": "res", "ts": 1748736060000}, {"id": "demo002", "teamId": "jb1", "member": "Ye Hong", "amount": 68000, "type": "ci", "ts": 1748736120000}, {"id": "demo003", "teamId": "jb1", "member": "Ye Hong", "amount": 33487, "type": "res", "ts": 1748736180000}, {"id": "demo004", "teamId": "jb1", "member": "Ye Hong", "amount": 27000, "type": "res", "ts": 1748736240000}, {"id": "demo005", "teamId": "jb1", "member": "Olivier", "amount": 30500, "type": "res", "ts": 1748736300000}, {"id": "demo006", "teamId": "jb1", "member": "Olivier", "amount": 24600, "type": "res", "ts": 1748736360000}, {"id": "demo007", "teamId": "jb1", "member": "Olivier", "amount": 25900, "type": "ci", "ts": 1748736420000}, {"id": "demo008", "teamId": "jb1", "member": "Olivier", "amount": 23000, "type": "res", "ts": 1748736480000}, {"id": "demo009", "teamId": "jb1", "member": "Olivier", "amount": 23200, "type": "res", "ts": 1748736540000}, {"id": "demo010", "teamId": "jb1", "member": "Vincent", "amount": 28000, "type": "res", "ts": 1748736600000}, {"id": "demo011", "teamId": "jb1", "member": "Vincent", "amount": 29000, "type": "res", "ts": 1748736660000}, {"id": "demo012", "teamId": "jb1", "member": "Vincent", "amount": 54000, "type": "res", "ts": 1748736720000}, {"id": "demo013", "teamId": "jb1", "member": "Jia Keat", "amount": 21000, "type": "res", "ts": 1748736780000}, {"id": "demo014", "teamId": "jb1", "member": "Jia Keat", "amount": 18800, "type": "res", "ts": 1748736840000}, {"id": "demo015", "teamId": "jb1", "member": "Winson", "amount": 19000, "type": "res", "ts": 1748736900000}, {"id": "demo016", "teamId": "jb1", "member": "Winson", "amount": 37471.8, "type": "res", "ts": 1748736960000}, {"id": "demo017", "teamId": "jb2", "member": "Sunny", "amount": 12000, "type": "res", "ts": 1748737020000}, {"id": "demo018", "teamId": "jb2", "member": "Sunny", "amount": 136000, "type": "ci", "ts": 1748737080000}, {"id": "demo019", "teamId": "jb2", "member": "Sunny", "amount": 39300, "type": "res", "ts": 1748737140000}, {"id": "demo020", "teamId": "jb2", "member": "Sunny", "amount": 36300, "type": "res", "ts": 1748737200000}, {"id": "demo021", "teamId": "jb2", "member": "Zulkarnain", "amount": 26700, "type": "res", "ts": 1748737260000}, {"id": "demo022", "teamId": "jb2", "member": "Zulkarnain", "amount": 13600, "type": "res", "ts": 1748737320000}, {"id": "demo023", "teamId": "jb2", "member": "Martin", "amount": 19000, "type": "res", "ts": 1748737380000}, {"id": "demo024", "teamId": "jb2", "member": "Martin", "amount": 23310, "type": "res", "ts": 1748737440000}, {"id": "demo025", "teamId": "jb2", "member": "Jia Xuan", "amount": 21000, "type": "res", "ts": 1748737500000}, {"id": "demo026", "teamId": "jb2", "member": "Jia Xuan", "amount": 19000, "type": "res", "ts": 1748737560000}, {"id": "demo027", "teamId": "jb2", "member": "Jia Xuan", "amount": 26000, "type": "res", "ts": 1748737620000}, {"id": "demo028", "teamId": "jb2", "member": "Jia Xuan", "amount": 26000, "type": "res", "ts": 1748737680000}, {"id": "demo029", "teamId": "jb2", "member": "Jia Xuan", "amount": 26000, "type": "res", "ts": 1748737740000}, {"id": "demo030", "teamId": "jb2", "member": "Jia Xuan", "amount": 34800, "type": "res", "ts": 1748737800000}, {"id": "demo031", "teamId": "jb2", "member": "Wilson", "amount": 27000, "type": "res", "ts": 1748737860000}, {"id": "demo032", "teamId": "jb2", "member": "Wilson", "amount": 38000, "type": "res", "ts": 1748737920000}, {"id": "demo033", "teamId": "jb2", "member": "Caryn", "amount": 50000, "type": "ci", "ts": 1748737980000}, {"id": "demo034", "teamId": "jb2", "member": "Caryn", "amount": 42600, "type": "res", "ts": 1748738040000}, {"id": "demo035", "teamId": "jb2", "member": "Caryn", "amount": 24000, "type": "res", "ts": 1748738100000}, {"id": "demo036", "teamId": "jb2", "member": "Caryn", "amount": 24000, "type": "res", "ts": 1748738160000}, {"id": "demo037", "teamId": "jb2", "member": "Caryn", "amount": 24000, "type": "res", "ts": 1748738220000}, {"id": "demo038", "teamId": "jb3", "member": "Carol", "amount": 32000, "type": "res", "ts": 1748738280000}, {"id": "demo039", "teamId": "jb3", "member": "Carol", "amount": 18695, "type": "res", "ts": 1748738340000}, {"id": "demo040", "teamId": "jb3", "member": "Carol", "amount": 40220, "type": "res", "ts": 1748738400000}, {"id": "demo041", "teamId": "jb3", "member": "Carol", "amount": 24000, "type": "res", "ts": 1748738460000}, {"id": "demo042", "teamId": "jb3", "member": "Carol", "amount": 24900, "type": "res", "ts": 1748738520000}, {"id": "demo043", "teamId": "jb3", "member": "Carol", "amount": 36000, "type": "res", "ts": 1748738580000}, {"id": "demo044", "teamId": "jb3", "member": "Carol", "amount": 19100, "type": "res", "ts": 1748738640000}, {"id": "demo045", "teamId": "jb3", "member": "Carol", "amount": 27200, "type": "res", "ts": 1748738700000}, {"id": "demo046", "teamId": "jb3", "member": "Carol", "amount": 15800, "type": "res", "ts": 1748738760000}, {"id": "demo047", "teamId": "jb3", "member": "Azhar", "amount": 21182.4, "type": "res", "ts": 1748738820000}, {"id": "demo048", "teamId": "jb3", "member": "LK", "amount": 24000, "type": "res", "ts": 1748738880000}, {"id": "demo049", "teamId": "jb3", "member": "LK", "amount": 19572, "type": "res", "ts": 1748738940000}, {"id": "demo050", "teamId": "jb3", "member": "LK", "amount": 29000, "type": "res", "ts": 1748739000000}, {"id": "demo051", "teamId": "jb3", "member": "LK", "amount": 25500, "type": "res", "ts": 1748739060000}, {"id": "demo052", "teamId": "jb3", "member": "LK", "amount": 24000, "type": "res", "ts": 1748739120000}, {"id": "demo053", "teamId": "jb3", "member": "LK", "amount": 40800, "type": "res", "ts": 1748739180000}, {"id": "demo054", "teamId": "jb3", "member": "LK", "amount": 20000, "type": "res", "ts": 1748739240000}, {"id": "demo055", "teamId": "jb3", "member": "CJ", "amount": 191000, "type": "ci", "ts": 1748739300000}, {"id": "demo056", "teamId": "jb3", "member": "Ivan", "amount": 23500, "type": "res", "ts": 1748739360000}, {"id": "demo057", "teamId": "jb3", "member": "Ivan", "amount": 24300, "type": "res", "ts": 1748739420000}, {"id": "demo058", "teamId": "klang", "member": "Jiawei", "amount": 37800, "type": "ci", "ts": 1748739480000}, {"id": "demo059", "teamId": "klang", "member": "Jiawei", "amount": 31500, "type": "res", "ts": 1748739540000}, {"id": "demo060", "teamId": "klang", "member": "Jiawei", "amount": 25800, "type": "res", "ts": 1748739600000}, {"id": "demo061", "teamId": "klang", "member": "Jiawei", "amount": 19000, "type": "res", "ts": 1748739660000}, {"id": "demo062", "teamId": "klang", "member": "Jiawei", "amount": 22800, "type": "res", "ts": 1748739720000}, {"id": "demo063", "teamId": "klang", "member": "Jiawei", "amount": 26500, "type": "res", "ts": 1748739780000}, {"id": "demo064", "teamId": "klang", "member": "Jiawei", "amount": 26288, "type": "res", "ts": 1748739840000}, {"id": "demo065", "teamId": "klang", "member": "Zhe Hang", "amount": 26830, "type": "res", "ts": 1748739900000}, {"id": "demo066", "teamId": "klang", "member": "Zhe Hang", "amount": 18000, "type": "res", "ts": 1748739960000}, {"id": "demo067", "teamId": "klang", "member": "Zhe Hang", "amount": 20225, "type": "res", "ts": 1748740020000}, {"id": "demo068", "teamId": "klang", "member": "Zhe Hang", "amount": 19725, "type": "res", "ts": 1748740080000}, {"id": "demo069", "teamId": "klang", "member": "Jia Hao", "amount": 23500, "type": "res", "ts": 1748740140000}, {"id": "demo070", "teamId": "klang", "member": "Jia Hao", "amount": 59000, "type": "res", "ts": 1748740200000}, {"id": "demo071", "teamId": "klang", "member": "Jia Hao", "amount": 27000, "type": "res", "ts": 1748740260000}, {"id": "demo072", "teamId": "klang", "member": "Jia Hao", "amount": 17800, "type": "res", "ts": 1748740320000}, {"id": "demo073", "teamId": "klang", "member": "Jia Hao", "amount": 17680, "type": "res", "ts": 1748740380000}, {"id": "demo074", "teamId": "klang", "member": "Jia Hao", "amount": 31500, "type": "res", "ts": 1748740440000}, {"id": "demo075", "teamId": "klang", "member": "Joshua", "amount": 28000, "type": "res", "ts": 1748740500000}, {"id": "demo076", "teamId": "klang", "member": "Joshua", "amount": 20000, "type": "res", "ts": 1748740560000}, {"id": "demo077", "teamId": "klang", "member": "Wei Feng", "amount": 24300, "type": "res", "ts": 1748740620000}, {"id": "demo078", "teamId": "klang", "member": "Wei Feng", "amount": 23800, "type": "res", "ts": 1748740680000}, {"id": "demo079", "teamId": "klang", "member": "Wei Feng", "amount": 24000, "type": "res", "ts": 1748740740000}, {"id": "demo080", "teamId": "kluang1", "member": "Kent", "amount": 25800, "type": "res", "ts": 1748740800000}, {"id": "demo081", "teamId": "kluang1", "member": "Kent", "amount": 32800, "type": "res", "ts": 1748740860000}, {"id": "demo082", "teamId": "kluang1", "member": "Louis", "amount": 19000, "type": "res", "ts": 1748740920000}, {"id": "demo083", "teamId": "kluang1", "member": "Louis", "amount": 27400, "type": "res", "ts": 1748740980000}, {"id": "demo084", "teamId": "kluang1", "member": "Louis", "amount": 19108, "type": "res", "ts": 1748741040000}, {"id": "demo085", "teamId": "kluang1", "member": "Louis", "amount": 31000, "type": "res", "ts": 1748741100000}, {"id": "demo086", "teamId": "kluang1", "member": "Najwa", "amount": 17900, "type": "res", "ts": 1748741160000}, {"id": "demo087", "teamId": "kluang1", "member": "Najwa", "amount": 31800, "type": "res", "ts": 1748741220000}, {"id": "demo088", "teamId": "kluang1", "member": "Najwa", "amount": 18800, "type": "res", "ts": 1748741280000}, {"id": "demo089", "teamId": "kluang1", "member": "Elyn", "amount": 19000, "type": "res", "ts": 1748741340000}, {"id": "demo090", "teamId": "kluang1", "member": "Elyn", "amount": 34500, "type": "res", "ts": 1748741400000}, {"id": "demo091", "teamId": "kluang1", "member": "Elyn", "amount": 26500, "type": "res", "ts": 1748741460000}, {"id": "demo092", "teamId": "kluang1", "member": "Elyn", "amount": 32000, "type": "res", "ts": 1748741520000}, {"id": "demo093", "teamId": "kluang2", "member": "Wing On", "amount": 19700, "type": "res", "ts": 1748741580000}, {"id": "demo094", "teamId": "kluang2", "member": "Wing On", "amount": 43212, "type": "res", "ts": 1748741640000}, {"id": "demo095", "teamId": "kluang2", "member": "Wing On", "amount": 25500, "type": "res", "ts": 1748741700000}, {"id": "demo096", "teamId": "kluang2", "member": "Wing On", "amount": 26300, "type": "res", "ts": 1748741760000}, {"id": "demo097", "teamId": "kluang2", "member": "Jerry", "amount": 18800, "type": "res", "ts": 1748741820000}, {"id": "demo098", "teamId": "kluang2", "member": "LG", "amount": 19000, "type": "res", "ts": 1748741880000}, {"id": "demo099", "teamId": "kluang2", "member": "LG", "amount": 19000, "type": "res", "ts": 1748741940000}, {"id": "demo100", "teamId": "kluang2", "member": "LG", "amount": 17600, "type": "res", "ts": 1748742000000}, {"id": "demo101", "teamId": "kluang2", "member": "LG", "amount": 25778.4, "type": "res", "ts": 1748742060000}, {"id": "demo102", "teamId": "kluang2", "member": "Cheak Chin", "amount": 17000, "type": "res", "ts": 1748742120000}, {"id": "demo103", "teamId": "kluang2", "member": "Cheak Chin", "amount": 18000, "type": "res", "ts": 1748742180000}, {"id": "demo104", "teamId": "kluang2", "member": "Dean", "amount": 37200, "type": "res", "ts": 1748742240000}, {"id": "demo105", "teamId": "kluang2", "member": "Dean", "amount": 28600, "type": "res", "ts": 1748742300000}, {"id": "demo106", "teamId": "kluang2", "member": "Dean", "amount": 21600, "type": "res", "ts": 1748742360000}, {"id": "demo107", "teamId": "kluang2", "member": "Dean", "amount": 23600, "type": "res", "ts": 1748742420000}];
+let deals=JSON.parse(JSON.stringify(SEED));
+let curType='res';
+
+const fmt=n=>'RM '+Math.round(n).toLocaleString('en-US');
+const fmtK=n=>'RM '+(Math.round(n/1000)).toLocaleString('en-US')+'K';
+const teamById=id=>TEAMS.find(t=>t.id===id);
+
+function counted(amount,type){
+  if(type==='res') return amount;
+  return amount<=40000 ? amount : 40000+(amount-40000)*0.4;
+}
+function stats(team){
+  const td=deals.filter(d=>d.teamId===team.id);
+  const actual=td.reduce((s,d)=>s+counted(d.amount,d.type),0);
+  const raw=td.reduce((s,d)=>s+d.amount,0);
+  const activeN=new Set(td.map(d=>d.member)).size;
+  const fullActive=activeN===team.members.length;
+  const hit=actual>=team.target;
+  const bonus=(fullActive?80000:0)+(hit?50000:0);
+  const figure=actual+team.hcap+bonus;
+  return {td,actual,raw,activeN,fullActive,hit,bonus,figure,pct:team.target?actual/team.target:0};
+}
+
+async function save(){
+  try{ await window.storage.set(KEY,JSON.stringify(deals),true);
+    document.getElementById('savenote').textContent='💾 数据已保存 '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){ document.getElementById('savenote').textContent='⚠️ 离线模式(本次有效,刷新可能丢失)'; }
+}
+async function load(){
+  try{ const r=await window.storage.get(KEY,true); if(r&&r.value){ const d=JSON.parse(r.value); deals=d; } }
+  catch(e){ /* keep SEED demo data */ }
+}
+
+function setType(t){ curType=t;
+  document.getElementById('tRes').classList.toggle('sel',t==='res');
+  document.getElementById('tCI').classList.toggle('sel',t==='ci');
+  updateCounted();
+}
+function updateCounted(){
+  const amt=parseFloat(document.getElementById('inAmt').value)||0;
+  const el=document.getElementById('counted');
+  if(amt<=0){ el.textContent=''; return; }
+  if(curType==='ci' && amt>40000){
+    el.textContent='工商封顶后计入竞赛 = '+fmt(counted(amt,'ci'))+'(首40K×100% + 余×40%)';
+  }else{ el.textContent='计入竞赛 = '+fmt(counted(amt,curType)); }
+}
+
+function initSelectors(){
+  const st=document.getElementById('selTeam');
+  st.innerHTML=TEAMS.map(t=>`<option value="${t.id}">${t.flag} ${t.code} · ${t.cn}</option>`).join('');
+  st.onchange=fillMembers; fillMembers();
+  document.getElementById('inAmt').addEventListener('input',updateCounted);
+}
+function fillMembers(){
+  const t=teamById(document.getElementById('selTeam').value);
+  document.getElementById('selMember').innerHTML=t.members.map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+
+async function addDeal(){
+  const teamId=document.getElementById('selTeam').value;
+  const member=document.getElementById('selMember').value;
+  const amount=parseFloat(document.getElementById('inAmt').value);
+  if(!amount||amount<=0){ alert('请输入有效金额'); return; }
+  deals.push({id:Date.now()+''+Math.floor(Math.random()*999),teamId,member,amount,type:curType,ts:Date.now()});
+  document.getElementById('inAmt').value=''; document.getElementById('counted').textContent='';
+  await save(); render();
+}
+async function delDeal(id){
+  deals=deals.filter(d=>d.id!==id); await save(); render();
+}
+async function resetAll(){
+  if(!confirm('确定清空所有进球数据?此动作无法复原。')) return;
+  deals=[]; await save(); render();
+}
+
+function render(){
+  // league
+  const ranked=TEAMS.map(t=>({t,s:stats(t)})).sort((a,b)=>b.s.figure-a.s.figure);
+  const medals=['🥇','🥈','🥉','4','5','6'];
+  document.getElementById('league').innerHTML=ranked.map((r,i)=>{
+    const {t,s}=r; const pct=Math.min(100,Math.round(s.pct*100));
+    return `<div class="team" style="--accent:${t.color}">
+      <div class="top">
+        <div class="rank">${medals[i]}</div>
+        <div class="id">
+          <div class="nm"><span class="flag">${t.flag}</span>${t.code} · ${t.cn} <span style="color:var(--muted);font-weight:400;font-size:11px">${t.en}</span></div>
+          <div class="sub">队长 ${t.cap} · 目标 ${fmtK(t.target)}</div>
+        </div>
+        <div class="fig"><div class="big">${fmtK(s.figure)}</div><div class="cap">竞赛业绩</div></div>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="chips">
+        <span class="chip">实际 <b>${fmtK(s.actual)}</b></span>
+        ${t.hcap?`<span class="chip">让步 <b>+${fmtK(t.hcap)}</b></span>`:''}
+        <span class="chip ${s.fullActive?'on':''}">⚡出场 <b>${s.activeN}/${t.members.length}</b>${s.fullActive?' ✅':''}</span>
+        <span class="chip ${s.hit?'on':''}">🎯达标 ${pct}%${s.hit?' ✅':''}</span>
+        ${s.fullActive?'<span class="chip bonus">+80K</span>':''}
+        ${s.hit?'<span class="chip bonus">+50K</span>':''}
+      </div></div>`;
+  }).join('');
+
+  // golden boot
+  const byMember={};
+  deals.forEach(d=>{ const k=d.member+'|'+d.teamId; byMember[k]=byMember[k]||{member:d.member,teamId:d.teamId,total:0,n:0};
+    byMember[k].total+=counted(d.amount,d.type); byMember[k].n++; });
+  const boot=Object.values(byMember).sort((a,b)=>b.total-a.total).slice(0,5);
+  const bm=['🥇','🥈','🥉','4️⃣','5️⃣'];
+  document.getElementById('boot').innerHTML=boot.length?boot.map((b,i)=>{
+    const t=teamById(b.teamId);
+    return `<div class="boot-row"><span class="medal">${bm[i]}</span>
+      <span class="who">${b.member} <span>${t.flag}${t.cn}</span></span>
+      <span class="amt">${fmt(b.total)}</span></div>`;
+  }).join(''):'<div class="empty">尚无进球</div>';
+
+  // recent goals
+  const recent=[...deals].sort((a,b)=>b.ts-a.ts).slice(0,8);
+  document.getElementById('goals').innerHTML=recent.length?recent.map(d=>{
+    const t=teamById(d.teamId);
+    return `<div class="goal-row"><span class="g">⚽</span>
+      <span class="gtxt"><b>${d.member}</b> <span>${t.flag}${t.cn}${d.type==='ci'?' · 工商':''}</span></span>
+      <span class="gamt">${fmt(d.amount)}</span></div>`;
+  }).join(''):'<div class="empty">尚无进球</div>';
+
+  // admin entries (latest 12)
+  const ents=[...deals].sort((a,b)=>b.ts-a.ts).slice(0,12);
+  document.getElementById('entries').innerHTML=ents.length?ents.map(d=>{
+    const t=teamById(d.teamId);
+    return `<div class="et"><span class="et-main"><b>${d.member}</b> · ${t.flag}${t.code} · ${fmt(d.amount)}${d.type==='ci'?' (工商)':''}</span>
+      <span class="x" onclick="delDeal('${d.id}')">✕</span></div>`;
+  }).join(''):'';
+
+  // updated time + totals
+  const grand=deals.reduce((s,d)=>s+counted(d.amount,d.type),0);
+  document.getElementById('updated').textContent=deals.length
+    ? `已录入 ${deals.length} 粒进球 · 全场竞赛业绩 ${fmt(grand)} · 更新 ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`
+    : '— 等待第一粒进球 —';
+}
+
+(async function(){ await load(); initSelectors(); render(); })();
+</script>
+</body>
+</html>

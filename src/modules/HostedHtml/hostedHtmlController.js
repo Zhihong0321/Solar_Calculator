@@ -424,6 +424,12 @@ exports.hostFromApi = [
                     error: 'Provide HTML either as JSON {creatorName, title?, description?, html} or as multipart file upload (field: file).'
                 });
             }
+            const titleInput = typeof payload.title === 'string' ? payload.title.trim() : '';
+            const title = titleInput || `Hosted app by ${req.body.creatorName.trim()}`;
+            const titleError = validateTitle(title);
+            if (titleError) return res.status(400).json({ success: false, error: titleError });
+            const htmlError = validateHtml(payload.html);
+            if (htmlError) return res.status(400).json({ success: false, error: htmlError });
             const description = typeof payload.description === 'string'
                 ? payload.description.trim().slice(0, hostedHtmlService.MAX_DESC_LEN) || null
                 : null;
@@ -440,6 +446,9 @@ exports.hostFromApi = [
                 htmlContent: payload.html,
                 storagePath
             });
+            if (!app) {
+                return res.status(500).json({ success: false, error: 'Database insert returned no row.' });
+            }
 
             return res.json({
                 success: true,

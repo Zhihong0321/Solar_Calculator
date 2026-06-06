@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Hosted HTML · Eternalgy OS</title>
+  <link rel="stylesheet" href="/css/tailwind.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    :root {
+      --primary: #0f172a;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); -webkit-tap-highlight-color: transparent; }
+    .top-nav { position: sticky; top: 0; z-index: 30; background: rgba(255,255,255,0.85); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); border-bottom: 1px solid var(--border); }
+    .container { max-width: 960px; margin: 0 auto; padding: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .btn-primary { background: var(--primary); color: white; padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 0.875rem; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.1s, opacity 0.15s; }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: white; color: var(--text); padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 0.875rem; border: 1px solid var(--border); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+    .btn-ghost { background: transparent; color: var(--muted); padding: 8px 10px; border-radius: 8px; font-weight: 500; font-size: 0.8125rem; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-ghost:hover { background: #f1f5f9; color: var(--text); }
+    .btn-danger { background: #fef2f2; color: #b91c1c; padding: 8px 10px; border-radius: 8px; font-weight: 500; font-size: 0.8125rem; border: 1px solid #fecaca; cursor: pointer; }
+    .input, .textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 0.9375rem; font-family: inherit; background: white; color: var(--text); transition: border-color 0.15s, box-shadow 0.15s; }
+    .input:focus, .textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14,165,233,0.15); }
+    .textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; min-height: 180px; resize: vertical; }
+    .label { display: block; font-size: 0.8125rem; font-weight: 600; color: #334155; margin-bottom: 6px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .badge-published { background: #dcfce7; color: #166534; }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-disabled { background: #f1f5f9; color: #475569; }
+    .app-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .app-card + .app-card { border-top: 1px solid var(--border); }
+    .app-title { font-weight: 700; font-size: 1.0625rem; color: var(--text); margin: 0; }
+    .app-meta { font-size: 0.8125rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 12px; }
+    .app-url { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; color: #334155; word-break: break-all; }
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #0f172a; color: white; padding: 10px 18px; border-radius: 999px; font-size: 0.875rem; font-weight: 500; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
+    .section-title { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 10px; }
+    .code-block { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; line-height: 1.5; overflow-x: auto; white-space: pre; }
+    @media (min-width: 640px) {
+      .app-card { flex-direction: row; align-items: center; justify-content: space-between; }
+      .app-card-info { flex: 1; min-width: 0; }
+      .app-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="container" style="display: flex; align-items: center; justify-content: space-between; padding-top: 12px; padding-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <button onclick="history.length > 1 ? history.back() : (location.href='/agent/home')" class="btn-ghost" aria-label="Back">
+          <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <a href="/agent/home" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+          <div style="width: 32px; height: 32px; background: #0f172a; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
+            <i class="fa-solid fa-bolt" style="font-size: 14px;"></i>
+          </div>
+          <span style="font-weight: 700; font-size: 0.875rem;">Hosted HTML</span>
+        </a>
+      </div>
+      <div id="user-chip" style="display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--muted);">
+        <i class="fa-solid fa-circle-user" style="font-size: 1.25rem;"></i>
+        <span id="user-name">Loading…</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container" style="display: flex; flex-direction: column; gap: 20px; padding-top: 20px; padding-bottom: 60px;">
+
+    <!-- Create new -->
+    <section class="card" style="padding: 20px;">
+      <h2 style="margin: 0 0 4px; font-size: 1.125rem; font-weight: 700;">Publish a new HTML app</h2>
+      <p style="margin: 0 0 16px; color: var(--muted); font-size: 0.875rem;">Paste a single-file HTML document or upload a <code>.html</code> file. Max 5 MB.</p>
+      <form id="create-form" style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label class="label" for="create-title">Title</label>
+          <input id="create-title" name="title" class="input" type="text" maxlength="200" required placeholder="e.g. Welcome page for Mr. Lee" />
+        </div>
+        <div>
+          <label class="label" for="create-description">Description (optional)</label>
+          <input id="create-description" name="description" class="input" type="text" maxlength="1000" placeholder="Internal note — not shown publicly" />
+        </div>
+        <div>
+          <label class="label" for="create-friendly-slug">Friendly URL (optional)</label>
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; color: var(--muted); white-space: nowrap;">/app/</span>
+            <input id="create-friendly-slug" name="friendlySlug" class="input" type="text" maxlength="64" pattern="[a-z0-9][a-z0-9_\-]{1,63}" style="flex: 1; min-width: 160px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;" placeholder="e.g. scoreboard" />
+          </div>
+          <p style="margin: 4px 0 0; color: var(--muted); font-size: 0.75rem;">Lowercase letters, digits, dashes, underscores (2–64 chars). Leave empty to use the random URL only.</p>
+        </div>
+        <div>
+          <label class="label" for="create-html">HTML</label>
+          <textarea id="create-html" name="html" class="textarea" placeholder="<!doctype html>&#10;<html>...</html>" required></textarea>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <label class="btn-secondary" style="cursor: pointer;">
+            <i class="fa-solid fa-paperclip"></i>
+            <span>Or upload .html file</span>
+            <input id="create-file" type="file" accept=".html,text/html" style="display: none;" />
+          </label>
+          <span id="create-file-name" style="font-size: 0.8125rem; color: var(--muted);"></span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button id="create-submit" type="submit" class="btn-primary">
+            <i class="fa-solid fa-rocket"></i>
+            <span>Publish</span>
+          </button>
+          <span id="create-error" style="color: #b91c1c; font-size: 0.8125rem;"></span>
+        </div>
+      </form>
+    </section>
+
+    <!-- My apps -->
+    <section>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+        <h2 class="section-title" style="margin: 0;">My hosted apps</h2>
+        <button id="refresh-btn" class="btn-ghost" aria-label="Refresh">
+          <i class="fa-solid fa-rotate"></i>
+          <span style="font-size: 0.75rem;">Refresh</span>
+        </button>
+      </div>
+      <div id="apps-list" class="card">
+        <div class="empty-state">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <p style="margin: 0;">Loading…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- API for AI -->
+    <section class="card" style="padding: 20px;">
+      <details>
+        <summary style="display: flex; align-items: center; justify-content: space-between; padding: 4px 0;">
+          <div>
+            <h2 style="margin: 0; font-size: 1rem; font-weight: 700;">API for AI / automation</h2>
+            <p style="margin: 4px 0 0; color: var(--muted); font-size: 0.8125rem;">Use the <code>hostmyapp</code> key to publish from any system.</p>
+          </div>
+          <i class="fa-solid fa-chevron-down" style="color: var(--muted);"></i>
+        </summary>
+        <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 14px;">
+          <div>
+            <div class="section-title">Single-shot push (creatorName + HTML)</div>
+            <div class="code-block">curl -X POST https://YOUR-HOST/api/hosted-html/host \
+  -H "X-Api-Key: hostmyapp" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "creatorName": "AI Assistant",
+    "title": "Welcome page",
+    "html": "&lt;!doctype html&gt;&lt;html&gt;...&lt;/html&gt;"
+  }'
+# Response: { "success": true, "id": "...", "slug": "...", "url": "https://.../h/..." }</div>
+          </div>
+          <div>
+            <div class="section-title">Two-step: issue URL first, then upload HTML</div>
+            <div class="code-block"># 1) Issue
+curl -X POST https://YOUR-HOST/api/hosted-html/host/issue \
+  -H "X-Api-Key: hostmyapp" \
+  -H "Content-Type: application/json" \
+  -d '{ "creatorName": "AI Assistant", "title": "My Page" }'
+# Response: { "id": "42", "slug": "abc...", "url": "https://.../h/abc...",
+#             "upload_url": "https://.../api/hosted-html/host/42/html", "status": "pending" }
+
+# 2) Upload HTML to the issued app
+curl -X PUT https://YOUR-HOST/api/hosted-html/host/42/html \
+  -H "X-Api-Key: hostmyapp" \
+  -H "Content-Type: application/json" \
+  -d '{ "html": "&lt;!doctype html&gt;&lt;html&gt;...&lt;/html&gt;" }'</div>
+          </div>
+          <div>
+            <div class="section-title">Manage what you pushed</div>
+            <div class="code-block"># List all apps pushed by hostmyapp
+curl https://YOUR-HOST/api/hosted-html/host/list -H "X-Api-Key: hostmyapp"
+
+# Disable a specific app
+curl -X POST https://YOUR-HOST/api/hosted-html/host/42/disable -H "X-Api-Key: hostmyapp"</div>
+          </div>
+          <p style="margin: 0; color: var(--muted); font-size: 0.8125rem;">
+            Override the default key in production by setting <code>HOSTED_HTML_API_KEY</code> in your environment.
+          </p>
+        </div>
+      </details>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    // ── Helpers ────────────────────────────────────────────────────────────
+    const $ = (id) => document.getElementById(id);
+    const list = $('apps-list');
+    const createForm = $('create-form');
+    const createFile = $('create-file');
+    const createHtml = $('create-html');
+    const createFileName = $('create-file-name');
+    const createSubmit = $('create-submit');
+    const createError = $('create-error');
+    const toastEl = $('toast');
+    let toastTimer = null;
+    function toast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+    }
+    function fmtSize(n) {
+      if (!n) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let i = 0; let v = n;
+      while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+      return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+    }
+    function fmtDate(d) {
+      if (!d) return '—';
+      return new Date(d).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('Link copied');
+      } catch (e) {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); toast('Link copied'); } catch (_) { toast('Copy failed'); }
+        document.body.removeChild(ta);
+      }
+    }
+
+    // ── File upload toggle ────────────────────────────────────────────────
+    createFile.addEventListener('change', () => {
+      const f = createFile.files[0];
+      if (!f) { createFileName.textContent = ''; return; }
+      createFileName.textContent = `${f.name} (${fmtSize(f.size)})`;
+      if (f.size > 5 * 1024 * 1024) {
+        createError.textContent = 'File too large (max 5 MB).';
+        createSubmit.disabled = true;
+        return;
+      }
+      createError.textContent = '';
+      createSubmit.disabled = false;
+      // Read file into textarea so submit uses one path
+      const reader = new FileReader();
+      reader.onload = () => { createHtml.value = String(reader.result || ''); };
+      reader.onerror = () => { createError.textContent = 'Failed to read file.'; };
+      reader.readAsText(f);
+    });
+
+    // ── Create form ───────────────────────────────────────────────────────
+    createForm.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      createError.textContent = '';
+      const title = $('create-title').value.trim();
+      const description = $('create-description').value.trim();
+      const friendlySlug = $('create-friendly-slug').value.trim();
+      const html = createHtml.value;
+      if (!title) { createError.textContent = 'Title is required.'; return; }
+      if (!html.trim()) { createError.textContent = 'HTML is required.'; return; }
+      createSubmit.disabled = true;
+      createSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Publishing…</span>';
+      try {
+        const payload = { title, description: description || undefined, html };
+        if (friendlySlug) payload.friendlySlug = friendlySlug;
+        const res = await fetch('/api/v1/hosted-html', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+        toast('Published');
+        createForm.reset();
+        createFileName.textContent = '';
+        await loadApps({ highlightId: data.app.id });
+        // Auto-copy the friendly URL (if set) or the canonical URL.
+        const linkToCopy = data.friendlyUrl || data.url;
+        if (linkToCopy) setTimeout(() => copyToClipboard(linkToCopy), 250);
+      } catch (err) {
+        createError.textContent = err.message || 'Failed to publish';
+      } finally {
+        createSubmit.disabled = false;
+        createSubmit.innerHTML = '<i class="fa-solid fa-rocket"></i><span>Publish</span>';
+      }
+    });
+
+    // ── Render app list ───────────────────────────────────────────────────
+    function renderApps(apps) {
+      if (!apps || !apps.length) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <i class="fa-solid fa-cloud"></i>
+            <p style="margin: 0; font-weight: 600; color: var(--text);">No hosted apps yet</p>
+            <p style="margin: 4px 0 0;">Publish your first HTML app above.</p>
+          </div>`;
+        return;
+      }
+      list.innerHTML = apps.map((a) => {
+        const url = `${location.origin}/h/${encodeURIComponent(a.slug)}`;
+        const friendlySlug = a.friendlySlug || '';
+        const friendlyUrl = friendlySlug ? `${location.origin}/app/${encodeURIComponent(friendlySlug)}` : null;
+        const status = a.status || 'published';
+        const badgeClass = status === 'published' ? 'badge-published' : status === 'pending' ? 'badge-pending' : 'badge-disabled';
+        const primaryUrl = friendlyUrl || url;
+        return `
+          <div class="app-card" data-id="${escapeHtml(a.id)}" data-slug="${escapeHtml(a.slug)}" data-friendly="${escapeHtml(friendlySlug)}">
+            <div class="app-card-info">
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <h3 class="app-title">${escapeHtml(a.title)}</h3>
+                <span class="badge ${badgeClass}">${escapeHtml(status)}</span>
+                ${friendlySlug ? `<span class="badge" style="background:#ede9fe;color:#5b21b6;">/app/${escapeHtml(friendlySlug)}</span>` : ''}
+              </div>
+              ${a.description ? `<p style="margin: 4px 0 0; color: var(--muted); font-size: 0.875rem;">${escapeHtml(a.description)}</p>` : ''}
+              <div class="app-url" title="${escapeHtml(primaryUrl)}">
+                <i class="fa-solid fa-link" style="color: var(--muted);"></i>
+                <span style="flex: 1;">${escapeHtml(primaryUrl)}</span>
+                <button class="btn-ghost copy-link" data-url="${escapeHtml(primaryUrl)}" aria-label="Copy link">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </div>
+              <div class="app-meta">
+                <span><i class="fa-regular fa-eye"></i> ${Number(a.viewCount || 0)} views</span>
+                <span><i class="fa-regular fa-clock"></i> ${fmtSize(a.sizeBytes)}</span>
+                <span><i class="fa-regular fa-calendar"></i> ${fmtDate(a.createdAt)}</span>
+              </div>
+            </div>
+            <div class="app-card-actions">
+              <a class="btn-ghost" href="${escapeHtml(primaryUrl)}" target="_blank" rel="noopener">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                <span>Open</span>
+              </a>
+              ${status === 'published'
+                ? `<button class="btn-ghost disable-btn" data-id="${escapeHtml(a.id)}">
+                     <i class="fa-solid fa-pause"></i>
+                     <span>Disable</span>
+                   </button>`
+                : `<button class="btn-ghost enable-btn" data-id="${escapeHtml(a.id)}">
+                     <i class="fa-solid fa-play"></i>
+                     <span>Enable</span>
+                   </button>`}
+            </div>
+          </div>`;
+      }).join('');
+
+      // Wire up
+      list.querySelectorAll('.copy-link').forEach((btn) => {
+        btn.addEventListener('click', () => copyToClipboard(btn.dataset.url));
+      });
+      list.querySelectorAll('.disable-btn').forEach((btn) => {
+        btn.addEventListener('click', () => setStatus(btn.dataset.id, 'disable'));
+      });
+      list.querySelectorAll('.enable-btn').forEach((btn) => {
+        btn.addEventListener('click', () => setStatus(btn.dataset.id, 'enable'));
+      });
+    }
+
+    async function loadApps({ highlightId } = {}) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <p style="margin: 0;">Loading…</p>
+        </div>`;
+      try {
+        const res = await fetch('/api/v1/hosted-html');
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+        renderApps(data.apps);
+        if (highlightId) {
+          const el = list.querySelector(`[data-id="${highlightId}"]`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } catch (err) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <i class="fa-solid fa-triangle-exclamation" style="color: #b91c1c;"></i>
+            <p style="margin: 0; color: #b91c1c;">${escapeHtml(err.message || 'Failed to load')}</p>
+          </div>`;
+      }
+    }
+
+    async function setStatus(id, action) {
+      const verb = action === 'disable' ? 'Disabling' : 'Enabling';
+      try {
+        const res = await fetch(`/api/v1/hosted-html/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || `HTTP ${res.status}`);
+        toast(`${verb.replace(/ing$/, '')}d`);
+        await loadApps();
+      } catch (err) {
+        toast(err.message || 'Failed');
+      }
+    }
+
+    // ── User chip ─────────────────────────────────────────────────────────
+    async function loadUser() {
+      try {
+        const res = await fetch('/api/agent/me');
+        if (!res.ok) return;
+        const u = await res.json();
+        $('user-name').textContent = u.name || u.email || 'User';
+      } catch (_) { /* noop */ }
+    }
+
+    $('refresh-btn').addEventListener('click', () => loadApps());
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUser();
+      loadApps();
+    });
+  </script>
+  <script src="/js/navigation.js"></script>
+</body>
+</html>
