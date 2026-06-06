@@ -2579,7 +2579,7 @@ function fillWhatsAppInfo(photoUrl, phone) {
 // ============================================
 // Live ROI Calculator - Manual override listener
 // ============================================
-document.addEventListener('DOMContentLoaded', function () {
+function initRoiOverrideListener() {
     const roiOverride = document.getElementById('roiMonthlySavingsOverride');
     if (roiOverride) {
         roiOverride.addEventListener('input', function () {
@@ -2589,4 +2589,10 @@ document.addEventListener('DOMContentLoaded', function () {
             updateRoiCalculator(totalAmount);
         });
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initRoiOverrideListener);
+} else {
+    initRoiOverrideListener();
+}
