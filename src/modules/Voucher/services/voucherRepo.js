@@ -403,6 +403,9 @@ async function createVoucher(pool, data) {
     const safeBypassMaxDiscount = data.bypass_max_discount !== undefined
         ? !!data.bypass_max_discount
         : false;
+    const safePackageTypes = Array.isArray(data.available_package_types) && data.available_package_types.length > 0
+        ? data.available_package_types
+        : null;
 
     const result = await pool.query(
         `INSERT INTO voucher (
@@ -410,14 +413,14 @@ async function createVoucher(pool, data) {
             discount_amount, discount_percent, active,
             voucher_availability, terms_conditions, available_until,
             public, created_by, deductable_from_commission, invoice_description, linked_voucher_category,
-            access_tag, allowed_users, bypass_max_discount,
+            access_tag, allowed_users, bypass_max_discount, available_package_types,
             created_at, updated_at, created_date
          ) VALUES (
             $1, $2, $3, $4,
             $5, $6, $7,
             $8, $9, $10,
             $11, $12, $13, $14, $15,
-            $16, $17, $18,
+            $16, $17, $18, $19,
             NOW(), NOW(), NOW()
          ) RETURNING *`,
         [
@@ -438,7 +441,8 @@ async function createVoucher(pool, data) {
             data.linked_voucher_category || null,
             data.access_tag || null,
             safeAllowedUsers,
-            safeBypassMaxDiscount
+            safeBypassMaxDiscount,
+            safePackageTypes
         ]
     );
 
@@ -469,7 +473,8 @@ async function duplicateVoucher(pool, id, createdBy = null) {
         linked_voucher_category: originalVoucher.linked_voucher_category || null,
         access_tag: originalVoucher.access_tag || null,
         allowed_users: originalVoucher.allowed_users || null,
-        bypass_max_discount: !!originalVoucher.bypass_max_discount
+        bypass_max_discount: !!originalVoucher.bypass_max_discount,
+        available_package_types: originalVoucher.available_package_types || null
     });
 }
 
@@ -491,6 +496,13 @@ async function updateVoucher(pool, id, data) {
         safeDeductable = data.deductable_from_commission ? parseFloat(data.deductable_from_commission) : 0;
     }
 
+    let safePackageTypes = undefined;
+    if (data.available_package_types !== undefined) {
+        safePackageTypes = Array.isArray(data.available_package_types) && data.available_package_types.length > 0
+            ? data.available_package_types
+            : null;
+    }
+
     const result = await pool.query(
         `UPDATE voucher SET
             title = $1,
@@ -509,9 +521,10 @@ async function updateVoucher(pool, id, data) {
             access_tag = $14,
             allowed_users = $15,
             bypass_max_discount = $16,
+            available_package_types = $17,
             updated_at = NOW(),
             modified_date = NOW()
-         WHERE ${identifierColumn} = $17
+         WHERE ${identifierColumn} = $18
          RETURNING *`,
         [
             data.title,
@@ -532,6 +545,7 @@ async function updateVoucher(pool, id, data) {
                 ? data.allowed_users.map(u => String(u).trim()).filter(Boolean)
                 : null,
             data.bypass_max_discount !== undefined ? !!data.bypass_max_discount : false,
+            safePackageTypes,
             id
         ]
     );

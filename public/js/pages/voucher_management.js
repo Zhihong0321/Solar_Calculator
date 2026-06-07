@@ -1,5 +1,6 @@
 let currentVouchers = [];
 let currentCategories = [];
+let currentPackageTypes = [];
 let currentTab = 'active';
 let allowedUsersSelected = [];
 
@@ -84,7 +85,7 @@ function bindEvents() {
 }
 
 async function loadInitialData() {
-    await Promise.all([fetchCategories(), fetchVouchers()]);
+    await Promise.all([fetchCategories(), fetchVouchers(), fetchPackageTypes()]);
 }
 
 function normalizeBool(value, fallback = false) {
@@ -145,6 +146,16 @@ async function fetchVouchers() {
     } catch (error) {
         console.error('Error fetching vouchers:', error);
         showToast('Failed to load vouchers', 'error');
+    }
+}
+
+async function fetchPackageTypes() {
+    try {
+        const json = await fetchJson('/api/package-types');
+        currentPackageTypes = Array.isArray(json.types) ? json.types : [];
+    } catch (error) {
+        console.error('Error fetching package types:', error);
+        currentPackageTypes = [];
     }
 }
 
@@ -299,6 +310,12 @@ function renderVouchers() {
             ? '<span class="rounded-full bg-purple-200 px-2 py-1 text-purple-800" title="This voucher can be applied even when total discount exceeds the package max">Bypasses Max</span>'
             : '';
 
+        // Package types display
+        const packageTypes = voucher.available_package_types;
+        const packageTypesBadge = Array.isArray(packageTypes) && packageTypes.length > 0
+            ? `<span class="rounded-full bg-teal-100 px-2 py-1 text-teal-700" title="Applies to: ${packageTypes.join(', ')}">${packageTypes.length} type${packageTypes.length > 1 ? 's' : ''}</span>`
+            : '<span class="rounded-full bg-slate-100 px-2 py-1 text-slate-500" title="Applies to all package types">All types</span>';
+
         return `
             <article class="voucher-card ${cardClass} p-6 rounded-3xl shadow-sm border flex flex-col gap-5">
                 <div class="flex items-start justify-between gap-4">
@@ -313,6 +330,7 @@ function renderVouchers() {
                         ${voucher.access_tag ? `<span class="rounded-full bg-purple-100 px-2 py-1 text-purple-700">${voucher.access_tag}</span>` : ''}
                         ${allowedUsersCount > 0 ? `<span class="rounded-full bg-indigo-100 px-2 py-1 text-indigo-700">${allowedUsersCount} users</span>` : ''}
                         ${bypassBadge}
+                        ${packageTypesBadge}
                     </div>
                 </div>
                 <div class="space-y-2 text-sm text-slate-700">
@@ -380,6 +398,9 @@ function openModal(id = null) {
                 allowedUsersSelected = voucher.allowed_users.map((uid) => ({ bubble_id: uid, name: uid }));
                 renderAllowedUsersList();
             }
+
+            // Load package type selections
+            renderPackageTypeCheckboxes(voucher.available_package_types);
         }
     } else {
         // Reset bypass label to OFF on new-voucher open.
@@ -390,6 +411,9 @@ function openModal(id = null) {
             bypassLabel.textContent = 'OFF';
             bypassLabel.classList.remove('text-purple-900');
         }
+
+        // Default: all package types selected for new vouchers
+        renderPackageTypeCheckboxes(null, true);
     }
 
     discountTypeSelect?.dispatchEvent(new Event('change'));
@@ -425,7 +449,8 @@ async function handleVoucherSubmit(event) {
         linked_voucher_category: document.getElementById('linked_voucher_category').value || null,
         access_tag: document.getElementById('access_tag').value.trim() || null,
         allowed_users: allowedUsersSelected.length > 0 ? allowedUsersSelected.map((u) => u.bubble_id) : null,
-        bypass_max_discount: document.getElementById('bypass_max_discount')?.checked === true
+        bypass_max_discount: document.getElementById('bypass_max_discount')?.checked === true,
+        available_package_types: getSelectedPackageTypes()
     };
 
     try {
@@ -686,4 +711,68 @@ function renderAllowedUsersList() {
             </button>
         </span>
     `).join('');
+}
+
+function renderPackageTypeCheckboxes(selectedTypes = null, selectAll = false) {
+    const container = document.getElementById('packageTypesContainer');
+    if (!container || !currentPackageTypes.length) return;
+
+    // If null/undefined (new voucher) or empty array with selectAll=true, default to all selected
+    const allSelected = selectAll || !selectedTypes;
+
+    container.innerHTML = currentPackageTypes.map((type) => {
+        const isChecked = allSelected || (Array.isArray(selectedTypes) && selectedTypes.includes(type));
+        return `
+            <label class="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors
+                ${isChecked ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}">
+                <input type="checkbox" class="sr-only package-type-checkbox" value="${type}" ${isChecked ? 'checked' : ''}>
+                ${type}
+            </label>
+        `;
+    }).join('');
+
+    // Toggle all button handler
+    const toggleAllBtn = document.getElementById('toggleAllPackageTypes');
+    if (toggleAllBtn) {
+        toggleAllBtn.onclick = () => {
+            const checkboxes = container.querySelectorAll('.package-type-checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => { cb.checked = !allChecked; });
+            // Update visual state
+            container.querySelectorAll('label').forEach((label) => {
+                const cb = label.querySelector('input');
+                if (cb.checked) {
+                    label.classList.add('bg-blue-50', 'border-blue-300', 'text-blue-700');
+                    label.classList.remove('bg-white', 'border-slate-200', 'text-slate-500');
+                } else {
+                    label.classList.remove('bg-blue-50', 'border-blue-300', 'text-blue-700');
+                    label.classList.add('bg-white', 'border-slate-200', 'text-slate-500');
+                }
+            });
+            toggleAllBtn.textContent = !allChecked ? 'Select All' : 'Deselect All';
+        };
+    }
+
+    // Sync checkbox visual state on individual click
+    container.querySelectorAll('.package-type-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const label = cb.closest('label');
+            if (cb.checked) {
+                label.classList.add('bg-blue-50', 'border-blue-300', 'text-blue-700');
+                label.classList.remove('bg-white', 'border-slate-200', 'text-slate-500');
+            } else {
+                label.classList.remove('bg-blue-50', 'border-blue-300', 'text-blue-700');
+                label.classList.add('bg-white', 'border-slate-200', 'text-slate-500');
+            }
+        });
+    });
+}
+
+function getSelectedPackageTypes() {
+    const container = document.getElementById('packageTypesContainer');
+    if (!container) return null;
+    const checked = Array.from(container.querySelectorAll('.package-type-checkbox:checked')).map(cb => cb.value);
+    // If all types are selected (or none exist), return null to indicate "all"
+    if (!checked.length || checked.length === currentPackageTypes.length) return null;
+    return checked;
 }

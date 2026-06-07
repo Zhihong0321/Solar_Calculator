@@ -261,6 +261,21 @@ router.get('/api/vouchers/:id', requireAuth, async (req, res) => {
     }
 });
 
+/**
+ * Package types — dynamically scanned from package table
+ */
+router.get('/api/package-types', requireAuth, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT DISTINCT type FROM package WHERE type IS NOT NULL AND TRIM(type) != '' ORDER BY type`
+        );
+        res.json({ success: true, types: result.rows.map(r => r.type) });
+    } catch (err) {
+        console.error('Error fetching package types:', err);
+        res.status(500).json({ success: false, error: 'Failed to fetch package types' });
+    }
+});
+
 router.post('/api/vouchers', requireAuth, async (req, res) => {
     try {
         const voucherCode = String(req.body?.voucher_code || '').trim().toUpperCase();
