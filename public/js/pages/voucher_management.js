@@ -39,11 +39,25 @@ function bindEvents() {
 
     const bypassCheckbox = document.getElementById('bypass_max_discount');
     const bypassLabel = document.getElementById('bypassMaxDiscountLabel');
-    bypassCheckbox?.addEventListener('change', () => {
+    const bypassRow = bypassCheckbox?.closest('div.flex.items-center');
+    const syncBypassLabel = () => {
         if (bypassLabel) {
             bypassLabel.textContent = bypassCheckbox.checked ? 'ON' : 'OFF';
             bypassLabel.classList.toggle('text-purple-900', bypassCheckbox.checked);
         }
+    };
+    bypassCheckbox?.addEventListener('change', syncBypassLabel);
+    // Safety net: clicking the wrapper row (where the visual track sits)
+    // also toggles the checkbox. This avoids the "I clicked the track and
+    // nothing happened" UX problem when the hidden <input> is sr-only.
+    bypassRow?.addEventListener('click', (event) => {
+        if (event.target === bypassCheckbox) return; // native change already fires
+        // Don't double-toggle when the user actually clicked the input or one
+        // of the explicit <label for> elements — only intercept clicks on the
+        // track padding (where the visual pill is drawn).
+        if (event.target?.tagName === 'LABEL' && event.target?.getAttribute('for') === 'bypass_max_discount') return;
+        bypassCheckbox.checked = !bypassCheckbox.checked;
+        syncBypassLabel();
     });
 
     voucherForm?.addEventListener('submit', handleVoucherSubmit);

@@ -344,14 +344,16 @@
                     </div>
 
                     <div class="space-y-2 bg-purple-50 p-4 rounded-xl border border-purple-100">
-                        <label class="text-xs font-bold text-purple-700 uppercase tracking-wider px-1">
+                        <label class="text-xs font-bold text-purple-700 uppercase tracking-wider px-1" for="bypass_max_discount">
                             Bypass Maximum Discount Cap
                         </label>
                         <div class="flex items-center gap-3">
                             <div class="relative">
                                 <input type="checkbox" id="bypass_max_discount" class="sr-only peer">
-                                <div class="w-12 h-6 bg-slate-200 rounded-full peer peer-checked:bg-purple-500 transition-all"></div>
-                                <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-6"></div>
+                                <label for="bypass_max_discount" aria-label="Bypass maximum discount cap"
+                                    class="block w-12 h-6 bg-slate-200 rounded-full peer peer-checked:bg-purple-500 transition-all cursor-pointer"></label>
+                                <label for="bypass_max_discount" aria-hidden="true"
+                                    class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-6 cursor-pointer pointer-events-none"></label>
                             </div>
                             <span id="bypassMaxDiscountLabel" class="text-sm font-bold text-purple-700">OFF</span>
                         </div>
