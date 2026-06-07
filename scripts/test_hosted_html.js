@@ -429,14 +429,84 @@ async function test_disable_by_api_key() {
 }
 
 async function test_size_limit() {
-    const name = '[VAL] POST /host with 6 MB html → 400';
+    const name = '[VAL] POST /host with 30 MB html → 400';
     try {
-        const bigHtml = '<!DOCTYPE html><html><body>' + 'A'.repeat(6 * 1024 * 1024) + '</body></html>';
+        const bigHtml = '<!DOCTYPE html><html><body>' + 'A'.repeat(30 * 1024 * 1024) + '</body></html>';
         const res = await jsonRequest('POST', '/api/hosted-html/host', {
             creatorName: 'Tester', title: 'Big', html: bigHtml
         }, { 'X-Api-Key': 'hostmyapp' });
         if (res.status !== 400) return fail(name, `Expected 400, got ${res.status}: ${JSON.stringify(res.data)}`);
         pass(name, `Rejected: "${res.data.error}"`);
+    } catch (err) { fail(name, err.message); }
+}
+
+async function test_delete_unauth() {
+    const name = '[AUTH] DELETE /host/:id without X-Api-Key → 401';
+    try {
+        const res = await fetch(`${BASE_URL}/api/hosted-html/host/1`, { method: 'DELETE' });
+        if (res.status !== 401) return fail(name, `Expected 401, got ${res.status}`);
+        pass(name, 'Rejected');
+    } catch (err) { fail(name, err.message); }
+}
+
+async function test_put_replace_unauth() {
+    const name = '[AUTH] PUT /host/:id without X-Api-Key → 401';
+    try {
+        const res = await fetch(`${BASE_URL}/api/hosted-html/host/1`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: 'x' })
+        });
+        if (res.status !== 401) return fail(name, `Expected 401, got ${res.status}`);
+        pass(name, 'Rejected');
+    } catch (err) { fail(name, err.message); }
+}
+
+async function test_delete_stub_returns_404() {
+    const name = '[API] DELETE /host/:id with auth (stub DB) → 404';
+    try {
+        const res = await fetch(`${BASE_URL}/api/hosted-html/host/1`, {
+            method: 'DELETE',
+            headers: { 'X-Api-Key': 'hostmyapp' }
+        });
+        // Stub DB returns null from getAppByIdAndOwner (DELETE on null target = 404).
+        if (res.status !== 404) return fail(name, `Expected 404, got ${res.status}: ${await res.text()}`);
+        pass(name, 'Returned 404 (stub: app not found)');
+    } catch (err) { fail(name, err.message); }
+}
+
+async function test_put_replace_stub_returns_404() {
+    const name = '[API] PUT /host/:id with auth (stub DB) → 404';
+    try {
+        const res = await fetch(`${BASE_URL}/api/hosted-html/host/1`, {
+            method: 'PUT',
+            headers: { 'X-Api-Key': 'hostmyapp', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: 'new' })
+        });
+        if (res.status !== 404) return fail(name, `Expected 404, got ${res.status}: ${await res.text()}`);
+        pass(name, 'Returned 404 (stub: app not found)');
+    } catch (err) { fail(name, err.message); }
+}
+
+async function test_docs_includes_new_endpoints() {
+    const name = '[DOCS] /docs lists the 7 API-key + 8 JWT endpoints at 25 MB';
+    try {
+        const res = await fetch(`${BASE_URL}/api/hosted-html/docs`);
+        const data = await res.json();
+        if (data.limits.max_html_size_bytes !== 25 * 1024 * 1024) {
+            return fail(name, `Expected 25 MB, got ${data.limits.max_html_size_bytes}`);
+        }
+        if (!Array.isArray(data.api_key_endpoints) || data.api_key_endpoints.length !== 7) {
+            return fail(name, `Expected 7 api_key_endpoints, got ${data.api_key_endpoints?.length}`);
+        }
+        if (!data.user_endpoints_jwt || data.user_endpoints_jwt.length !== 8) {
+            return fail(name, `Expected 8 user_endpoints_jwt lines, got ${data.user_endpoints_jwt?.length}`);
+        }
+        const hasReplace = data.api_key_endpoints.some((e) => e.method === 'PUT' && e.path.endsWith('/:id'));
+        const hasDelete = data.api_key_endpoints.some((e) => e.method === 'DELETE' && e.path.endsWith('/:id'));
+        if (!hasReplace) return fail(name, 'Missing PUT /:id in docs');
+        if (!hasDelete) return fail(name, 'Missing DELETE /:id in docs');
+        pass(name, `25 MB, ${data.api_key_endpoints.length} api + ${data.user_endpoints_jwt.length} jwt; PUT/DELETE present`);
     } catch (err) { fail(name, err.message); }
 }
 
@@ -501,6 +571,11 @@ async function main() {
         await test_missing_html();
         await test_invalid_html_content();
         await test_size_limit();
+        await test_delete_unauth();
+        await test_put_replace_unauth();
+        await test_delete_stub_returns_404();
+        await test_put_replace_stub_returns_404();
+        await test_docs_includes_new_endpoints();
         await test_public_404_for_unknown_slug();
         await test_public_404_for_malformed_slug();
         await test_friendly_slug_validation();

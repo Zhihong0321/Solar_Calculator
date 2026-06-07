@@ -8,7 +8,7 @@ const {
     getRequestLegacyUserId
 } = require('../../core/auth/userIdentity');
 
-const MAX_HTML_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_HTML_BYTES = 25 * 1024 * 1024; // 25 MB
 const HOST_MY_APP_KEY = process.env.HOSTED_HTML_API_KEY || 'hostmyapp';
 
 // Memory storage — we read the buffer then write to disk under our own slug.
@@ -662,7 +662,7 @@ exports.getDocs = (req, res) => {
                     title: 'string (optional, ≤200 chars; defaults to "Hosted app by <creatorName>")',
                     description: 'string (optional, ≤1000 chars)',
                     friendlySlug: 'string (optional, 2-64 chars, lowercase a-z0-9_-, not reserved)',
-                    html: 'string (required, ≤5 MB, must contain <html or <!doctype)'
+                    html: 'string (required, ≤25 MB, must contain <html or <!doctype)'
                 },
                 returns: '{ success, app, id, slug, url, friendlyUrl }',
                 curl: `curl -X POST ${base}/api/hosted-html/host \\
@@ -697,7 +697,7 @@ exports.getDocs = (req, res) => {
                 path: '/api/hosted-html/host/:id/html',
                 auth: 'api_key',
                 purpose: 'Step 2 of two-step. Upload HTML to a previously-issued app.',
-                body: { html: 'string (required, ≤5 MB)' },
+                body: { html: 'string (required, ≤25 MB)' },
                 returns: '{ success, app, slug, status:"published", url, friendlyUrl }',
                 curl: `curl -X PUT ${base}/api/hosted-html/host/42/html \\
   -H "X-Api-Key: hostmyapp" \\
@@ -708,23 +708,52 @@ exports.getDocs = (req, res) => {
                 method: 'GET',
                 path: '/api/hosted-html/host/list',
                 auth: 'api_key',
-                purpose: 'List all apps pushed by this API key. Returns friendlyUrl on every row.',
-                returns: '{ success, apps: [{ id, slug, friendlySlug, title, status, viewCount, url, friendlyUrl, ... }] }',
+                purpose: 'List every app pushed by this API key (incl. pending + disabled). Each row includes the creatorName (ownerName), the canonical /h/<slug> URL, and the friendly /app/<friendlySlug> URL when set.',
+                returns: '{ success, count, apps: [{ id, slug, friendlySlug, title, description, status, viewCount, sizeBytes, creatorName, ownerName, createdAt, url, friendlyUrl }] }',
                 curl: `curl ${base}/api/hosted-html/host/list -H "X-Api-Key: hostmyapp"`
+            },
+            {
+                method: 'PUT',
+                path: '/api/hosted-html/host/:id',
+                auth: 'api_key',
+                purpose: 'Replace one or more fields of an existing app owned by this API key. Any subset of {title, description, friendlySlug, html} may be sent; omitted fields are unchanged. If the app is currently disabled, it is re-published. The file on disk is overwritten with the new HTML.',
+                body: {
+                    title: 'string (optional, ≤200 chars)',
+                    description: 'string (optional, ≤1000 chars)',
+                    friendlySlug: 'string (optional, 2-64 chars, lowercase, not reserved)',
+                    html: 'string (optional, ≤25 MB)'
+                },
+                returns: '{ success, app, slug, url, friendlyUrl }',
+                curl: `curl -X PUT ${base}/api/hosted-html/host/42 \\
+  -H "X-Api-Key: hostmyapp" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "title": "Updated title",
+    "html": "<!doctype html><html><body><h1>New</h1></body></html>"
+  }'`
             },
             {
                 method: 'POST',
                 path: '/api/hosted-html/host/:id/disable',
                 auth: 'api_key',
-                purpose: 'Disable a previously-published app. Disabled apps return 404 publicly.',
+                purpose: 'Disable a previously-published app. Disabled apps return 404 publicly; the row + file are kept so you can re-enable later.',
                 curl: `curl -X POST ${base}/api/hosted-html/host/42/disable -H "X-Api-Key: hostmyapp"`
+            },
+            {
+                method: 'DELETE',
+                path: '/api/hosted-html/host/:id',
+                auth: 'api_key',
+                purpose: 'Hard delete: removes the DB row AND the file on disk. This is irreversible — the slug + friendly_slug become available for re-use.',
+                returns: '{ success, deleted: { id, slug, friendlySlug } }',
+                curl: `curl -X DELETE ${base}/api/hosted-html/host/42 -H "X-Api-Key: hostmyapp"`
             }
         ],
         user_endpoints_jwt: [
-            'GET    /api/v1/hosted-html              (list mine)',
+            'GET    /api/v1/hosted-html              (list mine, includes creatorName via ownerName)',
             'POST   /api/v1/hosted-html              (create, JSON or multipart file upload)',
             'GET    /api/v1/hosted-html/:id          (get one)',
-            'PUT    /api/v1/hosted-html/:id          (update title/description/friendlySlug/HTML)',
+            'PUT    /api/v1/hosted-html/:id          (replace title/description/friendlySlug/HTML)',
+            'DELETE /api/v1/hosted-html/:id          (hard delete — row + file)',
             'POST   /api/v1/hosted-html/:id/disable',
             'POST   /api/v1/hosted-html/:id/enable',
             'GET    /hosted-html                     (mobile-first manager UI, requires agent login)'
@@ -735,10 +764,14 @@ exports.getDocs = (req, res) => {
             '3. Authenticate every request with header: X-Api-Key: hostmyapp',
             '4. Use POST /api/hosted-html/host to publish in one call — it returns the public url.',
             '5. To claim a stable alias (e.g. /app/scoreboard), pass friendlySlug in the body.',
-            '6. After publishing, GET /h/<slug> or /app/<friendlySlug> renders the HTML publicly.'
+            '6. After publishing, GET /h/<slug> or /app/<friendlySlug> renders the HTML publicly.',
+            '7. To update: PUT /api/hosted-html/host/<id> with any subset of {title, description, friendlySlug, html}.',
+            '8. To inspect what you pushed: GET /api/hosted-html/host/list — each row carries creatorName + url + friendlyUrl.',
+            '9. To remove: DELETE /api/hosted-html/host/<id> (hard delete) or POST .../<id>/disable (soft 404).'
         ],
         limits: {
-            max_html_size_bytes: 5 * 1024 * 1024,
+            max_html_size_bytes: 25 * 1024 * 1024,
+            max_html_size_human: '25 MB',
             max_title_length: 200,
             max_description_length: 1000,
             max_creator_name_length: 120,
@@ -777,4 +810,156 @@ exports.getDocs = (req, res) => {
     }
 
     return res.json(manifest);
+};
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Replace + Hard Delete (API-key)
+// ────────────────────────────────────────────────────────────────────────────
+
+// PUT /api/hosted-html/host/:id — full replace of a published (or pending) app
+// owned by the API key. Body fields are all optional; only present fields are
+// updated. The HTML, if provided, replaces the file on disk; the row is
+// re-published (status flips from "disabled" → "published" if needed).
+exports.replaceHostedByApi = [
+    requireApiKey,
+    runUpload,
+    async (req, res) => {
+        try {
+            const existing = await hostedHtmlService.getAppByIdAndOwner({
+                id: req.params.id,
+                ownerUserId: hostedHtmlService.AI_OWNER_USER_ID
+            });
+            if (!existing) return res.status(404).json({ success: false, error: 'App not found.' });
+
+            const patch = {};
+            if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'title')) {
+                const titleError = validateTitle(req.body.title);
+                if (titleError) return res.status(400).json({ success: false, error: titleError });
+                patch.title = String(req.body.title).trim();
+            }
+            if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'description')) {
+                const desc = typeof req.body.description === 'string' ? req.body.description.trim() : '';
+                patch.description = desc.slice(0, hostedHtmlService.MAX_DESC_LEN) || null;
+            }
+            if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'friendlySlug')) {
+                const friendlyError = validateFriendlySlugWithBlocklist(req.body.friendlySlug);
+                if (friendlyError) return res.status(400).json({ success: false, error: friendlyError });
+                patch.friendlySlug = req.body.friendlySlug;
+            }
+
+            let newStoragePath = null;
+            let newSizeBytes = null;
+            const incoming = pickApiPayload(req);
+            if (incoming && typeof incoming.html === 'string' && incoming.html.trim().length > 0) {
+                const htmlError = validateHtml(incoming.html);
+                if (htmlError) return res.status(400).json({ success: false, error: htmlError });
+                const written = writeHtmlToDisk(existing.slug, incoming.html);
+                newStoragePath = written.storagePath;
+                newSizeBytes = written.sizeBytes;
+            }
+
+            // Re-publish if currently disabled.
+            if (existing.status === 'disabled') {
+                await hostedHtmlService.setStatusForOwner({
+                    id: existing.id,
+                    ownerUserId: hostedHtmlService.AI_OWNER_USER_ID,
+                    status: 'published'
+                });
+            }
+
+            const updated = await hostedHtmlService.replaceAppForOwner({
+                id: existing.id,
+                ownerUserId: hostedHtmlService.AI_OWNER_USER_ID,
+                patch,
+                newStoragePath,
+                newSizeBytes
+            });
+
+            return res.json({
+                success: true,
+                app: updated,
+                slug: existing.slug,
+                url: buildPublicUrl(req, existing.slug),
+                friendlyUrl: buildFriendlyUrl(req, updated.friendlySlug)
+            });
+        } catch (err) {
+            console.error('[HostedHtml] replaceHostedByApi error:', err);
+            return res.status(500).json({ success: false, error: 'Failed to replace hosted app.' });
+        }
+    }
+];
+
+// DELETE /api/hosted-html/host/:id — hard delete (row + file on disk).
+exports.deleteHostedByApi = [
+    requireApiKey,
+    async (req, res) => {
+        try {
+            const removed = await hostedHtmlService.deleteAppForOwner({
+                id: req.params.id,
+                ownerUserId: hostedHtmlService.AI_OWNER_USER_ID
+            });
+            if (!removed) return res.status(404).json({ success: false, error: 'App not found.' });
+
+            // Best-effort file unlink — don't fail the response if the file is
+            // already gone. Log if it errors.
+            try {
+                if (removed.storagePath) {
+                    fs.unlinkSync(removed.storagePath);
+                }
+            } catch (unlinkErr) {
+                if (unlinkErr.code !== 'ENOENT') {
+                    console.error(`[HostedHtml] deleteHostedByApi: failed to unlink ${removed.storagePath}:`, unlinkErr.message);
+                }
+            }
+
+            return res.json({
+                success: true,
+                deleted: {
+                    id: removed.app.id,
+                    slug: removed.app.slug,
+                    friendlySlug: removed.app.friendlySlug
+                }
+            });
+        } catch (err) {
+            console.error('[HostedHtml] deleteHostedByApi error:', err);
+            return res.status(500).json({ success: false, error: 'Failed to delete hosted app.' });
+        }
+    }
+];
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Replace + Hard Delete (JWT / user)
+// ────────────────────────────────────────────────────────────────────────────
+
+exports.deleteApp = async (req, res) => {
+    try {
+        const user = await getCurrentUser(req);
+        if (!user) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+        const removed = await hostedHtmlService.deleteAppForOwner({
+            id: req.params.id,
+            ownerUserId: user.userId
+        });
+        if (!removed) return res.status(404).json({ success: false, error: 'App not found.' });
+
+        try {
+            if (removed.storagePath) fs.unlinkSync(removed.storagePath);
+        } catch (unlinkErr) {
+            if (unlinkErr.code !== 'ENOENT') {
+                console.error(`[HostedHtml] deleteApp: failed to unlink ${removed.storagePath}:`, unlinkErr.message);
+            }
+        }
+
+        return res.json({
+            success: true,
+            deleted: {
+                id: removed.app.id,
+                slug: removed.app.slug,
+                friendlySlug: removed.app.friendlySlug
+            }
+        });
+    } catch (err) {
+        console.error('[HostedHtml] deleteApp error:', err);
+        return res.status(500).json({ success: false, error: 'Failed to delete hosted app.' });
+    }
 };
