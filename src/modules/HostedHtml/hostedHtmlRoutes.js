@@ -3,6 +3,14 @@ const router = express.Router();
 const { requireAuth } = require('../../core/middleware/auth');
 const ctrl = require('./hostedHtmlController');
 
+// Public self-describing docs (no auth). Pass this URL to an AI Coder.
+router.get('/api/hosted-html/docs', ctrl.getDocs);
+
+// Public routes (no auth) — public HTML serve
+//   GET /h/:slug
+//   GET /app/:friendlySlug
+// (defined in server.js)
+
 // Authenticated user routes (JWT)
 router.get('/api/v1/hosted-html', requireAuth, ctrl.listMyApps);
 router.post('/api/v1/hosted-html', requireAuth, ...ctrl.createApp);

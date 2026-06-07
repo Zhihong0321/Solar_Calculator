@@ -609,3 +609,172 @@ exports.disableHostedByApi = [
         }
     }
 ];
+
+// ── Public docs (for AI Coders and humans) ──────────────────────────────────
+// GET /api/hosted-html/docs
+// Returns a self-describing JSON manifest of every API endpoint, the API key
+// name, request/response shapes, and copy-pasteable curl examples. Intended
+// to be passed verbatim to an AI coding agent that needs to integrate with
+// the HTML Hosting Engine.
+//
+// Supports `Accept: text/plain` for a quick-read text summary.
+exports.getDocs = (req, res) => {
+    const host = (req.headers['x-forwarded-proto'] || req.protocol || 'https').toString().split(',')[0].trim();
+    const base = `${host}://${req.get('host')}`;
+
+    const manifest = {
+        name: 'Eternalgy OS — HTML Hosting Engine',
+        version: '1.0',
+        base_url: base,
+        api_key: {
+            name: 'hostmyapp',
+            header: 'X-Api-Key',
+            env_override: 'HOSTED_HTML_API_KEY',
+            note: 'Send in `X-Api-Key` header, or `apikey` body field, or `?apikey=...` query string.'
+        },
+        public_routes: [
+            {
+                method: 'GET',
+                path: '/api/hosted-html/docs',
+                auth: 'none',
+                purpose: 'THIS endpoint. Self-describing API manifest. Show this to your AI agent.'
+            },
+            {
+                method: 'GET',
+                path: '/h/:slug',
+                auth: 'none',
+                purpose: 'Public HTML serve by random 16-hex slug.'
+            },
+            {
+                method: 'GET',
+                path: '/app/:friendlySlug',
+                auth: 'none',
+                purpose: 'Public HTML serve by human-friendly alias (e.g. /app/scoreboard).'
+            }
+        ],
+        api_key_endpoints: [
+            {
+                method: 'POST',
+                path: '/api/hosted-html/host',
+                auth: 'api_key',
+                body: {
+                    creatorName: 'string (required, ≤120 chars)',
+                    title: 'string (optional, ≤200 chars; defaults to "Hosted app by <creatorName>")',
+                    description: 'string (optional, ≤1000 chars)',
+                    friendlySlug: 'string (optional, 2-64 chars, lowercase a-z0-9_-, not reserved)',
+                    html: 'string (required, ≤5 MB, must contain <html or <!doctype)'
+                },
+                returns: '{ success, app, id, slug, url, friendlyUrl }',
+                curl: `curl -X POST ${base}/api/hosted-html/host \\
+  -H "X-Api-Key: hostmyapp" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "creatorName": "AI Assistant",
+    "title": "My Page",
+    "friendlySlug": "my-page",
+    "html": "<!doctype html><html><body><h1>Hello</h1></body></html>"
+  }'`
+            },
+            {
+                method: 'POST',
+                path: '/api/hosted-html/host/issue',
+                auth: 'api_key',
+                purpose: 'Step 1 of two-step. Issue URL immediately with a "coming soon" placeholder; no HTML needed yet.',
+                body: {
+                    creatorName: 'string (required)',
+                    title: 'string (optional)',
+                    description: 'string (optional)',
+                    friendlySlug: 'string (optional)'
+                },
+                returns: '{ success, app, id, slug, status:"pending", url, friendlyUrl, upload_url, upload_method:"PUT", upload_body_format }',
+                curl: `curl -X POST ${base}/api/hosted-html/host/issue \\
+  -H "X-Api-Key: hostmyapp" \\
+  -H "Content-Type: application/json" \\
+  -d '{"creatorName":"AI","title":"My Page"}'`
+            },
+            {
+                method: 'PUT',
+                path: '/api/hosted-html/host/:id/html',
+                auth: 'api_key',
+                purpose: 'Step 2 of two-step. Upload HTML to a previously-issued app.',
+                body: { html: 'string (required, ≤5 MB)' },
+                returns: '{ success, app, slug, status:"published", url, friendlyUrl }',
+                curl: `curl -X PUT ${base}/api/hosted-html/host/42/html \\
+  -H "X-Api-Key: hostmyapp" \\
+  -H "Content-Type: application/json" \\
+  -d '{"html":"<!doctype html><html><body><h1>Hello</h1></body></html>"}'`
+            },
+            {
+                method: 'GET',
+                path: '/api/hosted-html/host/list',
+                auth: 'api_key',
+                purpose: 'List all apps pushed by this API key. Returns friendlyUrl on every row.',
+                returns: '{ success, apps: [{ id, slug, friendlySlug, title, status, viewCount, url, friendlyUrl, ... }] }',
+                curl: `curl ${base}/api/hosted-html/host/list -H "X-Api-Key: hostmyapp"`
+            },
+            {
+                method: 'POST',
+                path: '/api/hosted-html/host/:id/disable',
+                auth: 'api_key',
+                purpose: 'Disable a previously-published app. Disabled apps return 404 publicly.',
+                curl: `curl -X POST ${base}/api/hosted-html/host/42/disable -H "X-Api-Key: hostmyapp"`
+            }
+        ],
+        user_endpoints_jwt: [
+            'GET    /api/v1/hosted-html              (list mine)',
+            'POST   /api/v1/hosted-html              (create, JSON or multipart file upload)',
+            'GET    /api/v1/hosted-html/:id          (get one)',
+            'PUT    /api/v1/hosted-html/:id          (update title/description/friendlySlug/HTML)',
+            'POST   /api/v1/hosted-html/:id/disable',
+            'POST   /api/v1/hosted-html/:id/enable',
+            'GET    /hosted-html                     (mobile-first manager UI, requires agent login)'
+        ],
+        quickstart_for_ai: [
+            '1. curl ' + base + '/api/hosted-html/docs  ← (this endpoint)',
+            '2. Pick a flow: single-shot or two-step issue+upload.',
+            '3. Authenticate every request with header: X-Api-Key: hostmyapp',
+            '4. Use POST /api/hosted-html/host to publish in one call — it returns the public url.',
+            '5. To claim a stable alias (e.g. /app/scoreboard), pass friendlySlug in the body.',
+            '6. After publishing, GET /h/<slug> or /app/<friendlySlug> renders the HTML publicly.'
+        ],
+        limits: {
+            max_html_size_bytes: 5 * 1024 * 1024,
+            max_title_length: 200,
+            max_description_length: 1000,
+            max_creator_name_length: 120,
+            friendly_slug_pattern: '^[a-z0-9][a-z0-9_-]{1,63}$',
+            friendly_slug_reserved_examples: ['api', 'agent', 'h', 'app', 'uploads', 'login', 'hosted-html']
+        }
+    };
+
+    // Plain-text summary for human / log-friendly reads
+    if ((req.headers.accept || '').includes('text/plain')) {
+        const lines = [
+            manifest.name,
+            '='.repeat(manifest.name.length),
+            '',
+            `Base URL:  ${manifest.base_url}`,
+            `API key:   ${manifest.api_key.name}  (header: ${manifest.api_key.header})`,
+            '',
+            'Quickstart:',
+            ...manifest.quickstart_for_ai.map((l) => '  ' + l),
+            '',
+            'API-key endpoints:',
+            ...manifest.api_key_endpoints.map((e) => `  ${e.method.padEnd(6)} ${e.path}\n    ${e.purpose || ''}\n    curl: ${(e.curl || '').replace(/\n/g, '\n    ')}`),
+            '',
+            'Public routes:',
+            ...manifest.public_routes.map((r) => `  ${r.method.padEnd(6)} ${r.path}  — ${r.purpose}`),
+            '',
+            'User (JWT) endpoints:',
+            ...manifest.user_endpoints_jwt.map((l) => '  ' + l),
+            '',
+            'Limits:',
+            `  max html size: ${manifest.limits.max_html_size_bytes} bytes`,
+            `  friendly slug: ${manifest.limits.friendly_slug_pattern}`,
+            `  reserved (subset): ${manifest.limits.friendly_slug_reserved_examples.join(', ')}`
+        ];
+        return res.type('text/plain').send(lines.join('\n'));
+    }
+
+    return res.json(manifest);
+};
