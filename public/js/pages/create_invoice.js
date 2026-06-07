@@ -330,6 +330,34 @@ function getCustomDiscountTotal() {
     return customDiscounts.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
 }
 
+// Sum of the visible discount amount on each selected voucher (mirrors the
+// per-row logic in buildVoucherInfoFromRows on the backend).
+function getSelectedDraftVoucherVisibleTotal(packagePrice) {
+    if (!Array.isArray(selectedDraftVouchers) || !selectedDraftVouchers.length) return 0;
+    return selectedDraftVouchers.reduce((sum, v) => {
+        if (v?.discountAmount) return sum + (parseFloat(v.discountAmount) || 0);
+        if (v?.discountPercent) return sum + (packagePrice * (parseFloat(v.discountPercent) || 0)) / 100;
+        return sum;
+    }, 0);
+}
+
+// Vouchers that have `bypassMaxDiscount = true` have their visible discount
+// AND their hidden commission cost excluded from the package discount cap.
+// The voucher amount is still applied to the invoice total, it just does not
+// consume the budget. See voucher.bypass_max_discount column in DB.
+function getBypassingVoucherDiscount() {
+    if (!Array.isArray(selectedDraftVouchers) || !selectedDraftVouchers.length) return 0;
+    const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
+    return selectedDraftVouchers.reduce((sum, v) => {
+        if (!v?.bypassMaxDiscount) return sum;
+        let amount = 0;
+        if (v?.discountAmount) amount = parseFloat(v.discountAmount) || 0;
+        else if (v?.discountPercent) amount = (packagePrice * (parseFloat(v.discountPercent) || 0)) / 100;
+        const hidden = parseFloat(v?.deductableFromCommission ?? v?.deductable_from_commission) || 0;
+        return sum + amount + hidden;
+    }, 0);
+}
+
 // All non-manual discount load (promotions + visible vouchers + hidden + negative items)
 function getNonManualDiscountTotal() {
     const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
@@ -339,8 +367,12 @@ function getNonManualDiscountTotal() {
         + Math.abs(getExtraItemsNegativeTotal());
 }
 
+// Total that actually counts against the cap. Vouchers with bypassMaxDiscount
+// have their amounts removed so they can be applied even when the bound
+// portion would otherwise exceed the budget. Manual discount / promo /
+// negative extra items are never reduced by a bypass voucher.
 function getTotalTowardMax() {
-    return getCustomDiscountTotal() + getNonManualDiscountTotal();
+    return getCustomDiscountTotal() + getNonManualDiscountTotal() - getBypassingVoucherDiscount();
 }
 
 function getAvailableDiscount() {
@@ -523,12 +555,21 @@ function updateDiscountSummaryBar() {
     const maxEl = document.getElementById('maxDiscountValue');
     const appliedEl = document.getElementById('appliedDiscountTotal');
     const hiddenEl = document.getElementById('hiddenDiscountConsumed');
+    const bypassEl = document.getElementById('bypassedDiscountValue');
     const availEl = document.getElementById('availableDiscountValue');
     const note = document.getElementById('discountBudgetNote');
     const totalApplied = getTotalTowardMax();
+    const bypassing = getBypassingVoucherDiscount();
     if (maxEl) maxEl.textContent = cap > 0 ? `RM ${cap.toFixed(2)}` : 'No cap';
     if (appliedEl) appliedEl.textContent = `RM ${totalApplied.toFixed(2)}`;
     if (hiddenEl) hiddenEl.textContent = `RM ${getVoucherHiddenDiscount().toFixed(2)}`;
+    if (bypassEl) {
+        bypassEl.textContent = `RM ${Math.max(0, bypassing).toFixed(2)}`;
+        // Dim the row when nothing is bypassing so it does not look like a
+        // missing value. We still keep it visible so the agent always knows
+        // the row exists and what it means.
+        bypassEl.classList.toggle('text-purple-900', bypassing > 0);
+    }
     if (availEl) availEl.textContent = cap > 0 ? `RM ${Math.max(0, cap - totalApplied).toFixed(2)}` : '—';
     if (note) {
         const packagePrice = parseFloat(document.getElementById('packagePrice')?.value || 0);
