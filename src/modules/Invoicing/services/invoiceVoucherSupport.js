@@ -6,8 +6,19 @@
  */
 function buildVoucherInfoFromRows(voucherRows, packagePrice) {
   const seenCodes = new Set();
+  // Visible + hidden amounts across ALL selected vouchers. These are the
+  // amounts actually applied to the invoice total / agent commission and are
+  // what `calculateInvoiceFinancials` needs to subtract from the subtotal.
   let totalVoucherAmount = 0;
   let totalHiddenDiscount = 0;
+  // The portion that comes from vouchers with `bypass_max_discount = true`.
+  // Excluded from the discount cap so those vouchers can be applied even when
+  // they would push the budget-bound total above `package.price - nett_price`.
+  // The caller (invoiceRepo) subtracts these from the bound amounts before
+  // calling `computeTotalTowardMax` so manual discounts / promos are never
+  // reduced by a bypass voucher.
+  let bypassingVoucherAmount = 0;
+  let bypassingHiddenDiscount = 0;
   const voucherItemsToCreate = [];
   const validVoucherCodes = [];
   const selectedVoucherIds = [];
@@ -18,6 +29,8 @@ function buildVoucherInfoFromRows(voucherRows, packagePrice) {
     const code = String(voucher.voucher_code || '').trim();
     if (!code || seenCodes.has(code)) continue;
     seenCodes.add(code);
+
+    const bypassMaxDiscount = !!voucher.bypass_max_discount;
 
     let amount = 0;
     let desc = '';
@@ -31,11 +44,10 @@ function buildVoucherInfoFromRows(voucherRows, packagePrice) {
     }
 
     // Hidden discount: cost deducted from agent commission, not shown as a
-    // line item but still counts toward the package discount budget.
-    // Accumulate it for every provided voucher row so validation sees the full
-    // hidden cost, regardless of whether the voucher has a visible discount.
+    // line item but still counts toward the package discount budget (unless
+    // the voucher has bypass_max_discount set, in which case it is excluded
+    // from the cap but still applied to the commission calculation).
     const hiddenDiscount = parseFloat(voucher.deductable_from_commission) || 0;
-    totalHiddenDiscount += hiddenDiscount;
 
     if (amount > 0) {
       totalVoucherAmount += amount;
@@ -47,12 +59,27 @@ function buildVoucherInfoFromRows(voucherRows, packagePrice) {
         code,
         voucherId: voucher.bubble_id || String(voucher.id || ''),
         categoryId: voucher.linked_voucher_category || null,
-        deductableFromCommission: hiddenDiscount
+        deductableFromCommission: hiddenDiscount,
+        bypassMaxDiscount
       });
+    }
+    totalHiddenDiscount += hiddenDiscount;
+
+    if (bypassMaxDiscount) {
+      bypassingVoucherAmount += amount;
+      bypassingHiddenDiscount += hiddenDiscount;
     }
   }
 
-  return { totalVoucherAmount, totalHiddenDiscount, voucherItemsToCreate, validVoucherCodes, selectedVoucherIds };
+  return {
+    totalVoucherAmount,
+    totalHiddenDiscount,
+    bypassingVoucherAmount,
+    bypassingHiddenDiscount,
+    voucherItemsToCreate,
+    validVoucherCodes,
+    selectedVoucherIds
+  };
 }
 
 function normalizeVoucherCategoryPackageType(rawType) {

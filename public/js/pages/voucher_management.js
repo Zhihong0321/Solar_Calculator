@@ -37,6 +37,15 @@ function bindEvents() {
         document.getElementById('commissionDeductionField')?.classList.toggle('hidden', !isGift);
     });
 
+    const bypassCheckbox = document.getElementById('bypass_max_discount');
+    const bypassLabel = document.getElementById('bypassMaxDiscountLabel');
+    bypassCheckbox?.addEventListener('change', () => {
+        if (bypassLabel) {
+            bypassLabel.textContent = bypassCheckbox.checked ? 'ON' : 'OFF';
+            bypassLabel.classList.toggle('text-purple-900', bypassCheckbox.checked);
+        }
+    });
+
     voucherForm?.addEventListener('submit', handleVoucherSubmit);
     categoryForm?.addEventListener('submit', handleCategorySubmit);
 
@@ -272,6 +281,9 @@ function renderVouchers() {
         const accessTag = voucher.access_tag ? `<span class="rounded-full bg-purple-100 px-2 py-1 text-purple-700">Tag: ${voucher.access_tag}</span>` : '';
         const allowedUsersCount = Array.isArray(voucher.allowed_users) && voucher.allowed_users.length > 0 ? voucher.allowed_users.length : 0;
         const accessTagDisplay = accessTag ? `<div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Access</span>${accessTag}</div>` : '';
+        const bypassBadge = voucher.bypass_max_discount
+            ? '<span class="rounded-full bg-purple-200 px-2 py-1 text-purple-800" title="This voucher can be applied even when total discount exceeds the package max">Bypasses Max</span>'
+            : '';
 
         return `
             <article class="voucher-card ${cardClass} p-6 rounded-3xl shadow-sm border flex flex-col gap-5">
@@ -286,6 +298,7 @@ function renderVouchers() {
                         ${deleted ? '<span class="rounded-full bg-slate-200 px-2 py-1 text-slate-600">Deleted</span>' : ''}
                         ${voucher.access_tag ? `<span class="rounded-full bg-purple-100 px-2 py-1 text-purple-700">${voucher.access_tag}</span>` : ''}
                         ${allowedUsersCount > 0 ? `<span class="rounded-full bg-indigo-100 px-2 py-1 text-indigo-700">${allowedUsersCount} users</span>` : ''}
+                        ${bypassBadge}
                     </div>
                 </div>
                 <div class="space-y-2 text-sm text-slate-700">
@@ -337,6 +350,15 @@ function openModal(id = null) {
             document.getElementById('access_tag').value = voucher.access_tag || '';
             document.getElementById('active').checked = !!voucher.active;
             document.getElementById('public').checked = !!voucher.public;
+            const bypassCheckbox = document.getElementById('bypass_max_discount');
+            const bypassLabel = document.getElementById('bypassMaxDiscountLabel');
+            if (bypassCheckbox) {
+                bypassCheckbox.checked = !!voucher.bypass_max_discount;
+                if (bypassLabel) {
+                    bypassLabel.textContent = bypassCheckbox.checked ? 'ON' : 'OFF';
+                    bypassLabel.classList.toggle('text-purple-900', bypassCheckbox.checked);
+                }
+            }
             populateCategoryOptions(voucher.linked_voucher_category || '');
 
             // Load allowed users
@@ -344,6 +366,15 @@ function openModal(id = null) {
                 allowedUsersSelected = voucher.allowed_users.map((uid) => ({ bubble_id: uid, name: uid }));
                 renderAllowedUsersList();
             }
+        }
+    } else {
+        // Reset bypass label to OFF on new-voucher open.
+        const bypassCheckbox = document.getElementById('bypass_max_discount');
+        const bypassLabel = document.getElementById('bypassMaxDiscountLabel');
+        if (bypassCheckbox) bypassCheckbox.checked = false;
+        if (bypassLabel) {
+            bypassLabel.textContent = 'OFF';
+            bypassLabel.classList.remove('text-purple-900');
         }
     }
 
@@ -379,7 +410,8 @@ async function handleVoucherSubmit(event) {
         public: document.getElementById('public').checked,
         linked_voucher_category: document.getElementById('linked_voucher_category').value || null,
         access_tag: document.getElementById('access_tag').value.trim() || null,
-        allowed_users: allowedUsersSelected.length > 0 ? allowedUsersSelected.map((u) => u.bubble_id) : null
+        allowed_users: allowedUsersSelected.length > 0 ? allowedUsersSelected.map((u) => u.bubble_id) : null,
+        bypass_max_discount: document.getElementById('bypass_max_discount')?.checked === true
     };
 
     try {

@@ -343,6 +343,26 @@
                         </p>
                     </div>
 
+                    <div class="space-y-2 bg-purple-50 p-4 rounded-xl border border-purple-100">
+                        <label class="text-xs font-bold text-purple-700 uppercase tracking-wider px-1">
+                            Bypass Maximum Discount Cap
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <input type="checkbox" id="bypass_max_discount" class="sr-only peer">
+                                <div class="w-12 h-6 bg-slate-200 rounded-full peer peer-checked:bg-purple-500 transition-all"></div>
+                                <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-all peer-checked:translate-x-6"></div>
+                            </div>
+                            <span id="bypassMaxDiscountLabel" class="text-sm font-bold text-purple-700">OFF</span>
+                        </div>
+                        <p class="text-[10px] text-purple-600 font-medium mt-1">
+                            When ON, this voucher can be applied even if it would push the total discount beyond the package's
+                            maximum allowed (price − nett_price, or 7% of price). Use for negotiated / contractual vouchers
+                            that override the standard budget. The voucher amount is still applied to the invoice total,
+                            it just does not consume the discount cap.
+                        </p>
+                    </div>
+
                     <div class="flex items-center gap-6 pt-2">
                         <label class="flex items-center gap-3 cursor-pointer group">
                             <div class="relative">

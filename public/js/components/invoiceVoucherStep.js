@@ -62,7 +62,8 @@
                     discountPercent: voucher?.discount_percent,
                     deductableFromCommission: voucher?.deductable_from_commission ?? 0,
                     active: voucher?.active !== false,
-                    disabled: voucher?.disabled === true
+                    disabled: voucher?.disabled === true,
+                    bypassMaxDiscount: !!voucher?.bypass_max_discount
                 })).filter((voucher) => voucher.id)
             };
         }).filter((category) => category.id);

@@ -61,9 +61,20 @@ function normalizeDiscountCap(packagePrice, nettPrice) {
  * @param {number} totalTowardMax - sum of all amounts counting toward the discount budget
  * @param {number} totalHiddenDiscount - hidden commission deductions, surfaced
  *        separately so the error message can explain the breakdown.
+ * @param {boolean} ceoDiscount - when true, the CEO discount is in effect and
+ *        the cap is bypassed (mirrors existing caller-side behavior).
  * @throws {Error} when a cap is set and totalTowardMax exceeds it.
+ *
+ * NOTE: Vouchers with `bypass_max_discount = true` should have their amounts
+ * (visible + hidden) removed from `totalTowardMax` / `totalHiddenDiscount`
+ * BEFORE this function is called. That split is computed upstream in
+ * `buildVoucherInfoFromRows` so the cap check only ever sees the
+ * budget-bound amounts.
  */
-function validateDiscountLimit(packagePrice, nettPrice, totalTowardMax, totalHiddenDiscount = 0) {
+function validateDiscountLimit(packagePrice, nettPrice, totalTowardMax, totalHiddenDiscount = 0, ceoDiscount = false) {
+  // CEO discount bypasses the cap entirely (no per-voucher check needed either).
+  if (ceoDiscount) return;
+
   const cap = normalizeDiscountCap(packagePrice, nettPrice);
 
   // No cap configured for this package — nothing to enforce.
@@ -199,6 +210,12 @@ function calculateInvoiceFinancials(data, packagePrice, totalVoucherAmount, pane
  *                  + totalHiddenDiscount + abs(negativeExtraItems)
  *
  * The budget cap is: price - nett_price (or price * 0.07 if nett_price not set).
+ *
+ * NOTE: Bypass-flagged voucher amounts must be subtracted from
+ * `voucherVisibleDiscount` and `totalHiddenDiscount` BEFORE this function is
+ * called, so that a bypass voucher can never reduce the manual discount /
+ * promo portion. The split is computed upstream in `buildVoucherInfoFromRows`
+ * (returns `bypassingVoucherAmount` + `bypassingHiddenDiscount`).
  */
 function computeTotalTowardMax({
   manualDiscount = 0,

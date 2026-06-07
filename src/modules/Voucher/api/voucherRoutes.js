@@ -277,6 +277,7 @@ router.post('/api/vouchers', requireAuth, async (req, res) => {
             voucher_code: voucherCode,
             active: req.body?.active === undefined ? true : toBoolean(req.body.active, true),
             public: req.body?.public === undefined ? true : toBoolean(req.body.public, true),
+            bypass_max_discount: toBoolean(req.body?.bypass_max_discount, false),
             access_tag: req.body?.access_tag || null,
             allowed_users: Array.isArray(req.body?.allowed_users) ? req.body.allowed_users : null,
             created_by: req.user?.bubbleId || req.user?.userId || null
@@ -322,6 +323,19 @@ router.patch('/api/vouchers/:id/toggle', requireAuth, async (req, res) => {
     }
 });
 
+router.patch('/api/vouchers/:id/toggle-bypass', requireAuth, async (req, res) => {
+    try {
+        const newValue = await voucherRepo.toggleVoucherBypassMaxDiscount(pool, req.params.id);
+        if (newValue === null) {
+            return res.status(404).json({ error: 'Voucher not found' });
+        }
+        res.json({ success: true, bypass_max_discount: newValue });
+    } catch (err) {
+        console.error('Error toggling voucher bypass flag:', err);
+        res.status(500).json({ error: 'Failed to toggle bypass flag' });
+    }
+});
+
 router.put('/api/vouchers/:id', requireAuth, async (req, res) => {
     try {
         const voucherCode = String(req.body?.voucher_code || '').trim().toUpperCase();
@@ -338,6 +352,7 @@ router.put('/api/vouchers/:id', requireAuth, async (req, res) => {
             voucher_code: voucherCode,
             active: toBoolean(req.body?.active, false),
             public: toBoolean(req.body?.public, false),
+            bypass_max_discount: toBoolean(req.body?.bypass_max_discount, false),
             access_tag: req.body?.access_tag || null,
             allowed_users: Array.isArray(req.body?.allowed_users) ? req.body.allowed_users : null
         });

@@ -1250,15 +1250,20 @@ async function createInvoiceOnTheFly(client, data) {
       const promoAmount = (financials.earnNowRebateDiscount || 0)
         + (financials.earthMonthGoGreenBonusDiscount || 0)
         + (financials.parentsDayPromoDiscount || 0);
+      // Exclude bypass-flagged voucher amounts from the cap check (visible
+      // + hidden). Manual discount / promo / negative extra items are never
+      // touched by a bypass voucher — see invoiceFinancials.js comment.
+      const boundVoucherAmount = (voucherInfo.totalVoucherAmount || 0) - (voucherInfo.bypassingVoucherAmount || 0);
+      const boundHiddenDiscount = (voucherInfo.totalHiddenDiscount || 0) - (voucherInfo.bypassingHiddenDiscount || 0);
       const totalTowardMax = computeTotalTowardMax({
         manualDiscount,
         promoAmount,
-        voucherVisibleDiscount: voucherInfo.totalVoucherAmount,
-        totalHiddenDiscount: voucherInfo.totalHiddenDiscount,
+        voucherVisibleDiscount: boundVoucherAmount,
+        totalHiddenDiscount: boundHiddenDiscount,
         negativeExtraItems: financials.extraItemsNegativeTotal
       });
       const pkgNettPrice = deps.pkg ? deps.pkg.nett_price : null;
-      validateDiscountLimit(packagePrice, pkgNettPrice, totalTowardMax, voucherInfo.totalHiddenDiscount);
+      validateDiscountLimit(packagePrice, pkgNettPrice, totalTowardMax, boundHiddenDiscount, false);
     }
 
     // 4. Create Invoice Header
@@ -1757,15 +1762,17 @@ async function updateInvoiceTransaction(client, data) {
       const promoAmount = (financials.earnNowRebateDiscount || 0)
         + (financials.earthMonthGoGreenBonusDiscount || 0)
         + (financials.parentsDayPromoDiscount || 0);
+      const boundVoucherAmount = (voucherInfo.totalVoucherAmount || 0) - (voucherInfo.bypassingVoucherAmount || 0);
+      const boundHiddenDiscount = (voucherInfo.totalHiddenDiscount || 0) - (voucherInfo.bypassingHiddenDiscount || 0);
       const totalTowardMax = computeTotalTowardMax({
         manualDiscount,
         promoAmount,
-        voucherVisibleDiscount: voucherInfo.totalVoucherAmount,
-        totalHiddenDiscount: voucherInfo.totalHiddenDiscount,
+        voucherVisibleDiscount: boundVoucherAmount,
+        totalHiddenDiscount: boundHiddenDiscount,
         negativeExtraItems: financials.extraItemsNegativeTotal
       });
       const pkgNettPrice = pkg ? pkg.nett_price : null;
-      validateDiscountLimit(packagePrice, pkgNettPrice, totalTowardMax, voucherInfo.totalHiddenDiscount);
+      validateDiscountLimit(packagePrice, pkgNettPrice, totalTowardMax, boundHiddenDiscount, false);
     }
 
     const { finalTotalAmount } = financials;

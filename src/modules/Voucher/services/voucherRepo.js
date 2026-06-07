@@ -380,6 +380,18 @@ async function toggleVoucherStatus(pool, id) {
     return result.rows.length > 0 ? result.rows[0].active : null;
 }
 
+async function toggleVoucherBypassMaxDiscount(pool, id) {
+    const identifierColumn = _resolveIdentifierColumn(id);
+    const result = await pool.query(
+        `UPDATE voucher
+         SET bypass_max_discount = NOT COALESCE(bypass_max_discount, FALSE), updated_at = NOW()
+         WHERE ${identifierColumn} = $1
+         RETURNING bypass_max_discount`,
+        [id]
+    );
+    return result.rows.length > 0 ? result.rows[0].bypass_max_discount : null;
+}
+
 async function createVoucher(pool, data) {
     const bubbleId = `voucher_${crypto.randomBytes(8).toString('hex')}`;
     const safePercent = data.discount_percent ? parseInt(data.discount_percent, 10) : null;
@@ -388,6 +400,9 @@ async function createVoucher(pool, data) {
     const safeAllowedUsers = Array.isArray(data.allowed_users) && data.allowed_users.length > 0
         ? data.allowed_users.map(u => String(u).trim()).filter(Boolean)
         : null;
+    const safeBypassMaxDiscount = data.bypass_max_discount !== undefined
+        ? !!data.bypass_max_discount
+        : false;
 
     const result = await pool.query(
         `INSERT INTO voucher (
@@ -395,14 +410,14 @@ async function createVoucher(pool, data) {
             discount_amount, discount_percent, active,
             voucher_availability, terms_conditions, available_until,
             public, created_by, deductable_from_commission, invoice_description, linked_voucher_category,
-            access_tag, allowed_users,
+            access_tag, allowed_users, bypass_max_discount,
             created_at, updated_at, created_date
          ) VALUES (
             $1, $2, $3, $4,
             $5, $6, $7,
             $8, $9, $10,
             $11, $12, $13, $14, $15,
-            $16, $17,
+            $16, $17, $18,
             NOW(), NOW(), NOW()
          ) RETURNING *`,
         [
@@ -422,7 +437,8 @@ async function createVoucher(pool, data) {
             data.invoice_description || null,
             data.linked_voucher_category || null,
             data.access_tag || null,
-            safeAllowedUsers
+            safeAllowedUsers,
+            safeBypassMaxDiscount
         ]
     );
 
@@ -452,7 +468,8 @@ async function duplicateVoucher(pool, id, createdBy = null) {
         invoice_description: originalVoucher.invoice_description,
         linked_voucher_category: originalVoucher.linked_voucher_category || null,
         access_tag: originalVoucher.access_tag || null,
-        allowed_users: originalVoucher.allowed_users || null
+        allowed_users: originalVoucher.allowed_users || null,
+        bypass_max_discount: !!originalVoucher.bypass_max_discount
     });
 }
 
@@ -491,9 +508,10 @@ async function updateVoucher(pool, id, data) {
             linked_voucher_category = $13,
             access_tag = $14,
             allowed_users = $15,
+            bypass_max_discount = $16,
             updated_at = NOW(),
             modified_date = NOW()
-         WHERE ${identifierColumn} = $16
+         WHERE ${identifierColumn} = $17
          RETURNING *`,
         [
             data.title,
@@ -513,6 +531,7 @@ async function updateVoucher(pool, id, data) {
             Array.isArray(data.allowed_users) && data.allowed_users.length > 0
                 ? data.allowed_users.map(u => String(u).trim()).filter(Boolean)
                 : null,
+            data.bypass_max_discount !== undefined ? !!data.bypass_max_discount : false,
             id
         ]
     );
@@ -898,6 +917,7 @@ module.exports = {
     deleteVoucher,
     restoreVoucher,
     toggleVoucherStatus,
+    toggleVoucherBypassMaxDiscount,
     checkVoucherCodeExists,
     getAllVoucherCategories,
     getVoucherCategoryById,
