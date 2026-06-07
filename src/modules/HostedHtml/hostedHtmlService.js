@@ -30,6 +30,7 @@ function rowToDto(row) {
         ownerBubbleId: row.owner_bubble_id,
         ownerName: row.owner_name,
         sizeBytes: row.size_bytes,
+        storagePath: row.storage_path,
         status: row.status,
         viewCount: Number(row.view_count || 0),
         createdAt: row.created_at,
@@ -311,6 +312,70 @@ async function incrementViewCount(id) {
     }
 }
 
+async function getStoragePathForOwner({ id, ownerUserId }) {
+    const result = await pool.query(
+        `SELECT storage_path FROM hosted_html_app
+          WHERE id = $1 AND owner_user_id = $2
+          LIMIT 1`,
+        [id, ownerUserId]
+    );
+    return result.rows[0] ? result.rows[0].storage_path : null;
+}
+
+async function deleteAppForOwner({ id, ownerUserId }) {
+    // Returns { storagePath, app } or null if not found. Caller is responsible
+    // for unlinking the file (so the controller can surface a useful error if
+    // unlink fails — the row is already gone either way).
+    const row = await pool.query(
+        `DELETE FROM hosted_html_app
+          WHERE id = $1 AND owner_user_id = $2
+          RETURNING *`,
+        [id, ownerUserId]
+    );
+    if (!row.rows[0]) return null;
+    return { app: rowToDto(row.rows[0]), storagePath: row.rows[0].storage_path };
+}
+
+async function replaceAppForOwner({ id, ownerUserId, patch, newStoragePath, newSizeBytes }) {
+    const fields = [];
+    const values = [];
+    let i = 1;
+
+    if (typeof patch.title === 'string') {
+        fields.push(`title = $${i++}`);
+        values.push(patch.title);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'description')) {
+        fields.push(`description = $${i++}`);
+        values.push(patch.description || null);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'friendlySlug')) {
+        fields.push(`friendly_slug = $${i++}`);
+        values.push(normalizeFriendlySlug(patch.friendlySlug));
+    }
+    if (newStoragePath) {
+        fields.push(`storage_path = $${i++}`);
+        values.push(newStoragePath);
+        fields.push(`size_bytes = $${i++}`);
+        values.push(newSizeBytes);
+    }
+    if (fields.length === 0) {
+        // No-op patch; return current row
+        return getAppByIdAndOwner({ id, ownerUserId });
+    }
+    fields.push(`updated_at = NOW()`);
+    values.push(id, ownerUserId);
+
+    const result = await pool.query(
+        `UPDATE hosted_html_app
+            SET ${fields.join(', ')}
+          WHERE id = $${i++} AND owner_user_id = $${i++}
+          RETURNING *`,
+        values
+    );
+    return rowToDto(result.rows[0]);
+}
+
 module.exports = {
     SLUG_LEN,
     MAX_TITLE_LEN,
@@ -336,5 +401,8 @@ module.exports = {
     updateApp,
     setStatus,
     setStatusForOwner,
-    incrementViewCount
+    incrementViewCount,
+    getStoragePathForOwner,
+    deleteAppForOwner,
+    replaceAppForOwner
 };
