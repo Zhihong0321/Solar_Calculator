@@ -453,6 +453,29 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
 .cert-name{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--g900);line-height:1.3;margin-bottom:2px}
 .cert-meta{font-family:var(--mono);font-size:8.5px;font-weight:400;color:var(--g500);line-height:1.45;word-break:break-word}
 
+/* === Signature modal === */
+.sig-modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(15,26,18,0.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.sig-modal.is-open{display:flex}
+.sig-modal-card{background:#fff;border-radius:8px;width:100%;max-width:480px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.24);transform:scale(.96);opacity:0;transition:transform .18s ease,opacity .18s ease}
+.sig-modal-card.is-visible{transform:scale(1);opacity:1}
+.sig-modal-head{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--g100);background:#f8faf8}
+.sig-modal-title{font-size:11px;font-weight:800;color:var(--g900);text-transform:uppercase;letter-spacing:.07em;line-height:1.3}
+.sig-modal-sub{font-size:9.5px;color:var(--g500);font-weight:500;margin-top:2px}
+.sig-modal-close{background:transparent;border:0;color:var(--g400);cursor:pointer;width:24px;height:24px;border-radius:4px;font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.sig-modal-close:hover{color:var(--g700);background:#fff}
+.sig-modal-body{padding:14px 16px}
+.sig-pad-wrap{position:relative;background:#f8faf8;border:1.5px dashed var(--g300);border-radius:4px;height:220px;overflow:hidden;touch-action:none}
+.sig-canvas{position:absolute;inset:0;width:100% !important;height:100% !important;cursor:crosshair;display:block}
+.sig-modal-actions{margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sig-action-link{background:transparent;border:0;color:var(--g500);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;padding:6px 4px;font-family:var(--f);transition:color .15s}
+.sig-action-link:hover{color:var(--g700)}
+.sig-action-group{display:flex;gap:6px;flex:1}
+.sig-action-cancel{flex:1;padding:9px 12px;background:#fff;border:1.5px solid var(--g300);color:var(--g700);border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:var(--f);transition:all .15s}
+.sig-action-cancel:hover{background:var(--g100)}
+.sig-action-confirm{flex:2;padding:9px 12px;background:var(--g900);color:#fff;border:0;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,.12);transition:all .15s}
+.sig-action-confirm:hover{background:#000}
+.sig-action-confirm:disabled{opacity:.6;cursor:not-allowed}
+
 /* === Animations === */
 @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .anim{animation:slideUp .25s ease forwards}

@@ -21,25 +21,25 @@ function buildFloatingA4PreviewButton(identifier) {
 function buildSignatureModalHtml() {
     return `
     <!-- Signature Modal -->
-    <div id="signatureModal" class="fixed inset-0 z-[100] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="signatureBox">
-        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-slate-50/50">
+    <div id="signatureModal" class="sig-modal no-print" aria-hidden="true">
+      <div class="sig-modal-card" id="signatureBox">
+        <div class="sig-modal-head">
           <div>
-            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Customer Signature</h3>
-            <p class="text-[10px] text-slate-500 font-medium">Please sign within the box below</p>
+            <h3 class="sig-modal-title">Customer Signature</h3>
+            <p class="sig-modal-sub">Please sign within the box below</p>
           </div>
-          <button onclick="closeSignatureModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-white transition-all">✕</button>
+          <button onclick="closeSignatureModal()" class="sig-modal-close" aria-label="Close">✕</button>
         </div>
-        <div class="p-6">
-          <div class="relative bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg overflow-hidden touch-none" style="height: 240px;">
-            <canvas id="signatureCanvas" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
+        <div class="sig-modal-body">
+          <div class="sig-pad-wrap">
+            <canvas id="signatureCanvas" class="sig-canvas"></canvas>
           </div>
-          <div class="flex justify-between items-center mt-6 gap-3">
-            <button onclick="clearSignature()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 uppercase tracking-widest transition-colors">Clear Space</button>
-            <div class="flex gap-2 flex-1">
-              <button onclick="closeSignatureModal()" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-50 transition-all uppercase tracking-widest">Cancel</button>
-              <button onclick="saveSignature()" id="saveSignBtn" class="flex-[2] px-4 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 shadow-lg transition-all uppercase tracking-widest flex items-center justify-center gap-2">
-                Confirm & Sign
+          <div class="sig-modal-actions">
+            <button onclick="clearSignature()" class="sig-action-link">Clear Space</button>
+            <div class="sig-action-group">
+              <button onclick="closeSignatureModal()" class="sig-action-cancel">Cancel</button>
+              <button onclick="saveSignature()" id="saveSignBtn" class="sig-action-confirm">
+                Confirm &amp; Sign
               </button>
             </div>
           </div>
@@ -90,9 +90,9 @@ function buildInvoiceInteractionScript({
       const canvas = document.getElementById('signatureCanvas');
 
       function openSignatureModal() {
-        modal.classList.remove('hidden');
+        modal.classList.add('is-open');
         setTimeout(() => {
-          box.classList.remove('scale-95', 'opacity-0');
+          box.classList.add('is-visible');
           resizeCanvas();
           if (!signaturePad) {
             signaturePad = new SignaturePad(canvas, {
@@ -104,8 +104,8 @@ function buildInvoiceInteractionScript({
       }
 
       function closeSignatureModal() {
-        box.classList.add('scale-95', 'opacity-0');
-        setTimeout(() => modal.classList.add('hidden'), 200);
+        box.classList.remove('is-visible');
+        setTimeout(() => modal.classList.remove('is-open'), 180);
       }
 
       function resizeCanvas() {
