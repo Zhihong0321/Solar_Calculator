@@ -92,9 +92,21 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         (invoice.package_name && invoice.package_name.toLowerCase().includes('ev charger')) ||
         ['1779719505392x510517187223558528', '1779719505392x532985182726628480', '1779719505392x185856407051952896', '1779719505392x930851860072331776', '1779719505392x911258790790266368'].includes(invoice.linked_package);
     const isCommercialPackage = normalizedPackageType === 'commercial';
-    const _showSolarSavingsSection = !isCommercialPackage && (hasSolarSavingsSection || (showInteractiveControls && canEstimateSolarSavings));
-    // TODO: Temporarily hidden — energy saving comparison is wrong/misleading, pending fix
-    const showSolarSavingsSection = false;
+    // Battery is attached as a line item (see create_invoice.js BATTERY_PRODUCT_REF
+    // / BATTERY_PRODUCT_NAME). Match either the product ref or the description
+    // substring so future product variants stay covered.
+    const BATTERY_PRODUCT_REF = '1776182988047x800815659516747800';
+    const hasBatteryItem = items.some((item) => {
+        const text = `${item.description || ''} ${item.product_name || ''}`.toLowerCase();
+        return item.linked_product === BATTERY_PRODUCT_REF || text.includes('battery');
+    });
+    // Hidden for battery invoices because the savings comparison is
+    // currently solar-only (no charge/discharge math). Re-enable for
+    // pure-solar packages once the calc covers battery scenarios.
+    const showSolarSavingsSection = !isCommercialPackage
+        && !isEvCharger
+        && !hasBatteryItem
+        && (hasSolarSavingsSection || (showInteractiveControls && canEstimateSolarSavings));
     const solarSavingsSectionBadge = hasSolarSavingsSection ? 'Monthly Estimate' : 'Package Estimate';
     const solarSavingsSectionIntro = hasSolarSavingsSection
         ? 'Your solar estimate at a glance'
@@ -114,6 +126,14 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         return /site\s+vi(?:sit|tit)\s+by/.test(sourceText);
     });
     const showPreSiteVisitReminder = isCommercialQuotation && !hasSiteVisitItem;
+    // Surface ALL action buttons in preview mode so reviewers can see them.
+    // In production these are gated by viewerHasAuthenticatedUser and
+    // linked_seda_registration; for the static design preview we force them on.
+    const previewForceAllActions = options.previewForceAllActions === true;
+    const effectiveViewerAuthenticated = previewForceAllActions ? true : viewerHasAuthenticatedUser;
+    const effectiveLinkedSeda = previewForceAllActions
+        ? (invoice.linked_seda_registration || 'preview-seda-321')
+        : invoice.linked_seda_registration;
 
     const subtotal = totalAmount
         - sstAmount
@@ -142,7 +162,6 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         const totalPrice = parseFloat(item.total_price) || 0;
         const unitPrice = qty > 0 ? totalPrice / qty : 0;
         const isNegative = totalPrice < 0;
-        const priceColor = isNegative ? 'color: red;' : '';
 
         const descText = item.description || '';
         const isDiscountOrVoucher = isNegative || 
@@ -159,7 +178,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
           <td class="col-desc" data-label="DESCRIPTION">${descText ? descText.replace(/\\n/g, '<br>') : ''}</td>
           <td class="col-price" data-label="PRICE">RM ${Math.abs(unitPrice).toFixed(2)}</td>
           <td class="col-qty" data-label="QUANTITY">${qty}</td>
-          <td class="col-amount" data-label="AMOUNT" style="${priceColor}">${isNegative ? '-' : ''}RM ${Math.abs(totalPrice).toFixed(2)}</td>
+          <td class="col-amount" data-label="AMOUNT">${isNegative ? '-' : ''}RM ${Math.abs(totalPrice).toFixed(2)}</td>
       </tr>
       `;
     });
@@ -178,68 +197,90 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Boxicons for icons -->
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-/* CSS copied from invoice-v2/style.css */
+/* === Eternalgy Design System v2 === */
 :root {
-    --primary-color: #555555;
-    --text-main: #333333;
-    --text-muted: #7a7a7a;
-    --bg-light: #fdfdfd;
-    --bg-alternate: #f4f5f5;
-    --border-color: #e5e5e5;
-    --font-family: 'Inter', sans-serif;
+    --gp: #16a34a;
+    --gl: #22c55e;
+    --gb: #dcfce7;
+    --gbd: #86efac;
+    --gd: #14532d;
+    --nb: #0d1f0f;
+    --dk: #1a2e1c;
+    --dkx: #091407;
+    --g50: #fafafa;
+    --g100: #f3f4f6;
+    --g200: #e5e7eb;
+    --g300: #d1d5db;
+    --g400: #9ca3af;
+    --g500: #6b7280;
+    --g700: #374151;
+    --g900: #111827;
+    --wb: #fffbeb;
+    --wbd: #fde68a;
+    --wt: #d97706;
+    --wdk: #92400e;
+    --eb: #fef2f2;
+    --ebd: #fecaca;
+    --et: #991b1b;
+    --ib: #eff6ff;
+    --it: #3b82f6;
+    --f: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --app-bg: #f1f5f1;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 }
 
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
-    font-family: var(--font-family);
-    color: var(--text-main);
-    background-color: #eceff1;
-    font-size: 14px;
+    font-family: var(--f);
+    color: var(--g900);
+    background: var(--g100);
+    font-size: 13px;
     line-height: 1.5;
-    padding: 40px 20px;
+    -webkit-font-smoothing: antialiased;
+    padding: 28px 16px;
     display: flex;
     justify-content: center;
     flex-direction: column;
     align-items: center;
-    -webkit-font-smoothing: antialiased;
 }
 
 body.a4-preview {
-    background: #e7ebef;
+    background: var(--g100);
     padding: 16px;
     height: auto;
 }
 
 body.a4-preview .pagedjs_page {
-    background-color: #ffffff;
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
-    margin: 0 auto 24px auto;
+    background-color: #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    margin: 0 auto 16px;
 }
 
 @page {
     size: A4;
-    margin: 15mm 20mm 20mm 20mm;
+    margin: 12mm 14mm;
 }
 
 .invoice-container {
-    background-color: #ffffff;
-    max-width: 820px;
+    background-color: #fff;
+    max-width: 760px;
     width: 100%;
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
     position: relative;
-    padding-bottom: 30px;
+    padding: 24px 24px 20px;
 }
 
 body.a4-preview .invoice-container {
@@ -247,201 +288,197 @@ body.a4-preview .invoice-container {
     max-width: 100%;
     box-shadow: none;
     padding-bottom: 0;
+    border-radius: 0;
     overflow: visible;
 }
 
 body.a4-preview .invoice-actions,
 body.a4-preview .promotional-banner,
-body.a4-preview .no-print {
-    display: none !important;
-}
+body.a4-preview .no-print { display: none !important; }
 
-body.a4-preview .floating-a4-preview {
-    display: none !important;
-}
+body.a4-preview .footer-bar { display: none !important; }
 
-body.a4-preview .footer-bottom-bar {
-    display: none !important;
-}
+body.a4-preview .invoice-footer { margin-bottom: 0; }
 
-body.a4-preview .invoice-footer {
-    margin-bottom: 0;
-}
-
-body.a4-preview .items-table thead {
-    display: table-header-group;
-}
+body.a4-preview .items-table thead { display: table-header-group; }
 
 body.a4-preview .items-table tr,
-body.a4-preview .billing-details,
-body.a4-preview .summary-section,
+body.a4-preview .billing-block,
+body.a4-preview .summary-block,
 body.a4-preview .terms-signature,
 body.a4-preview .invoice-footer,
-body.a4-preview .signature-image,
+body.a4-preview .solar-strip,
+body.a4-preview .warranties,
 body.a4-preview .promotional-banner,
-body.a4-preview .avoid-break,
-body.a4-preview .solar-estimate-section,
-body.a4-preview .solar-estimate-shell,
-body.a4-preview .solar-estimate-cards {
-    break-inside: avoid;
-    page-break-inside: avoid;
-}
+body.a4-preview .avoid-break { break-inside: avoid; page-break-inside: avoid; }
 
-body.a4-preview .terms-signature {
-    break-before: page;
-    page-break-before: always;
-}
+body.a4-preview .terms-signature { break-before: page; page-break-before: always; }
 
-/* Header Start */
+/* === Header === */
 .invoice-header {
     display: flex;
     justify-content: space-between;
-    align-items: stretch; /* Stretch to align the bottom of the black box with information on the right */
-    margin-bottom: 40px;
+    align-items: flex-end;
+    gap: 24px;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--line);
 }
 
-.company-logo {
+.brand-block {
     display: flex;
-    flex-direction: row;
     align-items: center;
-    justify-content: flex-start;
-    gap: 20px;
-    background-color: #000000; /* Force black background for the logo section */
-    color: #fff;
-    padding: 30px 40px;
-    width: 440px;
-    border-bottom-right-radius: 4px;
+    gap: 12px;
 }
 
-.company-info {
-    text-align: left;
-}
-
-.logo-box {
+.brand-block .logo-box {
     flex-shrink: 0;
 }
 
-.logo-box img {
-    max-height: 60px;
+.brand-block .logo-box img {
+    max-height: 36px;
+    max-width: 140px;
     object-fit: contain;
-    filter: brightness(0) invert(1);
+    filter: none;
 }
 
-.company-info h2 {
-    font-size: 14px;
+.brand-block .company-info {
+    text-align: left;
+}
+
+.brand-block .company-info h2 {
+    font-family: var(--font-body);
+    font-size: 13px;
     font-weight: 600;
-    margin-bottom: 4px;
-    letter-spacing: 0.5px;
+    color: var(--ink);
+    letter-spacing: 0.01em;
+    margin-bottom: 2px;
 }
 
-.company-info p {
-    font-size: 10px;
-    color: #dfdfdf;
+.brand-block .company-info p {
+    font-size: 11px;
+    color: var(--ink-muted);
+    line-height: 1.4;
     font-weight: 400;
 }
 
 .invoice-title {
-    padding: 40px 50px 30px 0; /* Consistent bottom padding to align with the black box */
+    padding: 0;
+    text-align: right;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    justify-content: flex-start;
+    gap: 4px;
 }
 
 .invoice-title h1 {
-    font-size: 40px;
-    letter-spacing: 6px;
-    color: var(--text-main);
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
     text-transform: uppercase;
+    line-height: 1;
+}
+
+.invoice-title .doc-num {
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-top: 6px;
+    font-weight: 500;
 }
 
 .invoice-actions {
     display: flex;
-    gap: 8px;
-    margin-top: 15px;
+    gap: 6px;
+    margin-top: 14px;
     flex-wrap: wrap;
     justify-content: flex-end;
 }
 
 .pre-site-visit-alert {
-    margin: 0 50px 30px;
-    padding: 24px 26px;
-    border: 3px solid #b91c1c;
-    background: linear-gradient(135deg, #fff7ed 0%, #fee2e2 100%);
-    box-shadow: 0 14px 30px rgba(185, 28, 28, 0.16);
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    border: 1px solid #dc2626;
+    border-left-width: 3px;
+    background: #fef2f2;
 }
 
 .pre-site-visit-alert-label {
-    display: inline-flex;
-    align-items: center;
-    margin-bottom: 12px;
-    padding: 6px 10px;
-    background: #7f1d1d;
-    color: #fff;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
+    color: #dc2626;
+    margin-bottom: 6px;
 }
 
 .pre-site-visit-alert h2 {
-    margin: 0 0 10px;
+    margin: 0 0 4px;
     color: #7f1d1d;
-    font-size: 28px;
-    line-height: 1.05;
-    font-weight: 800;
-    text-transform: uppercase;
+    font-family: var(--font-display);
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 500;
+    text-transform: none;
 }
 
 .pre-site-visit-alert p {
     margin: 0;
     color: #7f1d1d;
-    font-size: 15px;
-    line-height: 1.6;
-    font-weight: 600;
+    font-size: 12px;
+    line-height: 1.5;
+    font-weight: 400;
 }
 
 .action-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    font-size: 11px;
-    font-weight: 600;
+    gap: 4px;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-radius: 4px;
-    transition: all 0.2s;
+    letter-spacing: 0.1em;
+    border-radius: 2px;
+    transition: all 0.15s;
     cursor: pointer;
     background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: var(--font-body);
 }
 
-.btn-referral { color: #10b981; border: 1px solid #10b981; }
-.btn-referral:hover { background: #10b981; color: #fff; }
+.action-btn:hover { background: var(--ink); color: var(--card); border-color: var(--ink); }
+
+.btn-referral { color: var(--accent); border-color: var(--accent); }
+.btn-referral:hover { background: var(--accent); color: var(--card); border-color: var(--accent); }
 
 .btn-share {
-    color: #ffffff;
-    background: #0f2f6d;
-    border: 1px solid #0f2f6d;
+    color: var(--card);
+    background: var(--ink);
+    border: 1px solid var(--ink);
 }
 .btn-share:hover {
-    background: #0a2350;
-    border-color: #0a2350;
+    background: #333;
+    border-color: #333;
     color: #ffffff;
 }
 
-.btn-proposal { color: #2563eb; border: 1px solid #2563eb; }
-.btn-proposal:hover { background: #2563eb; color: #fff; }
+.btn-proposal { color: #1d4ed8; border-color: #1d4ed8; }
+.btn-proposal:hover { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
 
-.btn-seda { color: #f97316; border: 1px solid #f97316; }
-.btn-seda:hover { background: #f97316; color: #fff; }
+.btn-seda { color: #c2410c; border-color: #c2410c; }
+.btn-seda:hover { background: #c2410c; color: #fff; border-color: #c2410c; }
 
-.btn-pdf { color: #334155; border: 1px solid #334155; }
-.btn-pdf:hover { background: #334155; color: #fff; }
+.btn-pdf { color: var(--ink-muted); border-color: var(--ink-muted); }
+.btn-pdf:hover { background: var(--ink-muted); color: var(--card); border-color: var(--ink-muted); }
 
-.btn-preview { color: #0f172a; border: 1px solid #0f172a; }
-.btn-preview:hover { background: #0f172a; color: #fff; }
+.btn-preview { color: var(--ink); border-color: var(--ink); }
+.btn-preview:hover { background: var(--ink); color: var(--card); }
 
 .floating-a4-preview {
     position: fixed;
@@ -472,63 +509,175 @@ body.a4-preview .terms-signature {
     box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
 }
 
-/* Billing Details */
-.billing-details {
-    display: flex;
-    justify-content: space-between;
-    padding: 0 50px;
-    margin-bottom: 30px;
+/* === Billing === */
+.billing-block {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 32px;
+    margin-bottom: 24px;
 }
 
-.label {
+.eyebrow {
     display: block;
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--ink-muted);
     margin-bottom: 6px;
     text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.16em;
 }
 
-.invoice-to h3 {
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 4px;
-    color: #222;
+.party-name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 2px;
+    color: var(--ink);
+    line-height: 1.3;
 }
 
-.invoice-to p {
-    font-size: 13px;
-    color: var(--text-muted);
+.party-detail {
+    font-size: 12px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+    white-space: pre-line;
 }
+
+.meta-list { display: flex; flex-direction: column; gap: 4px; }
 
 .meta-row {
     display: flex;
-    margin-bottom: 4px;
-    font-size: 13px;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 2px 0;
+    gap: 12px;
 }
 
 .meta-row .meta-label {
-    width: 120px;
-    color: var(--text-muted);
+    width: auto;
+    color: var(--ink-muted);
 }
 
 .meta-row .meta-value {
-    color: var(--text-main);
+    color: var(--ink);
     font-weight: 500;
+    text-align: right;
 }
 
-.divider {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 0 50px 30px 50px;
+/* === Solar savings strip === */
+.solar-strip {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    background: var(--card);
 }
 
-/* Items Table */
-.items-table-wrapper {
-    padding: 0 50px;
-    margin-bottom: 40px;
+.solar-strip-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+    gap: 12px;
+    flex-wrap: wrap;
 }
+
+.solar-strip-title {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+}
+
+.solar-strip-recalc {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-family: var(--font-body);
+}
+
+.solar-strip-recalc:hover { color: var(--accent); }
+
+.solar-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.solar-stat-label {
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.solar-stat-value {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+}
+
+.solar-stat.is-saving .solar-stat-value { color: var(--accent); }
+
+.solar-mode-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.solar-mode-pill {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font-body);
+}
+
+.solar-mode-pill:hover { border-color: var(--ink); }
+.solar-mode-pill.is-active { background: var(--ink); color: var(--card); border-color: var(--ink); }
+
+.solar-status {
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-top: 8px;
+    line-height: 1.5;
+    min-height: 0;
+}
+
+.solar-status:empty { display: none; }
+
+.solar-note {
+    font-size: 10px;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    line-height: 1.5;
+}
+
+/* === Items table === */
+.items-block { margin-bottom: 24px; }
 
 .items-table {
     width: 100%;
@@ -536,261 +685,423 @@ body.a4-preview .terms-signature {
 }
 
 .items-table th {
-    background-color: var(--primary-color);
-    color: #fff;
     text-align: left;
-    padding: 14px 15px;
-    font-size: 11px;
+    padding: 8px 10px;
+    font-size: 9px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.14em;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--ink);
 }
+
+.items-table th.col-no, .items-table th.col-qty { text-align: center; }
+.items-table th.col-amount, .items-table th.col-price { text-align: right; }
 
 .items-table td {
-    padding: 16px 15px;
-    font-size: 13px;
-    border-bottom: 1px solid rgba(0,0,0,0.02);
+    padding: 10px 10px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
 }
 
-.alternate-row {
-    background-color: var(--bg-alternate);
+.items-table td.col-desc {
+    color: var(--ink);
+    font-weight: 500;
+    font-variant-numeric: normal;
 }
 
-.items-table .col-no, .items-table .col-qty {
-    text-align: center;
-}
+.items-table td.col-no, .items-table td.col-qty { text-align: center; }
+.items-table td.col-amount, .items-table td.col-price { text-align: right; }
 
-.items-table th.col-no, .items-table th.col-qty {
-    text-align: center;
-}
+.items-table tr.discount-row td { color: var(--ink-muted); }
+.items-table tr.discount-row td.col-desc { color: var(--ink); font-weight: 500; }
 
-.items-table .col-amount, .items-table .col-price {
-    text-align: right;
-}
-
-.items-table th.col-amount, .items-table th.col-price {
-    text-align: right;
-}
-
-.items-table .col-desc {
+/* === Warranties === */
+.warranties { margin-bottom: 24px; }
+.warranties-head {
+    font-size: 9px;
     font-weight: 600;
-    color: #222;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-muted);
+    padding: 8px 0;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--line);
+}
+.warranty-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+}
+.warranty-name { font-weight: 600; color: var(--ink); }
+.warranty-terms { color: var(--ink-muted); line-height: 1.5; white-space: pre-line; }
+
+/* === Summary === */
+.summary-block {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    padding-top: 20px;
+    margin-bottom: 24px;
+    border-top: 1px solid var(--line);
 }
 
-/* Summary Section */
-.summary-section {
+.total-due {
     display: flex;
-    justify-content: space-between;
-    padding: 0 50px;
-    margin-bottom: 50px;
-}
-
-.summary-left {
-    padding-top: 25px;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 0;
 }
 
 .total-due-label {
-    font-size: 14px;
+    font-size: 9px;
     font-weight: 600;
-    color: #222;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-muted);
 }
 
 .total-due-amount {
-    font-size: 26px;
-    font-weight: 700;
-    margin: 8px 0;
-    color: #111;
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
 }
 
-.total-due-line {
-    height: 3px;
-    width: 200px;
-    background-color: #444;
-    margin-bottom: 10px;
-}
-
-.late-charge {
+.total-due-status {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--ink-muted);
+    text-transform: capitalize;
 }
 
-.summary-right {
-    width: 320px;
-}
+.summary-right { width: auto; display: flex; flex-direction: column; }
 
 .summary-row {
     display: flex;
     justify-content: space-between;
-    padding: 12px 15px;
-    font-size: 14px;
+    padding: 6px 0;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
 }
 
-.summary-label {
-    color: var(--text-main);
+.summary-row.is-discount .summary-label,
+.summary-row.is-discount .summary-value { color: var(--ink-muted); }
+
+.summary-row.is-total {
+    padding: 10px 0;
+    border-top: 1px solid var(--ink);
+    margin-top: 6px;
+    align-items: baseline;
+}
+
+.summary-row.is-total .summary-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-muted);
+}
+
+.summary-row.is-total .summary-value {
+    font-family: var(--font-display);
+    font-size: 20px;
     font-weight: 500;
+    color: var(--ink);
 }
 
-.summary-value {
-    font-weight: 600;
-}
-
-.summary-divider {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 0 15px;
-}
-
-.total-row {
-    background-color: var(--primary-color);
-    color: #fff;
-    margin-top: 10px;
-    padding: 14px 15px;
-    font-weight: 700;
-    font-size: 16px;
-    border-radius: 2px;
-}
-
-.total-row .summary-label {
-    color: #fff;
-    font-weight: 600;
-}
-
-.payment-method {
-    margin-top: 14px;
-    border: 1.5px solid #334155;
-    border-radius: 16px;
-    padding: 18px 15px;
-    background: transparent;
-    box-shadow: none;
-}
-
-.payment-method .label {
-    color: var(--text-main);
-    margin-bottom: 12px;
-}
-
-.payment-method .meta-row {
-    margin-bottom: 8px;
-}
-
-.payment-method .meta-label,
-.payment-method .meta-value {
-    color: var(--text-main);
-}
-
-.payment-method .meta-value {
-    font-weight: 700;
-}
-
-.payment-method .payment-ref-row {
-    margin-top: 10px;
-    margin-bottom: 0;
+.payment-info {
+    margin-top: 16px;
     padding-top: 12px;
-    border-top: 1px solid rgba(51, 65, 85, 0.25);
+    border-top: 1px solid var(--line);
 }
 
-/* Terms & Signature */
+.payment-info .eyebrow { margin-bottom: 8px; }
+.payment-info .meta-row { padding: 2px 0; }
+
+/* === Terms & signature === */
 .terms-signature {
-    display: flex;
-    flex-direction: column;
-    padding: 0 50px;
-    margin-bottom: 60px;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 32px;
+    padding: 24px 0 20px;
+    border-top: 1px solid var(--line);
+    margin-bottom: 20px;
 }
 
-.terms {
-    max-width: 100%;
-    margin-bottom: 40px;
-}
+.terms { max-width: 100%; margin-bottom: 0; }
 
 .terms h3 {
-    font-size: 14px;
+    font-size: 10px;
     font-weight: 600;
-    margin-bottom: 12px;
-    color: #222;
+    margin-bottom: 8px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
 }
 
 .terms p {
-    font-size: 12px;
-    color: var(--text-muted);
-    line-height: 1.6;
+    font-size: 9px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    white-space: normal;
+}
+
+.terms .created-by {
+    font-size: 9px;
+    color: var(--ink-soft);
+    margin-top: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
 }
 
 .signature {
-    align-self: flex-end;
     text-align: center;
-    width: 200px;
+    width: auto;
+    align-self: flex-start;
 }
 
 .signature-image {
-    height: 120px;
+    height: 70px;
     overflow: hidden;
-    margin-bottom: 15px;
+    margin-bottom: 6px;
     display: flex;
     justify-content: center;
     align-items: center;
+    position: relative;
 }
 
 .signature-image img {
-    margin: -20px;
-    width: 280px;
-    max-width: none;
+    margin: 0;
+    width: auto;
+    max-width: 200px;
+    max-height: 100px;
     object-fit: contain;
 }
 
 .signature h4 {
-    font-size: 15px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 2px;
+    color: var(--ink);
+}
+
+.signature .signed-on {
+    font-size: 9px;
+    color: var(--ink-soft);
+}
+
+.signature .sign-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: var(--ink);
+    color: var(--card);
+    border: 0;
+    font-size: 11px;
     font-weight: 600;
-    margin-bottom: 4px;
-    color: #222;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    cursor: pointer;
+    font-family: var(--font-body);
+    transition: background 0.15s;
 }
 
-.signature p {
-    font-size: 12px;
-    color: var(--text-muted);
+.signature .sign-btn:hover { background: var(--accent); }
+
+.signature .re-sign {
+    font-size: 9px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 6px;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: 0;
+    font-family: var(--font-body);
 }
 
-/* Footer Section */
+.signature .re-sign:hover { color: var(--ink); }
+
+/* === Footer === */
 .invoice-footer {
     display: flex;
     justify-content: space-between;
-    padding: 25px 0;
-    border-top: 1px solid var(--border-color);
-    margin: 0 50px; 
+    padding: 16px 0 0;
+    border-top: 1px solid var(--line);
+    margin: 0;
+    gap: 16px;
+    font-size: 10px;
+    color: var(--ink-muted);
+    align-items: flex-start;
 }
 
-.footer-col {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
+.footer-col { display: flex; align-items: center; gap: 8px; }
 
 .icon-circle {
     display: flex;
     justify-content: center;
     align-items: center;
-    color: var(--text-main);
+    color: var(--ink-muted);
+    font-size: 14px;
+    line-height: 1;
 }
 
-.icon-circle i {
-    font-size: 22px;
+.footer-text p { font-size: 10px; color: var(--ink-muted); line-height: 1.4; }
+
+.thank-you {
+    font-size: 9px;
+    text-align: center;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    margin-top: 16px;
+    font-weight: 500;
 }
 
-.footer-text p {
-    font-size: 11px;
-    color: var(--text-muted);
-    line-height: 1.5;
+.footer-bar { display: none; }
+
+/* === Certifications footer · minimal mono · business premium === */
+.certifications {
+    background: #fff;
+    border: 1px solid var(--g200);
+    border-radius: 6px;
+    padding: 10px 12px 10px;
+    margin-top: 6px;
+    break-inside: avoid;
+    page-break-inside: avoid;
 }
 
-.footer-bottom-bar {
-    height: 48px;
-    background-color: var(--primary-color);
-    width: 100%;
-    position: absolute;
-    bottom: 0;
-    left: 0;
+.cert-head {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--g100);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
-/* Print optimizations */
+.cert-headline {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--g900);
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+}
+
+.cert-subline {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 400;
+    color: var(--g400);
+    line-height: 1.3;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.cert-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.cert-card {
+    padding: 6px 8px;
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 7px;
+    align-items: start;
+    border-bottom: 1px solid var(--g100);
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.cert-card:nth-child(odd) { border-right: 1px solid var(--g100); }
+.cert-card:nth-child(1),
+.cert-card:nth-child(2) { padding-top: 2px; }
+.cert-card:nth-child(3),
+.cert-card:nth-child(4) { padding-bottom: 2px; border-bottom: none; }
+
+.cert-logo {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.cert-logo img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.cert-name {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--g900);
+    line-height: 1.3;
+    margin-bottom: 2px;
+}
+
+.cert-meta {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-weight: 400;
+    color: var(--g500);
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+/* === Promotional banner (Tiger Neo 3) === */
+.promotional-banner {
+    display: block;
+    padding: 0;
+    margin-bottom: 20px;
+    cursor: pointer;
+}
+
+.promotional-banner .banner-frame {
+    border-radius: 2px;
+    overflow: hidden;
+    transition: transform 0.2s;
+}
+
+.promotional-banner:hover .banner-frame { transform: translateY(-1px); }
+
+.promotional-banner img { width: 100%; display: block; object-fit: cover; }
+
+.promotional-banner .banner-caption {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--ink);
+    color: var(--card);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transition: background 0.2s;
+}
+
+.promotional-banner:hover .banner-caption { background: var(--accent); }
+
+/* === Print === */
 @media print {
     @page {
         size: A4;
@@ -803,6 +1114,7 @@ body.a4-preview .terms-signature {
         margin: 0;
         box-shadow: none;
         max-width: 100%;
+        border: 0;
     }
     .no-print { display: none !important; }
     .promotional-banner { display: none !important; }
@@ -810,379 +1122,152 @@ body.a4-preview .terms-signature {
     .items-table tr { break-inside: avoid; page-break-inside: avoid; }
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 768px) {
+/* === Mobile (≤720px) === */
+@media (max-width: 720px) {
     body {
         padding: 0;
-        background-color: #ffffff; 
+        background-color: var(--card);
     }
 
     .invoice-container {
-        box-shadow: none;
-        border-radius: 0;
-        padding-bottom: 70px;
+        border: 0;
+        padding: 20px 16px 16px;
     }
 
     .invoice-header {
         flex-direction: column;
-        align-items: center;
-        text-align: center;
-        margin-bottom: 30px;
+        align-items: flex-start;
+        gap: 16px;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
     }
 
-    .company-logo {
-        flex-direction: column;
-        justify-content: center;
-        text-align: center;
-        width: 100%;
-        border-bottom-right-radius: 0;
-        padding: 25px;
-        gap: 15px;
-    }
+    .brand-block { gap: 10px; }
+    .brand-block .logo-box img { max-height: 30px; }
 
-    .company-info {
-        text-align: center;
-    }
-
-    .logo-box {
-        overflow: visible;
-    }
-
-    .logo-box img {
-        max-height: 120px;
-        margin: -20px 0;
-    }
-
-    .invoice-title {
-        padding: 25px 0 0 0;
-        align-items: center;
-    }
-
-    .invoice-title h1 {
-        font-size: 32px;
-        letter-spacing: 4px;
-    }
+    .invoice-title { text-align: left; align-items: flex-start; }
+    .invoice-title h1 { font-size: 24px; }
 
     .invoice-actions {
-        justify-content: center;
-        margin-top: 15px;
-        gap: 10px;
+        justify-content: flex-start;
+        margin-top: 8px;
+        gap: 6px;
     }
 
     .pre-site-visit-alert {
-        margin: 0 20px 24px;
-        padding: 18px 18px 20px;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+    }
+    .pre-site-visit-alert h2 { font-size: 16px; }
+    .pre-site-visit-alert p { font-size: 11px; }
+
+    .billing-block,
+    .summary-block,
+    .terms-signature {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
     }
 
-    .pre-site-visit-alert-label {
-        font-size: 10px;
-        letter-spacing: 0.08em;
-    }
+    .summary-block { padding-top: 16px; }
+    .summary-right { width: 100%; }
 
-    .pre-site-visit-alert h2 {
-        font-size: 22px;
+    /* Solar strip -> row layout on mobile */
+    .solar-stats {
+        grid-template-columns: 1fr;
+        gap: 0;
     }
-
-    .pre-site-visit-alert p {
-        font-size: 14px;
-        line-height: 1.55;
-    }
-
-    .billing-details {
-        flex-direction: column;
-        gap: 30px;
-        padding: 0 20px;
-    }
-
-    .meta-row {
+    .solar-stat {
+        display: flex;
         justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--line);
     }
+    .solar-stat:last-child { border-bottom: 0; }
+    .solar-stat-label { margin-bottom: 0; }
+    .solar-stat-value { font-size: 18px; }
+    .solar-strip { padding: 12px 14px; margin-bottom: 16px; }
 
-    .meta-row .meta-label {
-        width: auto;
-    }
-
-    .divider {
-        margin: 0 20px 30px 20px;
-    }
-
-    .items-table-wrapper {
-        padding: 0 20px;
-        margin-bottom: 30px;
-    }
-
-    /* Transform Table to Cards for Mobile */
-    .items-table thead {
-        display: none; 
-    }
-
-    .items-table, .items-table tbody, .items-table tr, .items-table td {
-        display: block;
-        width: 100%;
-    }
-
-    .items-table tr {
-        margin-bottom: 15px;
-        padding: 8px 15px;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        background-color: #fff;
-    }
-
-    .items-table .alternate-row {
-        background-color: var(--bg-alternate); 
-    }
-
+    /* Items table -> card layout */
+    .items-block { margin-bottom: 16px; }
+    .items-table thead { display: none; }
+    .items-table, .items-table tbody, .items-table tr, .items-table td { display: block; width: 100%; }
+    .items-table tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
     .items-table td {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        padding: 10px 0;
-        text-align: right;
-        border-bottom: 1px solid var(--border-color);
+        align-items: baseline;
+        padding: 4px 0;
+        border: 0;
+        gap: 12px;
     }
-    
-    .items-table td:last-child {
-        border-bottom: none;
-    }
-
-    .items-table td::before { 
+    .items-table td::before {
         content: attr(data-label);
+        font-size: 9px;
         font-weight: 600;
         text-transform: uppercase;
-        color: var(--text-muted);
-        font-size: 11px;
+        letter-spacing: 0.12em;
+        color: var(--ink-muted);
+        flex-shrink: 0;
     }
-
-    .items-table .col-no, .items-table .col-qty, .items-table .col-amount, .items-table .col-price {
-        text-align: right;
-    }
-    
-    .items-table .col-desc {
-        text-align: right;
-    }
+    .items-table td.col-desc { text-align: right; }
 
     .items-table tr.discount-row {
         display: flex !important;
         flex-direction: row !important;
         justify-content: space-between !important;
-        align-items: center !important;
-        padding: 12px 15px !important;
+        align-items: baseline !important;
+        padding: 8px 0 !important;
+        gap: 12px;
     }
-
-    .items-table tr.discount-row .col-no,
-    .items-table tr.discount-row .col-price,
-    .items-table tr.discount-row .col-qty {
-        display: none !important;
-    }
-
     .items-table tr.discount-row td {
         display: block !important;
         width: auto !important;
         padding: 0 !important;
         border-bottom: none !important;
     }
-
-    .items-table tr.discount-row td::before {
-        content: none !important;
-    }
-
-    .items-table tr.discount-row .col-desc {
+    .items-table tr.discount-row td::before { content: none !important; }
+    .items-table tr.discount-row td.col-no,
+    .items-table tr.discount-row td.col-price,
+    .items-table tr.discount-row td.col-qty { display: none !important; }
+    .items-table tr.discount-row td.col-desc {
         text-align: left !important;
-        font-weight: 600 !important;
-        color: #222 !important;
-        flex: 1 !important;
-        margin-right: 15px !important;
+        font-weight: 500 !important;
+        color: var(--ink) !important;
+        flex: 1;
     }
-
-    .items-table tr.discount-row .col-amount {
+    .items-table tr.discount-row td.col-amount {
         text-align: right !important;
-        font-weight: 600 !important;
-        white-space: nowrap !important;
+        font-weight: 500 !important;
+        white-space: nowrap;
     }
 
-    .summary-section {
-        flex-direction: column;
-        padding: 0 20px;
-        gap: 30px;
-    }
-
-    .summary-right {
-        width: 100%;
-    }
+    .warranty-row { grid-template-columns: 1fr; gap: 4px; }
 
     .terms-signature {
-        flex-direction: column;
-        padding: 0 20px;
-        gap: 40px;
-        align-items: flex-start;
-        margin-bottom: 40px;
+        padding: 16px 0;
+        margin-bottom: 16px;
     }
 
-    .terms {
-        max-width: 100%;
-    }
-
-    .signature {
-        align-self: center;
-        margin-top: 10px;
-    }
+    .signature { align-self: stretch; }
 
     .invoice-footer {
         flex-direction: column;
-        gap: 25px;
-        padding: 25px 0;
-        margin: 0 20px;
-        align-items: flex-start;
+        gap: 8px;
+        padding: 12px 0 0;
     }
-    
-    .footer-col {
-        width: 100%;
-    }
+    .footer-col { width: 100%; }
 
-    .promotional-banner {
-        padding: 0 20px !important;
-        margin-bottom: 30px !important;
-    }
+    .certifications { margin-top: 16px; padding: 12px 14px 10px; }
+    .cert-grid { grid-template-columns: 1fr; }
+    .cert-card { padding: 6px 8px; }
+    .cert-card:nth-child(odd) { border-right: none; }
+    .cert-card { border-bottom: 1px solid var(--g100); }
+    .cert-card:last-child { border-bottom: none; }
 
-    .solar-estimate-section {
-        padding: 0 12px !important;
-        margin-bottom: 24px !important;
-    }
-
-    .solar-estimate-shell {
-        padding: 14px !important;
-        border-radius: 12px !important;
-    }
-
-    .solar-estimate-header {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 12px !important;
-        margin-bottom: 14px !important;
-    }
-
-    .solar-estimate-title {
-        font-size: 16px !important;
-        line-height: 1.3 !important;
-    }
-
-    .solar-estimate-helper {
-        font-size: 11px !important;
-        line-height: 1.5 !important;
-    }
-
-    .solar-estimate-header-actions {
-        align-items: stretch !important;
-        gap: 8px !important;
-    }
-
-    .solar-estimate-badge,
-    .solar-estimate-recalculate {
-        align-self: flex-start !important;
-    }
-
-    .solar-estimate-badge {
-        font-size: 9px !important;
-        padding: 5px 10px !important;
-    }
-
-    .solar-estimate-recalculate {
-        font-size: 10px !important;
-        padding: 9px 12px !important;
-    }
-
-    .solar-estimate-status,
-    .solar-estimate-save-hint {
-        font-size: 11px !important;
-        line-height: 1.5 !important;
-    }
-
-    .solar-estimate-cards {
-        grid-template-columns: 1fr !important;
-        gap: 10px !important;
-    }
-
-    .solar-estimate-card {
-        min-height: 112px !important;
-        padding: 14px !important;
-    }
-
-    .solar-estimate-card-label-wrap {
-        min-height: 34px !important;
-        margin-bottom: 10px !important;
-    }
-
-    .solar-estimate-card-label {
-        font-size: 9px !important;
-        line-height: 1.35 !important;
-        letter-spacing: 0.08em !important;
-    }
-
-    .solar-estimate-card-value {
-        font-size: 22px !important;
-    }
-
-    .solar-calc-panel {
-        margin-top: 14px !important;
-        padding: 12px !important;
-        border-radius: 12px !important;
-    }
-
-    .solar-calc-header {
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 10px !important;
-        margin-bottom: 12px !important;
-    }
-
-    .solar-calc-title {
-        font-size: 12px !important;
-    }
-
-    .solar-calc-button-row {
-        gap: 6px !important;
-    }
-
-    .solar-calc-button,
-    .solar-calc-save-button {
-        font-size: 9px !important;
-        padding: 9px 10px !important;
-        flex: 1 1 auto !important;
-        justify-content: center !important;
-    }
-
-    .solar-calc-summary {
-        font-size: 11px !important;
-        margin-bottom: 10px !important;
-    }
-
-    .solar-calc-legend {
-        gap: 10px !important;
-        margin-bottom: 10px !important;
-        font-size: 10px !important;
-    }
-
-    .solar-calc-chart-box {
-        padding: 10px !important;
-        border-radius: 12px !important;
-    }
-
-    .solar-calc-chart-note {
-        font-size: 10px !important;
-        line-height: 1.45 !important;
-        margin-top: 8px !important;
-    }
-
-    .solar-note-box {
-        margin-top: 12px !important;
-        padding: 10px 12px !important;
-    }
-
-    .solar-note-text {
-        font-size: 10px !important;
-        line-height: 1.55 !important;
-    }
+    .promotional-banner { margin-bottom: 16px; }
 }
     </style>
 </head>
@@ -1225,7 +1310,7 @@ body.a4-preview .terms-signature {
     <div class="invoice-container">
         <!-- Header -->
         <header class="invoice-header">
-            <div class="company-logo">
+            <div class="brand-block">
                 <div class="logo-box">
                     <!-- Dynamic Logo -->
                     <img src="${logoUrl}" alt="Logo">
@@ -1239,7 +1324,7 @@ body.a4-preview .terms-signature {
                 <h1>${titleLabel}</h1>
                 ${showInteractiveControls ? `
                 <div class="invoice-actions no-print">
-                  ${(invoice.share_token || invoice.bubble_id) && viewerHasAuthenticatedUser ? `
+                  ${(invoice.share_token || invoice.bubble_id) && effectiveViewerAuthenticated ? `
                   <button onclick='quickShareInvoice(${JSON.stringify(invoice.share_token || invoice.bubble_id)}, ${JSON.stringify(invoice.invoice_number || '')}, ${JSON.stringify(titleLabel)})' class="action-btn btn-share">
                     <span>Share</span>
                   </button>
@@ -1249,8 +1334,8 @@ body.a4-preview .terms-signature {
                     <span>Refer Program</span>
                   </button>
                   ` : ''}
-                  ${!isEvCharger && invoice.linked_seda_registration ? `
-                  <button onclick="window.open('/seda-register?id=${invoice.linked_seda_registration}', '_blank')" class="action-btn btn-seda">
+                  ${!isEvCharger && effectiveLinkedSeda ? `
+                  <button onclick="window.open('/seda-register?id=${effectiveLinkedSeda}', '_blank')" class="action-btn btn-seda">
                     <span>SEDA Form</span>
                   </button>
                   ` : ''}
@@ -1287,182 +1372,88 @@ body.a4-preview .terms-signature {
         </section>
         ` : ''}
 
-        <!-- Billing details 1 -->
-        <section class="billing-details">
-            <div class="invoice-to">
-                <span class="label">INVOICE TO</span>
-                <h3>${invoice.customer_name || 'Valued Customer'}</h3>
-                <p style="white-space: pre-line;">${invoice.customer_address || ''}</p>
+        <!-- Billing block -->
+        <section class="billing-block">
+            <div>
+                <span class="eyebrow">Invoice To</span>
+                <div class="party-name">${invoice.customer_name || 'Valued Customer'}</div>
+                <div class="party-detail">${invoice.customer_address || ''}</div>
             </div>
-            <div class="invoice-meta">
+            <div class="meta-list">
                 <div class="meta-row">
                     <span class="meta-label">Invoice No</span>
-                    <span class="meta-value">: ${invoice.invoice_number}</span>
+                    <span class="meta-value">${invoice.invoice_number}</span>
                 </div>
                 <div class="meta-row">
                     <span class="meta-label">${titleLabel} Date</span>
-                    <span class="meta-value">: <span class="local-time" data-iso="${(() => { try { return new Date(invoice.invoice_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="true">${invoice.invoice_date || '-'}</span></span>
+                    <span class="meta-value"><span class="local-time" data-iso="${(() => { try { return new Date(invoice.invoice_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="true">${invoice.invoice_date || '-'}</span></span>
                 </div>
                 ${invoice.due_date ? `
                 <div class="meta-row">
                     <span class="meta-label">Due Date</span>
-                    <span class="meta-value">: <span class="local-time" data-iso="${(() => { try { return new Date(invoice.due_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="true">${invoice.due_date}</span></span>
+                    <span class="meta-value"><span class="local-time" data-iso="${(() => { try { return new Date(invoice.due_date).toISOString(); } catch (e) { return ''; } })()}" data-show-time="true">${invoice.due_date}</span></span>
+                </div>` : ''}
+                ${invoice.customer_phone ? `
+                <div class="meta-row">
+                    <span class="meta-label">Phone</span>
+                    <span class="meta-value">${invoice.customer_phone}</span>
+                </div>` : ''}
+                ${invoice.customer_email ? `
+                <div class="meta-row">
+                    <span class="meta-label">Email</span>
+                    <span class="meta-value">${invoice.customer_email}</span>
                 </div>` : ''}
             </div>
         </section>
 
-        <!-- Divider -->
-        <hr class="divider">
-
-        <!-- Billing details 2 -->
-        <section class="billing-details secondary-details">
-            <div class="contact-person">
-                <span class="label">Contact Person</span>
-                <div class="meta-row">
-                    <span class="meta-label">Phone</span>
-                    <span class="meta-value">: ${invoice.customer_phone || '-'}</span>
-                </div>
-                <div class="meta-row">
-                    <span class="meta-label">E-mail</span>
-                    <span class="meta-value">: ${invoice.customer_email || '-'}</span>
-                </div>
-            </div>
-        </section>
-
         ${showSolarSavingsSection ? `
-        <section class="solar-estimate-section avoid-break" style="padding: 0 50px; margin-bottom: 32px;">
-            <div class="solar-estimate-shell" style="border: 1px solid #b7e4c7; border-radius: 14px; background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 52%, #f8fafc 100%); padding: 22px; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);">
-                <div class="solar-estimate-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px;">
-                    <div>
-                        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #047857; margin-bottom: 6px;">Estimated Solar Saving</div>
-                        <div class="solar-estimate-title" style="font-size: 20px; font-weight: 700; color: #0f172a;">${solarSavingsSectionIntro}</div>
-                        <div class="solar-estimate-helper" style="margin-top: 6px; font-size: 12px; line-height: 1.6; color: #475569;">${solarSavingsHelperText}</div>
-                    </div>
-                    <div class="solar-estimate-header-actions" style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
-                        <div class="solar-estimate-badge" style="padding: 6px 12px; border-radius: 999px; background: #dcfce7; color: #047857; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-                            ${solarSavingsSectionBadge}
-                        </div>
-                        ${showInteractiveControls && canEstimateSolarSavings ? `
-                        <button type="button" id="solarRecalculateBtn" class="solar-estimate-recalculate" onclick="openSolarEstimatePrompt()" style="border: 1px solid #0f172a; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 16px; cursor: pointer; white-space: nowrap;">
-                            Recalculate
-                        </button>
-                        ` : ''}
-                    </div>
-                </div>
-                <div id="solarEstimateStatus" class="solar-estimate-status" style="margin-bottom: 14px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; padding: 12px 14px; font-size: 12px; line-height: 1.6; color: #1d4ed8;">
-                    ${hasSolarSavingsSection
-                        ? 'This quotation already has a saved solar estimate. Use the day-usage buttons below to compare scenarios.'
-                        : 'No saved estimate yet. Use Recalculate to preview this package against your average TNB bill.'}
-                </div>
-                <div class="solar-bill-cycle-row" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px;">
-                    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569;">Bill Cycle Mode</div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        <button type="button" id="solarBillCycleBtn_fullMonth" onclick="setSolarBillCycleMode('fullMonth')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
-                            Full Month Bill Cycle
-                        </button>
-                        <button type="button" id="solarBillCycleBtn_under28Days" onclick="setSolarBillCycleMode('under28Days')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
-                            &lt;28 Days Bill Cycle
-                        </button>
-                    </div>
-                </div>
-                <div id="solarMatchedBillHint" class="solar-estimate-save-hint" style="display: none; margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
-                <div id="solarBillCycleHint" class="solar-estimate-save-hint" style="display: none; margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
-                <div class="solar-estimate-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
-                    <div class="solar-estimate-card" style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
-                        <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
-                            <div class="solar-estimate-card-label" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">Your Average TNB Bill<br>Before Solar</div>
-                        </div>
-                        <div id="solarEstimateBeforeValue" class="solar-estimate-card-value" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${beforeSolarBill !== null ? `RM ${beforeSolarBill.toFixed(2)}` : 'RM --'}</div>
-                    </div>
-                    <div class="solar-estimate-card" style="border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
-                        <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
-                            <div class="solar-estimate-card-label" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; line-height: 1.5;">New Bill After Solar<br>After Export Earning</div>
-                        </div>
-                        <div id="solarEstimateAfterValue" class="solar-estimate-card-value" style="font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: auto;">${afterSolarBill !== null ? `RM ${afterSolarBill.toFixed(2)}` : 'RM --'}</div>
-                    </div>
-                    <div class="solar-estimate-card" style="border: 1px solid #059669; border-radius: 12px; background: #059669; padding: 16px; min-height: 148px; display: flex; flex-direction: column;">
-                        <div class="solar-estimate-card-label-wrap" style="min-height: 48px; margin-bottom: 12px; display: flex; align-items: flex-start;">
-                            <div class="solar-estimate-card-label" style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #d1fae5; line-height: 1.5;">Your Estimated Monthly Total Saving</div>
-                        </div>
-                        <div id="solarEstimateSavingValue" class="solar-estimate-card-value" style="font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.1; margin-top: auto;">${estimatedMonthlySaving !== null ? `RM ${estimatedMonthlySaving.toFixed(2)}` : 'RM --'}</div>
-                    </div>
-                </div>
+        <section class="solar-strip avoid-break">
+            <div class="solar-strip-head">
+                <span class="solar-strip-title">${solarSavingsSectionBadge} · ${solarSavingsSectionIntro}</span>
                 ${showInteractiveControls && canEstimateSolarSavings ? `
-                <div class="solar-calc-panel" style="margin-top: 18px; border: 1px solid #dbeafe; border-radius: 14px; background: #f8fbff; padding: 16px;">
-                    <div class="solar-calc-params" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px;">
-                        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569;">
-                            <span>Sun Peak Hour</span>
-                            <input type="number" id="solarSunPeakHourInput" min="3.0" max="4.5" step="0.1" value="${storedSunPeakHour.toFixed(1)}" style="border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #0f172a; font-size: 14px; font-weight: 700; padding: 10px 12px; outline: none;">
-                        </label>
-                        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569;">
-                            <span>Morning Offset (%)</span>
-                            <input type="number" id="solarMorningUsageInput" min="1" max="100" step="1" value="${storedMorningUsagePercent.toFixed(0)}" style="border: 1px solid #cbd5e1; border-radius: 10px; background: #ffffff; color: #0f172a; font-size: 14px; font-weight: 700; padding: 10px 12px; outline: none;">
-                        </label>
-                        <div style="display: flex; align-items: end;">
-                            <button type="button" onclick="refreshSolarEstimateWithCurrentInputs()" style="width: 100%; border: 1px solid #0f172a; border-radius: 10px; background: #0f172a; color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 11px 14px; cursor: pointer;">
-                                Update Preview
-                            </button>
-                        </div>
-                    </div>
-                    <div class="solar-calc-header" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px;">
-                        <div class="solar-calc-title" style="font-size: 13px; font-weight: 700; color: #0f172a;">How the saving is calculated</div>
-                        <div class="solar-calc-button-row" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                            <button type="button" id="solarScenarioBtn_low30" class="solar-calc-button" onclick="switchSolarScenario('low30')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
-                                Low Day Usage (30%)
-                            </button>
-                            <button type="button" id="solarScenarioBtn_high80" class="solar-calc-button" onclick="switchSolarScenario('high80')" style="border: 1px solid #cbd5e1; border-radius: 999px; background: #ffffff; color: #0f172a; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
-                                High Day Usage (80%)
-                            </button>
-                            <button type="button" id="saveSolarScenarioBtn" class="solar-calc-save-button" onclick="saveCurrentSolarScenario()" style="display: none; border: 1px solid #059669; border-radius: 999px; background: #059669; color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 10px 14px; cursor: pointer;">
-                                Save This Scenario
-                            </button>
-                        </div>
-                    </div>
-                    <div id="solarScenarioSummary" class="solar-calc-summary" style="margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #334155;">
-                        Choose a scenario to see how direct offset and export change your savings.
-                    </div>
-                    <div class="solar-calc-legend" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 12px; font-size: 12px; color: #475569;">
-                        <div style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span style="width: 14px; height: 14px; border-radius: 4px; background: #dc6363; border: 1px solid #dc6363;"></span>
-                            <span>Usage</span>
-                        </div>
-                        <div style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span style="width: 14px; height: 14px; border-radius: 4px; background: #6d97df; border: 1px solid #dc6a6a;"></span>
-                            <span>Solar offset usage</span>
-                        </div>
-                        <div style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span style="width: 14px; height: 14px; border-radius: 4px; background: #6cab4f; border: 1px solid #6cab4f;"></span>
-                            <span>Excess solar export</span>
-                        </div>
-                    </div>
-                    <div class="solar-calc-chart-box" style="border: 1px solid #dbeafe; border-radius: 14px; background: #ffffff; padding: 14px;">
-                        <div id="solarEstimateChartEmpty" style="font-size: 12px; line-height: 1.7; color: #64748b;">Enter an average TNB bill and choose a scenario to see the 24-hour offset chart.</div>
-                        <div id="solarEstimateChartGrid" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; align-items: end; min-height: 176px;"></div>
-                        <div id="solarEstimateChartHours" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; margin-top: 10px;"></div>
-                        <div class="solar-calc-chart-note" style="margin-top: 10px; font-size: 11px; color: #64748b;">24 columns, 1 hour per column. 10 rows show relative usage and solar intensity.</div>
-                    </div>
-                </div>
-                <div id="solarEstimateSaveHint" class="solar-estimate-save-hint" style="display: none; margin-top: 14px; font-size: 12px; line-height: 1.6; color: #475569;"></div>
+                <button type="button" id="solarRecalculateBtn" class="solar-strip-recalc" onclick="openSolarEstimatePrompt()">Recalculate</button>
                 ` : ''}
-                <div class="solar-note-box" style="margin-top: 14px; border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; padding: 12px 14px;">
-                    <div class="solar-note-text" style="font-size: 11px; line-height: 1.6; color: #78350f;">
-                        Note: Solar saving estimation may vary after final installation. Actual performance can be affected by roof shape and angle, shading, weather conditions, and site-specific installation factors. This estimate assumes a flat roof surface for calculation.
-                    </div>
+            </div>
+            <div class="solar-stats">
+                <div class="solar-stat">
+                    <div class="solar-stat-label">Before Solar</div>
+                    <div id="solarEstimateBeforeValue" class="solar-stat-value">${beforeSolarBill !== null ? `RM ${beforeSolarBill.toFixed(2)}` : 'RM —'}</div>
+                </div>
+                <div class="solar-stat">
+                    <div class="solar-stat-label">After Solar</div>
+                    <div id="solarEstimateAfterValue" class="solar-stat-value">${afterSolarBill !== null ? `RM ${afterSolarBill.toFixed(2)}` : 'RM —'}</div>
+                </div>
+                <div class="solar-stat is-saving">
+                    <div class="solar-stat-label">Monthly Saving</div>
+                    <div id="solarEstimateSavingValue" class="solar-stat-value">${estimatedMonthlySaving !== null ? `RM ${estimatedMonthlySaving.toFixed(2)}` : 'RM —'}</div>
                 </div>
             </div>
+            <div id="solarEstimateStatus" class="solar-status">${hasSolarSavingsSection
+                ? 'Saved estimate on file. Use Recalculate to compare other bills.'
+                : 'No saved estimate yet. Use Recalculate to preview this package against your average TNB bill.'}</div>
+            ${showInteractiveControls && canEstimateSolarSavings ? `
+            <div class="solar-mode-row">
+                <button type="button" id="solarBillCycleBtn_fullMonth" class="solar-mode-pill" onclick="setSolarBillCycleMode('fullMonth')">Full Month</button>
+                <button type="button" id="solarBillCycleBtn_under28Days" class="solar-mode-pill" onclick="setSolarBillCycleMode('under28Days')">&lt;28 Days</button>
+            </div>
+            <div id="solarMatchedBillHint" class="solar-status"></div>
+            <div id="solarBillCycleHint" class="solar-status"></div>
+            ` : ''}
+            <div class="solar-note">Estimates may vary after installation due to roof shape, angle, shading, weather, and site conditions. Assumes a flat roof surface.</div>
+            <div id="solarEstimateSaveHint" class="solar-status"></div>
         </section>
         ` : ''}
 
         <!-- Items Table -->
-        <section class="items-table-wrapper">
+        <section class="items-block">
             <table class="items-table">
                 <thead>
                     <tr>
                         <th class="col-no">#</th>
-                        <th class="col-desc">DESCRIPTION</th>
-                        <th class="col-price">PRICE</th>
-                        <th class="col-qty">QUANTITY</th>
-                        <th class="col-amount">AMOUNT</th>
+                        <th class="col-desc">Description</th>
+                        <th class="col-price">Price</th>
+                        <th class="col-qty">Qty</th>
+                        <th class="col-amount">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1492,12 +1483,11 @@ body.a4-preview .terms-signature {
         ` : ''}
 
         <!-- Summary -->
-        <section class="summary-section">
-            <div class="summary-left">
+        <section class="summary-block">
+            <div class="total-due">
                 <span class="total-due-label">Total Due</span>
                 <h2 class="total-due-amount">RM ${totalAmount.toFixed(2)}</h2>
-                <div class="total-due-line"></div>
-                ${invoice.status ? `<p class="late-charge">Status: ${invoice.status}</p>` : ''}
+                ${invoice.status ? `<p class="total-due-status">Status · ${invoice.status}</p>` : ''}
             </div>
             <div class="summary-right">
                 <div class="summary-row">
@@ -1505,63 +1495,62 @@ body.a4-preview .terms-signature {
                     <span class="summary-value">RM ${subtotal.toFixed(2)}</span>
                 </div>
                 ${discountAmount > 0 ? `
-                <div class="summary-row">
-                    <span class="summary-label" style="color: red;">Discount</span>
-                    <span class="summary-value" style="color: red;">-RM ${Math.abs(discountAmount).toFixed(2)}</span>
+                <div class="summary-row is-discount">
+                    <span class="summary-label">Discount</span>
+                    <span class="summary-value">−RM ${Math.abs(discountAmount).toFixed(2)}</span>
                 </div>` : ''}
                 ${voucherAmount > 0 ? `
-                <div class="summary-row">
-                    <span class="summary-label" style="color: red;">Voucher</span>
-                    <span class="summary-value" style="color: red;">-RM ${Math.abs(voucherAmount).toFixed(2)}</span>
+                <div class="summary-row is-discount">
+                    <span class="summary-label">Voucher</span>
+                    <span class="summary-value">−RM ${Math.abs(voucherAmount).toFixed(2)}</span>
                 </div>` : ''}
                 ${cnyPromoAmount > 0 ? `
-                <div class="summary-row">
-                    <span class="summary-label" style="color: orange;">CNY 2026 Reward</span>
-                    <span class="summary-value" style="color: orange;">-RM ${Math.abs(cnyPromoAmount).toFixed(2)}</span>
+                <div class="summary-row is-discount">
+                    <span class="summary-label">CNY 2026 Reward</span>
+                    <span class="summary-value">−RM ${Math.abs(cnyPromoAmount).toFixed(2)}</span>
                 </div>` : ''}
                 ${holidayBoostAmount > 0 ? `
-                <div class="summary-row">
-                    <span class="summary-label" style="color: green;">Holiday Boost Reward</span>
-                    <span class="summary-value" style="color: green;">-RM ${Math.abs(holidayBoostAmount).toFixed(2)}</span>
+                <div class="summary-row is-discount">
+                    <span class="summary-label">Holiday Boost Reward</span>
+                    <span class="summary-value">−RM ${Math.abs(holidayBoostAmount).toFixed(2)}</span>
                 </div>` : ''}
                 ${earnNowRebateAmount > 0 ? `
-                <div class="summary-row">
-                    <span class="summary-label" style="color: #d97706;">Earn Now Rebate</span>
-                    <span class="summary-value" style="color: #d97706;">-RM ${Math.abs(earnNowRebateAmount).toFixed(2)}</span>
+                <div class="summary-row is-discount">
+                    <span class="summary-label">Earn Now Rebate</span>
+                    <span class="summary-value">−RM ${Math.abs(earnNowRebateAmount).toFixed(2)}</span>
                 </div>` : ''}
                 ${earthMonthGoGreenBonusAmount > 0 ? `
-                <div class="summary-row">
-                    <span class="summary-label" style="color: #047857;">Earth Month Go Green Bonus</span>
-                    <span class="summary-value" style="color: #047857;">-RM ${Math.abs(earthMonthGoGreenBonusAmount).toFixed(2)}</span>
+                <div class="summary-row is-discount">
+                    <span class="summary-label">Earth Month Go Green Bonus</span>
+                    <span class="summary-value">−RM ${Math.abs(earthMonthGoGreenBonusAmount).toFixed(2)}</span>
                 </div>` : ''}
                 ${sstAmount > 0 ? `
-                <hr class="summary-divider">
                 <div class="summary-row">
-                    <span class="summary-label">Tax (6%)</span>
+                    <span class="summary-label">Tax (SST 6%)</span>
                     <span class="summary-value">RM ${sstAmount.toFixed(2)}</span>
                 </div>` : ''}
-                <div class="summary-row total-row">
-                    <span class="summary-label">TOTAL</span>
+                <div class="summary-row is-total">
+                    <span class="summary-label">Total</span>
                     <span class="summary-value">RM ${totalAmount.toFixed(2)}</span>
                 </div>
                 ${bankName ? `
-                <div class="payment-method">
-                    <span class="label">Payment Method</span>
+                <div class="payment-info">
+                    <span class="eyebrow">Payment</span>
                     <div class="meta-row">
-                        <span class="meta-label">Bank Name</span>
-                        <span class="meta-value">: ${bankName || '-'}</span>
+                        <span class="meta-label">Bank</span>
+                        <span class="meta-value">${bankName || '—'}</span>
                     </div>
                     <div class="meta-row">
                         <span class="meta-label">Account No</span>
-                        <span class="meta-value">: ${bankAccountNo || '-'}</span>
+                        <span class="meta-value">${bankAccountNo || '—'}</span>
                     </div>
                     <div class="meta-row">
                         <span class="meta-label">Account Name</span>
-                        <span class="meta-value">: ${bankAccountName || '-'}</span>
+                        <span class="meta-value">${bankAccountName || '—'}</span>
                     </div>
-                    <div class="meta-row payment-ref-row">
+                    <div class="meta-row">
                         <span class="meta-label">Payment Ref</span>
-                        <span class="meta-value" style="letter-spacing: 0.04em;">: ${invoice.invoice_number || invoice.bubble_id || '-'}</span>
+                        <span class="meta-value" style="font-variant-numeric: tabular-nums; letter-spacing: 0.04em;">${invoice.invoice_number || invoice.bubble_id || '—'}</span>
                     </div>
                 </div>
                 ` : ''}
@@ -1583,10 +1572,10 @@ body.a4-preview .terms-signature {
         <!-- Terms & Signature -->
         <section class="terms-signature">
             <div class="terms">
-                <h3>Terms & Conditions</h3>
-                <p style="white-space: pre-line;">${templateData.terms_and_conditions || ''}</p>
-                <div class="mt-6 text-[10px] text-slate-400 font-medium">
-                  ${titleLabel} Created by: <span class="text-slate-600">${invoice.created_by_user_name || 'System'}</span>
+                <h3>Terms &amp; Conditions</h3>
+                <p>${(templateData.terms_and_conditions || '').replace(/<br\s*\/?>/gi, ' ').replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim()}</p>
+                <div class="created-by">
+                  ${titleLabel} Created by: <span style="color: var(--ink-muted);">${invoice.created_by_user_name || 'System'}</span>
                 </div>
             </div>
             <div class="signature">
@@ -1615,34 +1604,69 @@ body.a4-preview .terms-signature {
             </div>
         </section>
 
-        <footer class="mt-12 mb-4 text-center no-print">
-          <p class="text-[9px] text-slate-300 uppercase tracking-[0.3em] font-medium">Thank you for your business</p>
-        </footer>
+        <p class="thank-you">Thank you for your business</p>
+
+        <!-- Certifications · minimal mono -->
+        <section class="certifications avoid-break">
+            <div class="cert-head">
+                <span class="cert-headline">Registered &amp; Certified As</span>
+                <span class="cert-subline">Eternalgy Sdn Bhd · Malaysia</span>
+            </div>
+            <div class="cert-grid">
+                <div class="cert-card">
+                    <div class="cert-logo"><img src="/logo/cidb-registered.png" alt="CIDB"></div>
+                    <div>
+                        <div class="cert-name">CIDB Registered Contractor</div>
+                        <div class="cert-meta">0120250324-WP152634 · G3 · Cat B · CE · ME</div>
+                    </div>
+                </div>
+                <div class="cert-card">
+                    <div class="cert-logo"><img src="/logo/Seda-Malaysia001.png" alt="SEDA"></div>
+                    <div>
+                        <div class="cert-name">SEDA Solar PV Service Provider</div>
+                        <div class="cert-meta">SEDA/RPVSP/2024/321</div>
+                    </div>
+                </div>
+                <div class="cert-card">
+                    <div class="cert-logo"><img src="/logo/Seda-Malaysia001.png" alt="SEDA"></div>
+                    <div>
+                        <div class="cert-name">SEDA Solar PV Investor</div>
+                        <div class="cert-meta">Eternalgy Sdn Bhd</div>
+                    </div>
+                </div>
+                <div class="cert-card">
+                    <div class="cert-logo"><img src="/logo/myhijau_plain.jpg" alt="MyHijau"></div>
+                    <div>
+                        <div class="cert-name">MyHijau Equipment Cert</div>
+                        <div class="cert-meta">SAJ Inverter · MyHS00025/25</div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- Footer Footer -->
         <footer class="invoice-footer">
-            <div class="footer-col" style="flex: 1;">
+            <div class="footer-col">
                 <div class="icon-circle"><i class='bx bxs-phone'></i></div>
                 <div class="footer-text">
-                    <p>${companyPhone || '-'}</p>
+                    <p>${companyPhone || '—'}</p>
                 </div>
             </div>
-            <div class="footer-col" style="flex: 1.5; justify-content: center;">
+            <div class="footer-col" style="justify-content: center; text-align: center;">
                 <div class="icon-circle"><i class='bx bxs-map'></i></div>
-                <div class="footer-text text-center">
-                    <p style="white-space: pre-line;">${companyAddress || '-'}</p>
+                <div class="footer-text">
+                    <p>${companyAddress || '—'}</p>
                 </div>
             </div>
-            <div class="footer-col" style="flex: 1; justify-content: flex-end;">
+            <div class="footer-col" style="justify-content: flex-end; text-align: right;">
                 ${companyEmail ? `
                 <div class="icon-circle"><i class='bx bxs-envelope'></i></div>
-                <div class="footer-text text-right">
+                <div class="footer-text">
                     <p>${companyEmail}</p>
                 </div>
                 ` : ''}
             </div>
         </footer>
-        <div class="footer-bottom-bar"></div>
     </div>
     ${showInteractiveControls && trackerIdentifier ? `
     <script>

@@ -1,0 +1,1954 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>INVOICE INV-2026-0042</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Boxicons for icons -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+/* === Eternalgy Design System v2 === */
+:root {
+    --gp: #16a34a;
+    --gl: #22c55e;
+    --gb: #dcfce7;
+    --gbd: #86efac;
+    --gd: #14532d;
+    --nb: #0d1f0f;
+    --dk: #1a2e1c;
+    --dkx: #091407;
+    --g50: #fafafa;
+    --g100: #f3f4f6;
+    --g200: #e5e7eb;
+    --g300: #d1d5db;
+    --g400: #9ca3af;
+    --g500: #6b7280;
+    --g700: #374151;
+    --g900: #111827;
+    --wb: #fffbeb;
+    --wbd: #fde68a;
+    --wt: #d97706;
+    --wdk: #92400e;
+    --eb: #fef2f2;
+    --ebd: #fecaca;
+    --et: #991b1b;
+    --ib: #eff6ff;
+    --it: #3b82f6;
+    --f: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --app-bg: #f1f5f1;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: var(--f);
+    color: var(--g900);
+    background: var(--g100);
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding: 28px 16px;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+body.a4-preview {
+    background: var(--g100);
+    padding: 16px;
+    height: auto;
+}
+
+body.a4-preview .pagedjs_page {
+    background-color: #fff;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    margin: 0 auto 16px;
+}
+
+@page {
+    size: A4;
+    margin: 12mm 14mm;
+}
+
+.invoice-container {
+    background-color: #fff;
+    max-width: 760px;
+    width: 100%;
+    border-radius: 16px;
+    position: relative;
+    padding: 24px 24px 20px;
+}
+
+body.a4-preview .invoice-container {
+    width: 100%;
+    max-width: 100%;
+    box-shadow: none;
+    padding-bottom: 0;
+    border-radius: 0;
+    overflow: visible;
+}
+
+body.a4-preview .invoice-actions,
+body.a4-preview .promotional-banner,
+body.a4-preview .no-print { display: none !important; }
+
+body.a4-preview .footer-bar { display: none !important; }
+
+body.a4-preview .invoice-footer { margin-bottom: 0; }
+
+body.a4-preview .items-table thead { display: table-header-group; }
+
+body.a4-preview .items-table tr,
+body.a4-preview .billing-block,
+body.a4-preview .summary-block,
+body.a4-preview .terms-signature,
+body.a4-preview .invoice-footer,
+body.a4-preview .solar-strip,
+body.a4-preview .warranties,
+body.a4-preview .promotional-banner,
+body.a4-preview .avoid-break { break-inside: avoid; page-break-inside: avoid; }
+
+body.a4-preview .terms-signature { break-before: page; page-break-before: always; }
+
+/* === Header === */
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--line);
+}
+
+.brand-block {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-block .logo-box {
+    flex-shrink: 0;
+}
+
+.brand-block .logo-box img {
+    max-height: 36px;
+    max-width: 140px;
+    object-fit: contain;
+    filter: none;
+}
+
+.brand-block .company-info {
+    text-align: left;
+}
+
+.brand-block .company-info h2 {
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: 0.01em;
+    margin-bottom: 2px;
+}
+
+.brand-block .company-info p {
+    font-size: 11px;
+    color: var(--ink-muted);
+    line-height: 1.4;
+    font-weight: 400;
+}
+
+.invoice-title {
+    padding: 0;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.invoice-title h1 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.invoice-title .doc-num {
+    font-size: 10px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-top: 6px;
+    font-weight: 500;
+}
+
+.invoice-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.pre-site-visit-alert {
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    border: 1px solid #dc2626;
+    border-left-width: 3px;
+    background: #fef2f2;
+}
+
+.pre-site-visit-alert-label {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #dc2626;
+    margin-bottom: 6px;
+}
+
+.pre-site-visit-alert h2 {
+    margin: 0 0 4px;
+    color: #7f1d1d;
+    font-family: var(--font-display);
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 500;
+    text-transform: none;
+}
+
+.pre-site-visit-alert p {
+    margin: 0;
+    color: #7f1d1d;
+    font-size: 12px;
+    line-height: 1.5;
+    font-weight: 400;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-radius: 2px;
+    transition: all 0.15s;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: var(--font-body);
+}
+
+.action-btn:hover { background: var(--ink); color: var(--card); border-color: var(--ink); }
+
+.btn-referral { color: var(--accent); border-color: var(--accent); }
+.btn-referral:hover { background: var(--accent); color: var(--card); border-color: var(--accent); }
+
+.btn-share {
+    color: var(--card);
+    background: var(--ink);
+    border: 1px solid var(--ink);
+}
+.btn-share:hover {
+    background: #333;
+    border-color: #333;
+    color: #ffffff;
+}
+
+.btn-proposal { color: #1d4ed8; border-color: #1d4ed8; }
+.btn-proposal:hover { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+
+.btn-seda { color: #c2410c; border-color: #c2410c; }
+.btn-seda:hover { background: #c2410c; color: #fff; border-color: #c2410c; }
+
+.btn-pdf { color: var(--ink-muted); border-color: var(--ink-muted); }
+.btn-pdf:hover { background: var(--ink-muted); color: var(--card); border-color: var(--ink-muted); }
+
+.btn-preview { color: var(--ink); border-color: var(--ink); }
+.btn-preview:hover { background: var(--ink); color: var(--card); }
+
+.floating-a4-preview {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 90;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+}
+
+.floating-a4-preview button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, #0f172a, #334155);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.floating-a4-preview button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
+}
+
+/* === Billing === */
+.billing-block {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 32px;
+    margin-bottom: 24px;
+}
+
+.eyebrow {
+    display: block;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+}
+
+.party-name {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 2px;
+    color: var(--ink);
+    line-height: 1.3;
+}
+
+.party-detail {
+    font-size: 12px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+.meta-list { display: flex; flex-direction: column; gap: 4px; }
+
+.meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 2px 0;
+    gap: 12px;
+}
+
+.meta-row .meta-label {
+    width: auto;
+    color: var(--ink-muted);
+}
+
+.meta-row .meta-value {
+    color: var(--ink);
+    font-weight: 500;
+    text-align: right;
+}
+
+/* === Solar savings strip === */
+.solar-strip {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    background: var(--card);
+}
+
+.solar-strip-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.solar-strip-title {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--accent);
+}
+
+.solar-strip-recalc {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-family: var(--font-body);
+}
+
+.solar-strip-recalc:hover { color: var(--accent); }
+
+.solar-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.solar-stat-label {
+    font-size: 9px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.solar-stat-value {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+}
+
+.solar-stat.is-saving .solar-stat-value { color: var(--accent); }
+
+.solar-mode-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.solar-mode-pill {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font-body);
+}
+
+.solar-mode-pill:hover { border-color: var(--ink); }
+.solar-mode-pill.is-active { background: var(--ink); color: var(--card); border-color: var(--ink); }
+
+.solar-status {
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-top: 8px;
+    line-height: 1.5;
+    min-height: 0;
+}
+
+.solar-status:empty { display: none; }
+
+.solar-note {
+    font-size: 10px;
+    color: var(--ink-soft);
+    margin-top: 10px;
+    line-height: 1.5;
+}
+
+/* === Items table === */
+.items-block { margin-bottom: 24px; }
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.items-table th {
+    text-align: left;
+    padding: 8px 10px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--ink);
+}
+
+.items-table th.col-no, .items-table th.col-qty { text-align: center; }
+.items-table th.col-amount, .items-table th.col-price { text-align: right; }
+
+.items-table td {
+    padding: 10px 10px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+}
+
+.items-table td.col-desc {
+    color: var(--ink);
+    font-weight: 500;
+    font-variant-numeric: normal;
+}
+
+.items-table td.col-no, .items-table td.col-qty { text-align: center; }
+.items-table td.col-amount, .items-table td.col-price { text-align: right; }
+
+.items-table tr.discount-row td { color: var(--ink-muted); }
+.items-table tr.discount-row td.col-desc { color: var(--ink); font-weight: 500; }
+
+/* === Warranties === */
+.warranties { margin-bottom: 24px; }
+.warranties-head {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-muted);
+    padding: 8px 0;
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--line);
+}
+.warranty-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+}
+.warranty-name { font-weight: 600; color: var(--ink); }
+.warranty-terms { color: var(--ink-muted); line-height: 1.5; white-space: pre-line; }
+
+/* === Summary === */
+.summary-block {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    padding-top: 20px;
+    margin-bottom: 24px;
+    border-top: 1px solid var(--line);
+}
+
+.total-due {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 0;
+}
+
+.total-due-label {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-muted);
+}
+
+.total-due-amount {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.total-due-status {
+    font-size: 11px;
+    color: var(--ink-muted);
+    text-transform: capitalize;
+}
+
+.summary-right { width: auto; display: flex; flex-direction: column; }
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.summary-row.is-discount .summary-label,
+.summary-row.is-discount .summary-value { color: var(--ink-muted); }
+
+.summary-row.is-total {
+    padding: 10px 0;
+    border-top: 1px solid var(--ink);
+    margin-top: 6px;
+    align-items: baseline;
+}
+
+.summary-row.is-total .summary-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-muted);
+}
+
+.summary-row.is-total .summary-value {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.payment-info {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+
+.payment-info .eyebrow { margin-bottom: 8px; }
+.payment-info .meta-row { padding: 2px 0; }
+
+/* === Terms & signature === */
+.terms-signature {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 32px;
+    padding: 24px 0 20px;
+    border-top: 1px solid var(--line);
+    margin-bottom: 20px;
+}
+
+.terms { max-width: 100%; margin-bottom: 0; }
+
+.terms h3 {
+    font-size: 10px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+}
+
+.terms p {
+    font-size: 9px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+    white-space: normal;
+}
+
+.terms .created-by {
+    font-size: 9px;
+    color: var(--ink-soft);
+    margin-top: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.signature {
+    text-align: center;
+    width: auto;
+    align-self: flex-start;
+}
+
+.signature-image {
+    height: 70px;
+    overflow: hidden;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.signature-image img {
+    margin: 0;
+    width: auto;
+    max-width: 200px;
+    max-height: 100px;
+    object-fit: contain;
+}
+
+.signature h4 {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 2px;
+    color: var(--ink);
+}
+
+.signature .signed-on {
+    font-size: 9px;
+    color: var(--ink-soft);
+}
+
+.signature .sign-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: var(--ink);
+    color: var(--card);
+    border: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    cursor: pointer;
+    font-family: var(--font-body);
+    transition: background 0.15s;
+}
+
+.signature .sign-btn:hover { background: var(--accent); }
+
+.signature .re-sign {
+    font-size: 9px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 6px;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: 0;
+    font-family: var(--font-body);
+}
+
+.signature .re-sign:hover { color: var(--ink); }
+
+/* === Footer === */
+.invoice-footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 0 0;
+    border-top: 1px solid var(--line);
+    margin: 0;
+    gap: 16px;
+    font-size: 10px;
+    color: var(--ink-muted);
+    align-items: flex-start;
+}
+
+.footer-col { display: flex; align-items: center; gap: 8px; }
+
+.icon-circle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--ink-muted);
+    font-size: 14px;
+    line-height: 1;
+}
+
+.footer-text p { font-size: 10px; color: var(--ink-muted); line-height: 1.4; }
+
+.thank-you {
+    font-size: 9px;
+    text-align: center;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    margin-top: 16px;
+    font-weight: 500;
+}
+
+.footer-bar { display: none; }
+
+/* === Certifications footer · minimal mono · business premium === */
+.certifications {
+    background: #fff;
+    border: 1px solid var(--g200);
+    border-radius: 6px;
+    padding: 10px 12px 10px;
+    margin-top: 6px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.cert-head {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--g100);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.cert-headline {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--g900);
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+}
+
+.cert-subline {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 400;
+    color: var(--g400);
+    line-height: 1.3;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.cert-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.cert-card {
+    padding: 6px 8px;
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 7px;
+    align-items: start;
+    border-bottom: 1px solid var(--g100);
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.cert-card:nth-child(odd) { border-right: 1px solid var(--g100); }
+.cert-card:nth-child(1),
+.cert-card:nth-child(2) { padding-top: 2px; }
+.cert-card:nth-child(3),
+.cert-card:nth-child(4) { padding-bottom: 2px; border-bottom: none; }
+
+.cert-logo {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.cert-logo img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.cert-name {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--g900);
+    line-height: 1.3;
+    margin-bottom: 2px;
+}
+
+.cert-meta {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-weight: 400;
+    color: var(--g500);
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+/* === Promotional banner (Tiger Neo 3) === */
+.promotional-banner {
+    display: block;
+    padding: 0;
+    margin-bottom: 20px;
+    cursor: pointer;
+}
+
+.promotional-banner .banner-frame {
+    border-radius: 2px;
+    overflow: hidden;
+    transition: transform 0.2s;
+}
+
+.promotional-banner:hover .banner-frame { transform: translateY(-1px); }
+
+.promotional-banner img { width: 100%; display: block; object-fit: cover; }
+
+.promotional-banner .banner-caption {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--ink);
+    color: var(--card);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transition: background 0.2s;
+}
+
+.promotional-banner:hover .banner-caption { background: var(--accent); }
+
+/* === Print === */
+@media print {
+    @page {
+        size: A4;
+        margin: 12mm;
+    }
+
+    body { background: white; padding: 0; }
+    .invoice-container {
+        padding: 0;
+        margin: 0;
+        box-shadow: none;
+        max-width: 100%;
+        border: 0;
+    }
+    .no-print { display: none !important; }
+    .promotional-banner { display: none !important; }
+    .items-table thead { display: table-header-group; }
+    .items-table tr { break-inside: avoid; page-break-inside: avoid; }
+}
+
+/* === Mobile (≤720px) === */
+@media (max-width: 720px) {
+    body {
+        padding: 0;
+        background-color: var(--card);
+    }
+
+    .invoice-container {
+        border: 0;
+        padding: 20px 16px 16px;
+    }
+
+    .invoice-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+    }
+
+    .brand-block { gap: 10px; }
+    .brand-block .logo-box img { max-height: 30px; }
+
+    .invoice-title { text-align: left; align-items: flex-start; }
+    .invoice-title h1 { font-size: 24px; }
+
+    .invoice-actions {
+        justify-content: flex-start;
+        margin-top: 8px;
+        gap: 6px;
+    }
+
+    .pre-site-visit-alert {
+        padding: 12px 14px;
+        margin-bottom: 16px;
+    }
+    .pre-site-visit-alert h2 { font-size: 16px; }
+    .pre-site-visit-alert p { font-size: 11px; }
+
+    .billing-block,
+    .summary-block,
+    .terms-signature {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .summary-block { padding-top: 16px; }
+    .summary-right { width: 100%; }
+
+    /* Solar strip -> row layout on mobile */
+    .solar-stats {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+    .solar-stat {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--line);
+    }
+    .solar-stat:last-child { border-bottom: 0; }
+    .solar-stat-label { margin-bottom: 0; }
+    .solar-stat-value { font-size: 18px; }
+    .solar-strip { padding: 12px 14px; margin-bottom: 16px; }
+
+    /* Items table -> card layout */
+    .items-block { margin-bottom: 16px; }
+    .items-table thead { display: none; }
+    .items-table, .items-table tbody, .items-table tr, .items-table td { display: block; width: 100%; }
+    .items-table tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .items-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 4px 0;
+        border: 0;
+        gap: 12px;
+    }
+    .items-table td::before {
+        content: attr(data-label);
+        font-size: 9px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--ink-muted);
+        flex-shrink: 0;
+    }
+    .items-table td.col-desc { text-align: right; }
+
+    .items-table tr.discount-row {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: baseline !important;
+        padding: 8px 0 !important;
+        gap: 12px;
+    }
+    .items-table tr.discount-row td {
+        display: block !important;
+        width: auto !important;
+        padding: 0 !important;
+        border-bottom: none !important;
+    }
+    .items-table tr.discount-row td::before { content: none !important; }
+    .items-table tr.discount-row td.col-no,
+    .items-table tr.discount-row td.col-price,
+    .items-table tr.discount-row td.col-qty { display: none !important; }
+    .items-table tr.discount-row td.col-desc {
+        text-align: left !important;
+        font-weight: 500 !important;
+        color: var(--ink) !important;
+        flex: 1;
+    }
+    .items-table tr.discount-row td.col-amount {
+        text-align: right !important;
+        font-weight: 500 !important;
+        white-space: nowrap;
+    }
+
+    .warranty-row { grid-template-columns: 1fr; gap: 4px; }
+
+    .terms-signature {
+        padding: 16px 0;
+        margin-bottom: 16px;
+    }
+
+    .signature { align-self: stretch; }
+
+    .invoice-footer {
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 0 0;
+    }
+    .footer-col { width: 100%; }
+
+    .certifications { margin-top: 16px; padding: 12px 14px 10px; }
+    .cert-grid { grid-template-columns: 1fr; }
+    .cert-card { padding: 6px 8px; }
+    .cert-card:nth-child(odd) { border-right: none; }
+    .cert-card { border-bottom: 1px solid var(--g100); }
+    .cert-card:last-child { border-bottom: none; }
+
+    .promotional-banner { margin-bottom: 16px; }
+}
+    </style>
+</head>
+<body>
+    <script>
+      // Client-side date formatting to user's local timezone
+      function formatLocalTime() {
+        const elements = document.querySelectorAll('.local-time');
+        elements.forEach(el => {
+          const iso = el.getAttribute('data-iso');
+          const showTime = el.getAttribute('data-show-time') === 'true';
+          if (iso) {
+            try {
+              const date = new Date(iso);
+              const options = { year: 'numeric', month: 'short', day: 'numeric' };
+              if (showTime) { options.hour = '2-digit'; options.minute = '2-digit'; }
+              el.textContent = date.toLocaleString(undefined, options);
+            } catch (e) {
+              console.error('Date formatting error:', e);
+            }
+          }
+        });
+      }
+
+      // Run on load
+      document.addEventListener('DOMContentLoaded', formatLocalTime);
+    </script>
+
+    
+    <div class="floating-a4-preview no-print">
+      <button onclick='openA4Preview("preview-0042")'>
+        <span>A4 Preview</span>
+      </button>
+    </div>
+    
+
+    <!-- Signature Modal -->
+    <div id="signatureModal" class="fixed inset-0 z-[100] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-95 opacity-0" id="signatureBox">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Customer Signature</h3>
+            <p class="text-[10px] text-slate-500 font-medium">Please sign within the box below</p>
+          </div>
+          <button onclick="closeSignatureModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-white transition-all">✕</button>
+        </div>
+        <div class="p-6">
+          <div class="relative bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg overflow-hidden touch-none" style="height: 240px;">
+            <canvas id="signatureCanvas" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
+          </div>
+          <div class="flex justify-between items-center mt-6 gap-3">
+            <button onclick="clearSignature()" class="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 uppercase tracking-widest transition-colors">Clear Space</button>
+            <div class="flex gap-2 flex-1">
+              <button onclick="closeSignatureModal()" class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-50 transition-all uppercase tracking-widest">Cancel</button>
+              <button onclick="saveSignature()" id="saveSignBtn" class="flex-[2] px-4 py-2.5 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 shadow-lg transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+                Confirm & Sign
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+
+    <script>
+      let signaturePad;
+      const modal = document.getElementById('signatureModal');
+      const box = document.getElementById('signatureBox');
+      const canvas = document.getElementById('signatureCanvas');
+
+      function openSignatureModal() {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+          box.classList.remove('scale-95', 'opacity-0');
+          resizeCanvas();
+          if (!signaturePad) {
+            signaturePad = new SignaturePad(canvas, {
+              backgroundColor: 'rgba(255, 255, 255, 0)',
+              penColor: '#0a0a0a'
+            });
+          }
+        }, 10);
+      }
+
+      function closeSignatureModal() {
+        box.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 200);
+      }
+
+      function resizeCanvas() {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
+        if (signaturePad) signaturePad.clear();
+      }
+
+      window.onresize = resizeCanvas;
+
+      function clearSignature() {
+        if (signaturePad) signaturePad.clear();
+      }
+
+      async function saveSignature() {
+        if (!signaturePad || signaturePad.isEmpty()) {
+          return Swal.fire({ icon: 'warning', title: 'Empty Signature', text: 'Please provide your signature before confirming.', confirmButtonColor: '#0a0a0a' });
+        }
+
+        const btn = document.getElementById('saveSignBtn');
+        const originalText = btn.innerHTML;
+
+        try {
+          btn.disabled = true;
+          btn.innerHTML = 'Saving...';
+
+          const dataUrl = signaturePad.toDataURL('image/png');
+          const pathParts = window.location.pathname.split('/');
+          const identifier = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
+
+          const response = await fetch('/view/' + identifier + '/signature', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ signature: dataUrl })
+          });
+
+          const result = await response.json();
+          if (result.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Signed!',
+              text: 'Your signature has been securely recorded.',
+              timer: 2000,
+              showConfirmButton: false
+            }).then(() => window.location.reload());
+          } else {
+            throw new Error(result.error || 'Failed to save signature');
+          }
+        } catch (err) {
+          Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#0a0a0a' });
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      }
+
+      async function downloadInvoicePdf(shareToken) {
+        const button = document.querySelector('button[onclick*="downloadInvoicePdf"]');
+        const buttonText = document.getElementById('pdfButtonText');
+        try {
+          button.disabled = true;
+          button.classList.add('opacity-75', 'cursor-not-allowed');
+          buttonText.textContent = 'Preparing...';
+          const response = await fetch('/view/' + shareToken + '/pdf');
+          const data = await response.json();
+          if (data.success && data.downloadUrl) {
+            let downloadUrl = data.downloadUrl;
+            if (!downloadUrl.startsWith('http')) downloadUrl = 'https://' + downloadUrl;
+            window.open(downloadUrl, '_blank');
+          } else {
+            alert('Failed: ' + (data.error || 'Unknown error'));
+          }
+        } catch (err) {
+          alert('Error: ' + err.message);
+        } finally {
+          button.disabled = false;
+          button.classList.remove('opacity-75', 'cursor-not-allowed');
+          buttonText.textContent = 'Download PDF';
+        }
+      }
+
+      function viewProposal(shareToken) {
+        window.open('/proposal/' + shareToken, '_blank');
+      }
+
+      function openA4Preview(shareToken) {
+        window.open('/view/' + shareToken + '?layout=a4', '_blank', 'noopener');
+      }
+
+      async function quickShareInvoice(identifier, invoiceNumber, documentType) {
+        const shareUrl = window.location.origin + '/view/' + identifier;
+        const shareTitle = [documentType, invoiceNumber].filter(Boolean).join(' ').trim() || 'Invoice';
+
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: shareTitle, text: shareTitle, url: shareUrl });
+            return;
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(shareUrl);
+            Swal.fire({
+              icon: 'success',
+              title: 'Link Copied',
+              text: 'Invoice link copied to clipboard.',
+              toast: true,
+              position: 'top-end',
+              showConfirmButton: false,
+              timer: 2500
+            });
+            return;
+          }
+          window.prompt('Copy this invoice link:', shareUrl);
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+          Swal.fire({ icon: 'error', title: 'Share Failed', text: 'Unable to share this invoice right now.', confirmButtonColor: '#0a0a0a' });
+        }
+      }
+
+      // === Solar estimate (simplified) ===
+      const solarEstimateEndpointBase = window.location.pathname.startsWith('/view2/') ? '/view2/' : '/view/';
+      const solarEstimateState = {
+        identifier: "preview-0042",
+        hasSavedEstimate: true,
+        canEstimate: true,
+        currentAverageBill: 500.00,
+        currentBillCycleMode: 'fullMonth',
+        latestPreview: null,
+        savedEstimate: {
+          customer_average_tnb: 500.00,
+          estimated_new_bill_amount: 157.00,
+          estimated_saving: 343.00,
+          selected_bill_cycle_mode: 'fullMonth'
+        }
+      };
+
+      function formatSolarEstimateMoney(value) {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? 'RM ' + numeric.toFixed(2) : 'RM —';
+      }
+
+      function normalizeSolarBillCycleMode(mode) {
+        return mode === 'under28Days' ? 'under28Days' : 'fullMonth';
+      }
+
+      function nearlyEqualSolarEstimateMoney(a, b) {
+        return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= 0.05;
+      }
+
+      function getSolarBillCycleModes(data) {
+        return data && data.bill_cycle_modes ? data.bill_cycle_modes : null;
+      }
+
+      function getSelectedSolarBillCycleMetrics(data, preferredMode) {
+        const modes = getSolarBillCycleModes(data);
+        if (!modes) return null;
+        const normalizedMode = normalizeSolarBillCycleMode(preferredMode || data.selected_bill_cycle_mode);
+        return modes[normalizedMode] || modes.fullMonth || null;
+      }
+
+      function inferSolarBillCycleModeFromSavedEstimate(data) {
+        const modes = getSolarBillCycleModes(data);
+        if (!modes) return normalizeSolarBillCycleMode(solarEstimateState.currentBillCycleMode);
+
+        const savedAfter = Number(solarEstimateState.savedEstimate && solarEstimateState.savedEstimate.estimated_new_bill_amount);
+        const savedSaving = Number(solarEstimateState.savedEstimate && solarEstimateState.savedEstimate.estimated_saving);
+        if (nearlyEqualSolarEstimateMoney(savedAfter, Number(modes.under28Days && modes.under28Days.estimated_new_bill_amount))
+          && nearlyEqualSolarEstimateMoney(savedSaving, Number(modes.under28Days && modes.under28Days.estimated_saving))) {
+          return 'under28Days';
+        }
+        if (nearlyEqualSolarEstimateMoney(savedAfter, Number(modes.fullMonth && modes.fullMonth.estimated_new_bill_amount))
+          && nearlyEqualSolarEstimateMoney(savedSaving, Number(modes.fullMonth && modes.fullMonth.estimated_saving))) {
+          return 'fullMonth';
+        }
+        return normalizeSolarBillCycleMode(data.selected_bill_cycle_mode || solarEstimateState.currentBillCycleMode);
+      }
+
+      function updateSolarEstimateStatus(message, tone) {
+        const statusEl = document.getElementById('solarEstimateStatus');
+        if (!statusEl) return;
+        const tones = {
+          neutral: { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
+          success: { bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          warning: { bg: '#fffbeb', border: '#fde68a', color: '#92400e' }
+        };
+        const style = tones[tone] || tones.neutral;
+        statusEl.textContent = message;
+        statusEl.style.background = style.bg;
+        statusEl.style.borderColor = style.border;
+        statusEl.style.color = style.color;
+      }
+
+      function updateSolarBillCycleButtons() {
+        ['fullMonth', 'under28Days'].forEach((modeKey) => {
+          const button = document.getElementById('solarBillCycleBtn_' + modeKey);
+          if (!button) return;
+          const isActive = normalizeSolarBillCycleMode(solarEstimateState.currentBillCycleMode) === modeKey;
+          button.classList.toggle('is-active', isActive);
+        });
+      }
+
+      function applySolarEstimateToPage(data, options = {}) {
+        const beforeValue = document.getElementById('solarEstimateBeforeValue');
+        const afterValue = document.getElementById('solarEstimateAfterValue');
+        const savingValue = document.getElementById('solarEstimateSavingValue');
+        const saveHint = document.getElementById('solarEstimateSaveHint');
+        const matchedBillHint = document.getElementById('solarMatchedBillHint');
+        const cycleHint = document.getElementById('solarBillCycleHint');
+        const selectedCycleMetrics = getSelectedSolarBillCycleMetrics(data, solarEstimateState.currentBillCycleMode);
+
+        if (beforeValue) beforeValue.textContent = formatSolarEstimateMoney(data.customer_average_tnb);
+        if (afterValue) {
+          afterValue.textContent = formatSolarEstimateMoney(
+            selectedCycleMetrics ? selectedCycleMetrics.estimated_new_bill_amount : data.estimated_new_bill_amount
+          );
+        }
+        if (savingValue) {
+          savingValue.textContent = formatSolarEstimateMoney(
+            selectedCycleMetrics ? selectedCycleMetrics.estimated_saving : data.estimated_saving
+          );
+        }
+
+        if (matchedBillHint) {
+          const requestedBill = Number(data.requested_bill_amount);
+          const matchedBill = Number(data.customer_average_tnb);
+          if (Number.isFinite(requestedBill) && Number.isFinite(matchedBill) && Math.abs(requestedBill - matchedBill) >= 0.01) {
+            matchedBillHint.textContent = 'Requested bill RM ' + requestedBill.toFixed(2) + '. Closest matched TNB bill used: RM ' + matchedBill.toFixed(2) + '.';
+            matchedBillHint.style.display = 'block';
+          } else {
+            matchedBillHint.textContent = '';
+            matchedBillHint.style.display = 'none';
+          }
+        }
+
+        if (cycleHint) {
+          if (selectedCycleMetrics) {
+            const cycleLabel = selectedCycleMetrics.label || (normalizeSolarBillCycleMode(solarEstimateState.currentBillCycleMode) === 'under28Days' ? '<28 Days cycle' : 'Full Month cycle');
+            let hintText = cycleLabel + ' applied.';
+            if (normalizeSolarBillCycleMode(solarEstimateState.currentBillCycleMode) === 'under28Days') {
+              hintText += ' SST recalculated to RM ' + Number(selectedCycleMetrics.recalculatedSst || 0).toFixed(2) + ' based on 8% of usage + network + capacity.';
+            }
+            cycleHint.textContent = hintText;
+            cycleHint.style.display = 'block';
+          } else {
+            cycleHint.textContent = '';
+            cycleHint.style.display = 'none';
+          }
+        }
+
+        if (saveHint) {
+          saveHint.textContent = options.saved ? 'Saved to this quotation.' : 'Preview updated.';
+          saveHint.style.display = options.showSaveHint ? 'block' : 'none';
+        }
+
+        updateSolarEstimateStatus(
+          options.saved
+            ? 'This quotation now includes the latest solar estimate.'
+            : 'Preview updated. Switch between Full Month / <28 Days to compare.',
+          options.saved ? 'success' : 'neutral'
+        );
+      }
+
+      async function requestSolarEstimate(averageBill, options = {}) {
+        const billCycleMode = normalizeSolarBillCycleMode(
+          options.billCycleMode !== undefined ? options.billCycleMode : solarEstimateState.currentBillCycleMode
+        );
+
+        const response = await fetch(solarEstimateEndpointBase + solarEstimateState.identifier + '/solar-estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ averageBill, billCycleMode })
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to calculate solar estimate');
+        }
+        return result.data;
+      }
+
+      async function openSolarEstimatePrompt() {
+        if (!solarEstimateState.canEstimate || !solarEstimateState.identifier) {
+          return Swal.fire({
+            icon: 'info',
+            title: 'Estimate Unavailable',
+            text: 'This quotation package does not have enough panel details for solar estimation.',
+            confirmButtonColor: '#0a0a0a'
+          });
+        }
+
+        const { value: inputValue } = await Swal.fire({
+          title: 'Recalculate Solar Saving',
+          input: 'number',
+          inputLabel: 'Average Monthly TNB Bill (RM)',
+          inputPlaceholder: 'Enter your average bill amount',
+          inputValue: solarEstimateState.currentAverageBill || '',
+          inputAttributes: { min: '1', step: '1' },
+          showCancelButton: true,
+          confirmButtonText: 'Use This Bill',
+          confirmButtonColor: '#0c5e3f',
+          cancelButtonText: 'Cancel',
+          preConfirm: (value) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric) || numeric <= 0) {
+              Swal.showValidationMessage('Please enter a valid average TNB bill amount.');
+              return false;
+            }
+            return Number(numeric.toFixed(2));
+          }
+        });
+
+        if (!inputValue) return;
+
+        solarEstimateState.currentAverageBill = Number(inputValue);
+
+        try {
+          updateSolarEstimateStatus('Calculating…', 'neutral');
+          const data = await requestSolarEstimate(solarEstimateState.currentAverageBill);
+          solarEstimateState.latestPreview = data;
+          if (solarEstimateState.hasSavedEstimate) {
+            solarEstimateState.currentBillCycleMode = inferSolarBillCycleModeFromSavedEstimate(data);
+          } else if (data && data.selected_bill_cycle_mode) {
+            solarEstimateState.currentBillCycleMode = normalizeSolarBillCycleMode(data.selected_bill_cycle_mode);
+          }
+          updateSolarBillCycleButtons();
+          applySolarEstimateToPage(data, { showSaveHint: false, saved: solarEstimateState.hasSavedEstimate });
+        } catch (err) {
+          updateSolarEstimateStatus('Update failed: ' + err.message, 'warning');
+        }
+      }
+
+      function setSolarBillCycleMode(mode) {
+        solarEstimateState.currentBillCycleMode = normalizeSolarBillCycleMode(mode);
+        updateSolarBillCycleButtons();
+
+        if (solarEstimateState.latestPreview) {
+          applySolarEstimateToPage(solarEstimateState.latestPreview, { showSaveHint: true, saved: false, preserveBillCycleMode: true });
+          updateSolarEstimateStatus('Preview updated for ' + (solarEstimateState.currentBillCycleMode === 'under28Days' ? '<28 Days cycle.' : 'Full Month cycle.'), 'neutral');
+          return;
+        }
+
+        if (solarEstimateState.savedEstimate) {
+          updateSolarEstimateStatus('Saved estimate shown for ' + (solarEstimateState.currentBillCycleMode === 'under28Days' ? '<28 Days cycle.' : 'Full Month cycle.'), 'neutral');
+        }
+      }
+
+      async function initializeSolarScenarioEstimate() {
+        updateSolarBillCycleButtons();
+
+        if (!solarEstimateState.canEstimate || !solarEstimateState.currentAverageBill) {
+          return;
+        }
+
+        try {
+          const billAmount = solarEstimateState.currentAverageBill;
+          const initialData = await requestSolarEstimate(billAmount);
+          if (solarEstimateState.hasSavedEstimate) {
+            solarEstimateState.currentBillCycleMode = inferSolarBillCycleModeFromSavedEstimate(initialData);
+          } else if (initialData && initialData.selected_bill_cycle_mode) {
+            solarEstimateState.currentBillCycleMode = normalizeSolarBillCycleMode(initialData.selected_bill_cycle_mode);
+          }
+          solarEstimateState.latestPreview = initialData;
+          updateSolarBillCycleButtons();
+          applySolarEstimateToPage(initialData, { showSaveHint: false, saved: solarEstimateState.hasSavedEstimate });
+        } catch (err) {
+          updateSolarEstimateStatus('Saved estimate shown. Use Recalculate if you want to compare a different bill.', 'warning');
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', initializeSolarScenarioEstimate);
+
+      function resetSignature() {
+        Swal.fire({
+          title: 'Re-sign Document?',
+          text: 'This will allow you to clear and replace the current signature.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#0a0a0a',
+          cancelButtonColor: '#f1f5f9',
+          confirmButtonText: 'Yes, Re-sign',
+          cancelButtonText: 'Cancel'
+        }).then((result) => {
+          if (result.isConfirmed) openSignatureModal();
+        });
+      }
+    </script>
+    
+
+    <div class="invoice-container">
+        <!-- Header -->
+        <header class="invoice-header">
+            <div class="brand-block">
+                <div class="logo-box">
+                    <!-- Dynamic Logo -->
+                    <img src="/logo-08.png" alt="Logo">
+                </div>
+                <div class="company-info">
+                    <h2>Eternalgy Solar Sdn. Bhd.</h2>
+                    <p style="white-space: pre-line;">Wisma Eternalgy, Level 12, Menara Solar
+50450 Kuala Lumpur, Malaysia</p>
+                </div>
+            </div>
+            <div class="invoice-title">
+                <h1>INVOICE</h1>
+                
+                <div class="invoice-actions no-print">
+                  
+                  <button onclick='quickShareInvoice("preview-0042", "INV-2026-0042", "INVOICE")' class="action-btn btn-share">
+                    <span>Share</span>
+                  </button>
+                  
+                  
+                  <button onclick="window.open('https://referral.atap.solar', '_blank')" class="action-btn btn-referral">
+                    <span>Refer Program</span>
+                  </button>
+                  
+                  
+                  <button onclick="window.open('/seda-register?id=seda-rpvsp-2024-321', '_blank')" class="action-btn btn-seda">
+                    <span>SEDA Form</span>
+                  </button>
+                  
+                  
+                  <button data-track-button="Generate Tiger Neo 3 Proposal" onclick='window.open("/view/preview-0042/tiger-neo-3-proposal", "_blank", "noopener")' class="action-btn btn-proposal">
+                    <span>GENERATE TIGER NEO 3 PROPOSAL</span>
+                  </button>
+                  
+                  
+                  
+                  <button onclick="openA4Preview('preview-0042')" class="action-btn btn-preview">
+                    <span>A4 Preview</span>
+                  </button>
+                  
+                  
+                  <button onclick="downloadInvoicePdf('preview-0042')" class="action-btn btn-pdf">
+                    <span id="pdfButtonText">Download PDF</span>
+                  </button>
+                  
+                </div>
+                
+            </div>
+        </header>
+
+        
+
+        <!-- Billing block -->
+        <section class="billing-block">
+            <div>
+                <span class="eyebrow">Invoice To</span>
+                <div class="party-name">Ahmad Raziq bin Hassan</div>
+                <div class="party-detail">No. 14, Jalan Sri Hartamas 7, Taman Sri Hartamas, 50480 Kuala Lumpur, Malaysia</div>
+            </div>
+            <div class="meta-list">
+                <div class="meta-row">
+                    <span class="meta-label">Invoice No</span>
+                    <span class="meta-value">INV-2026-0042</span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">INVOICE Date</span>
+                    <span class="meta-value"><span class="local-time" data-iso="2026-06-08T00:00:00.000Z" data-show-time="true">2026-06-08</span></span>
+                </div>
+                
+                <div class="meta-row">
+                    <span class="meta-label">Due Date</span>
+                    <span class="meta-value"><span class="local-time" data-iso="2026-07-08T00:00:00.000Z" data-show-time="true">2026-07-08</span></span>
+                </div>
+                
+                <div class="meta-row">
+                    <span class="meta-label">Phone</span>
+                    <span class="meta-value">+60 12-345 6789</span>
+                </div>
+                
+                <div class="meta-row">
+                    <span class="meta-label">Email</span>
+                    <span class="meta-value">ahmad.raziq@example.com</span>
+                </div>
+            </div>
+        </section>
+
+        
+        <section class="solar-strip avoid-break">
+            <div class="solar-strip-head">
+                <span class="solar-strip-title">Monthly Estimate · Your solar estimate at a glance</span>
+                
+                <button type="button" id="solarRecalculateBtn" class="solar-strip-recalc" onclick="openSolarEstimatePrompt()">Recalculate</button>
+                
+            </div>
+            <div class="solar-stats">
+                <div class="solar-stat">
+                    <div class="solar-stat-label">Before Solar</div>
+                    <div id="solarEstimateBeforeValue" class="solar-stat-value">RM 500.00</div>
+                </div>
+                <div class="solar-stat">
+                    <div class="solar-stat-label">After Solar</div>
+                    <div id="solarEstimateAfterValue" class="solar-stat-value">RM 157.00</div>
+                </div>
+                <div class="solar-stat is-saving">
+                    <div class="solar-stat-label">Monthly Saving</div>
+                    <div id="solarEstimateSavingValue" class="solar-stat-value">RM 343.00</div>
+                </div>
+            </div>
+            <div id="solarEstimateStatus" class="solar-status">Saved estimate on file. Use Recalculate to compare other bills.</div>
+            
+            <div class="solar-mode-row">
+                <button type="button" id="solarBillCycleBtn_fullMonth" class="solar-mode-pill" onclick="setSolarBillCycleMode('fullMonth')">Full Month</button>
+                <button type="button" id="solarBillCycleBtn_under28Days" class="solar-mode-pill" onclick="setSolarBillCycleMode('under28Days')">&lt;28 Days</button>
+            </div>
+            <div id="solarMatchedBillHint" class="solar-status"></div>
+            <div id="solarBillCycleHint" class="solar-status"></div>
+            
+            <div class="solar-note">Estimates may vary after installation due to roof shape, angle, shading, weather, and site conditions. Assumes a flat roof surface.</div>
+            <div id="solarEstimateSaveHint" class="solar-status"></div>
+        </section>
+        
+
+        <!-- Items Table -->
+        <section class="items-block">
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th class="col-no">#</th>
+                        <th class="col-desc">Description</th>
+                        <th class="col-price">Price</th>
+                        <th class="col-qty">Qty</th>
+                        <th class="col-amount">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+      <tr class="">
+          <td class="col-no" data-label="#">01</td>
+          <td class="col-desc" data-label="DESCRIPTION">Tiger Neo 3 N-Type 650W Panel
+Jinko Solar · JKM650N-54HL4R</td>
+          <td class="col-price" data-label="PRICE">RM 1450.00</td>
+          <td class="col-qty" data-label="QUANTITY">14</td>
+          <td class="col-amount" data-label="AMOUNT">RM 20300.00</td>
+      </tr>
+      
+      <tr class="alternate-row">
+          <td class="col-no" data-label="#">02</td>
+          <td class="col-desc" data-label="DESCRIPTION">SAJ 3-Phase 10kW String Inverter
+SAJ · R5-10K-T2</td>
+          <td class="col-price" data-label="PRICE">RM 3200.00</td>
+          <td class="col-qty" data-label="QUANTITY">1</td>
+          <td class="col-amount" data-label="AMOUNT">RM 3200.00</td>
+      </tr>
+      
+      <tr class="">
+          <td class="col-no" data-label="#">03</td>
+          <td class="col-desc" data-label="DESCRIPTION">Mounting & Structural Hardware
+Aluminium rail, clamps, flashing</td>
+          <td class="col-price" data-label="PRICE">RM 1800.00</td>
+          <td class="col-qty" data-label="QUANTITY">1</td>
+          <td class="col-amount" data-label="AMOUNT">RM 1800.00</td>
+      </tr>
+      
+      <tr class="alternate-row">
+          <td class="col-no" data-label="#">04</td>
+          <td class="col-desc" data-label="DESCRIPTION">DC Cabling & Accessories
+4mm² DC cable, connectors, fuses</td>
+          <td class="col-price" data-label="PRICE">RM 850.00</td>
+          <td class="col-qty" data-label="QUANTITY">1</td>
+          <td class="col-amount" data-label="AMOUNT">RM 850.00</td>
+      </tr>
+      
+      <tr class="">
+          <td class="col-no" data-label="#">05</td>
+          <td class="col-desc" data-label="DESCRIPTION">Installation & Commissioning
+Labour, permits, grid connection</td>
+          <td class="col-price" data-label="PRICE">RM 2500.00</td>
+          <td class="col-qty" data-label="QUANTITY">1</td>
+          <td class="col-amount" data-label="AMOUNT">RM 2500.00</td>
+      </tr>
+      
+      <tr class="alternate-row">
+          <td class="col-no" data-label="#">06</td>
+          <td class="col-desc" data-label="DESCRIPTION">SEDA Oversize Registration (Pre-Filing)
+SEDA Malaysia · Oversized system fee</td>
+          <td class="col-price" data-label="PRICE">RM 200.00</td>
+          <td class="col-qty" data-label="QUANTITY">1</td>
+          <td class="col-amount" data-label="AMOUNT">RM 200.00</td>
+      </tr>
+      
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Warranties -->
+        
+        <section class="avoid-break" style="padding: 0 50px; margin-bottom: 40px;">
+           <div class="bg-slate-50 rounded-t-lg border border-slate-200 px-4 py-3 flex text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+             Product Warranties
+           </div>
+           <div class="border border-t-0 border-slate-200 rounded-b-lg p-5 bg-white shadow-sm">
+             <div class="space-y-4">
+               
+                 <div class="flex flex-col sm:flex-row gap-2 sm:gap-6 sm:items-start text-sm">
+                   <div class="sm:w-1/3 font-bold text-slate-800">Panel Performance Warranty</div>
+                   <div class="flex-1 text-slate-600 text-xs whitespace-pre-line leading-relaxed">25-year linear power output guarantee</div>
+                 </div>
+                 <hr class="border-slate-50 my-4">
+               
+                 <div class="flex flex-col sm:flex-row gap-2 sm:gap-6 sm:items-start text-sm">
+                   <div class="sm:w-1/3 font-bold text-slate-800">Inverter Warranty</div>
+                   <div class="flex-1 text-slate-600 text-xs whitespace-pre-line leading-relaxed">10-year manufacturer warranty</div>
+                 </div>
+                 <hr class="border-slate-50 my-4">
+               
+                 <div class="flex flex-col sm:flex-row gap-2 sm:gap-6 sm:items-start text-sm">
+                   <div class="sm:w-1/3 font-bold text-slate-800">Workmanship Guarantee</div>
+                   <div class="flex-1 text-slate-600 text-xs whitespace-pre-line leading-relaxed">5-year installation quality and labour</div>
+                 </div>
+                 
+               
+             </div>
+           </div>
+        </section>
+        
+
+        <!-- Summary -->
+        <section class="summary-block">
+            <div class="total-due">
+                <span class="total-due-label">Total Due</span>
+                <h2 class="total-due-amount">RM 28850.00</h2>
+                <p class="total-due-status">Status · confirmed</p>
+            </div>
+            <div class="summary-right">
+                <div class="summary-row">
+                    <span class="summary-label">Sub Total</span>
+                    <span class="summary-value">RM 31350.00</span>
+                </div>
+                
+                <div class="summary-row is-discount">
+                    <span class="summary-label">Discount</span>
+                    <span class="summary-value">−RM 2000.00</span>
+                </div>
+                
+                <div class="summary-row is-discount">
+                    <span class="summary-label">Voucher</span>
+                    <span class="summary-value">−RM 500.00</span>
+                </div>
+                
+                
+                
+                
+                
+                <div class="summary-row is-total">
+                    <span class="summary-label">Total</span>
+                    <span class="summary-value">RM 28850.00</span>
+                </div>
+                
+                <div class="payment-info">
+                    <span class="eyebrow">Payment</span>
+                    <div class="meta-row">
+                        <span class="meta-label">Bank</span>
+                        <span class="meta-value">Public Bank Malaysia Berhad</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Account No</span>
+                        <span class="meta-value">3212-3456-7890</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Account Name</span>
+                        <span class="meta-value">Eternalgy Solar Sdn. Bhd.</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Payment Ref</span>
+                        <span class="meta-value" style="font-variant-numeric: tabular-nums; letter-spacing: 0.04em;">INV-2026-0042</span>
+                    </div>
+                </div>
+                
+            </div>
+        </section>
+
+        <!-- Tiger Neo 3 Promotional Banner -->
+        
+        <a class="promotional-banner no-print" data-track-button="Tiger Neo 3 Promotional Banner" href="/view/preview-0042/tiger-neo-3-proposal" target="_blank" rel="noopener noreferrer" style="display: block; padding: 0 50px; margin-bottom: 40px; cursor: pointer;">
+            <div style="border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
+                <img src="/slide-001.webp" alt="Rise With Tiger Neo 3" style="width: 100%; display: block; object-fit: cover;">
+                <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 20px 15px 10px; color: white; text-align: right; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">
+                    Generate Tiger Neo 3 Proposal <i class='bx bx-right-arrow-alt' style="vertical-align: middle; font-size: 14px;"></i>
+                </div>
+            </div>
+        </a>
+        
+
+        <!-- Terms & Signature -->
+        <section class="terms-signature">
+            <div class="terms">
+                <h3>Terms &amp; Conditions</h3>
+                <p>1. Valid for 30 days. 2. 50% deposit required. 3. Installation 14-21 working days.</p>
+                <div class="created-by">
+                  INVOICE Created by: <span style="color: var(--ink-muted);">Eternalgy Sales Team</span>
+                </div>
+            </div>
+            <div class="signature">
+                
+                
+                <div class="no-print" style="margin-bottom: 10px;">
+                    <button onclick="openSignatureModal()" class="px-4 py-2 bg-emerald-600 text-white rounded font-bold shadow hover:bg-emerald-700 w-full transition-transform active:scale-95">Sign this INVOICE</button>
+                </div>
+                
+                <h4>Ahmad Raziq bin Hassan</h4>
+                
+                
+            </div>
+        </section>
+
+        <p class="thank-you">Thank you for your business</p>
+
+        <!-- Certifications · minimal mono -->
+        <section class="certifications avoid-break">
+            <div class="cert-head">
+                <span class="cert-headline">Registered &amp; Certified As</span>
+                <span class="cert-subline">Eternalgy Sdn Bhd · Malaysia</span>
+            </div>
+            <div class="cert-grid">
+                <div class="cert-card">
+                    <div class="cert-logo"><img src="/logo/cidb-registered.png" alt="CIDB"></div>
+                    <div>
+                        <div class="cert-name">CIDB Registered Contractor</div>
+                        <div class="cert-meta">0120250324-WP152634 · G3 · Cat B · CE · ME</div>
+                    </div>
+                </div>
+                <div class="cert-card">
+                    <div class="cert-logo"><img src="/logo/Seda-Malaysia001.png" alt="SEDA"></div>
+                    <div>
+                        <div class="cert-name">SEDA Solar PV Service Provider</div>
+                        <div class="cert-meta">SEDA/RPVSP/2024/321</div>
+                    </div>
+                </div>
+                <div class="cert-card">
+                    <div class="cert-logo"><img src="/logo/Seda-Malaysia001.png" alt="SEDA"></div>
+                    <div>
+                        <div class="cert-name">SEDA Solar PV Investor</div>
+                        <div class="cert-meta">Eternalgy Sdn Bhd</div>
+                    </div>
+                </div>
+                <div class="cert-card">
+                    <div class="cert-logo"><img src="/logo/myhijau_plain.jpg" alt="MyHijau"></div>
+                    <div>
+                        <div class="cert-name">MyHijau Equipment Cert</div>
+                        <div class="cert-meta">SAJ Inverter · MyHS00025/25</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer Footer -->
+        <footer class="invoice-footer">
+            <div class="footer-col">
+                <div class="icon-circle"><i class='bx bxs-phone'></i></div>
+                <div class="footer-text">
+                    <p>+603-1234 5678</p>
+                </div>
+            </div>
+            <div class="footer-col" style="justify-content: center; text-align: center;">
+                <div class="icon-circle"><i class='bx bxs-map'></i></div>
+                <div class="footer-text">
+                    <p>Wisma Eternalgy, Level 12, Menara Solar
+50450 Kuala Lumpur, Malaysia</p>
+                </div>
+            </div>
+            <div class="footer-col" style="justify-content: flex-end; text-align: right;">
+                
+                <div class="icon-circle"><i class='bx bxs-envelope'></i></div>
+                <div class="footer-text">
+                    <p>hello@eternalgysolar.my</p>
+                </div>
+                
+            </div>
+        </footer>
+    </div>
+    
+    <script>
+      window.EternalgyInvoiceTracker = {
+        invoiceIdentifier: "preview-0042",
+        pageType: 'invoice',
+        endpoint: '/api/invoice-view-activity'
+      };
+    </script>
+    <script src="/js/invoice-view-tracker.js" defer></script>
+    
+</body>
+</html>
+  
