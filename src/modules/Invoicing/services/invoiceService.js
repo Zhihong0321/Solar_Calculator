@@ -305,9 +305,14 @@ async function createInvoice(pool, invoiceRequestPayload) {
       estimatedNewBillAmount: invoiceRequestPayload.estimatedNewBillAmount,
       solarSunPeakHour: invoiceRequestPayload.solarSunPeakHour,
       solarMorningUsagePercent: invoiceRequestPayload.solarMorningUsagePercent,
-      applyEarnNowRebate: false,
-      applyEarthMonthGoGreenBonus: false,
-      applyParentsDayPromo: false,
+      // Honor the agent's explicit promo toggles from the request. These were
+      // normalized above (apply_*_promo -> apply*Promo). Hardcoding false here
+      // silently dropped the Parents' Day promo on create even though the
+      // frontend sent it and showed it in the live preview. Absent flags
+      // normalize to false, preserving "promo OFF unless explicitly turned on".
+      applyEarnNowRebate: normalizeBoolean(invoiceRequestPayload.applyEarnNowRebate),
+      applyEarthMonthGoGreenBonus: normalizeBoolean(invoiceRequestPayload.applyEarthMonthGoGreenBonus),
+      applyParentsDayPromo: normalizeBoolean(invoiceRequestPayload.applyParentsDayPromo),
       eppFeeAmount: invoiceRequestPayload.eppFeeAmount,
       eppFeeDescription: invoiceRequestPayload.eppFeeDescription,
       paymentStructure: invoiceRequestPayload.paymentStructure,
