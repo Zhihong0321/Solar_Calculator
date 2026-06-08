@@ -454,9 +454,14 @@ function hydrateCustomDiscountsFromInvoice(items) {
         if (type !== 'discount') return;
         const amount = Math.abs(parseFloat(item?.amount) || 0);
         if (amount <= 0) return;
-        const desc = item?.description || '';
+        const rawDesc = item?.description || '';
         // Skip promotion-generated discount lines (those are managed by promo toggles).
-        if (/earn now|earth month|parents'? day|cny|holiday boost/i.test(desc)) return;
+        if (/earn now|earth month|parents'? day|cny|holiday boost/i.test(rawDesc)) return;
+        // Strip the trailing amount suffix the backend appends ("(RM 111)" or
+        // "(15%)") so the stored description stays clean and re-saving does not
+        // double-wrap it. Bare legacy "Discount" collapses to empty (fallback).
+        const strippedDesc = rawDesc.replace(/\s*\((?:RM\s*[\d.,]+|[\d.]+%)\)\s*$/i, '').trim();
+        const desc = strippedDesc.toLowerCase() === 'discount' ? '' : strippedDesc;
         customDiscounts.push({ id: Date.now() + Math.floor(Math.random() * 100000), type: 'fixed', value: amount, description: desc, amount });
     });
     syncDiscountGivenBridge();
@@ -2545,7 +2550,10 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
             // This screen edits an EXISTING invoice, so promo handling must follow the saved invoice setting.
             // DO NOT treat edit like create. Create defaults are not allowed to overwrite existing invoice promo state.
             applyEarnNowRebate: document.getElementById('applyEarnNowRebate')?.checked || false,
-            applyEarthMonthGoGreenBonus: document.getElementById('applyEarthMonthGoGreenBonus')?.checked || false
+            applyEarthMonthGoGreenBonus: document.getElementById('applyEarthMonthGoGreenBonus')?.checked || false,
+            // Carry the custom discount description(s) so re-saving keeps the
+            // descriptive discount line instead of relabelling to "Discount".
+            discount_description: customDiscounts.map(d => (d.description || '').trim()).filter(Boolean).join(' | ') || null
         }
     });
 

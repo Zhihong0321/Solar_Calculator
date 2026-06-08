@@ -2580,6 +2580,10 @@ document.getElementById('quotationForm')?.addEventListener('submit', async funct
                 apply_earn_now_rebate: promotionAmounts.earnNowAppliedAmount > 0,
                 apply_earth_month_go_green_bonus: promotionAmounts.earthMonthAppliedAmount > 0,
                 apply_parents_day_promo: promotionAmounts.parentsDayAppliedAmount > 0,
+                // Carry the custom discount description(s) to the saved invoice
+                // so the discount line reads "<description> (RM X)" instead of a
+                // generic "Discount (RM X)". CEO discount keeps its own label.
+                discount_description: customDiscounts.map(d => (d.description || '').trim()).filter(Boolean).join(' | ') || null,
                 followUpDays: data.follow_up_days || null
             }
         });

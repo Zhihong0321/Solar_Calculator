@@ -1081,7 +1081,14 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
 
   // 2. Discount Items
   let sortOrder = 100;
-  const discountLabel = data.ceoDiscount ? "CEO's SPECIAL DISCOUNT" : 'Discount';
+  // Use the agent's custom discount description (e.g. "First 5 Eternalgy
+  // Customer in June (...)") as the line label when provided; the amount
+  // suffix is appended below to give "<description> (RM X)". CEO discount keeps
+  // its fixed label. Falls back to "Discount" when no description was entered.
+  const customDiscountDescription = String(data.discountDescription || '').trim();
+  const discountLabel = data.ceoDiscount
+    ? "CEO's SPECIAL DISCOUNT"
+    : (customDiscountDescription || 'Discount');
   if (discountFixed > 0) {
     const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
       description: `${discountLabel} (RM ${discountFixed})`,
