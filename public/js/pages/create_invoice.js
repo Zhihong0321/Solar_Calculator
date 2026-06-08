@@ -1944,6 +1944,13 @@ function updateRoiCalculator(finalTotalAmount) {
     // Final total = system cost for ROI purposes
     const systemCost = parseFloat(finalTotalAmount) || 0;
 
+    // SURIA RM3,000 govt subsidy is NOT a discount and never changes the
+    // invoice. It is claimable on successful installation, so for ROI we
+    // measure return against the net out-of-pocket cost after the subsidy.
+    const suriaApplied = document.getElementById('applySuriaRebate')?.checked || false;
+    const suriaSubsidy = suriaApplied ? SURIA_REBATE_AMOUNT : 0;
+    const effectiveCost = Math.max(0, systemCost - suriaSubsidy);
+
     // Monthly savings: override takes priority, else fall back to estimated_saving hidden field
     const overrideEl = document.getElementById('roiMonthlySavingsOverride');
     const overrideVal = parseFloat(overrideEl?.value);
@@ -1977,13 +1984,25 @@ function updateRoiCalculator(finalTotalAmount) {
             : 'RM —';
     }
 
+    // Show the net cost used for ROI when the SURIA subsidy is toggled on.
+    const suriaNoteEl = document.getElementById('roiSuriaNote');
+    if (suriaNoteEl) {
+        if (suriaApplied && systemCost > 0) {
+            suriaNoteEl.textContent = `− SURIA RM ${SURIA_REBATE_AMOUNT.toFixed(2)} → Net RM ${effectiveCost.toFixed(2)} used for ROI`;
+            suriaNoteEl.classList.remove('hidden');
+        } else {
+            suriaNoteEl.textContent = '';
+            suriaNoteEl.classList.add('hidden');
+        }
+    }
+
     let annualRoiDisplay = '— %';
     let paybackDisplay = '— yr';
 
-    if (monthlySavings !== null && systemCost > 0 && monthlySavings > 0) {
+    if (monthlySavings !== null && effectiveCost > 0 && monthlySavings > 0) {
         const annualSavings = monthlySavings * 12;
-        const annualRoi = (annualSavings / systemCost) * 100;
-        const payback = systemCost / annualSavings;
+        const annualRoi = (annualSavings / effectiveCost) * 100;
+        const payback = effectiveCost / annualSavings;
 
         annualRoiDisplay = `${annualRoi.toFixed(1)}%`;
         paybackDisplay = `${payback.toFixed(1)} yr`;
@@ -2621,14 +2640,22 @@ function fillWhatsAppInfo(photoUrl, phone) {
 // Live ROI Calculator - Manual override listener
 // ============================================
 function initRoiOverrideListener() {
+    const recomputeRoiFromTotal = function () {
+        const totalAmountText = document.getElementById('totalAmount')?.textContent || '';
+        const match = totalAmountText.replace(/[^0-9.]/g, '');
+        const totalAmount = parseFloat(match) || 0;
+        updateRoiCalculator(totalAmount);
+    };
+
     const roiOverride = document.getElementById('roiMonthlySavingsOverride');
     if (roiOverride) {
-        roiOverride.addEventListener('input', function () {
-            const totalAmountText = document.getElementById('totalAmount')?.textContent || '';
-            const match = totalAmountText.replace(/[^0-9.]/g, '');
-            const totalAmount = parseFloat(match) || 0;
-            updateRoiCalculator(totalAmount);
-        });
+        roiOverride.addEventListener('input', recomputeRoiFromTotal);
+    }
+
+    // SURIA subsidy is ROI-only — re-run the ROI math when it is toggled.
+    const suriaToggle = document.getElementById('applySuriaRebate');
+    if (suriaToggle) {
+        suriaToggle.addEventListener('change', recomputeRoiFromTotal);
     }
 }
 
