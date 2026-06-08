@@ -451,19 +451,45 @@
     }
 
     function setSubmitButtonLoadingState(form, loadingText) {
-        const submitBtn = form?.querySelector('button[type="submit"]');
-        const originalText = submitBtn?.textContent || '';
-
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = loadingText;
+        // Lock EVERY submit button that targets this form, not just the one
+        // inside it. The sticky mobile action bar button sits outside the
+        // <form> and points to it via form="...", so a query scoped to the
+        // form would miss it and let the user spam clicks during the ~3s save.
+        const buttons = new Set();
+        form?.querySelectorAll('button[type="submit"]').forEach((b) => buttons.add(b));
+        if (form?.id) {
+            document
+                .querySelectorAll(`button[type="submit"][form="${form.id}"]`)
+                .forEach((b) => buttons.add(b));
         }
 
+        // Self-contained spinner (SMIL rotation) — no page CSS dependency, so
+        // it works identically on every page that shares this helper.
+        const spinner =
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:inline-block;vertical-align:-3px;margin-right:8px">' +
+            '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" stroke-opacity="0.25"/>' +
+            '<path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round">' +
+            '<animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.7s" repeatCount="indefinite"/>' +
+            '</path></svg>';
+
+        const saved = [];
+        buttons.forEach((btn) => {
+            saved.push({ btn, html: btn.innerHTML, disabled: btn.disabled });
+            // Disable immediately and block pointer events so even an in-flight
+            // tap can't re-trigger before the disabled state is honored.
+            btn.disabled = true;
+            btn.setAttribute('aria-busy', 'true');
+            btn.style.pointerEvents = 'none';
+            btn.innerHTML = `${spinner}<span>${loadingText}</span>`;
+        });
+
         return function restoreSubmitButtonState() {
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-            }
+            saved.forEach(({ btn, html, disabled }) => {
+                btn.disabled = disabled;
+                btn.removeAttribute('aria-busy');
+                btn.style.pointerEvents = '';
+                btn.innerHTML = html;
+            });
         };
     }
 
