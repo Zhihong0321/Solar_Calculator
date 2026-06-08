@@ -453,6 +453,11 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
 .cert-name{font-family:var(--mono);font-size:9px;font-weight:600;color:var(--g900);line-height:1.3;margin-bottom:2px}
 .cert-meta{font-family:var(--mono);font-size:8.5px;font-weight:400;color:var(--g500);line-height:1.45;word-break:break-word}
 
+/* === Floating A4 preview button === */
+.floating-a4-preview{position:fixed;right:20px;bottom:20px;z-index:90;box-shadow:0 12px 28px rgba(15,23,42,.22)}
+.floating-a4-preview button{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:9999px;background:linear-gradient(135deg,var(--g900),#334155);color:#fff;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(255,255,255,.12);cursor:pointer;font-family:var(--f);transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease}
+.floating-a4-preview button:hover{transform:translateY(-1px);box-shadow:0 14px 32px rgba(15,23,42,.28)}
+
 /* === Signature modal === */
 .sig-modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(15,26,18,0.62);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 .sig-modal.is-open{display:flex}
