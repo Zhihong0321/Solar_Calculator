@@ -563,24 +563,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
       <div class="sw anim">
         <div class="hero-card">
           <div class="hero-card-h">
-            <div class="hero-eyebrow-row">
-              <div>
-                <div class="hero-eyebrow">${titleLabel} · ${heroDate || ''}</div>
-                <div class="hero-status-row">
-                  ${invoice.status ? `<span class="status ${isConfirmed ? '' : 'warn'}">${invoice.status}</span>` : '<span class="status">Draft</span>'}
-                  <span class="hero-inv-no">${invoice.invoice_number || '—'}</span>
-                </div>
-              </div>
-              <div class="confidence">
-                <svg class="confidence-ring" viewBox="0 0 44 44">
-                  <circle cx="22" cy="22" r="18" fill="none" stroke="#1a3a1a" stroke-width="4"/>
-                  <circle cx="22" cy="22" r="18" fill="none" stroke="#22c55e" stroke-width="4"
-                    stroke-dasharray="${(confidenceValue/100*113).toFixed(0)} 113" stroke-linecap="round" transform="rotate(-90 22 22)"/>
-                  <text x="22" y="25" text-anchor="middle" font-size="9" font-weight="800" fill="#fff" font-family="'Plus Jakarta Sans',sans-serif">${confidenceValue}%</text>
-                </svg>
-                <div class="confidence-cap">Confidence</div>
-              </div>
-            </div>
+            <div class="hero-eyebrow">${titleLabel}${heroDate ? ' · ' + heroDate : ''}</div>
             <div class="hero-title">${fmtMoney(totalAmount)}</div>
             <div class="hero-sub">${heroNumber}${invoice.due_date ? ' · Due ' + formatInvoiceDate(invoice.due_date) : ''}</div>
           </div>
