@@ -383,6 +383,8 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
 .sig-name{font-size:12.5px;font-weight:800;color:var(--g900);text-transform:uppercase;margin-top:3px;letter-spacing:.02em}
 .sig-date{font-size:9.5px;color:var(--g400);margin-top:2px;font-weight:500}
 .sig-empty{padding:14px;text-align:center;color:var(--g400);font-size:11px}
+.sig-resign{margin-top:8px;border:1px solid var(--g200);background:#fff;color:var(--g600);border-radius:6px;padding:6px 10px;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;cursor:pointer}
+.sig-resign:hover{border-color:var(--gp);color:var(--gp);background:var(--gb)}
 
 .pay-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--g100)}
 .pay-row:last-child{border-bottom:none}
@@ -899,6 +901,9 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
             `)}
             <div class="sig-name">${invoice.customer_name || 'Customer'}</div>
             ${invoice.signature_date ? `<div class="sig-date">Signed ${formatInvoiceDate(invoice.signature_date)}</div>` : ''}
+            ${invoice.customer_signature && showInteractiveControls ? `
+              <button onclick="resetSignature()" class="sig-resign no-print">Re-sign</button>
+            ` : ''}
           </div>
         </div>
       </div>
