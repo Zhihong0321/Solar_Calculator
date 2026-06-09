@@ -1089,10 +1089,10 @@ function getParentsDayPromoAmount(panelQty) {
     if (!isParentsDay2026Active()) return 0;
 
     const qty = parseInt(panelQty, 10) || 0;
-    if (qty >= 11 && qty <= 15) return 300;
-    if (qty >= 16 && qty <= 19) return 500;
-    if (qty >= 20 && qty <= 29) return 800;
-    if (qty >= 30) return 1300;
+    if (qty >= 10 && qty <= 15) return 800;
+    if (qty >= 16 && qty <= 19) return 1000;
+    if (qty >= 20 && qty <= 29) return 1300;
+    if (qty >= 30) return 1800;
     return 0;
 }
 
