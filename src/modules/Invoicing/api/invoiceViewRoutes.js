@@ -8,6 +8,7 @@ const invoiceRepo = require('../services/invoiceRepo');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const invoiceHtmlGeneratorV3 = require('../services/invoiceHtmlGeneratorV3');
+const { generateInvoiceHtmlA4 } = require('../services/invoiceHtmlGeneratorA4');
 const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
 const { normalizeV3Locale } = require('../services/invoiceV3Content');
 const externalPdfService = require('../services/externalPdfService');
@@ -655,6 +656,18 @@ router.get('/view/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
+        if (layout === 'a4' || layout === 'a4-preview' || layout === 'print') {
+          const html = generateInvoiceHtmlA4(invoice, invoice.template, {
+            layout,
+            locale: normalizeV3Locale(req.query.lang || req.query.locale || 'en'),
+            mono: String(req.query.mono || '1') !== '0',
+            mobileViewUrl: `/view/${encodeURIComponent(tokenOrId)}`,
+            pdfUrl: `/view/${encodeURIComponent(tokenOrId)}/pdf`
+          });
+          res.send(html);
+          return;
+        }
+
         const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, {
           layout,
           viewerHasAuthenticatedUser: Boolean(authenticatedViewer)

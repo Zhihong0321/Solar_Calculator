@@ -12,7 +12,7 @@ function buildFloatingA4PreviewButton(identifier) {
     return `
     <div class="floating-a4-preview no-print">
       <button onclick='openA4Preview(${JSON.stringify(identifier)})'>
-        <span>A4 Preview</span>
+        <span>PRINTABLE</span>
       </button>
     </div>
     `;
@@ -193,7 +193,7 @@ function buildInvoiceInteractionScript({
       }
 
       function openA4Preview(shareToken) {
-        window.open('/view/' + shareToken + '?layout=a4', '_blank', 'noopener');
+        window.open('/view/' + shareToken + '?layout=a4&mono=1', '_blank', 'noopener');
       }
 
       async function quickShareInvoice(identifier, invoiceNumber, documentType) {

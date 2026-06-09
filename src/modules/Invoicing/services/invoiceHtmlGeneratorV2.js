@@ -224,7 +224,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const viewProposalBtn = !isEvCharger && !hasTigerNeo3 && (invoice.share_token || invoice.bubble_id) && invoice.customer_name && invoice.customer_name !== 'Sample Quotation'
         ? `<button onclick="viewProposal('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-proposal"><span>View Proposal</span></button>` : '';
     const a4Btn = (invoice.share_token || invoice.bubble_id)
-        ? `<button onclick="openA4Preview('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-preview"><span>A4 Preview</span></button>` : '';
+        ? `<button onclick="openA4Preview('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-preview"><span>PRINTABLE</span></button>` : '';
     const pdfBtn = !isEvCharger && (invoice.share_token || invoice.bubble_id)
         ? `<button onclick="downloadInvoicePdf('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-pdf"><span id="pdfButtonText">Download PDF</span></button>` : '';
 
