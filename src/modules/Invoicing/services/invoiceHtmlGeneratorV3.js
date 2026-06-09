@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { normalizeSolarEstimateFields } = require('./solarEstimateValues');
 const { getV3Copy } = require('./invoiceV3Content');
+const { generateInvoiceHtmlA4 } = require('./invoiceHtmlGeneratorA4');
 
 const TIGER_NEO_3_BANNER_DATA_URI = (() => {
   try {
@@ -233,6 +234,18 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
   const layoutMode = String(options.layout || options.viewMode || '').toLowerCase();
   const isPrintLayout = layoutMode === 'a4' || layoutMode === 'a4-preview' || layoutMode === 'print';
   const locale = options.locale || 'en';
+
+  // A4 / print layout uses a dedicated redesign — the mobile templates below
+  // are designed for phone screens and do not print well on A4 paper.
+  if (isPrintLayout) {
+    return generateInvoiceHtmlA4(invoice, template, {
+      ...options,
+      locale,
+      mono: Boolean(options.mono),
+      mobileViewUrl: options.currentViewUrl
+    });
+  }
+
   const copy = getV3Copy(locale);
 
   const invoiceStatus = String(invoice.status || '').toLowerCase();
@@ -392,6 +405,9 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
       </div>
       <div class="flex items-center gap-1">
         ${renderLanguageSwitch()}
+        <button onclick="openA4Printable()" title="A4 Printable View" class="hover:bg-slate-800 transition-colors p-2 active:scale-95 duration-100 ml-2">
+          <span class="material-symbols-outlined text-white" style="font-size:1.1rem">print</span>
+        </button>
         <button onclick="downloadPdf()" class="hover:bg-slate-800 transition-colors p-2 active:scale-95 duration-100 ml-2">
           <span class="material-symbols-outlined text-white" style="font-size:1.1rem">picture_as_pdf</span>
         </button>
@@ -826,6 +842,12 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
   ` : ''}
 
   <script>
+    function openA4Printable() {
+      const url = new URL(window.location.href);
+      url.searchParams.set('layout', 'a4');
+      window.open(url.toString(), '_blank', 'noopener');
+    }
+
     function switchTab(tabId) {
       document.querySelectorAll('.tab-panel').forEach(panel => {
         panel.classList.remove('active');

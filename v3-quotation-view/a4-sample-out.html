@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A4 Preview · INV-1008812</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+      /* ============ A4 Preview — full redesign ============ */
+
+      :root {
+        --a4-ink: #0b0f14;
+        --a4-ink-soft: #2b323a;
+        --a4-mute: #6b7280;
+        --a4-line: #d6d8dc;
+        --a4-line-soft: #ececec;
+        --a4-cream: #fbf7f2;
+        --a4-cream-2: #f4ede4;
+        --a4-deep: #003527;     /* brand deep green */
+        --a4-deep-2: #0a4a39;
+        --a4-amber: #c68a2a;
+        --a4-amber-2: #a86f1e;
+        --a4-green: #16a34a;
+        --a4-green-soft: #dcfce7;
+        --a4-amber-soft: #fff1d6;
+        --a4-red: #991b1b;
+        --a4-shadow: 0 14px 40px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.08);
+      }
+
+      /* Page reset for A4 mode */
+      html, body { background: #e7e9ee; margin: 0; padding: 0; }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: var(--a4-ink);
+        font-size: 10pt;
+        line-height: 1.4;
+        -webkit-font-smoothing: antialiased;
+        font-variant-numeric: tabular-nums;
+      }
+      * { box-sizing: border-box; }
+
+      /* Toolbar — hidden in print */
+      .a4-toolbar {
+        position: sticky; top: 0; z-index: 50;
+        background: rgba(11, 15, 20, 0.96);
+        color: #fff;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        padding: 10px 18px;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        font-size: 11px;
+      }
+      .a4-toolbar-l, .a4-toolbar-r { display: flex; align-items: center; gap: 8px; }
+      .a4-toolbar-title {
+        font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px;
+        color: #cbd5e1;
+      }
+      .a4-toolbar-doc { font-weight: 800; letter-spacing: 0.04em; color: #fff; font-family: 'JetBrains Mono', monospace; }
+      .a4-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 7px 12px;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s, transform 0.1s;
+      }
+      .a4-btn:hover { background: rgba(255, 255, 255, 0.16); }
+      .a4-btn:active { transform: scale(0.98); }
+      .a4-btn.primary { background: var(--a4-green); border-color: transparent; }
+      .a4-btn.primary:hover { background: #15803d; }
+      .a4-btn.ghost { background: transparent; }
+      .a4-btn svg { width: 14px; height: 14px; }
+
+      /* Page stage */
+      .a4-stage {
+        padding: 28px 16px 56px;
+        display: flex; flex-direction: column; align-items: center;
+        gap: 24px;
+      }
+
+      /* The A4 page itself — exact ISO A4 (210mm × 297mm) */
+      .a4-page {
+        width: 210mm;
+        min-height: 297mm;
+        background: #fff;
+        box-shadow: var(--a4-shadow);
+        position: relative;
+        overflow: hidden;
+        color: var(--a4-ink);
+      }
+      .a4-page-inner {
+        padding: 16mm 18mm 14mm;
+        min-height: 297mm;
+        display: flex; flex-direction: column;
+      }
+      .a4-page + .a4-page { margin-top: 0; }
+
+      /* Brand bar (top of every page) */
+      .a4-brandbar {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--a4-deep);
+        margin-bottom: 18px;
+      }
+      .a4-brandbar-l { display: flex; align-items: center; gap: 10px; }
+      .a4-brand-mark {
+        width: 30px; height: 30px;
+        background: var(--a4-deep);
+        color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 900; font-size: 14px;
+        letter-spacing: 0.04em;
+      }
+      .a4-brand-name {
+        font-weight: 900; letter-spacing: 0.08em; font-size: 12px; line-height: 1.1;
+        color: var(--a4-deep);
+      }
+      .a4-brand-sub { font-size: 8.5px; color: var(--a4-mute); margin-top: 1px; letter-spacing: 0.04em; }
+      .a4-brandbar-c { display: flex; align-items: center; gap: 8px; }
+      .a4-brandbar-tag {
+        background: var(--a4-deep);
+        color: #fff;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        padding: 4px 8px;
+        text-transform: uppercase;
+      }
+      .a4-brandbar-sep { color: var(--a4-line); font-size: 11px; }
+      .a4-brandbar-title {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--a4-ink-soft);
+        letter-spacing: 0.04em;
+      }
+      .a4-brandbar-r { text-align: right; }
+      .a4-brandbar-docno {
+        display: block;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--a4-ink);
+      }
+      .a4-brandbar-pg {
+        display: block;
+        font-size: 8px;
+        color: var(--a4-mute);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-top: 1px;
+      }
+
+      /* Hero */
+      .a4-hero {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+      .a4-eyebrow {
+        font-size: 8.5px;
+        font-weight: 800;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: var(--a4-amber);
+        margin: 0 0 6px 0;
+      }
+      .a4-hero-title {
+        font-size: 38pt;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        line-height: 0.9;
+        color: var(--a4-deep);
+        margin: 0;
+      }
+      .a4-hero-sub {
+        margin: 10px 0 14px;
+        font-size: 9pt;
+        color: var(--a4-ink-soft);
+        max-width: 70mm;
+        line-height: 1.45;
+      }
+      .a4-hero-meta {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        padding-top: 10px;
+        border-top: 1px solid var(--a4-line);
+      }
+      .a4-meta-l {
+        display: block;
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--a4-mute);
+        margin-bottom: 2px;
+      }
+      .a4-meta-v { font-size: 10pt; font-weight: 800; color: var(--a4-ink); margin: 0; }
+      .a4-meta-v.mono { font-family: 'JetBrains Mono', monospace; font-size: 9.5pt; }
+
+      .a4-hero-box {
+        background: var(--a4-cream);
+        border: 1px solid var(--a4-line);
+        border-left: 3px solid var(--a4-amber);
+        padding: 12px 14px;
+        align-self: start;
+      }
+      .a4-hero-box-row {
+        display: flex; justify-content: space-between; align-items: baseline;
+        padding: 6px 0;
+        border-bottom: 1px dashed var(--a4-line);
+      }
+      .a4-hero-box-row:last-child { border-bottom: none; }
+      .a4-hero-box-l { font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--a4-mute); }
+      .a4-hero-box-v { font-size: 10pt; font-weight: 700; color: var(--a4-ink); }
+
+      /* Two-column customer/project */
+      .a4-twocol {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+      .a4-block { border: 1px solid var(--a4-line); }
+      .a4-block-head {
+        background: var(--a4-cream-2);
+        padding: 6px 12px;
+        font-size: 8.5px;
+        font-weight: 800;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--a4-deep);
+        border-bottom: 1px solid var(--a4-line);
+      }
+      .a4-block-body { padding: 10px 12px; }
+      .a4-block-name { font-size: 12pt; font-weight: 800; color: var(--a4-ink); margin: 0 0 4px; }
+      .a4-block-text { font-size: 9pt; color: var(--a4-ink-soft); margin: 0; line-height: 1.45; }
+      .a4-block-text.dim { color: var(--a4-mute); font-size: 8.5pt; }
+
+      .a4-mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+      .a4-mini-grid > div { display: flex; flex-direction: column; gap: 1px; }
+      .a4-mini-l { font-size: 7.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--a4-mute); }
+      .a4-mini-v { font-size: 9.5pt; font-weight: 700; color: var(--a4-ink); }
+      .a4-mini-v.mono { font-family: 'JetBrains Mono', monospace; font-size: 9pt; }
+
+      /* Strip */
+      .a4-strip {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border: 1px solid var(--a4-line);
+        border-left: 3px solid var(--a4-deep);
+        margin-bottom: 20px;
+      }
+      .a4-strip-item {
+        padding: 10px 14px;
+        border-right: 1px solid var(--a4-line);
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      .a4-strip-item:last-child { border-right: none; }
+      .a4-strip-l { font-size: 7.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--a4-mute); }
+      .a4-strip-v { font-size: 14pt; font-weight: 900; color: var(--a4-deep); letter-spacing: -0.02em; line-height: 1.05; }
+      .a4-strip-v.sm { font-size: 10pt; font-weight: 800; line-height: 1.15; }
+
+      /* Section */
+      .a4-section { margin-bottom: 16px; }
+      .a4-section-head {
+        display: flex; align-items: center; gap: 10px;
+        margin-bottom: 10px;
+      }
+      .a4-section-num {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 9.5pt;
+        font-weight: 800;
+        color: var(--a4-amber);
+      }
+      .a4-section-title {
+        font-size: 10.5pt;
+        font-weight: 900;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--a4-deep);
+      }
+      .a4-section-rule { flex: 1; height: 1px; background: var(--a4-line); }
+
+      /* Items table */
+      .a4-tbl {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9pt;
+      }
+      .a4-tbl thead th {
+        background: var(--a4-deep);
+        color: #fff;
+        text-align: left;
+        font-size: 7.5pt;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        padding: 7px 10px;
+      }
+      .a4-tbl thead th.num { text-align: right; }
+      .a4-tbl tbody td {
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--a4-line-soft);
+        vertical-align: top;
+      }
+      .a4-tbl tbody tr.odd td { background: var(--a4-cream); }
+      .a4-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .a4-tbl td.strong, .a4-tbl td.num.strong { font-weight: 800; color: var(--a4-ink); }
+      .a4-tbl-name { font-weight: 700; color: var(--a4-ink); line-height: 1.3; }
+      .a4-tbl-sub { font-size: 8pt; color: var(--a4-mute); margin-top: 2px; line-height: 1.35; }
+
+      /* Totals */
+      .a4-totals-wrap { display: flex; justify-content: flex-end; margin-top: 8px; }
+      .a4-totals {
+        width: 60%;
+        border-collapse: collapse;
+        font-size: 9.5pt;
+      }
+      .a4-totals td { padding: 6px 10px; }
+      .a4-totals-l { color: var(--a4-mute); font-weight: 600; }
+      .a4-totals-v { text-align: right; font-weight: 700; color: var(--a4-ink); }
+      .a4-totals-v.disc { color: var(--a4-red); }
+      .a4-totals tr.grand td {
+        background: var(--a4-deep);
+        color: #fff;
+        padding: 10px 12px;
+        font-size: 12pt;
+      }
+      .a4-totals tr.grand .a4-totals-l { color: #fff; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; font-size: 9.5pt; }
+      .a4-totals tr.grand .a4-totals-v { color: #fff; font-size: 16pt; font-weight: 900; letter-spacing: -0.02em; }
+
+      /* Component cards */
+      .a4-comp-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      .a4-comp-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .a4-comp-card {
+        border: 1px solid var(--a4-line);
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .a4-comp-card-bar { height: 3px; background: var(--a4-deep); }
+      .a4-comp-card-bar.alt { background: var(--a4-amber); }
+      .a4-comp-card-bar.amber { background: var(--a4-amber-2); }
+      .a4-comp-card-body { padding: 12px 14px 14px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+      .a4-comp-card-tag {
+        font-size: 7.5px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--a4-mute);
+      }
+      .a4-comp-card-name {
+        font-size: 13pt;
+        font-weight: 900;
+        color: var(--a4-deep);
+        margin: 0;
+        line-height: 1.1;
+      }
+      .a4-comp-card-desc {
+        font-size: 8.5pt;
+        color: var(--a4-ink-soft);
+        line-height: 1.45;
+        margin: 0;
+      }
+      .a4-comp-specs {
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px solid var(--a4-line-soft);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 10px;
+      }
+      .a4-comp-specs > div { display: flex; flex-direction: column; gap: 1px; }
+      .a4-comp-specs span { font-size: 7px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--a4-mute); }
+      .a4-comp-specs strong { font-size: 9pt; font-weight: 800; color: var(--a4-ink); }
+      .a4-comp-card-status {
+        margin-top: auto;
+        align-self: flex-start;
+        font-size: 7.5px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--a4-green);
+        background: var(--a4-green-soft);
+        padding: 3px 8px;
+      }
+
+      /* Monthly projection */
+      .a4-projection {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto;
+        gap: 14px;
+        align-items: stretch;
+      }
+      .a4-proj-col { display: flex; flex-direction: column; gap: 6px; }
+      .a4-proj-card {
+        background: #fff;
+        border: 1px solid var(--a4-line);
+        padding: 10px 14px;
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      .a4-proj-card.before { background: var(--a4-cream); }
+      .a4-proj-card.after { background: var(--a4-green-soft); border-color: var(--a4-green); }
+      .a4-proj-card.saving {
+        background: var(--a4-deep);
+        color: #fff;
+        border: none;
+        padding: 14px 16px;
+        justify-content: center;
+        min-width: 64mm;
+      }
+      .a4-proj-l { font-size: 7.5px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: var(--a4-mute); }
+      .a4-proj-card.saving .a4-proj-l { color: #95d3ba; }
+      .a4-proj-v { font-size: 18pt; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; color: var(--a4-ink); }
+      .a4-proj-v.highlight { color: #fff; font-size: 22pt; }
+      .a4-proj-foot { font-size: 7.5px; color: #95d3ba; margin-top: 4px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+      .a4-proj-bar { height: 8px; background: var(--a4-line-soft); border-radius: 999px; overflow: hidden; }
+      .a4-proj-bar-fill { height: 100%; background: var(--a4-ink-soft); }
+      .a4-proj-bar.after .a4-proj-bar-fill { background: var(--a4-green); }
+      .a4-proj-arrow { display: flex; align-items: center; justify-content: center; font-size: 22pt; color: var(--a4-amber); font-weight: 700; }
+      .a4-disc { font-size: 7.5pt; color: var(--a4-mute); margin-top: 8px; line-height: 1.4; }
+
+      /* Payment */
+      .a4-pay {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid var(--a4-line);
+        font-size: 9.5pt;
+      }
+      .a4-pay td {
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--a4-line-soft);
+      }
+      .a4-pay tr:last-child td { border-bottom: none; }
+      .a4-pay td:first-child { color: var(--a4-mute); font-weight: 700; font-size: 8pt; letter-spacing: 0.16em; text-transform: uppercase; width: 38%; }
+      .a4-pay td.strong { font-weight: 800; color: var(--a4-ink); }
+      .a4-pay td.mono { font-family: 'JetBrains Mono', monospace; }
+      .a4-pay td.accent { color: var(--a4-green); }
+
+      /* Warranty list */
+      .a4-warranty { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+      .a4-warranty li { display: flex; gap: 10px; align-items: flex-start; }
+      .a4-warranty-dot {
+        width: 6px; height: 6px; background: var(--a4-deep);
+        margin-top: 7px; flex-shrink: 0;
+      }
+      .a4-warranty-name { font-size: 9.5pt; font-weight: 800; color: var(--a4-ink); margin: 0 0 2px; }
+      .a4-warranty-text { font-size: 8.5pt; color: var(--a4-ink-soft); line-height: 1.45; margin: 0; white-space: pre-wrap; }
+
+      /* Terms */
+      .a4-terms {
+        font-size: 8.5pt;
+        line-height: 1.5;
+        color: var(--a4-ink-soft);
+        background: var(--a4-cream);
+        border-left: 3px solid var(--a4-amber);
+        padding: 10px 14px;
+        column-count: 2;
+        column-gap: 14px;
+      }
+      @media (max-width: 1100px) {
+        .a4-terms { column-count: 1; }
+      }
+
+      /* Signature */
+      .a4-sig-section { margin-top: auto; }
+      .a4-sig-note { font-size: 8.5pt; color: var(--a4-mute); margin: 0 0 10px; font-style: italic; }
+      .a4-sig-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; }
+      .a4-sig-box {
+        border: 1px solid var(--a4-line);
+        background: #fff;
+        padding: 18px 16px 12px;
+        min-height: 50mm;
+        text-align: center;
+        display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+      }
+      .a4-sig-img { max-width: 60mm; max-height: 22mm; object-fit: contain; margin-bottom: 6px; }
+      .a4-sig-line { height: 0; border-top: 1.5px solid var(--a4-ink); width: 70mm; margin-bottom: 8px; }
+      .a4-sig-placeholder { font-size: 8.5pt; color: var(--a4-mute); margin-bottom: 6px; font-style: italic; }
+      .a4-sig-name { font-size: 10pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--a4-ink); }
+      .a4-sig-date { font-size: 8pt; color: var(--a4-mute); margin-top: 4px; font-weight: 600; }
+      .a4-sig-meta { display: flex; flex-direction: column; gap: 6px; align-self: center; }
+
+      /* Certifications */
+      .a4-cert {
+        border: 1px solid var(--a4-line);
+        margin-top: 14px;
+      }
+      .a4-cert-head {
+        display: flex; justify-content: space-between; align-items: baseline;
+        padding: 7px 12px;
+        background: var(--a4-cream-2);
+        border-bottom: 1px solid var(--a4-line);
+      }
+      .a4-cert-headline { font-size: 9pt; font-weight: 800; color: var(--a4-deep); letter-spacing: 0.06em; }
+      .a4-cert-subline { font-size: 7.5pt; color: var(--a4-mute); letter-spacing: 0.1em; text-transform: uppercase; }
+      .a4-cert-grid { display: grid; grid-template-columns: repeat(2, 1fr); }
+      .a4-cert-card { padding: 8px 12px; border-bottom: 1px solid var(--a4-line-soft); }
+      .a4-cert-card:nth-child(odd) { border-right: 1px solid var(--a4-line-soft); }
+      .a4-cert-card:nth-last-child(-n+2) { border-bottom: none; }
+      .a4-cert-name { font-size: 9pt; font-weight: 800; color: var(--a4-ink); margin-bottom: 2px; }
+      .a4-cert-meta { font-size: 8pt; color: var(--a4-mute); }
+
+      /* Page footer */
+      .a4-pagefooter {
+        margin-top: 12px;
+        padding-top: 8px;
+        border-top: 1px solid var(--a4-line);
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 7.5pt;
+        color: var(--a4-mute);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .a4-empty { font-size: 9pt; color: var(--a4-mute); font-style: italic; padding: 8px 0; }
+
+      /* ============================
+         PRINT — actual A4 output
+         ============================ */
+      @page { size: A4; margin: 0; }
+
+      @media print {
+        html, body { background: #fff !important; }
+        body { margin: 0; padding: 0; }
+        .a4-toolbar { display: none !important; }
+        .a4-stage { padding: 0; gap: 0; }
+        .a4-page {
+          width: 210mm;
+          height: 297mm;
+          margin: 0;
+          box-shadow: none !important;
+          page-break-after: always;
+          break-after: page;
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+          overflow: hidden;
+        }
+        .a4-page:last-child { page-break-after: auto; break-after: auto; }
+        .a4-page-inner {
+          min-height: 297mm;
+          height: 297mm;
+          max-height: 297mm;
+          overflow: hidden;
+        }
+        .a4-terms {
+          column-count: 2;
+          font-size: 7.5pt;
+          line-height: 1.4;
+          max-height: 64mm;
+          overflow: hidden;
+        }
+        .a4-sig-box { min-height: 38mm; }
+        .a4-cert { margin-top: 10px; }
+        .a4-cert-card { padding: 6px 10px; }
+      }
+    </style>
+  
+</head>
+<body class="a4-mode">
+
+  <!-- Toolbar — hidden in print -->
+  <div class="a4-toolbar no-print">
+    <div class="a4-toolbar-l">
+      <a href="/view-v3/test" class="a4-btn ghost" title="← Mobile View">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        ← Mobile View
+      </a>
+      <span class="a4-toolbar-title">A4 Page</span>
+      <span class="a4-toolbar-doc">INV-1008812</span>
+    </div>
+    <div class="a4-toolbar-r">
+      <button class="a4-btn" onclick="window.print()" title="Print">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><rect x="6" y="14" width="12" height="8"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/></svg>
+        Print
+      </button>
+      <button class="a4-btn primary" onclick="downloadPdf()" title="Download PDF">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="18"/><line x1="15" y1="15" x2="12" y2="18"/></svg>
+        Download PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="a4-stage">
+    
+    <section class="a4-page a4-page-cover">
+      <div class="a4-page-inner">
+        
+    <div class="a4-brandbar">
+      <div class="a4-brandbar-l">
+        <div class="a4-brand-mark">E</div>
+        <div class="a4-brand-text">
+          <div class="a4-brand-name">ETERNALGY</div>
+          <div class="a4-brand-sub">Solar PV Planner</div>
+        </div>
+      </div>
+      <div class="a4-brandbar-c">
+        <span class="a4-brandbar-tag">QUOTATION</span>
+        <span class="a4-brandbar-sep">·</span>
+        <span class="a4-brandbar-title">Quotation / Invoice</span>
+      </div>
+      <div class="a4-brandbar-r">
+        <span class="a4-brandbar-docno">INV-1008812</span>
+        <span class="a4-brandbar-pg">Page 1 of 3</span>
+      </div>
+    </div>
+  
+
+        <!-- Hero -->
+        <div class="a4-hero">
+          <div class="a4-hero-l">
+            <p class="a4-eyebrow">Quotation / Invoice</p>
+            <h1 class="a4-hero-title">QUOTATION</h1>
+            <p class="a4-hero-sub">Thank you for choosing Eternalgy. Below is the full breakdown of your solar system, warranty, and payment information.</p>
+
+            <div class="a4-hero-meta">
+              <div>
+                <p class="a4-meta-l">Prepared for</p>
+                <p class="a4-meta-v">Eng Ann Metal Works SDN BHD</p>
+              </div>
+              <div>
+                <p class="a4-meta-l">Quote #</p>
+                <p class="a4-meta-v mono">INV-1008812</p>
+              </div>
+            </div>
+          </div>
+          <div class="a4-hero-r">
+            <div class="a4-hero-box">
+              <div class="a4-hero-box-row">
+                <span class="a4-hero-box-l">Issued</span>
+                <span class="a4-hero-box-v">01 Apr 2026</span>
+              </div>
+              <div class="a4-hero-box-row">
+                <span class="a4-hero-box-l">Valid until</span>
+                <span class="a4-hero-box-v">—</span>
+              </div>
+              <div class="a4-hero-box-row">
+                <span class="a4-hero-box-l">Sales</span>
+                <span class="a4-hero-box-v">System</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Customer + Project -->
+        <div class="a4-twocol">
+          <div class="a4-block">
+            <div class="a4-block-head">Bill To</div>
+            <div class="a4-block-body">
+              <p class="a4-block-name">Eng Ann Metal Works SDN BHD</p>
+              <p class="a4-block-text">No.40, Jalan Indah 2/9,<br>Taman Kluang Indah,<br>86000 Kluang,<br>Johor.</p>
+              <p class="a4-block-text dim">60182888827</p>
+              
+            </div>
+          </div>
+          <div class="a4-block">
+            <div class="a4-block-head">Project Details</div>
+            <div class="a4-block-body">
+              <div class="a4-mini-grid">
+                <div><span class="a4-mini-l">Subject</span><span class="a4-mini-v">Solar PV System</span></div>
+                <div><span class="a4-mini-l">Package</span><span class="a4-mini-v">STRING SAJ JINKO 21 PCS</span></div>
+                <div><span class="a4-mini-l">Package type</span><span class="a4-mini-v">Residential</span></div>
+                <div><span class="a4-mini-l">System size</span><span class="a4-mini-v mono">13.65 kWp</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Overview Strip -->
+        <div class="a4-strip">
+          <div class="a4-strip-item">
+            <span class="a4-strip-l">System size</span>
+            <span class="a4-strip-v">13.65 kWp</span>
+          </div>
+          <div class="a4-strip-item">
+            <span class="a4-strip-l">Panels</span>
+            <span class="a4-strip-v">21</span>
+          </div>
+          <div class="a4-strip-item">
+            <span class="a4-strip-l">Panel rating</span>
+            <span class="a4-strip-v">650 W</span>
+          </div>
+          <div class="a4-strip-item">
+            <span class="a4-strip-l">Inverter</span>
+            <span class="a4-strip-v sm">—</span>
+          </div>
+        </div>
+
+        <!-- Line Items -->
+        <div class="a4-section">
+          <div class="a4-section-head">
+            <span class="a4-section-num">01</span>
+            <span class="a4-section-title">Line Items</span>
+            <span class="a4-section-rule"></span>
+          </div>
+          
+            <table class="a4-tbl">
+              <colgroup>
+                <col style="width:55%">
+                <col style="width:10%">
+                <col style="width:15%">
+                <col style="width:20%">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Line Items</th>
+                  <th class="num">Qty</th>
+                  <th class="num">Unit</th>
+                  <th class="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+                    <tr class="even">
+                      <td>
+                        <div class="a4-tbl-name">21X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon  </div>
+                        <div class="a4-tbl-sub">1X [3P] SAJ R5 10KW String Inverter · 1X SEDA ATAP Application · TNB Smart Meter Application · Solar System Architecture Design · Electrical System Design · Roof and Site Surveying · Roof Panel Installation · Electrical Works · SkyLif</div>
+                      </td>
+                      <td class="num">1.00</td>
+                      <td class="num">RM 38591.00</td>
+                      <td class="num strong">RM 38591.00</td>
+                    </tr>
+                  
+              </tbody>
+            </table>
+          
+        </div>
+
+        <!-- Totals — right aligned summary -->
+        <div class="a4-totals-wrap">
+          <table class="a4-totals">
+            <tbody>
+              
+              
+              
+              
+              <tr class="grand">
+                <td class="a4-totals-l">Total Due</td>
+                <td class="a4-totals-v grand-v">RM 38591.00</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        
+    <div class="a4-pagefooter">
+      <span>Eternalgy Sdn Bhd · Solar PV Planner</span>
+      <span>Page 1 of 3</span>
+    </div>
+  
+      </div>
+    </section>
+  
+    
+    <section class="a4-page a4-page-details">
+      <div class="a4-page-inner">
+        
+    <div class="a4-brandbar">
+      <div class="a4-brandbar-l">
+        <div class="a4-brand-mark">E</div>
+        <div class="a4-brand-text">
+          <div class="a4-brand-name">ETERNALGY</div>
+          <div class="a4-brand-sub">Solar PV Planner</div>
+        </div>
+      </div>
+      <div class="a4-brandbar-c">
+        <span class="a4-brandbar-tag">02 / Components &amp; Savings</span>
+        <span class="a4-brandbar-sep">·</span>
+        <span class="a4-brandbar-title">Quotation / Invoice</span>
+      </div>
+      <div class="a4-brandbar-r">
+        <span class="a4-brandbar-docno">INV-1008812</span>
+        <span class="a4-brandbar-pg">Page 2 of 3</span>
+      </div>
+    </div>
+  
+
+        <!-- Components -->
+        <div class="a4-section">
+          <div class="a4-section-head">
+            <span class="a4-section-num">02</span>
+            <span class="a4-section-title">Key Components</span>
+            <span class="a4-section-rule"></span>
+          </div>
+
+          <div class="a4-comp-grid-2">
+            
+              <div class="a4-comp-card">
+                <div class="a4-comp-card-bar"></div>
+                <div class="a4-comp-card-body">
+                  <span class="a4-comp-card-tag">PV Module</span>
+                  <h3 class="a4-comp-card-name">Jinko Tiger Neo 3</h3>
+                  <p class="a4-comp-card-desc">Built for durability, stronger low-light production, and better hot-weather performance.</p>
+                  <div class="a4-comp-specs">
+                    <div><span>Durability</span><strong>3× IEC tested</strong></div>
+                    <div><span>Low light</span><strong>95–98% @ 200 W/m²</strong></div>
+                    <div><span>Temp coeff.</span><strong>−0.26 %/°C</strong></div>
+                    <div><span>Degradation</span><strong>−0.35 %/yr</strong></div>
+                  </div>
+                  <span class="a4-comp-card-status">Included</span>
+                </div>
+              </div>
+            
+              <div class="a4-comp-card">
+                <div class="a4-comp-card-bar alt"></div>
+                <div class="a4-comp-card-body">
+                  <span class="a4-comp-card-tag">Inverter</span>
+                  <h3 class="a4-comp-card-name">SAJ Inverter</h3>
+                  <p class="a4-comp-card-desc">Three-phase string inverter tied to the linked package for stable AC conversion.</p>
+                  <div class="a4-comp-specs">
+                    <div><span>Phase</span><strong>3-Phase</strong></div>
+                    <div><span>Function</span><strong>String inverter</strong></div>
+                    <div><span>Brand</span><strong>SAJ</strong></div>
+                    <div><span>Topology</span><strong>Transformerless</strong></div>
+                  </div>
+                  <span class="a4-comp-card-status">Included</span>
+                </div>
+              </div>
+            
+          </div>
+        </div>
+
+        <!-- Monthly projection -->
+        <div class="a4-section">
+          <div class="a4-section-head">
+            <span class="a4-section-num">03</span>
+            <span class="a4-section-title">Monthly Bill Projection</span>
+            <span class="a4-section-rule"></span>
+          </div>
+          <div class="a4-projection">
+            <div class="a4-proj-col">
+              <div class="a4-proj-card before">
+                <span class="a4-proj-l">Current Bill</span>
+                <span class="a4-proj-v">RM 719.90</span>
+              </div>
+              <div class="a4-proj-bar before">
+                <div class="a4-proj-bar-fill" style="width:100%"></div>
+              </div>
+            </div>
+            <div class="a4-proj-arrow" aria-hidden="true">→</div>
+            <div class="a4-proj-col">
+              <div class="a4-proj-card after">
+                <span class="a4-proj-l">After Solar</span>
+                <span class="a4-proj-v">RM 246.09</span>
+              </div>
+              <div class="a4-proj-bar after">
+                <div class="a4-proj-bar-fill" style="width:34%"></div>
+              </div>
+            </div>
+            <div class="a4-proj-card saving">
+              <span class="a4-proj-l">Monthly Saving</span>
+              <span class="a4-proj-v highlight">RM 473.81</span>
+              <span class="a4-proj-foot">Year 1 Return: RM 5685.72</span>
+            </div>
+          </div>
+          <p class="a4-disc">Estimates only. Actual performance depends on weather, shading, roof orientation, and usage patterns.</p>
+        </div>
+
+        <!-- Payment details -->
+        <div class="a4-section">
+          <div class="a4-section-head">
+            <span class="a4-section-num">04</span>
+            <span class="a4-section-title">Payment Details</span>
+            <span class="a4-section-rule"></span>
+          </div>
+          
+            <table class="a4-pay">
+              <tbody>
+                <tr><td>Bank</td><td class="strong">MAYBANK</td></tr>
+                <tr><td>Account Name</td><td class="strong">ETERNALGY SDN BHD</td></tr>
+                <tr><td>Account No</td><td class="strong mono">501534157918</td></tr>
+                <tr><td>Reference</td><td class="strong mono accent">INV-1008812</td></tr>
+              </tbody>
+            </table>
+          
+        </div>
+
+        
+    <div class="a4-pagefooter">
+      <span>Eternalgy Sdn Bhd · Solar PV Planner</span>
+      <span>Page 2 of 3</span>
+    </div>
+  
+      </div>
+    </section>
+  
+    
+    <section class="a4-page a4-page-sign">
+      <div class="a4-page-inner">
+        
+    <div class="a4-brandbar">
+      <div class="a4-brandbar-l">
+        <div class="a4-brand-mark">E</div>
+        <div class="a4-brand-text">
+          <div class="a4-brand-name">ETERNALGY</div>
+          <div class="a4-brand-sub">Solar PV Planner</div>
+        </div>
+      </div>
+      <div class="a4-brandbar-c">
+        <span class="a4-brandbar-tag">03 / Sign-off</span>
+        <span class="a4-brandbar-sep">·</span>
+        <span class="a4-brandbar-title">Quotation / Invoice</span>
+      </div>
+      <div class="a4-brandbar-r">
+        <span class="a4-brandbar-docno">INV-1008812</span>
+        <span class="a4-brandbar-pg">Page 3 of 3</span>
+      </div>
+    </div>
+  
+
+        <!-- Warranty -->
+        <div class="a4-section">
+          <div class="a4-section-head">
+            <span class="a4-section-num">05</span>
+            <span class="a4-section-title">Warranty</span>
+            <span class="a4-section-rule"></span>
+          </div>
+          
+            <ul class="a4-warranty">
+              
+                <li>
+                  <span class="a4-warranty-dot"></span>
+                  <div>
+                    <p class="a4-warranty-name">Installation</p>
+                    <p class="a4-warranty-text">1 Year Roof Leaking Warranty
+3 Years Workmanship Warranty</p>
+                  </div>
+                </li>
+              
+                <li>
+                  <span class="a4-warranty-dot"></span>
+                  <div>
+                    <p class="a4-warranty-name">[3P] SAJ R5 10KW String Inverter</p>
+                    <p class="a4-warranty-text">10 Years Product Warranty</p>
+                  </div>
+                </li>
+              
+                <li>
+                  <span class="a4-warranty-dot"></span>
+                  <div>
+                    <p class="a4-warranty-name">650W JinkoSolar Panel N-Type TOPCon  </p>
+                    <p class="a4-warranty-text">12 Years Product Warranty
+30 Years Linear Power Warranty</p>
+                  </div>
+                </li>
+              
+            </ul>
+          
+        </div>
+
+        <!-- T&C -->
+        <div class="a4-section">
+          <div class="a4-section-head">
+            <span class="a4-section-num">06</span>
+            <span class="a4-section-title">Terms &amp; Conditions</span>
+            <span class="a4-section-rule"></span>
+          </div>
+          <div class="a4-terms">PRIVACY POLICY<br>1. Collection of Personal Information:<br>We may collect the following types of personal information from you:<br>Contact Information: Including your name, address, email address, and phone number.<br>Installation Address: Necessary for site visits and project planning.<br>Financial Information: Payment details and related financial information for billing purposes.<br><br>2. Use of Personal Information:<br>We will use your personal information for the following purposes:<br>SEDA ATAP SOLAR Quota Application: To facilitate the application for ATAP SOLAR quota with SEDA Malaysia, we will use the required information provided by you.<br><br>Installation Planning: We may share your information with our EPCC partner to plan and execute the installation of the solar PV system upon approval by SEDA Malaysia.<br><br>3. Sharing of Personal Information:<br>We may share your personal information with third parties in the following situations:<br>SEDA Malaysia: We will share the necessary information required for the ATAP SOLAR quota application with SEDA Malaysia.<br><br>EPCC Partner: We will provide your information to our E…</div>
+        </div>
+
+        <!-- Signature -->
+        <div class="a4-section a4-sig-section">
+          <div class="a4-section-head">
+            <span class="a4-section-num">07</span>
+            <span class="a4-section-title">Customer Acknowledgement</span>
+            <span class="a4-section-rule"></span>
+          </div>
+          <p class="a4-sig-note">By signing, the customer agrees to all terms in this quotation.</p>
+          <div class="a4-sig-grid">
+            <div class="a4-sig-box">
+              
+                <div class="a4-sig-line"></div>
+                <div class="a4-sig-placeholder">Awaiting signature</div>
+                <div class="a4-sig-name">Eng Ann Metal Works SDN BHD</div>
+              
+            </div>
+            <div class="a4-sig-meta">
+              <div><span class="a4-mini-l">Prepared for</span><span class="a4-mini-v">Eng Ann Metal Works SDN BHD</span></div>
+              <div><span class="a4-mini-l">Quote #</span><span class="a4-mini-v mono">INV-1008812</span></div>
+              <div><span class="a4-mini-l">Issued</span><span class="a4-mini-v">01 Apr 2026</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Certifications -->
+        <div class="a4-cert">
+          <div class="a4-cert-head">
+            <span class="a4-cert-headline">Registered &amp; Certified</span>
+            <span class="a4-cert-subline">Eternalgy Sdn Bhd · Malaysia</span>
+          </div>
+          <div class="a4-cert-grid">
+            <div class="a4-cert-card">
+              <div class="a4-cert-name">CIDB Registered Contractor</div>
+              <div class="a4-cert-meta">0120250324-WP152634 · G3 · Cat B · CE · ME</div>
+            </div>
+            <div class="a4-cert-card">
+              <div class="a4-cert-name">SEDA Solar PV Service Provider</div>
+              <div class="a4-cert-meta">SEDA/RPVSP/2024/321</div>
+            </div>
+            <div class="a4-cert-card">
+              <div class="a4-cert-name">SEDA Solar PV Investor</div>
+              <div class="a4-cert-meta">Eternalgy Sdn Bhd</div>
+            </div>
+            <div class="a4-cert-card">
+              <div class="a4-cert-name">MyHijau Equipment Cert</div>
+              <div class="a4-cert-meta">SAJ Inverter · MyHS00025/25</div>
+            </div>
+          </div>
+        </div>
+
+        
+    <div class="a4-pagefooter">
+      <span>Eternalgy Sdn Bhd · Solar PV Planner</span>
+      <span>Page 3 of 3</span>
+    </div>
+  
+      </div>
+    </section>
+  
+  </div>
+
+  <script>
+    async function downloadPdf() {
+      try {
+        const response = await fetch('/view-v3/test/pdf');
+        const data = await response.json();
+        if (data && data.success && data.downloadUrl) {
+          let url = data.downloadUrl;
+          if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+          window.open(url, '_blank', 'noopener');
+          return;
+        }
+        alert('Failed to prepare PDF: ' + ((data && data.error) ? data.error : 'Unknown error'));
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

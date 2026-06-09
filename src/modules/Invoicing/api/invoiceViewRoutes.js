@@ -572,6 +572,7 @@ async function renderV3Invoice(req, res, { forPdf = false } = {}) {
       forPdf,
       previewMode: source.previewMode,
       locale,
+      mono: String(req.query.mono || '') === '1',
       currentViewUrl: urls.currentViewUrl,
       pdfUrl: urls.pdfUrl,
       languageSwitchUrls: urls.languageSwitchUrls
