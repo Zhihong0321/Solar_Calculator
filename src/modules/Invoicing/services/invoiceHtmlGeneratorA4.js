@@ -1298,6 +1298,7 @@ function renderStyles() {
       .a4-terms {
         font-size: 7pt;
         line-height: 1.5;
+        text-align: justify;
         color: var(--a4-ink-soft);
         background: var(--a4-cream);
         border-left: 3px solid var(--a4-amber);
@@ -1406,6 +1407,7 @@ function renderStyles() {
           column-count: 2;
           font-size: 6.5pt;
           line-height: 1.5;
+          text-align: justify;
           word-break: break-word;
         }
         .a4-sig-box { min-height: 38mm; }
