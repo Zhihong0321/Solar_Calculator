@@ -51,6 +51,11 @@ function fmtMoney(value) {
     return `RM ${n.toFixed(2)}`;
 }
 
+function formatPublicDocumentNumber(value) {
+    const text = String(value || '').trim();
+    return text.replace(/^INV[-\s]*/i, '') || '—';
+}
+
 function formatInvoiceDate(value) {
     if (!value) return '—';
     const d = new Date(value);
@@ -125,6 +130,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
 
     const isConfirmed = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
     const titleLabel = isConfirmed ? 'INVOICE' : 'QUOTATION';
+    const publicDocumentNumber = formatPublicDocumentNumber(invoice.invoice_number);
     const isCommercialQuotation = !isConfirmed && isCommercialPackage;
     const hasSiteVisitItem = items.some(item => {
         const sourceText = `${item.description || ''} ${item.product_name || ''}`.toLowerCase();
@@ -214,7 +220,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
 
     // Action buttons block (for the section below the hero)
     const shareBtn = (invoice.share_token || invoice.bubble_id) && effectiveViewerAuthenticated
-        ? `<button onclick='quickShareInvoice(${JSON.stringify(invoice.share_token || invoice.bubble_id)}, ${JSON.stringify(invoice.invoice_number || '')}, ${JSON.stringify(titleLabel)})' class="action-btn btn-share"><span>Share</span></button>` : '';
+        ? `<button onclick='quickShareInvoice(${JSON.stringify(invoice.share_token || invoice.bubble_id)}, ${JSON.stringify(publicDocumentNumber)}, ${JSON.stringify(titleLabel)})' class="action-btn btn-share"><span>Share</span></button>` : '';
     const referBtn = invoice.share_token
         ? `<button onclick="window.open('https://referral.atap.solar', '_blank')" class="action-btn btn-referral"><span>Refer Program</span></button>` : '';
     const sedaBtn = !isEvCharger && effectiveLinkedSeda
@@ -238,7 +244,7 @@ ${isA4Preview
     ? '<meta name="viewport" content="width=820">'
     : '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">'
 }
-<title>${titleLabel} ${invoice.invoice_number}${isA4Preview ? ' - A4 Preview' : ''}</title>
+<title>${titleLabel} ${publicDocumentNumber}${isA4Preview ? ' - A4 Preview' : ''}</title>
 ${isA4Preview ? '<script src="https://unpkg.com/pagedjs/dist/paged.polyfill.js"></script>' : ''}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -616,7 +622,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
             <div class="billto-right">
               <div class="meta-l">${titleLabel}</div>
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
-                <span class="meta-v mono">${invoice.invoice_number || '—'}</span>
+                <span class="meta-v mono">${publicDocumentNumber}</span>
               </div>
               <div class="billto-meta">
                 <div class="ml">Issued</div><div class="mv">${formatInvoiceDate(invoice.invoice_date)}</div>
@@ -894,7 +900,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
             <div class="pay-row"><span class="pay-l">Bank</span><span class="pay-v">${bankName}</span></div>
             ${bankAccountName ? `<div class="pay-row"><span class="pay-l">Account Name</span><span class="pay-v">${bankAccountName}</span></div>` : ''}
             ${bankAccountNo ? `<div class="pay-row"><span class="pay-l">Account No</span><span class="pay-v mono">${bankAccountNo}</span></div>` : ''}
-            <div class="pay-row"><span class="pay-l">Reference</span><span class="pay-v mono" style="color:var(--gp)">${invoice.invoice_number || invoice.bubble_id || '—'}</span></div>
+            <div class="pay-row"><span class="pay-l">Reference</span><span class="pay-v mono" style="color:var(--gp)">${publicDocumentNumber !== '—' ? publicDocumentNumber : (invoice.bubble_id || '—')}</span></div>
           </div>
         </div>
       </div>

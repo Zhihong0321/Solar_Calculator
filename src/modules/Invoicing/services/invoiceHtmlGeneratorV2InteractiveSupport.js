@@ -453,7 +453,7 @@ function buildInvoiceInteractionScript({
           });
         }
 
-        const { value: formValues } = await Swal.fire({
+        await Swal.fire({
           title: 'Recalculate Solar Saving',
           html: '<div style="display:grid;gap:10px;text-align:left">'
             + '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151">Avg Bill (RM)<input id="solarRecalcAverageBill" type="number" min="1" step="1" value="' + (solarEstimateState.currentAverageBill || '') + '" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:4px"></label>'
@@ -466,7 +466,9 @@ function buildInvoiceInteractionScript({
           confirmButtonColor: '#0c5e3f',
           cancelButtonText: 'Cancel',
           focusConfirm: false,
-          preConfirm: () => {
+          showLoaderOnConfirm: true,
+          allowOutsideClick: () => !Swal.isLoading(),
+          preConfirm: async () => {
             const averageBill = Number(document.getElementById('solarRecalcAverageBill')?.value);
             const afaRate = Number(document.getElementById('solarRecalcAfaRate')?.value);
             const sunPeakHour = Number(document.getElementById('solarRecalcSunPeakHour')?.value);
@@ -487,36 +489,37 @@ function buildInvoiceInteractionScript({
               Swal.showValidationMessage('Morning Usage must be between 1% and 100%.');
               return false;
             }
-            return {
+            const formValues = {
               averageBill: Number(averageBill.toFixed(2)),
               afaRate: Number(afaRate.toFixed(4)),
               sunPeakHour: Number(sunPeakHour.toFixed(2)),
               morningUsage: Number(morningUsage.toFixed(2))
             };
+
+            solarEstimateState.currentAverageBill = Number(formValues.averageBill);
+            solarEstimateState.currentAfaRate = Number(formValues.afaRate);
+            solarEstimateState.currentSunPeakHour = Number(formValues.sunPeakHour);
+            solarEstimateState.currentMorningUsage = Number(formValues.morningUsage);
+
+            try {
+              updateSolarEstimateStatus('Calculating...', 'neutral');
+              const data = await requestSolarEstimate(solarEstimateState.currentAverageBill, formValues);
+              solarEstimateState.latestPreview = data;
+              if (solarEstimateState.hasSavedEstimate) {
+                solarEstimateState.currentBillCycleMode = inferSolarBillCycleModeFromSavedEstimate(data);
+              } else if (data && data.selected_bill_cycle_mode) {
+                solarEstimateState.currentBillCycleMode = normalizeSolarBillCycleMode(data.selected_bill_cycle_mode);
+              }
+              updateSolarBillCycleButtons();
+              applySolarEstimateToPage(data, { showSaveHint: false, saved: solarEstimateState.hasSavedEstimate });
+              return true;
+            } catch (err) {
+              updateSolarEstimateStatus('Update failed: ' + err.message, 'warning');
+              Swal.showValidationMessage('Update failed: ' + err.message);
+              return false;
+            }
           }
         });
-
-        if (!formValues) return;
-
-        solarEstimateState.currentAverageBill = Number(formValues.averageBill);
-        solarEstimateState.currentAfaRate = Number(formValues.afaRate);
-        solarEstimateState.currentSunPeakHour = Number(formValues.sunPeakHour);
-        solarEstimateState.currentMorningUsage = Number(formValues.morningUsage);
-
-        try {
-          updateSolarEstimateStatus('Calculating…', 'neutral');
-          const data = await requestSolarEstimate(solarEstimateState.currentAverageBill, formValues);
-          solarEstimateState.latestPreview = data;
-          if (solarEstimateState.hasSavedEstimate) {
-            solarEstimateState.currentBillCycleMode = inferSolarBillCycleModeFromSavedEstimate(data);
-          } else if (data && data.selected_bill_cycle_mode) {
-            solarEstimateState.currentBillCycleMode = normalizeSolarBillCycleMode(data.selected_bill_cycle_mode);
-          }
-          updateSolarBillCycleButtons();
-          applySolarEstimateToPage(data, { showSaveHint: false, saved: solarEstimateState.hasSavedEstimate });
-        } catch (err) {
-          updateSolarEstimateStatus('Update failed: ' + err.message, 'warning');
-        }
       }
 
       function setSolarBillCycleMode(mode) {
