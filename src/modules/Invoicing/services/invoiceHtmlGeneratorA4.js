@@ -744,7 +744,7 @@ function renderSignaturePage({ invoice, template, copy, ai4, components, monoBad
             <span class="a4-section-title">${escapeHtml(ai4.termsAndConditions)}</span>
             <span class="a4-section-rule"></span>
           </div>
-          <div class="a4-terms">${escapeHtml(terms || ai4.noTerms).replace(/\n/g, '<br>')}</div>
+          <div class="a4-terms">${escapeHtml(terms || ai4.noTerms)}</div>
         </div>
 
         <!-- Signature -->
@@ -1300,17 +1300,13 @@ function renderStyles() {
 
       /* Terms */
       .a4-terms {
-        font-size: 8.5pt;
-        line-height: 1.5;
+        font-size: 7.5pt;
+        line-height: 1.55;
         color: var(--a4-ink-soft);
         background: var(--a4-cream);
         border-left: 3px solid var(--a4-amber);
-        padding: 10px 14px;
-        column-count: 2;
-        column-gap: 14px;
-      }
-      @media (max-width: 1100px) {
-        .a4-terms { column-count: 1; }
+        padding: 8px 12px;
+        word-break: break-word;
       }
 
       /* Signature */
@@ -1406,11 +1402,9 @@ function renderStyles() {
           overflow: hidden;
         }
         .a4-terms {
-          column-count: 2;
-          font-size: 7.5pt;
-          line-height: 1.4;
-          max-height: 64mm;
-          overflow: hidden;
+          font-size: 7pt;
+          line-height: 1.5;
+          word-break: break-word;
         }
         .a4-sig-box { min-height: 38mm; }
         .a4-cert { margin-top: 10px; }
