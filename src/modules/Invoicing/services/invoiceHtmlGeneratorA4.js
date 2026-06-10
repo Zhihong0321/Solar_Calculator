@@ -693,13 +693,9 @@ function renderSignaturePage({ invoice, template, copy, ai4, components, monoBad
   const customerName = invoice.customer_name || 'Customer';
   const warranties = invoice.warranties || [];
   const rawTerms = (template.terms_and_conditions || copy.terms.paragraphs.join('\n\n') || '').trim();
-  // For A4 print, cap the terms to a reasonable length so the signature page
-  // fits on a single A4 sheet. The full terms are still readable on the mobile
-  // view; the A4 preview highlights the headline clauses.
-  const TERM_CHAR_BUDGET = 1100;
-  const terms = rawTerms.length > TERM_CHAR_BUDGET
-    ? `${rawTerms.slice(0, TERM_CHAR_BUDGET).trim()}…`
-    : rawTerms;
+  // Show full TNC — no character budget cap. Content naturally overflows the page
+  // if it exceeds one A4 sheet, which is the correct print behaviour.
+  const terms = rawTerms;
 
   return `
     <section class="a4-page a4-page-sign">
