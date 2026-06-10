@@ -342,7 +342,7 @@ const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
   systemPhase: 3
 });
 
-function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour, billCycleMode) {
+function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour, afaRate, billCycleMode) {
   const resolvedBillCycleMode = normalizeBillCycleMode(billCycleMode);
   const cycleMetrics = getBillCycleMetrics(calculationResult, resolvedBillCycleMode);
   const normalizedEstimate = normalizeSolarEstimateFields({
@@ -367,6 +367,7 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
     charts: calculationResult.charts || null,
     assumptions: {
       sunPeakHour: Number.isFinite(Number(sunPeakHour)) ? Number(sunPeakHour) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour,
+      afaRate: Number.isFinite(Number(afaRate)) ? Number(afaRate) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.afaRate,
       offsetPercent: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
       billCycleMode: resolvedBillCycleMode,
       batterySize: DEFAULT_PUBLIC_SOLAR_ESTIMATE.batterySize,
@@ -382,6 +383,7 @@ async function handlePublicSolarEstimate(req, res) {
     const shouldSave = Boolean(req.body?.save);
     const requestedSunPeakHour = Number(req.body?.sunPeakHour);
     const requestedMorningUsage = Number(req.body?.morningUsage);
+    const requestedAfaRate = Number(req.body?.afaRate);
     const requestedBillCycleMode = normalizeBillCycleMode(req.body?.billCycleMode);
 
     if (!Number.isFinite(averageBill) || averageBill <= 0) {
@@ -407,12 +409,18 @@ async function handlePublicSolarEstimate(req, res) {
         : (Number.isFinite(storedMorningUsage)
           ? storedMorningUsage
           : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage);
+      const afaRate = Number.isFinite(requestedAfaRate)
+        ? requestedAfaRate
+        : DEFAULT_PUBLIC_SOLAR_ESTIMATE.afaRate;
 
       if (!Number.isFinite(sunPeakHour) || sunPeakHour < 3.0 || sunPeakHour > 4.5) {
         return res.status(400).json({ success: false, error: 'Sun Peak Hour must be between 3.0 and 4.5.' });
       }
       if (!Number.isFinite(morningUsage) || morningUsage < 1 || morningUsage > 100) {
         return res.status(400).json({ success: false, error: 'Day usage share must be between 1 and 100.' });
+      }
+      if (!Number.isFinite(afaRate) || afaRate < -0.5 || afaRate > 0.5) {
+        return res.status(400).json({ success: false, error: 'AFA must be between -0.5000 and 0.5000 RM/kWh.' });
       }
 
       const panelQty = parseInt(invoice.panel_qty, 10);
@@ -429,6 +437,8 @@ async function handlePublicSolarEstimate(req, res) {
         ...DEFAULT_PUBLIC_SOLAR_ESTIMATE,
         amount: averageBill,
         sunPeakHour,
+        afaRate,
+        historicalAfaRate: afaRate,
         panelType: panelRating,
         overridePanels: panelQty,
         morningUsage
@@ -439,6 +449,7 @@ async function handlePublicSolarEstimate(req, res) {
         averageBill,
         morningUsage,
         sunPeakHour,
+        afaRate,
         requestedBillCycleMode
       );
 

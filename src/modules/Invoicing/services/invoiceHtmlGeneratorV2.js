@@ -658,7 +658,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
             <div class="mc-l">Panel Type</div>
           </div>
           <div class="mc">
-            <div class="mc-v" style="color:var(--gp)">${storedSunPeakHour}<span class="u">h</span></div>
+            <div class="mc-v" id="solarEstimateSunPeakValue" style="color:var(--gp)">${storedSunPeakHour}<span class="u">h</span></div>
             <div class="mc-l">Sun Peak</div>
           </div>
         </div>
@@ -672,16 +672,16 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
           <div class="ba" style="margin-bottom:8px">
             <div class="ba-p bef">
               <div class="lbl">Before Solar</div>
-              <div class="amt">${beforeSolarBill !== null ? 'RM ' + beforeSolarBill.toFixed(0) : '—'}</div>
+              <div class="amt" id="solarEstimateBeforeValue">${beforeSolarBill !== null ? 'RM ' + beforeSolarBill.toFixed(2) : '—'}</div>
               <div class="sub">Monthly Bill</div>
             </div>
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px">
-              ${estimatedMonthlySaving && beforeSolarBill ? `<span class="tag">−${Math.round(estimatedMonthlySaving/beforeSolarBill*100)}%</span>` : ''}
+              <span class="tag" id="solarEstimateSavingPercentValue">${estimatedMonthlySaving && beforeSolarBill ? `−${Math.round(estimatedMonthlySaving/beforeSolarBill*100)}%` : '—'}</span>
               <span style="font-size:14px;color:var(--gp);font-weight:700">→</span>
             </div>
             <div class="ba-p aft">
               <div class="lbl">After Solar</div>
-              <div class="amt">${afterSolarBill !== null ? 'RM ' + afterSolarBill.toFixed(0) : '—'}</div>
+              <div class="amt" id="solarEstimateAfterValue">${afterSolarBill !== null ? 'RM ' + afterSolarBill.toFixed(2) : '—'}</div>
               <div class="sub">Monthly Bill</div>
             </div>
           </div>
@@ -690,15 +690,15 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
               <div class="spark-l">Before</div>
               <div class="spark-bar">
                 <div class="spark-fill" style="width:100%;background:var(--g300);display:flex;align-items:center;padding-left:7px">
-                  <span style="font-size:9px;font-weight:700;color:var(--g500)">RM ${beforeSolarBill !== null ? beforeSolarBill.toFixed(0) : '—'}</span>
+                  <span id="solarEstimateBeforeBarLabel" style="font-size:9px;font-weight:700;color:var(--g500)">RM ${beforeSolarBill !== null ? beforeSolarBill.toFixed(2) : '—'}</span>
                 </div>
               </div>
             </div>
             <div class="spark-r" style="margin-bottom:0">
               <div class="spark-l">After</div>
               <div class="spark-bar">
-                <div class="spark-fill" style="width:${afterSolarBill && beforeSolarBill ? Math.round(afterSolarBill/beforeSolarBill*100) : 30}%;background:var(--gp);display:flex;align-items:center;padding-left:7px">
-                  <span style="font-size:9px;font-weight:700;color:#fff">RM ${afterSolarBill !== null ? afterSolarBill.toFixed(0) : '—'}</span>
+                <div class="spark-fill" id="solarEstimateAfterBarFill" style="width:${afterSolarBill && beforeSolarBill ? Math.round(afterSolarBill/beforeSolarBill*100) : 30}%;background:var(--gp);display:flex;align-items:center;padding-left:7px">
+                  <span id="solarEstimateAfterBarLabel" style="font-size:9px;font-weight:700;color:#fff">RM ${afterSolarBill !== null ? afterSolarBill.toFixed(2) : '—'}</span>
                 </div>
               </div>
             </div>
@@ -707,13 +707,27 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-size:9px;color:var(--g500);font-weight:700;text-transform:uppercase;letter-spacing:.07em">Monthly Savings</div>
-              <div style="font-size:24px;font-weight:800;color:var(--gp);letter-spacing:-.6px;line-height:1;margin-top:2px">${estimatedMonthlySaving !== null ? 'RM ' + estimatedMonthlySaving.toFixed(0) : '—'}</div>
+              <div id="solarEstimateSavingValue" style="font-size:24px;font-weight:800;color:var(--gp);letter-spacing:-.6px;line-height:1;margin-top:2px">${estimatedMonthlySaving !== null ? 'RM ' + estimatedMonthlySaving.toFixed(2) : '—'}</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:9px;color:var(--g500);font-weight:700;text-transform:uppercase;letter-spacing:.07em">Year 1 Return</div>
-              <div style="font-size:18px;font-weight:800;color:#d97706;line-height:1;margin-top:2px">${estimatedMonthlySaving !== null ? 'RM ' + (estimatedMonthlySaving*12).toLocaleString() : '—'}</div>
+              <div id="solarEstimateYearOneValue" style="font-size:18px;font-weight:800;color:#d97706;line-height:1;margin-top:2px">${estimatedMonthlySaving !== null ? 'RM ' + (estimatedMonthlySaving*12).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</div>
             </div>
           </div>
+          ${showInteractiveControls ? `
+          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between">
+            <div id="solarEstimateStatus" style="flex:1;min-width:180px;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;border-radius:4px;padding:6px 9px;font-size:9.5px;font-weight:700;line-height:1.35">Use Recalculate to update this estimate.</div>
+            <button type="button" onclick="openSolarEstimatePrompt()" class="btn btn-out no-print" style="width:auto;padding:8px 11px;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Recalculate</button>
+          </div>
+          <div id="solarEstimateAssumptionHint" style="display:block;margin-top:6px;font-size:9px;color:var(--g500);font-weight:600;line-height:1.4">AFA 0.0000 RM/kWh · Sun peak ${Number(storedSunPeakHour).toFixed(2)}h · Day usage ${Number(storedMorningUsagePercent).toFixed(0)}%.</div>
+          <div id="solarMatchedBillHint" style="display:none;margin-top:6px;font-size:9px;color:var(--wtx);font-weight:700;line-height:1.4"></div>
+          <div id="solarBillCycleHint" style="display:none;margin-top:6px;font-size:9px;color:var(--g500);font-weight:600;line-height:1.4"></div>
+          <div id="solarEstimateSaveHint" style="display:none;margin-top:6px;font-size:9px;color:var(--gp);font-weight:700;line-height:1.4"></div>
+          <div style="margin-top:6px;display:flex;gap:6px" class="no-print">
+            <button type="button" id="solarBillCycleBtn_fullMonth" onclick="setSolarBillCycleMode('fullMonth')" class="sig-resign" style="margin-top:0;flex:1">Full Month</button>
+            <button type="button" id="solarBillCycleBtn_under28Days" onclick="setSolarBillCycleMode('under28Days')" class="sig-resign" style="margin-top:0;flex:1">&lt;28 Days</button>
+          </div>
+          ` : ''}
           <div class="disclaimer">
             <strong>Simulation Disclaimer</strong> · Eternalgy Solar Simulator V3 – ATAP Edition. Results are estimates only and not guaranteed. Actual performance may vary due to weather, shading, roof orientation, and consumption patterns.
           </div>

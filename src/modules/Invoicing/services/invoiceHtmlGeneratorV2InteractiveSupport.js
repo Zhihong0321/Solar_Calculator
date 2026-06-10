@@ -73,7 +73,9 @@ function buildInvoiceInteractionScript({
     canEstimateSolarSavings,
     beforeSolarBill,
     afterSolarBill,
-    estimatedMonthlySaving
+    estimatedMonthlySaving,
+    storedSunPeakHour,
+    storedMorningUsagePercent
 }) {
     const savedEstimateLiteral = buildSavedEstimateLiteral({
         hasSolarSavingsSection,
@@ -232,6 +234,9 @@ function buildInvoiceInteractionScript({
         hasSavedEstimate: ${hasSolarSavingsSection ? 'true' : 'false'},
         canEstimate: ${canEstimateSolarSavings ? 'true' : 'false'},
         currentAverageBill: ${toFixedLiteral(beforeSolarBill, 2)},
+        currentAfaRate: 0,
+        currentSunPeakHour: ${toFixedLiteral(storedSunPeakHour ?? 3.4, 2)},
+        currentMorningUsage: ${toFixedLiteral(storedMorningUsagePercent ?? 30, 2)},
         currentBillCycleMode: 'fullMonth',
         latestPreview: null,
         savedEstimate: ${savedEstimateLiteral}
@@ -306,10 +311,20 @@ function buildInvoiceInteractionScript({
         const beforeValue = document.getElementById('solarEstimateBeforeValue');
         const afterValue = document.getElementById('solarEstimateAfterValue');
         const savingValue = document.getElementById('solarEstimateSavingValue');
+        const savingPercentValue = document.getElementById('solarEstimateSavingPercentValue');
+        const yearOneValue = document.getElementById('solarEstimateYearOneValue');
+        const beforeBarLabel = document.getElementById('solarEstimateBeforeBarLabel');
+        const afterBarLabel = document.getElementById('solarEstimateAfterBarLabel');
+        const afterBarFill = document.getElementById('solarEstimateAfterBarFill');
+        const sunPeakValue = document.getElementById('solarEstimateSunPeakValue');
+        const assumptionHint = document.getElementById('solarEstimateAssumptionHint');
         const saveHint = document.getElementById('solarEstimateSaveHint');
         const matchedBillHint = document.getElementById('solarMatchedBillHint');
         const cycleHint = document.getElementById('solarBillCycleHint');
         const selectedCycleMetrics = getSelectedSolarBillCycleMetrics(data, solarEstimateState.currentBillCycleMode);
+        const beforeAmount = Number(data.customer_average_tnb);
+        const afterAmount = Number(selectedCycleMetrics ? selectedCycleMetrics.estimated_new_bill_amount : data.estimated_new_bill_amount);
+        const savingAmount = Number(selectedCycleMetrics ? selectedCycleMetrics.estimated_saving : data.estimated_saving);
 
         if (beforeValue) beforeValue.textContent = formatSolarEstimateMoney(data.customer_average_tnb);
         if (afterValue) {
@@ -321,6 +336,50 @@ function buildInvoiceInteractionScript({
           savingValue.textContent = formatSolarEstimateMoney(
             selectedCycleMetrics ? selectedCycleMetrics.estimated_saving : data.estimated_saving
           );
+        }
+        if (savingPercentValue) {
+          savingPercentValue.textContent = Number.isFinite(beforeAmount) && beforeAmount > 0 && Number.isFinite(savingAmount)
+            ? '−' + Math.round((savingAmount / beforeAmount) * 100) + '%'
+            : '—';
+        }
+        if (yearOneValue) {
+          yearOneValue.textContent = Number.isFinite(savingAmount)
+            ? 'RM ' + (savingAmount * 12).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+            : '—';
+        }
+        if (beforeBarLabel) {
+          beforeBarLabel.textContent = Number.isFinite(beforeAmount) ? 'RM ' + beforeAmount.toFixed(2) : 'RM —';
+        }
+        if (afterBarLabel) {
+          afterBarLabel.textContent = Number.isFinite(afterAmount) ? 'RM ' + afterAmount.toFixed(2) : 'RM —';
+        }
+        if (afterBarFill) {
+          const percent = Number.isFinite(beforeAmount) && beforeAmount > 0 && Number.isFinite(afterAmount)
+            ? Math.max(3, Math.min(100, Math.round((afterAmount / beforeAmount) * 100)))
+            : 30;
+          afterBarFill.style.width = percent + '%';
+        }
+        if (data.assumptions) {
+          if (Number.isFinite(Number(data.assumptions.sunPeakHour))) {
+            solarEstimateState.currentSunPeakHour = Number(data.assumptions.sunPeakHour);
+          }
+          if (Number.isFinite(Number(data.assumptions.offsetPercent))) {
+            solarEstimateState.currentMorningUsage = Number(data.assumptions.offsetPercent);
+          }
+          if (Number.isFinite(Number(data.assumptions.afaRate))) {
+            solarEstimateState.currentAfaRate = Number(data.assumptions.afaRate);
+          }
+        }
+        if (sunPeakValue) {
+          sunPeakValue.innerHTML = Number.isFinite(Number(solarEstimateState.currentSunPeakHour))
+            ? Number(solarEstimateState.currentSunPeakHour).toFixed(2) + '<span class="u">h</span>'
+            : '—';
+        }
+        if (assumptionHint) {
+          assumptionHint.textContent = 'AFA ' + Number(solarEstimateState.currentAfaRate || 0).toFixed(4)
+            + ' RM/kWh · Sun peak ' + Number(solarEstimateState.currentSunPeakHour || 0).toFixed(2)
+            + 'h · Day usage ' + Number(solarEstimateState.currentMorningUsage || 0).toFixed(0) + '%.';
+          assumptionHint.style.display = 'block';
         }
 
         if (matchedBillHint) {
@@ -367,11 +426,14 @@ function buildInvoiceInteractionScript({
         const billCycleMode = normalizeSolarBillCycleMode(
           options.billCycleMode !== undefined ? options.billCycleMode : solarEstimateState.currentBillCycleMode
         );
+        const sunPeakHour = Number(options.sunPeakHour !== undefined ? options.sunPeakHour : solarEstimateState.currentSunPeakHour);
+        const morningUsage = Number(options.morningUsage !== undefined ? options.morningUsage : solarEstimateState.currentMorningUsage);
+        const afaRate = Number(options.afaRate !== undefined ? options.afaRate : solarEstimateState.currentAfaRate);
 
         const response = await fetch(solarEstimateEndpointBase + solarEstimateState.identifier + '/solar-estimate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ averageBill, billCycleMode })
+          body: JSON.stringify({ averageBill, afaRate, sunPeakHour, morningUsage, billCycleMode })
         });
 
         const result = await response.json();
@@ -391,34 +453,59 @@ function buildInvoiceInteractionScript({
           });
         }
 
-        const { value: inputValue } = await Swal.fire({
+        const { value: formValues } = await Swal.fire({
           title: 'Recalculate Solar Saving',
-          input: 'number',
-          inputLabel: 'Average Monthly TNB Bill (RM)',
-          inputPlaceholder: 'Enter your average bill amount',
-          inputValue: solarEstimateState.currentAverageBill || '',
-          inputAttributes: { min: '1', step: '1' },
+          html: '<div style="display:grid;gap:10px;text-align:left">'
+            + '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151">Avg Bill (RM)<input id="solarRecalcAverageBill" type="number" min="1" step="1" value="' + (solarEstimateState.currentAverageBill || '') + '" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:4px"></label>'
+            + '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151">AFA (RM/kWh)<input id="solarRecalcAfaRate" type="number" step="0.0001" min="-0.5000" max="0.5000" value="' + Number(solarEstimateState.currentAfaRate || 0).toFixed(4) + '" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:4px"></label>'
+            + '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151">Sun Peak Hour<input id="solarRecalcSunPeakHour" type="number" min="3.0" max="4.5" step="0.1" value="' + Number(solarEstimateState.currentSunPeakHour || 3.4).toFixed(1) + '" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:4px"></label>'
+            + '<label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#374151">Morning Usage %<input id="solarRecalcMorningUsage" type="number" min="1" max="100" step="1" value="' + Number(solarEstimateState.currentMorningUsage || 30).toFixed(0) + '" style="width:100%;margin-top:4px;padding:9px;border:1px solid #d1d5db;border-radius:4px"></label>'
+            + '</div>',
           showCancelButton: true,
-          confirmButtonText: 'Use This Bill',
+          confirmButtonText: 'Recalculate',
           confirmButtonColor: '#0c5e3f',
           cancelButtonText: 'Cancel',
-          preConfirm: (value) => {
-            const numeric = Number(value);
-            if (!Number.isFinite(numeric) || numeric <= 0) {
+          focusConfirm: false,
+          preConfirm: () => {
+            const averageBill = Number(document.getElementById('solarRecalcAverageBill')?.value);
+            const afaRate = Number(document.getElementById('solarRecalcAfaRate')?.value);
+            const sunPeakHour = Number(document.getElementById('solarRecalcSunPeakHour')?.value);
+            const morningUsage = Number(document.getElementById('solarRecalcMorningUsage')?.value);
+            if (!Number.isFinite(averageBill) || averageBill <= 0) {
               Swal.showValidationMessage('Please enter a valid average TNB bill amount.');
               return false;
             }
-            return Number(numeric.toFixed(2));
+            if (!Number.isFinite(afaRate) || afaRate < -0.5 || afaRate > 0.5) {
+              Swal.showValidationMessage('AFA must be between -0.5000 and 0.5000 RM/kWh.');
+              return false;
+            }
+            if (!Number.isFinite(sunPeakHour) || sunPeakHour < 3.0 || sunPeakHour > 4.5) {
+              Swal.showValidationMessage('Sun Peak Hour must be between 3.0 and 4.5.');
+              return false;
+            }
+            if (!Number.isFinite(morningUsage) || morningUsage < 1 || morningUsage > 100) {
+              Swal.showValidationMessage('Morning Usage must be between 1% and 100%.');
+              return false;
+            }
+            return {
+              averageBill: Number(averageBill.toFixed(2)),
+              afaRate: Number(afaRate.toFixed(4)),
+              sunPeakHour: Number(sunPeakHour.toFixed(2)),
+              morningUsage: Number(morningUsage.toFixed(2))
+            };
           }
         });
 
-        if (!inputValue) return;
+        if (!formValues) return;
 
-        solarEstimateState.currentAverageBill = Number(inputValue);
+        solarEstimateState.currentAverageBill = Number(formValues.averageBill);
+        solarEstimateState.currentAfaRate = Number(formValues.afaRate);
+        solarEstimateState.currentSunPeakHour = Number(formValues.sunPeakHour);
+        solarEstimateState.currentMorningUsage = Number(formValues.morningUsage);
 
         try {
           updateSolarEstimateStatus('Calculating…', 'neutral');
-          const data = await requestSolarEstimate(solarEstimateState.currentAverageBill);
+          const data = await requestSolarEstimate(solarEstimateState.currentAverageBill, formValues);
           solarEstimateState.latestPreview = data;
           if (solarEstimateState.hasSavedEstimate) {
             solarEstimateState.currentBillCycleMode = inferSolarBillCycleModeFromSavedEstimate(data);
