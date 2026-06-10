@@ -1296,13 +1296,18 @@ function renderStyles() {
 
       /* Terms */
       .a4-terms {
-        font-size: 7.5pt;
-        line-height: 1.55;
+        font-size: 7pt;
+        line-height: 1.5;
         color: var(--a4-ink-soft);
         background: var(--a4-cream);
         border-left: 3px solid var(--a4-amber);
         padding: 8px 12px;
+        column-count: 2;
+        column-gap: 10px;
         word-break: break-word;
+      }
+      @media (max-width: 1100px) {
+        .a4-terms { column-count: 1; }
       }
 
       /* Signature */
@@ -1398,7 +1403,8 @@ function renderStyles() {
           overflow: hidden;
         }
         .a4-terms {
-          font-size: 7pt;
+          column-count: 2;
+          font-size: 6.5pt;
           line-height: 1.5;
           word-break: break-word;
         }
