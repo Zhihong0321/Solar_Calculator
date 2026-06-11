@@ -63,6 +63,46 @@ function formatInvoiceDate(value) {
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function buildEnergyFlowDisplay(energyFlow) {
+    if (!energyFlow) {
+        return null;
+    }
+
+    const monthlyUsageKwh = Number(energyFlow.monthlyUsageKwh) || 0;
+    const monthlySolarGeneration = Number(energyFlow.monthlySolarGeneration) || 0;
+    const exportKwh = Number(energyFlow.exportKwh) || 0;
+    const actualUsageForEeiKwh = Number(energyFlow.actualUsageForEeiKwh) || 0;
+    const exportSaving = Number(energyFlow.exportSaving) || 0;
+    const solarToHomeKwh = Number.isFinite(Number(energyFlow.solarToHomeKwh))
+        ? Number(energyFlow.solarToHomeKwh)
+        : Math.max(0, monthlyUsageKwh - actualUsageForEeiKwh);
+    const selfUsePct = Number.isFinite(Number(energyFlow.selfUsePct))
+        ? Number(energyFlow.selfUsePct)
+        : (monthlySolarGeneration > 0 ? Math.round((solarToHomeKwh / monthlySolarGeneration) * 100) : 0);
+    const fitPct = Number.isFinite(Number(energyFlow.fitPct))
+        ? Number(energyFlow.fitPct)
+        : (monthlySolarGeneration > 0 ? Math.max(0, 100 - selfUsePct) : 0);
+    const fromSolarPct = Number.isFinite(Number(energyFlow.fromSolarPct))
+        ? Number(energyFlow.fromSolarPct)
+        : (monthlyUsageKwh > 0 ? Math.round((solarToHomeKwh / monthlyUsageKwh) * 100) : 0);
+    const gridImportPct = Number.isFinite(Number(energyFlow.gridImportPct))
+        ? Number(energyFlow.gridImportPct)
+        : Math.max(0, 100 - fromSolarPct);
+
+    return {
+        monthlyUsageKwh,
+        monthlySolarGeneration,
+        exportKwh,
+        actualUsageForEeiKwh,
+        exportSaving,
+        solarToHomeKwh,
+        selfUsePct,
+        fitPct,
+        fromSolarPct,
+        gridImportPct
+    };
+}
+
 function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const items = invoice.items || [];
     const templateData = template || {};
@@ -101,6 +141,8 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         estimatedSaving: invoice.estimated_saving,
         estimatedNewBillAmount: invoice.estimated_new_bill_amount
     });
+    const initialSolarEstimateData = options.initialSolarEstimateData || null;
+    const energyFlowDisplay = buildEnergyFlowDisplay(initialSolarEstimateData?.energyFlow || null);
     const beforeSolarBill = normalizedEstimate.beforeSolarBill;
     const afterSolarBill = normalizedEstimate.estimatedNewBillAmount;
     const estimatedMonthlySaving = normalizedEstimate.estimatedSaving;
@@ -206,22 +248,19 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         </div>`;
     });
 
-    // Energy flow — same formula as domestic calculator:
-    // monthlySolarGeneration = panelQty * panelWatt * peakHour / 1000 * 30
-    const peakHour = Number(storedSunPeakHour) || 3.4;
-    const solarOutputKwh = estimatePanelQty > 0 && estimatePanelRating > 0
-      ? Math.round((estimatePanelQty * estimatePanelRating * peakHour) / 1000 * 30)
-      : (beforeSolarBill && estimatedMonthlySaving ? Math.round((beforeSolarBill - afterSolarBill) / 0.57) : 412.5);
-    const morningPct = Number(storedMorningUsagePercent) || 30;
-    const selfUsePct = morningPct;
-    const selfUseKwh = +(solarOutputKwh * selfUsePct / 100).toFixed(1);
-    const fitKwh = +(solarOutputKwh * (100 - selfUsePct) / 100).toFixed(1);
-    const fitIncome = +(fitKwh * 0.27).toFixed(2);
-
-    const homeConsumptionKwh = 850;
-    const solarSharePct = homeConsumptionKwh > 0 ? Math.round(selfUseKwh / homeConsumptionKwh * 100) : 0;
-    const solarShareKwh = selfUseKwh;
-    const gridImportKwh = +(homeConsumptionKwh - solarShareKwh).toFixed(1);
+    const solarOutputKwh = energyFlowDisplay ? Number(energyFlowDisplay.monthlySolarGeneration.toFixed(1)) : null;
+    const selfUsePct = energyFlowDisplay ? energyFlowDisplay.selfUsePct : null;
+    const selfUseKwh = energyFlowDisplay ? Number(energyFlowDisplay.solarToHomeKwh.toFixed(1)) : null;
+    const fitKwh = energyFlowDisplay ? Number(energyFlowDisplay.exportKwh.toFixed(1)) : null;
+    const fitIncome = energyFlowDisplay ? Number(energyFlowDisplay.exportSaving.toFixed(2)) : null;
+    const homeConsumptionKwh = energyFlowDisplay ? Number(energyFlowDisplay.monthlyUsageKwh.toFixed(1)) : null;
+    const solarSharePct = energyFlowDisplay ? energyFlowDisplay.fromSolarPct : null;
+    const solarShareKwh = energyFlowDisplay ? Number(energyFlowDisplay.solarToHomeKwh.toFixed(1)) : null;
+    const gridImportKwh = energyFlowDisplay ? Number(energyFlowDisplay.actualUsageForEeiKwh.toFixed(1)) : null;
+    const gridImportPct = energyFlowDisplay ? energyFlowDisplay.gridImportPct : null;
+    const systemSizeLabel = estimatePanelQty > 0 && estimatePanelRating > 0
+        ? `${estimatePanelQty} × ${estimatePanelRating}W`
+        : '—';
 
     // Action buttons block (for the section below the hero)
     const shareBtn = (invoice.share_token || invoice.bubble_id) && effectiveViewerAuthenticated
@@ -547,6 +586,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
       beforeSolarBill,
       afterSolarBill,
       estimatedMonthlySaving,
+      initialSolarEstimateData,
       storedSunPeakHour,
       storedMorningUsagePercent
   }) : ''}
@@ -683,11 +723,11 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--g100)">
             <div>
               <div style="font-size:9px;color:var(--g500);font-weight:700;text-transform:uppercase;letter-spacing:.07em">Total Solar Generation</div>
-              <div id="solarEstimateTotalGeneration" style="font-size:22px;font-weight:800;color:var(--gp);letter-spacing:-.5px;line-height:1;margin-top:2px">${solarOutputKwh > 0 ? solarOutputKwh + ' kWh/mo' : '—'}</div>
+              <div id="solarEstimateTotalGeneration" style="font-size:22px;font-weight:800;color:var(--gp);letter-spacing:-.5px;line-height:1;margin-top:2px">${solarOutputKwh !== null ? solarOutputKwh + ' kWh/mo' : '—'}</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:9px;color:var(--g500);font-weight:700;text-transform:uppercase;letter-spacing:.07em">System Size</div>
-              <div id="solarEstimateSystemSize" style="font-size:14px;font-weight:700;color:var(--g700);line-height:1;margin-top:2px">${estimatePanelQty} × ${estimatePanelRating}W</div>
+              <div id="solarEstimateSystemSize" style="font-size:14px;font-weight:700;color:var(--g700);line-height:1;margin-top:2px">${systemSizeLabel}</div>
             </div>
           </div>
           <div class="ba" style="margin-bottom:8px">
@@ -762,37 +802,37 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
         <div class="sec-label">Energy Flow · Monthly</div>
         <div class="card">
           <div class="chart-block" style="margin-bottom:6px">
-            <div class="chart-title">Solar Output <span class="v" id="solarEstimateOutputKwh">${solarOutputKwh} kWh</span></div>
+            <div class="chart-title">Solar Output <span class="v" id="solarEstimateOutputKwh">${solarOutputKwh !== null ? `${solarOutputKwh} kWh` : '—'}</span></div>
             <div class="chart-row">
-              <span class="chart-l" id="solarEstimateSelfUsePct">Self-use ${selfUsePct}%</span>
-              <span class="chart-r" style="color:var(--gp)" id="solarEstimateSelfUseKwh">${selfUseKwh} kWh</span>
+              <span class="chart-l" id="solarEstimateSelfUsePct">Self-use ${selfUsePct !== null ? `${selfUsePct}%` : '—'}</span>
+              <span class="chart-r" style="color:var(--gp)" id="solarEstimateSelfUseKwh">${selfUseKwh !== null ? `${selfUseKwh} kWh` : '—'}</span>
             </div>
-            <div class="chart-bar"><div class="chart-fill" id="solarEstimateSelfUseBarFill" style="width:${selfUsePct}%;background:var(--gp)"></div></div>
+            <div class="chart-bar"><div class="chart-fill" id="solarEstimateSelfUseBarFill" style="width:${selfUsePct !== null ? selfUsePct : 0}%;background:var(--gp)"></div></div>
             <div class="chart-row" style="margin-top:6px">
-              <span class="chart-l" id="solarEstimateFitPct">FiT Export ${100-selfUsePct}%</span>
-              <span class="chart-r" style="color:#d97706" id="solarEstimateFitKwh">${fitKwh} kWh</span>
+              <span class="chart-l" id="solarEstimateFitPct">FiT Export ${fitKwh !== null && selfUsePct !== null ? `${100 - selfUsePct}%` : '—'}</span>
+              <span class="chart-r" style="color:#d97706" id="solarEstimateFitKwh">${fitKwh !== null ? `${fitKwh} kWh` : '—'}</span>
             </div>
-            <div class="chart-bar" style="background:#fef3c7"><div class="chart-fill" id="solarEstimateFitBarFill" style="width:${100-selfUsePct}%;background:#d97706"></div></div>
+            <div class="chart-bar" style="background:#fef3c7"><div class="chart-fill" id="solarEstimateFitBarFill" style="width:${fitKwh !== null && selfUsePct !== null ? 100 - selfUsePct : 0}%;background:#d97706"></div></div>
             <div class="chart-foot">
               <span class="l">FiT Income</span>
-              <span class="v" style="color:#d97706" id="solarEstimateFitIncome">+RM ${fitIncome.toFixed(2)}</span>
+              <span class="v" style="color:#d97706" id="solarEstimateFitIncome">${fitIncome !== null ? `+RM ${fitIncome.toFixed(2)}` : '—'}</span>
             </div>
           </div>
           <div class="chart-block">
-            <div class="chart-title">Home Consumption <span class="v" id="solarEstimateHomeConsumptionKwh">${homeConsumptionKwh} kWh</span></div>
+            <div class="chart-title">Home Consumption <span class="v" id="solarEstimateHomeConsumptionKwh">${homeConsumptionKwh !== null ? `${homeConsumptionKwh} kWh` : '—'}</span></div>
             <div class="chart-row">
-              <span class="chart-l" id="solarEstimateSolarSharePct">Solar ${solarSharePct}%</span>
-              <span class="chart-r" style="color:var(--gp)" id="solarEstimateSolarShareKwh">${solarShareKwh} kWh</span>
+              <span class="chart-l" id="solarEstimateSolarSharePct">Solar ${solarSharePct !== null ? `${solarSharePct}%` : '—'}</span>
+              <span class="chart-r" style="color:var(--gp)" id="solarEstimateSolarShareKwh">${solarShareKwh !== null ? `${solarShareKwh} kWh` : '—'}</span>
             </div>
-            <div class="chart-bar"><div class="chart-fill" id="solarEstimateSolarShareBarFill" style="width:${solarSharePct}%;background:var(--gp)"></div></div>
+            <div class="chart-bar"><div class="chart-fill" id="solarEstimateSolarShareBarFill" style="width:${solarSharePct !== null ? solarSharePct : 0}%;background:var(--gp)"></div></div>
             <div class="chart-row" style="margin-top:6px">
-              <span class="chart-l" id="solarEstimateGridImportPct">Grid Import ${100-solarSharePct}%</span>
-              <span class="chart-r" style="color:#3b82f6" id="solarEstimateGridImportKwh">${gridImportKwh} kWh</span>
+              <span class="chart-l" id="solarEstimateGridImportPct">Grid Import ${gridImportPct !== null ? `${gridImportPct}%` : '—'}</span>
+              <span class="chart-r" style="color:#3b82f6" id="solarEstimateGridImportKwh">${gridImportKwh !== null ? `${gridImportKwh} kWh` : '—'}</span>
             </div>
-            <div class="chart-bar" style="background:var(--ib)"><div class="chart-fill" id="solarEstimateGridImportBarFill" style="width:${100-solarSharePct}%;background:#60a5fa"></div></div>
+            <div class="chart-bar" style="background:var(--ib)"><div class="chart-fill" id="solarEstimateGridImportBarFill" style="width:${gridImportPct !== null ? gridImportPct : 0}%;background:#60a5fa"></div></div>
             <div class="chart-foot b">
               <span class="l">Grid Backup</span>
-              <span class="v" style="color:#3b82f6" id="solarEstimateGridBackupKwh">${gridImportKwh} kWh</span>
+              <span class="v" style="color:#3b82f6" id="solarEstimateGridBackupKwh">${gridImportKwh !== null ? `${gridImportKwh} kWh` : '—'}</span>
             </div>
           </div>
         </div>

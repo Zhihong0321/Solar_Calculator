@@ -53,8 +53,13 @@ function buildSavedEstimateLiteral({
     hasSolarSavingsSection,
     beforeSolarBill,
     afterSolarBill,
-    estimatedMonthlySaving
+    estimatedMonthlySaving,
+    initialSolarEstimateData
 }) {
+    if (initialSolarEstimateData) {
+        return JSON.stringify(initialSolarEstimateData);
+    }
+
     if (!hasSolarSavingsSection) {
         return 'null';
     }
@@ -74,6 +79,7 @@ function buildInvoiceInteractionScript({
     beforeSolarBill,
     afterSolarBill,
     estimatedMonthlySaving,
+    initialSolarEstimateData,
     storedSunPeakHour,
     storedMorningUsagePercent
 }) {
@@ -81,7 +87,8 @@ function buildInvoiceInteractionScript({
         hasSolarSavingsSection,
         beforeSolarBill,
         afterSolarBill,
-        estimatedMonthlySaving
+        estimatedMonthlySaving,
+        initialSolarEstimateData
     });
 
     return `
@@ -238,7 +245,7 @@ function buildInvoiceInteractionScript({
         currentSunPeakHour: ${toFixedLiteral(storedSunPeakHour ?? 3.4, 2)},
         currentMorningUsage: ${toFixedLiteral(storedMorningUsagePercent ?? 30, 2)},
         currentBillCycleMode: 'fullMonth',
-        latestPreview: null,
+        latestPreview: ${initialSolarEstimateData ? JSON.stringify(initialSolarEstimateData) : 'null'},
         savedEstimate: ${savedEstimateLiteral}
       };
 
@@ -580,6 +587,17 @@ function buildInvoiceInteractionScript({
 
       async function initializeSolarScenarioEstimate() {
         updateSolarBillCycleButtons();
+
+        if (solarEstimateState.latestPreview) {
+          if (solarEstimateState.hasSavedEstimate) {
+            solarEstimateState.currentBillCycleMode = inferSolarBillCycleModeFromSavedEstimate(solarEstimateState.latestPreview);
+          } else if (solarEstimateState.latestPreview.selected_bill_cycle_mode) {
+            solarEstimateState.currentBillCycleMode = normalizeSolarBillCycleMode(solarEstimateState.latestPreview.selected_bill_cycle_mode);
+          }
+          updateSolarBillCycleButtons();
+          applySolarEstimateToPage(solarEstimateState.latestPreview, { showSaveHint: false, saved: solarEstimateState.hasSavedEstimate });
+          return;
+        }
 
         if (!solarEstimateState.canEstimate || !solarEstimateState.currentAverageBill) {
           return;

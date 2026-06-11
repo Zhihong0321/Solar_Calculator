@@ -145,6 +145,58 @@ function assertEstimateRendering(label, estimate) {
   assertPreviewHtmlMatches(htmlV2, estimate);
 }
 
+function testV2InitialEnergyFlowRendering() {
+  const estimate = {
+    beforeSolarBill: 512.4,
+    estimatedSaving: 301.15,
+    estimatedNewBillAmount: 211.25
+  };
+  const invoice = createInvoiceFixture(estimate, 'Energy flow seed');
+  const initialSolarEstimateData = {
+    customer_average_tnb: estimate.beforeSolarBill,
+    estimated_saving: estimate.estimatedSaving,
+    estimated_new_bill_amount: estimate.estimatedNewBillAmount,
+    selected_bill_cycle_mode: 'fullMonth',
+    energyFlow: {
+      monthlySolarGeneration: 1048.7,
+      morningUsageKwh: 372.8,
+      exportKwh: 224.6,
+      netUsageKwh: 318.3,
+      actualUsageForEeiKwh: 318.3,
+      monthlyUsageKwh: 867.9,
+      exportRate: 0.2703,
+      exportSaving: 60.71,
+      morningSaving: 181.52,
+      solarToHomeKwh: 549.6,
+      selfUsePct: 52,
+      fitPct: 48,
+      fromSolarPct: 63,
+      gridImportPct: 37
+    },
+    assumptions: {
+      sunPeakHour: 3.6,
+      afaRate: 0,
+      offsetPercent: 35,
+      billCycleMode: 'fullMonth',
+      batterySize: 0,
+      systemPhase: 3
+    }
+  };
+
+  const html = generateInvoiceHtmlV2(invoice, {}, { initialSolarEstimateData });
+
+  assert.ok(html.includes('1048.7 kWh/mo'), 'V2 initial render should use calculator monthly generation');
+  assert.ok(html.includes('1048.7 kWh'), 'V2 energy flow should use calculator monthly generation');
+  assert.ok(html.includes('Self-use 52%'), 'V2 energy flow should use calculator self-use percentage');
+  assert.ok(html.includes('549.6 kWh'), 'V2 energy flow should use calculator solar-to-home kWh');
+  assert.ok(html.includes('FiT Export 48%'), 'V2 energy flow should use calculator export percentage');
+  assert.ok(html.includes('+RM 60.71'), 'V2 energy flow should use calculator export credit');
+  assert.ok(html.includes('867.9 kWh'), 'V2 energy flow should use calculator monthly usage');
+  assert.ok(html.includes('Grid Import 37%'), 'V2 energy flow should use calculator grid-import percentage');
+  assert.ok(html.includes('318.3 kWh'), 'V2 energy flow should use calculator grid-import kWh');
+  assert.ok(!html.includes('Home Consumption <span class="v" id="solarEstimateHomeConsumptionKwh">850 kWh</span>'), 'V2 should not fall back to the old fixed 850 kWh usage');
+}
+
 function runSnapshotScenarios() {
   const results = [];
 
@@ -245,6 +297,7 @@ async function runLiveCalculatorScenarios() {
 
 async function main() {
   const snapshotResults = runSnapshotScenarios();
+  testV2InitialEnergyFlowRendering();
   const liveRun = await runLiveCalculatorScenarios();
 
   console.log('Solar estimate consistency checks passed.');

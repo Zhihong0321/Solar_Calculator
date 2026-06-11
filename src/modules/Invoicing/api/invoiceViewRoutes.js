@@ -342,6 +342,43 @@ const DEFAULT_PUBLIC_SOLAR_ESTIMATE = Object.freeze({
   systemPhase: 3
 });
 
+function buildPublicEnergyFlow(details = {}) {
+  const monthlySolarGeneration = Number(details.monthlySolarGeneration) || 0;
+  const monthlyUsageKwh = Number(details.monthlyUsageKwh) || 0;
+  const exportKwh = Number(details.exportKwh) || 0;
+  const netUsageKwh = Number(details.netUsageKwh) || 0;
+  const actualUsageForEeiKwh = Number(details.actualUsageForEeiKwh) || 0;
+  const exportRate = Number(details.exportRate) || 0;
+  const exportSaving = Number(details.exportSaving) || 0;
+  const morningSaving = Number(details.morningSaving) || 0;
+  const solarToHomeKwh = Math.max(0, monthlyUsageKwh - actualUsageForEeiKwh);
+  const selfUsePct = monthlySolarGeneration > 0
+    ? Math.round((solarToHomeKwh / monthlySolarGeneration) * 100)
+    : 0;
+  const fitPct = monthlySolarGeneration > 0 ? Math.max(0, 100 - selfUsePct) : 0;
+  const fromSolarPct = monthlyUsageKwh > 0
+    ? Math.round((solarToHomeKwh / monthlyUsageKwh) * 100)
+    : 0;
+  const gridImportPct = Math.max(0, 100 - fromSolarPct);
+
+  return {
+    monthlySolarGeneration,
+    morningUsageKwh: Number(details.morningUsageKwh) || 0,
+    exportKwh,
+    netUsageKwh,
+    actualUsageForEeiKwh,
+    monthlyUsageKwh,
+    exportRate,
+    exportSaving,
+    morningSaving,
+    solarToHomeKwh,
+    selfUsePct,
+    fitPct,
+    fromSolarPct,
+    gridImportPct
+  };
+}
+
 function buildPublicSolarEstimateResponse(calculationResult, averageBill, morningUsage, sunPeakHour, afaRate, billCycleMode) {
   const resolvedBillCycleMode = normalizeBillCycleMode(billCycleMode);
   const cycleMetrics = getBillCycleMetrics(calculationResult, resolvedBillCycleMode);
@@ -355,6 +392,7 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
   });
 
   const details = calculationResult.details || {};
+  const energyFlow = buildPublicEnergyFlow(details);
 
   return {
     requested_bill_amount: normalizedEstimate.requestedBillAmount,
@@ -367,17 +405,7 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
     selected_bill_cycle_mode: resolvedBillCycleMode,
     day_usage_share: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
     charts: calculationResult.charts || null,
-    energyFlow: {
-      monthlySolarGeneration: Number(details.monthlySolarGeneration) || 0,
-      morningUsageKwh: Number(details.morningUsageKwh) || 0,
-      exportKwh: Number(details.exportKwh) || 0,
-      netUsageKwh: Number(details.netUsageKwh) || 0,
-      actualUsageForEeiKwh: Number(details.actualUsageForEeiKwh) || 0,
-      monthlyUsageKwh: Number(details.monthlyUsageKwh) || 0,
-      exportRate: Number(details.exportRate) || 0,
-      exportSaving: Number(details.exportSaving) || 0,
-      morningSaving: Number(details.morningSaving) || 0
-    },
+    energyFlow,
     assumptions: {
       sunPeakHour: Number.isFinite(Number(sunPeakHour)) ? Number(sunPeakHour) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour,
       afaRate: Number.isFinite(Number(afaRate)) ? Number(afaRate) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.afaRate,
@@ -387,6 +415,54 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
       systemPhase: DEFAULT_PUBLIC_SOLAR_ESTIMATE.systemPhase
     }
   };
+}
+
+async function buildInitialPublicSolarEstimate(invoice) {
+  const averageBill = Number(invoice?.customer_average_tnb);
+  const panelQty = parseInt(invoice?.panel_qty, 10);
+  const panelRating = parseInt(invoice?.panel_rating, 10);
+
+  if (!Number.isFinite(averageBill) || averageBill <= 0) {
+    return null;
+  }
+  if (!Number.isFinite(panelQty) || panelQty <= 0 || !Number.isFinite(panelRating) || panelRating <= 0) {
+    return null;
+  }
+
+  const storedSunPeakHour = Number(invoice?.solar_sun_peak_hour);
+  const storedMorningUsage = Number(invoice?.solar_morning_usage_percent);
+  const sunPeakHour = Number.isFinite(storedSunPeakHour)
+    ? storedSunPeakHour
+    : DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour;
+  const morningUsage = Number.isFinite(storedMorningUsage)
+    ? storedMorningUsage
+    : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage;
+  const afaRate = DEFAULT_PUBLIC_SOLAR_ESTIMATE.afaRate;
+
+  try {
+    const calculationResult = await calculateSolarSavings(pool, tariffPool, {
+      ...DEFAULT_PUBLIC_SOLAR_ESTIMATE,
+      amount: averageBill,
+      sunPeakHour,
+      afaRate,
+      historicalAfaRate: afaRate,
+      panelType: panelRating,
+      overridePanels: panelQty,
+      morningUsage
+    });
+
+    return buildPublicSolarEstimateResponse(
+      calculationResult,
+      averageBill,
+      morningUsage,
+      sunPeakHour,
+      afaRate,
+      'fullMonth'
+    );
+  } catch (error) {
+    console.warn('[invoiceView] Failed to build initial public solar estimate:', error);
+    return null;
+  }
 }
 
 async function handlePublicSolarEstimate(req, res) {
@@ -692,9 +768,11 @@ router.get('/view/:tokenOrId', async (req, res) => {
           return;
         }
 
+        const initialSolarEstimateData = await buildInitialPublicSolarEstimate(invoice);
         const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, {
           layout,
-          viewerHasAuthenticatedUser: Boolean(authenticatedViewer)
+          viewerHasAuthenticatedUser: Boolean(authenticatedViewer),
+          initialSolarEstimateData
         });
         res.send(html);
       } else {
@@ -723,9 +801,11 @@ router.get('/view2/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
+        const initialSolarEstimateData = await buildInitialPublicSolarEstimate(invoice);
         const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, {
           layout,
-          viewerHasAuthenticatedUser: Boolean(authenticatedViewer)
+          viewerHasAuthenticatedUser: Boolean(authenticatedViewer),
+          initialSolarEstimateData
         });
         res.send(html);
       } else {
