@@ -683,7 +683,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
             </div>
             <div style="text-align:right">
               <div style="font-size:9px;color:var(--g500);font-weight:700;text-transform:uppercase;letter-spacing:.07em">System Size</div>
-              <div id="solarEstimateSystemSize" style="font-size:14px;font-weight:700;color:var(--g700);line-height:1;margin-top:2px">${panelQty} × ${panelRating}W</div>
+              <div id="solarEstimateSystemSize" style="font-size:14px;font-weight:700;color:var(--g700);line-height:1;margin-top:2px">${estimatePanelQty} × ${estimatePanelRating}W</div>
             </div>
           </div>
           <div class="ba" style="margin-bottom:8px">
