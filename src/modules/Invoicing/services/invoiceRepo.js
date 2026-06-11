@@ -1332,12 +1332,16 @@ async function createInvoiceOnTheFly(client, data) {
     // Commit transaction
     await client.query('COMMIT');
 
-    // 6. Log Action with Snapshot (after commit)
+    // 6. Fetch warranty info so the create response is fully hydrated (matches getInvoiceByBubbleId behaviour)
+    const warranties = await _fetchWarrantyInfo(client, invoice.linked_package, []);
+
+    // 7. Log Action with Snapshot (after commit)
     // DB Trigger now handles extra persistence automatically
 
     return {
       ...invoice,
       items: [],
+      warranties,
       template: deps.template,
       customerBubbleId: deps.customerBubbleId // Return customer Bubble ID for SEDA service
     };
