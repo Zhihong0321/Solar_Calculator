@@ -414,6 +414,47 @@ function buildInvoiceInteractionScript({
           saveHint.style.display = options.showSaveHint ? 'block' : 'none';
         }
 
+        // --- Update Energy Flow section ---
+        if (data.energyFlow) {
+          const ef = data.energyFlow;
+          const generated = Number(ef.monthlySolarGeneration) || 0;
+          const usage = Number(ef.monthlyUsageKwh) || 0;
+          const gridImport = Number(ef.netUsageKwh) || 0;
+          const exportKwh = Number(ef.exportKwh) || 0;
+          const exportSaving = Number(ef.exportSaving) || 0;
+          const solarToHome = Math.max(0, usage - gridImport);
+          const selfPct = generated > 0 ? Math.round((solarToHome / generated) * 100) : 0;
+          const fitPct = Math.max(0, 100 - selfPct);
+          const solarSharePct = usage > 0 ? Math.round((solarToHome / usage) * 100) : 0;
+          const gridImportPct = Math.max(0, 100 - solarSharePct);
+
+          function setText(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; }
+          function setWidth(id, pct) { var el = document.getElementById(id); if (el) el.style.width = pct; }
+
+          // Solar Output block
+          setText('solarEstimateOutputKwh', generated.toFixed(1) + ' kWh');
+          setText('solarEstimateSelfUsePct', 'Self-use ' + selfPct + '%');
+          setText('solarEstimateSelfUseKwh', solarToHome.toFixed(1) + ' kWh');
+          setWidth('solarEstimateSelfUseBarFill', selfPct + '%');
+          setText('solarEstimateFitPct', 'FiT Export ' + fitPct + '%');
+          setText('solarEstimateFitKwh', exportKwh.toFixed(1) + ' kWh');
+          setWidth('solarEstimateFitBarFill', fitPct + '%');
+          setText('solarEstimateFitIncome', '+RM ' + exportSaving.toFixed(2));
+
+          // Home Consumption block
+          setText('solarEstimateHomeConsumptionKwh', usage.toFixed(1) + ' kWh');
+          setText('solarEstimateSolarSharePct', 'Solar ' + solarSharePct + '%');
+          setText('solarEstimateSolarShareKwh', solarToHome.toFixed(1) + ' kWh');
+          setWidth('solarEstimateSolarShareBarFill', solarSharePct + '%');
+          setText('solarEstimateGridImportPct', 'Grid Import ' + gridImportPct + '%');
+          setText('solarEstimateGridImportKwh', gridImport.toFixed(1) + ' kWh');
+          setWidth('solarEstimateGridImportBarFill', gridImportPct + '%');
+          setText('solarEstimateGridBackupKwh', gridImport.toFixed(1) + ' kWh');
+
+          // Total Generation in bill projection card
+          setText('solarEstimateTotalGeneration', generated.toFixed(1) + ' kWh/mo');
+        }
+
         updateSolarEstimateStatus(
           options.saved
             ? 'This quotation now includes the latest solar estimate.'

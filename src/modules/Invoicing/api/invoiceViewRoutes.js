@@ -354,6 +354,8 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
     payableAfterSolar: cycleMetrics.selected?.estimated_new_bill_amount ?? calculationResult.details?.estimatedPayableAfterSolar
   });
 
+  const details = calculationResult.details || {};
+
   return {
     requested_bill_amount: normalizedEstimate.requestedBillAmount,
     customer_average_tnb: normalizedEstimate.beforeSolarBill,
@@ -365,6 +367,16 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
     selected_bill_cycle_mode: resolvedBillCycleMode,
     day_usage_share: Number.isFinite(Number(morningUsage)) ? Number(morningUsage) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.morningUsage,
     charts: calculationResult.charts || null,
+    energyFlow: {
+      monthlySolarGeneration: Number(details.monthlySolarGeneration) || 0,
+      morningUsageKwh: Number(details.morningUsageKwh) || 0,
+      exportKwh: Number(details.exportKwh) || 0,
+      netUsageKwh: Number(details.netUsageKwh) || 0,
+      monthlyUsageKwh: Number(details.monthlyUsageKwh) || 0,
+      exportRate: Number(details.exportRate) || 0,
+      exportSaving: Number(details.exportSaving) || 0,
+      morningSaving: Number(details.morningSaving) || 0
+    },
     assumptions: {
       sunPeakHour: Number.isFinite(Number(sunPeakHour)) ? Number(sunPeakHour) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.sunPeakHour,
       afaRate: Number.isFinite(Number(afaRate)) ? Number(afaRate) : DEFAULT_PUBLIC_SOLAR_ESTIMATE.afaRate,

@@ -206,15 +206,16 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         </div>`;
     });
 
-    // Energy flow
-    const solarOutputKwh = Number(invoice.solar_output_kwh) || (beforeSolarBill && estimatedMonthlySaving ? Math.round((beforeSolarBill - afterSolarBill) / 0.57) : 412.5);
-    const selfUsePct = 68;
+    // Energy flow — values are initial server-side estimates; interactive JS refreshes them on load
+    const solarOutputKwh = Number(invoice.solar_output_kwh) || (beforeSolarBill && estimatedMonthlySaving ? Math.round((beforeSolarBill - afterSolarBill) / 0.57) : 0);
+    const morningPct = Number(storedMorningUsagePercent) || 30;
+    const selfUsePct = morningPct;
     const selfUseKwh = +(solarOutputKwh * selfUsePct / 100).toFixed(1);
     const fitKwh = +(solarOutputKwh * (100 - selfUsePct) / 100).toFixed(1);
     const fitIncome = +(fitKwh * 0.27).toFixed(2);
 
-    const homeConsumptionKwh = 850;
-    const solarSharePct = Math.round(selfUseKwh / homeConsumptionKwh * 100);
+    const homeConsumptionKwh = 0; // refreshed by interactive JS from calculation results
+    const solarSharePct = homeConsumptionKwh > 0 ? Math.round(selfUseKwh / homeConsumptionKwh * 100) : 0;
     const solarShareKwh = selfUseKwh;
     const gridImportKwh = +(homeConsumptionKwh - solarShareKwh).toFixed(1);
 
@@ -675,6 +676,16 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
       <div class="sw anim">
         <div class="sec-label">Monthly Bill Projection</div>
         <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--g100)">
+            <div>
+              <div style="font-size:9px;color:var(--g500);font-weight:700;text-transform:uppercase;letter-spacing:.07em">Total Solar Generation</div>
+              <div id="solarEstimateTotalGeneration" style="font-size:22px;font-weight:800;color:var(--gp);letter-spacing:-.5px;line-height:1;margin-top:2px">${solarOutputKwh > 0 ? solarOutputKwh + ' kWh/mo' : '—'}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:9px;color:var(--g500);font-weight:700;text-transform:uppercase;letter-spacing:.07em">System Size</div>
+              <div id="solarEstimateSystemSize" style="font-size:14px;font-weight:700;color:var(--g700);line-height:1;margin-top:2px">${panelQty} × ${panelRating}W</div>
+            </div>
+          </div>
           <div class="ba" style="margin-bottom:8px">
             <div class="ba-p bef">
               <div class="lbl">Before Solar</div>
@@ -747,37 +758,37 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
         <div class="sec-label">Energy Flow · Monthly</div>
         <div class="card">
           <div class="chart-block" style="margin-bottom:6px">
-            <div class="chart-title">Solar Output <span class="v">${solarOutputKwh} kWh</span></div>
+            <div class="chart-title">Solar Output <span class="v" id="solarEstimateOutputKwh">${solarOutputKwh} kWh</span></div>
             <div class="chart-row">
-              <span class="chart-l">Self-use ${selfUsePct}%</span>
-              <span class="chart-r" style="color:var(--gp)">${selfUseKwh} kWh</span>
+              <span class="chart-l" id="solarEstimateSelfUsePct">Self-use ${selfUsePct}%</span>
+              <span class="chart-r" style="color:var(--gp)" id="solarEstimateSelfUseKwh">${selfUseKwh} kWh</span>
             </div>
-            <div class="chart-bar"><div class="chart-fill" style="width:${selfUsePct}%;background:var(--gp)"></div></div>
+            <div class="chart-bar"><div class="chart-fill" id="solarEstimateSelfUseBarFill" style="width:${selfUsePct}%;background:var(--gp)"></div></div>
             <div class="chart-row" style="margin-top:6px">
-              <span class="chart-l">FiT Export ${100-selfUsePct}%</span>
-              <span class="chart-r" style="color:#d97706">${fitKwh} kWh</span>
+              <span class="chart-l" id="solarEstimateFitPct">FiT Export ${100-selfUsePct}%</span>
+              <span class="chart-r" style="color:#d97706" id="solarEstimateFitKwh">${fitKwh} kWh</span>
             </div>
-            <div class="chart-bar" style="background:#fef3c7"><div class="chart-fill" style="width:${100-selfUsePct}%;background:#d97706"></div></div>
+            <div class="chart-bar" style="background:#fef3c7"><div class="chart-fill" id="solarEstimateFitBarFill" style="width:${100-selfUsePct}%;background:#d97706"></div></div>
             <div class="chart-foot">
               <span class="l">FiT Income</span>
-              <span class="v" style="color:#d97706">+RM ${fitIncome.toFixed(2)}</span>
+              <span class="v" style="color:#d97706" id="solarEstimateFitIncome">+RM ${fitIncome.toFixed(2)}</span>
             </div>
           </div>
           <div class="chart-block">
-            <div class="chart-title">Home Consumption <span class="v">${homeConsumptionKwh} kWh</span></div>
+            <div class="chart-title">Home Consumption <span class="v" id="solarEstimateHomeConsumptionKwh">${homeConsumptionKwh} kWh</span></div>
             <div class="chart-row">
-              <span class="chart-l">Solar ${solarSharePct}%</span>
-              <span class="chart-r" style="color:var(--gp)">${solarShareKwh} kWh</span>
+              <span class="chart-l" id="solarEstimateSolarSharePct">Solar ${solarSharePct}%</span>
+              <span class="chart-r" style="color:var(--gp)" id="solarEstimateSolarShareKwh">${solarShareKwh} kWh</span>
             </div>
-            <div class="chart-bar"><div class="chart-fill" style="width:${solarSharePct}%;background:var(--gp)"></div></div>
+            <div class="chart-bar"><div class="chart-fill" id="solarEstimateSolarShareBarFill" style="width:${solarSharePct}%;background:var(--gp)"></div></div>
             <div class="chart-row" style="margin-top:6px">
-              <span class="chart-l">Grid Import ${100-solarSharePct}%</span>
-              <span class="chart-r" style="color:#3b82f6">${gridImportKwh} kWh</span>
+              <span class="chart-l" id="solarEstimateGridImportPct">Grid Import ${100-solarSharePct}%</span>
+              <span class="chart-r" style="color:#3b82f6" id="solarEstimateGridImportKwh">${gridImportKwh} kWh</span>
             </div>
-            <div class="chart-bar" style="background:var(--ib)"><div class="chart-fill" style="width:${100-solarSharePct}%;background:#60a5fa"></div></div>
+            <div class="chart-bar" style="background:var(--ib)"><div class="chart-fill" id="solarEstimateGridImportBarFill" style="width:${100-solarSharePct}%;background:#60a5fa"></div></div>
             <div class="chart-foot b">
               <span class="l">Grid Backup</span>
-              <span class="v" style="color:#3b82f6">${gridImportKwh} kWh</span>
+              <span class="v" style="color:#3b82f6" id="solarEstimateGridBackupKwh">${gridImportKwh} kWh</span>
             </div>
           </div>
         </div>
