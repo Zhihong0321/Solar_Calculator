@@ -427,10 +427,14 @@ function buildInvoiceInteractionScript({
           var usage = Number(ef.monthlyUsageKwh) || 0;
           var generated = Number(ef.monthlySolarGeneration) || 0;
           var exportKwh = Number(ef.exportKwh) || 0;
-          var gridImport = Number(ef.actualUsageForEeiKwh) || 0; // net grid import, same as domestic calc
+          var gridImport = Number(ef.actualUsageForEeiKwh) || 0;
+          var batteryDischarge = Number(ef.batteryDischargeKwh) || 0;
+          var backupGeneration = Number(ef.backupGenerationKwh) || 0;
           var exportSaving = Number(ef.exportSaving) || 0;
           var solarToHome = Math.max(0, usage - gridImport);
-          var selfPct = generated > 0 ? Math.round((solarToHome / generated) * 100) : 0;
+          var directSolar = Math.max(0, solarToHome - batteryDischarge);
+          var selfUseKwh = Math.max(0, directSolar + batteryDischarge);
+          var selfPct = generated > 0 ? Math.round((selfUseKwh / generated) * 100) : 0;
           var fitPct = generated > 0 ? Math.max(0, 100 - selfPct) : 0;
           var fromSolarPct = usage > 0 ? Math.round((solarToHome / usage) * 100) : 0;
           var gridImportPct = Math.max(0, 100 - fromSolarPct);
@@ -441,7 +445,7 @@ function buildInvoiceInteractionScript({
           // Solar Output block
           setText('solarEstimateOutputKwh', generated.toFixed(1) + ' kWh');
           setText('solarEstimateSelfUsePct', 'Self-use ' + selfPct + '%');
-          setText('solarEstimateSelfUseKwh', solarToHome.toFixed(1) + ' kWh');
+          setText('solarEstimateSelfUseKwh', selfUseKwh.toFixed(1) + ' kWh');
           setWidth('solarEstimateSelfUseBarFill', selfPct + '%');
           setText('solarEstimateFitPct', 'FiT Export ' + fitPct + '%');
           setText('solarEstimateFitKwh', exportKwh.toFixed(1) + ' kWh');
@@ -453,10 +457,10 @@ function buildInvoiceInteractionScript({
           setText('solarEstimateSolarSharePct', 'Solar ' + fromSolarPct + '%');
           setText('solarEstimateSolarShareKwh', solarToHome.toFixed(1) + ' kWh');
           setWidth('solarEstimateSolarShareBarFill', fromSolarPct + '%');
-          setText('solarEstimateGridImportPct', 'Grid Import ' + gridImportPct + '%');
+          setText('solarEstimateGridImportPct', 'Grid import ' + gridImportPct + '%');
           setText('solarEstimateGridImportKwh', gridImport.toFixed(1) + ' kWh');
           setWidth('solarEstimateGridImportBarFill', gridImportPct + '%');
-          setText('solarEstimateGridBackupKwh', gridImport.toFixed(1) + ' kWh');
+          setText('solarEstimateGridBackupKwh', backupGeneration.toFixed(1) + ' kWh');
 
           // Total Generation in bill projection card
           setText('solarEstimateTotalGeneration', generated.toFixed(1) + ' kWh/mo');

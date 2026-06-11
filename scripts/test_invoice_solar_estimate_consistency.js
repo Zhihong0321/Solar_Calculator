@@ -163,11 +163,15 @@ function testV2InitialEnergyFlowRendering() {
       exportKwh: 224.6,
       netUsageKwh: 318.3,
       actualUsageForEeiKwh: 318.3,
+      batteryDischargeKwh: 0,
+      backupGenerationKwh: 31.8,
       monthlyUsageKwh: 867.9,
       exportRate: 0.2703,
       exportSaving: 60.71,
       morningSaving: 181.52,
       solarToHomeKwh: 549.6,
+      directSolarKwh: 549.6,
+      selfUseKwh: 549.6,
       selfUsePct: 52,
       fitPct: 48,
       fromSolarPct: 63,
@@ -192,8 +196,10 @@ function testV2InitialEnergyFlowRendering() {
   assert.ok(html.includes('FiT Export 48%'), 'V2 energy flow should use calculator export percentage');
   assert.ok(html.includes('+RM 60.71'), 'V2 energy flow should use calculator export credit');
   assert.ok(html.includes('867.9 kWh'), 'V2 energy flow should use calculator monthly usage');
-  assert.ok(html.includes('Grid Import 37%'), 'V2 energy flow should use calculator grid-import percentage');
+  assert.ok(html.includes('Grid import 37%'), 'V2 energy flow should use calculator grid-import percentage');
   assert.ok(html.includes('318.3 kWh'), 'V2 energy flow should use calculator grid-import kWh');
+  assert.ok(html.includes('Backup generation'), 'V2 energy flow should use the domestic backup-generation label');
+  assert.ok(html.includes('31.8 kWh'), 'V2 energy flow should use calculator backup-generation kWh');
   assert.ok(!html.includes('Home Consumption <span class="v" id="solarEstimateHomeConsumptionKwh">850 kWh</span>'), 'V2 should not fall back to the old fixed 850 kWh usage');
 }
 
