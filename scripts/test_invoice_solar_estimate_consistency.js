@@ -158,7 +158,7 @@ function testV2InitialEnergyFlowRendering() {
     estimated_new_bill_amount: estimate.estimatedNewBillAmount,
     selected_bill_cycle_mode: 'fullMonth',
     energyFlow: {
-      monthlySolarGeneration: 1048.7,
+      monthlySolarGeneration: 806.0,
       morningUsageKwh: 372.8,
       exportKwh: 224.6,
       netUsageKwh: 318.3,
@@ -166,14 +166,15 @@ function testV2InitialEnergyFlowRendering() {
       batteryDischargeKwh: 0,
       backupGenerationKwh: 31.8,
       monthlyUsageKwh: 867.9,
+      gridImportKwh: 318.3,
       exportRate: 0.2703,
       exportSaving: 60.71,
       morningSaving: 181.52,
       solarToHomeKwh: 549.6,
       directSolarKwh: 549.6,
       selfUseKwh: 549.6,
-      selfUsePct: 52,
-      fitPct: 48,
+      selfUsePct: 68,
+      fitPct: 28,
       fromSolarPct: 63,
       gridImportPct: 37
     },
@@ -189,17 +190,22 @@ function testV2InitialEnergyFlowRendering() {
 
   const html = generateInvoiceHtmlV2(invoice, {}, { initialSolarEstimateData });
 
-  assert.ok(html.includes('1048.7 kWh/mo'), 'V2 initial render should use calculator monthly generation');
-  assert.ok(html.includes('1048.7 kWh'), 'V2 energy flow should use calculator monthly generation');
-  assert.ok(html.includes('Self-use 52%'), 'V2 energy flow should use calculator self-use percentage');
+  assert.ok(html.includes('806 kWh/mo'), 'V2 initial render should use calculator monthly generation');
+  assert.ok(html.includes('806 kWh'), 'V2 energy flow should use calculator monthly generation');
+  assert.ok(html.includes('Total Solar Generation'), 'V2 energy flow should use the updated solar generation title');
+  assert.ok(html.includes('Where Solar Generation Goes'), 'V2 energy flow should show the solar destination subtitle');
+  assert.ok(html.includes('Offset by Solar'), 'V2 energy flow should show the updated offset-by-solar label');
   assert.ok(html.includes('549.6 kWh'), 'V2 energy flow should use calculator solar-to-home kWh');
-  assert.ok(html.includes('FiT Export 48%'), 'V2 energy flow should use calculator export percentage');
+  assert.ok(html.includes('Export to FiT'), 'V2 energy flow should show the updated export label');
   assert.ok(html.includes('+RM 60.71'), 'V2 energy flow should use calculator export credit');
+  assert.ok(html.includes('Credit Next Month (Backup)'), 'V2 energy flow should show the updated backup label');
   assert.ok(html.includes('867.9 kWh'), 'V2 energy flow should use calculator monthly usage');
-  assert.ok(html.includes('Grid import 37%'), 'V2 energy flow should use calculator grid-import percentage');
+  assert.ok(html.includes('Grid Import'), 'V2 energy flow should show the updated grid import label');
   assert.ok(html.includes('318.3 kWh'), 'V2 energy flow should use calculator grid-import kWh');
-  assert.ok(html.includes('Backup generation'), 'V2 energy flow should use the domestic backup-generation label');
   assert.ok(html.includes('31.8 kWh'), 'V2 energy flow should use calculator backup-generation kWh');
+  assert.ok(!html.includes('Self-use 68%'), 'V2 should not render the old self-use percentage label');
+  assert.ok(!html.includes('FiT Export 28%'), 'V2 should not render the old FiT export percentage label');
+  assert.ok(!html.includes('Grid import 37%'), 'V2 should not render the old grid import percentage label');
   assert.ok(!html.includes('Home Consumption <span class="v" id="solarEstimateHomeConsumptionKwh">850 kWh</span>'), 'V2 should not fall back to the old fixed 850 kWh usage');
 }
 

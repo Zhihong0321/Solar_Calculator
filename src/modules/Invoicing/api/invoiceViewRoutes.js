@@ -353,17 +353,22 @@ function buildPublicEnergyFlow(details = {}) {
   const exportRate = Number(details.exportRate) || 0;
   const exportSaving = Number(details.exportSaving) || 0;
   const morningSaving = Number(details.morningSaving) || 0;
-  const solarToHomeKwh = Math.max(0, monthlyUsageKwh - actualUsageForEeiKwh);
+  const solarToHomeKwh = Math.max(0, monthlyUsageKwh - netUsageKwh);
+  const gridImportKwh = Math.max(0, netUsageKwh);
   const directSolarKwh = Math.max(0, solarToHomeKwh - batteryDischargeKwh);
-  const selfUseKwh = Math.max(0, directSolarKwh + batteryDischargeKwh);
+  const selfUseKwh = Math.max(0, solarToHomeKwh);
   const selfUsePct = monthlySolarGeneration > 0
     ? Math.round((selfUseKwh / monthlySolarGeneration) * 100)
     : 0;
-  const fitPct = monthlySolarGeneration > 0 ? Math.max(0, 100 - selfUsePct) : 0;
+  const fitPct = monthlySolarGeneration > 0
+    ? Math.round((exportKwh / monthlySolarGeneration) * 100)
+    : 0;
   const fromSolarPct = monthlyUsageKwh > 0
     ? Math.round((solarToHomeKwh / monthlyUsageKwh) * 100)
     : 0;
-  const gridImportPct = Math.max(0, 100 - fromSolarPct);
+  const gridImportPct = monthlyUsageKwh > 0
+    ? Math.round((gridImportKwh / monthlyUsageKwh) * 100)
+    : 0;
 
   return {
     monthlySolarGeneration,
@@ -374,6 +379,7 @@ function buildPublicEnergyFlow(details = {}) {
     batteryDischargeKwh,
     backupGenerationKwh,
     monthlyUsageKwh,
+    gridImportKwh,
     exportRate,
     exportSaving,
     morningSaving,

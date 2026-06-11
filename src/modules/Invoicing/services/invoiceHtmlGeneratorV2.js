@@ -71,39 +71,43 @@ function buildEnergyFlowDisplay(energyFlow) {
     const monthlyUsageKwh = Number(energyFlow.monthlyUsageKwh) || 0;
     const monthlySolarGeneration = Number(energyFlow.monthlySolarGeneration) || 0;
     const exportKwh = Number(energyFlow.exportKwh) || 0;
+    const netUsageKwh = Number(energyFlow.netUsageKwh) || 0;
     const actualUsageForEeiKwh = Number(energyFlow.actualUsageForEeiKwh) || 0;
     const batteryDischargeKwh = Number(energyFlow.batteryDischargeKwh) || 0;
     const backupGenerationKwh = Number(energyFlow.backupGenerationKwh) || 0;
+    const gridImportKwh = Number(energyFlow.gridImportKwh) || 0;
     const exportSaving = Number(energyFlow.exportSaving) || 0;
     const solarToHomeKwh = Number.isFinite(Number(energyFlow.solarToHomeKwh))
         ? Number(energyFlow.solarToHomeKwh)
-        : Math.max(0, monthlyUsageKwh - actualUsageForEeiKwh);
+        : Math.max(0, monthlyUsageKwh - netUsageKwh);
     const directSolarKwh = Number.isFinite(Number(energyFlow.directSolarKwh))
         ? Number(energyFlow.directSolarKwh)
         : Math.max(0, solarToHomeKwh - batteryDischargeKwh);
     const selfUseKwh = Number.isFinite(Number(energyFlow.selfUseKwh))
         ? Number(energyFlow.selfUseKwh)
-        : Math.max(0, directSolarKwh + batteryDischargeKwh);
+        : Math.max(0, solarToHomeKwh);
     const selfUsePct = Number.isFinite(Number(energyFlow.selfUsePct))
         ? Number(energyFlow.selfUsePct)
         : (monthlySolarGeneration > 0 ? Math.round((selfUseKwh / monthlySolarGeneration) * 100) : 0);
     const fitPct = Number.isFinite(Number(energyFlow.fitPct))
         ? Number(energyFlow.fitPct)
-        : (monthlySolarGeneration > 0 ? Math.max(0, 100 - selfUsePct) : 0);
+        : (monthlySolarGeneration > 0 ? Math.round((exportKwh / monthlySolarGeneration) * 100) : 0);
     const fromSolarPct = Number.isFinite(Number(energyFlow.fromSolarPct))
         ? Number(energyFlow.fromSolarPct)
         : (monthlyUsageKwh > 0 ? Math.round((solarToHomeKwh / monthlyUsageKwh) * 100) : 0);
     const gridImportPct = Number.isFinite(Number(energyFlow.gridImportPct))
         ? Number(energyFlow.gridImportPct)
-        : Math.max(0, 100 - fromSolarPct);
+        : (monthlyUsageKwh > 0 ? Math.round((((gridImportKwh || netUsageKwh) / monthlyUsageKwh) * 100)) : 0);
 
     return {
         monthlyUsageKwh,
         monthlySolarGeneration,
         exportKwh,
+        netUsageKwh,
         actualUsageForEeiKwh,
         batteryDischargeKwh,
         backupGenerationKwh,
+        gridImportKwh: gridImportKwh || netUsageKwh,
         exportSaving,
         solarToHomeKwh,
         directSolarKwh,
@@ -268,9 +272,12 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const homeConsumptionKwh = energyFlowDisplay ? Number(energyFlowDisplay.monthlyUsageKwh.toFixed(1)) : null;
     const solarSharePct = energyFlowDisplay ? energyFlowDisplay.fromSolarPct : null;
     const solarShareKwh = energyFlowDisplay ? Number(energyFlowDisplay.solarToHomeKwh.toFixed(1)) : null;
-    const gridImportKwh = energyFlowDisplay ? Number(energyFlowDisplay.actualUsageForEeiKwh.toFixed(1)) : null;
+    const gridImportKwh = energyFlowDisplay ? Number(energyFlowDisplay.gridImportKwh.toFixed(1)) : null;
     const gridImportPct = energyFlowDisplay ? energyFlowDisplay.gridImportPct : null;
     const backupGenerationKwh = energyFlowDisplay ? Number(energyFlowDisplay.backupGenerationKwh.toFixed(1)) : null;
+    const backupGenerationPct = energyFlowDisplay && energyFlowDisplay.monthlySolarGeneration > 0
+        ? Math.min(100, Math.round((energyFlowDisplay.backupGenerationKwh / energyFlowDisplay.monthlySolarGeneration) * 100))
+        : 0;
     const systemSizeLabel = estimatePanelQty > 0 && estimatePanelRating > 0
         ? `${estimatePanelQty} × ${estimatePanelRating}W`
         : '—';
@@ -815,17 +822,26 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
         <div class="sec-label">Energy Flow · Monthly</div>
         <div class="card">
           <div class="chart-block" style="margin-bottom:6px">
-            <div class="chart-title">Solar Output <span class="v" id="solarEstimateOutputKwh">${solarOutputKwh !== null ? `${solarOutputKwh} kWh` : '—'}</span></div>
+            <div class="chart-title">Total Solar Generation <span class="v" id="solarEstimateOutputKwh">${solarOutputKwh !== null ? `${solarOutputKwh} kWh` : '—'}</span></div>
+            <div class="chart-foot" style="margin-top:2px;margin-bottom:8px">
+              <span class="l">Where Solar Generation Goes</span>
+              <span class="v"></span>
+            </div>
             <div class="chart-row">
-              <span class="chart-l" id="solarEstimateSelfUsePct">Self-use ${selfUsePct !== null ? `${selfUsePct}%` : '—'}</span>
+              <span class="chart-l" id="solarEstimateSelfUsePct">Offset by Solar</span>
               <span class="chart-r" style="color:var(--gp)" id="solarEstimateSelfUseKwh">${selfUseKwh !== null ? `${selfUseKwh} kWh` : '—'}</span>
             </div>
             <div class="chart-bar"><div class="chart-fill" id="solarEstimateSelfUseBarFill" style="width:${selfUsePct !== null ? selfUsePct : 0}%;background:var(--gp)"></div></div>
             <div class="chart-row" style="margin-top:6px">
-              <span class="chart-l" id="solarEstimateFitPct">FiT Export ${fitKwh !== null && selfUsePct !== null ? `${100 - selfUsePct}%` : '—'}</span>
+              <span class="chart-l" id="solarEstimateFitPct">Export to FiT</span>
               <span class="chart-r" style="color:#d97706" id="solarEstimateFitKwh">${fitKwh !== null ? `${fitKwh} kWh` : '—'}</span>
             </div>
-            <div class="chart-bar" style="background:#fef3c7"><div class="chart-fill" id="solarEstimateFitBarFill" style="width:${fitKwh !== null && selfUsePct !== null ? 100 - selfUsePct : 0}%;background:#d97706"></div></div>
+            <div class="chart-bar" style="background:#fef3c7"><div class="chart-fill" id="solarEstimateFitBarFill" style="width:${energyFlowDisplay ? energyFlowDisplay.fitPct : 0}%;background:#d97706"></div></div>
+            <div class="chart-row" style="margin-top:6px">
+              <span class="chart-l" id="solarEstimateBackupLabel">Credit Next Month (Backup)</span>
+              <span class="chart-r" style="color:#3b82f6" id="solarEstimateGridBackupKwh">${backupGenerationKwh !== null ? `${backupGenerationKwh} kWh` : '—'}</span>
+            </div>
+            <div class="chart-bar" style="background:var(--ib)"><div class="chart-fill" id="solarEstimateGridBackupBarFill" style="width:${backupGenerationPct}%;background:#60a5fa"></div></div>
             <div class="chart-foot">
               <span class="l">FiT Income</span>
               <span class="v" style="color:#d97706" id="solarEstimateFitIncome">${fitIncome !== null ? `+RM ${fitIncome.toFixed(2)}` : '—'}</span>
@@ -834,19 +850,15 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
           <div class="chart-block">
             <div class="chart-title">Home Consumption <span class="v" id="solarEstimateHomeConsumptionKwh">${homeConsumptionKwh !== null ? `${homeConsumptionKwh} kWh` : '—'}</span></div>
             <div class="chart-row">
-              <span class="chart-l" id="solarEstimateSolarSharePct">Solar ${solarSharePct !== null ? `${solarSharePct}%` : '—'}</span>
-              <span class="chart-r" style="color:var(--gp)" id="solarEstimateSolarShareKwh">${solarShareKwh !== null ? `${solarShareKwh} kWh` : '—'}</span>
-            </div>
-            <div class="chart-bar"><div class="chart-fill" id="solarEstimateSolarShareBarFill" style="width:${solarSharePct !== null ? solarSharePct : 0}%;background:var(--gp)"></div></div>
-            <div class="chart-row" style="margin-top:6px">
-              <span class="chart-l" id="solarEstimateGridImportPct">Grid import ${gridImportPct !== null ? `${gridImportPct}%` : '—'}</span>
+              <span class="chart-l" id="solarEstimateGridImportPct">Grid Import</span>
               <span class="chart-r" style="color:#3b82f6" id="solarEstimateGridImportKwh">${gridImportKwh !== null ? `${gridImportKwh} kWh` : '—'}</span>
             </div>
             <div class="chart-bar" style="background:var(--ib)"><div class="chart-fill" id="solarEstimateGridImportBarFill" style="width:${gridImportPct !== null ? gridImportPct : 0}%;background:#60a5fa"></div></div>
-            <div class="chart-foot b">
-              <span class="l">Backup generation</span>
-              <span class="v" style="color:#3b82f6" id="solarEstimateGridBackupKwh">${backupGenerationKwh !== null ? `${backupGenerationKwh} kWh` : '—'}</span>
+            <div class="chart-row" style="margin-top:6px">
+              <span class="chart-l" id="solarEstimateSolarSharePct">Offset by Solar</span>
+              <span class="chart-r" style="color:var(--gp)" id="solarEstimateSolarShareKwh">${solarShareKwh !== null ? `${solarShareKwh} kWh` : '—'}</span>
             </div>
+            <div class="chart-bar"><div class="chart-fill" id="solarEstimateSolarShareBarFill" style="width:${solarSharePct !== null ? solarSharePct : 0}%;background:var(--gp)"></div></div>
           </div>
         </div>
       </div>
