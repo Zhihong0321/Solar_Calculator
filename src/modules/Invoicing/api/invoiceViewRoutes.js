@@ -372,6 +372,7 @@ function buildPublicSolarEstimateResponse(calculationResult, averageBill, mornin
       morningUsageKwh: Number(details.morningUsageKwh) || 0,
       exportKwh: Number(details.exportKwh) || 0,
       netUsageKwh: Number(details.netUsageKwh) || 0,
+      actualUsageForEeiKwh: Number(details.actualUsageForEeiKwh) || 0,
       monthlyUsageKwh: Number(details.monthlyUsageKwh) || 0,
       exportRate: Number(details.exportRate) || 0,
       exportSaving: Number(details.exportSaving) || 0,

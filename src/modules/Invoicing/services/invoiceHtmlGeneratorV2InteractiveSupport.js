@@ -414,19 +414,19 @@ function buildInvoiceInteractionScript({
           saveHint.style.display = options.showSaveHint ? 'block' : 'none';
         }
 
-        // --- Update Energy Flow section ---
+        // --- Update Energy Flow section (same formula as domestic calculator) ---
         if (data.energyFlow) {
-          const ef = data.energyFlow;
-          const generated = Number(ef.monthlySolarGeneration) || 0;
-          const usage = Number(ef.monthlyUsageKwh) || 0;
-          const gridImport = Number(ef.netUsageKwh) || 0;
-          const exportKwh = Number(ef.exportKwh) || 0;
-          const exportSaving = Number(ef.exportSaving) || 0;
-          const solarToHome = Math.max(0, usage - gridImport);
-          const selfPct = generated > 0 ? Math.round((solarToHome / generated) * 100) : 0;
-          const fitPct = Math.max(0, 100 - selfPct);
-          const solarSharePct = usage > 0 ? Math.round((solarToHome / usage) * 100) : 0;
-          const gridImportPct = Math.max(0, 100 - solarSharePct);
+          var ef = data.energyFlow;
+          var usage = Number(ef.monthlyUsageKwh) || 0;
+          var generated = Number(ef.monthlySolarGeneration) || 0;
+          var exportKwh = Number(ef.exportKwh) || 0;
+          var gridImport = Number(ef.actualUsageForEeiKwh) || 0; // net grid import, same as domestic calc
+          var exportSaving = Number(ef.exportSaving) || 0;
+          var solarToHome = Math.max(0, usage - gridImport);
+          var selfPct = generated > 0 ? Math.round((solarToHome / generated) * 100) : 0;
+          var fitPct = generated > 0 ? Math.max(0, 100 - selfPct) : 0;
+          var fromSolarPct = usage > 0 ? Math.round((solarToHome / usage) * 100) : 0;
+          var gridImportPct = Math.max(0, 100 - fromSolarPct);
 
           function setText(id, text) { var el = document.getElementById(id); if (el) el.textContent = text; }
           function setWidth(id, pct) { var el = document.getElementById(id); if (el) el.style.width = pct; }
@@ -443,9 +443,9 @@ function buildInvoiceInteractionScript({
 
           // Home Consumption block
           setText('solarEstimateHomeConsumptionKwh', usage.toFixed(1) + ' kWh');
-          setText('solarEstimateSolarSharePct', 'Solar ' + solarSharePct + '%');
+          setText('solarEstimateSolarSharePct', 'Solar ' + fromSolarPct + '%');
           setText('solarEstimateSolarShareKwh', solarToHome.toFixed(1) + ' kWh');
-          setWidth('solarEstimateSolarShareBarFill', solarSharePct + '%');
+          setWidth('solarEstimateSolarShareBarFill', fromSolarPct + '%');
           setText('solarEstimateGridImportPct', 'Grid Import ' + gridImportPct + '%');
           setText('solarEstimateGridImportKwh', gridImport.toFixed(1) + ' kWh');
           setWidth('solarEstimateGridImportBarFill', gridImportPct + '%');
