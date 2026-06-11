@@ -206,15 +206,15 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         </div>`;
     });
 
-    // Energy flow — values are initial server-side estimates; interactive JS refreshes them on load
-    const solarOutputKwh = Number(invoice.solar_output_kwh) || (beforeSolarBill && estimatedMonthlySaving ? Math.round((beforeSolarBill - afterSolarBill) / 0.57) : 0);
+    // Energy flow — server-side defaults; interactive JS refreshes on load when available
+    const solarOutputKwh = Number(invoice.solar_output_kwh) || (beforeSolarBill && estimatedMonthlySaving ? Math.round((beforeSolarBill - afterSolarBill) / 0.57) : 412.5);
     const morningPct = Number(storedMorningUsagePercent) || 30;
     const selfUsePct = morningPct;
     const selfUseKwh = +(solarOutputKwh * selfUsePct / 100).toFixed(1);
     const fitKwh = +(solarOutputKwh * (100 - selfUsePct) / 100).toFixed(1);
     const fitIncome = +(fitKwh * 0.27).toFixed(2);
 
-    const homeConsumptionKwh = 0; // refreshed by interactive JS from calculation results
+    const homeConsumptionKwh = 850;
     const solarSharePct = homeConsumptionKwh > 0 ? Math.round(selfUseKwh / homeConsumptionKwh * 100) : 0;
     const solarShareKwh = selfUseKwh;
     const gridImportKwh = +(homeConsumptionKwh - solarShareKwh).toFixed(1);
