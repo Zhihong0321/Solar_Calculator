@@ -206,8 +206,12 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         </div>`;
     });
 
-    // Energy flow — server-side defaults; interactive JS refreshes on load when available
-    const solarOutputKwh = Number(invoice.solar_output_kwh) || (beforeSolarBill && estimatedMonthlySaving ? Math.round((beforeSolarBill - afterSolarBill) / 0.57) : 412.5);
+    // Energy flow — same formula as domestic calculator:
+    // monthlySolarGeneration = panelQty * panelWatt * peakHour / 1000 * 30
+    const peakHour = Number(storedSunPeakHour) || 3.4;
+    const solarOutputKwh = estimatePanelQty > 0 && estimatePanelRating > 0
+      ? Math.round((estimatePanelQty * estimatePanelRating * peakHour) / 1000 * 30)
+      : (beforeSolarBill && estimatedMonthlySaving ? Math.round((beforeSolarBill - afterSolarBill) / 0.57) : 412.5);
     const morningPct = Number(storedMorningUsagePercent) || 30;
     const selfUsePct = morningPct;
     const selfUseKwh = +(solarOutputKwh * selfUsePct / 100).toFixed(1);
