@@ -282,6 +282,80 @@ function buildHybridUpgradePackageDescription(sourceDescription, targetInverterN
   return updatedLines.join('\n');
 }
 
+async function cloneLinkedPackageItemsForHybridUpgrade(client, sourcePackage, selectedRule) {
+  const sourceLinkedItems = Array.isArray(sourcePackage.linked_package_item)
+    ? sourcePackage.linked_package_item.map((itemId) => String(itemId || '').trim()).filter(Boolean)
+    : [];
+
+  if (sourceLinkedItems.length === 0 || !selectedRule?.to_product_bubble_id) {
+    return sourcePackage.linked_package_item;
+  }
+
+  const packageItemTableExists = await hasTable(client, 'package_item');
+  if (!packageItemTableExists) {
+    return sourcePackage.linked_package_item;
+  }
+
+  const sourceProductIds = new Set([
+    sourcePackage.inverter_1,
+    selectedRule.from_product_bubble_id
+  ].map((value) => String(value || '').trim()).filter(Boolean));
+
+  if (sourceProductIds.size === 0) {
+    return sourcePackage.linked_package_item;
+  }
+
+  const packageItemColumns = await getTableColumns(client, 'package_item');
+  const linkedItemsRes = await client.query(
+    `SELECT *
+     FROM package_item
+     WHERE bubble_id = ANY($1::text[])
+     ORDER BY array_position($1::text[], bubble_id::text)`,
+    [sourceLinkedItems]
+  );
+
+  const linkedItemRowsByBubbleId = new Map(
+    linkedItemsRes.rows.map((row) => [String(row.bubble_id), row])
+  );
+  const nextLinkedItems = [];
+
+  for (const linkedItemId of sourceLinkedItems) {
+    const row = linkedItemRowsByBubbleId.get(linkedItemId);
+    if (!row || !sourceProductIds.has(String(row.product || '').trim())) {
+      nextLinkedItems.push(linkedItemId);
+      continue;
+    }
+
+    const clonedItemId = `pitem_${crypto.randomBytes(10).toString('hex')}`;
+    const columnNames = [];
+    const values = [];
+
+    for (const columnName of packageItemColumns) {
+      if (columnName === 'id') continue;
+
+      let value = row[columnName];
+      if (columnName === 'bubble_id') value = clonedItemId;
+      if (columnName === 'product') value = selectedRule.to_product_bubble_id;
+      if (columnName === 'created_at' || columnName === 'updated_at' || columnName === 'modified_date') value = new Date();
+      if (columnName === 'unique_id') value = clonedItemId;
+
+      columnNames.push(columnName);
+      values.push(value);
+    }
+
+    const placeholders = values.map((_, index) => `$${index + 1}`).join(', ');
+    await client.query(
+      `INSERT INTO package_item (${columnNames.join(', ')})
+       VALUES (${placeholders})`,
+      values
+    );
+
+    nextLinkedItems.push(clonedItemId);
+  }
+
+  return nextLinkedItems;
+}
+
 async function getHybridUpgradeOptionsForPackage(client, packageId) {
   const rulesTableExists = await hasTable(client, 'hybrid_inverter_upgrade_rule');
   if (!rulesTableExists) {
@@ -411,6 +485,12 @@ async function clonePackageWithHybridUpgrade(client, sourcePackageId, ruleBubble
   const sourcePackage = sourceRes.rows[0];
   const customPackageId = `pkg_${crypto.randomBytes(10).toString('hex')}`;
   const rootPackageId = sourcePackage.root_package_bubble_id || sourcePackage.source_package_bubble_id || sourcePackage.bubble_id;
+  const targetPackageName = buildHybridUpgradePackageName(sourcePackage.package_name, selectedRule.to_model_code);
+  const targetInvoiceDescription = buildHybridUpgradePackageDescription(
+    sourcePackage.invoice_desc,
+    selectedRule.to_product_name_snapshot || selectedRule.to_model_code || 'Hybrid Inverter',
+    selectedRule.price_amount
+  );
 
   const insertValues = [];
   const columnNames = [];
@@ -427,10 +507,13 @@ async function clonePackageWithHybridUpgrade(client, sourcePackageId, ruleBubble
   if (packageColumns.has('panel_qty')) pushColumn('panel_qty', sourcePackage.panel_qty);
   if (packageColumns.has('created_date')) pushColumn('created_date', sourcePackage.created_date);
   if (packageColumns.has('price')) pushColumn('price', sourcePackage.price);
-  if (packageColumns.has('invoice_desc')) pushColumn('invoice_desc', sourcePackage.invoice_desc);
-  if (packageColumns.has('linked_package_item')) pushColumn('linked_package_item', sourcePackage.linked_package_item);
+  if (packageColumns.has('invoice_desc')) pushColumn('invoice_desc', targetInvoiceDescription);
+  if (packageColumns.has('linked_package_item')) {
+    const linkedPackageItems = await cloneLinkedPackageItemsForHybridUpgrade(client, sourcePackage, selectedRule);
+    pushColumn('linked_package_item', linkedPackageItems);
+  }
   if (packageColumns.has('created_by')) pushColumn('created_by', String(userId || sourcePackage.created_by || 'system'));
-  if (packageColumns.has('package_name')) pushColumn('package_name', sourcePackage.package_name);
+  if (packageColumns.has('package_name')) pushColumn('package_name', targetPackageName);
   if (packageColumns.has('panel')) pushColumn('panel', sourcePackage.panel);
   if (packageColumns.has('type')) pushColumn('type', sourcePackage.type);
   if (packageColumns.has('max_discount')) pushColumn('max_discount', sourcePackage.max_discount);
@@ -737,6 +820,9 @@ async function getInvoiceByBubbleId(client, bubbleId) {
       [bubbleId, itemIds]
     );
     invoice.items = itemsResult.rows;
+    const primaryPackageItem = invoice.items.find((item) => item.is_a_package && item.linked_package);
+    const effectiveLinkedPackage = primaryPackageItem?.linked_package || invoice.linked_package || null;
+    invoice.effective_linked_package = effectiveLinkedPackage;
 
     // Derive SST Amount and Subtotal from items since columns are removed
     const sstItem = invoice.items.find(item => item.item_type === 'sst');
@@ -778,11 +864,13 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     const parallelQueries = [];
 
     // Query 3: Get package data for system size calculation
-    if (invoice.linked_package) {
+    if (effectiveLinkedPackage) {
       parallelQueries.push(
         (async () => {
           const packageResult = await client.query(
             `SELECT
+                p.package_name,
+                p.type,
                 p.panel_qty,
                 p.panel,
                 p.inverter_1,
@@ -799,10 +887,12 @@ async function getInvoiceByBubbleId(client, bubbleId) {
                OR CAST(p.inverter_1 AS TEXT) = CAST(inverter_product.bubble_id AS TEXT)
              )
              WHERE p.bubble_id = $1 OR p.id::text = $1`,
-            [invoice.linked_package]
+            [effectiveLinkedPackage]
           );
           if (packageResult.rows.length > 0) {
             const packageData = packageResult.rows[0];
+            invoice.package_name = packageData.package_name || invoice.package_name || null;
+            invoice.package_type = packageData.type || invoice.package_type || null;
             invoice.panel_qty = packageData.panel_qty;
             invoice.panel_rating = packageData.solar_output_rating;
             invoice.panel_name = packageData.panel_name || invoice.panel_name || null;
@@ -891,7 +981,7 @@ async function getInvoiceByBubbleId(client, bubbleId) {
 
     // Query 7: Fetch Warranty Info from Package
     parallelQueries.push(
-      _fetchWarrantyInfo(client, invoice.linked_package, invoice.items)
+      _fetchWarrantyInfo(client, effectiveLinkedPackage, invoice.items)
         .then(warranties => {
           invoice.warranties = warranties;
         })
