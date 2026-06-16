@@ -68,7 +68,10 @@
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Pinned to v7: preset-react defaults to the classic runtime (React.createElement).
+         Unpinned/v8 defaults to the automatic runtime, which injects `import "react/jsx-runtime"`
+         and breaks this classic (non-module) inline script. -->
+    <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
 
     <script type="text/babel">
         const { useEffect, useRef, useState } = React;
