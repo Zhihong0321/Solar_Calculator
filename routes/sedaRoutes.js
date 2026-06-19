@@ -266,9 +266,10 @@ const FILE_FIELDS = {
     tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_1'               },
     tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_2'               },
     tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_3'               },
+    tnb_bills_12_months: { label: 'TNB Bills Up to 12 Months', accept: ['application/pdf', 'image/*'], maxMB: 25, column: 'tnb_bills_12_months', isArray: true, maxItems: 12 },
     property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'property_ownership_prove'  },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                         maxMB: 20, column: 'tnb_meter'                },
-    tax_document:   { label: 'Tax Document',            accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tax_document'              },
+    tax_document:   { label: 'SSM Registration',        accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tax_document'              },
 };
 
 // One multer uploader per field type avoids re-creating multer on each request.
@@ -445,12 +446,28 @@ async function handleUpload(req, res, recordId) {
         let client;
         try {
             client = await pool.connect();
-            await client.query(
-                `UPDATE seda_registration
-                 SET ${rule.column} = $1, modified_date = NOW(), updated_at = NOW()
-                 WHERE bubble_id = $2`,
-                [fileUrl, recordId]
-            );
+            if (rule.isArray) {
+                const updateResult = await client.query(
+                    `UPDATE seda_registration
+                     SET ${rule.column} = array_append(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
+                         modified_date = NOW(),
+                         updated_at = NOW()
+                     WHERE bubble_id = $2
+                       AND COALESCE(array_length(${rule.column}, 1), 0) < $3`,
+                    [fileUrl, recordId, rule.maxItems || 12]
+                );
+                if (!updateResult.rowCount) {
+                    safeDelete(req.file.path);
+                    return res.status(409).json(uploadError(ERROR_CODES.DB_FAILED, { field, error: `${rule.label}: maximum ${rule.maxItems || 12} files already uploaded.` }));
+                }
+            } else {
+                await client.query(
+                    `UPDATE seda_registration
+                     SET ${rule.column} = $1, modified_date = NOW(), updated_at = NOW()
+                     WHERE bubble_id = $2`,
+                    [fileUrl, recordId]
+                );
+            }
             const _auditInvoiceId = await getLinkedInvoiceBubbleId(client, recordId);
             const _auditActor = getSedaActor(req, recordId);
             await writeInvoiceAuditEntry(client, {
@@ -677,19 +694,36 @@ async function softDeleteSedaFile(req, res, recordId, source) {
             return res.status(404).json(uploadError(ERROR_CODES.RECORD_NOT_FOUND, { field, error: 'SEDA registration not found.' }));
         }
 
-        if ((existing.rows[0]?.current_value || null) !== url) {
+        const currentValue = existing.rows[0]?.current_value;
+        const currentList = Array.isArray(currentValue) ? currentValue : [];
+        const activeFileFound = rule.isArray
+            ? currentList.includes(url)
+            : (currentValue || null) === url;
+
+        if (!activeFileFound) {
             return res.status(404).json({ success: false, error: 'File not found on the active SEDA record.' });
         }
 
         await client.query('BEGIN');
-        await client.query(
-            `UPDATE seda_registration
-             SET ${rule.column} = NULL,
-                 modified_date = NOW(),
-                 updated_at = NOW()
-             WHERE bubble_id = $1`,
-            [recordId]
-        );
+        if (rule.isArray) {
+            await client.query(
+                `UPDATE seda_registration
+                 SET ${rule.column} = array_remove(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
+                     modified_date = NOW(),
+                     updated_at = NOW()
+                 WHERE bubble_id = $2`,
+                [url, recordId]
+            );
+        } else {
+            await client.query(
+                `UPDATE seda_registration
+                 SET ${rule.column} = NULL,
+                     modified_date = NOW(),
+                     updated_at = NOW()
+                 WHERE bubble_id = $1`,
+                [recordId]
+            );
+        }
 
         const actor = getSedaActor(req, recordId);
         await insertRecycleBinEntry(client, {
@@ -764,19 +798,41 @@ async function restoreSedaFile(req, res, recordId, source) {
             return res.status(404).json(uploadError(ERROR_CODES.RECORD_NOT_FOUND, { field, error: 'SEDA registration not found.' }));
         }
 
-        if ((existing.rows[0]?.current_value || null) === recycleEntry.fileUrl) {
+        const currentValue = existing.rows[0]?.current_value;
+        const currentList = Array.isArray(currentValue) ? currentValue : [];
+        const fileAlreadyActive = rule.isArray
+            ? currentList.includes(recycleEntry.fileUrl)
+            : (currentValue || null) === recycleEntry.fileUrl;
+
+        if (fileAlreadyActive) {
             return res.status(409).json({ success: false, error: 'This file is already active on the SEDA record.' });
         }
 
         await client.query('BEGIN');
-        await client.query(
-            `UPDATE seda_registration
-             SET ${rule.column} = $1,
-                 modified_date = NOW(),
-                 updated_at = NOW()
-             WHERE bubble_id = $2`,
-            [recycleEntry.fileUrl, recordId]
-        );
+        if (rule.isArray) {
+            const restoreResult = await client.query(
+                `UPDATE seda_registration
+                 SET ${rule.column} = array_append(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
+                     modified_date = NOW(),
+                     updated_at = NOW()
+                 WHERE bubble_id = $2
+                   AND COALESCE(array_length(${rule.column}, 1), 0) < $3`,
+                [recycleEntry.fileUrl, recordId, rule.maxItems || 12]
+            );
+            if (!restoreResult.rowCount) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({ success: false, error: `${rule.label}: maximum ${rule.maxItems || 12} files already uploaded.` });
+            }
+        } else {
+            await client.query(
+                `UPDATE seda_registration
+                 SET ${rule.column} = $1,
+                     modified_date = NOW(),
+                     updated_at = NOW()
+                 WHERE bubble_id = $2`,
+                [recycleEntry.fileUrl, recordId]
+            );
+        }
 
         const actor = getSedaActor(req, recordId);
         await markRecycleBinRestored(client, recycleEntry.recycleBinId, actor.id, actor.name);
@@ -1080,7 +1136,7 @@ router.post('/api/v1/seda/extract-tnb', requireAuth, requireSedaBodyOwnership, a
     if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
 
     const rule = FILE_FIELDS[fieldKey];
-    if (!rule || !['tnb_bill_1', 'tnb_bill_2', 'tnb_bill_3'].includes(fieldKey)) {
+    if (!rule || !/^tnb_bill_[1-3]$/.test(fieldKey)) {
         return res.status(400).json({ success: false, error: 'Invalid fieldKey for TNB extraction.' });
     }
 

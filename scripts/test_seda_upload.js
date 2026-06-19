@@ -55,8 +55,10 @@ const FILE_FIELDS = {
     tnb_bill_1:     { label: 'TNB Bill Month 1',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
+    tnb_bills_12_months: { label: 'TNB Bills Up to 12 Months', accept: ['application/pdf', 'image/*'], maxMB: 25 },
     property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                    maxMB: 20 },
+    tax_document:   { label: 'SSM Registration',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
 };
 
 // ─── Results ──────────────────────────────────────────────────────────────────
@@ -183,9 +185,11 @@ async function test_all_fields_accept_correct_types() {
         { field: 'tnb_bill_1',     buf: MINIMAL_PDF, file: 'b1.pdf',    mime: 'application/pdf' },
         { field: 'tnb_bill_2',     buf: MINIMAL_JPG, file: 'b2.jpg',    mime: 'image/jpeg'      },
         { field: 'tnb_bill_3',     buf: MINIMAL_PDF, file: 'b3.pdf',    mime: 'application/pdf' },
+        { field: 'tnb_bills_12_months', buf: MINIMAL_JPG, file: 'b12.jpg', mime: 'image/jpeg'      },
         { field: 'property_proof', buf: MINIMAL_JPG, file: 'sp.jpg',    mime: 'image/jpeg'      },
         { field: 'property_proof', buf: MINIMAL_PDF, file: 'geran.pdf', mime: 'application/pdf' },
         { field: 'tnb_meter',      buf: MINIMAL_JPG, file: 'm.jpg',     mime: 'image/jpeg'      },
+        { field: 'tax_document',   buf: MINIMAL_PDF, file: 'ssm.pdf',   mime: 'application/pdf' },
     ];
 
     for (const c of cases) {

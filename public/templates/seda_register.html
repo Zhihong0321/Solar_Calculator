@@ -455,14 +455,14 @@
                         <input type="text" id="applicantTin" class="input-field" placeholder="e.g. SG1234567890">
                     </div>
                     <div class="input-group">
-                        <label class="input-label">Tax Document</label>
+                        <label class="input-label">SSM Registration</label>
                         <div class="file-upload-box" onclick="document.getElementById('fileTaxDocument').click()">
-                            <p class="text-xs text-slate-400 font-medium">Upload PDF or image</p>
+                            <p class="text-xs text-slate-400 font-medium">Company registration document</p>
                             <input type="file" id="fileTaxDocument" accept="application/pdf,image/*" class="hidden"
                                 onchange="uploadFile(this)">
                             <div id="previewTaxDocument" class="file-preview"></div>
                         </div>
-                        <p class="mt-2 text-[10px] text-slate-400">Upload Tax Document (PDF or image, max 25 MB).</p>
+                        <p class="mt-2 text-[10px] text-slate-400">Upload SSM Registration (PDF or image, max 25 MB).</p>
                     </div>
                     <div class="input-group md:col-span-2">
                         <label class="input-label">Registered Address</label>
@@ -628,7 +628,7 @@
                 <h2 class="section-title">
                     <span
                         class="flex items-center justify-center w-6 h-6 rounded bg-slate-900 text-white text-[10px]">04</span>
-                    TNB Bills (Last 3 Months)
+                    TNB Bills (Up to 12 Months)
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div class="input-group">
@@ -644,62 +644,17 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="input-group">
-                        <label class="input-label">Bill Month 1 (Latest)</label>
-                        <div class="file-upload-box" onclick="document.getElementById('fileTnb1').click()">
-                            <p class="text-xs text-slate-400 font-medium">Upload PDF or image</p>
-                            <input type="file" id="fileTnb1" accept="application/pdf,image/*" class="hidden"
-                                onchange="handleFile(this)">
-                            <div id="previewTnb1" class="file-preview"></div>
-                        </div>
-                        <div class="mt-3 flex flex-col items-start gap-2">
-                            <button type="button" id="btnExtractTnb1" onclick="extractSelectedTnbBill()"
-                                class="px-3 py-2 text-[11px] font-bold rounded-lg border border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed transition-all"
-                                disabled>
-                                Send for Info Extract
-                            </button>
-                            <div id="tnb1StatusPanel"
-                                class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 space-y-2">
-                                <div class="flex items-center justify-between gap-3">
-                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Upload
-                                        Status</span>
-                                    <span id="tnb1UploadStatus"
-                                        class="inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600">Not
-                                        uploaded</span>
-                                </div>
-                                <div class="flex items-center justify-between gap-3">
-                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Extract
-                                        Status</span>
-                                    <span id="tnb1ExtractStatus"
-                                        class="inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600">Not
-                                        started</span>
-                                </div>
-                                <p id="tnb1StatusMessage" class="text-[10px] text-slate-500">Upload is separate from
-                                    extraction.</p>
-                            </div>
-                            <p class="text-[10px] text-slate-400">Upload and AI extract are now separate. Save will
-                                still work even if extract fails.</p>
-                        </div>
+                <div id="tnbBillUploadGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+
+                <div class="input-group mt-6">
+                    <label class="input-label">TNB Bills (Up to 12 Months)</label>
+                    <div class="file-upload-box" onclick="document.getElementById('fileTnbBills12').click()">
+                        <p class="text-xs text-slate-400 font-medium">Upload up to 12 PDF or image bills</p>
+                        <input type="file" id="fileTnbBills12" accept="application/pdf,image/*" multiple class="hidden"
+                            onchange="uploadFile(this)">
+                        <div id="previewTnbBills12" class="file-preview"></div>
                     </div>
-                    <div class="input-group">
-                        <label class="input-label">Bill Month 2</label>
-                        <div class="file-upload-box" onclick="document.getElementById('fileTnb2').click()">
-                            <p class="text-xs text-slate-400 font-medium">Upload PDF or image</p>
-                            <input type="file" id="fileTnb2" accept="application/pdf,image/*" class="hidden"
-                                onchange="handleFile(this)">
-                            <div id="previewTnb2" class="file-preview"></div>
-                        </div>
-                    </div>
-                    <div class="input-group">
-                        <label class="input-label">Bill Month 3</label>
-                        <div class="file-upload-box" onclick="document.getElementById('fileTnb3').click()">
-                            <p class="text-xs text-slate-400 font-medium">Upload PDF or image</p>
-                            <input type="file" id="fileTnb3" accept="application/pdf,image/*" class="hidden"
-                                onchange="handleFile(this)">
-                            <div id="previewTnb3" class="file-preview"></div>
-                        </div>
-                    </div>
+                    <p class="mt-2 text-[10px] text-slate-400">Use this for company registrations that require up to 12 months of TNB bills.</p>
                 </div>
             </div>
 
@@ -802,16 +757,29 @@
         let spinnerTimer = null;
 
         // ── Field config (must match server FILE_FIELDS keys) ─────────────────
+        const TNB_BILL_COUNT = 3;
+        const TNB_BILL_FIELD_KEYS = Array.from({ length: TNB_BILL_COUNT }, (_, index) => `tnb_bill_${index + 1}`);
+        const TNB_BILL_FIELDS = TNB_BILL_FIELD_KEYS.reduce((acc, key, index) => {
+            const month = index + 1;
+            acc[`fileTnb${month}`] = {
+                key,
+                label: `TNB Bill Month ${month}`,
+                preview: `previewTnb${month}`,
+                check: month === 1 ? 'check-tnb_bill_1' : null,
+                hasTnb1Panel: month === 1,
+                maxMB: 25
+            };
+            return acc;
+        }, {});
         const FIELDS = {
             fileMyKadFront: { key: 'mykad_front', label: 'MyKad Front', preview: 'previewMyKadFront', check: 'check-mykad', maxMB: 20 },
             fileMyKadBack: { key: 'mykad_back', label: 'MyKad Back', preview: 'previewMyKadBack', check: 'check-mykad', maxMB: 20 },
             fileMyKadPdf: { key: 'mykad_pdf', label: 'MyKad PDF', preview: 'previewMyKadPdf', check: 'check-mykad', maxMB: 40 },
-            fileTnb1: { key: 'tnb_bill_1', label: 'TNB Bill Month 1', preview: 'previewTnb1', check: 'check-tnb_bill_1', hasTnb1Panel: true, maxMB: 25 },
-            fileTnb2: { key: 'tnb_bill_2', label: 'TNB Bill Month 2', preview: 'previewTnb2', check: null, maxMB: 25 },
-            fileTnb3: { key: 'tnb_bill_3', label: 'TNB Bill Month 3', preview: 'previewTnb3', check: null, maxMB: 25 },
+            ...TNB_BILL_FIELDS,
+            fileTnbBills12: { key: 'tnb_bills_12_months', label: 'TNB Bills Up to 12 Months', preview: 'previewTnbBills12', check: null, maxMB: 25, multiple: true, maxFiles: 12 },
             filePropertyProof: { key: 'property_proof', label: 'Property Ownership Proof', preview: 'previewPropertyProof', check: 'check-property_proof', maxMB: 25 },
             fileTnbMeter: { key: 'tnb_meter', label: 'TNB Meter Image', preview: 'previewTnbMeter', check: 'check-tnb_meter', maxMB: 20 },
-            fileTaxDocument: { key: 'tax_document', label: 'Tax Document', preview: 'previewTaxDocument', check: null, maxMB: 25 },
+            fileTaxDocument: { key: 'tax_document', label: 'SSM Registration', preview: 'previewTaxDocument', check: null, maxMB: 25 },
         };
 
         // ── URL builders ─────────────────────────────────────────────────────
@@ -843,6 +811,51 @@
             return Object.values(FIELDS).find((config) => config.key === fieldKey) || null;
         }
 
+        function renderTnbBillUploads() {
+            const grid = document.getElementById('tnbBillUploadGrid');
+            if (!grid) return;
+
+            grid.innerHTML = TNB_BILL_FIELD_KEYS.map((fieldKey, index) => {
+                const month = index + 1;
+                const isLatest = month === 1;
+                return `
+                    <div class="input-group">
+                        <label class="input-label">Bill Month ${month}${isLatest ? ' (Latest)' : ''}</label>
+                        <div class="file-upload-box" onclick="document.getElementById('fileTnb${month}').click()">
+                            <p class="text-xs text-slate-400 font-medium">Upload PDF or image</p>
+                            <input type="file" id="fileTnb${month}" accept="application/pdf,image/*" class="hidden"
+                                onchange="handleFile(this)">
+                            <div id="previewTnb${month}" class="file-preview"></div>
+                        </div>
+                        ${isLatest ? `
+                            <div class="mt-3 flex flex-col items-start gap-2">
+                                <button type="button" id="btnExtractTnb1" onclick="extractSelectedTnbBill()"
+                                    class="px-3 py-2 text-[11px] font-bold rounded-lg border border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed transition-all"
+                                    disabled>
+                                    Send for Info Extract
+                                </button>
+                                <div id="tnb1StatusPanel"
+                                    class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 space-y-2">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Upload Status</span>
+                                        <span id="tnb1UploadStatus"
+                                            class="inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600">Not uploaded</span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Extract Status</span>
+                                        <span id="tnb1ExtractStatus"
+                                            class="inline-flex items-center rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-600">Not started</span>
+                                    </div>
+                                    <p id="tnb1StatusMessage" class="text-[10px] text-slate-500">Upload is separate from extraction.</p>
+                                </div>
+                                <p class="text-[10px] text-slate-400">Upload and AI extract are now separate. Save will still work even if extract fails.</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
         function clearPreview(previewId) {
             const el = document.getElementById(previewId);
             if (!el) return;
@@ -859,9 +872,8 @@
         function fieldLabel(fieldKey) {
             const config = getFieldConfigByKey(fieldKey);
             if (config?.label) return config.label;
-            if (fieldKey === 'tnb_bill_1') return 'TNB Bill Month 1';
-            if (fieldKey === 'tnb_bill_2') return 'TNB Bill Month 2';
-            if (fieldKey === 'tnb_bill_3') return 'TNB Bill Month 3';
+            const tnbBillMatch = String(fieldKey || '').match(/^tnb_bill_(\d+)$/);
+            if (tnbBillMatch) return `TNB Bill Month ${tnbBillMatch[1]}`;
             return fieldKey || 'Uploaded File';
         }
 
@@ -889,6 +901,34 @@
             }
         }
 
+        function renderArrayPreview(previewId, urls, fieldKey) {
+            const el = document.getElementById(previewId);
+            if (!el) return;
+            const list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+            if (!list.length) {
+                clearPreview(previewId);
+                return;
+            }
+
+            el.style.display = 'block';
+            el.innerHTML = list.map((url, index) => {
+                const encodedUrl = encodeURIComponent(url);
+                return `
+                    <div class="file-preview-card" style="margin-bottom:0.75rem;">
+                        <div class="file-preview-meta">
+                            <div style="min-width:0;">
+                                <div class="file-preview-type"><i class="fa-solid fa-file-lines"></i> File Upload ${index + 1}</div>
+                                <div class="file-preview-name">${displayFileName(url, fieldKey)}</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:0.4rem;">
+                                <a href="${url}" target="_blank" onclick="event.stopPropagation()" class="file-preview-open">Open</a>
+                                <button type="button" onclick="event.stopPropagation(); softDeleteFile('${fieldKey}', decodeURIComponent('${encodedUrl}'))" style="color:#b91c1c;font-size:0.65rem;border:1px solid #fecaca;padding:0.3rem 0.55rem;border-radius:9999px;background:white;font-weight:800;">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
         function renderPreview(previewId, url, fieldKey) {
             const el = document.getElementById(previewId);
             if (!el) return;
@@ -950,13 +990,7 @@
             }
 
             const labelMap = Object.values(FIELDS).reduce((acc, config) => {
-                acc[config.key] = config.key === 'tnb_bill_1'
-                    ? 'TNB Bill Month 1'
-                    : config.key === 'tnb_bill_2'
-                        ? 'TNB Bill Month 2'
-                        : config.key === 'tnb_bill_3'
-                            ? 'TNB Bill Month 3'
-                            : config.label || config.key;
+                acc[config.key] = config.label || fieldLabel(config.key);
                 return acc;
             }, {});
 
@@ -982,61 +1016,78 @@
         //  Flow: user picks file  →  POST FormData  →  save URL  →  update UI
         //  Nothing else. Period.
         //
+        async function uploadOneFile(file, config) {
+            const form = new FormData();
+            const fileName = uploadFilenameFor(file);
+            form.append('file', file, fileName);
+
+            const response = await fetch(uploadUrl(config.key), {
+                method: 'POST',
+                headers: { 'Accept': 'application/json' },
+                body: form
+            });
+
+            const json = await response.json().catch(() => null);
+            if (!response.ok || !json?.success) {
+                throw new Error(json?.error || `Upload failed (HTTP ${response.status}).`);
+            }
+
+            return { ...json, fileName };
+        }
+
         async function uploadFile(inputEl) {
-            const file = inputEl.files[0];
-            if (!file) return;
+            const files = Array.from(inputEl.files || []);
+            if (!files.length) return;
 
             const config = FIELDS[inputEl.id];
             if (!config) { console.error('No FIELDS config for', inputEl.id); return; }
 
-            // Reset input immediately so same file can be re-selected if needed
-            const fileName = uploadFilenameFor(file);
             inputEl.value = '';
 
-            // Clear any previous error on this field
             const group = inputEl.closest('.input-group');
             if (group) group.querySelector('.upload-err')?.remove();
 
-            if (config.maxMB && file.size > config.maxMB * 1024 * 1024) {
-                const msg = `${config.label}: File too large. Maximum is ${config.maxMB} MB.`;
+            const existingFiles = Array.isArray(fileUrls[config.key]) ? fileUrls[config.key].filter(Boolean) : [];
+            if (config.maxFiles && existingFiles.length + files.length > config.maxFiles) {
+                const msg = `${config.label}: maximum ${config.maxFiles} files allowed. Delete an existing file before adding more.`;
                 showUploadError(group, msg);
                 Swal.fire({ icon: 'error', title: 'Upload Failed', text: msg });
                 return;
             }
 
-            showSpinner(`Uploading ${fileName}…`);
+            for (const file of files) {
+                if (config.maxMB && file.size > config.maxMB * 1024 * 1024) {
+                    const msg = `${config.label}: ${uploadFilenameFor(file)} is too large. Maximum is ${config.maxMB} MB.`;
+                    showUploadError(group, msg);
+                    Swal.fire({ icon: 'error', title: 'Upload Failed', text: msg });
+                    return;
+                }
+            }
 
-            let response, json;
+            showSpinner(files.length > 1 ? `Uploading ${files.length} files...` : `Uploading ${uploadFilenameFor(files[0])}...`);
+
+            const uploaded = [];
             try {
-                const form = new FormData();
-                form.append('file', file, fileName);
-
-                response = await fetch(uploadUrl(config.key), {
-                    method: 'POST',
-                    headers: { 'Accept': 'application/json' },
-                    body: form
-                    // ← No Content-Type header. Browser sets it with boundary automatically.
-                });
-
-                json = await response.json().catch(() => null);
-            } catch (networkErr) {
+                for (const file of files) {
+                    uploaded.push(await uploadOneFile(file, config));
+                }
+            } catch (err) {
                 hideSpinner();
-                showUploadError(group, 'Network error — check your connection and try again.');
+                showUploadError(group, err.message || 'Upload failed.');
+                Swal.fire({ icon: 'error', title: 'Upload Failed', text: err.message || 'Upload failed.' });
                 return;
             }
 
             hideSpinner();
 
-            if (!response.ok || !json?.success) {
-                const msg = json?.error || `Upload failed (HTTP ${response.status}).`;
-                showUploadError(group, msg);
-                Swal.fire({ icon: 'error', title: 'Upload Failed', text: msg });
-                return;
+            if (config.multiple) {
+                fileUrls[config.key] = [...existingFiles, ...uploaded.map(item => item.url)];
+                renderArrayPreview(config.preview, fileUrls[config.key], config.key);
+            } else {
+                fileUrls[config.key] = uploaded[0].url;
+                renderPreview(config.preview, uploaded[0].url, config.key);
             }
 
-            // Success
-            fileUrls[config.key] = json.url;
-            renderPreview(config.preview, json.url, config.key);
             if (config.key === 'tnb_bill_1') {
                 const extractStatus = document.getElementById('tnb1ExtractStatus');
                 if (extractStatus) {
@@ -1048,7 +1099,7 @@
             syncTnb1Panel();
 
             Swal.fire({
-                icon: 'success', title: 'Uploaded', text: `${fileName} uploaded successfully.`,
+                icon: 'success', title: 'Uploaded', text: files.length > 1 ? `${uploaded.length} files uploaded successfully.` : `${uploaded[0].fileName} uploaded successfully.`,
                 toast: true, position: 'top-end', showConfirmButton: false, timer: 3000
             });
         }
@@ -1163,9 +1214,11 @@
                     mykad_front: d.ic_copy_front || null,
                     mykad_back: d.ic_copy_back || null,
                     mykad_pdf: d.mykad_pdf || null,
-                    tnb_bill_1: d.tnb_bill_1 || null,
-                    tnb_bill_2: d.tnb_bill_2 || null,
-                    tnb_bill_3: d.tnb_bill_3 || null,
+                    ...TNB_BILL_FIELD_KEYS.reduce((acc, key) => {
+                        acc[key] = d[key] || null;
+                        return acc;
+                    }, {}),
+                    tnb_bills_12_months: Array.isArray(d.tnb_bills_12_months) ? d.tnb_bills_12_months : [],
                     property_proof: d.property_ownership_prove || null,
                     tnb_meter: d.tnb_meter || null,
                     tax_document: d.tax_document || null,
@@ -1174,9 +1227,13 @@
                 // Render existing file previews
                 clearAllPreviews();
                 Object.entries(fileUrls).forEach(([key, url]) => {
-                    if (!url) return;
                     const cfg = getFieldConfigByKey(key);
-                    if (cfg) renderPreview(cfg.preview, url, key);
+                    if (!cfg) return;
+                    if (Array.isArray(url)) {
+                        if (url.length) renderArrayPreview(cfg.preview, url, key);
+                        return;
+                    }
+                    if (url) renderPreview(cfg.preview, url, key);
                 });
                 renderDeletedFilesSection(deletedUploads);
 
@@ -1387,9 +1444,9 @@
             else window.location.replace('/my-seda');
         }
 
-        async function softDeleteFile(fieldKey) {
+        async function softDeleteFile(fieldKey, urlOverride = null) {
             const cfg = getFieldConfigByKey(fieldKey);
-            const url = fileUrls[fieldKey];
+            const url = urlOverride || fileUrls[fieldKey];
             if (!cfg || !url) return;
 
             const ok = await Swal.fire({
@@ -1469,6 +1526,7 @@
         }
 
         // ── Init ──────────────────────────────────────────────────────────────
+        renderTnbBillUploads();
         document.getElementById('sedaForm').addEventListener('submit', saveSedaForm);
         document.querySelectorAll('input, select, textarea').forEach(el => {
             el.addEventListener('change', updateChecklist);
