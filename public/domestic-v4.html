@@ -2130,6 +2130,7 @@
 
         function BatteryCard({ solarResult, batterySize, onSelect, batteryLossPercent, batteryDodPercent, onChangeLoss, onChangeDod, updating }) {
             const [showAdvanced, setShowAdvanced] = useState(false);
+            const [showReveal, setShowReveal] = useState(false);
             const battery = solarResult.details?.battery || {};
             const options = [0, 16, 32, 48];
 
@@ -2161,7 +2162,8 @@
                                     marginBottom: 10,
                                     display: 'flex',
                                     justifyContent: 'space-between',
-                                    alignItems: 'center'
+                                    alignItems: 'center',
+                                    gap: 12
                                 }}>
                                     <div>
                                         <div style={{ fontSize: 12, fontWeight: 700, color: ACCENT.primary }}>电池增加月节省</div>
@@ -2169,8 +2171,28 @@
                                             可用 {fmt(battery.dailyChargeAvailableKwh || 0)} kWh/天 · 充入 {fmt(battery.monthlySolarToBatteryInputKwh || 0)} kWh/月
                                         </div>
                                     </div>
-                                    <div style={{ fontSize: 28, fontWeight: 800, color: ACCENT.primary }}>
-                                        +RM {fmt(battery.valueAddMonthly || 0)}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                                        <div style={{ fontSize: 28, fontWeight: 800, color: ACCENT.primary }}>
+                                            +RM {fmt(battery.valueAddMonthly || 0)}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowReveal(true)}
+                                            style={{
+                                                border: '1px solid #111827',
+                                                background: '#ffffff',
+                                                color: '#111827',
+                                                borderRadius: 999,
+                                                padding: '6px 12px',
+                                                fontSize: 10,
+                                                fontWeight: 800,
+                                                letterSpacing: '0.08em',
+                                                textTransform: 'uppercase',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Reveal Calculation
+                                        </button>
                                     </div>
                                 </div>
 
@@ -2249,6 +2271,80 @@
                                     </div>
                                 )}
                             </>
+                        )}
+
+                        {showReveal && (
+                            <div
+                                onClick={() => setShowReveal(false)}
+                                style={{
+                                    position: 'fixed',
+                                    inset: 0,
+                                    zIndex: 9999,
+                                    background: 'rgba(0,0,0,0.55)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: 16
+                                }}
+                            >
+                                <div
+                                    onClick={(event) => event.stopPropagation()}
+                                    style={{
+                                        width: '100%',
+                                        maxWidth: 760,
+                                        maxHeight: '80vh',
+                                        overflow: 'auto',
+                                        background: '#ffffff',
+                                        borderRadius: 18,
+                                        border: '1px solid #e5e7eb',
+                                        boxShadow: '0 30px 80px rgba(0,0,0,0.25)'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '18px 20px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                        <div>
+                                            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6b7280' }}>Battery Calculation Reveal</div>
+                                            <div style={{ fontSize: 16, fontWeight: 800, color: '#111827', marginTop: 2 }}>Step-by-step saving review</div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowReveal(false)}
+                                            style={{
+                                                border: '1px solid #d1d5db',
+                                                background: '#ffffff',
+                                                color: '#111827',
+                                                borderRadius: 999,
+                                                padding: '8px 14px',
+                                                fontSize: 11,
+                                                fontWeight: 800,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Close
+                                        </button>
+                                    </div>
+                                    <div style={{ padding: 20, display: 'grid', gap: 14, fontSize: 12, lineHeight: 1.55 }}>
+                                        <div style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14, background: '#fafafa' }}>
+                                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Step 1 · Inputs</div>
+                                            <div>Battery size: {batterySize} kWh</div>
+                                            <div>Battery loss rate: {fmt(batteryLossPercent, 0)}%</div>
+                                            <div>Depth of discharge: {fmt(batteryDodPercent, 0)}%</div>
+                                            <div>Daily battery charge available: {fmt(battery.dailyChargeAvailableKwh || 0)} kWh/day</div>
+                                        </div>
+                                        <div style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
+                                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Step 2 · Energy split</div>
+                                            <div>Monthly solar sent to battery: {fmt(battery.monthlySolarToBatteryInputKwh || 0)} kWh/month</div>
+                                            <div>Monthly battery stored: {fmt(battery.monthlyStoredKwh || 0)} kWh/month</div>
+                                            <div>Monthly export left over: {fmt(battery.monthlyExcessExportKwh || 0)} kWh/month</div>
+                                        </div>
+                                        <div style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
+                                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Step 3 · Saving formula</div>
+                                            <div>Battery saving added to the monthly bill: RM {fmt(battery.valueAddMonthly || 0)}</div>
+                                            <div>Existing solar export value remains in the main solar total.</div>
+                                            <div>Battery benefit comes from storing solar instead of exporting it immediately.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </Card>
                 </SectionWrap>
