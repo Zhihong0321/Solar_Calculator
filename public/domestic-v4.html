@@ -2337,14 +2337,15 @@
                                             <div>Monthly export left over: {fmt(battery.monthlyExcessExportKwh || 0)} kWh/month</div>
                                         </div>
                                         <div style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
-                                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Step 3 · Saving formula</div>
-                                            <div>Battery monthly saving = battery useful energy × energy value rate</div>
-                                            <div style={{ marginTop: 6 }}>Useful battery energy: {fmt(battery.monthlyStoredKwh || 0)} kWh/month</div>
-                                            <div>Final battery saving: RM {fmt(battery.valueAddMonthly || 0)}</div>
-                                            <div>Implied rate used by the calculator: RM {(battery.monthlyStoredKwh > 0 ? (toNumber(battery.valueAddMonthly) / toNumber(battery.monthlyStoredKwh)).toFixed(4) : '0.0000')} per kWh</div>
-                                            <div style={{ marginTop: 6 }}>Math: {fmt(battery.monthlyStoredKwh || 0)} × {(battery.monthlyStoredKwh > 0 ? (toNumber(battery.valueAddMonthly) / toNumber(battery.monthlyStoredKwh)).toFixed(4) : '0.0000')} = RM {fmt(battery.valueAddMonthly || 0)}</div>
-                                            <div style={{ marginTop: 6 }}>Existing solar export value remains in the main solar total.</div>
-                                            <div>Battery benefit comes from storing solar instead of exporting it immediately.</div>
+                                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Step 3 · Actual saving formula</div>
+                                            <div>Battery value add = max(0, battery discharge value - export opportunity cost + EEI uplift)</div>
+                                            <div style={{ marginTop: 6 }}>monthlyMaxDischarge: {fmt(battery.monthlyStoredKwh || 0)} kWh/month</div>
+                                            <div>Base tariff term: 0.4869 + AFA rate</div>
+                                            <div>Battery discharge value = monthlyMaxDischarge × (0.4869 + afaRate)</div>
+                                            <div>Battery export opportunity cost = baseline export saving - actual export saving</div>
+                                            <div>Battery EEI uplift = actual EEI saving - baseline EEI saving</div>
+                                            <div style={{ marginTop: 6 }}>Final battery saving: RM {fmt(battery.valueAddMonthly || 0)}</div>
+                                            <div style={{ marginTop: 6 }}>That is the exact number shown in the battery card.</div>
                                         </div>
                                     </div>
                                 </div>
