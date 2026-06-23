@@ -2338,8 +2338,12 @@
                                         </div>
                                         <div style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14 }}>
                                             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 8 }}>Step 3 · Saving formula</div>
-                                            <div>Battery saving added to the monthly bill: RM {fmt(battery.valueAddMonthly || 0)}</div>
-                                            <div>Existing solar export value remains in the main solar total.</div>
+                                            <div>Battery monthly saving = battery useful energy × energy value rate</div>
+                                            <div style={{ marginTop: 6 }}>Useful battery energy: {fmt(battery.monthlyStoredKwh || 0)} kWh/month</div>
+                                            <div>Final battery saving: RM {fmt(battery.valueAddMonthly || 0)}</div>
+                                            <div>Implied rate used by the calculator: RM {(battery.monthlyStoredKwh > 0 ? (toNumber(battery.valueAddMonthly) / toNumber(battery.monthlyStoredKwh)).toFixed(4) : '0.0000')} per kWh</div>
+                                            <div style={{ marginTop: 6 }}>Math: {fmt(battery.monthlyStoredKwh || 0)} × {(battery.monthlyStoredKwh > 0 ? (toNumber(battery.valueAddMonthly) / toNumber(battery.monthlyStoredKwh)).toFixed(4) : '0.0000')} = RM {fmt(battery.valueAddMonthly || 0)}</div>
+                                            <div style={{ marginTop: 6 }}>Existing solar export value remains in the main solar total.</div>
                                             <div>Battery benefit comes from storing solar instead of exporting it immediately.</div>
                                         </div>
                                     </div>
