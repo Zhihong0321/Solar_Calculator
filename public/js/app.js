@@ -14879,6 +14879,130 @@ const EPP_RATES = {
 
 
 
+function buildBatteryCalculationRevealContent() {
+    const data = latestSolarData;
+    const params = latestSolarParams;
+
+    if (!data || !params) {
+        return '<div class="text-xs font-semibold uppercase tracking-wide">No active solar calculation found. Run Domestic calculation first.</div>';
+    }
+
+    const battery = data.details?.battery || {};
+    const mini = battery.miniReport || data.details?.miniReport || {};
+    const config = data.config || {};
+    const batterySize = normalizeBatterySize(config.batterySize ?? params.batterySize ?? 0);
+    const batteryLossPercent = normalizeBatteryLossPercent(config.batteryLossPercent ?? params.batteryLossPercent);
+    const batteryDodPercent = normalizeBatteryDodPercent(config.batteryDodPercent ?? params.batteryDodPercent);
+    const monthlyUsage = toFiniteNumber(data.details?.monthlyUsageKwh, 0);
+    const monthlySolar = toFiniteNumber(data.details?.monthlySolarGeneration, 0);
+    const morningUsagePercent = toFiniteNumber(config.morningUsage, 0);
+    const morningUsageKwh = (monthlySolar * morningUsagePercent) / 100;
+    const dailyNightUsage = Math.max(0, monthlyUsage - morningUsageKwh) / 30;
+    const nonOffsetSolar = toFiniteNumber(battery.nonOffsetSolarKwh, 0);
+    const dailyNonOffsetSolar = toFiniteNumber(battery.dailyNonOffsetSolarKwh, 0);
+    const chargeEfficiency = toFiniteNumber(battery.chargeEfficiency, 0);
+    const dischargeEfficiency = toFiniteNumber(battery.dischargeEfficiency, 0);
+    const roundTripEfficiency = toFiniteNumber(battery.roundTripEfficiency, chargeEfficiency * dischargeEfficiency);
+    const usableCapacity = toFiniteNumber(battery.usableCapacityKwh, 0);
+    const dailyInputNeededForFullBattery = chargeEfficiency > 0 ? usableCapacity / chargeEfficiency : 0;
+    const dailyInputNeededForNightLoad = roundTripEfficiency > 0 ? dailyNightUsage / roundTripEfficiency : 0;
+    const dailySolarToBatteryInput = toFiniteNumber(battery.dailySolarToBatteryInputKwh, 0);
+    const dailyStoredInternal = toFiniteNumber(battery.dailyStoredInternalKwh, 0);
+    const dailyBatteryStored = toFiniteNumber(battery.dailyStoredKwh, 0);
+    const dailyChargeLoss = toFiniteNumber(battery.dailyChargeLossKwh, 0);
+    const dailyDischargeLoss = toFiniteNumber(battery.dailyDischargeLossKwh, 0);
+    const monthlySolarToBatteryInput = toFiniteNumber(battery.monthlySolarToBatteryInputKwh, 0);
+    const monthlyBatteryStored = toFiniteNumber(battery.monthlyStoredKwh, 0);
+    const monthlyExcessExport = toFiniteNumber(battery.monthlyExcessExportKwh, 0);
+    const exportSaving = toFiniteNumber(data.details?.exportSaving, 0);
+    const actualEeiSaving = toFiniteNumber(data.details?.actualEeiSaving, 0);
+    const billReduction = toFiniteNumber(data.details?.billReduction, 0);
+    const totalSavings = toFiniteNumber(data.monthlySavings, 0);
+    const batteryValueAddMonthly = toFiniteNumber(battery.valueAddMonthly, 0);
+
+    return `
+        <div class="space-y-4 text-[10px] md:text-xs leading-relaxed">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 md:p-4">
+                <div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 mb-2">Step 1 · Battery inputs</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
+                    <div><span class="font-semibold">Battery size:</span> ${batterySize} kWh</div>
+                    <div><span class="font-semibold">Round-trip loss:</span> ${batteryLossPercent}%</div>
+                    <div><span class="font-semibold">Depth of discharge:</span> ${batteryDodPercent}%</div>
+                    <div><span class="font-semibold">Usable capacity:</span> ${formatQuantity(usableCapacity)} kWh</div>
+                </div>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 md:p-4 space-y-2">
+                <div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 mb-2">Step 2 · Energy available for battery</div>
+                <div>Monthly solar generation: ${formatQuantity(monthlySolar)} kWh</div>
+                <div>Morning usage offset: ${formatQuantity(morningUsageKwh)} kWh (${morningUsagePercent}% of solar)</div>
+                <div>Solar left for battery/export: ${formatQuantity(nonOffsetSolar)} kWh/mo or ${formatQuantity(dailyNonOffsetSolar)} kWh/day</div>
+                <div>Daily night usage target: ${formatQuantity(dailyNightUsage)} kWh/day</div>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 md:p-4 space-y-2">
+                <div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 mb-2">Step 3 · Charge and discharge path</div>
+                <div>Charge efficiency: ${(chargeEfficiency * 100).toFixed(1)}%</div>
+                <div>Discharge efficiency: ${(dischargeEfficiency * 100).toFixed(1)}%</div>
+                <div>Daily solar sent to battery: ${formatQuantity(dailySolarToBatteryInput)} kWh/day</div>
+                <div>Daily energy stored internally: ${formatQuantity(dailyStoredInternal)} kWh/day</div>
+                <div>Daily battery delivered to night load: ${formatQuantity(dailyBatteryStored)} kWh/day</div>
+                <div>Daily charge loss: ${formatQuantity(dailyChargeLoss)} kWh/day</div>
+                <div>Daily discharge loss: ${formatQuantity(dailyDischargeLoss)} kWh/day</div>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 md:p-4 space-y-2">
+                <div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 mb-2">Step 4 · Monthly battery totals</div>
+                <div>Monthly solar into battery: ${formatQuantity(monthlySolarToBatteryInput)} kWh/mo</div>
+                <div>Monthly battery delivered: ${formatQuantity(monthlyBatteryStored)} kWh/mo</div>
+                <div>Monthly excess export after battery: ${formatQuantity(monthlyExcessExport)} kWh/mo</div>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 md:p-4 space-y-2">
+                <div class="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 mb-2">Step 5 · Saving breakdown</div>
+                <div>Bill reduction: RM ${formatCurrency(billReduction)}</div>
+                <div>Actual EEI saving: RM ${formatCurrency(actualEeiSaving)}</div>
+                <div>Export saving: RM ${formatCurrency(exportSaving)}</div>
+                <div class="font-bold">Total monthly savings: RM ${formatCurrency(totalSavings)}</div>
+                <div>Battery value add monthly: RM ${formatCurrency(batteryValueAddMonthly)}</div>
+            </div>
+            <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 md:p-4 text-amber-900">
+                <div class="text-[10px] font-black uppercase tracking-[0.12em] mb-2">Step 6 · What to review first</div>
+                <div>This view shows the exact battery math used by the Domestic calculator. If the battery saving feels wrong, compare the monthly solar-to-battery flow, the delivered battery energy, and the final savings split.</div>
+            </div>
+        </div>
+    `;
+}
+
+function openBatteryCalculationReveal() {
+    const existing = document.getElementById('batteryRevealModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'batteryRevealModal';
+    modal.className = 'fixed inset-0 z-[10002] bg-black/60 backdrop-blur-sm overflow-y-auto';
+    modal.onclick = (event) => {
+        if (event.target === modal) modal.remove();
+    };
+
+    modal.innerHTML = `
+        <div class="min-h-full flex items-center justify-center p-4">
+            <div class="w-full max-w-3xl bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden">
+                <div class="flex items-center justify-between gap-4 px-5 md:px-6 py-4 border-b border-slate-200 bg-slate-50">
+                    <div>
+                        <div class="text-[10px] md:text-xs font-black uppercase tracking-[0.14em] text-slate-500">Battery Calculation Reveal</div>
+                        <div class="text-sm md:text-base font-bold text-slate-900">Domestic calculator step-by-step review</div>
+                    </div>
+                    <button type="button" onclick="this.closest('#batteryRevealModal').remove()" class="text-sm font-black uppercase tracking-wide border border-slate-300 px-3 py-1.5 hover:bg-slate-900 hover:text-white transition-colors">Close</button>
+                </div>
+                <div class="p-5 md:p-6 max-h-[75vh] overflow-y-auto">
+                    ${buildBatteryCalculationRevealContent()}
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+window.openBatteryCalculationReveal = openBatteryCalculationReveal;
+
 window.updateEPPCalculation = function (event) {
 
 
@@ -30025,7 +30149,10 @@ function displaySolarCalculation(data) {
 
 
 
-                                <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Mini Battery Report</div>
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="text-[10px] md:text-xs uppercase tracking-wide tier-3 font-semibold">Mini Battery Report</div>
+                                    <button type="button" onclick="openBatteryCalculationReveal()" class="text-[10px] md:text-xs font-bold uppercase tracking-wide border border-black px-2.5 py-1 hover:bg-black hover:text-white transition-colors">Reveal Calculation</button>
+                                </div>
 
 
 
