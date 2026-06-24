@@ -9,11 +9,17 @@
       "mcp__postgres-multi__execute_sql",
       "mcp__postgres-multi__list_tables",
       "mcp__postgres-multi__list_connections",
-      "mcp__postgres-multi__describe_table"
+      "mcp__postgres-multi__describe_table",
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__list_console_messages"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "postgres-multi"
+    "postgres-multi",
+    "chrome-devtools"
   ],
   "disabledMcpjsonServers": [
     "stitch"

@@ -58,7 +58,10 @@ const FILE_FIELDS = {
     tnb_bills_12_months: { label: 'TNB Bills Up to 12 Months', accept: ['application/pdf', 'image/*'], maxMB: 25 },
     property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],  maxMB: 25 },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                    maxMB: 20 },
-    tax_document:   { label: 'SSM Registration',         accept: ['application/pdf', 'image/*'],  maxMB: 25 },
+    tax_document:   { label: 'Tax Document',             accept: ['application/pdf', 'image/*'],  maxMB: 25 },
+    ssm_registration: { label: 'SSM Registration',       accept: ['application/pdf', 'image/*'],  maxMB: 25 },
+    ssm_form_9:     { label: 'SSM Form 9',               accept: ['application/pdf', 'image/*'],  maxMB: 25 },
+    ssm_form_49:    { label: 'SSM Form 49',              accept: ['application/pdf', 'image/*'],  maxMB: 25 },
 };
 
 // ─── Results ──────────────────────────────────────────────────────────────────
@@ -189,7 +192,10 @@ async function test_all_fields_accept_correct_types() {
         { field: 'property_proof', buf: MINIMAL_JPG, file: 'sp.jpg',    mime: 'image/jpeg'      },
         { field: 'property_proof', buf: MINIMAL_PDF, file: 'geran.pdf', mime: 'application/pdf' },
         { field: 'tnb_meter',      buf: MINIMAL_JPG, file: 'm.jpg',     mime: 'image/jpeg'      },
-        { field: 'tax_document',   buf: MINIMAL_PDF, file: 'ssm.pdf',   mime: 'application/pdf' },
+        { field: 'tax_document',   buf: MINIMAL_PDF, file: 'tax.pdf',   mime: 'application/pdf' },
+        { field: 'ssm_registration', buf: MINIMAL_PDF, file: 'ssm.pdf', mime: 'application/pdf' },
+        { field: 'ssm_form_9',     buf: MINIMAL_PDF, file: 'form9.pdf', mime: 'application/pdf' },
+        { field: 'ssm_form_49',    buf: MINIMAL_JPG, file: 'form49.jpg', mime: 'image/jpeg'     },
     ];
 
     for (const c of cases) {

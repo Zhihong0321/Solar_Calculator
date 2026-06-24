@@ -269,7 +269,10 @@ const FILE_FIELDS = {
     tnb_bills_12_months: { label: 'TNB Bills Up to 12 Months', accept: ['application/pdf', 'image/*'], maxMB: 25, column: 'tnb_bills_12_months', isArray: true, maxItems: 12 },
     property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'property_ownership_prove'  },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                         maxMB: 20, column: 'tnb_meter'                },
-    tax_document:   { label: 'SSM Registration',        accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tax_document'              },
+    tax_document:   { label: 'Tax Document',            accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tax_document'              },
+    ssm_registration: { label: 'SSM Registration',      accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'ssm_registration'          },
+    ssm_form_9:     { label: 'SSM Form 9',              accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'ssm_form_9'                },
+    ssm_form_49:    { label: 'SSM Form 49',             accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'ssm_form_49'               },
 };
 
 // One multer uploader per field type avoids re-creating multer on each request.
