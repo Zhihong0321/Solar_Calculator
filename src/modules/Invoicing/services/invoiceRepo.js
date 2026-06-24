@@ -846,6 +846,10 @@ async function getInvoiceByBubbleId(client, bubbleId) {
       .filter(item => item.description?.includes('Earth Month Go Green Bonus'))
       .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
 
+    invoice.parents_day_promo_amount = invoice.items
+      .filter(item => item.description?.includes("Parents' Day PROMO") || item.description?.includes('双亲节优惠'))
+      .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+
     invoice.discount_amount = invoice.items
       .filter(item =>
         item.item_type === 'discount'
@@ -853,6 +857,8 @@ async function getInvoiceByBubbleId(client, bubbleId) {
         && !item.description?.includes('Holiday Boost Reward')
         && !item.description?.includes('Earn Now Rebate')
         && !item.description?.includes('Earth Month Go Green Bonus')
+        && !item.description?.includes("Parents' Day PROMO")
+        && !item.description?.includes('双亲节优惠')
       )
       .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
 

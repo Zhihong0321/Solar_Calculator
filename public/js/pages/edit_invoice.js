@@ -2322,8 +2322,8 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (inv.lead_source) document.getElementById('customerLeadSource').value = inv.lead_source;
             if (inv.remark) document.getElementById('customerRemark').value = inv.remark;
 
-            // 3. Discount — keep the legacy bridge value as a fallback; the
-            // structured custom discounts are hydrated from invoice items below.
+            // 3. Discount — edit mode should stay simple and preserve what was
+            // saved on the invoice, not re-derive create-time discount logic.
             window.InvoicePageShared.applyDiscountValue(
                 window.InvoicePageShared.formatDiscountValue({
                     fixedAmount: inv.discount_fixed,
@@ -2342,27 +2342,25 @@ document.addEventListener('DOMContentLoaded', async function () {
             // 5. Markup (Preserve)
             window.currentAgentMarkup = inv.agent_markup || 0;
 
-            // 6. Extra/Manual Items - Load ALL items from database
+            // 6. Extra/Manual Items - Load ONLY extra items for edit.
+            // Discount display must come from the saved invoice discount fields,
+            // not from create-time promo rules or item regeneration.
             if (inv.items && Array.isArray(inv.items)) {
                 console.log('[Edit Invoice] Loading', inv.items.length, 'items from invoice');
                 loadedInvoiceItems = inv.items;
 
-                // Group items by type
-                const packageItems = inv.items.filter(i => i.is_a_package || i.item_type === 'package');
                 const extraItems = inv.items.filter(i => i.item_type === 'extra');
                 const discountItems = inv.items.filter(i => i.item_type === 'discount');
                 const noticeItems = inv.items.filter(i => i.item_type === 'notice');
                 const eppFeeItems = inv.items.filter(i => i.item_type === 'epp_fee');
 
                 console.log('[Edit Invoice] Item breakdown:', {
-                    package: packageItems.length,
                     extra: extraItems.length,
                     discount: discountItems.length,
                     notice: noticeItems.length,
                     epp_fee: eppFeeItems.length
                 });
 
-                // Load extra items as manual items (editable)
                 let ballastQty = 0;
                 const microInverterItems = [];
                 extraItems.forEach(item => {
@@ -2381,9 +2379,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                 });
                 setBallastQty(ballastQty);
                 hydrateMicroInverterFromItems(microInverterItems);
-
-                // Note: Package, discount, and EPP fee items are handled
-                // by their respective form fields and will be recreated on submit
             } else {
                 console.warn('[Edit Invoice] No items found in invoice data');
             }
