@@ -1525,6 +1525,8 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   const limit = parseInt(options.limit) || 100;
   const offset = parseInt(options.offset) || 0;
   const { startDate, endDate, paymentStatus } = options;
+  const searchTerm = String(options.search || '').trim();
+  const searchPattern = searchTerm ? `%${searchTerm.toLowerCase()}%` : null;
 
   // 1. Resolve all ownership aliases for the current user.
   let ownerIds = [];
@@ -1561,6 +1563,18 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   let filterClause = '';
   const params = [ownerIds, agentProfileId, paymentStatus];
   let paramIdx = 4;
+
+  if (searchPattern) {
+    filterClause += ` AND (
+            LOWER(COALESCE(i.invoice_number, '')) LIKE $${paramIdx}
+            OR LOWER(COALESCE(c.name, '')) LIKE $${paramIdx}
+            OR LOWER(COALESCE(c.phone, '')) LIKE $${paramIdx}
+            OR LOWER(COALESCE(c.address, '')) LIKE $${paramIdx}
+            OR LOWER(COALESCE(pkg.package_name, '')) LIKE $${paramIdx}
+        )`;
+    params.push(searchPattern);
+    paramIdx += 1;
+  }
 
   if (startDate) {
     filterClause += ` AND invoice_date >= $${paramIdx++}::date`;

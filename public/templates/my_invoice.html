@@ -102,7 +102,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen text-slate-800 pb-24 overflow-x-hidden w-full">
+<body class="min-h-screen text-slate-800 pb-8 overflow-x-hidden w-full">
     
     <!-- Navbar -->
     <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 w-full" style="padding-top: env(safe-area-inset-top);">
@@ -135,8 +135,8 @@
 
     <!-- Quick Filter Nav -->
     <div class="bg-white border-b border-slate-200 w-full sticky top-[56px] z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex overflow-x-auto no-scrollbar py-3 gap-2 sm:gap-4 items-center">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-3">
+            <div class="flex overflow-x-auto no-scrollbar gap-2 sm:gap-4 items-center">
                 <button onclick="setQuickFilter('')" id="btn-filter-all" class="quick-filter-btn active">
                     All
                 </button>
@@ -149,6 +149,14 @@
                 <button onclick="setQuickFilter('paid')" id="btn-filter-paid" class="quick-filter-btn">
                     Fully Paid
                 </button>
+                <button onclick="setQuickFilter('deleted')" id="btn-filter-deleted" class="quick-filter-btn">
+                    Deleted
+                </button>
+            </div>
+            <div class="relative">
+                <input id="invoiceSearchInput" type="search" placeholder="Search invoice, customer name, phone, address..." class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 pl-11 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-100">
+                <svg class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <button id="clearInvoiceSearchBtn" type="button" class="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-xl bg-slate-900 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white">Clear</button>
             </div>
         </div>
     </div>
@@ -261,29 +269,6 @@
         </div>
     </div>
 
-    <!-- Floating Panel -->
-    <div class="fixed bottom-0 left-0 right-0 z-50 px-2 pb-2">
-        <div class="floating-panel rounded-2xl mx-auto max-w-lg w-full">
-            <div class="flex items-center justify-between px-4 py-3">
-                <a href="/select-package" class="btn-primary px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm bg-slate-900 text-white">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M12 4v16m8-8H4"></path></svg>
-                    New Quotation
-                </a>
-                
-                <div class="flex items-center gap-2">
-                    <div id="userInfo" class="hidden flex flex-col items-end mr-2 text-right">
-                         <span id="userDisplayName" class="text-[10px] font-bold text-slate-700 leading-tight"></span>
-                         <span id="userDisplayPhone" class="text-[9px] text-slate-500 font-mono leading-tight"></span>
-                    </div>
-                    <button onclick="openFilterModal()" class="px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 transition-colors">
-                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
-                        Filter
-                    </button>
-                    <button onclick="openDebugModal()" class="text-slate-300 hover:text-red-500 font-bold text-xs p-2 transition-colors">[!]</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Filter Modal -->
     <div id="filterModal" class="fixed inset-0 z-50 hidden">
@@ -386,6 +371,7 @@
         let filterStartDate = '';
         let filterEndDate = '';
         let filterPaymentStatus = '';
+        let invoiceSearchTerm = '';
 
         function setQuickFilter(status) {
             filterPaymentStatus = status;
@@ -403,6 +389,14 @@
             const dropdown = document.getElementById('filterPaymentStatus');
             if (dropdown) dropdown.value = status;
             
+            loadQuotations();
+        }
+
+        function setInvoiceSearch(value) {
+            invoiceSearchTerm = String(value || '').trim();
+            page = 1;
+            const clearBtn = document.getElementById('clearInvoiceSearchBtn');
+            if (clearBtn) clearBtn.classList.toggle('hidden', !invoiceSearchTerm);
             loadQuotations();
         }
 
@@ -433,6 +427,15 @@
             page = 1;
             loadQuotations();
             closeFilterModal();
+        }
+
+        function clearInvoiceSearch() {
+            invoiceSearchTerm = '';
+            const input = document.getElementById('invoiceSearchInput');
+            if (input) input.value = '';
+            const clearBtn = document.getElementById('clearInvoiceSearchBtn');
+            if (clearBtn) clearBtn.classList.add('hidden');
+            loadQuotations();
         }
 
         function formatCurrency(amount) {
@@ -661,6 +664,8 @@
             const loading = document.getElementById('loading');
             const content = document.getElementById('content');
             const empty = document.getElementById('empty');
+            const clearBtn = document.getElementById('clearInvoiceSearchBtn');
+            if (clearBtn) clearBtn.classList.toggle('hidden', !invoiceSearchTerm);
             
             if (loading) loading.classList.remove('hidden');
             if (empty) empty.classList.add('hidden');
@@ -671,9 +676,10 @@
                 const offset = (page - 1) * limit;
                 let query = `?limit=${limit}&offset=${offset}`;
 
-                if (filterStartDate) query += `&startDate=${filterStartDate}`;
-                if (filterEndDate) query += `&endDate=${filterEndDate}`;
-                if (filterPaymentStatus) query += `&paymentStatus=${filterPaymentStatus}`;
+                if (filterStartDate) query += `&startDate=${encodeURIComponent(filterStartDate)}`;
+                if (filterEndDate) query += `&endDate=${encodeURIComponent(filterEndDate)}`;
+                if (filterPaymentStatus) query += `&paymentStatus=${encodeURIComponent(filterPaymentStatus)}`;
+                if (invoiceSearchTerm) query += `&search=${encodeURIComponent(invoiceSearchTerm)}`;
 
                 const res = await fetch(`/api/v1/invoices/my-invoices${query}`);
                 const data = await readResponsePayload(res);
@@ -758,6 +764,7 @@
                 const publicIdentifier = inv.share_token || inv.bubble_id || '';
                 const viewInvoiceUrl = publicIdentifier ? `/view/${encodeURIComponent(publicIdentifier)}` : '';
                 const canViewInvoice = !isDeleted && !!publicIdentifier;
+                const deletedBadgeHtml = isDeleted ? '<span class="badge badge-cancelled" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">DELETED</span>' : '';
                 
                 // Explicit Color logic
                 let accentColor = isFollowUp ? 'border-amber-500' : 'border-slate-300';
@@ -822,6 +829,7 @@
                                     ${countdownHtml ? countdownHtml.replace('px-1.5 py-0.5 rounded text-[8px]', 'px-2 rounded text-[9px] h-[1.25rem] inline-flex items-center') : ''}
                                     ${isPaidFull ? '<span class="badge bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">FULLY PAID</span>' : ''}
                                     ${isFollowUp ? '<span class="badge bg-amber-100 text-amber-700 border border-amber-200 font-bold animate-pulse" style="font-size: 0.6rem; height: 1.25rem; display: inline-flex; align-items: center; padding: 0 0.5rem;">FOLLOW UP</span>' : ''}
+                                    ${deletedBadgeHtml}
                                 </div>
                                 
                                 <!-- Info Row 2: Customer Name & WhatsApp -->
@@ -1175,6 +1183,19 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('invoiceSearchInput');
+            const clearSearchBtn = document.getElementById('clearInvoiceSearchBtn');
+            if (searchInput) {
+                searchInput.addEventListener('input', (event) => {
+                    setInvoiceSearch(event.target.value);
+                });
+                searchInput.addEventListener('search', (event) => {
+                    setInvoiceSearch(event.target.value);
+                });
+            }
+            if (clearSearchBtn) {
+                clearSearchBtn.addEventListener('click', clearInvoiceSearch);
+            }
             loadQuotations();
             fetchUserInfo();
         });

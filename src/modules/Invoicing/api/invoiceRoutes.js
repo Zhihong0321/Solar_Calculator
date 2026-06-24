@@ -153,7 +153,7 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
         }
         const limit = parseInt(req.query.limit) || 20;
         const offset = parseInt(req.query.offset) || 0;
-        const { startDate, endDate, paymentStatus } = req.query;
+        const { startDate, endDate, paymentStatus, search } = req.query;
 
         client = await pool.connect();
         
@@ -162,7 +162,8 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
             offset,
             startDate,
             endDate,
-            paymentStatus
+            paymentStatus,
+            search
         });
         
         // Build URLs (Legacy support)
