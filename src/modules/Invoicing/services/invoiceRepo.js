@@ -1682,7 +1682,7 @@ async function getInvoicesByUserId(client, userId, options = {}) {
     WHERE 1=1 ${filterClause}
   `;
 
-  const countParams = [...params];
+  const countParams = params.slice(0, -2);
 
   try {
     const [result, countResult] = await Promise.all([
