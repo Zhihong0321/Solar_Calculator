@@ -1560,29 +1560,33 @@ async function getInvoicesByUserId(client, userId, options = {}) {
     return { invoices: [], total: 0, limit, offset };
   }
 
-  let filterClause = '';
+  const filterParts = [];
   const params = [ownerIds, agentProfileId, paymentStatus];
   let paramIdx = 4;
 
   if (searchPattern) {
-    filterClause += ` AND (
-            LOWER(COALESCE(i.invoice_number, '')) LIKE $${paramIdx}
-            OR LOWER(COALESCE(c.name, '')) LIKE $${paramIdx}
-            OR LOWER(COALESCE(c.phone, '')) LIKE $${paramIdx}
-            OR LOWER(COALESCE(c.address, '')) LIKE $${paramIdx}
-            OR LOWER(COALESCE(pkg.package_name, '')) LIKE $${paramIdx}
-        )`;
+    // NOTE: filterParts are appended to the OUTER query (SELECT * FROM invoice_data),
+    // not inside the CTE — so we must reference the CTE's output column aliases
+    // (customer_name, package_name, ...) here. Referencing the raw join aliases
+    // (i/c/pkg) throws "missing FROM-clause entry for table" and 500s the search.
+    filterParts.push(`(
+            LOWER(COALESCE(invoice_number, '')) LIKE $${paramIdx}
+            OR LOWER(COALESCE(customer_name, '')) LIKE $${paramIdx}
+            OR LOWER(COALESCE(customer_phone, '')) LIKE $${paramIdx}
+            OR LOWER(COALESCE(customer_address, '')) LIKE $${paramIdx}
+            OR LOWER(COALESCE(package_name, '')) LIKE $${paramIdx}
+        )`);
     params.push(searchPattern);
     paramIdx += 1;
   }
 
   if (startDate) {
-    filterClause += ` AND invoice_date >= $${paramIdx++}::date`;
+    filterParts.push(`invoice_date >= $${paramIdx++}::date`);
     params.push(startDate);
   }
 
   if (endDate) {
-    filterClause += ` AND invoice_date <= $${paramIdx++}::date`;
+    filterParts.push(`invoice_date <= $${paramIdx++}::date`);
     params.push(endDate);
   }
 
@@ -1611,10 +1615,10 @@ async function getInvoicesByUserId(client, userId, options = {}) {
             i.invoice_number,
             i.invoice_date,
             i.created_at,
-            -- LIVE DATA JOINS
             COALESCE(c.name, 'Unknown Customer') as customer_name,
             COALESCE(c.email, '') as customer_email,
             COALESCE(c.phone, '') as customer_phone,
+            COALESCE(c.address, '') as customer_address,
             COALESCE(c.profile_picture, '') as profile_picture,
             COALESCE(pkg.package_name, 'Unknown Package') as package_name,
             i.total_amount,
@@ -1629,17 +1633,12 @@ async function getInvoicesByUserId(client, userId, options = {}) {
                 (SELECT s.bubble_id FROM seda_registration s WHERE i.bubble_id = ANY(s.linked_invoice) LIMIT 1)
             ) as linked_seda_registration,
             ${referralReferrerExpr} as referral_referrer_name,
-            
-            -- Verified Paid Amount
             COALESCE((SELECT SUM(p.amount) FROM payment p WHERE p.linked_invoice = i.bubble_id OR p.bubble_id = ANY(COALESCE(i.linked_payment, ARRAY[]::text[]))), 0) as total_received,
-
-            -- Pending Verification List
             (
                 SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT('amount', sp.amount)), '[]') 
                 FROM submitted_payment sp 
                 WHERE sp.linked_invoice = i.bubble_id AND sp.status = 'pending'
             ) as pending_payments
-
         FROM invoice i
         LEFT JOIN customer c ON i.linked_customer = c.customer_id
         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text
@@ -1656,15 +1655,17 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   // Payment Status Filtering logic based on calculated total_received
   if (paymentStatus) {
     if (paymentStatus === 'unpaid') {
-      filterClause += ` AND (total_received IS NULL OR total_received <= 0) AND status != 'deleted'`;
+      filterParts.push(`(total_received IS NULL OR total_received <= 0) AND status != 'deleted'`);
     } else if (paymentStatus === 'partial') {
-      filterClause += ` AND total_received > 0 AND total_received < total_amount AND status != 'deleted'`;
+      filterParts.push(`total_received > 0 AND total_received < total_amount AND status != 'deleted'`);
     } else if (paymentStatus === 'paid') {
-      filterClause += ` AND total_received >= total_amount AND total_amount > 0 AND status != 'deleted'`;
+      filterParts.push(`total_received >= total_amount AND total_amount > 0 AND status != 'deleted'`);
     } else if (paymentStatus === 'deleted') {
-      filterClause += ` AND status = 'deleted'`;
+      filterParts.push(`status = 'deleted'`);
     }
   }
+
+  const filterClause = filterParts.length > 0 ? ` AND ${filterParts.join(' AND ')}` : '';
 
   const query = `
     ${baseCTE}
