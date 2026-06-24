@@ -703,19 +703,6 @@
                     return;
                 }
 
-                // --- ROBUST UI UPDATE SECTION ---
-                try {
-                    safeUpdate('totalCount', total);
-                    if (allInvoices.length > 0) {
-                        const latest = allInvoices[0];
-                        const name = latest.customer_name || '-';
-                        const dateText = `${formatDate(latest.invoice_date)} (${name})`;
-                        safeUpdate('lastCreated', dateText);
-                    }
-                } catch (uiErr) {
-                    console.warn('[loadQuotations] Non-fatal UI update error:', uiErr);
-                }
-
                 if (loading) loading.classList.add('hidden');
                 
                 if (allInvoices.length === 0) {
