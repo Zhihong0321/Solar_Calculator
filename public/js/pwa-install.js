@@ -7,7 +7,8 @@
     const SCRIPT_STATE = {
         initialized: false,
         deferredPrompt: null,
-        scenario: 'unsupported'
+        scenario: 'unsupported',
+        hideTimer: null
     };
 
     function upsertMeta(selector, createTag, attributes = {}, property = 'content', value = '') {
@@ -70,7 +71,23 @@
         }
     }
 
+    function scheduleAutoDismiss() {
+        if (SCRIPT_STATE.hideTimer) {
+            clearTimeout(SCRIPT_STATE.hideTimer);
+        }
+
+        SCRIPT_STATE.hideTimer = window.setTimeout(() => {
+            SCRIPT_STATE.hideTimer = null;
+            dismissForToday();
+        }, 3000);
+    }
+
     function dismissForToday() {
+        if (SCRIPT_STATE.hideTimer) {
+            clearTimeout(SCRIPT_STATE.hideTimer);
+            SCRIPT_STATE.hideTimer = null;
+        }
+
         try {
             localStorage.setItem(DISMISS_KEY, String(Date.now() + DISMISS_MS));
         } catch (error) {
@@ -297,6 +314,8 @@
 
         root.querySelector('.agent-pwa-install__label').textContent = copy.button;
         root.classList.remove('hidden');
+
+        scheduleAutoDismiss();
     }
 
     function bindInstallEvents() {
