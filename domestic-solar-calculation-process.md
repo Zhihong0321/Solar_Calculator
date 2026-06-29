@@ -690,4 +690,43 @@ The full `/domestic` flow is:
 - Monthly savings: `monthlySavings`
 - Export kWh: `details.exportKwh`
 - Net grid import: `details.actualUsageForEeiKwh`
+
+## 26. Battery V2 (current target calculator)
+
+V2 is the canonical Battery Calculator per the user's spec (`/domestic` Battery re-do).
+V1 remains in code for now until V2 is signed off and parity is proven on parity cases.
+
+### 26.1 V2 export-rate rule (the only export-rate rule that matters)
+
+```text
+exportRateV2 = netUsageV2Kwh >= 1501 ? 0.3703 : 0.2703
+```
+
+Fixed values, NOT `smpPrice`. Threshold is on **new total import** (post-solar+battery), not original monthly usage. V1's `smpPrice`-keyed rule is superseded.
+
+### 26.2 V2 export earnings cap
+
+```text
+exportV2Kwh = min(monthlyPotentialExportKwh, netUsageV2Kwh)
+exportEarningsV2Raw = exportV2Kwh * exportRateV2
+```
+
+Excess export above `netUsageV2Kwh` flows into `creditBankKwh` and **expires next month** — no roll-over between months.
+
+### 26.3 V1 vs V2 equivalence test cases
+
+These scenarios are runnable in `scratch/battery-v2-test.js`. When the V1 main-path output matches V2 on these, V1 is safe to delete.
+
+| Scenario | Description | Why this proves parity |
+| --- | --- | --- |
+| Small battery, normal load | `bill=500, battery=16, loss=0` | V1 night-usage cap and V2 full discharge produce same number when `effectiveStorage ≤ nightUsage` |
+| 10% loss battery | `bill=500, battery=16, loss=10` | Efficiency math identical between V1 and V2 |
+| 32 kWh battery, medium load | `bill=800, battery=32, loss=0` | Mid-range; confirms no off-by-30 |
+| High-export / low-import | `bill=250, battery=48, peakHour=4.5, extraPanels=12` | V2 must show `Export=0`, `CreditBank>0`. V1 (with old SMP-keyed rule) would NOT match — this is the sign V2 is correct and V1 is wrong, not a parity case. |
+
+### 26.4 Sign-off procedure for deleting V1
+
+1. Run all six scenarios through `/api/solar-calculation` and `node scratch/battery-v2-test.js`.
+2. Compare `details.billAfter` and `savingsBreakdown.total` between V1 (current main path) and V2-with-night-cap-disabled (informational block).
+3. If they match on cases 1–5 above, AND V2 produces the correct credit-bank on case 6, V1 may be deleted.
 - Backup generation: `details.backupGenerationKwh`

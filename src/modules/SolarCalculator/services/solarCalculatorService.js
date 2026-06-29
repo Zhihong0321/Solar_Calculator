@@ -71,6 +71,59 @@ const calculateBatteryFlow = ({
   };
 };
 
+// Battery V2: charge from export solar, full effective discharge, net-import export cap.
+const calculateBatteryFlowV2 = ({
+  monthlySolarGeneration,
+  morningUsageKwh,
+  batterySizeVal,
+  batteryLossPercent = DEFAULT_BATTERY_LOSS_PERCENT,
+  batteryDodPercent = DEFAULT_BATTERY_DOD_PERCENT
+}) => {
+  const nonOffsetSolarKwh = Math.max(0, monthlySolarGeneration - morningUsageKwh);
+  const dailyNonOffsetSolarKwh = nonOffsetSolarKwh / 30;
+  const roundTripEfficiency = Math.max(0, 1 - (batteryLossPercent / 100));
+  const oneWayEfficiency = roundTripEfficiency > 0 ? Math.sqrt(roundTripEfficiency) : 0;
+  const usableBatteryCapacityKwh = Math.max(0, batterySizeVal * (1 - (batteryDodPercent / 100)));
+  const effectiveStorageKwh = usableBatteryCapacityKwh * roundTripEfficiency;
+
+  // kWh from export solar needed to fill usable capacity after charge losses
+  const dailyInputNeededForFullBatteryKwh = oneWayEfficiency > 0
+    ? usableBatteryCapacityKwh / oneWayEfficiency
+    : 0;
+  const dailySolarToBatteryInputKwh = Math.min(dailyNonOffsetSolarKwh, dailyInputNeededForFullBatteryKwh);
+
+  // Full effective discharge every night; not capped by night usage
+  const dailyBatteryDischargeKwh = effectiveStorageKwh;
+  const monthlySolarToBatteryInputKwh = dailySolarToBatteryInputKwh * 30;
+  const monthlyBatteryDischargeKwh = dailyBatteryDischargeKwh * 30;
+
+  const dailyStoredInternalKwh = dailySolarToBatteryInputKwh * oneWayEfficiency;
+  const dailyChargeLossKwh = Math.max(0, dailySolarToBatteryInputKwh - dailyStoredInternalKwh);
+
+  const dailyPotentialExportKwh = Math.max(0, dailyNonOffsetSolarKwh - dailySolarToBatteryInputKwh);
+  const monthlyPotentialExportKwh = dailyPotentialExportKwh * 30;
+
+  return {
+    batterySize: batterySizeVal,
+    batteryLossPercent,
+    batteryDodPercent,
+    roundTripEfficiency,
+    oneWayEfficiency,
+    usableBatteryCapacityKwh,
+    effectiveStorageKwh,
+    nonOffsetSolarKwh,
+    dailyNonOffsetSolarKwh,
+    dailySolarToBatteryInputKwh,
+    monthlySolarToBatteryInputKwh,
+    dailyStoredInternalKwh,
+    dailyChargeLossKwh,
+    dailyBatteryDischargeKwh,
+    monthlyBatteryDischargeKwh,
+    dailyPotentialExportKwh,
+    monthlyPotentialExportKwh
+  };
+};
+
 // Helper function to find the closest tariff based on adjusted total (bill + afa)
 const findClosestTariff = async (client, targetAmount, afaRate) => {
   const query = `
@@ -430,14 +483,47 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const morningUsageRate = 0.4869;
     const morningSaving = morningUsageKwh * (morningUsageRate + afaRate);
 
-    const exportRate = netUsageKwh > 1500 ? 0.3703 : smp;
-    const exportRateBaseline = netUsageBaseline > 1500 ? 0.3703 : smp;
+    const exportRate = netUsageKwh >= 1501 ? 0.3703 : 0.2703;
+    const exportRateBaseline = netUsageBaseline > 1500 ? 0.3703 : 0.2703;
 
     const exportSavingRaw = exportKwh * exportRate;
     const backupGenerationSaving = backupGenerationKwh * exportRate;
     const exportSavingBaselineRaw = exportKwhBaseline * exportRateBaseline;
 
     const beforeBreakdown = buildBillBreakdown(tariff, afaRate);
+    const billBefore = beforeBreakdown ? beforeBreakdown.total : 0;
+
+    // --- Battery V2 Logic (depends on billBefore) ---
+    const batteryFlowV2 = calculateBatteryFlowV2({
+      monthlySolarGeneration,
+      morningUsageKwh,
+      batterySizeVal,
+      batteryLossPercent: batteryLossPercentVal,
+      batteryDodPercent: batteryDodPercentVal
+    });
+    const netUsageV2Kwh = Math.max(
+      0,
+      monthlyUsageKwh - morningSelfConsumption - batteryFlowV2.monthlyBatteryDischargeKwh
+    );
+    const netUsageV2ForLookup = Math.max(0, Math.floor(netUsageV2Kwh));
+    const exportV2Kwh = Math.min(batteryFlowV2.monthlyPotentialExportKwh, netUsageV2Kwh);
+    const afterV2Tariff = await lookupTariffByUsage(tariffClient, netUsageV2ForLookup);
+    const exportRateV2 = netUsageV2Kwh >= 1501 ? 0.3703 : 0.2703;
+    const exportEarningsV2Raw = exportV2Kwh * exportRateV2;
+    const actualEeiV2 = resolveActualEeiValue(afterV2Tariff, netUsageV2Kwh);
+    const afterV2Breakdown = buildBillBreakdown(afterV2Tariff, afaRate, {
+      overrideEei: actualEeiV2,
+      eeiUsageKwh: netUsageV2ForLookup
+    });
+    const afterBillV2 = afterV2Breakdown ? afterV2Breakdown.total : null;
+    const exportEarningsV2 = afterBillV2 !== null
+      ? Math.min(exportEarningsV2Raw, afterBillV2)
+      : exportEarningsV2Raw;
+    const totalSavingsV2 = Math.max(0, billBefore - (afterBillV2 ?? billBefore)) + exportEarningsV2Raw;
+    const estimatedPayableAfterSolarV2 = afterBillV2 !== null
+      ? Math.max(0, afterBillV2 - exportEarningsV2Raw)
+      : Math.max(0, billBefore - totalSavingsV2);
+
     const actualEeiRateBaseline = resolveEeiRatePerKwh(baselineTariff);
     const actualEeiRate = resolveEeiRatePerKwh(afterTariff);
     const actualEeiBaseline = resolveActualEeiValue(baselineTariff, netImportBaselineKwh);
@@ -450,8 +536,6 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
       overrideEei: actualEeiBaseline,
       eeiUsageKwh: netImportBaselineForLookup
     });
-
-    const billBefore = beforeBreakdown ? beforeBreakdown.total : 0;
 
     const afterBillBaseline = baselineBreakdown ? baselineBreakdown.total : null;
     const afterUsageMatchedBaseline = baselineTariff && baselineTariff.usage_kwh !== null
@@ -671,6 +755,43 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
           totals
         },
         savingsBreakdown: savingsBreakdown,
+        batteryV2: {
+          enabled: batterySizeVal > 0,
+          size: batterySizeVal,
+          lossPercent: batteryLossPercentVal,
+          dodPercent: batteryDodPercentVal,
+          roundTripEfficiency: batteryFlowV2.roundTripEfficiency,
+          oneWayEfficiency: batteryFlowV2.oneWayEfficiency,
+          usableCapacityKwh: batteryFlowV2.usableBatteryCapacityKwh.toFixed(2),
+          effectiveStorageKwh: batteryFlowV2.effectiveStorageKwh.toFixed(2),
+          nonOffsetSolarKwh: batteryFlowV2.nonOffsetSolarKwh.toFixed(2),
+          dailyNonOffsetSolarKwh: batteryFlowV2.dailyNonOffsetSolarKwh.toFixed(2),
+          dailySolarToBatteryInputKwh: batteryFlowV2.dailySolarToBatteryInputKwh.toFixed(2),
+          monthlySolarToBatteryInputKwh: batteryFlowV2.monthlySolarToBatteryInputKwh.toFixed(2),
+          dailyStoredInternalKwh: batteryFlowV2.dailyStoredInternalKwh.toFixed(2),
+          dailyChargeLossKwh: batteryFlowV2.dailyChargeLossKwh.toFixed(2),
+          dailyBatteryDischargeKwh: batteryFlowV2.dailyBatteryDischargeKwh.toFixed(2),
+          monthlyBatteryDischargeKwh: batteryFlowV2.monthlyBatteryDischargeKwh.toFixed(2),
+          dailyPotentialExportKwh: batteryFlowV2.dailyPotentialExportKwh.toFixed(2),
+          monthlyPotentialExportKwh: batteryFlowV2.monthlyPotentialExportKwh.toFixed(2),
+          exportKwh: exportV2Kwh.toFixed(2),
+          exportRate: exportRateV2,
+          effectiveExportRate: exportRateV2.toFixed(4),
+          exportEarningsRaw: exportEarningsV2Raw.toFixed(2),
+          exportEarningsCapped: exportEarningsV2.toFixed(2),
+          netUsageKwh: netUsageV2Kwh.toFixed(2),
+          netUsageForLookupKwh: netUsageV2ForLookup,
+          actualUsageForEeiKwh: netUsageV2Kwh.toFixed(2),
+          actualEei: actualEeiV2.toFixed(2),
+          billAfter: afterBillV2 !== null ? afterBillV2.toFixed(2) : null,
+          estimatedPayableAfterSolar: estimatedPayableAfterSolarV2 !== null
+            ? estimatedPayableAfterSolarV2.toFixed(2)
+            : null,
+          totalSavings: totalSavingsV2.toFixed(2),
+          billReduction: Math.max(0, billBefore - (afterBillV2 ?? billBefore)).toFixed(2),
+          creditBankKwh: Math.max(0, batteryFlowV2.monthlyPotentialExportKwh - exportV2Kwh).toFixed(2),
+          creditBankNote: 'Expires next month, not carried over'
+        },
         battery: {
           size: batterySizeVal,
           efficiency: batteryFlow.roundTripEfficiency,
