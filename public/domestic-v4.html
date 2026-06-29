@@ -2359,6 +2359,7 @@
 
         function BatteryV2Card({ solarResult, batterySize, updating }) {
             const [showReveal, setShowReveal] = useState(false);
+            const [showBillPopup, setShowBillPopup] = useState(false);
             const battery = solarResult.details?.batteryV2 || {};
             const beforeBill = toNumber(solarResult.details?.billBefore);
 
@@ -2449,8 +2450,8 @@
                             gap: 12
                         }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 11, color: '#6b7280' }}>V2 Battery 应付</div>
+                                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setShowBillPopup(true)}>
+                                    <div style={{ fontSize: 11, color: '#6b7280' }}>V2 Battery 应付 <span style={{fontSize:9, textDecoration: 'underline'}}>(details)</span></div>
                                     <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(battery.estimatedPayableAfterSolar || 0)}</div>
                                 </div>
                                 <div style={{ flex: 1, textAlign: 'center' }}>
@@ -2484,6 +2485,97 @@
                         {updating && (
                             <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 700, marginTop: 10 }}>
                                 正在更新电池 V2 测算...
+                            </div>
+                        )}
+
+                        {showBillPopup && battery.billBreakdown && (
+                            <div
+                                onClick={() => setShowBillPopup(false)}
+                                style={{
+                                    position: 'fixed',
+                                    inset: 0,
+                                    zIndex: 9999,
+                                    background: 'rgba(0,0,0,0.55)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backdropFilter: 'blur(4px)',
+                                    padding: 20
+                                }}
+                            >
+                                <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        background: '#fff',
+                                        borderRadius: 16,
+                                        padding: 24,
+                                        width: '100%',
+                                        maxWidth: 400,
+                                        maxHeight: '80vh',
+                                        overflowY: 'auto',
+                                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                        <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>V2 Detailed Bill Breakdown</h3>
+                                        <button onClick={() => setShowBillPopup(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
+                                    </div>
+                                    
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14, color: '#374151' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Usage Charge</span>
+                                            <span>RM {fmt(battery.billBreakdown.usage || 0)}</span>
+                                        </div>
+                                        {battery.billBreakdown.network > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Network Charge</span>
+                                            <span>RM {fmt(battery.billBreakdown.network || 0)}</span>
+                                        </div>
+                                        )}
+                                        {battery.billBreakdown.capacity > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Capacity Charge</span>
+                                            <span>RM {fmt(battery.billBreakdown.capacity || 0)}</span>
+                                        </div>
+                                        )}
+                                        {battery.billBreakdown.sst > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>SST</span>
+                                            <span>RM {fmt(battery.billBreakdown.sst || 0)}</span>
+                                        </div>
+                                        )}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>ICPT / Fuel Adj</span>
+                                            <span>RM {fmt(battery.billBreakdown.afa || 0)}</span>
+                                        </div>
+                                        {battery.billBreakdown.eei > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a' }}>
+                                                <span>EEI Deduction</span>
+                                                <span>-RM {fmt(battery.billBreakdown.eei || 0)}</span>
+                                            </div>
+                                        )}
+                                        <div style={{ height: 1, background: '#e5e7eb', margin: '4px 0' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#111827' }}>
+                                            <span>Bill After Solar+Battery (Before Export)</span>
+                                            <span>RM {fmt(battery.billAfter || 0)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: 700 }}>
+                                            <span>Export Earnings Deduction</span>
+                                            <span>-RM {fmt(battery.exportEarningsRaw || 0)}</span>
+                                        </div>
+                                        <div style={{ height: 1, background: '#e5e7eb', margin: '4px 0' }}></div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 18, color: '#111827' }}>
+                                            <span>Final Payable</span>
+                                            <span>RM {fmt(battery.estimatedPayableAfterSolar || 0)}</span>
+                                        </div>
+                                        
+                                        {toNumber(battery.exportEarningsRaw) > toNumber(battery.billAfter) && (
+                                            <div style={{ marginTop: 8, padding: 12, background: '#f0fdf4', borderRadius: 8, fontSize: 12, color: '#166534' }}>
+                                                Note: Export earnings (RM {fmt(battery.exportEarningsRaw || 0)}) exceed the bill amount (RM {fmt(battery.billAfter || 0)}). The final payable is capped at RM 0.00, and the remainder is credited to your bank account or forfeited depending on TNB rules.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
 

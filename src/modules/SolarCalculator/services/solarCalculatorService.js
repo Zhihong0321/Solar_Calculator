@@ -790,7 +790,8 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
           totalSavings: totalSavingsV2.toFixed(2),
           billReduction: Math.max(0, billBefore - (afterBillV2 ?? billBefore)).toFixed(2),
           creditBankKwh: Math.max(0, batteryFlowV2.monthlyPotentialExportKwh - exportV2Kwh).toFixed(2),
-          creditBankNote: 'Expires next month, not carried over'
+          creditBankNote: 'Expires next month, not carried over',
+          billBreakdown: afterV2Breakdown
         },
         battery: {
           size: batterySizeVal,
