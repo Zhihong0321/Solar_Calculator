@@ -11,6 +11,10 @@ const invoiceHtmlGeneratorV3 = require('../services/invoiceHtmlGeneratorV3');
 const { generateInvoiceHtmlA4 } = require('../services/invoiceHtmlGeneratorA4');
 const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
 const { normalizeV3Locale } = require('../services/invoiceV3Content');
+const {
+  applyPaymentTermsPolicy,
+  applyPaymentTermsPolicyToInvoice
+} = require('../services/invoicePaymentTermsPolicy');
 const externalPdfService = require('../services/externalPdfService');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
@@ -680,9 +684,14 @@ async function renderV3Invoice(req, res, { forPdf = false } = {}) {
       return res.status(404).send('Invoice not found');
     }
 
-    const locale = resolveV3Locale(req, source);
+    const policyTemplate = applyPaymentTermsPolicy(source.invoice, source.template || source.invoice.template || {});
+    const policyInvoice = {
+      ...source.invoice,
+      template: policyTemplate
+    };
+    const locale = resolveV3Locale(req, { ...source, invoice: policyInvoice });
     const urls = buildV3PreviewUrls(tokenOrId, source.previewMode, locale);
-    const html = invoiceHtmlGeneratorV3.generateInvoiceHtmlV3(source.invoice, source.template, {
+    const html = invoiceHtmlGeneratorV3.generateInvoiceHtmlV3(policyInvoice, policyInvoice.template || source.template, {
       layout,
       forPdf,
       previewMode: source.previewMode,
@@ -720,7 +729,8 @@ router.get('/legacy-view/:tokenOrId', async (req, res) => {
     try {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
       if (invoice) {
-        const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template);
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+        const html = invoiceHtmlGenerator.generateInvoiceHtml(policyInvoice, policyInvoice.template);
         res.send(html);
       } else {
         res.status(404).send('Invoice not found');
@@ -745,7 +755,8 @@ router.get('/legacy-view/:tokenOrId/pdf', async (req, res) => {
     try {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
       if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
-      const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { isPdf: true });
+      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+      const html = invoiceHtmlGenerator.generateInvoiceHtml(policyInvoice, policyInvoice.template, { isPdf: true });
       const pdfResult = await externalPdfService.generatePdf(html);
       res.json(pdfResult);
     } finally {
@@ -770,8 +781,9 @@ router.get('/view/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
         if (layout === 'a4' || layout === 'a4-preview' || layout === 'print') {
-          const html = generateInvoiceHtmlA4(invoice, invoice.template, {
+          const html = generateInvoiceHtmlA4(policyInvoice, policyInvoice.template, {
             layout,
             locale: normalizeV3Locale(req.query.lang || req.query.locale || 'en'),
             mono: String(req.query.mono || '1') !== '0',
@@ -782,8 +794,8 @@ router.get('/view/:tokenOrId', async (req, res) => {
           return;
         }
 
-        const initialSolarEstimateData = await buildInitialPublicSolarEstimate(invoice);
-        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, {
+        const initialSolarEstimateData = await buildInitialPublicSolarEstimate(policyInvoice);
+        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, {
           layout,
           viewerHasAuthenticatedUser: Boolean(authenticatedViewer),
           initialSolarEstimateData
@@ -815,8 +827,9 @@ router.get('/view2/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const initialSolarEstimateData = await buildInitialPublicSolarEstimate(invoice);
-        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, {
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+        const initialSolarEstimateData = await buildInitialPublicSolarEstimate(policyInvoice);
+        const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, {
           layout,
           viewerHasAuthenticatedUser: Boolean(authenticatedViewer),
           initialSolarEstimateData
@@ -849,7 +862,8 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Invoice not found' });
       }
 
-      const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, { forPdf: true });
+      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+      const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, { forPdf: true });
       // This returns { success: true, downloadUrl: ... }, NOT a buffer
       const pdfResult = await externalPdfService.generatePdf(html);
 
@@ -880,7 +894,8 @@ router.get('/view2/:tokenOrId/pdf', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Invoice not found' });
       }
 
-      const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(invoice, invoice.template, { isPdf: true });
+      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+      const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, { isPdf: true });
       // This returns { success: true, downloadUrl: ... }, NOT a buffer
       const pdfResult = await externalPdfService.generatePdf(html);
 
@@ -1108,8 +1123,9 @@ router.get('/proposal/:shareToken', async (req, res) => {
       const invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
 
       if (invoice) {
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
         // Use generateProposalHtml to inject data into the portable-proposal template
-        const html = invoiceHtmlGenerator.generateProposalHtml(invoice);
+        const html = invoiceHtmlGenerator.generateProposalHtml(policyInvoice);
         res.send(html);
       } else {
         res.status(404).send('Proposal not found');
@@ -1137,8 +1153,9 @@ router.get('/proposal/:shareToken/pdf', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Proposal not found' });
       }
 
+      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
       // If generateProposalHtml is missing, fallback to generateInvoiceHtml
-      const html = invoiceHtmlGenerator.generateInvoiceHtml(invoice, invoice.template, { isPdf: true });
+      const html = invoiceHtmlGenerator.generateInvoiceHtml(policyInvoice, policyInvoice.template, { isPdf: true });
       // This returns { success: true, downloadUrl: ... }, NOT a buffer
       const pdfResult = await externalPdfService.generatePdf(html);
 
