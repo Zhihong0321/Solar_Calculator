@@ -2442,16 +2442,31 @@
                             borderRadius: 12,
                             padding: '12px 14px',
                             display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
+                            flexDirection: 'column',
+                            gap: 12
                         }}>
-                            <div>
-                                <div style={{ fontSize: 11, color: '#6b7280' }}>V2 太阳能后应付</div>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(battery.estimatedPayableAfterSolar || 0)}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontSize: 11, color: '#6b7280' }}>V2 After Solar应付</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(battery.estimatedPayableAfterSolar || 0)}</div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: 11, color: '#6b7280' }}>原账单</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(beforeBill)}</div>
+                                </div>
                             </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: 11, color: '#6b7280' }}>原账单</div>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(beforeBill)}</div>
+                            
+                            <div style={{ height: 1, background: '#1f2937', width: '100%' }}></div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontSize: 11, color: '#6b7280' }}>Solar Only 应付</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(solarResult.details?.battery?.baseline?.estimatedPayableAfterSolar || solarResult.details?.estimatedPayableAfterSolar || 0)}</div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: 11, color: '#6b7280' }}>原账单</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(beforeBill)}</div>
+                                </div>
                             </div>
                         </div>
 
