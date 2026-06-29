@@ -309,6 +309,11 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
   const earthMonthGoGreenBonusAmount = parseFloat(invoice.earth_month_go_green_bonus_amount) || 0;
   const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount + earnNowRebateAmount + earthMonthGoGreenBonusAmount;
   const paymentTermsSchedule = getPaymentTermsSchedule(invoice);
+  const paymentTermsPreviewButtonHtml = paymentTermsSchedule.canPreviewCurrentTerms
+    ? `<button type="button" onclick="const u=new URL(window.location.href);u.searchParams.set('payment_terms_preview','after-2026-07-01');window.location.href=u.toString();" class="w-full border border-primary bg-surface-container-lowest px-5 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-primary active:scale-[0.99] transition-transform">After 1 Jul 2026 Preview</button>`
+    : (paymentTermsSchedule.isAfterEffectivePreview
+      ? `<button type="button" onclick="const u=new URL(window.location.href);u.searchParams.delete('payment_terms_preview');window.location.href=u.toString();" class="w-full border border-outline-variant/30 bg-surface-container-lowest px-5 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-on-surface-variant active:scale-[0.99] transition-transform">Back to Invoice Date Terms</button>`
+      : '');
 
   const renderLanguageSwitch = () => {
     if (!options.languageSwitchUrls) return '';
@@ -775,6 +780,7 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
             </div>
           `).join('')}
         </div>
+        ${paymentTermsPreviewButtonHtml ? `<div class="border-t border-outline-variant/15 p-3">${paymentTermsPreviewButtonHtml}</div>` : ''}
       </div>
 
       <!-- Payment details -->

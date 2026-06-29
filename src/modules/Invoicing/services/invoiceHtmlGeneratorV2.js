@@ -226,6 +226,11 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         </div>
       </div>
     `).join('');
+    const paymentTermsPreviewButtonHtml = paymentTermsSchedule.canPreviewCurrentTerms
+        ? `<button type="button" class="payterm-preview-btn no-print" onclick="const u=new URL(window.location.href);u.searchParams.set('payment_terms_preview','after-2026-07-01');window.location.href=u.toString();">After 1 Jul 2026 Preview</button>`
+        : (paymentTermsSchedule.isAfterEffectivePreview
+            ? `<button type="button" class="payterm-preview-btn muted no-print" onclick="const u=new URL(window.location.href);u.searchParams.delete('payment_terms_preview');window.location.href=u.toString();">Back to Invoice Date Terms</button>`
+            : '');
 
     // Hero number for the dark card
     const heroNumber = `${titleLabel === 'INVOICE' ? 'Total Due' : 'Quoted'}`;
@@ -478,6 +483,9 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
 .payterm-copy{min-width:0;flex:1}
 .payterm-title{font-size:12px;font-weight:800;color:var(--g900);text-transform:uppercase;letter-spacing:.04em}
 .payterm-desc{font-size:10px;font-weight:600;color:var(--g500);margin-top:2px}
+.payterm-preview-wrap{padding:8px 12px;border-top:1px solid var(--g100)}
+.payterm-preview-btn{width:100%;border:1.5px solid var(--gp);background:#fff;color:var(--gp);border-radius:4px;padding:9px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;cursor:pointer;font-family:var(--f)}
+.payterm-preview-btn.muted{border-color:var(--g300);color:var(--g600)}
 
 .pkg{background:var(--nb);border-radius:4px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;position:relative;overflow:hidden}
 .pkg::before{content:'';position:absolute;top:0;left:0;width:50px;height:2px;background:var(--sun)}
@@ -964,6 +972,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
             <span style="font-size:9px;font-weight:700;color:var(--gp);text-transform:uppercase;letter-spacing:.05em">${paymentTermsSchedule.effectiveLabel}</span>
           </div>
           ${paymentTermsRowsHtml}
+          ${paymentTermsPreviewButtonHtml ? `<div class="payterm-preview-wrap">${paymentTermsPreviewButtonHtml}</div>` : ''}
         </div>
       </div>
 

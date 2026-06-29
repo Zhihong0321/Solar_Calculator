@@ -147,6 +147,11 @@ function generateInvoiceHtml(invoice, template, options = {}) {
       </div>
     </div>
   `).join('');
+  const paymentTermsPreviewButtonHtml = paymentTermsSchedule.canPreviewCurrentTerms
+    ? `<button type="button" class="no-print mt-3 w-full rounded border border-emerald-600 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-emerald-600" onclick="const u=new URL(window.location.href);u.searchParams.set('payment_terms_preview','after-2026-07-01');window.location.href=u.toString();">After 1 Jul 2026 Preview</button>`
+    : (paymentTermsSchedule.isAfterEffectivePreview
+      ? `<button type="button" class="no-print mt-3 w-full rounded border border-slate-300 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-600" onclick="const u=new URL(window.location.href);u.searchParams.delete('payment_terms_preview');window.location.href=u.toString();">Back to Invoice Date Terms</button>`
+      : '');
 
   // Generate items HTML - Mobile optimized without unit price column
   let itemsHtml = '';
@@ -594,7 +599,10 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           button.disabled = true;
           button.classList.add('opacity-75', 'cursor-not-allowed');
           buttonText.textContent = 'Preparing...';
-          const response = await fetch('/view/' + shareToken + '/pdf');
+          const pdfUrl = new URL('/view/' + shareToken + '/pdf', window.location.origin);
+          const paymentTermsPreview = new URLSearchParams(window.location.search).get('payment_terms_preview');
+          if (paymentTermsPreview) pdfUrl.searchParams.set('payment_terms_preview', paymentTermsPreview);
+          const response = await fetch(pdfUrl.toString());
           const data = await response.json();
           if (data.success && data.downloadUrl) {
             let downloadUrl = data.downloadUrl;
@@ -853,6 +861,7 @@ function generateInvoiceHtml(invoice, template, options = {}) {
           <p class="text-[9px] font-bold uppercase tracking-wider text-emerald-600">${paymentTermsSchedule.effectiveLabel}</p>
         </div>
         ${paymentTermsRowsHtml}
+        ${paymentTermsPreviewButtonHtml ? `<div class="px-3 pb-3">${paymentTermsPreviewButtonHtml}</div>` : ''}
       </div>
     </section>
 

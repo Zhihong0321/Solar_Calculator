@@ -6,5 +6,6 @@
 - Stacked the comparison metrics vertically, divided by a separator for clear visual distinction, using standard UI styles.
 - Updated quotation and invoice payment terms for 1 Jul 2026 onward while preserving previous invoices.
 - Made payment terms clearly visible on quotation, invoice, and printable views.
+- Added after-1-Jul-2026 payment terms preview and clarified SEDA-before-installation wording.
 
 =====================

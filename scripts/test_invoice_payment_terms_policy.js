@@ -24,6 +24,7 @@ const LEGACY_TERMS_TEXT = [
 function testEffectiveDateBoundary() {
   assert.equal(shouldUseCurrentPaymentTerms({ invoice_date: '2026-06-30' }), false);
   assert.equal(shouldUseCurrentPaymentTerms({ invoice_date: '2026-07-01' }), true);
+  assert.equal(shouldUseCurrentPaymentTerms({ invoice_date: '2026-06-30', payment_terms_preview_after_effective_date: true }), true);
 }
 
 function testVisibleScheduleUsesSameBoundary() {
@@ -35,6 +36,14 @@ function testVisibleScheduleUsesSameBoundary() {
     getPaymentTermsSchedule({ invoice_date: '2026-07-01' }).rows.map((row) => row.percent),
     ['5%', '75%', '20%']
   );
+  assert.deepEqual(
+    getPaymentTermsSchedule({ invoice_date: '2026-06-30', payment_terms_preview_after_effective_date: true }).rows.map((row) => row.percent),
+    ['5%', '75%', '20%']
+  );
+  assert.equal(
+    getPaymentTermsSchedule({ invoice_date: '2026-06-30', payment_terms_preview_after_effective_date: true }).effectiveLabel,
+    'After 1 Jul 2026 preview'
+  );
 }
 
 function testCurrentTermsAppliedForNewDocuments() {
@@ -43,9 +52,9 @@ function testCurrentTermsAppliedForNewDocuments() {
     { terms_and_conditions: LEGACY_TERMS_TEXT }
   );
 
-  assert.match(template.terms_and_conditions, /75% Upon SEDA Approval/);
+  assert.match(template.terms_and_conditions, /75% Upon SEDA Approved \+ Before Installation/);
   assert.match(template.terms_and_conditions, /additional payment of 75%/);
-  assert.match(template.terms_and_conditions, /20% Upon Installation Complete/);
+  assert.match(template.terms_and_conditions, /20% After Installation Complete/);
   assert.match(template.terms_and_conditions, /The remaining 20%/);
   assert.match(template.terms_and_conditions, /5% \+ 75% Refund/);
   assert.match(template.terms_and_conditions, /subsequent 75% fee/);
@@ -59,9 +68,9 @@ function testLegacyTermsRemainForPreviousInvoices() {
     { terms_and_conditions: LEGACY_TERMS_TEXT.replace(/60%/g, '75%').replace(/35%/g, '20%') }
   );
 
-  assert.match(template.terms_and_conditions, /60% Upon SEDA Approval/);
+  assert.match(template.terms_and_conditions, /60% Upon SEDA Approved \+ Before Installation/);
   assert.match(template.terms_and_conditions, /additional payment of 60%/);
-  assert.match(template.terms_and_conditions, /35% Upon Installation Complete/);
+  assert.match(template.terms_and_conditions, /35% After Installation Complete/);
   assert.match(template.terms_and_conditions, /The remaining 35%/);
   assert.match(template.terms_and_conditions, /5% \+ 60% Refund/);
   assert.match(template.terms_and_conditions, /subsequent 60% fee/);
@@ -74,8 +83,8 @@ function testMissingTermsStillShowsCurrentPolicyForNewDocuments() {
   );
 
   assert.match(template.terms_and_conditions, /5% Downpayment/);
-  assert.match(template.terms_and_conditions, /75% Upon SEDA Approval/);
-  assert.match(template.terms_and_conditions, /20% Upon Installation Complete/);
+  assert.match(template.terms_and_conditions, /75% Upon SEDA Approved \+ Before Installation/);
+  assert.match(template.terms_and_conditions, /20% After Installation Complete/);
 }
 
 function testGenericTermsReceiveCurrentPolicyForNewDocuments() {
@@ -86,8 +95,8 @@ function testGenericTermsReceiveCurrentPolicyForNewDocuments() {
 
   assert.match(template.terms_and_conditions, /Payment is due within 30 days/);
   assert.match(template.terms_and_conditions, /Our Payment Terms:/);
-  assert.match(template.terms_and_conditions, /75% Upon SEDA Approval/);
-  assert.match(template.terms_and_conditions, /20% Upon Installation Complete/);
+  assert.match(template.terms_and_conditions, /75% Upon SEDA Approved \+ Before Installation/);
+  assert.match(template.terms_and_conditions, /20% After Installation Complete/);
 }
 
 testEffectiveDateBoundary();

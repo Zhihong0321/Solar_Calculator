@@ -11,10 +11,7 @@ const invoiceHtmlGeneratorV3 = require('../services/invoiceHtmlGeneratorV3');
 const { generateInvoiceHtmlA4 } = require('../services/invoiceHtmlGeneratorA4');
 const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
 const { normalizeV3Locale } = require('../services/invoiceV3Content');
-const {
-  applyPaymentTermsPolicy,
-  applyPaymentTermsPolicyToInvoice
-} = require('../services/invoicePaymentTermsPolicy');
+const { applyPaymentTermsPolicyToInvoice } = require('../services/invoicePaymentTermsPolicy');
 const externalPdfService = require('../services/externalPdfService');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
@@ -642,6 +639,40 @@ function buildV3PreviewUrls(tokenOrId, previewMode, locale) {
   };
 }
 
+function shouldPreviewAfterEffectivePaymentTerms(req) {
+  const raw = String(
+    req.query.payment_terms_preview
+    || req.query.paymentTermsPreview
+    || req.query.payment_terms
+    || ''
+  ).trim().toLowerCase();
+
+  return [
+    'after-2026-07-01',
+    'after-1-jul-2026',
+    'after_jul_1_2026',
+    'current',
+    'new',
+    '1',
+    'true'
+  ].includes(raw);
+}
+
+function getPaymentTermsPolicyOptions(req) {
+  return {
+    forceCurrentTerms: shouldPreviewAfterEffectivePaymentTerms(req)
+  };
+}
+
+function appendPaymentTermsPreviewQuery(url, req) {
+  if (!shouldPreviewAfterEffectivePaymentTerms(req)) {
+    return url;
+  }
+
+  const separator = String(url).includes('?') ? '&' : '?';
+  return `${url}${separator}payment_terms_preview=after-2026-07-01`;
+}
+
 async function loadV3InvoiceForRequest(client, tokenOrId, previewMode) {
   if (previewMode === 'local') {
     const snapshot = loadPreviewSnapshot(tokenOrId);
@@ -684,11 +715,13 @@ async function renderV3Invoice(req, res, { forPdf = false } = {}) {
       return res.status(404).send('Invoice not found');
     }
 
-    const policyTemplate = applyPaymentTermsPolicy(source.invoice, source.template || source.invoice.template || {});
-    const policyInvoice = {
-      ...source.invoice,
-      template: policyTemplate
-    };
+    const policyInvoice = applyPaymentTermsPolicyToInvoice(
+      {
+        ...source.invoice,
+        template: source.template || source.invoice.template || {}
+      },
+      getPaymentTermsPolicyOptions(req)
+    );
     const locale = resolveV3Locale(req, { ...source, invoice: policyInvoice });
     const urls = buildV3PreviewUrls(tokenOrId, source.previewMode, locale);
     const html = invoiceHtmlGeneratorV3.generateInvoiceHtmlV3(policyInvoice, policyInvoice.template || source.template, {
@@ -697,8 +730,8 @@ async function renderV3Invoice(req, res, { forPdf = false } = {}) {
       previewMode: source.previewMode,
       locale,
       mono: String(req.query.mono || '') === '1',
-      currentViewUrl: urls.currentViewUrl,
-      pdfUrl: urls.pdfUrl,
+      currentViewUrl: appendPaymentTermsPreviewQuery(urls.currentViewUrl, req),
+      pdfUrl: appendPaymentTermsPreviewQuery(urls.pdfUrl, req),
       languageSwitchUrls: urls.languageSwitchUrls
     });
 
@@ -729,7 +762,7 @@ router.get('/legacy-view/:tokenOrId', async (req, res) => {
     try {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
       if (invoice) {
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
         const html = invoiceHtmlGenerator.generateInvoiceHtml(policyInvoice, policyInvoice.template);
         res.send(html);
       } else {
@@ -755,7 +788,7 @@ router.get('/legacy-view/:tokenOrId/pdf', async (req, res) => {
     try {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
       if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
-      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
       const html = invoiceHtmlGenerator.generateInvoiceHtml(policyInvoice, policyInvoice.template, { isPdf: true });
       const pdfResult = await externalPdfService.generatePdf(html);
       res.json(pdfResult);
@@ -781,14 +814,14 @@ router.get('/view/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
         if (layout === 'a4' || layout === 'a4-preview' || layout === 'print') {
           const html = generateInvoiceHtmlA4(policyInvoice, policyInvoice.template, {
             layout,
             locale: normalizeV3Locale(req.query.lang || req.query.locale || 'en'),
             mono: String(req.query.mono || '1') !== '0',
-            mobileViewUrl: `/view/${encodeURIComponent(tokenOrId)}`,
-            pdfUrl: `/view/${encodeURIComponent(tokenOrId)}/pdf`
+            mobileViewUrl: appendPaymentTermsPreviewQuery(`/view/${encodeURIComponent(tokenOrId)}`, req),
+            pdfUrl: appendPaymentTermsPreviewQuery(`/view/${encodeURIComponent(tokenOrId)}/pdf`, req)
           });
           res.send(html);
           return;
@@ -827,7 +860,7 @@ router.get('/view2/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
         const initialSolarEstimateData = await buildInitialPublicSolarEstimate(policyInvoice);
         const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, {
           layout,
@@ -862,7 +895,7 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Invoice not found' });
       }
 
-      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
       const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, { forPdf: true });
       // This returns { success: true, downloadUrl: ... }, NOT a buffer
       const pdfResult = await externalPdfService.generatePdf(html);
@@ -894,7 +927,7 @@ router.get('/view2/:tokenOrId/pdf', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Invoice not found' });
       }
 
-      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
       const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, { isPdf: true });
       // This returns { success: true, downloadUrl: ... }, NOT a buffer
       const pdfResult = await externalPdfService.generatePdf(html);
@@ -1123,7 +1156,7 @@ router.get('/proposal/:shareToken', async (req, res) => {
       const invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
 
       if (invoice) {
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
         // Use generateProposalHtml to inject data into the portable-proposal template
         const html = invoiceHtmlGenerator.generateProposalHtml(policyInvoice);
         res.send(html);
@@ -1153,7 +1186,7 @@ router.get('/proposal/:shareToken/pdf', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Proposal not found' });
       }
 
-      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice);
+      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
       // If generateProposalHtml is missing, fallback to generateInvoiceHtml
       const html = invoiceHtmlGenerator.generateInvoiceHtml(policyInvoice, policyInvoice.template, { isPdf: true });
       // This returns { success: true, downloadUrl: ... }, NOT a buffer

@@ -1495,6 +1495,15 @@ function generateInvoiceHtmlA4(invoice, template, options = {}) {
   const locale = options.locale || 'en';
   const copy = getV3Copy(locale);
   const ai4 = (getA4Copy(locale)).a4;
+  const paymentTermsSchedule = getPaymentTermsSchedule(invoice);
+  const paymentTermsPreviewToolbarButton = paymentTermsSchedule.canPreviewCurrentTerms
+    ? `<button class="a4-btn" onclick="const u=new URL(window.location.href);u.searchParams.set('payment_terms_preview','after-2026-07-01');window.location.href=u.toString();" title="After 1 Jul 2026 Preview">After 1 Jul 2026 Preview</button>`
+    : (paymentTermsSchedule.isAfterEffectivePreview
+      ? `<button class="a4-btn" onclick="const u=new URL(window.location.href);u.searchParams.delete('payment_terms_preview');window.location.href=u.toString();" title="Back to Invoice Date Terms">Back to Invoice Date Terms</button>`
+      : '');
+  const paymentTermsPreviewQuery = paymentTermsSchedule.isAfterEffectivePreview
+    ? '&payment_terms_preview=after-2026-07-01'
+    : '';
   const dateLocaleMap = { 'zh-Hans': 'zh-CN', 'ms-MY': 'ms-MY', en: 'en-GB' };
   const dateLocale = dateLocaleMap[locale] || 'en-GB';
   formatDate.locale = dateLocale; // not used (purely informational)
@@ -1585,10 +1594,11 @@ ${renderStyles()}
       </a>
       <span class="a4-toolbar-title">A4 ${escapeHtml(ai4.pageLabel)}</span>
       <span class="a4-toolbar-doc">${escapeHtml(invoice.invoice_number || invoice.bubble_id || '')}</span>
-      <a href="?layout=a4${options.mono ? '' : '&mono=1'}" class="a4-btn" title="${escapeHtml(options.mono ? ai4.colorToggle : ai4.monoToggle)}">
+      <a href="?layout=a4${options.mono ? '' : '&mono=1'}${paymentTermsPreviewQuery}" class="a4-btn" title="${escapeHtml(options.mono ? ai4.colorToggle : ai4.monoToggle)}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
         ${escapeHtml(options.mono ? ai4.colorToggle : ai4.monoToggle)}
       </a>
+      ${paymentTermsPreviewToolbarButton}
     </div>
     <div class="a4-toolbar-r">
       <button class="a4-btn" onclick="window.print()" title="${escapeHtml(ai4.print)}">

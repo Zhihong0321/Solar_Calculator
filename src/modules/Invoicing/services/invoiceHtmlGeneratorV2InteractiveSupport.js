@@ -179,7 +179,10 @@ function buildInvoiceInteractionScript({
           button.disabled = true;
           button.classList.add('opacity-75', 'cursor-not-allowed');
           buttonText.textContent = 'Preparing...';
-          const response = await fetch('/view/' + shareToken + '/pdf');
+          const pdfUrl = new URL('/view/' + shareToken + '/pdf', window.location.origin);
+          const paymentTermsPreview = new URLSearchParams(window.location.search).get('payment_terms_preview');
+          if (paymentTermsPreview) pdfUrl.searchParams.set('payment_terms_preview', paymentTermsPreview);
+          const response = await fetch(pdfUrl.toString());
           const data = await response.json();
           if (data.success && data.downloadUrl) {
             let downloadUrl = data.downloadUrl;
@@ -202,7 +205,12 @@ function buildInvoiceInteractionScript({
       }
 
       function openA4Preview(shareToken) {
-        window.open('/view/' + shareToken + '?layout=a4&mono=1', '_blank', 'noopener');
+        const url = new URL('/view/' + shareToken, window.location.origin);
+        url.searchParams.set('layout', 'a4');
+        url.searchParams.set('mono', '1');
+        const paymentTermsPreview = new URLSearchParams(window.location.search).get('payment_terms_preview');
+        if (paymentTermsPreview) url.searchParams.set('payment_terms_preview', paymentTermsPreview);
+        window.open(url.toString(), '_blank', 'noopener');
       }
 
       async function quickShareInvoice(identifier, invoiceNumber, documentType) {
