@@ -2,6 +2,7 @@
 
 const { parseOptionalCurrency, normalizeSolarEstimateFields } = require('./solarEstimateValues');
 const { buildInvoiceInteractiveSupport } = require('./invoiceHtmlGeneratorV2InteractiveSupport');
+const { getPaymentTermsSchedule } = require('./invoicePaymentTermsPolicy');
 
 function buildTigerNeoProposalUrl(invoice) {
     const invoiceUid = String(invoice.share_token || invoice.bubble_id || invoice.id || '').trim();
@@ -215,6 +216,16 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const bankAccountName = templateData.bank_account_name || '';
     const logoUrl = templateData.logo_url || '/logo-08.png';
     const terms = templateData.terms_and_conditions || '';
+    const paymentTermsSchedule = getPaymentTermsSchedule(invoice);
+    const paymentTermsRowsHtml = paymentTermsSchedule.rows.map((row) => `
+      <div class="payterm-row">
+        <div class="payterm-pct">${row.percent}</div>
+        <div class="payterm-copy">
+          <div class="payterm-title">${row.title}</div>
+          <div class="payterm-desc">${row.description}</div>
+        </div>
+      </div>
+    `).join('');
 
     // Hero number for the dark card
     const heroNumber = `${titleLabel === 'INVOICE' ? 'Total Due' : 'Quoted'}`;
@@ -461,6 +472,12 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
 .pay-l{font-size:9.5px;color:var(--g500);font-weight:700;text-transform:uppercase;letter-spacing:.07em}
 .pay-v{font-size:12px;font-weight:700;color:var(--g900)}
 .pay-v.mono{font-family:var(--mono);font-size:11.5px}
+.payterm-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--g100)}
+.payterm-row:last-child{border-bottom:none}
+.payterm-pct{width:48px;min-width:48px;color:var(--gp);font-size:21px;font-weight:800;line-height:1;font-family:var(--mono);text-align:center}
+.payterm-copy{min-width:0;flex:1}
+.payterm-title{font-size:12px;font-weight:800;color:var(--g900);text-transform:uppercase;letter-spacing:.04em}
+.payterm-desc{font-size:10px;font-weight:600;color:var(--g500);margin-top:2px}
 
 .pkg{background:var(--nb);border-radius:4px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;position:relative;overflow:hidden}
 .pkg::before{content:'';position:absolute;top:0;left:0;width:50px;height:2px;background:var(--sun)}
@@ -935,6 +952,18 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
               <span class="val">${fmtMoney(totalAmount)}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- PAYMENT TERMS -->
+      <div class="sw anim">
+        <div class="sec-label">Payment Terms</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="background:#f8faf8;padding:6px 12px;border-bottom:1px solid var(--g100);display:flex;justify-content:space-between;gap:8px;align-items:center">
+            <span style="font-size:9.5px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.07em">Payment Schedule</span>
+            <span style="font-size:9px;font-weight:700;color:var(--gp);text-transform:uppercase;letter-spacing:.05em">${paymentTermsSchedule.effectiveLabel}</span>
+          </div>
+          ${paymentTermsRowsHtml}
         </div>
       </div>
 

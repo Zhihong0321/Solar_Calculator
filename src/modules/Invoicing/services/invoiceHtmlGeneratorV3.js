@@ -3,6 +3,7 @@ const path = require('path');
 const { normalizeSolarEstimateFields } = require('./solarEstimateValues');
 const { getV3Copy } = require('./invoiceV3Content');
 const { generateInvoiceHtmlA4 } = require('./invoiceHtmlGeneratorA4');
+const { getPaymentTermsSchedule } = require('./invoicePaymentTermsPolicy');
 
 const TIGER_NEO_3_BANNER_DATA_URI = (() => {
   try {
@@ -307,6 +308,7 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
   const earnNowRebateAmount = parseFloat(invoice.earn_now_rebate_amount) || 0;
   const earthMonthGoGreenBonusAmount = parseFloat(invoice.earth_month_go_green_bonus_amount) || 0;
   const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount + cnyPromoAmount + holidayBoostAmount + earnNowRebateAmount + earthMonthGoGreenBonusAmount;
+  const paymentTermsSchedule = getPaymentTermsSchedule(invoice);
 
   const renderLanguageSwitch = () => {
     if (!options.languageSwitchUrls) return '';
@@ -752,6 +754,26 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
             <span class="text-[9px] font-bold uppercase tracking-widest text-secondary">${copy.totals.total}</span>
             <span class="text-4xl font-black tracking-tighter text-primary">${formatMoney(totalAmount)}</span>
           </div>
+        </div>
+      </div>
+
+      <!-- Payment terms -->
+      <div class="px-5 pt-6 pb-2">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary">Payment Terms</p>
+      </div>
+      <div class="overflow-hidden border border-outline-variant/20 bg-surface-container-lowest">
+        <div class="flex items-center justify-between gap-4 border-b border-outline-variant/15 bg-surface-container-low px-5 py-3">
+          <span class="text-[9px] font-bold tracking-widest uppercase text-secondary">Payment Schedule</span>
+          <span class="text-[9px] font-bold tracking-widest uppercase text-primary">${escapeHtml(paymentTermsSchedule.effectiveLabel)}</span>
+        </div>
+        <div class="grid grid-cols-1 gap-px bg-outline-variant/15 sm:grid-cols-3">
+          ${paymentTermsSchedule.rows.map((row) => `
+            <div class="bg-surface-container-lowest px-5 py-4">
+              <p class="font-mono text-3xl font-black leading-none tracking-tighter text-primary">${escapeHtml(row.percent)}</p>
+              <p class="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-on-surface">${escapeHtml(row.title)}</p>
+              <p class="mt-1 text-[10px] font-semibold leading-snug text-on-surface-variant">${escapeHtml(row.description)}</p>
+            </div>
+          `).join('')}
         </div>
       </div>
 

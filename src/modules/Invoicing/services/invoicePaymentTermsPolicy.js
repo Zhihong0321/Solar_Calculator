@@ -19,6 +19,26 @@ const CURRENT_PAYMENT_TERMS_TEXT = [
   '20% Upon Installation Complete: The remaining 20% of the total project cost is due upon the completion of the installation.'
 ].join('\n');
 
+function buildPaymentTermsSchedule(terms) {
+  return [
+    {
+      percent: '5%',
+      title: 'Downpayment',
+      description: 'Upon signing up'
+    },
+    {
+      percent: terms.sedaPercent,
+      title: 'SEDA approval',
+      description: 'Upon SEDA approval'
+    },
+    {
+      percent: terms.installationPercent,
+      title: 'Installation completion',
+      description: 'Upon installation complete'
+    }
+  ];
+}
+
 function pad2(value) {
   return String(value).padStart(2, '0');
 }
@@ -52,6 +72,14 @@ function getInvoicePolicyDateKey(invoice = {}) {
 function shouldUseCurrentPaymentTerms(invoice = {}) {
   const dateKey = getInvoicePolicyDateKey(invoice);
   return Boolean(dateKey && dateKey >= EFFECTIVE_DATE_KEY);
+}
+
+function getPaymentTermsSchedule(invoice = {}) {
+  const useCurrentTerms = shouldUseCurrentPaymentTerms(invoice);
+  return {
+    effectiveLabel: useCurrentTerms ? 'Applies from 1 Jul 2026' : 'Applies before 1 Jul 2026',
+    rows: buildPaymentTermsSchedule(useCurrentTerms ? CURRENT_TERMS : LEGACY_TERMS)
+  };
 }
 
 function replacePaymentPercentages(source, terms) {
@@ -115,6 +143,7 @@ module.exports = {
   applyPaymentTermsPolicy,
   applyPaymentTermsPolicyToInvoice,
   applyPaymentTermsToText,
+  getPaymentTermsSchedule,
   getInvoicePolicyDateKey,
   hasPaymentTermsBlock,
   shouldUseCurrentPaymentTerms

@@ -2,6 +2,7 @@ const assert = require('assert');
 
 const {
   applyPaymentTermsPolicy,
+  getPaymentTermsSchedule,
   shouldUseCurrentPaymentTerms
 } = require('../src/modules/Invoicing/services/invoicePaymentTermsPolicy');
 
@@ -23,6 +24,17 @@ const LEGACY_TERMS_TEXT = [
 function testEffectiveDateBoundary() {
   assert.equal(shouldUseCurrentPaymentTerms({ invoice_date: '2026-06-30' }), false);
   assert.equal(shouldUseCurrentPaymentTerms({ invoice_date: '2026-07-01' }), true);
+}
+
+function testVisibleScheduleUsesSameBoundary() {
+  assert.deepEqual(
+    getPaymentTermsSchedule({ invoice_date: '2026-06-30' }).rows.map((row) => row.percent),
+    ['5%', '60%', '35%']
+  );
+  assert.deepEqual(
+    getPaymentTermsSchedule({ invoice_date: '2026-07-01' }).rows.map((row) => row.percent),
+    ['5%', '75%', '20%']
+  );
 }
 
 function testCurrentTermsAppliedForNewDocuments() {
@@ -79,6 +91,7 @@ function testGenericTermsReceiveCurrentPolicyForNewDocuments() {
 }
 
 testEffectiveDateBoundary();
+testVisibleScheduleUsesSameBoundary();
 testCurrentTermsAppliedForNewDocuments();
 testLegacyTermsRemainForPreviousInvoices();
 testMissingTermsStillShowsCurrentPolicyForNewDocuments();

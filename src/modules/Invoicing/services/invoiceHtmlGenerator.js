@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const { normalizeSolarEstimateFields } = require('./solarEstimateValues');
+const { getPaymentTermsSchedule } = require('./invoicePaymentTermsPolicy');
 
 function buildTigerNeoPresentationUrl(invoice) {
   const presentationPath = '/t3_html_presentation/solar-proposal-2026-tiger-neo-3/';
@@ -136,6 +137,16 @@ function generateInvoiceHtml(invoice, template, options = {}) {
   const bankAccountName = templateData.bank_account_name || '';
   const logoUrl = templateData.logo_url || '';
   const terms = templateData.terms_and_conditions || '';
+  const paymentTermsSchedule = getPaymentTermsSchedule(invoice);
+  const paymentTermsRowsHtml = paymentTermsSchedule.rows.map((row) => `
+    <div class="flex items-center gap-3 border-b border-slate-100 px-3 py-3 last:border-b-0">
+      <div class="w-14 shrink-0 text-center font-mono text-2xl font-black text-emerald-600">${row.percent}</div>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-900">${row.title}</p>
+        <p class="mt-0.5 text-[11px] font-medium text-slate-500">${row.description}</p>
+      </div>
+    </div>
+  `).join('');
 
   // Generate items HTML - Mobile optimized without unit price column
   let itemsHtml = '';
@@ -834,6 +845,16 @@ function generateInvoiceHtml(invoice, template, options = {}) {
         </div>
       </div>
     </div>
+
+    <section class="mb-6">
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="bg-slate-50 border-b border-slate-100 px-3 py-2 flex items-center justify-between gap-3">
+          <p class="label-text mb-0">Payment Terms</p>
+          <p class="text-[9px] font-bold uppercase tracking-wider text-emerald-600">${paymentTermsSchedule.effectiveLabel}</p>
+        </div>
+        ${paymentTermsRowsHtml}
+      </div>
+    </section>
 
     ${terms ? `
     <section class="mb-4 pt-4 border-t border-slate-200">

@@ -7,6 +7,7 @@
 
 const { normalizeSolarEstimateFields } = require('./solarEstimateValues');
 const { getV3Copy } = require('./invoiceV3Content');
+const { getPaymentTermsSchedule } = require('./invoicePaymentTermsPolicy');
 
 /* ----------------------------- helpers ----------------------------- */
 
@@ -550,6 +551,7 @@ function renderDetailsPage({ invoice, template, copy, ai4, components, estimate,
   const hasMasterTec = components.hasMasterTecCable;
   const visibleCount = [hasTigerNeo3, hasSaj, hasMasterTec].filter(Boolean).length;
   const cardLayout = visibleCount === 3 ? 'a4-comp-grid-3' : 'a4-comp-grid-2';
+  const paymentTermsSchedule = getPaymentTermsSchedule(invoice);
 
   return `
     <section class="a4-page a4-page-details">
@@ -665,6 +667,21 @@ function renderDetailsPage({ invoice, template, copy, ai4, components, estimate,
             <span class="a4-section-num">04</span>
             <span class="a4-section-title">${escapeHtml(ai4.paymentDetails)}</span>
             <span class="a4-section-rule"></span>
+          </div>
+          <div class="a4-payment-terms">
+            <div class="a4-payment-terms-head">
+              <span>Payment Schedule</span>
+              <span>${escapeHtml(paymentTermsSchedule.effectiveLabel)}</span>
+            </div>
+            <div class="a4-payment-terms-grid">
+              ${paymentTermsSchedule.rows.map((row) => `
+                <div class="a4-payment-term">
+                  <span class="a4-payment-term-pct">${escapeHtml(row.percent)}</span>
+                  <span class="a4-payment-term-title">${escapeHtml(row.title)}</span>
+                  <span class="a4-payment-term-desc">${escapeHtml(row.description)}</span>
+                </div>
+              `).join('')}
+            </div>
           </div>
           ${(template.bank_name || template.bank_account_no || template.bank_account_name) ? `
             <table class="a4-pay">
@@ -1273,6 +1290,58 @@ function renderStyles() {
         border-collapse: collapse;
         border: 1px solid var(--a4-line);
         font-size: 9.5pt;
+      }
+      .a4-payment-terms {
+        border: 1px solid var(--a4-line);
+        background: #fff;
+        margin-bottom: 8px;
+      }
+      .a4-payment-terms-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--a4-line-soft);
+        background: var(--a4-cream);
+        color: var(--a4-mute);
+        font-size: 7.5pt;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .a4-payment-terms-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .a4-payment-term {
+        min-height: 62px;
+        padding: 9px 8px;
+        border-right: 1px solid var(--a4-line-soft);
+      }
+      .a4-payment-term:last-child { border-right: none; }
+      .a4-payment-term-pct {
+        display: block;
+        color: var(--a4-green);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 18pt;
+        line-height: 1;
+        font-weight: 900;
+      }
+      .a4-payment-term-title {
+        display: block;
+        margin-top: 5px;
+        color: var(--a4-ink);
+        font-size: 8pt;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .a4-payment-term-desc {
+        display: block;
+        margin-top: 2px;
+        color: var(--a4-mute);
+        font-size: 7.5pt;
+        font-weight: 600;
       }
       .a4-pay td {
         padding: 8px 14px;
