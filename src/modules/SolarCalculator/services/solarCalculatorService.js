@@ -843,6 +843,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
             billAfter: afterBillBaseline !== null ? afterBillBaseline.toFixed(2) : null,
             estimatedPayableAfterSolar: estimatedPayableAfterSolarBaseline.toFixed(2),
             usageAfter: afterUsageMatchedBaseline !== null ? afterUsageMatchedBaseline.toFixed(2) : null,
+            netUsageKwh: netUsageBaseline.toFixed(2),
             actualUsageForEeiKwh: netImportBaselineKwh.toFixed(2),
             actualUsageForEeiLookupKwh: netImportBaselineForLookup,
             actualEeiRatePerKwh: actualEeiRateBaseline.toFixed(6),

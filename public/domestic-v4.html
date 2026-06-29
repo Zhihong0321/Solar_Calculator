@@ -2417,7 +2417,7 @@
                         <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid #f3f4f6', marginBottom: 10 }}>
                             {[
                                 { label: '无solar net import', value: `${fmt(solarResult.details?.monthlyUsageKwh || 0)} kWh` },
-                                { label: 'Solar Offset 后 net Import', value: `${fmt(solarResult.details?.battery?.baseline?.actualUsageForEeiKwh || 0)} kWh` },
+                                { label: 'Solar Offset 后 net Import', value: `${fmt(solarResult.details?.battery?.baseline?.netUsageKwh || solarResult.details?.battery?.baseline?.actualUsageForEeiKwh || 0)} kWh` },
                                 { label: 'Solar + Battery 后 net import', value: `${fmt(battery.netUsageKwh || 0)} kWh` },
                                 { label: '有效储能 (DoD + 损耗后)', value: `${fmt(battery.effectiveStorageKwh || 0)} kWh` },
                                 { label: '每日可用输出太阳能', value: `${fmt(solarResult.details?.battery?.dailyNonOffsetSolarKwh || 0)} kWh` },
