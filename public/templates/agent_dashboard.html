@@ -756,6 +756,18 @@
               Admin Review
             </p>
           </a>
+
+          <a href="/support-tickets" id="supportTicketCard" class="tool-card hidden">
+            <div class="tool-icon bg-blue-50 text-blue-600 hover:bg-blue-600 transition-colors">
+              <i class="fa-solid fa-headset text-2xl"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900 text-center">
+              Support Tickets
+            </h3>
+            <p class="text-[10px] text-slate-400 font-medium mt-1 text-center">
+              Customer Ticket Management
+            </p>
+          </a>
         </div>
       </section>
     </div>
@@ -882,6 +894,12 @@
         if (accessLevels.includes("engineering") || accessLevels.includes("admin") || accessLevels.includes("superadmin") || accessLevels.includes("ceo") || accessLevels.includes("project")) {
             const bugCard = document.getElementById("bugDashboardCard");
             if (bugCard) bugCard.classList.remove("hidden");
+        }
+
+        // Check access level for Support Tickets
+        if (accessLevels.includes("engineering") || accessLevels.includes("admin") || accessLevels.includes("superadmin") || accessLevels.includes("ceo") || accessLevels.includes("project") || accessLevels.includes("support")) {
+            const supportTicketCard = document.getElementById("supportTicketCard");
+            if (supportTicketCard) supportTicketCard.classList.remove("hidden");
         }
 
         if (accessLevels.includes("hr") || accessLevels.includes("admin") || accessLevels.includes("superadmin") || accessLevels.includes("hod") || accessLevels.includes("kc") || accessLevels.includes("sales-manager")) {

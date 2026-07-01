@@ -27,6 +27,7 @@ const ActivityReportV2 = require('./src/modules/ActivityReportV2');
 const Health = require('./src/modules/Health');
 const BugReport = require('./src/modules/BugReport');
 const HostedHtml = require('./src/modules/HostedHtml');
+const SupportTicket = require('./src/modules/SupportTicket');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -95,6 +96,7 @@ app.use(ActivityReportV2.router);
 app.use(Health.router);
 app.use(HostedHtml.router);
 app.use('/api/v1/bug', BugReport.bugRoutes);
+app.use(SupportTicket.router);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
@@ -621,6 +623,10 @@ app.get('/bug-dashboard', requireAuth, (req, res) => {
 
 app.get('/bug-chat', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'bug_chat.html'));
+});
+
+app.get('/support-tickets', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'support_tickets.html'));
 });
 
 // ── Hosted HTML Apps ───────────────────────────────────────────────────────
