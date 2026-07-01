@@ -2,6 +2,16 @@ const pool = require('../../core/database/pool');
 
 const BUBBLE_ENDPOINT = 'https://eternalgy.com/api/1.1/obj/support_ticket';
 const VALID_STATUSES = ['unread', 'read by support', 'processing', 'solved'];
+const BAILEYS_API_URL = 'https://ee-baileys-production.up.railway.app';
+const BAILEYS_SESSION_ID = 'eternalgy-auth';
+
+function normalizeMyPhoneNumber(raw) {
+  const digits = String(raw || '').replace(/[^0-9]/g, '');
+  if (!digits) return null;
+  if (digits.startsWith('60')) return digits;
+  if (digits.startsWith('0')) return `60${digits.slice(1)}`;
+  return digits;
+}
 
 class SupportTicketService {
   ADMIN_ROLES = ['admin', 'superadmin', 'engineering', 'project', 'ceo', 'support'];
@@ -106,6 +116,71 @@ class SupportTicketService {
       [created_by ?? null, link_customer ?? null, problem_description ?? null, title.trim(), images ?? null]
     );
     return result.rows[0];
+  }
+
+  async getSupportTeamContacts() {
+    const result = await pool.query(
+      `SELECT id, name, contact
+       FROM "user"
+       WHERE 'support' = ANY(access_level)
+         AND contact IS NOT NULL
+         AND contact <> ''`
+    );
+    return result.rows;
+  }
+
+  async sendWhatsAppNotification(to, text) {
+    const response = await fetch(`${BAILEYS_API_URL}/messages/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: BAILEYS_SESSION_ID,
+        to,
+        text,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `WhatsApp send failed with status ${response.status}`);
+    }
+    return payload;
+  }
+
+  async notifySupportTeam(ticket) {
+    const contacts = await this.getSupportTeamContacts();
+    if (!contacts.length) return { sent: 0, failed: 0 };
+
+    const message = [
+      '🎫 New Support Ticket',
+      '',
+      `Title: ${ticket.title || 'Untitled'}`,
+      ticket.customer_name ? `Customer: ${ticket.customer_name}` : null,
+      '',
+      ticket.problem_description || '',
+      '',
+      'View: https://calculator.atap.solar/support-tickets',
+    ].filter((line) => line !== null).join('\n');
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const contact of contacts) {
+      const to = normalizeMyPhoneNumber(contact.contact);
+      if (!to) {
+        failed += 1;
+        continue;
+      }
+      try {
+        await this.sendWhatsAppNotification(to, message);
+        sent += 1;
+      } catch (err) {
+        console.error(`[SupportTicket] WhatsApp notify failed for ${contact.name} (${to}):`, err.message);
+        failed += 1;
+      }
+    }
+
+    return { sent, failed };
   }
 
   async updateTicket(id, { status, technician_remark }) {

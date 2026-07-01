@@ -107,6 +107,10 @@ exports.createTicket = async (req, res) => {
     });
 
     res.json({ success: true, ticket });
+
+    supportTicketService.getTicketById(ticket.id)
+      .then((enriched) => supportTicketService.notifySupportTeam(enriched || ticket))
+      .catch((err) => console.error('[SupportTicket] Notify support team failed:', err.message));
   } catch (err) {
     console.error('[SupportTicket] Create error:', err);
     res.status(400).json({ error: err.message || 'Failed to submit support ticket' });
