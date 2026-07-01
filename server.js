@@ -629,6 +629,10 @@ app.get('/support-tickets', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'support_tickets.html'));
 });
 
+app.get('/submit-support-ticket', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'submit_support_ticket.html'));
+});
+
 // ── Hosted HTML Apps ───────────────────────────────────────────────────────
 app.get('/hosted-html', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'hosted_html_manager.html'));

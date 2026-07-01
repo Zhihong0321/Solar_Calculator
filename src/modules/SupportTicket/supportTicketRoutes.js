@@ -25,6 +25,8 @@ const requireAdmin = async (req, res, next) => {
 };
 
 router.get('/api/support-tickets', requireAuth, requireAdmin, supportTicketController.listTickets);
+router.post('/api/support-tickets', requireAuth, supportTicketController.uploadImages, supportTicketController.createTicket);
+router.get('/api/support-tickets/mine', requireAuth, supportTicketController.listMyTickets);
 router.get('/api/support-tickets/:id', requireAuth, requireAdmin, supportTicketController.getTicket);
 router.patch('/api/support-tickets/:id', requireAuth, requireAdmin, supportTicketController.updateTicket);
 router.post('/api/support-tickets/sync', requireAuth, requireAdmin, supportTicketController.syncFromBubble);

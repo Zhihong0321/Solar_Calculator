@@ -18,7 +18,7 @@ class SupportTicketService {
     if (search) {
       params.push(`%${search}%`);
       const idx = params.length;
-      conditions.push(`(st.title ILIKE $${idx} OR st.problem_description ILIKE $${idx} OR cp.name ILIKE $${idx})`);
+      conditions.push(`(st.title ILIKE $${idx} OR st.problem_description ILIKE $${idx} OR COALESCE(cp.name, c.name) ILIKE $${idx})`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -37,11 +37,12 @@ class SupportTicketService {
         st.images,
         st.created_date,
         st.modified_date,
-        cp.name AS customer_name,
-        cp.contact AS customer_contact,
+        COALESCE(cp.name, c.name) AS customer_name,
+        COALESCE(cp.contact, c.phone) AS customer_contact,
         u.name AS creator_name
       FROM support_ticket st
       LEFT JOIN customer_profile cp ON cp.bubble_id = st.link_customer
+      LEFT JOIN customer c ON c.customer_id = st.link_customer
       LEFT JOIN "user" u ON u.bubble_id = st.created_by
       ${where}
       ORDER BY st.created_date DESC
@@ -52,21 +53,59 @@ class SupportTicketService {
     return result.rows;
   }
 
+  async listMyTickets(createdBy) {
+    const result = await pool.query(
+      `SELECT
+        st.id,
+        st.title,
+        st.status,
+        st.problem_description,
+        st.technician_remark,
+        st.images,
+        st.created_date,
+        st.modified_date,
+        COALESCE(cp.name, c.name) AS customer_name
+       FROM support_ticket st
+       LEFT JOIN customer_profile cp ON cp.bubble_id = st.link_customer
+       LEFT JOIN customer c ON c.customer_id = st.link_customer
+       WHERE st.created_by = $1
+       ORDER BY st.created_date DESC`,
+      [createdBy]
+    );
+    return result.rows;
+  }
+
   async getTicketById(id) {
     const result = await pool.query(
       `SELECT
         st.*,
-        cp.name AS customer_name,
-        cp.contact AS customer_contact,
-        cp.address AS customer_address,
+        COALESCE(cp.name, c.name) AS customer_name,
+        COALESCE(cp.contact, c.phone) AS customer_contact,
+        COALESCE(cp.address, c.address) AS customer_address,
         u.name AS creator_name
        FROM support_ticket st
        LEFT JOIN customer_profile cp ON cp.bubble_id = st.link_customer
+       LEFT JOIN customer c ON c.customer_id = st.link_customer
        LEFT JOIN "user" u ON u.bubble_id = st.created_by
        WHERE st.id = $1`,
       [id]
     );
     return result.rows[0] || null;
+  }
+
+  async createTicket({ title, problem_description, link_customer, created_by, images }) {
+    if (!title || !title.trim()) {
+      throw new Error('Title is required');
+    }
+
+    const result = await pool.query(
+      `INSERT INTO support_ticket
+        (created_date, modified_date, created_by, link_customer, problem_description, technician_remark, status, title, images)
+       VALUES (NOW(), NOW(), $1, $2, $3, NULL, 'unread', $4, $5)
+       RETURNING *`,
+      [created_by ?? null, link_customer ?? null, problem_description ?? null, title.trim(), images ?? null]
+    );
+    return result.rows[0];
   }
 
   async updateTicket(id, { status, technician_remark }) {

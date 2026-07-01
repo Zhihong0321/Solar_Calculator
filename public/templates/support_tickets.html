@@ -193,7 +193,7 @@
             const images = Array.isArray(ticket.images) ? ticket.images : [];
             const imageHtml = images.length ? `
                 <div class="grid grid-cols-3 gap-2">
-                    ${images.map(url => `<a href="https:${url}" target="_blank"><img src="https:${url}" class="w-full h-20 object-cover rounded-lg border border-gray-200"></a>`).join('')}
+                    ${images.map(url => { const full = resolveImageUrl(url); return `<a href="${full}" target="_blank"><img src="${full}" class="w-full h-20 object-cover rounded-lg border border-gray-200"></a>`; }).join('')}
                 </div>
             ` : '';
 
@@ -263,6 +263,11 @@
             } finally {
                 btn.classList.remove('animate-spin');
             }
+        }
+
+        function resolveImageUrl(url) {
+            if (!url) return '';
+            return url.startsWith('//') ? `https:${url}` : url;
         }
 
         function formatDate(date) {
