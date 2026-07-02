@@ -69,8 +69,21 @@
 
             <div>
                 <label class="block text-xs text-gray-500 uppercase font-semibold mb-1">Title <span class="text-red-500">*</span></label>
-                <input type="text" id="titleInput" required placeholder="e.g. Inverter not turning on"
-                       class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                <select id="titleSelect" required
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-emerald-500 outline-none">
+                    <option value="" disabled selected>Select issue type...</option>
+                    <option>Water Leaking</option>
+                    <option>Electrical Issue</option>
+                    <option>Inverter Issue</option>
+                    <option>Installation Issue</option>
+                    <option>High Electricity Bill Issue</option>
+                    <option>Monitoring / WiFi Issue</option>
+                    <option>Generation Issue</option>
+                    <option>Battery Issue</option>
+                    <option>Others</option>
+                </select>
+                <input type="text" id="titleInput" placeholder="Describe your issue title..."
+                       class="hidden w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none mt-2">
             </div>
 
             <div>
@@ -193,6 +206,15 @@
             });
         });
 
+        document.getElementById('titleSelect').addEventListener('change', (e) => {
+            const customTitle = document.getElementById('titleInput');
+            const isOthers = e.target.value === 'Others';
+            customTitle.classList.toggle('hidden', !isOthers);
+            customTitle.required = isOthers;
+            if (isOthers) customTitle.focus();
+            else customTitle.value = '';
+        });
+
         document.getElementById('ticketForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const submitBtn = document.getElementById('submitBtn');
@@ -201,7 +223,10 @@
             successMsg.classList.add('hidden');
             errorMsg.classList.add('hidden');
 
-            const title = document.getElementById('titleInput').value.trim();
+            const titleChoice = document.getElementById('titleSelect').value;
+            const title = titleChoice === 'Others'
+                ? document.getElementById('titleInput').value.trim()
+                : titleChoice;
             const description = document.getElementById('descriptionInput').value.trim();
             const files = document.getElementById('imageInput').files;
 
@@ -222,6 +247,8 @@
                 if (json.success) {
                     successMsg.classList.remove('hidden');
                     document.getElementById('ticketForm').reset();
+                    document.getElementById('titleInput').classList.add('hidden');
+                    document.getElementById('titleInput').required = false;
                     document.getElementById('thumbList').innerHTML = '';
                     clearCustomer();
                 } else {
