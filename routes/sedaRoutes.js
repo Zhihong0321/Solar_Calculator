@@ -273,6 +273,7 @@ const FILE_FIELDS = {
     ssm_registration: { label: 'SSM Registration',      accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'ssm_registration'          },
     ssm_form_9:     { label: 'SSM Form 9',              accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'ssm_form_9'                },
     ssm_form_49:    { label: 'SSM Form 49',             accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'ssm_form_49'               },
+    company_stamp:  { label: 'Company Stamp',           accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'company_stamp'            },
 };
 
 // One multer uploader per field type avoids re-creating multer on each request.
