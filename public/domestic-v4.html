@@ -2372,11 +2372,12 @@
             );
         }
 
-        function BatteryV2Card({ solarResult, batterySize, afaRate, onChangeAfa, updating }) {
+        function BatteryV2Card({ solarResult, batterySize, afaRate, originalBill, onChangeAfa, updating }) {
             const [showReveal, setShowReveal] = useState(false);
             const [showBillPopup, setShowBillPopup] = useState(false);
             const battery = solarResult.details?.batteryV2 || {};
-            const beforeBill = toNumber(solarResult.details?.billBefore);
+            const afaAdjustedBeforeBill = toNumber(solarResult.details?.billBefore);
+            const originalBillBeforeProjectedAfa = toNumber(originalBill, afaAdjustedBeforeBill);
             const afaSen = toNumber(afaRate) * 100;
             const originalImportKwh = toNumber(solarResult.details?.monthlyUsageKwh);
             const netImportAfterSolarKwh = toNumber(
@@ -2389,6 +2390,10 @@
             const exportAfterBatteryKwh = toNumber(battery.exportKwh);
             const exportAfterBatteryAmount = toNumber(battery.exportEarningsRaw);
             const afaAdjustmentAmount = toNumber(battery.billBreakdown?.afa);
+            const afaIncreaseBillAmount = afaAdjustmentAmount;
+            const afaIncreaseSavingAmount = batteryDischargeKwh * toNumber(afaRate);
+            const afaEffectiveSavingAdjustment = afaIncreaseSavingAmount - afaIncreaseBillAmount;
+            const formatSignedRm = (value) => `${value >= 0 ? '+RM ' : '-RM '}${fmt(Math.abs(value))}`;
 
             return (
                 <SectionWrap>
@@ -2512,7 +2517,7 @@
                                 </div>
                                 <div style={{ flex: 1, textAlign: 'right' }}>
                                     <div style={{ fontSize: 11, color: '#6b7280' }}>原账单</div>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(beforeBill)}</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(afaAdjustedBeforeBill)}</div>
                                 </div>
                             </div>
                             
@@ -2529,7 +2534,7 @@
                                 </div>
                                 <div style={{ flex: 1, textAlign: 'right' }}>
                                     <div style={{ fontSize: 11, color: '#6b7280' }}>原账单</div>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(beforeBill)}</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>RM {fmt(afaAdjustedBeforeBill)}</div>
                                 </div>
                             </div>
                         </div>
@@ -2576,7 +2581,15 @@
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14, color: '#374151' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                                             <span>1. Original bill</span>
-                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>RM {fmt(beforeBill)}</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>
+                                                RM {fmt(originalBillBeforeProjectedAfa)}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, color: '#6b7280', fontSize: 12, marginTop: -4 }}>
+                                            <span>AFA-adjusted original bill used for calculation</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>
+                                                RM {fmt(afaAdjustedBeforeBill)}
+                                            </span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                                             <span>2. Original total import</span>
@@ -2590,6 +2603,10 @@
                                             <span>4. Battery discharge</span>
                                             <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>{fmt(batteryDischargeKwh)} kWh</span>
                                         </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, color: '#6b7280', fontSize: 12, marginTop: -4 }}>
+                                            <span>New import (solar + battery)</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>{fmt(netImportAfterBatteryKwh)} kWh</span>
+                                        </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                                             <span>5. New bill after solar + battery</span>
                                             <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>RM {fmt(billAfterSolarBattery)}</span>
@@ -2599,8 +2616,20 @@
                                             <span style={{ fontWeight: 700, color: '#16a34a', textAlign: 'right' }}>{fmt(exportAfterBatteryKwh)} kWh = RM {fmt(exportAfterBatteryAmount)}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                            <span>7. AFA factor and adjustment</span>
-                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>{afaSen >= 0 ? '+' : ''}{afaSen.toFixed(2)} sen/kWh = RM {fmt(afaAdjustmentAmount)}</span>
+                                            <span>7. AFA factor</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>{afaSen >= 0 ? '+' : ''}{afaSen.toFixed(2)} sen/kWh</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, color: '#6b7280', fontSize: 12, marginTop: -4 }}>
+                                            <span>AFA increase bill</span>
+                                            <span style={{ fontWeight: 700, color: '#dc2626', textAlign: 'right' }}>{formatSignedRm(afaIncreaseBillAmount)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, color: '#6b7280', fontSize: 12, marginTop: -4 }}>
+                                            <span>AFA increase saving</span>
+                                            <span style={{ fontWeight: 700, color: '#16a34a', textAlign: 'right' }}>{formatSignedRm(afaIncreaseSavingAmount)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, color: '#6b7280', fontSize: 12, marginTop: -4 }}>
+                                            <span>AFA effective saving adjustment</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>RM {fmt(afaEffectiveSavingAdjustment)}</span>
                                         </div>
                                         <div style={{ height: 1, background: '#e5e7eb', margin: '4px 0' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 18, color: '#111827' }}>
@@ -2700,7 +2729,7 @@
                                             <div>Export rate: RM {fmt(battery.effectiveExportRate || 0, 4)} (threshold: original usage ≥ 1501 kWh)</div>
                                             <div>Export income: RM {fmt(battery.exportEarningsRaw || 0)}</div>
                                             <div>Credit bank (expires next month): {fmt(battery.creditBankKwh || 0)} kWh</div>
-                                            <div style={{ marginTop: 8, fontWeight: 700 }}>Total V2 saving = (RM {fmt(beforeBill)} − RM {fmt(battery.billAfter || 0)}) + RM {fmt(battery.exportEarningsRaw || 0)} = RM {fmt(battery.totalSavings || 0)}</div>
+                                            <div style={{ marginTop: 8, fontWeight: 700 }}>Total V2 saving = (RM {fmt(afaAdjustedBeforeBill)} − RM {fmt(battery.billAfter || 0)}) + RM {fmt(battery.exportEarningsRaw || 0)} = RM {fmt(battery.totalSavings || 0)}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -3199,6 +3228,7 @@
                                 solarResult={solarResult}
                                 batterySize={inputs.batterySize}
                                 afaRate={inputs.afaRate}
+                                originalBill={billBreakdown?.total}
                                 onChangeAfa={handleBatteryAfaChange}
                                 updating={batteryUpdating}
                             />
