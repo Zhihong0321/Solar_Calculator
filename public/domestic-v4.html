@@ -2378,6 +2378,17 @@
             const battery = solarResult.details?.batteryV2 || {};
             const beforeBill = toNumber(solarResult.details?.billBefore);
             const afaSen = toNumber(afaRate) * 100;
+            const originalImportKwh = toNumber(solarResult.details?.monthlyUsageKwh);
+            const netImportAfterSolarKwh = toNumber(
+                solarResult.details?.battery?.baseline?.netUsageKwh,
+                solarResult.details?.battery?.baseline?.actualUsageForEeiKwh
+            );
+            const batteryDischargeKwh = toNumber(battery.monthlyBatteryDischargeKwh);
+            const netImportAfterBatteryKwh = toNumber(battery.netUsageKwh);
+            const billAfterSolarBattery = toNumber(battery.billAfter);
+            const exportAfterBatteryKwh = toNumber(battery.exportKwh);
+            const exportAfterBatteryAmount = toNumber(battery.exportEarningsRaw);
+            const afaAdjustmentAmount = toNumber(battery.billBreakdown?.afa);
 
             return (
                 <SectionWrap>
@@ -2563,51 +2574,42 @@
                                     </div>
                                     
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14, color: '#374151' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>Usage Charge</span>
-                                            <span>RM {fmt(battery.billBreakdown.usage || 0)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                            <span>1. Original bill</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>RM {fmt(beforeBill)}</span>
                                         </div>
-                                        {battery.billBreakdown.network > 0 && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>Network Charge</span>
-                                            <span>RM {fmt(battery.billBreakdown.network || 0)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                            <span>2. Original total import</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>{fmt(originalImportKwh)} kWh</span>
                                         </div>
-                                        )}
-                                        {battery.billBreakdown.capacity > 0 && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>Capacity Charge</span>
-                                            <span>RM {fmt(battery.billBreakdown.capacity || 0)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                            <span>3. After solar offset, new net import</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>{fmt(netImportAfterSolarKwh)} kWh</span>
                                         </div>
-                                        )}
-                                        {battery.billBreakdown.sst > 0 && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>SST</span>
-                                            <span>RM {fmt(battery.billBreakdown.sst || 0)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                            <span>4. Battery discharge</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>{fmt(batteryDischargeKwh)} kWh</span>
                                         </div>
-                                        )}
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>ICPT / Fuel Adj</span>
-                                            <span>RM {fmt(battery.billBreakdown.afa || 0)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                            <span>5. New bill after solar + battery</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>RM {fmt(billAfterSolarBattery)}</span>
                                         </div>
-                                        {battery.billBreakdown.eei > 0 && (
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a' }}>
-                                                <span>EEI Deduction</span>
-                                                <span>-RM {fmt(battery.billBreakdown.eei || 0)}</span>
-                                            </div>
-                                        )}
-                                        <div style={{ height: 1, background: '#e5e7eb', margin: '4px 0' }}></div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#111827' }}>
-                                            <span>Bill After Solar+Battery (Before Export)</span>
-                                            <span>RM {fmt(battery.billAfter || 0)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                            <span>6. Solar export after battery</span>
+                                            <span style={{ fontWeight: 700, color: '#16a34a', textAlign: 'right' }}>{fmt(exportAfterBatteryKwh)} kWh = RM {fmt(exportAfterBatteryAmount)}</span>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: 700 }}>
-                                            <span>Export Earnings Deduction</span>
-                                            <span>-RM {fmt(battery.exportEarningsRaw || 0)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                            <span>7. AFA factor and adjustment</span>
+                                            <span style={{ fontWeight: 700, color: '#111827', textAlign: 'right' }}>{afaSen >= 0 ? '+' : ''}{afaSen.toFixed(2)} sen/kWh = RM {fmt(afaAdjustmentAmount)}</span>
                                         </div>
                                         <div style={{ height: 1, background: '#e5e7eb', margin: '4px 0' }}></div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 18, color: '#111827' }}>
                                             <span>Final Payable</span>
                                             <span>RM {fmt(battery.estimatedPayableAfterSolar || 0)}</span>
+                                        </div>
+                                        <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.45 }}>
+                                            Final payable = new bill after solar + battery minus export earnings.
+                                            Net import after battery: {fmt(netImportAfterBatteryKwh)} kWh.
                                         </div>
                                         
                                         {toNumber(battery.exportEarningsRaw) > toNumber(battery.billAfter) && (
