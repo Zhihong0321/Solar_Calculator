@@ -1206,20 +1206,34 @@
                                 </div>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                                <div>
-                                    <FieldLabel>AFA Projection</FieldLabel>
-                                    <TextField value={inputs.afaRate} onChange={(value) => setInputs((prev) => ({ ...prev, afaRate: value }))} />
+                            <div>
+                                <FieldLabel>
+                                    AFA Projection ({toNumber(inputs.afaRate) >= 0 ? '+' : ''}{(toNumber(inputs.afaRate) * 100).toFixed(2)} sen/kWh)
+                                </FieldLabel>
+                                <input
+                                    type="range"
+                                    min="-6"
+                                    max="6"
+                                    step="0.01"
+                                    value={(toNumber(inputs.afaRate) * 100).toFixed(2)}
+                                    onChange={(event) => setInputs((prev) => ({ ...prev, afaRate: (parseFloat(event.target.value) / 100).toFixed(4) }))}
+                                    style={{ width: '100%', accentColor: ACCENT.primary }}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
+                                    <span>-6.00 sen</span>
+                                    <span>+6.00 sen</span>
                                 </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                 <div>
                                     <FieldLabel>Discount %</FieldLabel>
                                     <TextField value={inputs.percentDiscount} onChange={(value) => setInputs((prev) => ({ ...prev, percentDiscount: value }))} />
                                 </div>
-                            </div>
-
-                            <div>
-                                <FieldLabel>Fixed Discount (RM)</FieldLabel>
-                                <TextField prefix="RM" value={inputs.fixedDiscount} onChange={(value) => setInputs((prev) => ({ ...prev, fixedDiscount: value }))} />
+                                <div>
+                                    <FieldLabel>Fixed Discount (RM)</FieldLabel>
+                                    <TextField prefix="RM" value={inputs.fixedDiscount} onChange={(value) => setInputs((prev) => ({ ...prev, fixedDiscount: value }))} />
+                                </div>
                             </div>
 
                             <div style={{

@@ -103,12 +103,6 @@ app.use(express.static('public'));
 app.get('/v2-part-1.jpg', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'slide-001.webp'));
 });
-app.get('/domestic-mobile', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'domestic-mobile.html'));
-});
-app.get('/legacy-domestic', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'domestic.html'));
-});
 app.get('/battery_guide', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'battery-explanation-opus.html'));
 });
@@ -320,88 +314,8 @@ app.get('/domestic', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic-v4.html'));
 });
 
-app.get('/domestic-legacy', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'domestic-mobile.html'));
-});
-
-app.get('/domestic-v3', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'domestic-v3.html'));
-});
-
 app.get('/domestic-v4', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'domestic-v4.html'));
-});
-
-// ── /domestic-preview ────────────────────────────────────────────────────────
-// Serves domestic-mobile.html with an injected autorun script.
-// Reads ?bill=500 and auto-runs the full calculation end-to-end.
-// Designed for Claude-Design AI / prod design review without touching the real page.
-app.get('/domestic-preview', (req, res) => {
-  const htmlPath = path.join(__dirname, 'public', 'domestic-mobile.html');
-  fs.readFile(htmlPath, 'utf8', (err, html) => {
-    if (err) return res.status(500).send('Preview unavailable');
-
-    // Remove all JS lock classes so layout is exposed immediately
-    let injected = html
-        .replace(/class="card locked collapsed"/g, 'class="card"')
-        .replace(/class="card locked"/g, 'class="card"');
-
-    // Hide spinners
-    injected = injected.replace('</head>', '<style>.loading-spinner { display: none !important; }</style></head>');
-
-    // Inject bare minimum structural html into the bodies so they don't look completely empty if JS fails
-    const mockBill = `<div style="padding:20px;text-align:center;color:#666;font-style:italic;">Calculated bill breakdown (Content generated dynamically)</div>`;
-    const mockRoi = `<div style="padding:20px;text-align:center;color:#666;font-style:italic;">ROI Matrix Comparison (Content generated dynamically)</div>`;
-    const mockDetailed = `<div style="padding:20px;text-align:center;color:#666;font-style:italic;">Detailed System Info (Content generated dynamically)</div>`;
-    
-    // Attempt basic string injection for the empty bodies
-    injected = injected.replace(/(id="billBreakdownBody">)[\s\S]*?(<\/div>\s*<!-- \/card2 -->)/, `$1${mockBill}$2`);
-    injected = injected.replace(/(id="roiResultBody">)[\s\S]*?(<\/div>\s*<!-- \/card4 -->)/, `$1${mockRoi}$2`);
-    injected = injected.replace(/(id="detailedBody">)[\s\S]*?(<\/div>\s*<!-- \/card5 -->)/, `$1${mockDetailed}$2`);
-
-    // Extract bill param — accept ?bill=500 or ?bill=rm500
-    const rawBill = (req.query.bill || '').toString().replace(/[^0-9.]/gi, '');
-    const billAmount = parseFloat(rawBill) > 0 ? rawBill : '';
-
-    const autorunScript = `
-<script>
-(function() {
-  const _bill = ${JSON.stringify(billAmount)};
-  if (!_bill) return;
-
-  async function autoRun() {
-    try {
-      const billEl = document.getElementById('billAmount');
-      if (billEl) {
-        billEl.value = _bill;
-        billEl.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      
-      // Trigger API calculations synchronously if available to fill the actual data
-      if (typeof handleBillAnalysis === 'function') await handleBillAnalysis();
-      if (typeof handleROIGenerate === 'function') await handleROIGenerate();
-
-      const card4 = document.getElementById('card4');
-      if (card4) card4.scrollIntoView({ behavior: 'instant', block: 'start' });
-    } catch(e) {
-      console.error('[Preview] autoRun failed:', e);
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', autoRun);
-  } else {
-    autoRun();
-  }
-})();
-</script>
-</body>`;
-
-    injected = injected.replace('</body>', autorunScript);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-store');
-    res.send(injected);
-  });
 });
 
 app.get('/eei-optimizer', (req, res) => {

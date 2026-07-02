@@ -55,5 +55,8 @@ temp/
 
 _legacy/
 
+# Archived / retired calculator pages (kept locally, not tracked)
+archived/
+
 # MCP config (may contain API keys)
 .mcp.json
