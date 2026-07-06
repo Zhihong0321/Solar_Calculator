@@ -536,6 +536,8 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
 .pre-site-alert-lbl{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--et);margin-bottom:4px}
 .pre-site-alert h4{font-family:var(--f);font-size:14px;font-weight:700;color:#7f1d1d;margin-bottom:3px;line-height:1.25}
 .pre-site-alert p{font-size:11px;color:#7f1d1d;line-height:1.5;margin:0}
+.pre-site-alert-btn{margin-top:8px;padding:7px 12px;background:#fff;border:1.5px solid var(--et);color:var(--et);border-radius:4px;font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;font-family:var(--f);transition:all .15s}
+.pre-site-alert-btn:hover{background:var(--et);color:#fff}
 
 /* === Certifications · minimal mono === */
 .certifications{background:#fff;border:1px solid var(--g200);border-radius:6px;padding:10px 12px 10px;margin-top:6px;break-inside:avoid;page-break-inside:avoid}
@@ -579,6 +581,10 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
 .sig-action-confirm{flex:2;padding:9px 12px;background:var(--g900);color:#fff;border:0;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;font-family:var(--f);display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,.12);transition:all .15s}
 .sig-action-confirm:hover{background:#000}
 .sig-action-confirm:disabled{opacity:.6;cursor:not-allowed}
+.sv-field{margin-bottom:10px}
+.sv-field label{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--g500);margin-bottom:4px}
+.sv-field input{width:100%;padding:9px 10px;border:1.5px solid var(--g300);border-radius:var(--r-input);font-size:13px;font-family:var(--f);color:var(--g900)}
+.sv-field input:focus{outline:none;border-color:var(--g900)}
 
 /* === Animations === */
 @keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -696,6 +702,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
           <div class="pre-site-alert-lbl">Important Commercial Notice</div>
           <h4>Pre-Site-Visit Quotation</h4>
           <p>This quotation is preliminary and the quoted price is not final. Final pricing is subject to site visit findings, technical assessment, and scope confirmation.</p>
+          ${effectiveViewerAuthenticated ? `<button type="button" class="pre-site-alert-btn no-print" onclick="openSiteVisitModal()">Schedule Site Visit</button>` : ''}
         </div>
       </div>
       ` : ''}

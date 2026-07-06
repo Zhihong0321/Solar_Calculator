@@ -53,6 +53,32 @@ function hasKeyword(text, keyword) {
   return String(text || '').toLowerCase().includes(String(keyword || '').toLowerCase());
 }
 
+function normalizeInvoicePackageType(...rawValues) {
+  const values = rawValues
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
+
+  if (values.length === 0) return '';
+
+  const hasCommercialSignal = values.some((value) => (
+    value === 'commercial'
+    || value === 'tariff b&d low voltage'
+    || value === 'non-resi'
+    || value === 'non_resi'
+    || value === 'non residential'
+    || value === 'non-residential'
+    || value.includes('commercial')
+    || value.includes('tariff b&d')
+    || value.includes('low voltage')
+    || value.includes('non residential')
+    || value.includes('non-residential')
+    || value.includes('non domestic')
+    || value.includes('non-domestic')
+  ));
+
+  return hasCommercialSignal ? 'commercial' : values[0];
+}
+
 /* --------------------------- copy helpers -------------------------- */
 
 function getA4Copy(locale) {
@@ -137,7 +163,10 @@ function getA4Copy(locale) {
         notes: '备注',
         itemsEmpty: '暂无明细项目。',
         noPayment: '未提供付款信息。',
-        noTerms: '未提供条款。'
+        noTerms: '未提供条款。',
+        preSiteNoticeLabel: '重要商业须知',
+        preSiteNoticeTitle: '现场勘察前报价',
+        preSiteNoticeBody: '此报价为初步报价，最终价格并非定案。最终价格须视现场勘察结果、技术评估及范围确认而定。'
       }
     };
   }
@@ -218,7 +247,10 @@ function getA4Copy(locale) {
         notes: 'Nota',
         itemsEmpty: 'Tiada butiran item.',
         noPayment: 'Tiada maklumat pembayaran.',
-        noTerms: 'Tiada terma.'
+        noTerms: 'Tiada terma.',
+        preSiteNoticeLabel: 'Notis Komersial Penting',
+        preSiteNoticeTitle: 'Sebut Harga Sebelum Lawatan Tapak',
+        preSiteNoticeBody: 'Sebut harga ini adalah awal dan harga yang disebut bukan muktamad. Harga akhir tertakluk kepada penemuan lawatan tapak, penilaian teknikal, dan pengesahan skop kerja.'
       }
     };
   }
@@ -298,7 +330,10 @@ function getA4Copy(locale) {
       notes: 'Notes',
       itemsEmpty: 'No items attached.',
       noPayment: 'No payment details provided.',
-      noTerms: 'No terms provided.'
+      noTerms: 'No terms provided.',
+      preSiteNoticeLabel: 'Important Commercial Notice',
+      preSiteNoticeTitle: 'Pre-Site-Visit Quotation',
+      preSiteNoticeBody: 'This quotation is preliminary and the quoted price is not final. Final pricing is subject to site visit findings, technical assessment, and scope confirmation.'
     }
   };
 }
@@ -406,6 +441,15 @@ function renderCoverPage({ invoice, template, copy, ai4, components, monoBadge }
             </div>
           </div>
         </div>
+
+        ${components.showPreSiteVisitReminder ? `
+        <!-- Pre-site-visit commercial notice -->
+        <div class="a4-notice">
+          <p class="a4-notice-lbl">${escapeHtml(ai4.preSiteNoticeLabel)}</p>
+          <p class="a4-notice-title">${escapeHtml(ai4.preSiteNoticeTitle)}</p>
+          <p class="a4-notice-body">${escapeHtml(ai4.preSiteNoticeBody)}</p>
+        </div>
+        ` : ''}
 
         <!-- Customer + Project -->
         <div class="a4-twocol">
@@ -1076,6 +1120,18 @@ function renderStyles() {
       .a4-hero-box-l { font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--a4-mute); }
       .a4-hero-box-v { font-size: 10pt; font-weight: 700; color: var(--a4-ink); }
 
+      /* Pre-site-visit commercial notice */
+      .a4-notice {
+        background: var(--a4-cream);
+        border: 1px solid var(--a4-line);
+        border-left: 3px solid var(--a4-red);
+        padding: 10px 14px;
+        margin-bottom: 16px;
+      }
+      .a4-notice-lbl { font-size: 7.5px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--a4-red); margin: 0 0 3px; }
+      .a4-notice-title { font-size: 11pt; font-weight: 800; color: var(--a4-red); margin: 0 0 3px; }
+      .a4-notice-body { font-size: 8.5pt; color: var(--a4-ink-soft); line-height: 1.45; margin: 0; }
+
       /* Two-column customer/project */
       .a4-twocol {
         display: grid;
@@ -1528,6 +1584,15 @@ function generateInvoiceHtmlA4(invoice, template, options = {}) {
     || hasKeyword(packageSearchText, 'master tec')
     || hasKeyword(packageSearchText, 'master-tec');
 
+  const isConfirmedInvoice = (invoice.status || '').toLowerCase() === 'confirmed' || (invoice.status || '').toLowerCase() === 'paid';
+  const normalizedPackageType = normalizeInvoicePackageType(invoice.package_type, invoice.type, invoice.package_name);
+  const isCommercialQuotation = !isConfirmedInvoice && normalizedPackageType === 'commercial';
+  const hasSiteVisitItem = items.some((item) => {
+    const sourceText = `${item.description || ''} ${item.product_name || ''}`.toLowerCase();
+    return /site\s+vi(?:sit|tit)\s+by/.test(sourceText);
+  });
+  const showPreSiteVisitReminder = isCommercialQuotation && !hasSiteVisitItem;
+
   const inverterName = invoice.inverter_name
     || items.find((it) => (it.product_name || it.description || '').toLowerCase().includes('inverter'))
     || items.find((it) => (it.product_name || it.description || '').toLowerCase().includes('saj'));
@@ -1562,7 +1627,8 @@ function generateInvoiceHtmlA4(invoice, template, options = {}) {
     discount: discountAmount,
     voucher: voucherAmount,
     sst: sstAmount,
-    total: totalAmount
+    total: totalAmount,
+    showPreSiteVisitReminder
   };
 
   // Toolbar — back/print/download. backTo uses referrer if available, else the canonical mobile URL.

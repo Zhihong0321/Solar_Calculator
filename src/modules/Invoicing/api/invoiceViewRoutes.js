@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../../../core/database/pool');
 const tariffPool = require('../../../core/database/tariffPool');
 const invoiceRepo = require('../services/invoiceRepo');
+const { insertInvoiceItem } = require('../services/invoiceItemSupport');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const invoiceHtmlGeneratorV3 = require('../services/invoiceHtmlGeneratorV3');
@@ -597,6 +598,66 @@ async function handlePublicSolarEstimate(req, res) {
   }
 }
 
+function formatSiteVisitDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || '').trim());
+  if (!match) return String(value || '').trim();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const [, year, month, day] = match;
+  const monthName = months[Number(month) - 1] || month;
+  return `${Number(day)} ${monthName} ${year}`;
+}
+
+function escapeSiteVisitHtml(value) {
+  return String(value || '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+}
+
+/**
+ * POST /view(2)/:tokenOrId/site-visit
+ * Agent-only: add a "Site Visit by ..." line item, which the pre-site-visit
+ * reminder detection treats as confirmation and stops showing the notice.
+ */
+async function handleAddSiteVisitItem(req, res) {
+  try {
+    const authenticatedViewer = detectAuthenticatedViewer(req);
+    if (!authenticatedViewer) {
+      return res.status(403).json({ success: false, error: 'Only logged-in agents can schedule a site visit.' });
+    }
+
+    const { tokenOrId } = req.params;
+    const visitDate = String(req.body?.visitDate || '').trim();
+    const personName = String(req.body?.personName || '').trim();
+
+    if (!visitDate || !personName) {
+      return res.status(400).json({ success: false, error: 'Visit date and person name are required.' });
+    }
+
+    const client = await pool.connect();
+    try {
+      const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);
+      if (!bubbleId) {
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      await insertInvoiceItem(client, bubbleId, {
+        description: `Site Visit by ${escapeSiteVisitHtml(personName)}\nScheduled: ${formatSiteVisitDate(visitDate)}`,
+        qty: 1,
+        unitPrice: 0,
+        amount: 0,
+        itemType: 'notice',
+        sort: 260,
+        isPackage: false
+      });
+
+      res.json({ success: true, message: 'Site visit added to quotation' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[SITE-VISIT] Critical error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
 function isLocalV3PreviewRequest(req) {
   const previewFlag = String(req.query.preview || req.query.source || '').toLowerCase();
   return previewFlag === 'local' || req.path.startsWith('/view-v3-preview/');
@@ -1136,6 +1197,9 @@ router.post('/view-v3/:tokenOrId/signature', async (req, res) => {
 router.post('/view/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 router.post('/view2/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 router.post('/view-v3/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
+
+router.post('/view/:tokenOrId/site-visit', handleAddSiteVisitItem);
+router.post('/view2/:tokenOrId/site-visit', handleAddSiteVisitItem);
 router.post('/api/invoice-view-activity', handleViewerActivity);
 router.post('/view/:tokenOrId/activity', handleViewerActivity);
 router.post('/view2/:tokenOrId/activity', handleViewerActivity);

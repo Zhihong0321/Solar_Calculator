@@ -49,6 +49,41 @@ function buildSignatureModalHtml() {
     `;
 }
 
+function buildSiteVisitModalHtml() {
+    return `
+    <!-- Site Visit Modal -->
+    <div id="siteVisitModal" class="sig-modal no-print" aria-hidden="true">
+      <div class="sig-modal-card" id="siteVisitBox">
+        <div class="sig-modal-head">
+          <div>
+            <h3 class="sig-modal-title">Schedule Site Visit</h3>
+            <p class="sig-modal-sub">Adds a site visit item to the quotation and clears the pre-site-visit notice</p>
+          </div>
+          <button onclick="closeSiteVisitModal()" class="sig-modal-close" aria-label="Close">✕</button>
+        </div>
+        <div class="sig-modal-body">
+          <div class="sv-field">
+            <label for="siteVisitDateInput">Visit Date</label>
+            <input type="date" id="siteVisitDateInput">
+          </div>
+          <div class="sv-field">
+            <label for="siteVisitPersonInput">Site Visit By</label>
+            <input type="text" id="siteVisitPersonInput" placeholder="Staff / person name" autocomplete="off">
+          </div>
+          <div class="sig-modal-actions">
+            <div class="sig-action-group">
+              <button onclick="closeSiteVisitModal()" class="sig-action-cancel">Cancel</button>
+              <button onclick="saveSiteVisit()" id="saveSiteVisitBtn" class="sig-action-confirm">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    `;
+}
+
 function buildSavedEstimateLiteral({
     hasSolarSavingsSection,
     beforeSolarBill,
@@ -164,6 +199,65 @@ function buildInvoiceInteractionScript({
             }).then(() => window.location.reload());
           } else {
             throw new Error(result.error || 'Failed to save signature');
+          }
+        } catch (err) {
+          Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#0a0a0a' });
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      }
+
+      const siteVisitModal = document.getElementById('siteVisitModal');
+      const siteVisitBox = document.getElementById('siteVisitBox');
+
+      function openSiteVisitModal() {
+        siteVisitModal.classList.add('is-open');
+        setTimeout(() => siteVisitBox.classList.add('is-visible'), 10);
+      }
+
+      function closeSiteVisitModal() {
+        siteVisitBox.classList.remove('is-visible');
+        setTimeout(() => siteVisitModal.classList.remove('is-open'), 180);
+      }
+
+      async function saveSiteVisit() {
+        const dateInput = document.getElementById('siteVisitDateInput');
+        const personInput = document.getElementById('siteVisitPersonInput');
+        const visitDate = dateInput.value;
+        const personName = personInput.value.trim();
+
+        if (!visitDate || !personName) {
+          return Swal.fire({ icon: 'warning', title: 'Missing Details', text: 'Please enter both a visit date and person name.', confirmButtonColor: '#0a0a0a' });
+        }
+
+        const btn = document.getElementById('saveSiteVisitBtn');
+        const originalText = btn.innerHTML;
+
+        try {
+          btn.disabled = true;
+          btn.innerHTML = 'Saving...';
+
+          const pathParts = window.location.pathname.split('/');
+          const identifier = pathParts[pathParts.length - 1] || pathParts[pathParts.length - 2];
+          const base = window.location.pathname.startsWith('/view2/') ? '/view2/' : '/view/';
+
+          const response = await fetch(base + identifier + '/site-visit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visitDate, personName })
+          });
+
+          const result = await response.json();
+          if (result.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Site Visit Scheduled',
+              text: 'The site visit has been added to this quotation.',
+              timer: 2000,
+              showConfirmButton: false
+            }).then(() => window.location.reload());
+          } else {
+            throw new Error(result.error || 'Failed to save site visit');
           }
         } catch (err) {
           Swal.fire({ icon: 'error', title: 'Error', text: err.message, confirmButtonColor: '#0a0a0a' });
@@ -674,6 +768,7 @@ function buildInvoiceInteractiveSupport(options) {
     return [
         buildFloatingA4PreviewButton(options.identifier),
         buildSignatureModalHtml(),
+        buildSiteVisitModalHtml(),
         buildInvoiceInteractionScript(options)
     ].join('\n');
 }
