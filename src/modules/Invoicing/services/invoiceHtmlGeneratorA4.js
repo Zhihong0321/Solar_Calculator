@@ -166,7 +166,9 @@ function getA4Copy(locale) {
         noTerms: '未提供条款。',
         preSiteNoticeLabel: '重要商业须知',
         preSiteNoticeTitle: '现场勘察前报价',
-        preSiteNoticeBody: '此报价为初步报价，最终价格并非定案。最终价格须视现场勘察结果、技术评估及范围确认而定。'
+        preSiteNoticeBody: '此报价为初步报价，最终价格并非定案。最终价格须视现场勘察结果、技术评估及范围确认而定。',
+        referralTitle: '加入我们的推荐计划',
+        referralBody: '扫描二维码，推荐亲友即可赚取奖励 · referral.atap.solar/webchat'
       }
     };
   }
@@ -250,7 +252,9 @@ function getA4Copy(locale) {
         noTerms: 'Tiada terma.',
         preSiteNoticeLabel: 'Notis Komersial Penting',
         preSiteNoticeTitle: 'Sebut Harga Sebelum Lawatan Tapak',
-        preSiteNoticeBody: 'Sebut harga ini adalah awal dan harga yang disebut bukan muktamad. Harga akhir tertakluk kepada penemuan lawatan tapak, penilaian teknikal, dan pengesahan skop kerja.'
+        preSiteNoticeBody: 'Sebut harga ini adalah awal dan harga yang disebut bukan muktamad. Harga akhir tertakluk kepada penemuan lawatan tapak, penilaian teknikal, dan pengesahan skop kerja.',
+        referralTitle: 'Sertai Program Rujukan Kami',
+        referralBody: 'Imbas untuk merujuk rakan dan keluarga serta dapatkan ganjaran · referral.atap.solar/webchat'
       }
     };
   }
@@ -333,7 +337,9 @@ function getA4Copy(locale) {
       noTerms: 'No terms provided.',
       preSiteNoticeLabel: 'Important Commercial Notice',
       preSiteNoticeTitle: 'Pre-Site-Visit Quotation',
-      preSiteNoticeBody: 'This quotation is preliminary and the quoted price is not final. Final pricing is subject to site visit findings, technical assessment, and scope confirmation.'
+      preSiteNoticeBody: 'This quotation is preliminary and the quoted price is not final. Final pricing is subject to site visit findings, technical assessment, and scope confirmation.',
+      referralTitle: 'Join Our Referrer Program',
+      referralBody: 'Scan to refer friends & family and earn rewards · referral.atap.solar/webchat'
     }
   };
 }
@@ -855,6 +861,15 @@ function renderSignaturePage({ invoice, template, copy, ai4, components, monoBad
               <div class="a4-cert-name">${escapeHtml(ai4.myHijauName)}</div>
               <div class="a4-cert-meta">${escapeHtml(ai4.myHijauMeta)}</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Referral program -->
+        <div class="a4-referral">
+          <img src="/logo/referral-qr-webchat.png" alt="Referral program QR code" class="a4-referral-qr">
+          <div class="a4-referral-text">
+            <p class="a4-referral-title">${escapeHtml(ai4.referralTitle)}</p>
+            <p class="a4-referral-body">${escapeHtml(ai4.referralBody)}</p>
           </div>
         </div>
 
@@ -1475,6 +1490,24 @@ function renderStyles() {
       .a4-cert-name { font-size: 9pt; font-weight: 800; color: var(--a4-ink); margin-bottom: 2px; }
       .a4-cert-meta { font-size: 8pt; color: var(--a4-mute); }
 
+      /* Referral program */
+      .a4-referral {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid var(--a4-line);
+        border-left: 3px solid var(--a4-amber);
+        padding: 8px 12px;
+        margin-top: 10px;
+      }
+      .a4-referral-qr { width: 42px; height: 42px; flex-shrink: 0; object-fit: contain; }
+      .a4-referral-text { display: flex; flex-direction: column; gap: 2px; }
+      .a4-referral-title {
+        font-size: 8.5pt; font-weight: 800; letter-spacing: 0.08em;
+        text-transform: uppercase; color: var(--a4-deep); margin: 0;
+      }
+      .a4-referral-body { font-size: 7.5pt; color: var(--a4-mute); margin: 0; }
+
       /* Page footer */
       .a4-pagefooter {
         margin-top: 12px;
@@ -1538,6 +1571,8 @@ function renderStyles() {
         .a4-sig-box { min-height: 38mm; }
         .a4-cert { margin-top: 10px; }
         .a4-cert-card { padding: 6px 10px; }
+        .a4-referral { margin-top: 6px; padding: 6px 10px; }
+        .a4-referral-qr { width: 34px; height: 34px; }
       }
     </style>
   `;

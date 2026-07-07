@@ -822,6 +822,19 @@ function generateInvoiceHtmlV3(invoice, template, options = {}) {
           </div>
         `}
       </div>
+
+      <!-- Referral program -->
+      <div class="px-5 pt-6 pb-2">
+        <p class="text-[9px] font-bold uppercase tracking-widest text-secondary">${copy.cards.referral.title}</p>
+      </div>
+      <div class="component-card mx-0 flex items-center gap-4 px-5 py-4">
+        <img src="/logo/referral-qr-webchat.png" alt="Referral program QR code" class="w-16 h-16 object-contain bg-white shrink-0 border border-outline-variant/20">
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-medium leading-snug text-on-surface-variant mb-3">${copy.cards.referral.body}</p>
+          <button onclick="window.open('https://referral.atap.solar/webchat', '_blank', 'noopener')" class="bg-[#0F172A] text-white px-4 py-2.5 text-[10px] uppercase font-bold tracking-widest active:scale-95 transition-transform">${copy.cards.referral.cta}</button>
+        </div>
+      </div>
+
       <div class="h-6 bg-surface"></div>
     </section>
 

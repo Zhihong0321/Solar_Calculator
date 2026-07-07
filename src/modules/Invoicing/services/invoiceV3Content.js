@@ -127,6 +127,11 @@ const COPY = {
         openSignature: 'Sign Online',
         signedOnPrefix: 'Signed on'
       },
+      referral: {
+        title: 'Join Our Referrer Program',
+        body: 'Earn rewards for every friend or family you refer to Eternalgy.',
+        cta: 'Visit Referral Program'
+      },
       module: {
         title: 'Component Details',
         statusIncluded: 'Included',
@@ -306,6 +311,11 @@ const COPY = {
         openSignature: '在线签名',
         signedOnPrefix: '签署日期'
       },
+      referral: {
+        title: '加入我们的推荐计划',
+        body: '推荐亲友给 Eternalgy，即可赚取奖励。',
+        cta: '前往推荐计划'
+      },
       module: {
         title: '组件详情',
         statusIncluded: '已包含',
@@ -484,6 +494,11 @@ const COPY = {
         noSignature: 'Menunggu tandatangan.',
         openSignature: 'Tandatangan Online',
         signedOnPrefix: 'Ditandatangani pada'
+      },
+      referral: {
+        title: 'Sertai Program Rujukan Kami',
+        body: 'Dapatkan ganjaran untuk setiap rujukan kepada Eternalgy.',
+        cta: 'Lawati Program Rujukan'
       },
       module: {
         title: 'Butiran Komponen',

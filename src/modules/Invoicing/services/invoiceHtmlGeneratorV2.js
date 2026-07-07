@@ -302,7 +302,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const shareBtn = (invoice.share_token || invoice.bubble_id) && effectiveViewerAuthenticated
         ? `<button onclick='quickShareInvoice(${JSON.stringify(invoice.share_token || invoice.bubble_id)}, ${JSON.stringify(publicDocumentNumber)}, ${JSON.stringify(titleLabel)})' class="action-btn btn-share"><span>Share</span></button>` : '';
     const referBtn = invoice.share_token
-        ? `<button onclick="window.open('https://referral.atap.solar', '_blank')" class="action-btn btn-referral"><span>Refer Program</span></button>` : '';
+        ? `<button onclick="window.open('https://referral.atap.solar/webchat', '_blank')" class="action-btn btn-referral"><span>Refer Program</span></button>` : '';
     const sedaBtn = !isEvCharger && effectiveLinkedSeda
         ? `<button onclick="window.open('/seda-register?id=${effectiveLinkedSeda}', '_blank')" class="action-btn btn-seda"><span>SEDA Form</span></button>` : '';
     const tigerNeoBtn = hasTigerNeo3 && tigerNeoProposalUrl
@@ -971,6 +971,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
       </div>
 
       <!-- PAYMENT TERMS -->
+      ${!isEvCharger ? `
       <div class="sw anim">
         <div class="sec-label">Payment Terms</div>
         <div class="card" style="padding:0;overflow:hidden">
@@ -982,6 +983,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
           ${paymentTermsPreviewButtonHtml ? `<div class="payterm-preview-wrap">${paymentTermsPreviewButtonHtml}</div>` : ''}
         </div>
       </div>
+      ` : ''}
 
       ${hasTigerNeo3 && tigerNeoProposalUrl && !isA4Preview ? `
       <div class="sw anim">
