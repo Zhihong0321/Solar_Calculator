@@ -81,13 +81,46 @@ exports.getTicket = async (req, res) => {
 
 exports.updateTicket = async (req, res) => {
   try {
-    const { status, technician_remark } = req.body;
-    const ticket = await supportTicketService.updateTicket(req.params.id, { status, technician_remark });
-    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
-    res.json({ success: true, ticket });
+    const { status, technician_remark, link_customer } = req.body;
+    const updated = await supportTicketService.updateTicket(req.params.id, { status, technician_remark, link_customer });
+    if (!updated) return res.status(404).json({ error: 'Ticket not found' });
+    const ticket = await supportTicketService.getTicketById(updated.id);
+    res.json({ success: true, ticket: ticket || updated });
   } catch (err) {
     console.error('[SupportTicket] Update error:', err);
     res.status(400).json({ error: err.message || 'Failed to update ticket' });
+  }
+};
+
+exports.deleteTicket = async (req, res) => {
+  try {
+    const ok = await supportTicketService.softDeleteTicket(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Ticket not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[SupportTicket] Delete error:', err);
+    res.status(500).json({ error: 'Failed to delete ticket' });
+  }
+};
+
+exports.restoreTicket = async (req, res) => {
+  try {
+    const ok = await supportTicketService.restoreTicket(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Ticket not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[SupportTicket] Restore error:', err);
+    res.status(500).json({ error: 'Failed to restore ticket' });
+  }
+};
+
+exports.searchCustomers = async (req, res) => {
+  try {
+    const customers = await supportTicketService.searchCustomers(req.query.q, 10);
+    res.json({ success: true, customers });
+  } catch (err) {
+    console.error('[SupportTicket] Customer search error:', err);
+    res.status(500).json({ error: 'Failed to search customers' });
   }
 };
 
@@ -114,6 +147,38 @@ exports.createTicket = async (req, res) => {
   } catch (err) {
     console.error('[SupportTicket] Create error:', err);
     res.status(400).json({ error: err.message || 'Failed to submit support ticket' });
+  }
+};
+
+exports.listNotificationNumbers = async (req, res) => {
+  try {
+    const numbers = await supportTicketService.listNotificationNumbers();
+    res.json({ success: true, numbers });
+  } catch (err) {
+    console.error('[SupportTicket] List notification numbers error:', err);
+    res.status(500).json({ error: 'Failed to load notification numbers' });
+  }
+};
+
+exports.addNotificationNumber = async (req, res) => {
+  try {
+    const { phone_number, label } = req.body;
+    const entry = await supportTicketService.addNotificationNumber({ phone_number, label });
+    res.json({ success: true, entry });
+  } catch (err) {
+    console.error('[SupportTicket] Add notification number error:', err);
+    res.status(400).json({ error: err.message || 'Failed to add notification number' });
+  }
+};
+
+exports.deleteNotificationNumber = async (req, res) => {
+  try {
+    const deleted = await supportTicketService.deleteNotificationNumber(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Notification number not found' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[SupportTicket] Delete notification number error:', err);
+    res.status(500).json({ error: 'Failed to delete notification number' });
   }
 };
 

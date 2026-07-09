@@ -42,6 +42,7 @@ class SupportTicketService {
         st.bubble_id,
         st.title,
         st.status,
+        st.deleted,
         st.problem_description,
         st.technician_remark,
         st.images,
@@ -79,6 +80,7 @@ class SupportTicketService {
        LEFT JOIN customer_profile cp ON cp.bubble_id = st.link_customer
        LEFT JOIN customer c ON c.customer_id = st.link_customer
        WHERE st.created_by = $1
+         AND st.deleted IS NOT TRUE
        ORDER BY st.created_date DESC`,
       [createdBy]
     );
@@ -129,6 +131,39 @@ class SupportTicketService {
     return result.rows;
   }
 
+  async listNotificationNumbers() {
+    const result = await pool.query(
+      `SELECT id, phone_number, label, active, created_at
+       FROM support_ticket_notification_contact
+       ORDER BY created_at DESC`
+    );
+    return result.rows;
+  }
+
+  async addNotificationNumber({ phone_number, label }) {
+    const normalized = normalizeMyPhoneNumber(phone_number);
+    if (!normalized) {
+      throw new Error('A valid phone number is required');
+    }
+
+    const result = await pool.query(
+      `INSERT INTO support_ticket_notification_contact (phone_number, label)
+       VALUES ($1, $2)
+       ON CONFLICT (phone_number) DO UPDATE SET label = EXCLUDED.label, active = true
+       RETURNING id, phone_number, label, active, created_at`,
+      [normalized, label ? String(label).trim() || null : null]
+    );
+    return result.rows[0];
+  }
+
+  async deleteNotificationNumber(id) {
+    const result = await pool.query(
+      `DELETE FROM support_ticket_notification_contact WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    return result.rows.length > 0;
+  }
+
   async sendWhatsAppNotification(to, text) {
     const response = await fetch(`${BAILEYS_API_URL}/messages/send`, {
       method: 'POST',
@@ -148,8 +183,23 @@ class SupportTicketService {
   }
 
   async notifySupportTeam(ticket) {
-    const contacts = await this.getSupportTeamContacts();
-    if (!contacts.length) return { sent: 0, failed: 0 };
+    const [teamContacts, extraNumbers] = await Promise.all([
+      this.getSupportTeamContacts(),
+      this.listNotificationNumbers(),
+    ]);
+
+    const recipients = new Map();
+    for (const contact of teamContacts) {
+      const to = normalizeMyPhoneNumber(contact.contact);
+      if (to) recipients.set(to, contact.name || to);
+    }
+    for (const entry of extraNumbers) {
+      if (!entry.active) continue;
+      const to = normalizeMyPhoneNumber(entry.phone_number);
+      if (to && !recipients.has(to)) recipients.set(to, entry.label || to);
+    }
+
+    if (!recipients.size) return { sent: 0, failed: 0 };
 
     const message = [
       '🎫 New Support Ticket',
@@ -165,17 +215,12 @@ class SupportTicketService {
     let sent = 0;
     let failed = 0;
 
-    for (const contact of contacts) {
-      const to = normalizeMyPhoneNumber(contact.contact);
-      if (!to) {
-        failed += 1;
-        continue;
-      }
+    for (const [to, name] of recipients) {
       try {
         await this.sendWhatsAppNotification(to, message);
         sent += 1;
       } catch (err) {
-        console.error(`[SupportTicket] WhatsApp notify failed for ${contact.name} (${to}):`, err.message);
+        console.error(`[SupportTicket] WhatsApp notify failed for ${name} (${to}):`, err.message);
         failed += 1;
       }
     }
@@ -183,7 +228,22 @@ class SupportTicketService {
     return { sent, failed };
   }
 
-  async updateTicket(id, { status, technician_remark }) {
+  async searchCustomers(query, limit = 10) {
+    const trimmed = String(query || '').trim();
+    if (!trimmed) return [];
+
+    const result = await pool.query(
+      `SELECT customer_id, name, phone
+       FROM customer
+       WHERE name ILIKE $1 OR phone ILIKE $1
+       ORDER BY name ASC
+       LIMIT $2`,
+      [`%${trimmed}%`, limit]
+    );
+    return result.rows;
+  }
+
+  async updateTicket(id, { status, technician_remark, link_customer }) {
     if (status && !VALID_STATUSES.includes(status)) {
       throw new Error(`Invalid status: ${status}`);
     }
@@ -192,12 +252,29 @@ class SupportTicketService {
       `UPDATE support_ticket
        SET status = COALESCE($2, status),
            technician_remark = COALESCE($3, technician_remark),
+           link_customer = COALESCE($4, link_customer),
            modified_date = NOW()
        WHERE id = $1
        RETURNING *`,
-      [id, status ?? null, technician_remark ?? null]
+      [id, status ?? null, technician_remark ?? null, link_customer ?? null]
     );
     return result.rows[0] || null;
+  }
+
+  async softDeleteTicket(id) {
+    const result = await pool.query(
+      `UPDATE support_ticket SET deleted = true, modified_date = NOW() WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    return result.rows.length > 0;
+  }
+
+  async restoreTicket(id) {
+    const result = await pool.query(
+      `UPDATE support_ticket SET deleted = false, modified_date = NOW() WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    return result.rows.length > 0;
   }
 
   async getStatusCounts() {

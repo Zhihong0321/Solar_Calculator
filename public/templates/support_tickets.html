@@ -47,6 +47,9 @@
             <h1 class="font-bold text-lg">Support Tickets</h1>
         </div>
         <div class="flex items-center gap-2">
+            <button onclick="openNotificationSettings()" id="notifySettingsBtn" class="p-2 hover:bg-white/10 rounded-full transition-colors" title="Notification Numbers">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+            </button>
             <button onclick="syncNow()" id="syncBtn" class="p-2 hover:bg-white/10 rounded-full transition-colors" title="Sync from Bubble">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             </button>
@@ -88,12 +91,46 @@
         </div>
     </div>
 
+    <!-- Notification Numbers Modal -->
+    <div id="notifyModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full sm:max-w-md sm:rounded-xl rounded-t-xl max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+                <h2 class="font-bold text-gray-900">Notification Numbers</h2>
+                <button onclick="closeNotifyModal()" class="p-1 text-gray-400 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-4 space-y-4">
+                <p class="text-xs text-gray-500">Numbers below get a WhatsApp alert whenever a new support ticket comes in, in addition to any user with the "support" role.</p>
+                <div id="notifyNumbersList" class="space-y-2"></div>
+                <form onsubmit="addNotifyNumber(event)" class="flex flex-col gap-2 pt-2 border-t border-gray-200">
+                    <input type="tel" id="notifyPhoneInput" placeholder="Phone number e.g. 0121234567" required
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <input type="text" id="notifyLabelInput" placeholder="Label (optional, e.g. John)"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <button type="submit" class="w-full bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm">Add Number</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         const STATUS_OPTIONS = ['unread', 'read by support', 'processing', 'solved'];
+        const FILTER_TABS = [
+            { key: 'all', label: 'All' },
+            { key: 'pending', label: 'Pending' },
+            { key: 'solved', label: 'Solved' },
+            { key: 'deleted', label: 'Deleted' },
+        ];
         let allTickets = [];
-        let statusCounts = [];
-        let activeStatus = '';
+        let activeTab = 'all';
         let currentTicketId = null;
+        let selectedLinkCustomerId = null;
+        let adminCustomerSearchDebounce = null;
+
+        function isDeleted(t) { return !!t.deleted; }
+        function isSolved(t) { return !t.deleted && (t.status || 'unread') === 'solved'; }
+        function isPending(t) { return !t.deleted && (t.status || 'unread') !== 'solved'; }
 
         async function init() {
             await loadTickets();
@@ -109,7 +146,6 @@
                 const json = await res.json();
                 if (json.success) {
                     allTickets = json.tickets;
-                    statusCounts = json.counts;
                     renderFilterTabs();
                     applyFilters();
                 }
@@ -118,21 +154,21 @@
             }
         }
 
+        function countForTab(key) {
+            if (key === 'all') return allTickets.filter(t => !t.deleted).length;
+            if (key === 'pending') return allTickets.filter(isPending).length;
+            if (key === 'solved') return allTickets.filter(isSolved).length;
+            return allTickets.filter(isDeleted).length;
+        }
+
         function renderFilterTabs() {
-            const total = allTickets.length;
-            const tabs = [{ status: '', label: `All (${total})` }].concat(
-                STATUS_OPTIONS.map(s => {
-                    const found = statusCounts.find(c => c.status === s);
-                    return { status: s, label: `${s} (${found ? found.count : 0})` };
-                })
-            );
-            document.getElementById('filterTabs').innerHTML = tabs.map(t => `
-                <button class="filter-tab ${activeStatus === t.status ? 'active' : ''}" onclick="setFilter('${t.status}')">${t.label}</button>
+            document.getElementById('filterTabs').innerHTML = FILTER_TABS.map(t => `
+                <button class="filter-tab ${activeTab === t.key ? 'active' : ''}" onclick="setFilter('${t.key}')">${t.label} (${countForTab(t.key)})</button>
             `).join('');
         }
 
-        function setFilter(status) {
-            activeStatus = status;
+        function setFilter(key) {
+            activeTab = key;
             renderFilterTabs();
             applyFilters();
         }
@@ -140,12 +176,15 @@
         function applyFilters() {
             const query = document.getElementById('searchInput').value.toLowerCase();
             const filtered = allTickets.filter(t => {
-                const matchesStatus = !activeStatus || (t.status || 'unread') === activeStatus;
+                const matchesTab = activeTab === 'all' ? !t.deleted
+                    : activeTab === 'pending' ? isPending(t)
+                    : activeTab === 'solved' ? isSolved(t)
+                    : isDeleted(t);
                 const matchesSearch = !query ||
                     (t.title && t.title.toLowerCase().includes(query)) ||
                     (t.problem_description && t.problem_description.toLowerCase().includes(query)) ||
                     (t.customer_name && t.customer_name.toLowerCase().includes(query));
-                return matchesStatus && matchesSearch;
+                return matchesTab && matchesSearch;
             });
             renderTickets(filtered);
         }
@@ -160,20 +199,61 @@
                 const status = t.status || 'unread';
                 const statusClass = 'status-' + status.replace(/\s+/g, '-');
                 const date = t.created_date ? formatDate(new Date(t.created_date)) : '';
+                const actionBtn = t.deleted
+                    ? `<button onclick="event.stopPropagation(); restoreTicketRow(${t.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-full shrink-0" title="Restore">
+                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                       </button>`
+                    : `<button onclick="event.stopPropagation(); deleteTicketRow(${t.id})" class="p-1.5 text-red-500 hover:bg-red-50 rounded-full shrink-0" title="Delete">
+                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                       </button>`;
                 return `
-                    <div onclick="openTicket(${t.id})" class="ticket-row flex flex-col gap-1 px-4 py-3 cursor-pointer border-b border-gray-100 transition-colors">
-                        <div class="flex justify-between items-start gap-2">
-                            <h3 class="font-semibold text-gray-900 text-sm flex-1">${escapeHtml(t.title || 'Untitled')}</h3>
-                            <span class="status-pill ${statusClass}">${status}</span>
+                    <div onclick="openTicket(${t.id})" class="ticket-row flex items-center gap-2 px-4 py-3 cursor-pointer border-b border-gray-100 transition-colors">
+                        <div class="flex-1 min-w-0 flex flex-col gap-1">
+                            <div class="flex justify-between items-start gap-2">
+                                <h3 class="font-semibold text-gray-900 text-sm flex-1 truncate">${escapeHtml(t.title || 'Untitled')}</h3>
+                                <span class="status-pill ${statusClass}">${status}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 truncate">${escapeHtml(t.customer_name || 'No customer linked')}</p>
+                            <div class="flex justify-between items-center">
+                                <p class="text-xs text-gray-400 truncate flex-1">${escapeHtml(t.problem_description || '')}</p>
+                                <span class="text-[11px] text-gray-400 whitespace-nowrap ml-2">${date}</span>
+                            </div>
                         </div>
-                        <p class="text-xs text-gray-500 truncate">${escapeHtml(t.customer_name || 'No customer linked')}</p>
-                        <div class="flex justify-between items-center">
-                            <p class="text-xs text-gray-400 truncate flex-1">${escapeHtml(t.problem_description || '')}</p>
-                            <span class="text-[11px] text-gray-400 whitespace-nowrap ml-2">${date}</span>
-                        </div>
+                        ${actionBtn}
                     </div>
                 `;
             }).join('');
+        }
+
+        async function deleteTicketRow(id) {
+            if (!confirm('Delete this ticket? It will move to the Deleted list.')) return;
+            try {
+                const res = await fetch(`/api/support-tickets/${id}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) {
+                    await loadTickets();
+                } else {
+                    alert(json.error || 'Failed to delete ticket');
+                }
+            } catch (err) {
+                console.error('Delete Ticket Error:', err);
+                alert('Failed to delete ticket');
+            }
+        }
+
+        async function restoreTicketRow(id) {
+            try {
+                const res = await fetch(`/api/support-tickets/${id}/restore`, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    await loadTickets();
+                } else {
+                    alert(json.error || 'Failed to restore ticket');
+                }
+            } catch (err) {
+                console.error('Restore Ticket Error:', err);
+                alert('Failed to restore ticket');
+            }
         }
 
         async function openTicket(id) {
@@ -182,6 +262,7 @@
                 const res = await fetch(`/api/support-tickets/${id}`);
                 const json = await res.json();
                 if (!json.success) return;
+                selectedLinkCustomerId = null;
                 renderModal(json.ticket);
             } catch (err) {
                 console.error('Get Ticket Error:', err);
@@ -199,8 +280,16 @@
 
             document.getElementById('modalBody').innerHTML = `
                 <div>
-                    <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Customer</p>
-                    <p class="text-sm text-gray-800">${escapeHtml(ticket.customer_name || 'No customer linked')} ${ticket.customer_contact ? '· ' + escapeHtml(ticket.customer_contact) : ''}</p>
+                    <div class="flex items-center justify-between mb-1">
+                        <p class="text-xs text-gray-400 uppercase font-semibold">Customer</p>
+                        <button type="button" onclick="toggleCustomerSearch()" class="text-xs text-blue-600 font-semibold">${ticket.customer_name ? 'Change' : 'Link Customer'}</button>
+                    </div>
+                    <p class="text-sm text-gray-800" id="linkedCustomerDisplay">${escapeHtml(ticket.customer_name || 'No customer linked')} ${ticket.customer_contact ? '· ' + escapeHtml(ticket.customer_contact) : ''}</p>
+                    <div id="adminCustomerSearchWrap" class="hidden mt-2">
+                        <input type="text" id="adminCustomerSearch" oninput="handleAdminCustomerSearchInput(event)" placeholder="Search customer by name/phone..."
+                               class="w-full bg-gray-100 border-none rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" autocomplete="off">
+                        <div id="adminCustomerResults" class="border border-gray-200 rounded-lg mt-1 divide-y divide-gray-100 hidden max-h-40 overflow-y-auto"></div>
+                    </div>
                 </div>
                 <div>
                     <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Problem Description</p>
@@ -222,14 +311,70 @@
             document.getElementById('ticketModal').classList.remove('hidden');
         }
 
+        function toggleCustomerSearch() {
+            const wrap = document.getElementById('adminCustomerSearchWrap');
+            wrap.classList.toggle('hidden');
+            if (!wrap.classList.contains('hidden')) document.getElementById('adminCustomerSearch').focus();
+        }
+
+        function handleAdminCustomerSearchInput(e) {
+            clearTimeout(adminCustomerSearchDebounce);
+            const query = e.target.value.trim();
+            if (!query) {
+                document.getElementById('adminCustomerResults').classList.add('hidden');
+                return;
+            }
+            adminCustomerSearchDebounce = setTimeout(() => searchAdminCustomers(query), 300);
+        }
+
+        async function searchAdminCustomers(query) {
+            try {
+                const res = await fetch(`/api/support-tickets/customers/search?q=${encodeURIComponent(query)}`);
+                if (res.status === 401 || res.status === 403) {
+                    window.location.href = '/agent/home';
+                    return;
+                }
+                const json = await res.json();
+                renderAdminCustomerResults(json.customers || []);
+            } catch (err) {
+                console.error('Admin Customer Search Error:', err);
+            }
+        }
+
+        function renderAdminCustomerResults(customers) {
+            const container = document.getElementById('adminCustomerResults');
+            if (!customers.length) {
+                container.innerHTML = `<div class="px-3 py-2 text-sm text-gray-400">No customers found</div>`;
+                container.classList.remove('hidden');
+                return;
+            }
+            container.innerHTML = customers.map(c => `
+                <div class="px-3 py-2 text-sm cursor-pointer hover:bg-gray-50" onclick="selectLinkCustomer('${c.customer_id}', '${escapeAttr(c.name || 'Unnamed')}', '${escapeAttr(c.phone || '')}')">
+                    <span class="font-medium">${escapeHtml(c.name || 'Unnamed')}</span>
+                    <span class="text-gray-400 text-xs ml-2">${escapeHtml(c.phone || '')}</span>
+                </div>
+            `).join('');
+            container.classList.remove('hidden');
+        }
+
+        function selectLinkCustomer(id, name, phone) {
+            selectedLinkCustomerId = id;
+            document.getElementById('linkedCustomerDisplay').textContent = `${name}${phone ? ' · ' + phone : ''} (unsaved, click Save Changes)`;
+            document.getElementById('adminCustomerResults').classList.add('hidden');
+            document.getElementById('adminCustomerSearchWrap').classList.add('hidden');
+            document.getElementById('adminCustomerSearch').value = '';
+        }
+
         async function saveTicket() {
             const status = document.getElementById('statusSelect').value;
             const technician_remark = document.getElementById('remarkInput').value;
+            const body = { status, technician_remark };
+            if (selectedLinkCustomerId) body.link_customer = selectedLinkCustomerId;
             try {
                 const res = await fetch(`/api/support-tickets/${currentTicketId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status, technician_remark })
+                    body: JSON.stringify(body)
                 });
                 const json = await res.json();
                 if (json.success) {
@@ -244,6 +389,7 @@
         function closeModal() {
             document.getElementById('ticketModal').classList.add('hidden');
             currentTicketId = null;
+            selectedLinkCustomerId = null;
         }
 
         async function syncNow() {
@@ -265,6 +411,91 @@
             }
         }
 
+        async function openNotificationSettings() {
+            document.getElementById('notifyModal').classList.remove('hidden');
+            await loadNotifyNumbers();
+        }
+
+        function closeNotifyModal() {
+            document.getElementById('notifyModal').classList.add('hidden');
+        }
+
+        async function loadNotifyNumbers() {
+            const list = document.getElementById('notifyNumbersList');
+            list.innerHTML = `<p class="text-sm text-gray-400">Loading...</p>`;
+            try {
+                const res = await fetch('/api/support-tickets/notification-numbers');
+                const json = await res.json();
+                if (!json.success) {
+                    list.innerHTML = `<p class="text-sm text-red-500">${escapeHtml(json.error || 'Failed to load')}</p>`;
+                    return;
+                }
+                renderNotifyNumbers(json.numbers);
+            } catch (err) {
+                console.error('Load Notification Numbers Error:', err);
+                list.innerHTML = `<p class="text-sm text-red-500">Failed to load numbers.</p>`;
+            }
+        }
+
+        function renderNotifyNumbers(numbers) {
+            const list = document.getElementById('notifyNumbersList');
+            if (!numbers.length) {
+                list.innerHTML = `<p class="text-sm text-gray-400">No extra numbers added yet.</p>`;
+                return;
+            }
+            list.innerHTML = numbers.map(n => `
+                <div class="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2">
+                    <div class="min-w-0">
+                        <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(n.phone_number)}</p>
+                        ${n.label ? `<p class="text-xs text-gray-500 truncate">${escapeHtml(n.label)}</p>` : ''}
+                    </div>
+                    <button onclick="deleteNotifyNumber(${n.id})" class="p-1.5 text-red-500 hover:bg-red-50 rounded-full shrink-0" title="Remove">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function addNotifyNumber(event) {
+            event.preventDefault();
+            const phone_number = document.getElementById('notifyPhoneInput').value.trim();
+            const label = document.getElementById('notifyLabelInput').value.trim();
+            try {
+                const res = await fetch('/api/support-tickets/notification-numbers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone_number, label })
+                });
+                const json = await res.json();
+                if (!json.success) {
+                    alert(json.error || 'Failed to add number');
+                    return;
+                }
+                document.getElementById('notifyPhoneInput').value = '';
+                document.getElementById('notifyLabelInput').value = '';
+                await loadNotifyNumbers();
+            } catch (err) {
+                console.error('Add Notification Number Error:', err);
+                alert('Failed to add number');
+            }
+        }
+
+        async function deleteNotifyNumber(id) {
+            if (!confirm('Remove this notification number?')) return;
+            try {
+                const res = await fetch(`/api/support-tickets/notification-numbers/${id}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (!json.success) {
+                    alert(json.error || 'Failed to remove number');
+                    return;
+                }
+                await loadNotifyNumbers();
+            } catch (err) {
+                console.error('Delete Notification Number Error:', err);
+                alert('Failed to remove number');
+            }
+        }
+
         function resolveImageUrl(url) {
             if (!url) return '';
             return url.startsWith('//') ? `https:${url}` : url;
@@ -278,6 +509,10 @@
             const div = document.createElement('div');
             div.textContent = str == null ? '' : String(str);
             return div.innerHTML;
+        }
+
+        function escapeAttr(str) {
+            return String(str == null ? '' : str).replace(/'/g, "\\'");
         }
 
         document.addEventListener('DOMContentLoaded', init);

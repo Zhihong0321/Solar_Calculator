@@ -27,8 +27,17 @@ const requireAdmin = async (req, res, next) => {
 router.get('/api/support-tickets', requireAuth, requireAdmin, supportTicketController.listTickets);
 router.post('/api/support-tickets', requireAuth, supportTicketController.uploadImages, supportTicketController.createTicket);
 router.get('/api/support-tickets/mine', requireAuth, supportTicketController.listMyTickets);
+router.post('/api/support-tickets/sync', requireAuth, requireAdmin, supportTicketController.syncFromBubble);
+
+router.get('/api/support-tickets/notification-numbers', requireAuth, requireAdmin, supportTicketController.listNotificationNumbers);
+router.post('/api/support-tickets/notification-numbers', requireAuth, requireAdmin, supportTicketController.addNotificationNumber);
+router.delete('/api/support-tickets/notification-numbers/:id', requireAuth, requireAdmin, supportTicketController.deleteNotificationNumber);
+
+router.get('/api/support-tickets/customers/search', requireAuth, requireAdmin, supportTicketController.searchCustomers);
+
 router.get('/api/support-tickets/:id', requireAuth, requireAdmin, supportTicketController.getTicket);
 router.patch('/api/support-tickets/:id', requireAuth, requireAdmin, supportTicketController.updateTicket);
-router.post('/api/support-tickets/sync', requireAuth, requireAdmin, supportTicketController.syncFromBubble);
+router.delete('/api/support-tickets/:id', requireAuth, requireAdmin, supportTicketController.deleteTicket);
+router.post('/api/support-tickets/:id/restore', requireAuth, requireAdmin, supportTicketController.restoreTicket);
 
 module.exports = router;
