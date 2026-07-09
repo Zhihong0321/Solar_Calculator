@@ -30,6 +30,7 @@
         .status-read-by-support { background: #fef3c7; color: #92400e; }
         .status-processing { background: #dbeafe; color: #1d4ed8; }
         .status-solved { background: #dcfce7; color: #15803d; }
+        .status-deleted { background: #f3f4f6; color: #6b7280; }
         .filter-tab { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 9999px; white-space: nowrap; }
         .filter-tab.active { background: #1d4ed8; color: white; }
         .filter-tab:not(.active) { background: #e5e7eb; color: #374151; }
@@ -128,9 +129,9 @@
         let selectedLinkCustomerId = null;
         let adminCustomerSearchDebounce = null;
 
-        function isDeleted(t) { return !!t.deleted; }
-        function isSolved(t) { return !t.deleted && (t.status || 'unread') === 'solved'; }
-        function isPending(t) { return !t.deleted && (t.status || 'unread') !== 'solved'; }
+        function isDeleted(t) { return (t.status || 'unread') === 'deleted'; }
+        function isSolved(t) { return (t.status || 'unread') === 'solved'; }
+        function isPending(t) { return !isDeleted(t) && !isSolved(t); }
 
         async function init() {
             await loadTickets();
@@ -155,7 +156,7 @@
         }
 
         function countForTab(key) {
-            if (key === 'all') return allTickets.filter(t => !t.deleted).length;
+            if (key === 'all') return allTickets.filter(t => !isDeleted(t)).length;
             if (key === 'pending') return allTickets.filter(isPending).length;
             if (key === 'solved') return allTickets.filter(isSolved).length;
             return allTickets.filter(isDeleted).length;
@@ -176,7 +177,7 @@
         function applyFilters() {
             const query = document.getElementById('searchInput').value.toLowerCase();
             const filtered = allTickets.filter(t => {
-                const matchesTab = activeTab === 'all' ? !t.deleted
+                const matchesTab = activeTab === 'all' ? !isDeleted(t)
                     : activeTab === 'pending' ? isPending(t)
                     : activeTab === 'solved' ? isSolved(t)
                     : isDeleted(t);
@@ -199,7 +200,7 @@
                 const status = t.status || 'unread';
                 const statusClass = 'status-' + status.replace(/\s+/g, '-');
                 const date = t.created_date ? formatDate(new Date(t.created_date)) : '';
-                const actionBtn = t.deleted
+                const actionBtn = isDeleted(t)
                     ? `<button onclick="event.stopPropagation(); restoreTicketRow(${t.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-full shrink-0" title="Restore">
                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                        </button>`

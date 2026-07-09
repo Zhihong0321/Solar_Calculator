@@ -1,7 +1,7 @@
 const pool = require('../../core/database/pool');
 
 const BUBBLE_ENDPOINT = 'https://eternalgy.com/api/1.1/obj/support_ticket';
-const VALID_STATUSES = ['unread', 'read by support', 'processing', 'solved'];
+const VALID_STATUSES = ['unread', 'read by support', 'processing', 'solved', 'deleted'];
 const BAILEYS_API_URL = 'https://ee-baileys-production.up.railway.app';
 const BAILEYS_SESSION_ID = 'eternalgy-auth';
 
@@ -42,7 +42,6 @@ class SupportTicketService {
         st.bubble_id,
         st.title,
         st.status,
-        st.deleted,
         st.problem_description,
         st.technician_remark,
         st.images,
@@ -80,7 +79,7 @@ class SupportTicketService {
        LEFT JOIN customer_profile cp ON cp.bubble_id = st.link_customer
        LEFT JOIN customer c ON c.customer_id = st.link_customer
        WHERE st.created_by = $1
-         AND st.deleted IS NOT TRUE
+         AND COALESCE(st.status, 'unread') <> 'deleted'
        ORDER BY st.created_date DESC`,
       [createdBy]
     );
@@ -263,7 +262,7 @@ class SupportTicketService {
 
   async softDeleteTicket(id) {
     const result = await pool.query(
-      `UPDATE support_ticket SET deleted = true, modified_date = NOW() WHERE id = $1 RETURNING id`,
+      `UPDATE support_ticket SET status = 'deleted', modified_date = NOW() WHERE id = $1 RETURNING id`,
       [id]
     );
     return result.rows.length > 0;
@@ -271,7 +270,7 @@ class SupportTicketService {
 
   async restoreTicket(id) {
     const result = await pool.query(
-      `UPDATE support_ticket SET deleted = false, modified_date = NOW() WHERE id = $1 RETURNING id`,
+      `UPDATE support_ticket SET status = 'unread', modified_date = NOW() WHERE id = $1 RETURNING id`,
       [id]
     );
     return result.rows.length > 0;
