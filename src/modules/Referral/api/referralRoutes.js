@@ -51,6 +51,29 @@ router.get('/referral-leads-management', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /referral-overview
+ * Read-only referral overview dashboard (stat cards + full referral table)
+ */
+router.get('/referral-overview', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    client = await pool.connect();
+    const user = await resolveAuthenticatedUserRecord(client, req);
+
+    if (!user || !hasManagerAccess(user.access_level)) {
+      return res.status(403).send('<h1>Access Denied</h1><p>HR or KC access is required.</p>');
+    }
+
+    res.sendFile(path.join(__dirname, '../../../../public/templates/referral_overview.html'));
+  } catch (err) {
+    console.error('[Referral Page] Error opening referral overview page:', err);
+    res.status(500).send('<h1>Server Error</h1><p>Unable to open referral overview page.</p>');
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * API ROUTES
  */
 

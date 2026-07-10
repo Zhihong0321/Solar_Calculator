@@ -238,6 +238,10 @@
         <i class="fa-solid fa-user-check w-5"></i>
         <span>Referral Leads</span>
       </a>
+      <a href="/referral-overview" id="referralOverviewNav" class="nav-link hidden">
+        <i class="fa-solid fa-chart-pie w-5"></i>
+        <span>Referral Overview</span>
+      </a>
 
       <div class="pt-6 pb-2 px-3">
         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Calculators</span>
@@ -588,6 +592,16 @@
             </p>
           </a>
 
+          <a href="/referral-overview" id="referralOverviewCard" class="tool-card hidden">
+            <div class="tool-icon">
+              <i class="fa-solid fa-chart-pie text-2xl text-orange-600"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900">Referral Overview</h3>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">
+              Stats &amp; Full Referral Table
+            </p>
+          </a>
+
           <a href="https://solar-analysis-app-production.up.railway.app/" target="_blank" class="tool-card">
             <div class="tool-icon">
               <i class="fa-brands fa-google text-2xl"></i>
@@ -900,6 +914,12 @@
 
           const referralLeadManagementNav = document.getElementById("referralLeadManagementNav");
           if (referralLeadManagementNav) referralLeadManagementNav.classList.remove("hidden");
+
+          const referralOverviewCard = document.getElementById("referralOverviewCard");
+          if (referralOverviewCard) referralOverviewCard.classList.remove("hidden");
+
+          const referralOverviewNav = document.getElementById("referralOverviewNav");
+          if (referralOverviewNav) referralOverviewNav.classList.remove("hidden");
         }
 
         // Check access level for IT Bug Dashboard
