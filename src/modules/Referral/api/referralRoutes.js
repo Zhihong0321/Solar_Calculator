@@ -18,6 +18,14 @@ function hasManagerAccess(accessLevels = []) {
   return roles.includes('hr') || roles.includes('kc');
 }
 
+function hasEeCoreAccess(accessLevels = []) {
+  return normalizeAccessLevels(accessLevels).includes('ee-core');
+}
+
+function hasReferralDataAccess(accessLevels = []) {
+  return hasManagerAccess(accessLevels) || hasEeCoreAccess(accessLevels);
+}
+
 /**
  * PAGE ROUTE
  * GET /referral-dashboard/:shareToken
@@ -60,8 +68,8 @@ router.get('/referral-overview', requireAuth, async (req, res) => {
     client = await pool.connect();
     const user = await resolveAuthenticatedUserRecord(client, req);
 
-    if (!user || !hasManagerAccess(user.access_level)) {
-      return res.status(403).send('<h1>Access Denied</h1><p>HR or KC access is required.</p>');
+    if (!user || !hasEeCoreAccess(user.access_level)) {
+      return res.status(403).send('<h1>Access Denied</h1><p>The ee-core access tag is required.</p>');
     }
 
     res.sendFile(path.join(__dirname, '../../../../public/templates/referral_overview.html'));
@@ -115,8 +123,8 @@ router.get('/api/v1/referrals/management/leads', requireAuth, async (req, res) =
     client = await pool.connect();
     const user = await resolveAuthenticatedUserRecord(client, req);
 
-    if (!user || !hasManagerAccess(user.access_level)) {
-      return res.status(403).json({ success: false, error: 'HR or KC access required' });
+    if (!user || !hasReferralDataAccess(user.access_level)) {
+      return res.status(403).json({ success: false, error: 'ee-core, HR, or KC access required' });
     }
 
     const { status, assignment, search } = req.query;
@@ -284,7 +292,7 @@ router.put('/api/v1/referrals/:bubbleId/assign', requireAuth, async (req, res) =
 
 /**
  * DELETE /api/v1/referrals/:bubbleId
- * Soft-delete a referral lead (manager only)
+ * Soft-delete a referral lead (ee-core or manager access)
  */
 router.delete('/api/v1/referrals/:bubbleId', requireAuth, async (req, res) => {
   let client = null;
@@ -294,8 +302,8 @@ router.delete('/api/v1/referrals/:bubbleId', requireAuth, async (req, res) => {
     client = await pool.connect();
     const user = await resolveAuthenticatedUserRecord(client, req);
 
-    if (!user || !hasManagerAccess(user.access_level)) {
-      return res.status(403).json({ success: false, error: 'HR or KC access required' });
+    if (!user || !hasReferralDataAccess(user.access_level)) {
+      return res.status(403).json({ success: false, error: 'ee-core, HR, or KC access required' });
     }
 
     const deleted = await referralRepo.softDeleteReferral(

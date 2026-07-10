@@ -914,7 +914,9 @@
 
           const referralLeadManagementNav = document.getElementById("referralLeadManagementNav");
           if (referralLeadManagementNav) referralLeadManagementNav.classList.remove("hidden");
+        }
 
+        if (accessLevels.includes("ee-core")) {
           const referralOverviewCard = document.getElementById("referralOverviewCard");
           if (referralOverviewCard) referralOverviewCard.classList.remove("hidden");
 
