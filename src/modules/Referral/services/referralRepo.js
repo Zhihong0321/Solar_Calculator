@@ -91,6 +91,10 @@ function getPreferredAgentExpression(columns) {
   return 'NULL::text';
 }
 
+function getActiveReferralClause(columns, alias = 'r') {
+  return columns.has('deleted_at') ? `${alias}.deleted_at IS NULL` : 'TRUE';
+}
+
 /**
  * Get referrals by customer ID
  * @param {object} client - Database client
@@ -101,6 +105,7 @@ async function getReferralsByCustomerId(client, customerId) {
   const assignmentExpr = getAssignmentExpression(columns);
   const preferredAgentExpr = getPreferredAgentExpression(columns);
   const location = getLocationExpressions(columns, 'c');
+  const activeReferralClause = getActiveReferralClause(columns);
 
   const result = await client.query(
     `SELECT r.*,
@@ -115,7 +120,7 @@ async function getReferralsByCustomerId(client, customerId) {
      LEFT JOIN customer c ON r.linked_invoice IS NOT NULL AND c.customer_id = (
        SELECT i.linked_customer FROM invoice i WHERE i.bubble_id = r.linked_invoice LIMIT 1
      )
-     WHERE r.linked_customer_profile = $1
+     WHERE ${activeReferralClause} AND r.linked_customer_profile = $1
      ORDER BY r.created_at DESC`,
     [customerId]
   );
@@ -133,6 +138,7 @@ async function getReferralsByAgentId(client, agentId) {
   const assignmentExpr = getAssignmentExpression(columns);
   const preferredAgentExpr = getPreferredAgentExpression(columns);
   const location = getLocationExpressions(columns, 'c');
+  const activeReferralClause = getActiveReferralClause(columns);
 
   const result = await client.query(
     `SELECT r.*,
@@ -163,7 +169,7 @@ async function getReferralsByAgentId(client, agentId) {
      LEFT JOIN "user" preferred_user
        ON (preferred_user.id::text = ${preferredAgentExpr}
            OR preferred_user.bubble_id = ${preferredAgentExpr})
-     WHERE ${assignmentExpr} = ANY($1::text[])
+     WHERE ${activeReferralClause} AND ${assignmentExpr} = ANY($1::text[])
      ORDER BY r.created_at DESC`,
     [identifiers]
   );
@@ -176,8 +182,10 @@ async function getReferralsByAgentId(client, agentId) {
  * @param {string} mobileNumber - Mobile number to check
  */
 async function checkMobileNumberExists(client, mobileNumber) {
+  const columns = await getReferralColumns(client);
+  const activeReferralClause = getActiveReferralClause(columns, 'referral');
   const result = await client.query(
-    `SELECT bubble_id FROM referral WHERE mobile_number = $1 LIMIT 1`,
+    `SELECT bubble_id FROM referral WHERE ${activeReferralClause} AND mobile_number = $1 LIMIT 1`,
     [mobileNumber]
   );
   return result.rows.length > 0;
@@ -225,6 +233,7 @@ async function updateReferralStatus(client, referralBubbleId, data) {
   const { status, linkedInvoice, dealValue, commissionEarned } = data;
   const columns = await getReferralColumns(client);
   const statusColumn = columns.has('workflow_status') ? 'workflow_status' : 'status';
+  const activeReferralClause = getActiveReferralClause(columns, 'referral');
 
   const result = await client.query(
     `UPDATE referral 
@@ -233,7 +242,7 @@ async function updateReferralStatus(client, referralBubbleId, data) {
          deal_value = COALESCE($3, deal_value),
          commission_earned = COALESCE($4, commission_earned),
          updated_at = NOW()
-     WHERE bubble_id = $5
+     WHERE bubble_id = $5 AND ${activeReferralClause}
      RETURNING *`,
     [status, linkedInvoice, dealValue, commissionEarned, referralBubbleId]
   );
@@ -247,8 +256,10 @@ async function updateReferralStatus(client, referralBubbleId, data) {
  * @param {string} bubbleId - Referral bubble_id
  */
 async function getReferralByBubbleId(client, bubbleId) {
+  const columns = await getReferralColumns(client);
+  const activeReferralClause = getActiveReferralClause(columns, 'referral');
   const result = await client.query(
-    `SELECT * FROM referral WHERE bubble_id = $1`,
+    `SELECT * FROM referral WHERE bubble_id = $1 AND ${activeReferralClause}`,
     [bubbleId]
   );
   return result.rows.length > 0 ? result.rows[0] : null;
@@ -263,6 +274,10 @@ async function getReferralManagementQueue(client, filters = {}) {
 
   const clauses = [];
   const params = [];
+
+  if (columns.has('deleted_at')) {
+    clauses.push('r.deleted_at IS NULL');
+  }
 
   if (filters.status) {
     params.push(filters.status);
@@ -363,9 +378,33 @@ async function updateReferralAssignment(client, referralBubbleId, assignmentKey)
   const result = await client.query(
     `UPDATE referral
      SET ${updates.join(', ')}
-     WHERE bubble_id = $2
+     WHERE bubble_id = $2${columns.has('deleted_at') ? ' AND deleted_at IS NULL' : ''}
      RETURNING *`,
     [assignmentKey || null, referralBubbleId]
+  );
+
+  return result.rows.length > 0 ? result.rows[0] : null;
+}
+
+async function softDeleteReferral(client, referralBubbleId, deletedBy) {
+  const columns = await getReferralColumns(client);
+  if (!columns.has('deleted_at')) {
+    throw new Error('Referral soft delete is not available until the database migration is applied');
+  }
+
+  const deletedByUpdate = columns.has('deleted_by') ? ', deleted_by = $2' : '';
+  const params = columns.has('deleted_by')
+    ? [referralBubbleId, deletedBy || null]
+    : [referralBubbleId];
+
+  const result = await client.query(
+    `UPDATE referral
+     SET deleted_at = NOW(),
+         updated_at = NOW()${deletedByUpdate}
+     WHERE bubble_id = $1
+       AND deleted_at IS NULL
+     RETURNING *`,
+    params
   );
 
   return result.rows.length > 0 ? result.rows[0] : null;
@@ -403,6 +442,7 @@ module.exports = {
   getAssignableAgents,
   createReferral,
   updateReferralAssignment,
+  softDeleteReferral,
   updateReferralStatus,
   getReferralByBubbleId,
   getCustomerIdFromShareToken,

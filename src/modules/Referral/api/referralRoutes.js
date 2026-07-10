@@ -283,6 +283,41 @@ router.put('/api/v1/referrals/:bubbleId/assign', requireAuth, async (req, res) =
 });
 
 /**
+ * DELETE /api/v1/referrals/:bubbleId
+ * Soft-delete a referral lead (manager only)
+ */
+router.delete('/api/v1/referrals/:bubbleId', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const { bubbleId } = req.params;
+
+    client = await pool.connect();
+    const user = await resolveAuthenticatedUserRecord(client, req);
+
+    if (!user || !hasManagerAccess(user.access_level)) {
+      return res.status(403).json({ success: false, error: 'HR or KC access required' });
+    }
+
+    const deleted = await referralRepo.softDeleteReferral(
+      client,
+      bubbleId,
+      user.bubble_id || user.user_id || user.id || null
+    );
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'Referral not found' });
+    }
+
+    res.json({ success: true, data: deleted });
+  } catch (err) {
+    console.error('[Referral API] Error deleting referral:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
  * PUT /api/v1/referrals/:bubbleId/status
  * Update referral status (agent only)
  */

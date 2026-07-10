@@ -965,13 +965,14 @@ async function getAgentReferralStats(client, identifiers) {
   const statusExpr = columns.has('workflow_status')
     ? `COALESCE(r.workflow_status, r.status)`
     : 'r.status';
+  const activeReferralClause = columns.has('deleted_at') ? 'r.deleted_at IS NULL' : 'TRUE';
 
   const result = await client.query(
     `SELECT
        COUNT(*) as total_referrals,
        COUNT(*) FILTER (WHERE ${statusExpr} = 'Pending') as pending_referrals
      FROM referral r
-     WHERE ${assignmentExpr} = ANY($1::text[])`,
+     WHERE ${activeReferralClause} AND ${assignmentExpr} = ANY($1::text[])`,
     [identifiers]
   );
 
@@ -993,6 +994,7 @@ async function getPendingReferralsByAgent(client) {
   const statusExpr = columns.has('workflow_status')
     ? `COALESCE(r.workflow_status, r.status)`
     : 'r.status';
+  const activeReferralClause = columns.has('deleted_at') ? 'r.deleted_at IS NULL' : 'TRUE';
 
   const result = await client.query(
     `SELECT
@@ -1007,7 +1009,7 @@ async function getPendingReferralsByAgent(client) {
      LEFT JOIN "user" u
        ON (u.id::text = ${assignmentExpr}
            OR u.bubble_id = ${assignmentExpr})
-     WHERE ${statusExpr} = 'Pending'
+     WHERE ${activeReferralClause} AND ${statusExpr} = 'Pending'
      GROUP BY ${assignmentExpr}, a.name, u.name
      ORDER BY pending_count DESC`
   );

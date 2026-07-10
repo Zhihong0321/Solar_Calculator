@@ -293,6 +293,11 @@
                                     class="w-full rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800">
                                     Save Assignment
                                 </button>
+                                <button
+                                    onclick="softDeleteLead('${escapeJs(lead.bubble_id)}', '${escapeJs(lead.name || 'this lead')}')"
+                                    class="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100">
+                                    Delete Lead
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -364,6 +369,52 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Update failed',
+                    text: error.message,
+                    confirmButtonColor: '#0f172a'
+                });
+            }
+        }
+
+        async function softDeleteLead(bubbleId, leadName) {
+            const confirmation = await Swal.fire({
+                icon: 'warning',
+                title: 'Delete this lead?',
+                text: `${leadName} will be hidden from active referral lists but retained in the database.`,
+                showCancelButton: true,
+                confirmButtonText: 'Delete Lead',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#be123c',
+                reverseButtons: true
+            });
+
+            if (!confirmation.isConfirmed) return;
+
+            try {
+                const response = await fetch(`/api/v1/referrals/${encodeURIComponent(bubbleId)}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Failed to delete lead');
+                }
+
+                state.leads = state.leads.filter((lead) => lead.bubble_id !== bubbleId);
+                applyFilters();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Lead deleted',
+                    text: 'The lead was soft-deleted and removed from active queues.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            } catch (error) {
+                console.error('Error deleting referral lead:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Delete failed',
                     text: error.message,
                     confirmButtonColor: '#0f172a'
                 });

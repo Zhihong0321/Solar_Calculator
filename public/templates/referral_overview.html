@@ -98,12 +98,13 @@
                 <table class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50">
                         <tr>
-                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Lead</th>
-                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Referral In</th>
-                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Referral Out</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Potential Lead</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Refered By</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Assigned To</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Status</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Linked Invoice</th>
-                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Date</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Record Date</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Last Activity Date</th>
                         </tr>
                     </thead>
                     <tbody id="leadsTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
@@ -235,8 +236,11 @@
                 const status = lead.workflow_status || lead.status || 'Pending';
                 const normalizedStatus = String(status).trim().toLowerCase();
                 const statusClass = statusPalette[normalizedStatus] || 'bg-slate-100 text-slate-700';
-                const createdAt = lead.created_at
+                const recordDate = lead.created_at
                     ? new Date(lead.created_at).toLocaleString('en-MY')
+                    : '-';
+                const lastActivityDate = lead.updated_at
+                    ? new Date(lead.updated_at).toLocaleString('en-MY')
                     : '-';
 
                 return `
@@ -263,7 +267,10 @@
                             <p class="font-mono text-xs text-slate-600">${escapeHtml(lead.linked_invoice || 'N/A')}</p>
                         </td>
                         <td class="px-5 py-4 text-sm text-slate-500">
-                            ${escapeHtml(createdAt)}
+                            ${escapeHtml(recordDate)}
+                        </td>
+                        <td class="px-5 py-4 text-sm text-slate-500">
+                            ${escapeHtml(lastActivityDate)}
                         </td>
                     </tr>
                 `;
