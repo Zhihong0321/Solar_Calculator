@@ -7,7 +7,7 @@ const crypto = require('crypto');
 let referralColumnCache = null;
 
 async function getReferralColumns(client) {
-  if (referralColumnCache) {
+  if (referralColumnCache && referralColumnCache.has('deleted_at')) {
     return referralColumnCache;
   }
 
