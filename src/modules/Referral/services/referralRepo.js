@@ -308,13 +308,26 @@ async function getReferralManagementQueue(client, filters = {}) {
             ${statusExpr} AS workflow_status,
             ${assignmentExpr} AS assigned_agent_key,
             ${preferredAgentExpr} AS preferred_agent_key,
+            r.linked_invoice AS customer_profile_id,
             ${location.state} AS lead_state,
             ${location.city} AS lead_city,
             ${location.address} AS lead_address,
             COALESCE(assigned_agent.name, assigned_user.name, ${assignmentExpr}) AS assigned_agent_name,
-            COALESCE(preferred_agent.name, preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name
+            COALESCE(preferred_agent.name, preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name,
+            linked_invoice.invoice_id AS linked_invoice_id,
+            linked_invoice.invoice_number AS linked_invoice_number
      FROM referral r
      LEFT JOIN customer referrer ON referrer.customer_id = r.linked_customer_profile
+     LEFT JOIN LATERAL (
+       SELECT i.bubble_id AS invoice_id,
+              i.invoice_number
+       FROM invoice i
+       WHERE i.linked_referral = r.bubble_id
+         AND COALESCE(i.is_deleted, false) = false
+         AND COALESCE(i.status, '') <> 'deleted'
+       ORDER BY i.created_at DESC NULLS LAST, i.id DESC
+       LIMIT 1
+     ) linked_invoice ON TRUE
      LEFT JOIN agent assigned_agent
        ON (assigned_agent.id::text = ${assignmentExpr}
            OR assigned_agent.bubble_id = ${assignmentExpr}

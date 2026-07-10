@@ -102,6 +102,7 @@
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Refered By</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Assigned To</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Status</th>
+                            <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Customer Profile</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Linked Invoice</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Record Date</th>
                             <th class="px-5 py-4 text-left text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Last Activity Date</th>
@@ -264,7 +265,13 @@
                             <span class="status-pill ${statusClass}">${escapeHtml(status)}</span>
                         </td>
                         <td class="px-5 py-4">
-                            <p class="font-mono text-xs text-slate-600">${escapeHtml(lead.linked_invoice || 'N/A')}</p>
+                            <p class="font-mono text-xs text-slate-600">${escapeHtml(lead.customer_profile_id || lead.linked_invoice || 'N/A')}</p>
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="space-y-1">
+                                <p class="font-mono text-xs text-slate-600">${escapeHtml(lead.linked_invoice_number || 'N/A')}</p>
+                                ${lead.linked_invoice_id ? `<p class="font-mono text-[10px] text-slate-400">${escapeHtml(lead.linked_invoice_id)}</p>` : ''}
+                            </div>
                         </td>
                         <td class="px-5 py-4 text-sm text-slate-500">
                             ${escapeHtml(recordDate)}
