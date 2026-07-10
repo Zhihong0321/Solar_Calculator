@@ -120,6 +120,7 @@
         const state = {
             leads: [],
             agents: [],
+            deletedLeads: null,
             filteredLeads: []
         };
 
@@ -190,32 +191,65 @@
             )).sort();
 
             select.innerHTML = '<option value="all">All</option>' +
-                statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join('');
+                statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join('') +
+                '<option value="Deleted">Deleted</option>';
         }
 
-        function applyFilters() {
+        async function loadDeletedLeads() {
+            const response = await fetch('/api/v1/referrals/management/leads?status=Deleted', { credentials: 'same-origin' });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to load deleted leads');
+            }
+
+            state.deletedLeads = result.data || [];
+        }
+
+        async function applyFilters() {
             const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
             const assignment = document.getElementById('assignmentFilter').value;
             const status = document.getElementById('statusFilter').value;
 
-            state.filteredLeads = state.leads.filter((lead) => {
-                const assigned = Boolean(lead.assigned_agent_key);
-                const leadStatus = lead.workflow_status || lead.status || '';
+            const matchesSearch = (lead) => {
                 const haystack = [
                     lead.name,
                     lead.mobile_number,
                     lead.referrer_customer_name
                 ].filter(Boolean).join(' ').toLowerCase();
+                return !searchTerm || haystack.includes(searchTerm);
+            };
 
-                if (assignment === 'assigned' && !assigned) return false;
-                if (assignment === 'unassigned' && assigned) return false;
-                if (status !== 'all' && leadStatus !== status) return false;
-                if (searchTerm && !haystack.includes(searchTerm)) return false;
-                return true;
-            });
+            if (status === 'Deleted') {
+                try {
+                    if (!state.deletedLeads) {
+                        await loadDeletedLeads();
+                    }
+                    state.filteredLeads = state.deletedLeads.filter(matchesSearch);
+                } catch (error) {
+                    console.error('Error loading deleted referral leads:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Unable to load deleted leads',
+                        text: error.message,
+                        confirmButtonColor: '#0f172a'
+                    });
+                    state.filteredLeads = [];
+                }
+            } else {
+                state.filteredLeads = state.leads.filter((lead) => {
+                    const assigned = Boolean(lead.assigned_agent_key);
+                    const leadStatus = lead.workflow_status || lead.status || '';
+
+                    if (assignment === 'assigned' && !assigned) return false;
+                    if (assignment === 'unassigned' && assigned) return false;
+                    if (status !== 'all' && leadStatus !== status) return false;
+                    return matchesSearch(lead);
+                });
+            }
 
             updateSummary();
-            renderTable();
+            renderTable(status === 'Deleted');
         }
 
         function updateSummary() {
@@ -224,7 +258,7 @@
             document.getElementById('assignedCount').textContent = state.leads.filter((lead) => Boolean(lead.assigned_agent_key)).length;
         }
 
-        function renderTable() {
+        function renderTable(isDeletedView) {
             document.getElementById('loadingState').classList.add('hidden');
 
             const emptyState = document.getElementById('emptyState');
@@ -282,23 +316,28 @@
                             ${escapeHtml(createdAt)}
                         </td>
                         <td class="px-5 py-4">
-                            <div class="space-y-2 min-w-[220px]">
-                                <select
-                                    data-assignment-select="${escapeAttribute(lead.bubble_id)}"
-                                    class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-900">
-                                    ${renderAgentOptions(lead.assigned_agent_key)}
-                                </select>
-                                <button
-                                    onclick="saveAssignment('${escapeJs(lead.bubble_id)}')"
-                                    class="w-full rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800">
-                                    Save Assignment
-                                </button>
-                                <button
-                                    onclick="softDeleteLead('${escapeJs(lead.bubble_id)}', '${escapeJs(lead.name || 'this lead')}')"
-                                    class="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100">
-                                    Delete Lead
-                                </button>
-                            </div>
+                            ${isDeletedView
+                                ? `<div class="min-w-[220px] space-y-1">
+                                    <span class="status-pill bg-rose-100 text-rose-800">Deleted</span>
+                                    <p class="text-xs text-slate-500">${lead.deleted_at ? escapeHtml(new Date(lead.deleted_at).toLocaleString('en-MY')) : ''}</p>
+                                </div>`
+                                : `<div class="space-y-2 min-w-[220px]">
+                                    <select
+                                        data-assignment-select="${escapeAttribute(lead.bubble_id)}"
+                                        class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-900">
+                                        ${renderAgentOptions(lead.assigned_agent_key)}
+                                    </select>
+                                    <button
+                                        onclick="saveAssignment('${escapeJs(lead.bubble_id)}')"
+                                        class="w-full rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white transition hover:bg-slate-800">
+                                        Save Assignment
+                                    </button>
+                                    <button
+                                        onclick="softDeleteLead('${escapeJs(lead.bubble_id)}', '${escapeJs(lead.name || 'this lead')}')"
+                                        class="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-rose-700 transition hover:bg-rose-100">
+                                        Delete Lead
+                                    </button>
+                                </div>`}
                         </td>
                     </tr>
                 `;
@@ -401,6 +440,7 @@
                 }
 
                 state.leads = state.leads.filter((lead) => lead.bubble_id !== bubbleId);
+                state.deletedLeads = null;
                 applyFilters();
 
                 Swal.fire({

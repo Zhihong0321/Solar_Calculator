@@ -196,6 +196,7 @@
     <script>
         const state = {
             leads: [],
+            deletedLeads: null,
             filteredLeads: []
         };
 
@@ -255,28 +256,55 @@
             )).sort();
 
             select.innerHTML = '<option value="all">All</option>' +
-                statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join('');
+                statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join('') +
+                '<option value="Deleted">Deleted</option>';
         }
 
-        function applyFilters() {
+        async function loadDeletedLeads() {
+            const response = await fetch('/api/v1/referrals/management/leads?status=Deleted', { credentials: 'same-origin' });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to load deleted leads');
+            }
+
+            state.deletedLeads = result.data || [];
+        }
+
+        async function applyFilters() {
             const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
             const status = document.getElementById('statusFilter').value;
 
-            state.filteredLeads = state.leads.filter((lead) => {
-                const leadStatus = lead.workflow_status || lead.status || '';
+            const matchesSearch = (lead) => {
                 const haystack = [
                     lead.name,
                     lead.mobile_number,
                     lead.referrer_customer_name
                 ].filter(Boolean).join(' ').toLowerCase();
+                return !searchTerm || haystack.includes(searchTerm);
+            };
 
-                if (status !== 'all' && leadStatus !== status) return false;
-                if (searchTerm && !haystack.includes(searchTerm)) return false;
-                return true;
-            });
+            if (status === 'Deleted') {
+                try {
+                    if (!state.deletedLeads) {
+                        await loadDeletedLeads();
+                    }
+                    state.filteredLeads = state.deletedLeads.filter(matchesSearch);
+                } catch (error) {
+                    console.error('Error loading deleted referral leads:', error);
+                    window.alert(error.message);
+                    state.filteredLeads = [];
+                }
+            } else {
+                state.filteredLeads = state.leads.filter((lead) => {
+                    const leadStatus = lead.workflow_status || lead.status || '';
+                    if (status !== 'all' && leadStatus !== status) return false;
+                    return matchesSearch(lead);
+                });
+            }
 
             updateSummary();
-            renderTable();
+            renderTable(status === 'Deleted');
         }
 
         function updateSummary() {
@@ -295,7 +323,7 @@
             document.getElementById('successfulCount').textContent = state.leads.filter(isSuccessful).length;
         }
 
-        function renderTable() {
+        function renderTable(isDeletedView) {
             document.getElementById('loadingState').classList.add('hidden');
 
             const emptyState = document.getElementById('emptyState');
@@ -359,11 +387,13 @@
                             ${escapeHtml(lastActivityDate)}
                         </td>
                         <td class="px-5 py-4" data-label="Action">
-                            <button
-                                onclick="softDeleteLead('${escapeJs(lead.bubble_id)}', '${escapeJs(lead.name || 'this lead')}')"
-                                class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-rose-700 transition hover:bg-rose-100">
-                                Soft Delete
-                            </button>
+                            ${isDeletedView
+                                ? `<p class="text-xs font-semibold text-slate-500">Deleted ${lead.deleted_at ? escapeHtml(new Date(lead.deleted_at).toLocaleString('en-MY')) : ''}</p>`
+                                : `<button
+                                    onclick="softDeleteLead('${escapeJs(lead.bubble_id)}', '${escapeJs(lead.name || 'this lead')}')"
+                                    class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.12em] text-rose-700 transition hover:bg-rose-100">
+                                    Soft Delete
+                                </button>`}
                         </td>
                     </tr>
                 `;
@@ -398,6 +428,7 @@
                 }
 
                 state.leads = state.leads.filter((lead) => lead.bubble_id !== bubbleId);
+                state.deletedLeads = null;
                 applyFilters();
             } catch (error) {
                 console.error('Error soft-deleting referral lead:', error);

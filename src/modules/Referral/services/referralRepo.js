@@ -276,10 +276,10 @@ async function getReferralManagementQueue(client, filters = {}) {
   const params = [];
 
   if (columns.has('deleted_at')) {
-    clauses.push('r.deleted_at IS NULL');
+    clauses.push(filters.status === 'Deleted' ? 'r.deleted_at IS NOT NULL' : 'r.deleted_at IS NULL');
   }
 
-  if (filters.status) {
+  if (filters.status && filters.status !== 'Deleted') {
     params.push(filters.status);
     clauses.push(`${statusExpr} = $${params.length}`);
   }
