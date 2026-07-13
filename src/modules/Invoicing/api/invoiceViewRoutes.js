@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../../../core/database/pool');
 const tariffPool = require('../../../core/database/tariffPool');
 const invoiceRepo = require('../services/invoiceRepo');
+const sedaService = require('../services/sedaService');
 const { insertInvoiceItem } = require('../services/invoiceItemSupport');
 const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
@@ -21,6 +22,50 @@ const { normalizeIdentityValue } = require('../../../core/auth/userIdentity');
 const { writeInvoiceAuditEntry } = require('../services/auditWriter');
 
 const router = express.Router();
+
+const EV_CHARGER_PACKAGE_IDS = new Set([
+  '1779719505392x510517187223558528',
+  '1779719505392x532985182726628480',
+  '1779719505392x185856407051952896',
+  '1779719505392x930851860072331776',
+  '1779719505392x911258790790266368'
+]);
+
+function isEvChargerInvoice(invoice) {
+  return String(invoice?.package_name || '').toLowerCase().includes('ev charger')
+    || EV_CHARGER_PACKAGE_IDS.has(invoice?.linked_package);
+}
+
+async function ensureSedaRegistrationForQuotationView(client, invoice, viewerIdentity = null) {
+  if (!invoice?.bubble_id || !invoice.linked_customer || invoice.linked_seda_registration || isEvChargerInvoice(invoice)) {
+    return invoice;
+  }
+
+  const fallbackOwner = invoice.created_by || invoice.linked_agent || viewerIdentity;
+  if (!fallbackOwner) return invoice;
+
+  try {
+    await client.query('BEGIN');
+    // Prevent simultaneous public quotation loads from creating duplicate records.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [invoice.bubble_id]);
+    const seda = await sedaService.ensureSedaRegistration(
+      client,
+      invoice.bubble_id,
+      invoice.linked_customer,
+      fallbackOwner
+    );
+    await client.query('COMMIT');
+
+    if (seda?.bubble_id) {
+      invoice.linked_seda_registration = seda.bubble_id;
+    }
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error(`[Invoice View] Failed to ensure SEDA registration for ${invoice.bubble_id}:`, err.message);
+  }
+
+  return invoice;
+}
 
 function detectAuthenticatedViewer(req) {
   const token = req.cookies?.auth_token;
@@ -875,7 +920,8 @@ router.get('/view/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
+        const sedaReadyInvoice = await ensureSedaRegistrationForQuotationView(client, invoice, authenticatedViewer?.identity);
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(sedaReadyInvoice, getPaymentTermsPolicyOptions(req));
         if (layout === 'a4' || layout === 'a4-preview' || layout === 'print') {
           const html = generateInvoiceHtmlA4(policyInvoice, policyInvoice.template, {
             layout,
@@ -921,7 +967,8 @@ router.get('/view2/:tokenOrId', async (req, res) => {
       const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
 
       if (invoice) {
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
+        const sedaReadyInvoice = await ensureSedaRegistrationForQuotationView(client, invoice, authenticatedViewer?.identity);
+        const policyInvoice = applyPaymentTermsPolicyToInvoice(sedaReadyInvoice, getPaymentTermsPolicyOptions(req));
         const initialSolarEstimateData = await buildInitialPublicSolarEstimate(policyInvoice);
         const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, {
           layout,
