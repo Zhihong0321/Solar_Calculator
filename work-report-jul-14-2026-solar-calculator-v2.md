@@ -7,5 +7,6 @@ REPO NAME : Solar Calculator v2
 
 - Delivered the Support AI build plan and grounded support history to `E:\eternalgy-app\support-ai`.
 - Added a dashboard quick-download card for the Company Profile PDF 2025.
+- Moved the Company Profile PDF 2025 download shortcut into the Company Cloud page.
 
 =====================
