@@ -1,48 +1,43 @@
 # Last Session Handoff
 (overwritten every session - this is not a history file)
 
-- date: 2026-06-05
+- date: 2026-07-14
 - model: GPT-5 Codex
 - session type: action
 
 ## Task This Session
-Disabled the legacy Earn Now, Earth Month, and Parents' Day invoice promotions in invoice creation and edit/version flows.
+Added a quick-download dashboard card for the Company Profile PDF 2025 using the supplied Google Drive link.
 
 ## Files Modified
-- public/js/pages/create_invoice.js - Added a disabled legacy promo gate, hid persisted legacy promo UI, and forced create/request promo flags false.
-- public/js/pages/edit_invoice.js - Added a disabled legacy promo gate, hid persisted legacy promo UI, and forced edit/version request promo flags false.
-- public/templates/create_invoice.html - Removed the default checked state from the Parents' Day promo checkbox.
-- public/templates/edit_invoice.html - Removed the default checked state from the Parents' Day promo checkbox.
-- src/modules/Invoicing/services/invoiceFinancials.js - Added the disabled legacy promo gate so direct financial calculations no longer produce these legacy promo discounts.
-- src/modules/Invoicing/services/invoiceService.js - Forced create and version repo payload promo flags false so stale clients or direct requests cannot apply the legacy promos.
-- scripts/test_invoice_version_promotions.js - Updated the regression test to assert legacy promo flags are disabled in invoice version saves.
-- work-report-jun-5-2026-solar-calculator-v2.md - Logged the completed promo-disable work.
-- .agents/last-session.md - Updated this handoff.
+- public/templates/agent_dashboard.html - Added the Company Profile PDF 2025 tool card immediately after Company Cloud; complete.
+- work-report-jul-14-2026-solar-calculator-v2.md - Logged the completed dashboard shortcut; complete.
+- .agents/last-session.md - Updated this handoff; complete.
 
 ## Files Read But Not Changed
-- AGENTS.md - Repo instructions from user context.
-- package.json - Checked available test scripts.
-- scripts/test_invoice_financials.js - Ran existing financial helper test; file already had unrelated uncommitted edits.
-- src/modules/Invoicing/services/invoiceRepo.js - Read/search context for where promo financials create line items; file already had unrelated uncommitted edits.
-- skill-release/work-report-updater/SKILL.md - Followed report update workflow.
-- .agents/skills/ai-first-maintenance-bundle/session-handoff/SKILL.md - Followed handoff workflow.
+- AGENTS.md - Followed repository instructions supplied in the session context.
+- public/templates/company_cloud.html - Checked the existing Company Cloud page and visual language.
+- public/js/navigation.js - Confirmed the Company Cloud navigation entry.
+- server.js - Confirmed the authenticated dashboard and Company Cloud routes.
+- package.json - Checked available scripts and frontend dependencies.
+- skill-release/work-report-updater/SKILL.md - Followed the required daily work report workflow.
+- .agents/skills/ai-first-maintenance-bundle/ai-first-codebase/SKILL.md - Followed the repository's AI-first maintenance guidance.
+- .agents/skills/ai-first-maintenance-bundle/session-handoff/SKILL.md - Followed the required handoff workflow.
 
 ## Work Status
 complete
-The legacy promo disable change is implemented and targeted tests pass.
+The new dashboard card is implemented and verified on desktop and mobile layouts.
 
 ## Pending Decisions
 - none
 
 ## Discovered But Not Acted On
-- The worktree had many pre-existing uncommitted changes before this task, including invoice discount-budget and package nett-price edits. They were left in place.
-- Existing comments near frontend submit payloads still mention preserving expired promo state, but the implemented behavior now forces the legacy promo flags off.
+- The worktree contained many pre-existing modified and untracked files before this task; they were left unchanged.
 
 ## Do Not Touch Next Session
-- Pre-existing dirty files outside this task: avoid reverting or restyling them unless the user asks.
+- Pre-existing dirty files outside this task: do not revert or restyle them unless the user explicitly requests it.
 
 ## Recommended First Action Next Session
-Run `git status --short` first and separate any future changes from the existing dirty worktree before editing invoice files.
+Run `git status --short` before editing and keep future work separate from the existing unrelated changes.
 
 ## Open Ambiguities Added
 - none
