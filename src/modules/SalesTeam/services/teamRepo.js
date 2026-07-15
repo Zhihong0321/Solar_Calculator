@@ -14,9 +14,9 @@ async function getTeamsWithMembers(client = pool) {
       u.email,
       u.access_level,
       u.profile_picture,
-      a.name
+      u.name,
+      u.contact
     FROM "user" u
-    LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
   `);
 
   // Group in JS - no complex SQL

@@ -511,22 +511,20 @@ async function getTeamStats(client, options = {}) {
 
   let query = `
     SELECT 
-      a.bubble_id,
-      a.name as agent_name,
+      COALESCE(u.linked_agent_profile, u.bubble_id) AS bubble_id,
+      u.name AS agent_name,
       COUNT(dr.id) as total_activities,
       COALESCE(SUM(dr.report_point), 0) as total_points
-    FROM agent a
-    LEFT JOIN agent_daily_report dr ON (a.bubble_id = dr.linked_user OR a.bubble_id = dr.created_by)
+    FROM "user" u
+    LEFT JOIN agent_daily_report dr ON (
+      u.bubble_id = dr.linked_user OR u.bubble_id = dr.created_by OR
+      u.linked_agent_profile = dr.linked_user OR u.linked_agent_profile = dr.created_by
+    )
   `;
 
   const params = [];
   const whereConditions = [
-    `EXISTS (
-      SELECT 1
-      FROM "user" u
-      WHERE (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.bubble_id)
-        AND ${buildSalesTeamAccessClause('u')}
-    )`
+      `${buildSalesTeamAccessClause('u')}`
   ];
 
   if (startDate && endDate) {
@@ -544,7 +542,7 @@ async function getTeamStats(client, options = {}) {
   }
 
   query += `
-    GROUP BY a.bubble_id, a.name
+    GROUP BY u.bubble_id, u.linked_agent_profile, u.name
     ORDER BY total_points DESC
   `;
 
@@ -565,10 +563,15 @@ async function getAllActivitiesForReview(client, options = {}) {
   let query = `
     SELECT 
       dr.*,
-      a.name as agent_name,
+      activity_user.name as agent_name,
       c.name as customer_name
     FROM agent_daily_report dr
-    LEFT JOIN agent a ON (dr.linked_user = a.bubble_id OR dr.created_by = a.bubble_id)
+    LEFT JOIN "user" activity_user ON (
+      activity_user.bubble_id = dr.linked_user OR
+      activity_user.bubble_id = dr.created_by OR
+      activity_user.linked_agent_profile = dr.linked_user OR
+      activity_user.linked_agent_profile = dr.created_by
+    )
     LEFT JOIN customer c ON dr.linked_customer = c.customer_id
     WHERE EXISTS (
       SELECT 1
@@ -688,21 +691,21 @@ async function getAgentPerformanceRanking(client, options = {}) {
 
   const query = `
     SELECT 
-      a.bubble_id,
-      a.name as agent_name,
-      a.contact,
+      COALESCE(u.linked_agent_profile, u.bubble_id) AS bubble_id,
+      u.name AS agent_name,
+      u.contact,
       u.profile_picture,
       COUNT(dr.id) as total_activities,
       COALESCE(SUM(dr.report_point), 0) as total_points,
       COUNT(CASE WHEN dr.activity_type = 'Close Case' THEN 1 END) as close_cases
-    FROM agent a
-    LEFT JOIN "user" u ON (a.linked_user_login = u.bubble_id OR u.linked_agent_profile = a.bubble_id)
+    FROM "user" u
     LEFT JOIN agent_daily_report dr ON (
-      (a.bubble_id = dr.linked_user OR a.bubble_id = dr.created_by)
+      (u.bubble_id = dr.linked_user OR u.bubble_id = dr.created_by OR
+       u.linked_agent_profile = dr.linked_user OR u.linked_agent_profile = dr.created_by)
       ${dateConditions}
     )
     WHERE ${buildSalesTeamAccessClause('u')}
-    GROUP BY a.bubble_id, a.name, a.contact, u.profile_picture
+    GROUP BY u.bubble_id, u.linked_agent_profile, u.name, u.contact, u.profile_picture
     ORDER BY total_points DESC
   `;
 

@@ -76,13 +76,19 @@ class ChatService {
     const params = [user.userId];
 
     if (!hasAdminAccess) {
-      // Filter for agent: where invoice.linked_agent maps to this user via agent table
+      // Filter through the user's canonical linked-agent alias.
       query += `
         WHERE i.linked_agent IN (
-          SELECT bubble_id FROM agent WHERE linked_user_login = $2
+          SELECT linked_agent_profile
+          FROM "user"
+          WHERE bubble_id = $2 AND linked_agent_profile IS NOT NULL
+          UNION
+          SELECT bubble_id
+          FROM "user"
+          WHERE bubble_id = $2
         )
       `;
-      params.push(user.bubbleId); // We need the user's bubble_id to match agent.linked_user_login
+      params.push(user.bubbleId);
     }
 
     query += ` ORDER BY m.created_at DESC NULLS LAST`;
@@ -125,12 +131,11 @@ class ChatService {
         console.log(`[ChatService] Processing tag for role: ${tagRole}`);
 
         if (tagRole.toLowerCase() === 'agent') {
-            // Find the specific agent user for this thread's invoice
+            // Find the specific user for this thread's invoice.
             tagUsers = await client.query(
                 `SELECT u.id 
                  FROM "user" u
-                 JOIN agent a ON a.linked_user_login = u.bubble_id
-                 JOIN invoice i ON i.linked_agent = a.bubble_id
+                 JOIN invoice i ON (i.linked_agent = u.linked_agent_profile OR i.linked_agent = u.bubble_id)
                  JOIN chat_thread t ON t.invoice_id = i.bubble_id
                  WHERE t.id = $1`,
                 [threadId]
@@ -220,9 +225,9 @@ class ChatService {
 
   async getInvoiceAgentName(invoiceId) {
     const res = await pool.query(
-      `SELECT a.name as agent_name
+      `SELECT u.name as agent_name
        FROM invoice i
-       LEFT JOIN agent a ON i.linked_agent = a.bubble_id
+       LEFT JOIN "user" u ON (i.linked_agent = u.linked_agent_profile OR i.linked_agent = u.bubble_id)
        WHERE i.bubble_id = $1`,
       [invoiceId]
     );

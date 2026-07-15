@@ -115,7 +115,14 @@ async function resolveAuthenticatedUser(decoded, context = {}) {
             u.id::text AS user_id,
             u.bubble_id,
             u.linked_agent_profile,
+            u.name,
+            u.contact,
             u.email,
+            u.profile_picture,
+            u.address,
+            u.agent_type,
+            u.introducer,
+            u.agent_code,
             u.access_level,
             CASE
                 WHEN u.bubble_id = ANY($1::text[]) THEN 'bubble_id'
@@ -206,7 +213,14 @@ async function resolveAuthenticatedUser(decoded, context = {}) {
         bubbleId: user.bubble_id,
         bubble_id: user.bubble_id,
         linked_agent_profile: user.linked_agent_profile,
+        name: user.name || decoded?.name || decoded?.displayName || null,
+        contact: user.contact || decoded?.contact || decoded?.phone || decoded?.mobile_number || null,
         email: user.email || decoded?.email || null,
+        profile_picture: user.profile_picture || decoded?.profile_picture || null,
+        address: user.address || decoded?.address || null,
+        agent_type: user.agent_type || decoded?.agent_type || null,
+        introducer: user.introducer || decoded?.introducer || null,
+        agent_code: user.agent_code || decoded?.agent_code || null,
         access_level: user.access_level || decoded?.access_level || []
     };
 }

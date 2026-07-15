@@ -14,7 +14,12 @@ function sanitizeUserForClient(user = {}) {
         email: user.email || null,
         access_level: user.access_level || [],
         name: user.name || null,
-        contact: user.contact || null
+        contact: user.contact || null,
+        profile_picture: user.profile_picture || null,
+        address: user.address || null,
+        agent_type: user.agent_type || null,
+        introducer: user.introducer || null,
+        agent_code: user.agent_code || null
     };
 }
 
@@ -40,9 +45,9 @@ router.get('/api/user/me', requireAuth, async (req, res) => {
         client = await pool.connect();
         
         const query = `
-            SELECT a.name, a.contact, u.email
+            SELECT u.name, u.contact, u.email, u.profile_picture,
+                   u.address, u.agent_type, u.introducer, u.agent_code
             FROM "user" u
-            LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
             WHERE u.id::text = $1 OR u.bubble_id = $1
             LIMIT 1
         `;
@@ -53,7 +58,12 @@ router.get('/api/user/me', requireAuth, async (req, res) => {
             ...req.user,
             name: dbUser.name || req.user.name,
             contact: dbUser.contact || req.user.contact,
-            email: dbUser.email || req.user.email
+            email: dbUser.email || req.user.email,
+            profile_picture: dbUser.profile_picture || req.user.profile_picture,
+            address: dbUser.address || req.user.address,
+            agent_type: dbUser.agent_type || req.user.agent_type,
+            introducer: dbUser.introducer || req.user.introducer,
+            agent_code: dbUser.agent_code || req.user.agent_code
         });
 
         res.json({
@@ -79,7 +89,7 @@ router.get('/api/debug/users', requireDebugPasskey, async (req, res) => {
     let client;
     try {
         client = await pool.connect();
-        const result = await client.query('SELECT id, email, name, role, bubble_id, linked_agent_profile FROM "user" LIMIT 50');
+        const result = await client.query('SELECT id, email, name, contact, role, bubble_id, linked_agent_profile FROM "user" LIMIT 50');
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });

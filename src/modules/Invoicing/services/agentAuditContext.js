@@ -7,7 +7,7 @@ function normalizeTrimmed(value) {
   return normalized.length > 0 ? normalized : null;
 }
 
-function normalizeRole(role, accessLevel, hasAgentIdentity) {
+function normalizeRole(role, accessLevel, hasUserIdentity) {
   const directRole = normalizeTrimmed(role);
   if (directRole) return directRole;
 
@@ -21,7 +21,7 @@ function normalizeRole(role, accessLevel, hasAgentIdentity) {
     }
   }
 
-  return hasAgentIdentity ? 'agent' : null;
+  return hasUserIdentity ? 'agent' : null;
 }
 
 function extractIdentityCandidate(authUser) {
@@ -45,13 +45,9 @@ async function resolveAgentAuditContext(client, authUser = {}) {
           u.bubble_id AS user_bubble_id,
           u.access_level,
           u.email,
-          a.name AS agent_name,
-          a.contact AS agent_phone,
-          a.bubble_id AS agent_bubble_id
+          u.name AS user_name,
+          u.contact AS user_phone
        FROM "user" u
-       LEFT JOIN agent a
-         ON u.linked_agent_profile = a.bubble_id
-         OR a.linked_user_login = u.bubble_id
        WHERE u.id::text = $1
           OR u.bubble_id = $1
        ORDER BY
@@ -68,7 +64,7 @@ async function resolveAgentAuditContext(client, authUser = {}) {
   }
 
   const userPhone = normalizeTrimmed(
-    row?.agent_phone
+    row?.user_phone
     || authUser?.contact
     || authUser?.phone
     || authUser?.mobile_number
@@ -78,13 +74,13 @@ async function resolveAgentAuditContext(client, authUser = {}) {
     throw new Error('Authenticated user phone is required for invoice audit stamping.');
   }
 
-  const hasAgentIdentity = Boolean(row?.agent_name || row?.agent_phone || row?.agent_bubble_id);
+  const hasUserIdentity = Boolean(row?.user_name || row?.user_phone);
 
   return {
     userPhone,
     userId: normalizeTrimmed(row?.user_id || identityCandidate),
     userName: normalizeTrimmed(
-      row?.agent_name
+      row?.user_name
       || authUser?.name
       || authUser?.displayName
       || authUser?.email
@@ -93,7 +89,7 @@ async function resolveAgentAuditContext(client, authUser = {}) {
     userRole: normalizeRole(
       authUser?.role,
       row?.access_level || authUser?.access_level,
-      hasAgentIdentity
+      hasUserIdentity
     ),
     sourceApp: SOURCE_APP,
     applicationName: APPLICATION_NAME

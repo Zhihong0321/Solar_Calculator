@@ -143,8 +143,8 @@ async function getReferralsByAgentId(client, agentId) {
             ${location.state} AS lead_state,
             ${location.city} AS lead_city,
             ${location.address} AS lead_address,
-            COALESCE(assigned_agent.name, assigned_user.name, ${assignmentExpr}) AS assigned_agent_name,
-            COALESCE(preferred_agent.name, preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name
+            COALESCE(assigned_user.name, ${assignmentExpr}) AS assigned_agent_name,
+            COALESCE(preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name
      FROM referral r
      LEFT JOIN customer c ON r.linked_customer_profile = c.customer_id
      LEFT JOIN agent assigned_agent
@@ -153,7 +153,8 @@ async function getReferralsByAgentId(client, agentId) {
            OR assigned_agent.linked_user_login = ${assignmentExpr})
      LEFT JOIN "user" assigned_user
        ON (assigned_user.id::text = ${assignmentExpr}
-           OR assigned_user.bubble_id = ${assignmentExpr})
+           OR assigned_user.bubble_id = ${assignmentExpr}
+           OR assigned_user.linked_agent_profile = ${assignmentExpr})
      LEFT JOIN agent preferred_agent
        ON (${preferredAgentExpr} IS NOT NULL AND (
              preferred_agent.id::text = ${preferredAgentExpr}
@@ -162,7 +163,8 @@ async function getReferralsByAgentId(client, agentId) {
           ))
      LEFT JOIN "user" preferred_user
        ON (preferred_user.id::text = ${preferredAgentExpr}
-           OR preferred_user.bubble_id = ${preferredAgentExpr})
+           OR preferred_user.bubble_id = ${preferredAgentExpr}
+           OR preferred_user.linked_agent_profile = ${preferredAgentExpr})
      WHERE ${assignmentExpr} = ANY($1::text[])
      ORDER BY r.created_at DESC`,
     [identifiers]
@@ -296,8 +298,8 @@ async function getReferralManagementQueue(client, filters = {}) {
             ${location.state} AS lead_state,
             ${location.city} AS lead_city,
             ${location.address} AS lead_address,
-            COALESCE(assigned_agent.name, assigned_user.name, ${assignmentExpr}) AS assigned_agent_name,
-            COALESCE(preferred_agent.name, preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name
+            COALESCE(assigned_user.name, ${assignmentExpr}) AS assigned_agent_name,
+            COALESCE(preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name
      FROM referral r
      LEFT JOIN customer referrer ON referrer.customer_id = r.linked_customer_profile
      LEFT JOIN agent assigned_agent
@@ -306,7 +308,8 @@ async function getReferralManagementQueue(client, filters = {}) {
            OR assigned_agent.linked_user_login = ${assignmentExpr})
      LEFT JOIN "user" assigned_user
        ON (assigned_user.id::text = ${assignmentExpr}
-           OR assigned_user.bubble_id = ${assignmentExpr})
+           OR assigned_user.bubble_id = ${assignmentExpr}
+           OR assigned_user.linked_agent_profile = ${assignmentExpr})
      LEFT JOIN agent preferred_agent
        ON (${preferredAgentExpr} IS NOT NULL AND (
              preferred_agent.id::text = ${preferredAgentExpr}
@@ -315,7 +318,8 @@ async function getReferralManagementQueue(client, filters = {}) {
           ))
      LEFT JOIN "user" preferred_user
        ON (preferred_user.id::text = ${preferredAgentExpr}
-           OR preferred_user.bubble_id = ${preferredAgentExpr})
+           OR preferred_user.bubble_id = ${preferredAgentExpr}
+           OR preferred_user.linked_agent_profile = ${preferredAgentExpr})
      ${whereClause}
      ORDER BY r.created_at DESC`,
     params
@@ -332,13 +336,14 @@ async function getAssignableAgents(client) {
        a.bubble_id AS agent_bubble_id,
        u.id::text AS user_id,
        u.bubble_id AS user_bubble_id,
-       a.name,
+       u.name,
+       u.contact,
        u.email,
        u.access_level
      FROM agent a
      LEFT JOIN "user" u
        ON (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.linked_user_login)
-     WHERE a.name IS NOT NULL
+     WHERE u.name IS NOT NULL
        AND u.id IS NOT NULL
        AND EXISTS (
          SELECT 1
@@ -346,7 +351,7 @@ async function getAssignableAgents(client) {
          WHERE role IN ('sales', 'hr', 'kc')
             OR role LIKE 'team-%'
        )
-     ORDER BY a.name`
+     ORDER BY u.name`
   );
 
   return result.rows;

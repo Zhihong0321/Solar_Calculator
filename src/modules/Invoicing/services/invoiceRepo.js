@@ -1652,10 +1652,9 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     if (invoice.created_by) {
       parallelQueries.push(
         client.query(
-          `SELECT a.name 
-           FROM "user" u 
-           JOIN agent a ON u.linked_agent_profile = a.bubble_id 
-           WHERE u.bubble_id = $1 
+          `SELECT u.name
+           FROM "user" u
+           WHERE u.bubble_id = $1
            LIMIT 1`,
           [invoice.created_by]
         ).then(userResult => {

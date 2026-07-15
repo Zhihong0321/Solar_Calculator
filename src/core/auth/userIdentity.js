@@ -42,7 +42,14 @@ async function resolveAuthenticatedUserRecord(db, input) {
         u.id::text AS user_id,
         u.bubble_id,
         u.linked_agent_profile,
+        u.name,
+        u.contact,
         u.email,
+        u.profile_picture,
+        u.address,
+        u.agent_type,
+        u.introducer,
+        u.agent_code,
         u.access_level
      FROM "user" u
      WHERE u.bubble_id = ANY($1::text[])

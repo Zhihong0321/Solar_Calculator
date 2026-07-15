@@ -221,12 +221,27 @@ app.post('/api/agent/register', async (req, res) => {
     // 1. Create User first
     const userQuery = `
       INSERT INTO "user" (
-        bubble_id, email, access_level, linked_agent_profile, user_signed_up, profile_picture, introducer, agent_code, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        bubble_id, name, contact, email, address, access_level, linked_agent_profile,
+        user_signed_up, profile_picture, introducer, agent_type, ic_front, ic_back,
+        agent_code, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
       RETURNING *
     `;
     await client.query(userQuery, [
-      user_bubble_id, normalizedEmail, ['pending'], agent_bubble_id, false, profilePicUrl, normalizedIntroducer, normalizedAgentCode
+      user_bubble_id,
+      normalizedName,
+      normalizedContact,
+      normalizedEmail,
+      normalizedAddress,
+      ['pending'],
+      agent_bubble_id,
+      false,
+      profilePicUrl,
+      normalizedIntroducer,
+      normalizedAgentType,
+      icFrontUrl,
+      icBackUrl,
+      normalizedAgentCode
     ]);
 
     // 2. Create Agent linked back to user
@@ -422,18 +437,15 @@ app.get('/api/agent/me', requireAuth, async (req, res) => {
       return res.status(401).json({ error: 'Invalid session data' });
     }
 
-    // Verified Query based on confirmed schema:
-    // Identity (Name, Contact) lives in 'agent'
-    // Profile Image lives in 'user'
+    // User identity is canonical in the user table.
     const query = `
       SELECT 
-        a.name, 
+        u.name,
         u.email, 
         u.profile_picture,
         u.access_level,
-        a.contact as phone
+        u.contact as phone
       FROM "user" u
-      LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
       WHERE u.id::text = $1 OR (u.bubble_id = $2 AND u.bubble_id IS NOT NULL AND u.bubble_id != '')
       LIMIT 1
     `;
@@ -452,7 +464,7 @@ app.get('/api/agent/me', requireAuth, async (req, res) => {
       error: 'Internal server error',
       message: err.message,
       stack: err.stack,
-      hint: 'Check if all columns (name, email, linked_agent_profile, profile_picture) exist in "user" table and contact in "agent" table.'
+      hint: 'Check that user identity columns (name, contact, email, profile_picture) exist in the "user" table.'
     });
   }
 });

@@ -32,16 +32,13 @@ const requireAdminAccess = async (req, res, next) => {
     try {
         client = await pool.connect();
 
-        // 2. Search for any agent contact associated with this user
-        // We check by u.id, u.bubble_id, u.email, and even agent_code fallbacks
+        // 2. Read the canonical user contact directly from the user row.
         const query = `
-            SELECT a.contact, u.email, a.name
+            SELECT u.contact, u.email, u.name
             FROM "user" u
-            LEFT JOIN agent a ON u.linked_agent_profile = a.bubble_id
-            WHERE u.id::text = $1 
-               OR u.bubble_id = $1 
+            WHERE u.id::text = $1
+               OR u.bubble_id = $1
                OR u.email = $1
-               OR a.bubble_id = $1
         `;
         const result = await client.query(query, [String(userId)]);
 

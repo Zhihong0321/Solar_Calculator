@@ -54,19 +54,17 @@ async function resolveAgentIdentifiers(client, actorId) {
 
   // 1. Try to resolve as a USER first to avoid ambiguous integer collisions between user.id and agent.id
   const userResult = await client.query(
-    `SELECT a.id::text AS agent_id,
-            a.bubble_id AS agent_bubble_id,
+    `SELECT u.id::text AS user_id,
             u.bubble_id AS user_bubble_id,
             u.linked_agent_profile
      FROM "user" u
-     LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.linked_user_login)
      WHERE u.id::text = $1 OR u.bubble_id = $1`,
     [normalized]
   );
 
   if (userResult.rows.length > 0) {
     userResult.rows.forEach((row) => {
-      [row.agent_id, row.agent_bubble_id, row.user_bubble_id, row.linked_agent_profile]
+      [row.user_id, row.user_bubble_id, row.linked_agent_profile]
         .filter(Boolean)
         .forEach((v) => identifiers.add(String(v)));
     });
@@ -666,12 +664,10 @@ router.get('/api/activity/agents', requireAuth, async (req, res) => {
     client = await pool.connect();
     const result = await client.query(
       `SELECT DISTINCT
-         a.bubble_id,
-         a.name
+         COALESCE(u.linked_agent_profile, u.bubble_id) AS bubble_id,
+         u.name
        FROM "user" u
-       JOIN agent a
-         ON (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.bubble_id)
-       WHERE a.name IS NOT NULL
+       WHERE u.name IS NOT NULL
          AND EXISTS (
            SELECT 1
            FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
@@ -682,7 +678,7 @@ router.get('/api/activity/agents', requireAuth, async (req, res) => {
            FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS access_tag
            WHERE LOWER(access_tag) LIKE 'team-%'
          )
-       ORDER BY a.name`
+       ORDER BY u.name`
     );
     res.json({ success: true, data: result.rows });
   } catch (err) {
