@@ -110,12 +110,19 @@ async function runColumnTarget(target, { limit, dryRun, keepLocal }) {
     const stats = { migrated: 0, notFound: 0, failed: 0, rowsScanned: 0, failures: [] };
     const r2Base = String(process.env.R2_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
 
-    // Only pull rows that still have at least one non-R2 value in a target
-    // column, and cap how many rows one call touches.
-    const colConds = target.columns.map((c) => c.isArray
-        ? `EXISTS (SELECT 1 FROM unnest(COALESCE(${c.column}, ARRAY[]::text[])) x WHERE x IS NOT NULL AND x <> '' AND x NOT LIKE '%' || $1 || '%')`
-        : `(${c.column} IS NOT NULL AND ${c.column} <> '' AND ${c.column} NOT LIKE '%' || $1 || '%')`
-    ).join(' OR ');
+    // Only pull rows that still have at least one value that (a) is not
+    // already on R2 and (b) actually looks like OUR OWN legacy disk path for
+    // that column's subdir - not just "anything non-R2". Some legacy rows
+    // hold external URLs (e.g. the old Bubble.io CDN) that were never on the
+    // Railway volume and never will be; matching only on "not R2" selected
+    // those same unmigratable rows every call, forever, since nothing about
+    // them ever changes.
+    const colConds = target.columns.map((c) => {
+        const subdirLiteral = (c.subdir || target.subdir).replace(/'/g, "''");
+        return c.isArray
+            ? `EXISTS (SELECT 1 FROM unnest(COALESCE(${c.column}, ARRAY[]::text[])) x WHERE x IS NOT NULL AND x <> '' AND x LIKE '%${subdirLiteral}%' AND x NOT LIKE '%' || $1 || '%')`
+            : `(${c.column} IS NOT NULL AND ${c.column} <> '' AND ${c.column} LIKE '%${subdirLiteral}%' AND ${c.column} NOT LIKE '%' || $1 || '%')`;
+    }).join(' OR ');
 
     const columnList = target.columns.map((c) => c.column);
     const { rows } = await pool.query(
@@ -183,9 +190,11 @@ async function runColumnTarget(target, { limit, dryRun, keepLocal }) {
 async function runMessageTarget(target, { limit, dryRun, keepLocal }) {
     const stats = { migrated: 0, notFound: 0, failed: 0, rowsScanned: 0, failures: [] };
     const r2Base = String(process.env.R2_PUBLIC_BASE_URL || '').replace(/\/+$/, '');
+    const subdirLiteral = target.subdir.replace(/'/g, "''");
     const { rows } = await pool.query(
         `SELECT id, content FROM ${target.table}
-         WHERE message_type IN ('image','file') AND content IS NOT NULL AND content NOT LIKE '%' || $1 || '%'
+         WHERE message_type IN ('image','file') AND content IS NOT NULL
+           AND content LIKE '%${subdirLiteral}%' AND content NOT LIKE '%' || $1 || '%'
          LIMIT $2`,
         [r2Base, limit]
     );
