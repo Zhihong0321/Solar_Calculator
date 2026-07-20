@@ -70,7 +70,12 @@ const SUBDIR_ROUTE_MAP = {
 };
 
 function subdirToRouteSegment(subdir) {
-    return SUBDIR_ROUTE_MAP[subdir] || subdir.replace(/_/g, '-');
+    // Anything not explicitly mapped is served straight off the /uploads static
+    // mount (server.js), so the fallback MUST be `uploads/<subdir>`. The old
+    // `subdir.replace(/_/g,'-')` guessed a route that was never registered, so a
+    // disk-backend upload (dev, or a STORAGE_BACKEND_<subdir>=disk rollback) was
+    // stored with a URL that 404s in the browser.
+    return SUBDIR_ROUTE_MAP[subdir] || `uploads/${subdir}`;
 }
 
 module.exports = { getStorageRoot, ensureDir, buildPublicUrl, resolveDiskPath, safeDelete };

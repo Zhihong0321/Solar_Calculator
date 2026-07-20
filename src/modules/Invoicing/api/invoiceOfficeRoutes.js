@@ -6,8 +6,7 @@ const invoiceRepo = require('../services/invoiceRepo');
 const { writeInvoiceAuditEntry } = require('../services/auditWriter');
 const {
     createUploader,
-    buildPublicUrl,
-    safeDelete,
+    storageDriver,
     resolvedMime,
     fileExtension,
     validateFilename,
@@ -82,6 +81,7 @@ function getUploader(fieldKey) {
         storageSubdir: rule.storageSubdir,
         allowedMimes: rule.accept,
         maxFileSizeMB: rule.maxMB,
+        storage: 'memory', // buffered in req.file.buffer, pushed to R2 via storageDriver
         generateFilename: (req, file) => {
             const ts = Date.now();
             const rand = require('crypto').randomBytes(4).toString('hex');
@@ -177,7 +177,7 @@ async function handleInvoiceOfficeUpload(req, res) {
 
         const sizeCheck = validateSize(req.file.size, rule.maxMB, rule.label);
         if (!sizeCheck.ok) {
-            safeDelete(req.file.path);
+            // memory storage: the buffer is in RAM and nothing was written yet
             logUpload({
                 route: req.path,
                 field,
@@ -193,7 +193,6 @@ async function handleInvoiceOfficeUpload(req, res) {
 
         const nameCheck = validateFilename(req.file.originalname || '');
         if (!nameCheck.ok) {
-            safeDelete(req.file.path);
             logUpload({
                 route: req.path,
                 field,
@@ -211,7 +210,23 @@ async function handleInvoiceOfficeUpload(req, res) {
         }
 
         const mime = resolvedMime(req.file);
-        const fileUrl = buildPublicUrl(req, rule.storageSubdir, req.file.filename);
+
+        // Push to storage (R2 in prod) before the DB write. Images are compressed
+        // in memory by the driver; PDFs (pv_drawings) pass through untouched.
+        let stored;
+        try {
+            stored = await storageDriver.put(req.file.buffer, {
+                subdir: rule.storageSubdir,
+                filename: req.file.filename,
+                mimeType: mime,
+                req,
+            });
+        } catch (storeErr) {
+            console.error('[InvoiceOffice Upload] storage put failed:', storeErr.message);
+            logUpload({ route: req.path, field, recordId: bubbleId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: storeErr.message });
+            return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field, error: `${rule.label}: Failed to store file. Please try again.` }));
+        }
+        const fileUrl = stored.url;
 
         try {
             await beginAgentAuditTransaction(client, auditContext);
@@ -235,7 +250,7 @@ async function handleInvoiceOfficeUpload(req, res) {
         } catch (dbErr) {
             await client.query('ROLLBACK').catch(() => {});
             if (isMissingColumnError(dbErr, rule.column)) {
-                safeDelete(req.file.path);
+                await storageDriver.remove(fileUrl, { subdir: rule.storageSubdir });
                 logUpload({
                     route: req.path,
                     field,
@@ -252,7 +267,10 @@ async function handleInvoiceOfficeUpload(req, res) {
                     error: `${rule.label} upload is not ready on this server yet. The database column "${rule.column}" is missing. Please apply the required migration first.`,
                 }));
             }
-            console.error('[InvoiceOffice Upload] DB update failed — orphaned file:', req.file.path, dbErr.message);
+            // Reclaim the stored object so a DB failure does not leak it (there is
+            // no purge job that would ever find it on R2).
+            await storageDriver.remove(fileUrl, { subdir: rule.storageSubdir });
+            console.error('[InvoiceOffice Upload] DB update failed — stored file rolled back:', fileUrl, dbErr.message);
             logUpload({
                 route: req.path,
                 field,
@@ -288,7 +306,8 @@ async function handleInvoiceOfficeUpload(req, res) {
             size: req.file.size,
         }));
     } catch (err) {
-        if (req.file?.path) safeDelete(req.file.path);
+        // memory storage: nothing on disk to clean up. Post-put DB failures are
+        // handled (and the object rolled back) in the inner catch above.
         console.error('[InvoiceOffice Upload] Unexpected error:', err);
         logUpload({
             route: req.path,
