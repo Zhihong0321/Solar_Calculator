@@ -7,6 +7,18 @@
 
 <!-- Add new entries at the top, below this line -->
 
+## 2026-07-14 — Support AI uses curated historical patterns, not raw ticket notes
+
+- made by: GPT-5 Codex
+- reason: Production support tickets contain useful patterns for customer intake and reassurance, but their technician remarks are internal, inconsistent, and may include customer-specific or unsafe technical detail. The Support AI therefore needs a reviewed, customer-safe support history plus live ticket-status queries instead of general model knowledge or raw-ticket retrieval.
+- rejected alternatives:
+  - use raw historical tickets as a retrieval corpus: rejected because it risks exposing personal/internal information and can reproduce unreviewed technical instructions or unprofessional wording
+  - let the model answer from general solar knowledge: rejected because the requested product must describe Eternalgy's actual handling patterns and must not invent diagnosis, warranty, timing, or liability claims
+- constraints it encodes: customer privacy, safe technical communication, accurate expectation-setting, preservation of the original `support_ticket` schema
+- files affected: `support_history.md`, `support-ai-buildplan.md`
+- do not reverse without: explicit user approval, a reviewed customer-facing knowledge source, and confirmation that privacy and safety controls remain equivalent or stronger
+- status: ACTIVE
+
 ## 2026-04-28 — SEDA ownership uses user bubble IDs
 
 - made by: GPT-5 Codex

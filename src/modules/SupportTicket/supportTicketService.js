@@ -243,19 +243,35 @@ class SupportTicketService {
   }
 
   async updateTicket(id, { status, technician_remark, link_customer }) {
-    if (status && !VALID_STATUSES.includes(status)) {
+    // '' is treated as "clear this field" (see `status || null` below), so it must
+    // bypass the whitelist the same way null and undefined do — otherwise an empty
+    // form field throws instead of clearing.
+    if (status !== undefined && status !== null && status !== '' && !VALID_STATUSES.includes(status)) {
       throw new Error(`Invalid status: ${status}`);
+    }
+
+    const assignments = ['modified_date = NOW()'];
+    const params = [id];
+
+    if (status !== undefined) {
+      params.push(status || null);
+      assignments.push(`status = $${params.length}`);
+    }
+    if (technician_remark !== undefined) {
+      params.push(technician_remark ?? null);
+      assignments.push(`technician_remark = $${params.length}`);
+    }
+    if (link_customer !== undefined) {
+      params.push(link_customer || null);
+      assignments.push(`link_customer = $${params.length}`);
     }
 
     const result = await pool.query(
       `UPDATE support_ticket
-       SET status = COALESCE($2, status),
-           technician_remark = COALESCE($3, technician_remark),
-           link_customer = COALESCE($4, link_customer),
-           modified_date = NOW()
+       SET ${assignments.join(', ')}
        WHERE id = $1
        RETURNING *`,
-      [id, status ?? null, technician_remark ?? null, link_customer ?? null]
+      params
     );
     return result.rows[0] || null;
   }

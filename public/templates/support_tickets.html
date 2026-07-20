@@ -127,6 +127,7 @@
         let activeTab = 'all';
         let currentTicketId = null;
         let selectedLinkCustomerId = null;
+        let customerLinkTouched = false;
         let adminCustomerSearchDebounce = null;
 
         function isDeleted(t) { return (t.status || 'unread') === 'deleted'; }
@@ -264,6 +265,7 @@
                 const json = await res.json();
                 if (!json.success) return;
                 selectedLinkCustomerId = null;
+                customerLinkTouched = false;
                 renderModal(json.ticket);
             } catch (err) {
                 console.error('Get Ticket Error:', err);
@@ -283,7 +285,10 @@
                 <div>
                     <div class="flex items-center justify-between mb-1">
                         <p class="text-xs text-gray-400 uppercase font-semibold">Customer</p>
-                        <button type="button" onclick="toggleCustomerSearch()" class="text-xs text-blue-600 font-semibold">${ticket.customer_name ? 'Change' : 'Link Customer'}</button>
+                        <div class="flex items-center gap-3">
+                            <button type="button" onclick="toggleCustomerSearch()" class="text-xs text-blue-600 font-semibold">${ticket.customer_name ? 'Change' : 'Link Customer'}</button>
+                            ${ticket.link_customer ? '<button type="button" onclick="clearLinkCustomer()" class="text-xs text-red-600 font-semibold">Unlink</button>' : ''}
+                        </div>
                     </div>
                     <p class="text-sm text-gray-800" id="linkedCustomerDisplay">${escapeHtml(ticket.customer_name || 'No customer linked')} ${ticket.customer_contact ? '· ' + escapeHtml(ticket.customer_contact) : ''}</p>
                     <div id="adminCustomerSearchWrap" class="hidden mt-2">
@@ -360,17 +365,25 @@
 
         function selectLinkCustomer(id, name, phone) {
             selectedLinkCustomerId = id;
+            customerLinkTouched = true;
             document.getElementById('linkedCustomerDisplay').textContent = `${name}${phone ? ' · ' + phone : ''} (unsaved, click Save Changes)`;
             document.getElementById('adminCustomerResults').classList.add('hidden');
             document.getElementById('adminCustomerSearchWrap').classList.add('hidden');
             document.getElementById('adminCustomerSearch').value = '';
         }
 
+        function clearLinkCustomer() {
+            selectedLinkCustomerId = null;
+            customerLinkTouched = true;
+            document.getElementById('linkedCustomerDisplay').textContent = 'No customer linked (unsaved, click Save Changes)';
+            document.getElementById('adminCustomerSearchWrap').classList.add('hidden');
+        }
+
         async function saveTicket() {
             const status = document.getElementById('statusSelect').value;
             const technician_remark = document.getElementById('remarkInput').value;
             const body = { status, technician_remark };
-            if (selectedLinkCustomerId) body.link_customer = selectedLinkCustomerId;
+            if (customerLinkTouched) body.link_customer = selectedLinkCustomerId || null;
             try {
                 const res = await fetch(`/api/support-tickets/${currentTicketId}`, {
                     method: 'PATCH',
@@ -391,6 +404,7 @@
             document.getElementById('ticketModal').classList.add('hidden');
             currentTicketId = null;
             selectedLinkCustomerId = null;
+            customerLinkTouched = false;
         }
 
         async function syncNow() {
