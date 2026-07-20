@@ -7,6 +7,15 @@
 
 <!-- Add new entries at the top, below this line -->
 
+## 2026-07-20 — HostedHtml served from R2 public URL; stale-cache accepted
+
+- made by: user
+- context: after the storageDriver cutover, serveHostedApp (/h/:slug, /app/:friendlySlug) fetches the app's HTML from R2's PUBLIC url, which sits behind Cloudflare's edge cache. Updating a hosted app overwrites the same key, so the server can serve the previously-cached HTML until the edge TTL expires. On the old local-disk read this was instant.
+- decision: SHIP AS-IS. Accepted known issue — a user who updates a hosted app may see the old version for a few minutes.
+- rejected: cache-busting ?v=<modified_date> on fetch; versioned per-update keys. Both deferred as not worth the change right now.
+- if it becomes a complaint: the cheap fix is appending ?v=<modified_date> to the url in serveHostedApp before fetch.
+- status: ACTIVE
+
 ## 2026-07-20 — SEDA OCR/extraction endpoints disabled behind a kill switch
 
 - made by: Claude Opus 4.8, at user direction
