@@ -99,4 +99,41 @@ async function fetchBuffer(url) {
     return Buffer.from(arrayBuffer);
 }
 
-module.exports = { uploadBuffer, deleteObject, isR2Url, keyFromUrl, fetchBuffer };
+const REQUIRED_ENV = [
+    'R2_ACCOUNT_ID',
+    'R2_ACCESS_KEY_ID',
+    'R2_SECRET_ACCESS_KEY',
+    'R2_BUCKET',
+    'R2_PUBLIC_BASE_URL',
+];
+
+/**
+ * Returns the names of any missing R2 env vars.
+ */
+function missingConfig() {
+    return REQUIRED_ENV.filter(name => !process.env[name]);
+}
+
+/**
+ * Boot-time guard. Call once at startup.
+ *
+ * Without this, a missing env var is invisible until a user hits an upload:
+ * isR2Url() swallows the config error and returns false, so read paths report
+ * "file not found" for files that exist perfectly well — a misconfiguration
+ * that impersonates data loss. Fail loudly at boot instead.
+ */
+function assertConfigured({ fatal = false } = {}) {
+    const missing = missingConfig();
+    if (!missing.length) return true;
+
+    const msg = `[r2Storage] Missing R2 configuration: ${missing.join(', ')}. `
+              + 'File uploads will fail and stored files will be unreadable.';
+    if (fatal) throw new Error(msg);
+    console.error(msg);
+    return false;
+}
+
+module.exports = {
+    uploadBuffer, deleteObject, isR2Url, keyFromUrl, fetchBuffer,
+    missingConfig, assertConfigured,
+};

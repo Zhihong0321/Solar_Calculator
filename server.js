@@ -859,6 +859,10 @@ app.get('/api/version', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`[Modular Monolith] Server running on port ${PORT}`);
+  // Warn loudly at boot rather than letting a missing R2 var surface later as a
+  // bogus "file not found" on every upload and download. Non-fatal: modules still
+  // on local disk storage keep working without R2 configured.
+  require('./src/core/upload/r2Storage').assertConfigured();
 });
 
 Health.startHealthCheckScheduler();

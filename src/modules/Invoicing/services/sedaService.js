@@ -1,4 +1,25 @@
 const sedaRepo = require('./sedaRepo');
+const { writeInvoiceAuditEntry } = require('./auditWriter');
+
+async function writeSedaAuditEntry(client, {
+    invoiceBubbleId,
+    sedaId,
+    actionType = 'UPDATED',
+    changes,
+    actorUserId = null,
+}) {
+    if (!invoiceBubbleId || !sedaId || !Array.isArray(changes) || changes.length === 0) return;
+
+    await writeInvoiceAuditEntry(client, {
+        invoiceBubbleId,
+        entityType: 'seda_registration',
+        actionType,
+        entityId: sedaId,
+        changes,
+        actorUserId,
+        sourceApp: 'agent-os',
+    });
+}
 
 async function resolveInvoiceSedaAgentUserBubbleId(client, invoiceId, fallbackUserId) {
     const invoiceResult = await client.query(
@@ -38,6 +59,16 @@ async function ensureSedaRegistration(client, invoiceId, customerId, userId) {
         if (existing.linked_customer !== customerId) {
             console.log(`[SedaService] Updating SEDA ${existing.bubble_id} linked customer from ${existing.linked_customer} to ${customerId}`);
             await sedaRepo.updateSedaLinkedCustomer(client, existing.bubble_id, customerId);
+            await writeSedaAuditEntry(client, {
+                invoiceBubbleId: invoiceId,
+                sedaId: existing.bubble_id,
+                actorUserId: createdByUserBubbleId,
+                changes: [{
+                    field: 'Linked Customer',
+                    before: existing.linked_customer,
+                    after: customerId,
+                }],
+            });
             existing.linked_customer = customerId; // Update local obj
         }
 
@@ -46,6 +77,16 @@ async function ensureSedaRegistration(client, invoiceId, customerId, userId) {
         await sedaRepo.linkSedaToInvoice(client, invoiceId, existing.bubble_id);
         if (agentUserBubbleId && existing.agent !== agentUserBubbleId) {
             await sedaRepo.updateSedaAgent(client, existing.bubble_id, agentUserBubbleId);
+            await writeSedaAuditEntry(client, {
+                invoiceBubbleId: invoiceId,
+                sedaId: existing.bubble_id,
+                actorUserId: createdByUserBubbleId,
+                changes: [{
+                    field: 'Assigned Agent',
+                    before: existing.agent,
+                    after: agentUserBubbleId,
+                }],
+            });
             existing.agent = agentUserBubbleId;
         }
 
@@ -63,6 +104,20 @@ async function ensureSedaRegistration(client, invoiceId, customerId, userId) {
     // Link back
     await sedaRepo.linkSedaToCustomer(client, customerId, newSeda.bubble_id);
     await sedaRepo.linkSedaToInvoice(client, invoiceId, newSeda.bubble_id);
+
+    await writeSedaAuditEntry(client, {
+        invoiceBubbleId: invoiceId,
+        sedaId: newSeda.bubble_id,
+        actionType: 'INSERT',
+        actorUserId: createdByUserBubbleId,
+        changes: [
+            { field: 'SEDA Registration', after: newSeda.bubble_id },
+            { field: 'Linked Customer', after: customerId },
+            { field: 'Assigned Agent', after: agentUserBubbleId },
+            { field: 'Registration Status', after: newSeda.reg_status || newSeda.mapper_status || 'Draft' },
+            { field: 'Admin Status', after: newSeda.seda_status || 'Pending' },
+        ],
+    });
 
     return newSeda;
 }

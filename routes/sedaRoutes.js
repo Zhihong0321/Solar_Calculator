@@ -8,7 +8,8 @@
  *   - This file contains only SEDA-specific field config, DB queries, and business rules
  *   - Uses the shared app pool (src/core/database/pool)
  *   - Auth is enforced BEFORE the upload engine runs, not inside it
- *   - Extraction reads from disk — no re-download/base64 cycle
+ *   - New uploads go straight to Cloudflare R2 (memory-buffered, no local write).
+ *     Extraction reads legacy files from disk, R2-migrated files over HTTP.
  */
 
 'use strict';
@@ -24,7 +25,6 @@ const { requireAuth }   = require('../src/core/middleware/auth');
 const { getCanonicalUserIdentity } = require('../src/core/auth/userIdentity');
 const {
     createUploader,
-    buildPublicUrl,
     resolveDiskPath,
     safeDelete,
     resolvedMime,
@@ -40,6 +40,8 @@ const {
     getActiveRecycleBinEntry,
     markRecycleBinRestored,
 } = require('../src/core/upload');
+const r2Storage = require('../src/core/upload/r2Storage');
+const { optimizeBuffer, extensionForMime } = require('../src/core/upload/imageOptimizer');
 
 // ─── SEDA-specific modules ────────────────────────────────────────────────────
 const sedaRepo          = require('../src/modules/Invoicing/services/sedaRepo');
@@ -286,6 +288,7 @@ function getUploader(fieldKey) {
         storageSubdir:   'seda_registration',
         allowedMimes:    rule.accept,
         maxFileSizeMB:   Math.max(rule.maxMB, 30), // transport cap — per-field cap enforced below
+        storage:         'memory', // buffered in req.file.buffer, pushed to R2 in handleUpload()
         generateFilename: (req, file) => {
             const { fileExtension } = require('../src/core/upload');
             const id   = req.params.id || req.params.shareToken || 'unknown';
@@ -443,8 +446,39 @@ async function handleUpload(req, res, recordId) {
             return res.status(400).json(uploadError(ERROR_CODES.UNSAFE_FILENAME, { field, error: `${rule.label}: ${nameCheck.error}` }));
         }
 
-        const mime    = resolvedMime(req.file);
-        const fileUrl = buildPublicUrl(req, 'seda_registration', req.file.filename);
+        const mime = resolvedMime(req.file);
+
+        // Compress in memory before storing. Uploads no longer touch disk, so
+        // scripts/optimize_seda_uploads.js never sees them — without this, full
+        // resolution phone photos go straight to R2 and burn the storage quota.
+        // Never throws: on failure the original buffer is returned unchanged.
+        const optimized = await optimizeBuffer(req.file.buffer, mime);
+        if (optimized.optimized) {
+            logUpload({
+                route: req.path, field, recordId, result: 'optimized',
+                sizeBytes: optimized.finalBytes,
+                error: `compressed ${optimized.originalBytes} -> ${optimized.finalBytes} bytes`,
+            });
+        }
+
+        // The stored extension must match the bytes we actually wrote — a PNG
+        // re-encoded to JPEG would otherwise keep a .png name.
+        const storedFilename = optimized.mimeType === mime
+            ? req.file.filename
+            : req.file.filename.replace(/\.[^.]+$/, extensionForMime(optimized.mimeType));
+
+        let fileUrl;
+        try {
+            fileUrl = await r2Storage.uploadBuffer(
+                optimized.buffer,
+                `seda_registration/${storedFilename}`,
+                optimized.mimeType
+            );
+        } catch (r2Err) {
+            console.error('[SEDA Upload] R2 upload failed:', r2Err.message);
+            logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: r2Err.message });
+            return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field, error: `${rule.label}: Failed to store file. Please try again.` }));
+        }
 
         // DB update — use finally to guarantee single client.release()
         let client;
@@ -461,7 +495,7 @@ async function handleUpload(req, res, recordId) {
                     [fileUrl, recordId, rule.maxItems || 12]
                 );
                 if (!updateResult.rowCount) {
-                    safeDelete(req.file.path);
+                    await r2Storage.deleteObject(r2Storage.keyFromUrl(fileUrl));
                     return res.status(409).json(uploadError(ERROR_CODES.DB_FAILED, { field, error: `${rule.label}: maximum ${rule.maxItems || 12} files already uploaded.` }));
                 }
             } else {
@@ -478,20 +512,26 @@ async function handleUpload(req, res, recordId) {
                 invoiceBubbleId: _auditInvoiceId,
                 entityType: 'seda_upload',
                 actionType: 'ADDED',
+                entityId: recordId,
                 changes: [{ field: rule.label, after: fileUrl }],
                 actorName: _auditActor.name,
+                actorUserId: _auditActor.id,
                 actorRole: _auditActor.role,
+                sourceApp: req.user ? 'agent-os' : 'public-seda-form',
             });
         } catch (dbErr) {
-            console.error('[SEDA Upload] DB update failed — orphaned file:', req.file.path, dbErr.message);
-            logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'error', code: ERROR_CODES.DB_FAILED, error: dbErr.message });
+            // Reclaim the R2 object — nothing references it now, and unlike the old
+            // disk path there is no volume sweep or purge job that would ever find it.
+            await r2Storage.deleteObject(r2Storage.keyFromUrl(fileUrl));
+            console.error('[SEDA Upload] DB update failed — R2 object rolled back:', fileUrl, dbErr.message);
+            logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, filename: storedFilename, result: 'error', code: ERROR_CODES.DB_FAILED, error: dbErr.message });
             return res.status(500).json(uploadError(ERROR_CODES.DB_FAILED, { field, error: 'File saved but database update failed. Please try uploading again — the retry is safe.' }));
         } finally {
             if (client) client.release();
         }
 
-        logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'success' });
-        return res.json(uploadSuccess({ field, url: fileUrl, filename: req.file.filename, mime, size: req.file.size }));
+        logUpload({ route: req.path, field, recordId, mime: optimized.mimeType, sizeBytes: optimized.finalBytes, filename: storedFilename, result: 'success' });
+        return res.json(uploadSuccess({ field, url: fileUrl, filename: storedFilename, mime: optimized.mimeType, size: optimized.finalBytes }));
         
     } catch (err) {
         console.error('[SEDA Upload] Unhandled error:', err.message);
@@ -520,13 +560,20 @@ function drainRequest(req) {
 }
 
 // ─── Extraction helpers ────────────────────────────────────────────────────────
-// Reads from disk using resolveDiskPath — no download/base64 re-fetch cycle.
+// Reads from disk when the file predates the R2 migration (no re-download/base64
+// cycle for legacy files); reads from R2 over HTTP for files uploaded since.
 
 async function readFileFromStoredUrl(url) {
     const diskPath = resolveDiskPath(url, 'seda_registration');
-    if (!diskPath) throw new Error('File not found on disk. It may have been moved or the URL is invalid.');
-    const buffer = fs.readFileSync(diskPath);
-    if (!buffer.length) throw new Error('File on disk is empty.');
+    let buffer;
+    if (diskPath) {
+        buffer = fs.readFileSync(diskPath);
+    } else if (r2Storage.isR2Url(url)) {
+        buffer = await r2Storage.fetchBuffer(url);
+    } else {
+        throw new Error('File not found on disk or in R2. It may have been moved or the URL is invalid.');
+    }
+    if (!buffer.length) throw new Error('Stored file is empty.');
     const ext = path.extname(url || '').toLowerCase();
     const mime = {
         '.pdf':  'application/pdf',
@@ -556,6 +603,30 @@ function getSedaActor(req, fallbackId) {
         name: req.user?.name || req.user?.displayName || req.user?.email || null,
         role: Array.isArray(req.user?.access_level) ? req.user.access_level.join(', ') : (req.user ? 'authenticated' : 'public-share-token'),
     };
+}
+
+async function writeSedaRegistrationAudit(client, sedaId, {
+    actionType = 'UPDATED',
+    entityType = 'seda_registration',
+    changes = [],
+    actor = {},
+    sourceApp = 'agent-os',
+} = {}) {
+    if (!sedaId || !Array.isArray(changes) || changes.length === 0) return;
+
+    const invoiceBubbleId = await getLinkedInvoiceBubbleId(client, sedaId);
+    await writeInvoiceAuditEntry(client, {
+        invoiceBubbleId,
+        entityType,
+        actionType,
+        entityId: sedaId,
+        changes,
+        actorName: actor.name || null,
+        actorPhone: actor.phone || null,
+        actorRole: actor.role || null,
+        actorUserId: actor.id || null,
+        sourceApp,
+    });
 }
 
 function normalizeOptionalText(value) {
@@ -750,9 +821,12 @@ async function softDeleteSedaFile(req, res, recordId, source) {
             invoiceBubbleId: _deleteInvoiceId,
             entityType: 'seda_upload',
             actionType: 'DELETED',
+            entityId: recordId,
             changes: [{ field: rule.label, before: url }],
             actorName: actor.name,
+            actorUserId: actor.id,
             actorRole: actor.role,
+            sourceApp: req.user ? 'agent-os' : 'public-seda-form',
         });
 
         return res.json({ success: true });
@@ -846,9 +920,12 @@ async function restoreSedaFile(req, res, recordId, source) {
             invoiceBubbleId: _restoreInvoiceId,
             entityType: 'seda_upload',
             actionType: 'ADDED',
+            entityId: recordId,
             changes: [{ field: rule.label, after: recycleEntry.fileUrl }],
             actorName: actor.name,
+            actorUserId: actor.id,
             actorRole: actor.role,
+            sourceApp: req.user ? 'agent-os' : 'public-seda-form',
         });
 
         return res.json({
@@ -960,7 +1037,10 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
         await client.query(textUpdate.sql, textUpdate.values);
 
         if (!snapshot.linked_customer) {
-            await createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues, null);
+            const createdCustomerId = await createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues, null);
+            if (createdCustomerId) {
+                addAuditChange(auditChanges, 'Linked Customer', snapshot.linked_customer, createdCustomerId);
+            }
         }
 
         const _pubInvoiceId = await getLinkedInvoiceBubbleId(client, seda.bubble_id);
@@ -973,6 +1053,7 @@ router.post('/api/v1/seda-public/:shareToken', async (req, res) => {
                 changes: auditChanges,
                 actorName: 'Customer (public form)',
                 actorRole: 'customer',
+                sourceApp: 'public-seda-form',
             });
         }
 
@@ -1146,7 +1227,12 @@ router.post('/api/v1/seda/extract-tnb', requireAuth, requireSedaBodyOwnership, a
 
     const client = await pool.connect();
     try {
-        const r = await client.query(`SELECT ${rule.column} FROM seda_registration WHERE bubble_id = $1`, [sedaId]);
+        const r = await client.query(
+            `SELECT ${rule.column}, tnb_account_no, state
+             FROM seda_registration
+             WHERE bubble_id = $1`,
+            [sedaId]
+        );
         const storedUrl = r.rows[0]?.[rule.column];
         if (!storedUrl) return res.status(400).json({ success: false, error: `No file uploaded for ${rule.label} yet.` });
 
@@ -1177,7 +1263,12 @@ router.post('/api/v1/seda/extract-mykad', requireAuth, requireSedaBodyOwnership,
 
     const client = await pool.connect();
     try {
-        const r = await client.query(`SELECT ${rule.column} FROM seda_registration WHERE bubble_id = $1`, [sedaId]);
+        const r = await client.query(
+            `SELECT ${rule.column}, check_mykad, ic_no
+             FROM seda_registration
+             WHERE bubble_id = $1`,
+            [sedaId]
+        );
         const storedUrl = r.rows[0]?.[rule.column];
         if (!storedUrl) return res.status(400).json({ success: false, error: `No file uploaded for ${rule.label} yet.` });
 
@@ -1229,7 +1320,7 @@ router.post('/api/v1/seda/verify-ownership', requireAuth, requireSedaBodyOwnersh
     const client = await pool.connect();
     try {
         const r = await client.query(
-            'SELECT property_ownership_prove, installation_address FROM seda_registration WHERE bubble_id = $1',
+            'SELECT property_ownership_prove, installation_address, check_ownership FROM seda_registration WHERE bubble_id = $1',
             [sedaId]
         );
         const storedUrl = r.rows[0]?.property_ownership_prove;
@@ -1287,7 +1378,15 @@ router.post('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, r
         await client.query(textUpdate.sql, textUpdate.values);
 
         if (!snapshot.linked_customer) {
-            await createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues, getCanonicalUserIdentity(req));
+            const createdCustomerId = await createAndLinkCustomerForUnlinkedSeda(
+                client,
+                snapshot,
+                formValues,
+                getCanonicalUserIdentity(req)
+            );
+            if (createdCustomerId) {
+                addAuditChange(auditChanges, 'Linked Customer', snapshot.linked_customer, createdCustomerId);
+            }
         } else {
             // Update linked customer profile with form values
             await updateLinkedCustomerFromSeda(client, snapshot.linked_customer, formValues);
@@ -1335,29 +1434,36 @@ router.patch('/api/v1/seda/:id/status', requireAuth, requireSedaOwnership, async
     const client = await pool.connect();
     try {
         const regStatusCol = await getRegStatusColumn(client);
+        const beforeResult = await client.query(
+            `SELECT ${regStatusCol} AS reg_status, seda_status
+             FROM seda_registration
+             WHERE bubble_id = $1`,
+            [req.params.id]
+        );
+        if (!beforeResult.rows.length) return res.status(404).json({ success: false, error: 'SEDA registration not found.' });
+
+        const before = beforeResult.rows[0];
         const sets = [], vals = [req.params.id];
 
         if (reg_status)  { vals.push(reg_status);  sets.push(`${regStatusCol} = $${vals.length}`); }
         if (seda_status) { vals.push(seda_status);  sets.push(`seda_status = $${vals.length}`); }
         if (!sets.length) return res.status(400).json({ success: false, error: 'No status provided.' });
 
+        await client.query('BEGIN');
         await client.query(`UPDATE seda_registration SET ${sets.join(', ')}, updated_at = NOW() WHERE bubble_id = $1`, vals);
-        const _statusInvoiceId = await getLinkedInvoiceBubbleId(client, req.params.id);
         const _statusActor = getSedaActor(req, req.params.id);
         const _statusChanges = [
-            reg_status  && { field: 'SEDA Status',  after: reg_status  },
-            seda_status && { field: 'Admin Status', after: seda_status },
+            reg_status  && { field: 'SEDA Status',  before: before.reg_status,  after: reg_status  },
+            seda_status && { field: 'Admin Status', before: before.seda_status, after: seda_status },
         ].filter(Boolean);
-        await writeInvoiceAuditEntry(client, {
-            invoiceBubbleId: _statusInvoiceId,
-            entityType: 'seda_registration',
-            actionType: 'UPDATED',
+        await writeSedaRegistrationAudit(client, req.params.id, {
             changes: _statusChanges,
-            actorName: _statusActor.name,
-            actorRole: _statusActor.role,
+            actor: _statusActor,
         });
+        await client.query('COMMIT');
         res.json({ success: true });
     } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
         console.error('[SEDA Status] Error:', err.message);
         res.status(500).json({ success: false, error: err.message });
     } finally { client.release(); }

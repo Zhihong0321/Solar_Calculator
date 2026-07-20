@@ -7,6 +7,19 @@
 
 <!-- Add new entries at the top, below this line -->
 
+## 2026-07-20 — SEDA files move to Cloudflare R2 on a PUBLIC bucket
+
+- made by: Claude Opus 4.8
+- reason: The Railway attached volume hit 100% and blocked writes. SEDA is the heaviest writer (MyKad scans, PDFs, up to 12 TNB bills per registration). Moving uploads to R2 removes the volume as a scaling limit and lets the app stay on a small disk.
+- decision: uploads go straight from memory to R2; the DB stores the public R2 URL; reads fall back disk -> R2 so pre-migration rows keep working.
+- KNOWN ACCEPTED RISK: the bucket is publicly readable, so MyKad (national ID) scans, property ownership proof and TNB bills are reachable by anyone holding the URL, with no revocation path. Filenames carry only ~32 bits of randomness over a known bubble_id. This mirrors the pre-existing `/uploads` express.static exposure rather than introducing it, but it widens it and moves it outside the app's control. PDPA exposure is real and this was accepted deliberately to unblock the full disk.
+- rejected alternatives:
+  - private bucket + authenticated proxy route: correct, but needs signed-URL/streaming support that r2Storage.js does not have, and the volume was already full
+  - split public/private buckets by sensitivity: best end state, deferred for the same reason
+- follow-ups required: signed URLs or an auth-checked proxy for PII fields; a purge job (recycle_bin_upload.purged_at is currently written by nothing, so deleted files are never reclaimed from R2)
+- do not reverse without: confirming every seda_registration row has been migrated, since the disk fallback is what keeps legacy rows readable
+- status: ACTIVE
+
 ## 2026-07-14 — Support AI uses curated historical patterns, not raw ticket notes
 
 - made by: GPT-5 Codex

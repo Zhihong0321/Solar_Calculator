@@ -38,10 +38,14 @@ const { resolvedMime, fileExtension, isMimeAllowed } = require('./validation');
  * @param {number}   config.maxFileSizeMB     - Hard size cap (transport limit)
  * @param {string}   [config.fieldName='file']- FormData field name
  * @param {Function} [config.generateFilename]- (req, file) => filename string
+ * @param {string}   [config.storage='disk']  - 'disk' (default) or 'memory'.
+ *   'memory' buffers the file in req.file.buffer instead of writing to disk —
+ *   used by callers that push the buffer to a cloud storage backend themselves.
  *
  * @returns {Function} (req, res) => Promise<Error|null>
  *   Resolves to null on success, or a multer/validation error on failure.
- *   Sets req.file on success.
+ *   Sets req.file on success. req.file.filename is always set (computed via
+ *   generateFilename even in 'memory' mode, since multer only does this for disk storage).
  */
 function createUploader(config) {
     const {
@@ -50,10 +54,12 @@ function createUploader(config) {
         maxFileSizeMB,
         fieldName = 'file',
         generateFilename = defaultFilename,
+        storage = 'disk',
     } = config;
 
-    const multerInstance = multer({
-        storage: multer.diskStorage({
+    const multerStorage = storage === 'memory'
+        ? multer.memoryStorage()
+        : multer.diskStorage({
             destination(_req, _file, cb) {
                 const dir = ensureDir(storageSubdir);
                 cb(null, dir);
@@ -66,7 +72,10 @@ function createUploader(config) {
                     cb(err);
                 }
             },
-        }),
+        });
+
+    const multerInstance = multer({
+        storage: multerStorage,
         limits: {
             fileSize: maxFileSizeMB * 1024 * 1024,
             files: 1,
@@ -92,7 +101,19 @@ function createUploader(config) {
     // Return a promise-based wrapper — no callback spaghetti in route handlers
     return function runUpload(req, res) {
         return new Promise(resolve => {
-            multerInstance(req, res, resolve);
+            multerInstance(req, res, (err) => {
+                // memory storage skips multer's filename() hook — compute it here
+                // so downstream code (buildPublicUrl, R2 key, logging) sees the same
+                // req.file.filename contract regardless of storage backend.
+                if (!err && storage === 'memory' && req.file && !req.file.filename) {
+                    try {
+                        req.file.filename = generateFilename(req, req.file);
+                    } catch (genErr) {
+                        return resolve(genErr);
+                    }
+                }
+                resolve(err);
+            });
         });
     };
 }
