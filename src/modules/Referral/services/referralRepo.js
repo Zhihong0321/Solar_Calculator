@@ -149,26 +149,28 @@ async function getReferralsByAgentId(client, agentId) {
             ${location.state} AS lead_state,
             ${location.city} AS lead_city,
             ${location.address} AS lead_address,
-            COALESCE(assigned_agent.name, assigned_user.name, ${assignmentExpr}) AS assigned_agent_name,
-            COALESCE(preferred_agent.name, preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name
+            COALESCE(assigned_user.name, assigned_agent.name, ${assignmentExpr}) AS assigned_agent_name,
+            COALESCE(preferred_user.name, preferred_agent.name, ${preferredAgentExpr}) AS preferred_agent_name
      FROM referral r
      LEFT JOIN customer c ON r.linked_customer_profile = c.customer_id
-     LEFT JOIN agent assigned_agent
-       ON (assigned_agent.id::text = ${assignmentExpr}
-           OR assigned_agent.bubble_id = ${assignmentExpr}
-           OR assigned_agent.linked_user_login = ${assignmentExpr})
      LEFT JOIN "user" assigned_user
-       ON (assigned_user.id::text = ${assignmentExpr}
-           OR assigned_user.bubble_id = ${assignmentExpr})
+       ON (assigned_user.bubble_id = ${assignmentExpr}
+           OR assigned_user.id::text = ${assignmentExpr})
+     LEFT JOIN agent assigned_agent
+       ON (assigned_user.id IS NULL AND (
+             assigned_agent.id::text = ${assignmentExpr}
+             OR assigned_agent.bubble_id = ${assignmentExpr}
+             OR assigned_agent.linked_user_login = ${assignmentExpr}
+          ))
+     LEFT JOIN "user" preferred_user
+       ON (preferred_user.bubble_id = ${preferredAgentExpr}
+           OR preferred_user.id::text = ${preferredAgentExpr})
      LEFT JOIN agent preferred_agent
-       ON (${preferredAgentExpr} IS NOT NULL AND (
+       ON (preferred_user.id IS NULL AND ${preferredAgentExpr} IS NOT NULL AND (
              preferred_agent.id::text = ${preferredAgentExpr}
              OR preferred_agent.bubble_id = ${preferredAgentExpr}
              OR preferred_agent.linked_user_login = ${preferredAgentExpr}
           ))
-     LEFT JOIN "user" preferred_user
-       ON (preferred_user.id::text = ${preferredAgentExpr}
-           OR preferred_user.bubble_id = ${preferredAgentExpr})
      WHERE ${activeReferralClause} AND ${assignmentExpr} = ANY($1::text[])
      ORDER BY r.created_at DESC`,
     [identifiers]
@@ -312,8 +314,8 @@ async function getReferralManagementQueue(client, filters = {}) {
             ${location.state} AS lead_state,
             ${location.city} AS lead_city,
             ${location.address} AS lead_address,
-            COALESCE(assigned_agent.name, assigned_user.name, ${assignmentExpr}) AS assigned_agent_name,
-            COALESCE(preferred_agent.name, preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name,
+            COALESCE(assigned_user.name, assigned_agent.name, ${assignmentExpr}) AS assigned_agent_name,
+            COALESCE(preferred_user.name, preferred_agent.name, ${preferredAgentExpr}) AS preferred_agent_name,
             linked_invoice.invoice_id AS linked_invoice_id,
             linked_invoice.invoice_number AS linked_invoice_number
      FROM referral r
@@ -328,22 +330,24 @@ async function getReferralManagementQueue(client, filters = {}) {
        ORDER BY i.created_at DESC NULLS LAST, i.id DESC
        LIMIT 1
      ) linked_invoice ON TRUE
-     LEFT JOIN agent assigned_agent
-       ON (assigned_agent.id::text = ${assignmentExpr}
-           OR assigned_agent.bubble_id = ${assignmentExpr}
-           OR assigned_agent.linked_user_login = ${assignmentExpr})
      LEFT JOIN "user" assigned_user
-       ON (assigned_user.id::text = ${assignmentExpr}
-           OR assigned_user.bubble_id = ${assignmentExpr})
+       ON (assigned_user.bubble_id = ${assignmentExpr}
+           OR assigned_user.id::text = ${assignmentExpr})
+     LEFT JOIN agent assigned_agent
+       ON (assigned_user.id IS NULL AND (
+             assigned_agent.id::text = ${assignmentExpr}
+             OR assigned_agent.bubble_id = ${assignmentExpr}
+             OR assigned_agent.linked_user_login = ${assignmentExpr}
+          ))
+     LEFT JOIN "user" preferred_user
+       ON (preferred_user.bubble_id = ${preferredAgentExpr}
+           OR preferred_user.id::text = ${preferredAgentExpr})
      LEFT JOIN agent preferred_agent
-       ON (${preferredAgentExpr} IS NOT NULL AND (
+       ON (preferred_user.id IS NULL AND ${preferredAgentExpr} IS NOT NULL AND (
              preferred_agent.id::text = ${preferredAgentExpr}
              OR preferred_agent.bubble_id = ${preferredAgentExpr}
              OR preferred_agent.linked_user_login = ${preferredAgentExpr}
           ))
-     LEFT JOIN "user" preferred_user
-       ON (preferred_user.id::text = ${preferredAgentExpr}
-           OR preferred_user.bubble_id = ${preferredAgentExpr})
      ${whereClause}
      ORDER BY r.created_at DESC`,
     params
@@ -355,7 +359,7 @@ async function getReferralManagementQueue(client, filters = {}) {
 async function getAssignableAgents(client) {
   const result = await client.query(
     `SELECT DISTINCT
-       a.id::text AS assignment_key,
+       u.bubble_id AS assignment_key,
        a.id::text AS agent_id,
        a.bubble_id AS agent_bubble_id,
        u.id::text AS user_id,

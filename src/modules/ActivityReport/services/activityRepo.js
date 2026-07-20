@@ -998,19 +998,21 @@ async function getPendingReferralsByAgent(client) {
 
   const result = await client.query(
     `SELECT
-       COALESCE(a.name, u.name, ${assignmentExpr}) AS agent_name,
+       COALESCE(u.name, a.name, ${assignmentExpr}) AS agent_name,
        ${assignmentExpr} AS agent_key,
        COUNT(*) AS pending_count
      FROM referral r
-     LEFT JOIN agent a
-       ON (a.id::text = ${assignmentExpr}
-           OR a.bubble_id = ${assignmentExpr}
-           OR a.linked_user_login = ${assignmentExpr})
      LEFT JOIN "user" u
-       ON (u.id::text = ${assignmentExpr}
-           OR u.bubble_id = ${assignmentExpr})
+       ON (u.bubble_id = ${assignmentExpr}
+           OR u.id::text = ${assignmentExpr})
+     LEFT JOIN agent a
+       ON (u.id IS NULL AND (
+             a.id::text = ${assignmentExpr}
+             OR a.bubble_id = ${assignmentExpr}
+             OR a.linked_user_login = ${assignmentExpr}
+          ))
      WHERE ${activeReferralClause} AND ${statusExpr} = 'Pending'
-     GROUP BY ${assignmentExpr}, a.name, u.name
+     GROUP BY ${assignmentExpr}, u.name, a.name
      ORDER BY pending_count DESC`
   );
   return result.rows;
