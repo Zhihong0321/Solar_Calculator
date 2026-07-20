@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Claim Review</title>
+    <link rel="stylesheet" href="/css/tailwind.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        body { font-family: 'Inter', sans-serif; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+        .status-pill { font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px; display: inline-block; }
+        .status-Pending { background: #fef3c7; color: #92400e; }
+        .status-Approved { background: #d1fae5; color: #065f46; }
+        .status-Rejected { background: #fee2e2; color: #991b1b; }
+        .filter-tab { padding: 6px 14px; border-radius: 9999px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+        .filter-tab.active { background: #0f172a; color: #fff; }
+        .filter-tab:not(.active) { background: #fff; color: #475569; border-color: #e2e8f0; }
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-900">
+    <div class="min-h-screen flex flex-col">
+        <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <h1 class="text-xl font-bold text-slate-900">Claim Review</h1>
+                    <div class="flex items-center gap-4">
+                        <span id="reviewerName" class="text-sm text-slate-500"></span>
+                        <a href="/agent/home" class="text-sm font-medium text-blue-600 hover:text-blue-500">Back to Home</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 py-8">
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+                <div id="accessError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded-md p-4"></div>
+
+                <div id="reviewBody" class="hidden space-y-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="button" class="filter-tab active" data-status="">All</button>
+                        <button type="button" class="filter-tab" data-status="Pending">Pending</button>
+                        <button type="button" class="filter-tab" data-status="Approved">Approved</button>
+                        <button type="button" class="filter-tab" data-status="Rejected">Rejected</button>
+                        <button type="button" id="refreshBtn" class="ml-auto text-sm text-blue-600 hover:text-blue-500">
+                            <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                        </button>
+                    </div>
+
+                    <div id="claimsList" class="space-y-3"></div>
+                    <p id="emptyState" class="hidden text-sm text-slate-400 text-center py-10">No claims in this view.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/claim_review.js" defer></script>
+</body>
+</html>

@@ -19,15 +19,19 @@
     "test:invoice-financials": "node scripts/test_invoice_financials.js",
     "test:hosted-html": "node scripts/test_hosted_html.js",
     "seda:optimize-uploads": "node scripts/optimize_seda_uploads.js",
+    "seda:migrate-to-r2": "node scripts/migrate_seda_to_r2.js",
     "host:scoreboard": "node scripts/host_scoreboard.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1085.0",
+    "@napi-rs/canvas": "^1.0.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
+    "pdfjs-dist": "^6.1.200",
     "pg": "^8.11.3",
     "sharp": "^0.34.5"
   },

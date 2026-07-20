@@ -28,6 +28,7 @@ const Health = require('./src/modules/Health');
 const BugReport = require('./src/modules/BugReport');
 const HostedHtml = require('./src/modules/HostedHtml');
 const SupportTicket = require('./src/modules/SupportTicket');
+const ClaimReceipt = require('./src/modules/ClaimReceipt');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -97,6 +98,7 @@ app.use(Health.router);
 app.use(HostedHtml.router);
 app.use('/api/v1/bug', BugReport.bugRoutes);
 app.use(SupportTicket.router);
+app.use(ClaimReceipt.router);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
@@ -545,6 +547,14 @@ app.get('/support-tickets', requireAuth, (req, res) => {
 
 app.get('/submit-support-ticket', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'submit_support_ticket.html'));
+});
+
+app.get('/claim-submission', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'claim_submission.html'));
+});
+
+app.get('/claim-review', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'claim_review.html'));
 });
 
 // ── Hosted HTML Apps ───────────────────────────────────────────────────────
