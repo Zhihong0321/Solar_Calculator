@@ -6,10 +6,10 @@ const express = require('express');
 const path = require('path');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
-const fs = require('fs');
 const https = require('https');
 const customerRepo = require('../services/customerRepo');
 const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../../core/auth/userIdentity');
+const { storageDriver } = require('../../../core/upload');
 
 const router = express.Router();
 const WHATSAPP_API_DISABLED = process.env.WHATSAPP_API_DISABLED !== 'false';
@@ -150,18 +150,7 @@ router.post('/api/customers/whatsapp-photo', requireAuth, async (req, res) => {
       });
     }
 
-    const storagePath = process.env.RAILWAY_VOLUME_MOUNT_PATH
-      ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'customer_profiles')
-      : path.resolve(__dirname, '../../../../storage/customer_profiles');
-
-    if (!fs.existsSync(storagePath)) {
-      fs.mkdirSync(storagePath, { recursive: true });
-    }
-
     const filename = `wa_${phone}_${Date.now()}.jpg`;
-    const filepath = path.join(storagePath, filename);
-
-    const file = fs.createWriteStream(filepath);
 
     https.get(photoUrl, (response) => {
       if (response.statusCode !== 200) {
@@ -169,15 +158,24 @@ router.post('/api/customers/whatsapp-photo', requireAuth, async (req, res) => {
         return;
       }
 
-      response.pipe(file);
-
-      file.on('finish', () => {
-        file.close();
-        const publicUrl = `/uploads/customer_profiles/${filename}`;
-        res.json({ success: true, localUrl: publicUrl });
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', async () => {
+        try {
+          const buffer = Buffer.concat(chunks);
+          const stored = await storageDriver.put(buffer, {
+            subdir: 'customer_profiles',
+            filename,
+            mimeType: response.headers['content-type'] || 'image/jpeg',
+            req,
+          });
+          res.json({ success: true, localUrl: stored.url });
+        } catch (err) {
+          console.error('Error saving WhatsApp photo:', err);
+          res.status(500).json({ success: false, error: 'Failed to save profile picture' });
+        }
       });
     }).on('error', (err) => {
-      fs.unlink(filepath, () => { }); // Delete temp file
       console.error('Error saving WhatsApp photo:', err);
       res.status(500).json({ success: false, error: 'Failed to save profile picture' });
     });

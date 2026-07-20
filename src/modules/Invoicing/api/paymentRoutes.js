@@ -1,12 +1,12 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
 const { writeInvoiceAuditEntry } = require('../services/auditWriter');
+const { storageDriver } = require('../../../core/upload');
 
 const router = express.Router();
 
@@ -62,17 +62,10 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
         // Prepare Remark
         const remark = `${notes || ''} [Ref: ${referenceNo || 'N/A'}]`.trim();
 
-        // Handle Proof File Upload (Save to Disk)
+        // Handle Proof File Upload (R2 or disk, via storageDriver)
         let attachmentUrl = null;
         if (proof && proof.data) {
             try {
-                const storageRoot = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '../../../../storage');
-                const uploadDir = path.join(storageRoot, 'uploaded_payment');
-                
-                if (!fs.existsSync(uploadDir)) {
-                    fs.mkdirSync(uploadDir, { recursive: true });
-                }
-
                 const matches = proof.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
                 if (matches && matches.length === 3) {
                     const mimeType = (proof.type || matches[1] || '').toLowerCase();
@@ -92,16 +85,14 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
                     const fileExt = extByMime[mimeType] || (proof.name ? path.extname(proof.name) : '') || '.bin';
                     const buffer = Buffer.from(matches[2], 'base64');
                     const filename = `payment_${bubbleId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${fileExt}`;
-                    const filePath = path.join(uploadDir, filename);
-                    fs.writeFileSync(filePath, buffer);
-                    
-                    // Generate Full Absolute URL
-                    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-                    const host = req.get('host');
-                    // The server serves storageRoot at /uploads
-                    // The file is at storageRoot/uploaded_payment/filename
-                    // So the URL should be /uploads/uploaded_payment/filename
-                    attachmentUrl = `${protocol}://${host}/uploads/uploaded_payment/${filename}`;
+
+                    const stored = await storageDriver.put(buffer, {
+                        subdir: 'uploaded_payment',
+                        filename,
+                        mimeType,
+                        req,
+                    });
+                    attachmentUrl = stored.url;
                 }
             } catch (fileErr) {
                 console.error('[Payment] File save error:', fileErr);

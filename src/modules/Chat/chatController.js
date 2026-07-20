@@ -1,45 +1,22 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const chatService = require('./chatService');
 const pool = require('../../core/database/pool');
+const { storageDriver } = require('../../core/upload');
 const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../core/auth/userIdentity');
 
 // --- Multer Config ---
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = process.env.RAILWAY_VOLUME_MOUNT_PATH 
-      ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'chat_uploads')
-      : path.resolve(__dirname, '../../../storage/chat_uploads');
-    
-    try {
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
-      }
-    } catch (err) {}
-    
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
+// Memory storage — the buffer goes straight to storageDriver.put (R2 or disk),
+// never touching the Railway volume directly.
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 }).single('file');
 
-// Helper to get Absolute URL
-const getAbsoluteUrl = (req, filename) => {
-  let protocol = req.protocol;
-  if (req.headers['x-forwarded-proto']) {
-    protocol = req.headers['x-forwarded-proto'].split(',')[0].trim();
-  }
-  const host = req.get('host');
-  return `${protocol}://${host}/uploads/chat_uploads/${filename}`;
-};
+function buildUploadFilename(originalname) {
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+  return uniqueSuffix + path.extname(originalname || '');
+}
 
 // Helper to get full user profile from DB
 const getFullUser = async (userIdentity) => {
@@ -117,12 +94,18 @@ exports.postMessage = async (req, res) => {
       let fileMeta = null;
 
       if (req.file) {
-        finalContent = getAbsoluteUrl(req, req.file.filename);
+        const stored = await storageDriver.put(req.file.buffer, {
+          subdir: 'chat_uploads',
+          filename: buildUploadFilename(req.file.originalname),
+          mimeType: req.file.mimetype,
+          req,
+        });
+        finalContent = stored.url;
         fileMeta = {
           originalName: req.file.originalname,
-          mimetype: req.file.mimetype,
-          size: req.file.size,
-          filename: req.file.filename
+          mimetype: stored.mimeType,
+          size: stored.bytes,
+          filename: stored.filename
         };
       }
 

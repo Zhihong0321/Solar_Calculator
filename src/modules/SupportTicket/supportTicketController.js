@@ -1,42 +1,20 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const supportTicketService = require('./supportTicketService');
+const { storageDriver } = require('../../core/upload');
 const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../core/auth/userIdentity');
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = process.env.RAILWAY_VOLUME_MOUNT_PATH
-      ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'support_ticket_uploads')
-      : path.resolve(__dirname, '../../../storage/support_ticket_uploads');
-
-    try {
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
-      }
-    } catch (err) {}
-
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
+// Memory storage — buffers go straight to storageDriver.put (R2 or disk),
+// never touching the Railway volume directly.
 exports.uploadImages = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
 }).array('images', 6);
 
-const getAbsoluteUrl = (req, filename) => {
-  let protocol = req.protocol;
-  if (req.headers['x-forwarded-proto']) {
-    protocol = req.headers['x-forwarded-proto'].split(',')[0].trim();
-  }
-  const host = req.get('host');
-  return `${protocol}://${host}/uploads/support_ticket_uploads/${filename}`;
-};
+function buildUploadFilename(originalname) {
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+  return uniqueSuffix + path.extname(originalname || '');
+}
 
 exports.listTickets = async (req, res) => {
   try {
@@ -129,7 +107,13 @@ exports.createTicket = async (req, res) => {
     const { title, problem_description, customer_id } = req.body;
     const createdBy = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
 
-    const images = (req.files || []).map((file) => getAbsoluteUrl(req, file.filename));
+    const stored = await Promise.all((req.files || []).map((file) => storageDriver.put(file.buffer, {
+      subdir: 'support_ticket_uploads',
+      filename: buildUploadFilename(file.originalname),
+      mimeType: file.mimetype,
+      req,
+    })));
+    const images = stored.map((s) => s.url);
 
     const ticket = await supportTicketService.createTicket({
       title,

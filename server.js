@@ -11,6 +11,7 @@ require('dotenv').config();
 const pool = require('./src/core/database/pool');
 const { requireAuth } = require('./src/core/middleware/auth');
 const { getRequestUserBubbleId, getRequestLegacyUserId } = require('./src/core/auth/userIdentity');
+const { storageDriver } = require('./src/core/upload');
 
 // --- Feature Modules ---
 const Invoicing = require('./src/modules/Invoicing');
@@ -219,31 +220,32 @@ app.post('/api/agent/register', async (req, res) => {
     const agent_bubble_id = `agent_${crypto.randomBytes(8).toString('hex')}`;
     const user_bubble_id = `user_${crypto.randomBytes(8).toString('hex')}`;
 
-    const uploadDir = path.join(storagePath, 'agent_documents');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    // Helper to save base64 image
-    const saveImage = (base64Data, prefix, bubble_id) => {
+    // Helper to save base64 image via storageDriver (R2 or disk)
+    const saveImage = async (base64Data, prefix, bubble_id) => {
       if (!base64Data) return null;
       const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (matches && matches.length === 3) {
-        const ext = matches[1].split('/')[1] || 'jpg';
+        const mimeType = matches[1];
+        const ext = mimeType.split('/')[1] || 'jpg';
         const buffer = Buffer.from(matches[2], 'base64');
         const filename = `${prefix}_${bubble_id}_${Date.now()}.${ext}`;
-        fs.writeFileSync(path.join(uploadDir, filename), buffer);
 
-        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-        const host = req.get('host');
-        return `${protocol}://${host}/agent-docs/${filename}`;
+        const stored = await storageDriver.put(buffer, {
+          subdir: 'agent_documents',
+          filename,
+          mimeType,
+          req,
+        });
+        return stored.url;
       }
       return null;
     };
 
-    const icFrontUrl = saveImage(ic_front, 'ic_front', agent_bubble_id);
-    const icBackUrl = saveImage(ic_back, 'ic_back', agent_bubble_id);
-    const profilePicUrl = saveImage(profile_picture, 'profile', user_bubble_id);
+    const [icFrontUrl, icBackUrl, profilePicUrl] = await Promise.all([
+      saveImage(ic_front, 'ic_front', agent_bubble_id),
+      saveImage(ic_back, 'ic_back', agent_bubble_id),
+      saveImage(profile_picture, 'profile', user_bubble_id),
+    ]);
 
     await client.query('BEGIN');
 
@@ -569,7 +571,17 @@ async function serveHostedApp(app, label, res) {
 
   let html;
   try {
-    html = await fs.promises.readFile(app.storagePath, 'utf8');
+    // Legacy rows (written before the R2 migration) hold a raw absolute
+    // filesystem path under hosted_html/<slug>/index.html — every legacy
+    // row's basename is "index.html", so storageDriver's basename-based disk
+    // resolution can't address them. Read those directly; anything else goes
+    // through storageDriver (new flat disk layout, or R2).
+    if (path.isAbsolute(app.storagePath) && !/^https?:\/\//i.test(app.storagePath)) {
+      html = await fs.promises.readFile(app.storagePath, 'utf8');
+    } else {
+      const { buffer } = await storageDriver.getBuffer(app.storagePath, { subdir: 'hosted_html' });
+      html = buffer.toString('utf8');
+    }
   } catch (err) {
     console.error(`[HostedHtml] missing file for ${label}=${app.slug} at ${app.storagePath}:`, err.message);
     return res.status(404).type('html').send(hostedHtmlNotFoundHtml(label));

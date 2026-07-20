@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const hostedHtmlService = require('./hostedHtmlService');
 const pool = require('../../core/database/pool');
+const { storageDriver } = require('../../core/upload');
 const {
     getRequestUserBubbleId,
     getRequestLegacyUserId
@@ -85,12 +86,35 @@ function validateFriendlySlugWithBlocklist(slug) {
     return null;
 }
 
-function writeHtmlToDisk(slug, htmlContent) {
-    const storagePath = hostedHtmlService.buildStoragePath(slug);
-    const dir = path.dirname(storagePath);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(storagePath, htmlContent, 'utf8');
-    return { storagePath, sizeBytes: Buffer.byteLength(htmlContent, 'utf8') };
+// Stores HTML via storageDriver (R2 or disk) and returns what the DB's
+// storage_path column should hold — a storageDriver URL, not a raw disk path.
+// One flat file per slug (`hosted_html/<slug>.html`), not the pre-R2 nested
+// `hosted_html/<slug>/index.html` layout — storageDriver's disk read/delete
+// resolve by basename, which requires a unique flat filename per subdir.
+async function storeHtml(slug, htmlContent, req) {
+    const stored = await storageDriver.put(Buffer.from(htmlContent, 'utf8'), {
+        subdir: 'hosted_html',
+        filename: `${slug}.html`,
+        mimeType: 'text/html',
+        req,
+        optimize: false,
+    });
+    return { storagePath: stored.url, sizeBytes: stored.bytes };
+}
+
+// Deletes stored HTML from whichever backend holds it.
+// Legacy rows (written before this migration) hold a raw absolute filesystem
+// path under the old nested `hosted_html/<slug>/index.html` layout — every
+// legacy row's basename is "index.html", so storageDriver's basename-based
+// disk resolution can't address them. Unlink those directly; anything else
+// goes through storageDriver (new flat disk layout, or R2).
+async function removeHtml(storagePathValue) {
+    if (!storagePathValue) return;
+    if (path.isAbsolute(storagePathValue) && !/^https?:\/\//i.test(storagePathValue) && fs.existsSync(storagePathValue)) {
+        fs.unlinkSync(storagePathValue);
+        return;
+    }
+    await storageDriver.remove(storagePathValue, { subdir: 'hosted_html' });
 }
 
 function validateTitle(title) {
@@ -238,7 +262,7 @@ exports.createApp = [
             if (friendlyError) return res.status(400).json({ success: false, error: friendlyError });
 
             const slug = hostedHtmlService.generateSlug();
-            const { storagePath, sizeBytes } = writeHtmlToDisk(slug, payload.html);
+            const { storagePath, sizeBytes } = await storeHtml(slug, payload.html, req);
 
             const app = await hostedHtmlService.createHostedApp({
                 ownerUserId: user.userId,
@@ -326,7 +350,7 @@ exports.updateApp = [
             if (incoming && typeof incoming.html === 'string' && incoming.html.trim().length > 0) {
                 const htmlError = validateHtml(incoming.html);
                 if (htmlError) return res.status(400).json({ success: false, error: htmlError });
-                const written = writeHtmlToDisk(existing.slug, incoming.html);
+                const written = await storeHtml(existing.slug, incoming.html, req);
                 newStoragePath = written.storagePath;
                 newSizeBytes = written.sizeBytes;
             }
@@ -437,7 +461,7 @@ exports.hostFromApi = [
             if (friendlyError) return res.status(400).json({ success: false, error: friendlyError });
 
             const slug = hostedHtmlService.generateSlug();
-            const { storagePath, sizeBytes } = writeHtmlToDisk(slug, payload.html);
+            const { storagePath, sizeBytes } = await storeHtml(slug, payload.html, req);
             const app = await hostedHtmlService.createHostedAppByAi({
                 creatorName: req.body.creatorName.trim(),
                 title,
@@ -488,7 +512,7 @@ exports.hostIssueFromApi = [
             // Generate slug locally so we can write the placeholder file before inserting the row.
             const slug = hostedHtmlService.generateSlug();
             const placeholderHtml = buildPlaceholderHtml({ title, creatorName: req.body.creatorName.trim() });
-            const { storagePath, sizeBytes } = writeHtmlToDisk(slug, placeholderHtml);
+            const { storagePath, sizeBytes } = await storeHtml(slug, placeholderHtml, req);
 
             const app = await hostedHtmlService.issueHostedAppByAi({
                 creatorName: req.body.creatorName.trim(),
@@ -546,7 +570,7 @@ exports.hostUploadHtmlFromApi = [
             const htmlError = validateHtml(payload.html);
             if (htmlError) return res.status(400).json({ success: false, error: htmlError });
 
-            const { storagePath, sizeBytes } = writeHtmlToDisk(existing.slug, payload.html);
+            const { storagePath, sizeBytes } = await storeHtml(existing.slug, payload.html, req);
             const updated = await hostedHtmlService.publishIssuedAppByAi({
                 id: existing.id,
                 storagePath,
@@ -853,7 +877,7 @@ exports.replaceHostedByApi = [
             if (incoming && typeof incoming.html === 'string' && incoming.html.trim().length > 0) {
                 const htmlError = validateHtml(incoming.html);
                 if (htmlError) return res.status(400).json({ success: false, error: htmlError });
-                const written = writeHtmlToDisk(existing.slug, incoming.html);
+                const written = await storeHtml(existing.slug, incoming.html, req);
                 newStoragePath = written.storagePath;
                 newSizeBytes = written.sizeBytes;
             }
@@ -900,16 +924,12 @@ exports.deleteHostedByApi = [
             });
             if (!removed) return res.status(404).json({ success: false, error: 'App not found.' });
 
-            // Best-effort file unlink — don't fail the response if the file is
+            // Best-effort delete — don't fail the response if the file is
             // already gone. Log if it errors.
             try {
-                if (removed.storagePath) {
-                    fs.unlinkSync(removed.storagePath);
-                }
+                await removeHtml(removed.storagePath);
             } catch (unlinkErr) {
-                if (unlinkErr.code !== 'ENOENT') {
-                    console.error(`[HostedHtml] deleteHostedByApi: failed to unlink ${removed.storagePath}:`, unlinkErr.message);
-                }
+                console.error(`[HostedHtml] deleteHostedByApi: failed to remove ${removed.storagePath}:`, unlinkErr.message);
             }
 
             return res.json({
@@ -943,11 +963,9 @@ exports.deleteApp = async (req, res) => {
         if (!removed) return res.status(404).json({ success: false, error: 'App not found.' });
 
         try {
-            if (removed.storagePath) fs.unlinkSync(removed.storagePath);
+            await removeHtml(removed.storagePath);
         } catch (unlinkErr) {
-            if (unlinkErr.code !== 'ENOENT') {
-                console.error(`[HostedHtml] deleteApp: failed to unlink ${removed.storagePath}:`, unlinkErr.message);
-            }
+            console.error(`[HostedHtml] deleteApp: failed to remove ${removed.storagePath}:`, unlinkErr.message);
         }
 
         return res.json({
