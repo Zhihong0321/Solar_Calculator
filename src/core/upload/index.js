@@ -15,6 +15,8 @@ const { getStorageRoot, ensureDir, buildPublicUrl, resolveDiskPath, safeDelete }
 const { isMimeAllowed, resolvedMime, fileExtension, validateFilename, validateSize, mb } = require('./validation');
 const { uploadSuccess, uploadError, ERROR_CODES } = require('./response');
 const { logUpload }                               = require('./logger');
+const storageDriver                               = require('./storageDriver');
+const { optimizeBuffer, extensionForMime }        = require('./imageOptimizer');
 const {
     insertRecycleBinEntry,
     listRecycleBinEntries,
@@ -26,12 +28,18 @@ module.exports = {
     // Engine
     createUploader,
 
-    // Storage
+    // Storage — prefer storageDriver for new code. The helpers below are the
+    // raw disk backend; storageDriver picks a backend and reads from both.
+    storageDriver,
     getStorageRoot,
     ensureDir,
     buildPublicUrl,
     resolveDiskPath,
     safeDelete,
+
+    // Image compression
+    optimizeBuffer,
+    extensionForMime,
 
     // Validation
     isMimeAllowed,
