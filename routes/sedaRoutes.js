@@ -50,6 +50,20 @@ const { writeInvoiceAuditEntry } = require('../src/modules/Invoicing/services/au
 
 const router = express.Router();
 
+// OCR/extraction (extract-tnb, extract-mykad, verify-meter, verify-ownership) is
+// disabled: the extraction results were unreliable. This is a deliberate, isolated
+// kill switch — flip to true and the four handlers below come back unchanged.
+// See .agents/decisions.md 2026-07-20.
+const OCR_ENABLED = false;
+
+function ocrDisabledResponse(res) {
+    return res.status(503).json({
+        success: false,
+        code: 'OCR_DISABLED',
+        error: 'Document verification is temporarily disabled. Please fill in this field manually.',
+    });
+}
+
 async function getLinkedInvoiceBubbleId(client, sedaId) {
     try {
         const r = await client.query(
@@ -1217,6 +1231,7 @@ router.get('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, re
 // ═════════════════════════════════════════════════════════════════════════════
 
 router.post('/api/v1/seda/extract-tnb', requireAuth, requireSedaBodyOwnership, async (req, res) => {
+    if (!OCR_ENABLED) return ocrDisabledResponse(res);
     const { sedaId, fieldKey = 'tnb_bill_1' } = req.body;
     if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
 
@@ -1253,6 +1268,7 @@ router.post('/api/v1/seda/extract-tnb', requireAuth, requireSedaBodyOwnership, a
 });
 
 router.post('/api/v1/seda/extract-mykad', requireAuth, requireSedaBodyOwnership, async (req, res) => {
+    if (!OCR_ENABLED) return ocrDisabledResponse(res);
     const { sedaId, fieldKey = 'mykad_front' } = req.body;
     if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
 
@@ -1291,6 +1307,7 @@ router.post('/api/v1/seda/extract-mykad', requireAuth, requireSedaBodyOwnership,
 });
 
 router.post('/api/v1/seda/verify-meter', requireAuth, requireSedaBodyOwnership, async (req, res) => {
+    if (!OCR_ENABLED) return ocrDisabledResponse(res);
     const { sedaId } = req.body;
     if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
 
@@ -1314,6 +1331,7 @@ router.post('/api/v1/seda/verify-meter', requireAuth, requireSedaBodyOwnership, 
 });
 
 router.post('/api/v1/seda/verify-ownership', requireAuth, requireSedaBodyOwnership, async (req, res) => {
+    if (!OCR_ENABLED) return ocrDisabledResponse(res);
     const { sedaId, context } = req.body;
     if (!sedaId) return res.status(400).json({ success: false, error: 'sedaId is required.' });
 

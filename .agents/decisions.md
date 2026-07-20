@@ -7,6 +7,16 @@
 
 <!-- Add new entries at the top, below this line -->
 
+## 2026-07-20 — SEDA OCR/extraction endpoints disabled behind a kill switch
+
+- made by: Claude Opus 4.8, at user direction
+- reason: extract-tnb, extract-mykad, verify-meter and verify-ownership produced unreliable extraction results. They now return 503 with code OCR_DISABLED and the UI asks the user to fill the field in manually.
+- why it is a separate commit: this disable arrived inside the R2 storage migration, where it was invisible to review. A storage rollback should not silently restore a feature that was turned off for unrelated reasons, and vice versa.
+- shape: a single `OCR_ENABLED` constant plus one guard line per handler. Flipping it to true restores all four handlers unchanged. Nothing else was removed.
+- note: audit-write blocks added to these four handlers in the same original diff were dropped rather than shipped, since they were unreachable while the flag is false and had never executed.
+- do not reverse without: validating extraction quality against files now served from R2, since readFileFromStoredUrl was rewritten by the storage migration and these handlers are its only remaining callers
+- status: ACTIVE
+
 ## 2026-07-20 — SEDA files move to Cloudflare R2 on a PUBLIC bucket
 
 - made by: Claude Opus 4.8
