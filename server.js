@@ -30,6 +30,7 @@ const BugReport = require('./src/modules/BugReport');
 const HostedHtml = require('./src/modules/HostedHtml');
 const SupportTicket = require('./src/modules/SupportTicket');
 const ClaimReceipt = require('./src/modules/ClaimReceipt');
+const uploadBackfillRoutes = require('./src/modules/UploadBackfill/backfillRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -100,6 +101,7 @@ app.use(HostedHtml.router);
 app.use('/api/v1/bug', BugReport.bugRoutes);
 app.use(SupportTicket.router);
 app.use(ClaimReceipt.router);
+app.use(uploadBackfillRoutes);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
