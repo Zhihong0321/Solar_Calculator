@@ -5,6 +5,7 @@ const path = require('path');
 const claimReceiptService = require('./claimReceiptService');
 const ocrService = require('./ocrService');
 const r2Storage = require('../../core/upload/r2Storage');
+const { resolveSubmitterIdentity } = require('./resolveSubmitterIdentity');
 
 const EXT_BY_MIME = {
   'image/png': '.png',
@@ -63,19 +64,27 @@ exports.list = async (req, res) => {
   }
 };
 
-/** Called automatically the moment OCR finishes on the client — there is no manual "submit" step. */
+/**
+ * Called automatically the moment OCR finishes on the client — there is no manual "submit" step.
+ * submitted_by is never taken from the request body: it's resolved server-side from the
+ * authenticated session, so a claim can never be attributed to someone other than whoever is
+ * actually logged in.
+ */
 exports.create = async (req, res) => {
   try {
     const parsed = claimReceiptService.parseClaimFields(req.body);
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
 
     if (!req.body.md5) return res.status(400).json({ error: 'md5 is required' });
-    const submittedBy = typeof req.body.submitted_by === 'string' && req.body.submitted_by.trim() ? req.body.submitted_by.trim() : null;
-    if (!submittedBy) return res.status(400).json({ error: 'submitted_by is required' });
+
+    const identity = await resolveSubmitterIdentity(req);
+    if (!identity) return res.status(401).json({ error: 'Could not resolve the authenticated user' });
 
     const claim = await claimReceiptService.create({
       md5: req.body.md5,
-      submittedBy,
+      submittedBy: identity.name,
+      submittedByUserId: identity.userId,
+      submittedByEmail: identity.email,
       fileUrl: req.body.file_url || null,
       fileMime: req.body.file_mime || null,
       fields: parsed.fields
@@ -101,16 +110,17 @@ exports.update = async (req, res) => {
   }
 };
 
-/** Reviewer approve/reject. */
+/** Reviewer approve/reject. approved_by is resolved server-side, same reasoning as create(). */
 exports.decide = async (req, res) => {
   try {
     if (req.body.status !== 'Approved' && req.body.status !== 'Rejected') {
       return res.status(400).json({ error: 'status must be Approved or Rejected' });
     }
-    const approvedBy = typeof req.body.approved_by === 'string' && req.body.approved_by.trim() ? req.body.approved_by.trim() : null;
-    if (!approvedBy) return res.status(400).json({ error: 'approved_by is required' });
 
-    const claim = await claimReceiptService.decide(req.params.id, req.body.status, approvedBy);
+    const identity = await resolveSubmitterIdentity(req);
+    if (!identity) return res.status(401).json({ error: 'Could not resolve the authenticated user' });
+
+    const claim = await claimReceiptService.decide(req.params.id, req.body.status, identity);
     if (!claim) return res.status(404).json({ error: 'claim not found' });
     res.json({ claim });
   } catch (err) {

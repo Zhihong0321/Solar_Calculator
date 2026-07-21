@@ -3,7 +3,6 @@
 
   var claims = [];
   var activeFilter = "";
-  var reviewerName = "";
 
   var reviewerNameEl = document.getElementById("reviewerName");
   var accessErrorEl = document.getElementById("accessError");
@@ -92,11 +91,13 @@
     });
   }
 
+  // approved_by is resolved server-side from the authenticated session, not sent from here —
+  // reviewerName is display-only (see the /api/agent/me fetch below).
   function decide(id, status) {
     fetch("/api/claim-receipts/" + id, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: status, approved_by: reviewerName })
+      body: JSON.stringify({ status: status })
     }).then(loadClaims);
   }
 
@@ -141,7 +142,6 @@
     .then(function (res) { return res.ok ? res.json() : null; })
     .then(function (data) {
       if (data && data.name) {
-        reviewerName = data.name;
         reviewerNameEl.textContent = data.name;
       }
     })

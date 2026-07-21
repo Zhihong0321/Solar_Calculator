@@ -44,11 +44,12 @@ class ClaimReceiptService {
   }
 
   /** Called automatically the moment OCR finishes — there is no manual "submit" step. */
-  async create({ md5, submittedBy, fileUrl, fileMime, fields }) {
+  async create({ md5, submittedBy, submittedByUserId, submittedByEmail, fileUrl, fileMime, fields }) {
     const result = await pool.query(
       `INSERT INTO claim_receipt
-         (md5, buyer, vendor, item, description, receipt_date, receipt_id, amount, currency, category, submitted_by, file_url, file_mime)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         (md5, buyer, vendor, item, description, receipt_date, receipt_id, amount, currency, category,
+          submitted_by, submitted_by_user_id, submitted_by_email, file_url, file_mime)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING *`,
       [
         md5,
@@ -62,6 +63,8 @@ class ClaimReceiptService {
         fields.currency,
         fields.category,
         submittedBy,
+        submittedByUserId,
+        submittedByEmail,
         fileUrl,
         fileMime
       ]
@@ -83,12 +86,14 @@ class ClaimReceiptService {
   }
 
   /** Reviewer approve/reject — distinct action from editing content. */
-  async decide(id, status, approvedBy) {
+  async decide(id, status, approverIdentity) {
     const result = await pool.query(
-      `UPDATE claim_receipt SET status = $1, approved_by = $2, approved_at = NOW(), updated_at = NOW()
-       WHERE id = $3
+      `UPDATE claim_receipt SET
+         status = $1, approved_by = $2, approved_by_user_id = $3, approved_by_email = $4,
+         approved_at = NOW(), updated_at = NOW()
+       WHERE id = $5
        RETURNING *`,
-      [status, approvedBy, id]
+      [status, approverIdentity.name, approverIdentity.userId, approverIdentity.email, id]
     );
     return result.rows[0] || null;
   }

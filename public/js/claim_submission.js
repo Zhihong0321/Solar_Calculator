@@ -10,6 +10,13 @@
   var BUYER_NAME = "Eternalgy Sdn Bhd";
   var BUYER_PATTERN = /eternalgy/i;
 
+  // Camera photos routinely land at 8-12MB. Downscale + re-encode on-device before upload so
+  // mobile agents on weak signal aren't pushing full-res JPGs — text stays legible for OCR well
+  // below this ceiling.
+  var IMAGE_MAX_DIMENSION = 2000;
+  var IMAGE_TARGET_BYTES = 1.5 * 1024 * 1024;
+  var IMAGE_MIN_QUALITY = 0.5;
+
   var EMPTY_FORM = { vendor: "", receipt_date: "", receipt_id: "", amount: "", currency: "MYR", category: "", item: "", description: "" };
 
   var items = []; // { id, fileName, mimeType, previewUrl, stage, errorMessage, md5, model, claimId, fileUrl, fileMime, form, el }
@@ -25,6 +32,54 @@
   function nextId() {
     idCounter += 1;
     return "receipt-" + idCounter;
+  }
+
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (blob) {
+        if (blob) resolve(blob);
+        else reject(new Error("canvas.toBlob returned null"));
+      }, type, quality);
+    });
+  }
+
+  // Resizes + re-encodes raster images to JPEG on-device before upload. PDFs and GIFs pass
+  // through untouched (GIFs may be animated; canvas would flatten to a single frame). Falls back
+  // to the original file on any failure (unsupported format, browser lacking createImageBitmap).
+  function preprocessImage(file) {
+    if (!file.type || file.type.indexOf("image/") !== 0 || file.type === "image/gif") {
+      return Promise.resolve(file);
+    }
+
+    return createImageBitmap(file, { imageOrientation: "from-image" })
+      .then(function (bitmap) {
+        var scale = Math.min(1, IMAGE_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+        var width = Math.round(bitmap.width * scale);
+        var height = Math.round(bitmap.height * scale);
+
+        var canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext("2d");
+        if (!ctx) return file;
+        ctx.drawImage(bitmap, 0, 0, width, height);
+        bitmap.close();
+
+        var quality = 0.85;
+        function attempt(blob) {
+          if (blob.size > IMAGE_TARGET_BYTES && quality > IMAGE_MIN_QUALITY) {
+            quality -= 0.1;
+            return canvasToBlob(canvas, "image/jpeg", quality).then(attempt);
+          }
+          if (blob.size >= file.size) return file;
+          var baseName = file.name.replace(/\.\w+$/, "") || "receipt";
+          return new File([blob], baseName + ".jpg", { type: "image/jpeg", lastModified: file.lastModified });
+        }
+        return canvasToBlob(canvas, "image/jpeg", quality).then(attempt);
+      })
+      .catch(function () {
+        return file;
+      });
   }
 
   function el(tag, attrs, children) {
@@ -280,12 +335,12 @@
     item.stage = "saving";
     renderCard(item);
 
+    // submitted_by is resolved server-side from the authenticated session, not sent from here.
     return fetch("/api/claim-receipts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(Object.assign({}, item.form, {
         md5: item.md5,
-        submitted_by: claimantInput.value,
         file_url: item.fileUrl,
         file_mime: item.fileMime
       }))
@@ -349,15 +404,17 @@
   function handleFiles(fileList) {
     Array.prototype.forEach.call(fileList, function (file) {
       var id = nextId();
-      var item = {
-        id: id, file: file, fileName: file.name, mimeType: file.type,
-        previewUrl: URL.createObjectURL(file), stage: "queued", form: Object.assign({}, EMPTY_FORM)
-      };
-      items.push(item);
-      renderCard(item);
-      queue.push(id);
+      preprocessImage(file).then(function (prepared) {
+        var item = {
+          id: id, file: prepared, fileName: prepared.name, mimeType: prepared.type,
+          previewUrl: URL.createObjectURL(prepared), stage: "queued", form: Object.assign({}, EMPTY_FORM)
+        };
+        items.push(item);
+        renderCard(item);
+        queue.push(id);
+        pump();
+      });
     });
-    pump();
   }
 
   fileInput.addEventListener("change", function () {
@@ -365,12 +422,14 @@
     fileInput.value = "";
   });
 
-  // Prefill the claimant field with the logged-in agent's name — still editable, in case
-  // someone is submitting on behalf of a site crew member without their own login.
+  // Display-only: the server always stamps submitted_by from the authenticated session, so this
+  // field is no longer sent anywhere — it's just showing the agent who this session will submit
+  // claims as (see claimantInput.readOnly below, and claimReceiptController.create).
+  claimantInput.readOnly = true;
   fetch("/api/agent/me", { credentials: "same-origin" })
     .then(function (res) { return res.ok ? res.json() : null; })
     .then(function (data) {
-      if (data && data.name && !claimantInput.value) claimantInput.value = data.name;
+      if (data && data.name) claimantInput.value = data.name;
     })
     .catch(function () {});
 })();
