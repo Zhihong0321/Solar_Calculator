@@ -27,7 +27,8 @@ async function resolveAgentIdentifiers(client, actorId) {
 
   // 1. Try to resolve as a USER first to avoid ambiguous integer collisions between user.id and agent.id
   const userResult = await client.query(
-    `SELECT a.id::text AS agent_id,
+    `SELECT u.id::text AS user_id,
+            a.id::text AS agent_id,
             a.bubble_id AS agent_bubble_id,
             u.bubble_id AS user_bubble_id,
             u.linked_agent_profile
@@ -39,22 +40,25 @@ async function resolveAgentIdentifiers(client, actorId) {
 
   if (userResult.rows.length > 0) {
     userResult.rows.forEach((row) => {
-      [row.agent_id, row.agent_bubble_id, row.user_bubble_id, row.linked_agent_profile]
+      // Identity keys on the USER only. agent.id is intentionally excluded (agent is retired).
+      // row.user_id (raw user integer id) is included because the WhatsApp assignment
+      // bot writes user.id into referral.linked_agent for newly assigned leads.
+      [row.user_id, row.agent_bubble_id, row.user_bubble_id, row.linked_agent_profile]
         .filter(Boolean)
         .forEach((v) => identifiers.add(String(v)));
     });
   } else {
     // 2. If no user found, try resolving as an AGENT directly (e.g. if actorId is an agent bubble_id)
     const agentResult = await client.query(
-      `SELECT a.id::text AS agent_id,
-              a.bubble_id AS agent_bubble_id,
+      `SELECT a.bubble_id AS agent_bubble_id,
               a.linked_user_login AS user_bubble_id
        FROM agent a
-       WHERE a.id::text = $1 OR a.bubble_id = $1`,
+       WHERE a.bubble_id = $1`,
       [normalized]
     );
     agentResult.rows.forEach((row) => {
-      [row.agent_id, row.agent_bubble_id, row.user_bubble_id]
+      // agent.id is intentionally excluded (agent is retired); key on bubble_id / user identity only.
+      [row.agent_bubble_id, row.user_bubble_id]
         .filter(Boolean)
         .forEach((v) => identifiers.add(String(v)));
     });

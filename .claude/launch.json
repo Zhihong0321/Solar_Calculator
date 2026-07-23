@@ -7,6 +7,12 @@
       "runtimeArgs": ["server.js"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "solar-ads-report",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:/Users/ETERNA~1/AppData/Local/Temp/claude/E--Solar-Calculator-v2/c18d574b-a6cb-49a7-8853-ebb44485eaa7/scratchpad/serve-report.mjs"],
+      "port": 8843
     }
   ]
 }
