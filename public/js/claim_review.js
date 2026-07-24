@@ -153,23 +153,51 @@
       var currencyStrings = Object.keys(totalsByCurrency).map(function (curr) {
         return curr + " " + totalsByCurrency[curr].toFixed(2);
       });
-      var statusLabel = activeFilter === "Pending" ? " unclaimed" : "";
-      var totalsLabel = currencyStrings.join(" + ") + statusLabel;
+      var totalsLabel = currencyStrings.join(" + ");
 
-      var agentHeader = el("div", { class: "flex items-center justify-between bg-slate-100 border border-slate-200 rounded-t-lg px-4 py-3" }, [
-        el("div", { class: "flex items-center gap-2" }, [
-          el("i", { class: "fa-solid fa-user text-slate-500" }),
-          el("h2", { class: "text-sm font-bold text-slate-800", text: group.agentName }),
-          el("span", { class: "text-xs px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full font-semibold", text: group.claims.length + " " + (activeFilter === "Pending" ? "unclaimed" : "item") + (group.claims.length > 1 ? "s" : "") })
+      var chevronIcon = el("i", { class: "fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200 ml-1" });
+
+      var agentHeader = el("div", { class: "flex items-center justify-between bg-white hover:bg-slate-50/80 border border-slate-200 rounded-lg px-4 py-3.5 cursor-pointer transition-colors select-none shadow-sm" }, [
+        el("div", { class: "flex items-center gap-3" }, [
+          el("div", { class: "w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs" }, [
+            el("i", { class: "fa-solid fa-user" })
+          ]),
+          el("div", {}, [
+            el("h2", { class: "text-sm font-bold text-slate-900", text: group.agentName }),
+            el("span", { class: "text-[11px] px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-full font-semibold mt-0.5 inline-block", text: group.claims.length + " " + (activeFilter === "Pending" ? "unclaimed" : "item") + (group.claims.length > 1 ? "s" : "") })
+          ])
         ]),
-        el("div", { class: "text-sm font-bold text-slate-700", text: totalsLabel })
+        el("div", { class: "flex items-center gap-3" }, [
+          el("div", { class: "text-right" }, [
+            el("div", { class: "text-[11px] uppercase tracking-wider text-slate-400 font-semibold", text: activeFilter === "Pending" ? "Pending Unclaimed" : "Total Amount" }),
+            el("div", { class: "text-sm font-bold text-emerald-600", text: totalsLabel })
+          ]),
+          chevronIcon
+        ])
       ]);
 
-      var cardsContainer = el("div", { class: "space-y-3 p-4 bg-slate-50/50 border border-t-0 border-slate-200 rounded-b-lg" }, 
+      var cardsContainer = el("div", { class: "hidden space-y-3 p-4 bg-slate-50/60 border border-t-0 border-slate-200 rounded-b-lg" }, 
         group.claims.map(function (c) { return claimCard(c); })
       );
 
-      var groupWrapper = el("div", { class: "rounded-lg overflow-hidden border border-slate-200 shadow-sm bg-white mb-4" }, [
+      agentHeader.addEventListener("click", function () {
+        var isHidden = cardsContainer.classList.contains("hidden");
+        if (isHidden) {
+          cardsContainer.classList.remove("hidden");
+          agentHeader.classList.remove("rounded-lg");
+          agentHeader.classList.add("rounded-t-lg");
+          chevronIcon.classList.remove("fa-chevron-down");
+          chevronIcon.classList.add("fa-chevron-up");
+        } else {
+          cardsContainer.classList.add("hidden");
+          agentHeader.classList.remove("rounded-t-lg");
+          agentHeader.classList.add("rounded-lg");
+          chevronIcon.classList.remove("fa-chevron-up");
+          chevronIcon.classList.add("fa-chevron-down");
+        }
+      });
+
+      var groupWrapper = el("div", { class: "mb-3" }, [
         agentHeader,
         cardsContainer
       ]);
