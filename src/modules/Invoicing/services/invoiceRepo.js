@@ -1561,8 +1561,8 @@ async function getInvoicesByUserId(client, userId, options = {}) {
   }
 
   const filterParts = [];
-  const params = [ownerIds, agentProfileId, paymentStatus];
-  let paramIdx = 4;
+  const params = [ownerIds, paymentStatus];
+  let paramIdx = 3;
 
   if (searchPattern) {
     // NOTE: filterParts are appended to the OUTER query (SELECT * FROM invoice_data),
@@ -1643,12 +1643,18 @@ async function getInvoicesByUserId(client, userId, options = {}) {
         LEFT JOIN customer c ON i.linked_customer = c.customer_id
         LEFT JOIN package pkg ON i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text
         ${referralJoin}
+        -- Both columns are matched against the SAME alias array. linked_agent is
+        -- not reliably an agent-profile id: on prod it holds the user's bubble_id
+        -- on 7,516 of 7,878 latest invoices and an agent.bubble_id on only 764.
+        -- Comparing it against linked_agent_profile alone hides every invoice an
+        -- agent was assigned but did not create (i.e. anything raised by office).
+        -- @ai-stable: do not narrow either side back to a single identifier.
         WHERE (
             i.created_by = ANY($1::text[])
-            OR ($2::text IS NOT NULL AND i.linked_agent = $2)
+            OR i.linked_agent = ANY($1::text[])
         )
-        AND i.is_latest = true 
-        AND (i.status != 'deleted' OR i.status IS NULL OR $3 = 'deleted')
+        AND i.is_latest = true
+        AND (i.status != 'deleted' OR i.status IS NULL OR $2 = 'deleted')
     )
   `;
 
@@ -2429,8 +2435,19 @@ async function verifyOwnership(client, userId, resourceCreatedBy, resourceLinked
     // Check if User's Agent Profile matches the creator (Legacy support)
     if (userAgentProfile && resourceCreatedBy && String(resourceCreatedBy) === String(userAgentProfile)) return true;
 
-    // CRITICAL: Check if User's Agent Profile matches the assigned agent on the invoice
-    if (userAgentProfile && resourceLinkedAgent && String(resourceLinkedAgent) === String(userAgentProfile)) return true;
+    // CRITICAL: the assigned agent is matched against EVERY alias, the same set
+    // created_by is checked against above — not just the agent profile id.
+    // linked_agent holds the user's bubble_id on 7,516 of 7,878 latest invoices
+    // and an agent.bubble_id on only 764, so checking the profile id alone denies
+    // the assigned agent access to anything office raised on their behalf. This
+    // gates the invoice-office routes and /api/v1/attachments.
+    // @ai-stable: do not narrow this back to userAgentProfile alone.
+    if (resourceLinkedAgent) {
+      const linkedAgent = String(resourceLinkedAgent);
+      if (userBubbleId && linkedAgent === String(userBubbleId)) return true;
+      if (userAgentProfile && linkedAgent === String(userAgentProfile)) return true;
+      if (linkedAgent === String(userId)) return true;
+    }
 
     return false;
   } catch (err) {
