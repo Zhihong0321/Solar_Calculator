@@ -30,7 +30,9 @@ const BugReport = require('./src/modules/BugReport');
 const HostedHtml = require('./src/modules/HostedHtml');
 const SupportTicket = require('./src/modules/SupportTicket');
 const ClaimReceipt = require('./src/modules/ClaimReceipt');
+const Attachments = require('./src/modules/Attachments');
 const uploadBackfillRoutes = require('./src/modules/UploadBackfill/backfillRoutes');
+const { maintenanceMiddleware } = require('./src/core/middleware/maintenance');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,6 +56,11 @@ app.use((req, res, next) => {
 });
 
 app.use(cookieParser());
+
+// Maintenance window — must sit before body parsing and before every route, so
+// a request during the window never reaches a parser, a route, or the database.
+// Off unless MAINTENANCE_MODE is set; see src/core/middleware/maintenance.js.
+app.use(maintenanceMiddleware);
 
 // Skip JSON body parsing for multipart/form-data requests (file uploads).
 // express.json() reads and exhausts the raw request stream. If it runs before
@@ -101,6 +108,7 @@ app.use(HostedHtml.router);
 app.use('/api/v1/bug', BugReport.bugRoutes);
 app.use(SupportTicket.router);
 app.use(ClaimReceipt.router);
+app.use(Attachments.router);
 app.use(uploadBackfillRoutes);
 
 // --- Global Routes & Static Files ---

@@ -383,39 +383,17 @@
                     </div>
                 </section>
 
-                <!-- Roof Images Section -->
+                <!-- Site Assessment Checklist -->
                 <section class="section-card">
                     <div class="section-header">
-                        <h2 class="section-title">Roof Images</h2>
-                        <label class="btn-action btn-primary cursor-pointer flex items-center gap-2">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                            Batch Upload
-                            <input type="file" multiple accept="image/*" class="hidden" onchange="uploadRoofImages(this)">
-                        </label>
+                        <h2 class="section-title">Site Assessment</h2>
+                        <span id="siteAssessmentProgress" class="ml-auto rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Loading</span>
                     </div>
                     <div class="p-4">
-                        <div id="roofImagesGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            <p class="col-span-full text-xs text-slate-400 italic py-4">No roof images uploaded yet.</p>
+                        <div id="siteAssessmentSlots" class="space-y-2.5">
+                            <p class="text-xs text-slate-400 italic py-4">Loading site assessment files...</p>
                         </div>
-                        <div id="deletedRoofImagesList" class="mt-4"></div>
-                    </div>
-                </section>
-
-                <!-- Site Assessment Images Section -->
-                <section class="section-card">
-                    <div class="section-header">
-                        <h2 class="section-title">Site Assessment Images</h2>
-                        <label class="btn-action btn-primary cursor-pointer flex items-center gap-2">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                            Batch Upload
-                            <input type="file" multiple accept="image/*" class="hidden" onchange="uploadSiteAssessmentImages(this)">
-                        </label>
-                    </div>
-                    <div class="p-4">
-                        <div id="siteAssessmentImagesGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            <p class="col-span-full text-xs text-slate-400 italic py-4">No site assessment images uploaded yet.</p>
-                        </div>
-                        <div id="deletedSiteAssessmentImagesList" class="mt-4"></div>
+                        <div id="deletedAttachmentsList" class="mt-4"></div>
                     </div>
                 </section>
 
@@ -648,9 +626,8 @@
                     renderPayments([]);
                     renderItems(currentData.items || []);
                     renderSeda(null);
-                    renderRoofImages(currentData.invoice.linked_roof_image, [], getDeletedUploads('roof_images'));
-                    renderSiteAssessmentImages(currentData.invoice.site_assessment_image, getDeletedUploads('site_assessment_images'));
                     renderPvSystemDrawings(currentData.invoice.pv_system_drawing, getDeletedUploads('pv_drawings'));
+                    loadAttachments();
                     renderEngDrawings(null);
                     renderSignature(currentData.invoice);
                     renderFollowUp(currentData.invoice.follow_up_date);
@@ -691,10 +668,12 @@
 
                 renderPayments(currentData.payments || []);
                 renderSeda(currentData.seda);
-                renderRoofImages(currentData.invoice.linked_roof_image, currentData.seda?.roof_images, getDeletedUploads('roof_images'));
-                renderSiteAssessmentImages(currentData.invoice.site_assessment_image, getDeletedUploads('site_assessment_images'));
                 renderPvSystemDrawings(currentData.invoice.pv_system_drawing, getDeletedUploads('pv_drawings'));
                 renderEngDrawings(currentData.seda);
+                // SEDA's own roof_images arrive with the extras payload and are
+                // shown read-only inside the roof slot, so the checklist has to
+                // repaint once they land.
+                if (attachmentState.docTypes.length) renderSiteAssessmentChecklist();
             } catch (err) {
                 console.warn('[InvoiceOffice] Extras failed to load:', err.message);
                 console.error('[InvoiceOffice] Extras load failed', {
@@ -1266,52 +1245,239 @@
             `;
         }
 
-        function renderRoofImages(invImages = [], sedaImages = [], deletedEntries = []) {
-            const container = document.getElementById('roofImagesGrid');
-            const invoiceImages = invImages || [];
-            const linkedSedaImages = sedaImages || [];
-            const allImages = [
-                ...invoiceImages.map(url => ({ url, deletable: true, source: 'Invoice Office' })),
-                ...linkedSedaImages.map(url => ({ url, deletable: false, source: 'SEDA copy' }))
-            ];
-             
-            if (allImages.length > 0) {
-                container.innerHTML = allImages.map(({ url, deletable, source }) => `
-                    <div class="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                        <img src="${url}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${url}')">
-                        <span class="absolute left-1 top-1 rounded-md bg-white/85 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600">${source}</span>
-                        ${deletable ? `
-                            <button onclick="deleteRoofImage('${url}')" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                            </button>
-                        ` : ''}
-                    </div>
-                `).join('');
-            } else {
-                container.innerHTML = '<p class="col-span-full text-xs text-slate-400 italic py-4">No roof images uploaded yet.</p>';
-            }
+        // ============================================================
+        // Site Assessment checklist (ee_attachment)
+        // ============================================================
+        //
+        // Eight slots, not one batch grid. The agent is standing at the house
+        // and the only question that matters is "what have I still not shot?" —
+        // a flat gallery of 12 thumbnails cannot answer it. Progress counts the
+        // required slots and nothing blocks on it: an agent with one bar of
+        // signal must never be locked out of their own invoice.
 
-            renderDeletedUploads('deletedRoofImagesList', 'roof_images', deletedEntries, 'Roof file');
+        let attachmentState = { rows: [], deleted: [], docTypes: [], progress: null };
+
+        function attachmentsFor(docType, floor = null) {
+            return attachmentState.rows.filter(row => {
+                if (row.doc_type !== docType) return false;
+                if (floor === null) return true;
+                return Number(row.metadata_json?.floor ?? 0) === Number(floor);
+            });
         }
 
-        function renderSiteAssessmentImages(images = [], deletedEntries = []) {
-            const container = document.getElementById('siteAssessmentImagesGrid');
-            const allImages = images || [];
+        // SEDA keeps its own roof_images column, populated by the SEDA module.
+        // Those are shown inside the roof slot but are not ours to delete.
+        function sedaRoofCopies() {
+            return (currentData?.seda?.roof_images || []).map(url => ({ url, readOnly: true }));
+        }
 
-            if (allImages.length > 0) {
-                container.innerHTML = allImages.map(url => `
-                    <div class="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                        <img src="${url}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${url}')">
-                        <button onclick="deleteSiteAssessmentImage('${url}')" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+        function renderAttachmentTile(row) {
+            const isPdf = String(row.mime_type || row.file_url || '').toLowerCase().includes('pdf');
+            const geo = (row.gps_lat !== null && row.gps_lat !== undefined)
+                ? `<span class="absolute bottom-1 left-1 rounded bg-emerald-600/90 px-1 py-0.5 text-[8px] font-black uppercase text-white" title="Geotagged">GPS</span>`
+                : '';
+
+            if (isPdf) {
+                return `
+                    <div class="relative group aspect-square rounded-lg border border-slate-200 bg-red-50 flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="window.open('${row.file_url}','_blank','noopener')">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span class="text-[9px] font-bold uppercase text-red-700">PDF</span>
+                        <button onclick="event.stopPropagation();deleteAttachment(${row.id})" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
-                    </div>
-                `).join('');
-            } else {
-                container.innerHTML = '<p class="col-span-full text-xs text-slate-400 italic py-4">No site assessment images uploaded yet.</p>';
+                    </div>`;
             }
 
-            renderDeletedUploads('deletedSiteAssessmentImagesList', 'site_assessment_images', deletedEntries, 'Site assessment');
+            return `
+                <div class="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                    <img src="${row.file_url}" loading="lazy" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${row.file_url}')">
+                    ${geo}
+                    <button onclick="deleteAttachment(${row.id})" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>`;
+        }
+
+        function renderReadOnlyTile(url, badge) {
+            return `
+                <div class="relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                    <img src="${url}" loading="lazy" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${url}')">
+                    <span class="absolute left-1 top-1 rounded-md bg-white/85 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600">${badge}</span>
+                </div>`;
+        }
+
+        // One slot row. `floor` is null for types that do not carry floors.
+        function renderSlotRow(def, floor, label, isRequired) {
+            const rows = attachmentsFor(def.key, floor);
+            const extras = def.key === 'roof_angle' && floor === null ? sedaRoofCopies() : [];
+            const total = rows.length + extras.length;
+            const minCount = isRequired ? (def.minCount || 1) : 0;
+            const satisfied = !isRequired || total >= minCount;
+            const inputId = `slot_${def.key}${floor === null ? '' : '_f' + floor}`;
+
+            const statusChip = satisfied
+                ? `<span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-emerald-700">${total}</span>`
+                : `<span class="rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] text-amber-700">${total}/${minCount}</span>`;
+
+            const requiredChip = isRequired
+                ? ''
+                : `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">Optional</span>`;
+
+            return `
+                <div class="rounded-xl border ${satisfied ? 'border-slate-200' : 'border-amber-200 bg-amber-50/40'} p-3">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <p class="text-[11px] font-black uppercase tracking-[0.1em] text-slate-700">${label}</p>
+                                ${statusChip}
+                                ${requiredChip}
+                            </div>
+                            <p class="mt-0.5 text-[10px] text-slate-400 leading-snug">${def.hint || ''}</p>
+                        </div>
+                        <label class="shrink-0 btn-action btn-primary cursor-pointer flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            ${total ? 'Add' : 'Capture'}
+                            <input id="${inputId}" type="file" ${def.multi ? 'multiple' : ''} accept="${(def.accept || []).includes('application/pdf') ? 'image/*,application/pdf' : 'image/*'}" capture="environment" class="hidden" onchange="uploadAttachments(this, '${def.key}', ${floor === null ? 'null' : floor})">
+                        </label>
+                    </div>
+                    ${total ? `
+                        <div class="mt-2.5 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                            ${rows.map(renderAttachmentTile).join('')}
+                            ${extras.map(e => renderReadOnlyTile(e.url, 'SEDA copy')).join('')}
+                        </div>
+                    ` : ''}
+                </div>`;
+        }
+
+        function renderSiteAssessmentChecklist() {
+            const container = document.getElementById('siteAssessmentSlots');
+            const progressEl = document.getElementById('siteAssessmentProgress');
+            if (!container) return;
+
+            const defs = attachmentState.docTypes || [];
+            if (!defs.length) {
+                container.innerHTML = '<p class="text-xs text-slate-400 italic py-4">Site assessment checklist is unavailable.</p>';
+                if (progressEl) progressEl.textContent = '—';
+                return;
+            }
+
+            const blocks = [];
+            let requiredDone = 0;
+            let requiredTotal = 0;
+
+            for (const def of defs) {
+                if (def.floors) {
+                    // Floors are stored as metadata, rendered as fixed rows. A
+                    // fourth storey needs no migration — just another row.
+                    const known = new Set([...def.floors.requiredFloors, ...def.floors.optionalFloors]);
+                    attachmentsFor(def.key).forEach(r => known.add(Number(r.metadata_json?.floor ?? 0)));
+
+                    for (const floor of [...known].sort((a, b) => a - b)) {
+                        const isRequired = def.floors.requiredFloors.includes(floor);
+                        const floorLabel = def.floors.labels[floor] || `Floor ${floor + 1}`;
+                        if (isRequired) requiredTotal++;
+                        const rowCount = attachmentsFor(def.key, floor).length;
+                        if (isRequired && rowCount >= (def.minCount || 1)) requiredDone++;
+                        blocks.push(renderSlotRow(def, floor, `${def.label} — ${floorLabel}`, isRequired));
+                    }
+
+                    if (def.floors.allowMore) {
+                        const next = Math.max(...known) + 1;
+                        blocks.push(`
+                            <button onclick="addHouseDbFloor(${next})" class="w-full rounded-xl border border-dashed border-slate-300 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400 hover:text-slate-600 hover:border-slate-400">
+                                + Add floor ${next + 1}
+                            </button>`);
+                    }
+                    continue;
+                }
+
+                if (def.required) {
+                    requiredTotal++;
+                    const count = attachmentsFor(def.key).length + (def.key === 'roof_angle' ? sedaRoofCopies().length : 0);
+                    if (count >= (def.minCount || 1)) requiredDone++;
+                }
+                blocks.push(renderSlotRow(def, null, def.label, Boolean(def.required)));
+            }
+
+            container.innerHTML = blocks.join('');
+
+            if (progressEl) {
+                const complete = requiredDone >= requiredTotal;
+                progressEl.textContent = `${requiredDone}/${requiredTotal} required`;
+                progressEl.className = complete
+                    ? 'ml-auto rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700'
+                    : 'ml-auto rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700';
+            }
+
+            renderDeletedAttachments();
+        }
+
+        // Extra floors are a render-time concern only — the row that proves the
+        // floor exists is written when the first photo for it lands.
+        let extraHouseDbFloors = [];
+        function addHouseDbFloor(floor) {
+            if (!extraHouseDbFloors.includes(floor)) extraHouseDbFloors.push(floor);
+            const def = (attachmentState.docTypes || []).find(d => d.floors);
+            if (def) def.floors.optionalFloors = [...new Set([...def.floors.optionalFloors, ...extraHouseDbFloors])];
+            renderSiteAssessmentChecklist();
+        }
+
+        function renderDeletedAttachments() {
+            const container = document.getElementById('deletedAttachmentsList');
+            if (!container) return;
+
+            const entries = attachmentState.deleted || [];
+            if (!entries.length) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const labelFor = (row) => (attachmentState.docTypes || []).find(d => d.key === row.doc_type)?.label || row.doc_type;
+
+            container.innerHTML = `
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-[11px] font-black uppercase tracking-[0.16em] text-amber-700">Deleted Files</h3>
+                        <span class="text-[10px] font-bold text-amber-600">${entries.length}</span>
+                    </div>
+                    <div class="mt-3 space-y-2">
+                        ${entries.map(row => `
+                            <div class="flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-white px-3 py-2">
+                                <div class="min-w-0">
+                                    <p class="text-[11px] font-bold text-slate-700 uppercase truncate">${labelFor(row)}</p>
+                                    <p class="text-[10px] text-slate-500">Deleted ${formatDateTime(row.deleted_at)}</p>
+                                </div>
+                                <div class="flex items-center gap-3 shrink-0">
+                                    <a href="${row.file_url}" target="_blank" class="text-[10px] font-bold text-amber-700 hover:underline uppercase">Open</a>
+                                    <button onclick="restoreAttachment(${row.id})" class="text-[10px] font-bold text-emerald-700 hover:underline uppercase">Restore</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+        }
+
+        async function loadAttachments() {
+            try {
+                const json = await fetchJsonWithTimeout(`/api/v1/attachments/invoice/${bubbleId}?category=site_assessment`, { timeoutMs: 15000 });
+                if (!json.success) throw new Error(json.error || 'Failed to load attachments');
+
+                attachmentState = {
+                    rows: json.data.attachments || [],
+                    deleted: json.data.deleted || [],
+                    docTypes: json.data.docTypes || [],
+                    progress: json.data.progress || null
+                };
+            } catch (err) {
+                console.error('[InvoiceOffice] Attachment load failed:', err);
+                const container = document.getElementById('siteAssessmentSlots');
+                if (container) {
+                    container.innerHTML = `<p class="text-xs text-red-500 italic py-4">Could not load site assessment files: ${err.message}</p>`;
+                }
+                return;
+            }
+
+            renderSiteAssessmentChecklist();
         }
 
         function renderPvSystemDrawings(drawings = [], deletedEntries = []) {
@@ -1566,31 +1732,207 @@
             return { readyFiles, issues };
         }
 
-        async function uploadRoofImages(input) {
-            const files = Array.from(input.files);
+        // ── EXIF ─────────────────────────────────────────────────────────────
+        //
+        // Read before optimization, not after: prepareRoofUploadFiles re-encodes
+        // to WebP via canvas, and canvas output carries no EXIF at all. By the
+        // time the file reaches the server the capture time and geotag are gone.
+        // For site assessment photos that metadata is the evidence the agent was
+        // actually at the house, so it is pulled here and posted as form fields.
+        //
+        // JPEG only. HEIC and PNG are skipped rather than guessed at.
+        function _exifRational(view, offset, little) {
+            const num = view.getUint32(offset, little);
+            const den = view.getUint32(offset + 4, little);
+            return den ? num / den : 0;
+        }
+
+        function _exifReadTags(view, tiffStart, dirStart, little, wanted) {
+            const out = {};
+            const count = view.getUint16(dirStart, little);
+            for (let i = 0; i < count; i++) {
+                const entry = dirStart + 2 + i * 12;
+                const tag = view.getUint16(entry, little);
+                if (!wanted.includes(tag)) continue;
+
+                const type = view.getUint16(entry + 2, little);
+                const numValues = view.getUint32(entry + 4, little);
+                const valueSize = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8 }[type] || 1;
+                const totalSize = valueSize * numValues;
+                const valueOffset = totalSize > 4 ? tiffStart + view.getUint32(entry + 8, little) : entry + 8;
+
+                if (type === 2) {
+                    let str = '';
+                    for (let c = 0; c < numValues - 1; c++) str += String.fromCharCode(view.getUint8(valueOffset + c));
+                    out[tag] = str;
+                } else if (type === 5 && numValues === 3) {
+                    out[tag] = [0, 1, 2].map(n => _exifRational(view, valueOffset + n * 8, little));
+                } else if (type === 5) {
+                    out[tag] = _exifRational(view, valueOffset, little);
+                } else if (type === 4) {
+                    out[tag] = view.getUint32(valueOffset, little);
+                } else if (type === 3) {
+                    out[tag] = view.getUint16(valueOffset, little);
+                }
+            }
+            return out;
+        }
+
+        function _exifToDecimal(dms, ref) {
+            if (!Array.isArray(dms)) return null;
+            const value = dms[0] + dms[1] / 60 + dms[2] / 3600;
+            if (!Number.isFinite(value)) return null;
+            return (ref === 'S' || ref === 'W') ? -value : value;
+        }
+
+        async function readExifMeta(file) {
+            if (!/jpe?g/i.test(file.type || '')) return {};
+            try {
+                // EXIF lives in the first APP segments; 256 KB is generous.
+                const buf = await file.slice(0, 262144).arrayBuffer();
+                const view = new DataView(buf);
+                if (view.getUint16(0) !== 0xFFD8) return {};
+
+                let offset = 2;
+                let tiffStart = -1;
+                while (offset + 4 < view.byteLength) {
+                    if (view.getUint8(offset) !== 0xFF) break;
+                    const marker = view.getUint8(offset + 1);
+                    if (marker === 0xDA) break; // start of scan — no metadata past here
+                    const size = view.getUint16(offset + 2);
+                    if (marker === 0xE1 && view.getUint32(offset + 4) === 0x45786966) {
+                        tiffStart = offset + 10;
+                        break;
+                    }
+                    offset += 2 + size;
+                }
+                if (tiffStart < 0 || tiffStart + 8 > view.byteLength) return {};
+
+                const little = view.getUint16(tiffStart) === 0x4949;
+                const ifd0 = tiffStart + view.getUint32(tiffStart + 4, little);
+                const pointers = _exifReadTags(view, tiffStart, ifd0, little, [0x8769, 0x8825]);
+
+                const meta = {};
+
+                if (pointers[0x8769]) {
+                    const exifTags = _exifReadTags(view, tiffStart, tiffStart + pointers[0x8769], little, [0x9003]);
+                    const raw = exifTags[0x9003];
+                    if (raw) {
+                        // EXIF format is "YYYY:MM:DD HH:MM:SS" — not parseable as-is.
+                        const iso = raw.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3').replace(' ', 'T');
+                        const date = new Date(iso);
+                        if (!Number.isNaN(date.getTime())) meta.takenAt = date.toISOString();
+                    }
+                }
+
+                if (pointers[0x8825]) {
+                    const gps = _exifReadTags(view, tiffStart, tiffStart + pointers[0x8825], little, [1, 2, 3, 4]);
+                    const lat = _exifToDecimal(gps[2], gps[1]);
+                    const lng = _exifToDecimal(gps[4], gps[3]);
+                    if (lat !== null && lng !== null) {
+                        meta.gpsLat = lat;
+                        meta.gpsLng = lng;
+                    }
+                }
+
+                return meta;
+            } catch (err) {
+                console.warn('[InvoiceOffice] EXIF read failed:', err.message);
+                return {};
+            }
+        }
+
+        // ── Upload ───────────────────────────────────────────────────────────
+        //
+        // Uploads run three at a time and the page reloads once at the end. The
+        // old path posted one file, awaited it, then reloaded the whole invoice
+        // per section — across eight slots on a phone at a customer's house that
+        // is a lot of dead time on a connection that may not survive it.
+        const ATTACHMENT_UPLOAD_CONCURRENCY = 3;
+
+        async function runWithConcurrency(items, limit, worker) {
+            const results = new Array(items.length);
+            let cursor = 0;
+
+            async function pump() {
+                while (cursor < items.length) {
+                    const index = cursor++;
+                    results[index] = await worker(items[index], index);
+                }
+            }
+
+            await Promise.all(Array.from({ length: Math.min(limit, items.length) }, pump));
+            return results;
+        }
+
+        async function uploadAttachments(input, docType, floor) {
+            const files = Array.from(input.files || []);
             if (files.length === 0) return;
 
             showLoadingOverlay();
             try {
-                const { readyFiles, issues } = await prepareRoofUploadFiles(files);
-                if (readyFiles.length === 0) {
-                    summarizeIssues('Roof image upload skipped.', issues.length ? issues : ['No valid roof images selected.']);
+                // EXIF first — the optimizer below destroys it.
+                const metas = await Promise.all(files.map(readExifMeta));
+
+                const prepared = [];
+                const issues = [];
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (isPdfFile(file)) {
+                        if (file.size > PV_DRAWING_MAX_BYTES) {
+                            issues.push(`${file.name}: exceeds ${formatBytes(PV_DRAWING_MAX_BYTES)}.`);
+                            continue;
+                        }
+                        prepared.push({ file, meta: metas[i] });
+                        continue;
+                    }
+
+                    const single = await prepareRoofUploadFiles([file]);
+                    issues.push(...single.issues);
+                    single.readyFiles.forEach(ready => prepared.push({ file: ready, meta: metas[i] }));
+                }
+
+                if (prepared.length === 0) {
+                    summarizeIssues('Upload skipped.', issues.length ? issues : ['No valid files selected.']);
                     return;
                 }
 
-                const result = await uploadFiles(`/api/v1/invoice-office/${bubbleId}/upload/roof_images`, readyFiles);
-                if (result.uploaded.length === 0) {
-                    summarizeIssues('Roof image upload failed.', [...issues, ...result.failed]);
+                const endpoint = `/api/v1/attachments/invoice/${bubbleId}/${docType}`;
+                const failed = [];
+                let uploaded = 0;
+                let duplicateWarning = false;
+
+                await runWithConcurrency(prepared, ATTACHMENT_UPLOAD_CONCURRENCY, async ({ file, meta }) => {
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', file, file.name);
+                        if (floor !== null && floor !== undefined) formData.append('floor', String(floor));
+                        if (meta.takenAt) formData.append('takenAt', meta.takenAt);
+                        if (meta.gpsLat !== undefined) formData.append('gpsLat', String(meta.gpsLat));
+                        if (meta.gpsLng !== undefined) formData.append('gpsLng', String(meta.gpsLng));
+
+                        const res = await fetch(endpoint, { method: 'POST', body: formData });
+                        const json = await parseApiResponse(res);
+                        uploaded++;
+                        if (json?.duplicateOf) duplicateWarning = true;
+                    } catch (err) {
+                        failed.push(`${file.name}: ${err.message}`);
+                    }
+                });
+
+                await loadAttachments();
+
+                if (uploaded === 0) {
+                    summarizeIssues('Upload failed.', [...issues, ...failed]);
                     return;
                 }
-
-                await loadData();
-
-                if (issues.length > 0 || result.failed.length > 0) {
-                    summarizeIssues(`${result.uploaded.length} roof image(s) uploaded.\n\nSome files were skipped:`, [...issues, ...result.failed]);
+                if (issues.length || failed.length) {
+                    summarizeIssues(`${uploaded} file(s) uploaded.\n\nSome files were skipped:`, [...issues, ...failed]);
+                } else if (duplicateWarning) {
+                    alert('Uploaded. Note: one of these files is already attached to another slot on this invoice.');
                 }
             } catch (err) {
-                console.error('[InvoiceOffice] Roof image upload failed:', err);
+                console.error('[InvoiceOffice] Attachment upload failed:', err);
                 alert(`Upload failed: ${err.message}`);
             } finally {
                 input.value = '';
@@ -1598,70 +1940,26 @@
             }
         }
 
-        async function uploadSiteAssessmentImages(input) {
-            const files = Array.from(input.files);
-            if (files.length === 0) return;
+        async function deleteAttachment(id) {
+            if (!confirm('Move this file to deleted files?')) return;
 
-            showLoadingOverlay();
             try {
-                const { readyFiles, issues } = await prepareRoofUploadFiles(files);
-                if (readyFiles.length === 0) {
-                    summarizeIssues('Site assessment image upload skipped.', issues.length ? issues : ['No valid site assessment images selected.']);
-                    return;
-                }
-
-                const result = await uploadFiles(`/api/v1/invoice-office/${bubbleId}/upload/site_assessment_images`, readyFiles);
-                if (result.uploaded.length === 0) {
-                    summarizeIssues('Site assessment image upload failed.', [...issues, ...result.failed]);
-                    return;
-                }
-
-                await loadData();
-
-                if (issues.length > 0 || result.failed.length > 0) {
-                    summarizeIssues(`${result.uploaded.length} site assessment image(s) uploaded.\n\nSome files were skipped:`, [...issues, ...result.failed]);
-                }
-            } catch (err) {
-                console.error('[InvoiceOffice] Site assessment image upload failed:', err);
-                alert(`Upload failed: ${err.message}`);
-            } finally {
-                input.value = '';
-                hideLoadingOverlay();
-            }
-        }
-
-        async function deleteRoofImage(url) {
-            if (!confirm('Move this roof image to deleted files?')) return;
-            
-            try {
-                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/roof-image`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
-                });
+                const res = await fetch(`/api/v1/attachments/invoice/${bubbleId}/${id}`, { method: 'DELETE' });
                 const json = await res.json();
-                if (!res.ok || !json?.success) {
-                    throw new Error(json?.error || 'Delete failed');
-                }
-                await loadData();
+                if (!res.ok || !json?.success) throw new Error(json?.error || 'Delete failed');
+                await loadAttachments();
             } catch (err) { alert(`Delete failed: ${err.message}`); }
         }
 
-        async function deleteSiteAssessmentImage(url) {
-            if (!confirm('Move this site assessment image to deleted files?')) return;
+        async function restoreAttachment(id) {
+            if (!confirm('Restore this deleted file back to the invoice?')) return;
 
             try {
-                const res = await fetch(`/api/v1/invoice-office/${bubbleId}/site-assessment-image`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
-                });
+                const res = await fetch(`/api/v1/attachments/invoice/${bubbleId}/${id}/restore`, { method: 'POST' });
                 const json = await res.json();
-                if (!res.ok || !json?.success) {
-                    throw new Error(json?.error || 'Delete failed');
-                }
-                await loadData();
-            } catch (err) { alert(`Delete failed: ${err.message}`); }
+                if (!res.ok || !json?.success) throw new Error(json?.error || 'Restore failed');
+                await loadAttachments();
+            } catch (err) { alert(`Restore failed: ${err.message}`); }
         }
 
         async function uploadPvSystemDrawings(input) {
