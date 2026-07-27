@@ -60,3 +60,4 @@ archived/
 
 # MCP config (may contain API keys)
 .mcp.json
+debug_out/

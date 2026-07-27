@@ -130,6 +130,7 @@ async function readReceipt({ bytes, mimeType }) {
     }
   }
 
+  const startedAt = Date.now();
   const fitted = await fitVisionImage(visionBytes, visionMimeType);
   visionBytes = fitted.bytes;
   visionMimeType = fitted.mimeType;
@@ -177,7 +178,25 @@ async function readReceipt({ bytes, mimeType }) {
   const draft = parseDraft(content);
   const readAnything = draft.amount != null || draft.receipt_date != null || draft.vendor != null;
 
+  // A dead extraction returns HTTP 200 with an all-null draft, which the UI renders as a green
+  // "Saved" over an empty form — indistinguishable from success. Log the raw reply when that
+  // happens so the failure is diagnosable from prod logs instead of by re-running it locally.
+  if (!readAnything) {
+    console.error('[ClaimReceipt] OCR extracted nothing', JSON.stringify({
+      model: payload.model || model,
+      finish_reason: payload.choices?.[0]?.finish_reason,
+      latency_ms: Date.now() - startedAt,
+      sent_bytes: visionBytes.length,
+      sent_mime: visionMimeType,
+      raw_reply: content.slice(0, 600)
+    }));
+  } else {
+    console.log(`[ClaimReceipt] OCR ok model=${payload.model || model} latency=${Date.now() - startedAt}ms sent=${visionBytes.length}B`);
+  }
+
   return { draft, status: readAnything ? 'ok' : 'failed', model };
 }
 
-module.exports = { readReceipt, BUYER_NAME, BUYER_PATTERN, CATEGORIES };
+// buildPrompt/parseDraft are exported for scripts/debug_claim_ocr.js, which has to reproduce the
+// exact prompt and the exact parse to show where an extraction died.
+module.exports = { readReceipt, buildPrompt, parseDraft, BUYER_NAME, BUYER_PATTERN, CATEGORIES };
