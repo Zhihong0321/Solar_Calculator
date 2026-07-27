@@ -237,7 +237,7 @@
     e.statusEl.className = "status";
     e.statusEl.textContent = "";
     if (item.stage === "queued") e.statusEl.textContent = "Queued…";
-    else if (item.stage === "reading") e.statusEl.textContent = "Reading with MiMo…";
+    else if (item.stage === "reading") e.statusEl.textContent = "Reading receipt…";
     else if (item.stage === "saving") e.statusEl.textContent = "Saving…";
     else if (item.stage === "saved" && !item.errorMessage) {
       e.statusEl.textContent = "Saved — Update to edit, Delete to remove.";

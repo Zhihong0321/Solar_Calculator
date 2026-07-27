@@ -1,8 +1,8 @@
 /**
  * src/modules/ClaimReceipt/pdfRasterize.js
  *
- * Mimo's vision endpoint only accepts bmp/gif/png/jpeg/webp — no PDF. Rather than reject PDF
- * receipts, rasterize page 1 to a PNG with pdfjs-dist and feed that to Mimo instead. Unlike the
+ * The vision endpoint only accepts bmp/gif/png/jpeg/webp — no PDF. Rather than reject PDF
+ * receipts, rasterize page 1 to a PNG with pdfjs-dist and send that instead. Unlike the
  * Next.js prototype this was ported from, Express has no bundler step to fight — pdfjs-dist and
  * @napi-rs/canvas are just plain `require()`s here, no webpack externals workaround needed.
  */

@@ -16,7 +16,7 @@ const EXT_BY_MIME = {
   'application/pdf': '.pdf'
 };
 
-// Memory storage, not disk: the buffer is needed both for the Mimo call and the R2 upload,
+// Memory storage, not disk: the buffer is needed both for the vision call and the R2 upload,
 // and receipts are small (a few MB), so there's no reason to round-trip through local disk.
 exports.uploadReceipt = multer({
   storage: multer.memoryStorage(),

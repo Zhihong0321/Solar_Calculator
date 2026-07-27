@@ -1,17 +1,18 @@
 /**
  * src/modules/ClaimReceipt/ocrService.js
  *
- * Calls Xiaomi MiMo's vision endpoint to read a receipt image and extract structured fields.
- * Ported from the original v2 prototype (E:\003-claim-system) — same prompt, same two-key
- * round-robin + 429 retry, same buyer-guard rule.
+ * Calls the Eternalgy router's vision endpoint to read a receipt image and extract structured
+ * fields. Was Xiaomi MiMo originally; MiMo's token plan is retired, so this now talks to the
+ * router (OpenAI-shaped, gpt-5.6-luna). Same prompt, same buyer-guard rule.
  */
 
 'use strict';
 
 const { rasterizePdfFirstPage } = require('./pdfRasterize');
+const { fitVisionImage } = require('./fitVisionImage');
 
-const MIMO_MIME = new Set(['image/bmp', 'image/gif', 'image/png', 'image/jpeg', 'image/webp']);
-const ACCEPTED_MIME = new Set([...MIMO_MIME, 'application/pdf']);
+const VISION_MIME = new Set(['image/bmp', 'image/gif', 'image/png', 'image/jpeg', 'image/webp']);
+const ACCEPTED_MIME = new Set([...VISION_MIME, 'application/pdf']);
 
 const BUYER_NAME = 'Eternalgy Sdn Bhd';
 const BUYER_PATTERN = /eternalgy/i;
@@ -43,7 +44,7 @@ const EMPTY_DRAFT = {
 function toNullableText(value) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
-  // Mimo sometimes writes the literal string "null" instead of the JSON null it was asked
+  // The model sometimes writes the literal string "null" instead of the JSON null it was asked
   // for — treat that the same as an actual null rather than storing the word "null".
   if (!trimmed || trimmed.toLowerCase() === 'null') return null;
   return trimmed;
@@ -72,19 +73,8 @@ function parseDraft(payload) {
   }
 }
 
-/**
- * Two Mimo Token Plan keys, round-robined per call. Each key has its own rate limit; splitting
- * calls across both is what lets the client run several receipts concurrently without one
- * key's limit throttling every other receipt.
- */
-const API_KEYS = [process.env.MIMO_API_KEY, process.env.MIMO_API_KEY_2].filter(Boolean);
-let keyRotation = 0;
-function nextApiKey() {
-  if (API_KEYS.length === 0) return undefined;
-  const key = API_KEYS[keyRotation % API_KEYS.length];
-  keyRotation += 1;
-  return key;
-}
+const DEFAULT_BASE_URL = 'https://e-router.up.railway.app/v1';
+const DEFAULT_MODEL = 'gpt-5.6-luna';
 
 function buildPrompt() {
   return [
@@ -111,12 +101,12 @@ function buildPrompt() {
  * Throws on missing config or unsupported mime type — caller maps those to HTTP responses.
  */
 async function readReceipt({ bytes, mimeType }) {
-  const baseUrl = (process.env.MIMO_BASE_URL || 'https://token-plan-sgp.xiaomimimo.com/v1').replace(/\/$/, '');
-  const model = process.env.MIMO_MODEL || 'mimo-v2.5';
+  const baseUrl = (process.env.AI_ROUTER_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
+  const model = process.env.AI_ROUTER_MODEL || DEFAULT_MODEL;
 
-  const apiKey = nextApiKey();
+  const apiKey = process.env.AI_ROUTER_API_KEY;
   if (!apiKey) {
-    const err = new Error('No MIMO_API_KEY / MIMO_API_KEY_2 configured');
+    const err = new Error('No AI_ROUTER_API_KEY configured');
     err.status = 500;
     throw err;
   }
@@ -140,6 +130,10 @@ async function readReceipt({ bytes, mimeType }) {
     }
   }
 
+  const fitted = await fitVisionImage(visionBytes, visionMimeType);
+  visionBytes = fitted.bytes;
+  visionMimeType = fitted.mimeType;
+
   const requestBody = JSON.stringify({
     model,
     messages: [
@@ -154,27 +148,26 @@ async function readReceipt({ bytes, mimeType }) {
     temperature: 0
   });
 
-  // Backs off and swaps to the other key on a 429 rather than failing the receipt outright —
-  // the other key's slot has usually freed up by the time this one hasn't.
+  // Retries rate limits, and Railway's cold-start 502 ("Application failed to respond") which the
+  // router throws on the first request after it has been idle.
+  const RETRY_STATUS = new Set([429, 502, 503, 504]);
   let response;
-  let usedKey = apiKey;
   let lastDetail = '';
   for (let attempt = 0; attempt < 3; attempt += 1) {
     response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${usedKey}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: requestBody
     });
-    if (response.status !== 429) break;
+    if (!RETRY_STATUS.has(response.status)) break;
     lastDetail = await response.text().catch(() => '');
     if (attempt === 2) break;
-    await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
-    usedKey = nextApiKey() || apiKey;
+    await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
   }
 
   if (!response.ok) {
-    const detail = response.status === 429 ? lastDetail : await response.text().catch(() => '');
-    const err = new Error(`Mimo request failed with status ${response.status}: ${detail.slice(0, 300)}`);
+    const detail = lastDetail || (await response.text().catch(() => ''));
+    const err = new Error(`Router request failed with status ${response.status}: ${detail.slice(0, 300)}`);
     err.status = 502;
     throw err;
   }
