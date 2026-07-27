@@ -8,7 +8,7 @@
 
 'use strict';
 
-const { rasterizePdfFirstPage } = require('./pdfRasterize');
+const { extractPdfText, MIN_USABLE_TEXT } = require('./pdfText');
 const { fitVisionImage } = require('./fitVisionImage');
 
 const VISION_MIME = new Set(['image/bmp', 'image/gif', 'image/png', 'image/jpeg', 'image/webp']);
@@ -78,7 +78,7 @@ const DEFAULT_MODEL = 'gpt-5.6-luna';
 
 function buildPrompt() {
   return [
-    'You are reading a retail receipt (often Malaysian, RM/MYR).',
+    'You are reading a receipt or invoice (often Malaysian, RM/MYR, but not always).',
     `The buyer on this receipt is always ${BUYER_NAME} — it is never the vendor. If the receipt` +
       ' mentions Eternalgy at all, that is the buyer, not who issued the receipt.',
     'Respond with ONLY this JSON:',
@@ -87,7 +87,7 @@ function buildPrompt() {
     '  "receipt_date": "YYYY-MM-DD or null",',
     '  "receipt_id": "receipt/invoice/bill number or null",',
     '  "amount": number (grand total, no currency symbol) or null,',
-    '  "currency": "MYR",',
+    '  "currency": "the ISO code actually printed on the receipt (MYR, USD, SGD, …). Do NOT assume MYR — a $ or USD total is USD",',
     `  "category_hint": "one of [${CATEGORIES.join(', ')}] or null",`,
     '  "item": "the main item(s) or service purchased, short, e.g. \'Petrol (RON95), 30L\' or \'A4 paper, 2 reams\', or null",',
     '  "description": "one short sentence on the purpose of this expense for a reviewer, or null"',
@@ -117,35 +117,42 @@ async function readReceipt({ bytes, mimeType }) {
     throw err;
   }
 
-  let visionBytes = bytes;
-  let visionMimeType = mimeType;
-  if (mimeType === 'application/pdf') {
-    try {
-      visionBytes = await rasterizePdfFirstPage(bytes);
-      visionMimeType = 'image/png';
-    } catch (error) {
-      const err = new Error(`Could not rasterize PDF: ${error.message}`);
+  const startedAt = Date.now();
+
+  // Two routes, chosen by what the file actually contains:
+  //   PDF   -> read the embedded text layer and send text. The words are already in the file;
+  //            turning them into a picture for a vision model to read back was pure overhead.
+  //   image -> send the image, because a photo of a paper receipt has no text to read.
+  // There is deliberately no PDF-to-image fallback. That path required rasterizing through canvas
+  // and never produced a single successful extraction in production.
+  const route = mimeType === 'application/pdf' ? 'pdf-text' : 'image';
+  let pdfText = '';
+  let visionBytes = null;
+  let visionMimeType = null;
+
+  if (route === 'pdf-text') {
+    pdfText = await extractPdfText(bytes);
+    if (pdfText.length < MIN_USABLE_TEXT) {
+      const err = new Error('This PDF has no readable text (it looks like a scan). Please upload a photo of the receipt instead.');
       err.status = 422;
       throw err;
     }
+  } else {
+    const fitted = await fitVisionImage(bytes, mimeType);
+    visionBytes = fitted.bytes;
+    visionMimeType = fitted.mimeType;
   }
 
-  const startedAt = Date.now();
-  const fitted = await fitVisionImage(visionBytes, visionMimeType);
-  visionBytes = fitted.bytes;
-  visionMimeType = fitted.mimeType;
+  const content = route === 'pdf-text'
+    ? [{ type: 'text', text: `${buildPrompt()}\n\nReceipt text:\n"""\n${pdfText.slice(0, 6000)}\n"""` }]
+    : [
+        { type: 'text', text: buildPrompt() },
+        { type: 'image_url', image_url: { url: `data:${visionMimeType};base64,${visionBytes.toString('base64')}` } }
+      ];
 
   const requestBody = JSON.stringify({
     model,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: buildPrompt() },
-          { type: 'image_url', image_url: { url: `data:${visionMimeType};base64,${visionBytes.toString('base64')}` } }
-        ]
-      }
-    ],
+    messages: [{ role: 'user', content }],
     temperature: 0
   });
 
@@ -174,8 +181,8 @@ async function readReceipt({ bytes, mimeType }) {
   }
 
   const payload = await response.json();
-  const content = payload.choices?.[0]?.message?.content || '';
-  const draft = parseDraft(content);
+  const reply = payload.choices?.[0]?.message?.content || '';
+  const draft = parseDraft(reply);
   const readAnything = draft.amount != null || draft.receipt_date != null || draft.vendor != null;
 
   // A dead extraction returns HTTP 200 with an all-null draft, which the UI renders as a green
@@ -183,18 +190,19 @@ async function readReceipt({ bytes, mimeType }) {
   // happens so the failure is diagnosable from prod logs instead of by re-running it locally.
   if (!readAnything) {
     console.error('[ClaimReceipt] OCR extracted nothing', JSON.stringify({
+      route,
       model: payload.model || model,
       finish_reason: payload.choices?.[0]?.finish_reason,
       latency_ms: Date.now() - startedAt,
-      sent_bytes: visionBytes.length,
-      sent_mime: visionMimeType,
-      raw_reply: content.slice(0, 600)
+      pdf_text_chars: pdfText.length,
+      sent_bytes: visionBytes ? visionBytes.length : 0,
+      raw_reply: reply.slice(0, 600)
     }));
   } else {
-    console.log(`[ClaimReceipt] OCR ok model=${payload.model || model} latency=${Date.now() - startedAt}ms sent=${visionBytes.length}B`);
+    console.log(`[ClaimReceipt] OCR ok route=${route} model=${payload.model || model} latency=${Date.now() - startedAt}ms`);
   }
 
-  return { draft, status: readAnything ? 'ok' : 'failed', model };
+  return { draft, status: readAnything ? 'ok' : 'failed', model, route };
 }
 
 // buildPrompt/parseDraft are exported for scripts/debug_claim_ocr.js, which has to reproduce the

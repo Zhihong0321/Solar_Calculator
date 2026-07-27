@@ -35,8 +35,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { rasterizePdfFirstPage } = require('../src/modules/ClaimReceipt/pdfRasterize');
 const { fitVisionImage, MAX_IMAGE_BYTES } = require('../src/modules/ClaimReceipt/fitVisionImage');
+const { extractPdfText, MIN_USABLE_TEXT } = require('../src/modules/ClaimReceipt/pdfText');
 const ocrService = require('../src/modules/ClaimReceipt/ocrService');
 
 const OUT_DIR = path.join(__dirname, '..', 'debug_out');
@@ -188,17 +188,24 @@ async function reportProcessed(bytes, mime, keep, report) {
   let visionBytes = bytes;
   let visionMime = mime;
 
+  // Mirror ocrService's routing exactly: a PDF with a usable text layer skips canvas entirely.
   if (mime === 'application/pdf') {
-    const t = Date.now();
-    visionBytes = await rasterizePdfFirstPage(bytes);
-    visionMime = 'image/png';
-    stages.push({ stage: 'rasterize page 1', bytes: visionBytes.length, ms: Date.now() - t });
-    row('rasterize page 1', `${kb(bytes.length)} pdf -> ${kb(visionBytes.length)} png  ${C.dim}(${Date.now() - t}ms)${C.off}`);
-    if (keep) {
-      fs.mkdirSync(OUT_DIR, { recursive: true });
-      fs.writeFileSync(path.join(OUT_DIR, `${report.md5}.raster.png`), visionBytes);
-      row('wrote', path.join('debug_out', `${report.md5}.raster.png`));
+    const text = await extractPdfText(bytes);
+    const usesText = text.length >= MIN_USABLE_TEXT;
+    row('pdf text layer', usesText
+      ? ok(`${text.length} chars — route "pdf-text" (no canvas, host-independent)`)
+      : warn(`${text.length} chars — below ${MIN_USABLE_TEXT}, falling back to raster`));
+    if (usesText) {
+      say(`   ${C.dim}first 160 chars:${C.off} ${text.slice(0, 160)}…`);
+      report.processed = { route: 'pdf-text', textChars: text.length, text };
+      return { route: 'pdf-text', text };
     }
+  }
+
+  if (mime === 'application/pdf') {
+    row('route', bad('no usable text layer — this file is unreadable; the app returns 422'));
+    report.processed = { route: 'unreadable-pdf', textChars: 0 };
+    return { route: 'unreadable-pdf' };
   }
 
   const t2 = Date.now();
@@ -222,24 +229,28 @@ async function reportProcessed(bytes, mime, keep, report) {
   const overLimit = bodyEstimate > 1024 * 1024;
   row('est. request body', overLimit ? bad(`${kb(bodyEstimate)} — over the router's ~1MB cap, expect 413`) : ok(kb(bodyEstimate)));
 
-  report.processed = { stages, sentBytes: fitted.bytes.length, sentMime: fitted.mimeType, bodyEstimate, overLimit };
-  return fitted;
+  report.processed = { route: mime === 'application/pdf' ? 'pdf-raster' : 'image', stages, sentBytes: fitted.bytes.length, sentMime: fitted.mimeType, bodyEstimate, overLimit };
+  return { route: report.processed.route, fitted };
 }
 
 // ── 4. WHAT HAPPENED ──────────────────────────────────────────────────────────
 
 const DRAFT_FIELDS = ['vendor', 'receipt_date', 'receipt_id', 'amount', 'currency', 'category_hint', 'item', 'description'];
 
-async function reportHappened(bytes, mime, report) {
+async function reportHappened(bytes, mime, plan, report) {
   head(4, 'WHAT HAPPENED');
   const { baseUrl, model, apiKey } = config();
 
-  // Re-issue the call the way ocrService does, but keep the raw reply — which is the one thing
-  // production throws away and the reason a dead extraction is indistinguishable from a good one.
-  const fitted = await fitVisionImage(
-    mime === 'application/pdf' ? await rasterizePdfFirstPage(bytes) : bytes,
-    mime === 'application/pdf' ? 'image/png' : mime
-  );
+  // Re-issue the call the way ocrService does — same route, same prompt — but keep the raw reply,
+  // which is the one thing production throws away and the reason a dead extraction is
+  // indistinguishable from a good one.
+  const content = plan.route === 'pdf-text'
+    ? [{ type: 'text', text: `${ocrService.buildPrompt()}\n\nReceipt text:\n"""\n${plan.text.slice(0, 6000)}\n"""` }]
+    : [
+        { type: 'text', text: ocrService.buildPrompt() },
+        { type: 'image_url', image_url: { url: `data:${plan.fitted.mimeType};base64,${plan.fitted.bytes.toString('base64')}` } }
+      ];
+  row('route', plan.route === 'pdf-text' ? ok('pdf-text (text layer, no canvas)') : `${plan.route} (vision)`);
 
   const t = Date.now();
   let res;
@@ -248,17 +259,7 @@ async function reportHappened(bytes, mime, report) {
     res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: ocrService.buildPrompt() },
-            { type: 'image_url', image_url: { url: `data:${fitted.mimeType};base64,${fitted.bytes.toString('base64')}` } }
-          ]
-        }],
-        temperature: 0
-      })
+      body: JSON.stringify({ model, messages: [{ role: 'user', content }], temperature: 0 })
     });
     raw = await res.text();
   } catch (err) {
@@ -281,7 +282,7 @@ async function reportHappened(bytes, mime, report) {
   let parsed;
   try { parsed = JSON.parse(raw); } catch { row('response', bad('not JSON: ' + raw.slice(0, 200))); return; }
 
-  const content = parsed.choices?.[0]?.message?.content ?? '';
+  const replyText = parsed.choices?.[0]?.message?.content ?? '';
   const finish = parsed.choices?.[0]?.finish_reason;
   row('model returned', parsed.model || '(none)');
   row('finish_reason', finish === 'stop' ? ok(finish) : bad(`${finish} — reply was cut off`));
@@ -289,7 +290,7 @@ async function reportHappened(bytes, mime, report) {
   say(`\n   ${C.dim}RAW MODEL REPLY (what production silently discards)${C.off}`);
   say(content ? content.split('\n').map((l) => '   | ' + l).join('\n') : `   | ${bad('(empty)')}`);
 
-  const draft = ocrService.parseDraft(content);
+  const draft = ocrService.parseDraft(replyText);
   const filled = DRAFT_FIELDS.filter((f) => draft[f] !== null && draft[f] !== undefined);
   const empty = DRAFT_FIELDS.filter((f) => !filled.includes(f));
   const status = (draft.amount != null || draft.receipt_date != null || draft.vendor != null) ? 'ok' : 'failed';
@@ -302,11 +303,11 @@ async function reportHappened(bytes, mime, report) {
   if (status === 'failed') {
     row('UI CONSEQUENCE', bad('card still shows green "Saved" with a blank form — the failure is invisible'));
   }
-  if (content && filled.length === 0) {
+  if (replyText && filled.length === 0) {
     row('DIAGNOSIS', bad('model replied but parseDraft salvaged nothing — prompt/JSON-shape problem, not transport'));
   }
 
-  report.happened = { status: res.status, latencyMs: ms, model: parsed.model, finish, content, draft, filled, empty, serverStatus: status };
+  report.happened = { status: res.status, latencyMs: ms, model: parsed.model, finish, reply: replyText, draft, filled, empty, serverStatus: status };
 }
 
 // ── DB lookups ────────────────────────────────────────────────────────────────
@@ -329,8 +330,8 @@ async function resolveFromDb(args) {
 
 async function runOne(bytes, label, origin, args, report) {
   const mime = await reportReceived(bytes, label, origin, report);
-  await reportProcessed(bytes, mime, args.flags.has('keep'), report);
-  await reportHappened(bytes, mime, report);
+  const plan = await reportProcessed(bytes, mime, args.flags.has('keep'), report);
+  await reportHappened(bytes, mime, plan, report);
 }
 
 (async () => {
@@ -371,12 +372,12 @@ async function runOne(bytes, label, origin, args, report) {
       // reply gets caught in the act instead of inferred.
       const runs = Math.max(1, Number(args.repeat) || 1);
       const mime = await reportReceived(src.bytes, src.label, src.origin, report);
-      await reportProcessed(src.bytes, mime, args.flags.has('keep'), report);
+      const plan = await reportProcessed(src.bytes, mime, args.flags.has('keep'), report);
       report.runs = [];
       for (let n = 1; n <= runs; n += 1) {
         if (runs > 1) say(`\n${C.bold}── run ${n}/${runs} ──${C.off}`);
         const sub = {};
-        await reportHappened(src.bytes, mime, sub);
+        await reportHappened(src.bytes, mime, plan, sub);
         report.runs.push(sub.happened);
       }
       if (runs > 1) {

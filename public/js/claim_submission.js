@@ -240,8 +240,13 @@
     else if (item.stage === "reading") e.statusEl.textContent = "Reading receipt…";
     else if (item.stage === "saving") e.statusEl.textContent = "Saving…";
     else if (item.stage === "saved" && !item.errorMessage) {
-      e.statusEl.textContent = "Saved — Update to edit, Delete to remove.";
-      e.statusEl.className = "status-ok";
+      if (item.readStatus === "failed") {
+        e.statusEl.textContent = "Saved, but nothing could be read from this file — please fill it in manually.";
+        e.statusEl.className = "status-warn";
+      } else {
+        e.statusEl.textContent = "Saved — Update to edit, Delete to remove.";
+        e.statusEl.className = "status-ok";
+      }
     }
     if (item.errorMessage) {
       e.statusEl.textContent = item.errorMessage;
@@ -305,6 +310,10 @@
           return;
         }
         var draft = r.payload.draft;
+        // The server returns status "failed" when the model read nothing at all. Without this the
+        // card renders a green "Saved" over an empty form — identical to a successful read, which
+        // is how a total extraction failure stayed invisible.
+        item.readStatus = r.payload.status;
         item.md5 = r.payload.md5;
         item.model = r.payload.model;
         item.fileUrl = r.payload.file_url;
