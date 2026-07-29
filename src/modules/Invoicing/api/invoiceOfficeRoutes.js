@@ -64,6 +64,14 @@ const FILE_FIELDS = {
         column: 'pv_system_drawing',
         storageSubdir: 'pv_drawings',
     },
+    engineering_drawings: {
+        label: 'Engineering Drawing',
+        accept: ['application/pdf', 'image/*'],
+        maxMB: 10,
+        table: 'seda_registration',
+        column: 'drawing_engineering_seda_pdf',
+        storageSubdir: 'engineering_drawings',
+    },
 };
 
 const uploaders = {};
@@ -106,6 +114,28 @@ async function getInvoiceAccess(client, bubbleId, userId) {
     return { found: true, isOwner, invoice };
 }
 
+// Most FILE_FIELDS write to the invoice row itself (keyed by its own bubble_id).
+// A few (e.g. engineering_drawings) actually live on the linked seda_registration
+// row instead, so the write target has to be resolved per-upload.
+async function resolveUploadTarget(client, rule, bubbleId) {
+    if (rule.table !== 'seda_registration') {
+        return { table: 'invoice', idValue: bubbleId };
+    }
+
+    const invRes = await client.query('SELECT linked_seda_registration FROM invoice WHERE bubble_id = $1', [bubbleId]);
+    const linked = invRes.rows[0]?.linked_seda_registration || null;
+
+    if (linked) {
+        const r = await client.query('SELECT bubble_id FROM seda_registration WHERE bubble_id = $1', [linked]);
+        if (r.rows[0]?.bubble_id) return { table: 'seda_registration', idValue: r.rows[0].bubble_id };
+    }
+
+    const fallback = await client.query('SELECT bubble_id FROM seda_registration WHERE $1 = ANY(linked_invoice) LIMIT 1', [bubbleId]);
+    if (fallback.rows[0]?.bubble_id) return { table: 'seda_registration', idValue: fallback.rows[0].bubble_id };
+
+    return null;
+}
+
 async function handleInvoiceOfficeUpload(req, res) {
     const { bubbleId, field } = req.params;
     const rule = FILE_FIELDS[field];
@@ -140,6 +170,14 @@ async function handleInvoiceOfficeUpload(req, res) {
             return res.status(403).json(uploadError(ERROR_CODES.FORBIDDEN, {
                 field,
                 error: 'You do not have access to this invoice.',
+            }));
+        }
+
+        const target = await resolveUploadTarget(client, rule, bubbleId);
+        if (!target) {
+            return res.status(409).json(uploadError(ERROR_CODES.RECORD_NOT_FOUND, {
+                field,
+                error: `${rule.label}: This invoice has no linked SEDA registration yet. Link one before uploading.`,
             }));
         }
 
@@ -231,11 +269,11 @@ async function handleInvoiceOfficeUpload(req, res) {
         try {
             await beginAgentAuditTransaction(client, auditContext);
             await client.query(
-                `UPDATE invoice
+                `UPDATE ${target.table}
                  SET ${rule.column} = array_cat(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
                      updated_at = NOW()
                  WHERE bubble_id = $2`,
-                [[fileUrl], bubbleId]
+                [[fileUrl], target.idValue]
             );
             await client.query('COMMIT');
             await writeInvoiceAuditEntry(client, {
@@ -512,7 +550,12 @@ async function softDeleteInvoiceOfficeFile(client, { bubbleId, fieldKey, url, us
         throw new Error(`Unknown Invoice Office field "${fieldKey}".`);
     }
 
-    const activeRes = await client.query(`SELECT ${rule.column} AS active_urls FROM invoice WHERE bubble_id = $1`, [bubbleId]);
+    const target = await resolveUploadTarget(client, rule, bubbleId);
+    if (!target) {
+        return { ok: false, status: 404, error: 'No linked SEDA registration found for this invoice.' };
+    }
+
+    const activeRes = await client.query(`SELECT ${rule.column} AS active_urls FROM ${target.table} WHERE bubble_id = $1`, [target.idValue]);
     const activeUrls = Array.isArray(activeRes.rows[0]?.active_urls) ? activeRes.rows[0].active_urls : [];
     if (!activeUrls.includes(url)) {
         return { ok: false, status: 404, error: 'File not found on the active invoice record' };
@@ -520,11 +563,11 @@ async function softDeleteInvoiceOfficeFile(client, { bubbleId, fieldKey, url, us
 
     await beginAgentAuditTransaction(client, auditContext);
     await client.query(
-        `UPDATE invoice
+        `UPDATE ${target.table}
          SET ${rule.column} = array_remove(${rule.column}, $1),
              updated_at = NOW()
          WHERE bubble_id = $2`,
-        [url, bubbleId]
+        [url, target.idValue]
     );
     await insertRecycleBinEntry(client, {
         module: 'invoice-office',
@@ -571,7 +614,12 @@ async function restoreInvoiceOfficeFile(client, { bubbleId, fieldKey, recycleBin
         return { ok: false, status: 404, error: 'Deleted file not found in recycle bin.' };
     }
 
-    const activeRes = await client.query(`SELECT ${rule.column} AS active_urls FROM invoice WHERE bubble_id = $1`, [bubbleId]);
+    const target = await resolveUploadTarget(client, rule, bubbleId);
+    if (!target) {
+        return { ok: false, status: 404, error: 'No linked SEDA registration found for this invoice.' };
+    }
+
+    const activeRes = await client.query(`SELECT ${rule.column} AS active_urls FROM ${target.table} WHERE bubble_id = $1`, [target.idValue]);
     const activeUrls = Array.isArray(activeRes.rows[0]?.active_urls) ? activeRes.rows[0].active_urls : [];
     if (activeUrls.includes(recycleEntry.file_url)) {
         return { ok: false, status: 409, error: 'This file is already active on the invoice.' };
@@ -579,11 +627,11 @@ async function restoreInvoiceOfficeFile(client, { bubbleId, fieldKey, recycleBin
 
     await beginAgentAuditTransaction(client, auditContext);
     await client.query(
-        `UPDATE invoice
+        `UPDATE ${target.table}
          SET ${rule.column} = array_cat(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
              updated_at = NOW()
          WHERE bubble_id = $2`,
-        [[recycleEntry.file_url], bubbleId]
+        [[recycleEntry.file_url], target.idValue]
     );
     await markRecycleBinRestored(client, recycleEntry.id, userId, auditContext?.userName || null);
     await client.query('COMMIT');
@@ -779,6 +827,46 @@ router.delete('/api/v1/invoice-office/:bubbleId/pv-system-drawing', requireAuth,
         const result = await softDeleteInvoiceOfficeFile(client, {
             bubbleId,
             fieldKey: 'pv_drawings',
+            url,
+            userId,
+            auditContext
+        });
+        if (!result.ok) return res.status(result.status).json({ success: false, error: result.error });
+
+        res.json({ success: true });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK').catch(() => {});
+        const status = err?.code === 'RECYCLE_BIN_TABLE_MISSING' ? 503 : 500;
+        res.status(status).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * DELETE /api/v1/invoice-office/:bubbleId/engineering-drawing
+ */
+router.delete('/api/v1/invoice-office/:bubbleId/engineering-drawing', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const { url } = req.body;
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    if (!url) return res.status(400).json({ success: false, error: 'URL required' });
+
+    let client = null;
+    try {
+        client = await pool.connect();
+        const auditContext = await resolveAgentAuditContext(client, req.user);
+
+        const access = await getInvoiceAccess(client, bubbleId, userId);
+        if (!access.found) return res.status(404).json({ success: false, error: 'Invoice not found' });
+        if (!access.isOwner) return res.status(403).json({ success: false, error: 'Unauthorized' });
+        const result = await softDeleteInvoiceOfficeFile(client, {
+            bubbleId,
+            fieldKey: 'engineering_drawings',
             url,
             userId,
             auditContext
