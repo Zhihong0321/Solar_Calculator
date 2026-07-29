@@ -6,6 +6,7 @@ const { calculateEeiOptimizer } = require('../services/eeiOptimizerService');
 const { buildBillCycleModes } = require('../services/billCycleModeService');
 const { lookupBestPackage } = require('../services/packageLookupService');
 const { writeActivity } = require('../../../core/activityLog/writeActivity');
+const { attachAuthenticatedUser } = require('../../../core/middleware/auth');
 
 const router = express.Router();
 
@@ -245,7 +246,7 @@ router.get('/api/calculate-bill', async (req, res) => {
 });
 
 // API endpoint for solar savings calculation
-router.get('/api/solar-calculation', async (req, res) => {
+router.get('/api/solar-calculation', attachAuthenticatedUser, async (req, res) => {
   try {
     const result = await calculateSolarSavings(pool, tariffPool, req.query);
     res.json({
@@ -330,7 +331,7 @@ router.get('/api/commercial/calculate-bill', async (req, res) => {
 });
 
 // API endpoint for Commercial Bill Lookup from external DB (By Usage)
-router.get('/api/commercial/lookup-by-usage', async (req, res) => {
+router.get('/api/commercial/lookup-by-usage', attachAuthenticatedUser, async (req, res) => {
   let client;
   try {
     const usageKwh = parseFloat(req.query.usage);

@@ -211,13 +211,23 @@ async function resolveAuthenticatedUser(decoded, context = {}) {
     };
 }
 
+async function resolveRequestUser(req) {
+    const token = req.cookies?.auth_token;
+    if (!token) return null;
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return resolveAuthenticatedUser(decoded, {
+        method: req.method,
+        path: req.originalUrl,
+        url: req.url
+    });
+}
+
 /**
  * Shared authentication middleware.
  * Ensures the user has a valid JWT in their cookies.
  */
 const requireAuth = async (req, res, next) => {
-    const token = req.cookies.auth_token;
-
     const handleAuthFail = () => {
         // If it's an API request, return 401 JSON
         if (req.originalUrl.startsWith('/api/')) {
@@ -228,17 +238,8 @@ const requireAuth = async (req, res, next) => {
         return res.redirect(`${AUTH_URL}/?return_to=${returnTo}`);
     };
 
-    if (!token) {
-        return handleAuthFail();
-    }
-
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const resolvedUser = await resolveAuthenticatedUser(decoded, {
-            method: req.method,
-            path: req.originalUrl,
-            url: req.url
-        });
+        const resolvedUser = await resolveRequestUser(req);
         if (!resolvedUser) {
             return handleAuthFail();
         }
@@ -253,4 +254,23 @@ const requireAuth = async (req, res, next) => {
     }
 };
 
-module.exports = { requireAuth };
+/**
+ * Enrich a public request with user context when a valid auth cookie is present.
+ * DO NOT reject missing or invalid cookies here — calculator APIs remain public.
+ */
+const attachAuthenticatedUser = async (req, res, next) => {
+    try {
+        const resolvedUser = await resolveRequestUser(req);
+        if (resolvedUser) {
+            req.user = resolvedUser;
+        }
+    } catch (err) {
+        if (err?.code && err.code !== 'ERR_JWT_EXPIRED') {
+            console.error('[Auth] Optional request authentication failed:', err.message);
+        }
+    }
+
+    return next();
+};
+
+module.exports = { requireAuth, attachAuthenticatedUser };

@@ -4,5 +4,6 @@ REPO NAME : Solar Calculator v2
 - Diagnosed why invoice INV-1010970 engineering drawing is hidden: the page requests only site-assessment attachments and does not render drawing attachments.
 - Fixed Invoice Office engineering drawing visibility by loading drawing attachments and rendering them with the existing attachment controls.
 - Fixed Invoice Office drawing placement so PV System Drawings appear in their own section instead of Engineering Drawings.
+- Fixed residential and commercial calculator activity logs to record the authenticated user actor ID while preserving anonymous access.
 
 =====================
