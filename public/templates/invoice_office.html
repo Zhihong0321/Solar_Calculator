@@ -1552,16 +1552,24 @@
             }
 
             renderSiteAssessmentChecklist();
+            renderPvSystemDrawings(currentData?.invoice?.pv_system_drawing, getDeletedUploads('pv_drawings'));
             renderEngDrawings(currentData?.seda, getDeletedUploads('engineering_drawings'));
         }
 
         function renderPvSystemDrawings(drawings = [], deletedEntries = []) {
             const container = document.getElementById('pvDrawingsList');
-            const allDrawings = drawings || [];
+            // `drawing` is a storage category. `pv_system` is the business type that
+            // belongs in this section; retain the legacy invoice column during migration.
+            const allDrawings = [
+                ...(drawings || []).map(url => ({ url, legacy: true })),
+                ...(attachmentState.drawingRows || [])
+                    .filter(row => row.doc_type === 'pv_system')
+                    .map(row => ({ url: row.file_url, attachmentId: row.id }))
+            ];
             
             if (allDrawings.length > 0) {
-                container.innerHTML = allDrawings.map((url, i) => {
-                    const isPdf = url.toLowerCase().endsWith('.pdf');
+                container.innerHTML = allDrawings.map((drawing, i) => {
+                    const isPdf = drawing.url.toLowerCase().endsWith('.pdf');
                     return `
                     <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm group">
                         <div class="flex items-center gap-3">
@@ -1571,8 +1579,10 @@
                             <span class="text-[11px] font-bold text-slate-700 uppercase">PV Drawing #${i+1}</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <a href="${url}" target="_blank" class="text-[10px] font-bold text-indigo-600 hover:underline uppercase">Open</a>
-                            <button onclick="deletePvSystemDrawing('${url}')" class="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase">Delete</button>
+                            <a href="${drawing.url}" target="_blank" class="text-[10px] font-bold text-indigo-600 hover:underline uppercase">Open</a>
+                            ${drawing.attachmentId
+                                ? `<button onclick="deleteAttachment(${drawing.attachmentId})" class="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase">Delete</button>`
+                                : `<button onclick="deletePvSystemDrawing('${drawing.url}')" class="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase">Delete</button>`}
                         </div>
                     </div>
                 `;}).join('');
@@ -1591,11 +1601,13 @@
             const drawings = [
                 ...(seda?.drawing_engineering_seda_pdf || []).map(url => ({ url, deletable: true })),
                 ...(seda?.drawing_pdf_system || []).map(url => ({ url, deletable: false })),
-                ...(attachmentState.drawingRows || []).map(row => ({
+                ...(attachmentState.drawingRows || [])
+                    .filter(row => row.doc_type !== 'pv_system')
+                    .map(row => ({
                     url: row.file_url,
                     attachmentId: row.id,
                     deletable: false
-                }))
+                    }))
             ];
 
             if (drawings.length > 0) {

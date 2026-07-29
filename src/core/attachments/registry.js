@@ -120,8 +120,8 @@ const DOC_TYPES = {
     },
     pv_system: {
         category: 'drawing',
-        label: 'PV System Engineering Drawing',
-        hint: 'Engineering drawing uploaded for the invoice.',
+        label: 'PV System Drawing',
+        hint: 'PV system drawing uploaded for the invoice.',
         accept: IMAGE_OR_PDF,
         maxMB: 10,
         multi: true,
