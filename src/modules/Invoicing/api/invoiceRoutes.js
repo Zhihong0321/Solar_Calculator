@@ -6,6 +6,7 @@ const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
 const invoiceHistoryRepo = require('../services/invoiceHistoryRepo');
+const { writeActivity } = require('../../../core/activityLog/writeActivity');
 let beginAgentAuditTransaction = async (client) => {
     await client.query('BEGIN');
 };
@@ -239,6 +240,15 @@ router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
                 data: result.data,
                 invoice_link: result.data.shareToken ? `/view/${result.data.shareToken}` : null
             });
+
+            writeActivity({
+                req,
+                action: 'create',
+                entityType: 'invoice',
+                entityId: result.data.bubbleId,
+                entityLabel: result.data.invoiceNumber,
+                description: `created invoice ${result.data.invoiceNumber}${invoiceData.customerName ? ` for ${invoiceData.customerName}` : ''}`
+            });
         } else {
             res.status(400).json({
                 success: false,
@@ -277,6 +287,14 @@ router.delete('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
         await client.query("UPDATE invoice SET status = 'deleted', updated_at = NOW() WHERE bubble_id = $1", [bubbleId]);
         await client.query('COMMIT');
         res.json({ success: true });
+
+        writeActivity({
+            req,
+            action: 'delete',
+            entityType: 'invoice',
+            entityId: bubbleId,
+            description: 'deleted invoice'
+        });
     } catch (err) {
         if (client) await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: err.message });
@@ -312,6 +330,14 @@ router.put('/api/v1/invoices/:bubbleId/restore', requireAuth, async (req, res) =
         await client.query("UPDATE invoice SET status = 'draft', updated_at = NOW() WHERE bubble_id = $1", [bubbleId]);
         await client.query('COMMIT');
         res.json({ success: true });
+
+        writeActivity({
+            req,
+            action: 'restore',
+            entityType: 'invoice',
+            entityId: bubbleId,
+            description: 'restored invoice from deleted'
+        });
     } catch (err) {
         if (client) await client.query('ROLLBACK').catch(() => {});
         res.status(500).json({ success: false, error: err.message });
@@ -340,15 +366,24 @@ router.post('/api/v1/invoices/:bubbleId/version', requireAuth, async (req, res) 
         const result = await invoiceService.createInvoiceVersion(pool, bubbleId, invoiceData);
         
         if (result.success) {
-            res.json({ 
-                success: true, 
+            res.json({
+                success: true,
                 data: result.data,
                 invoice_link: result.data.shareToken ? `/view/${result.data.shareToken}` : null
             });
+
+            writeActivity({
+                req,
+                action: 'create',
+                entityType: 'invoice',
+                entityId: result.data.bubbleId || bubbleId,
+                entityLabel: result.data.invoiceNumber,
+                description: `generated a new version of quotation ${result.data.invoiceNumber || bubbleId}`
+            });
         } else {
-            res.status(400).json({ 
-                success: false, 
-                error: result.error 
+            res.status(400).json({
+                success: false,
+                error: result.error
             });
         }
     } catch (err) {

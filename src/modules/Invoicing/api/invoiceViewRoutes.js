@@ -20,6 +20,7 @@ const { calculateSolarSavings } = require('../../SolarCalculator/services/solarC
 const { getBillCycleMetrics, normalizeBillCycleMode } = require('../../SolarCalculator/services/billCycleModeService');
 const { normalizeIdentityValue } = require('../../../core/auth/userIdentity');
 const { writeInvoiceAuditEntry } = require('../services/auditWriter');
+const { writeActivity } = require('../../../core/activityLog/writeActivity');
 
 const router = express.Router();
 
@@ -279,6 +280,19 @@ async function writeViewerActivity(req, {
       actorRole: viewerRecord?.role || (authenticatedViewer ? 'logged_in_viewer' : 'anonymous_viewer'),
       sourceApp: 'public-view-tracker'
     });
+
+    if (normalizedEventType === 'invoice_viewed' || normalizedEventType === 'proposal_viewed') {
+      writeActivity({
+        req,
+        action: 'visit',
+        entityType: 'invoice',
+        entityId: bubbleId,
+        entityLabel: invoiceIdentifier,
+        description: `visited ${normalizedEventType === 'proposal_viewed' ? 'proposal' : 'invoice'} ${invoiceIdentifier}`,
+        actorName: viewerRecord?.name || viewerRecord?.email || (authenticatedViewer ? null : 'Anonymous viewer'),
+        metadata: { pageType: normalizedPageType, deviceHash }
+      });
+    }
 
     return { ok: true };
   } finally {

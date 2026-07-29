@@ -5,6 +5,7 @@ const { findClosestTariff, calculateSolarSavings } = require('../services/solarC
 const { calculateEeiOptimizer } = require('../services/eeiOptimizerService');
 const { buildBillCycleModes } = require('../services/billCycleModeService');
 const { lookupBestPackage } = require('../services/packageLookupService');
+const { writeActivity } = require('../../../core/activityLog/writeActivity');
 
 const router = express.Router();
 
@@ -251,6 +252,19 @@ router.get('/api/solar-calculation', async (req, res) => {
       ...result,
       billCycleModes: buildBillCycleModes(result)
     });
+
+    writeActivity({
+      req,
+      action: 'calculate',
+      entityType: 'residential_roi_calculation',
+      description: 'generated a residential solar ROI calculation',
+      metadata: {
+        billAmount: req.query.amount,
+        sunPeakHour: req.query.sunPeakHour,
+        batterySize: req.query.batterySize,
+        monthlySavings: result.monthlySavings
+      }
+    });
   } catch (err) {
     const validationMessages = [
       'Invalid bill amount',
@@ -338,10 +352,25 @@ router.get('/api/commercial/lookup-by-usage', async (req, res) => {
       if (fallbackResult.rows.length === 0) {
         return res.status(404).json({ error: 'No tariff data found in database' });
       }
-      return res.json({ tariff: fallbackResult.rows[0], matched: false });
+      res.json({ tariff: fallbackResult.rows[0], matched: false });
+      writeActivity({
+        req,
+        action: 'calculate',
+        entityType: 'commercial_roi_lookup',
+        description: `ran a commercial bill lookup (usage ${usageKwh} kWh)`,
+        metadata: { usageKwh, matched: false }
+      });
+      return;
     }
 
     res.json({ tariff: result.rows[0], matched: true });
+    writeActivity({
+      req,
+      action: 'calculate',
+      entityType: 'commercial_roi_lookup',
+      description: `ran a commercial bill lookup (usage ${usageKwh} kWh)`,
+      metadata: { usageKwh, matched: true }
+    });
   } catch (err) {
     console.error('TNB DB Error:', err);
     if (client) client.release();

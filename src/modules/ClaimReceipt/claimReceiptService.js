@@ -85,15 +85,15 @@ class ClaimReceiptService {
     return result.rows[0] || null;
   }
 
-  /** Reviewer approve/reject — distinct action from editing content. */
-  async decide(id, status, approverIdentity) {
+  /** Reviewer approve/reject — distinct action from editing content. remark is optional (typically used on reject). */
+  async decide(id, status, approverIdentity, remark) {
     const result = await pool.query(
       `UPDATE claim_receipt SET
          status = $1, approved_by = $2, approved_by_user_id = $3, approved_by_email = $4,
-         approved_at = NOW(), updated_at = NOW()
-       WHERE id = $5
+         approved_at = NOW(), updated_at = NOW(), remark = $5
+       WHERE id = $6
        RETURNING *`,
-      [status, approverIdentity.name, approverIdentity.userId, approverIdentity.email, id]
+      [status, approverIdentity.name, approverIdentity.userId, approverIdentity.email, remark, id]
     );
     return result.rows[0] || null;
   }

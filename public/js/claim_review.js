@@ -74,30 +74,86 @@
     }
 
     var actionsRow;
+    var rejectFormRow = null;
     if (claim.status === "Pending") {
       var approveBtn = el("button", { type: "button", class: "text-xs font-semibold px-3 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors" }, []);
       approveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Approve';
       var rejectBtn = el("button", { type: "button", class: "text-xs font-semibold px-3 py-1.5 rounded-md bg-red-50 text-red-700 hover:bg-red-600 hover:text-white transition-colors" }, []);
       rejectBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Reject';
-      
-      var handleDecision = function (status) {
+
+      var lockButtons = function () {
         approveBtn.disabled = true;
         rejectBtn.disabled = true;
         approveBtn.classList.add("opacity-50", "cursor-not-allowed");
         rejectBtn.classList.add("opacity-50", "cursor-not-allowed");
-        decide(claim.id, status);
       };
 
-      approveBtn.addEventListener("click", function () { handleDecision("Approved"); });
-      rejectBtn.addEventListener("click", function () { handleDecision("Rejected"); });
+      approveBtn.addEventListener("click", function () {
+        lockButtons();
+        decide(claim.id, "Approved");
+      });
+
+      // Reject needs a remark first — swap the buttons for an inline textarea + confirm/cancel
+      // rather than blocking with window.prompt().
+      var remarkInput = el("textarea", {
+        class: "w-full text-xs border border-red-200 rounded-md p-2 mt-2 focus:outline-none focus:ring-1 focus:ring-red-400",
+        rows: "2",
+        placeholder: "Reason for rejection (required)"
+      });
+      var confirmRejectBtn = el("button", { type: "button", class: "text-xs font-semibold px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors" }, []);
+      confirmRejectBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Confirm Reject';
+      var cancelRejectBtn = el("button", { type: "button", class: "text-xs font-semibold px-3 py-1.5 rounded-md bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors", text: "Cancel" });
+      var rejectError = el("p", { class: "hidden text-xs text-red-600 mt-1", text: "Please enter a remark before rejecting." });
+
+      rejectFormRow = el("div", { class: "hidden mt-1" }, [
+        remarkInput,
+        rejectError,
+        el("div", { class: "flex gap-2 mt-2" }, [confirmRejectBtn, cancelRejectBtn])
+      ]);
+
+      rejectBtn.addEventListener("click", function () {
+        actionsRow.classList.add("hidden");
+        rejectFormRow.classList.remove("hidden");
+        remarkInput.focus();
+      });
+
+      cancelRejectBtn.addEventListener("click", function () {
+        rejectFormRow.classList.add("hidden");
+        actionsRow.classList.remove("hidden");
+        remarkInput.value = "";
+        rejectError.classList.add("hidden");
+      });
+
+      confirmRejectBtn.addEventListener("click", function () {
+        var remark = remarkInput.value.trim();
+        if (!remark) {
+          rejectError.classList.remove("hidden");
+          return;
+        }
+        confirmRejectBtn.disabled = true;
+        cancelRejectBtn.disabled = true;
+        remarkInput.disabled = true;
+        decide(claim.id, "Rejected", remark);
+      });
+
       actionsRow = el("div", { class: "flex gap-2 mt-3" }, [approveBtn, rejectBtn]);
     } else {
-      actionsRow = el("p", { class: "text-xs text-slate-400 mt-3", text: claim.status + " by " + (claim.approved_by || "unknown") });
+      var statusLine = claim.status + " by " + (claim.approved_by || "unknown");
+      actionsRow = el("p", { class: "text-xs text-slate-400 mt-3", text: statusLine });
+      if (claim.status === "Rejected" && claim.remark) {
+        actionsRow = el("div", { class: "mt-3" }, [
+          el("p", { class: "text-xs text-slate-400", text: statusLine }),
+          el("p", { class: "text-xs text-red-600 mt-1" }, [el("strong", { text: "Remark: " }), document.createTextNode(claim.remark)])
+        ]);
+      }
     }
 
     var footer = el("div", { class: "flex items-center justify-between flex-wrap gap-2 mt-1" }, footerChildren);
 
-    return el("div", { class: "border border-gray-200 rounded-md p-4 bg-white shadow-sm" }, [header].concat(bodyLines).concat([footer, actionsRow]));
+    var cardChildren = [header].concat(bodyLines).concat([footer, actionsRow]);
+    if (rejectFormRow) cardChildren.push(rejectFormRow);
+
+    return el("div", { class: "border border-gray-200 rounded-md p-4 bg-white shadow-sm" }, cardChildren);
   }
 
   function renderGroupedByAgent(filteredClaims) {
@@ -219,11 +275,13 @@
 
   // approved_by is resolved server-side from the authenticated session, not sent from here —
   // reviewerName is display-only (see the /api/agent/me fetch below).
-  function decide(id, status) {
+  function decide(id, status, remark) {
+    var body = { status: status };
+    if (remark) body.remark = remark;
     fetch("/api/claim-receipts/" + id, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: status })
+      body: JSON.stringify(body)
     }).then(loadClaims);
   }
 

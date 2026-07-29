@@ -10,6 +10,7 @@ const https = require('https');
 const customerRepo = require('../services/customerRepo');
 const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../../core/auth/userIdentity');
 const { storageDriver } = require('../../../core/upload');
+const { writeActivity } = require('../../../core/activityLog/writeActivity');
 
 const router = express.Router();
 const WHATSAPP_API_DISABLED = process.env.WHATSAPP_API_DISABLED !== 'false';
@@ -245,6 +246,15 @@ router.post('/api/customers', requireAuth, async (req, res) => {
     res.json({
       success: true,
       data: customer
+    });
+
+    writeActivity({
+      req,
+      action: 'create',
+      entityType: 'customer',
+      entityId: customer?.customer_id || customer?.id,
+      entityLabel: name,
+      description: `created customer ${name}`
     });
   } catch (err) {
     console.error('Error creating customer:', err);

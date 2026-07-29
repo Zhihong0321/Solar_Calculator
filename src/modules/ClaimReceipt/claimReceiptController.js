@@ -6,6 +6,7 @@ const claimReceiptService = require('./claimReceiptService');
 const ocrService = require('./ocrService');
 const r2Storage = require('../../core/upload/r2Storage');
 const { resolveSubmitterIdentity } = require('./resolveSubmitterIdentity');
+const { writeActivity } = require('../../core/activityLog/writeActivity');
 
 const EXT_BY_MIME = {
   'image/png': '.png',
@@ -90,6 +91,15 @@ exports.create = async (req, res) => {
       fields: parsed.fields
     });
     res.status(201).json({ claim });
+
+    writeActivity({
+      req,
+      action: 'create',
+      entityType: 'claim_receipt',
+      entityId: claim?.id,
+      entityLabel: claim?.vendor || null,
+      description: `submitted a claim receipt${claim?.amount ? ` (RM${claim.amount})` : ''}`
+    });
   } catch (err) {
     console.error('[ClaimReceipt] Create error:', err);
     res.status(500).json({ error: 'Failed to save claim' });
@@ -117,10 +127,15 @@ exports.decide = async (req, res) => {
       return res.status(400).json({ error: 'status must be Approved or Rejected' });
     }
 
+    const remark = typeof req.body.remark === 'string' ? req.body.remark.trim() : '';
+    if (req.body.status === 'Rejected' && !remark) {
+      return res.status(400).json({ error: 'A remark is required when rejecting a claim' });
+    }
+
     const identity = await resolveSubmitterIdentity(req);
     if (!identity) return res.status(401).json({ error: 'Could not resolve the authenticated user' });
 
-    const claim = await claimReceiptService.decide(req.params.id, req.body.status, identity);
+    const claim = await claimReceiptService.decide(req.params.id, req.body.status, identity, remark || null);
     if (!claim) return res.status(404).json({ error: 'claim not found' });
     res.json({ claim });
   } catch (err) {
