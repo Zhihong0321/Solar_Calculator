@@ -1306,7 +1306,17 @@
         // required slots and nothing blocks on it: an agent with one bar of
         // signal must never be locked out of their own invoice.
 
-        let attachmentState = { rows: [], deleted: [], docTypes: [], progress: null };
+        // Site assessment and engineering drawings are separate attachment categories.
+        // DO NOT merge drawing rows into the site checklist: its progress contract only
+        // counts required site-assessment slots.
+        let attachmentState = {
+            rows: [],
+            deleted: [],
+            docTypes: [],
+            progress: null,
+            drawingRows: [],
+            drawingDeleted: [],
+        };
 
         function attachmentsFor(docType, floor = null) {
             return attachmentState.rows.filter(row => {
@@ -1510,25 +1520,39 @@
 
         async function loadAttachments() {
             try {
-                const json = await fetchJsonWithTimeout(`/api/v1/attachments/invoice/${bubbleId}?category=site_assessment`, { timeoutMs: 15000 });
-                if (!json.success) throw new Error(json.error || 'Failed to load attachments');
+                // The admin upload is stored as category=drawing, while the photo
+                // checklist remains category=site_assessment. Fetch both explicitly.
+                const [siteAssessmentJson, drawingJson] = await Promise.all([
+                    fetchJsonWithTimeout(`/api/v1/attachments/invoice/${bubbleId}?category=site_assessment`, { timeoutMs: 15000 }),
+                    fetchJsonWithTimeout(`/api/v1/attachments/invoice/${bubbleId}?category=drawing`, { timeoutMs: 15000 })
+                ]);
+
+                if (!siteAssessmentJson.success) {
+                    throw new Error(siteAssessmentJson.error || 'Failed to load site assessment files');
+                }
+                if (!drawingJson.success) {
+                    throw new Error(drawingJson.error || 'Failed to load engineering drawings');
+                }
 
                 attachmentState = {
-                    rows: json.data.attachments || [],
-                    deleted: json.data.deleted || [],
-                    docTypes: json.data.docTypes || [],
-                    progress: json.data.progress || null
+                    rows: siteAssessmentJson.data.attachments || [],
+                    deleted: siteAssessmentJson.data.deleted || [],
+                    docTypes: siteAssessmentJson.data.docTypes || [],
+                    progress: siteAssessmentJson.data.progress || null,
+                    drawingRows: drawingJson.data.attachments || [],
+                    drawingDeleted: drawingJson.data.deleted || []
                 };
             } catch (err) {
                 console.error('[InvoiceOffice] Attachment load failed:', err);
                 const container = document.getElementById('siteAssessmentSlots');
                 if (container) {
-                    container.innerHTML = `<p class="text-xs text-red-500 italic py-4">Could not load site assessment files: ${err.message}</p>`;
+                    container.innerHTML = `<p class="text-xs text-red-500 italic py-4">Could not load attachment files: ${err.message}</p>`;
                 }
                 return;
             }
 
             renderSiteAssessmentChecklist();
+            renderEngDrawings(currentData?.seda, getDeletedUploads('engineering_drawings'));
         }
 
         function renderPvSystemDrawings(drawings = [], deletedEntries = []) {
@@ -1566,7 +1590,12 @@
             // write path in this app yet — shown read-only alongside them.
             const drawings = [
                 ...(seda?.drawing_engineering_seda_pdf || []).map(url => ({ url, deletable: true })),
-                ...(seda?.drawing_pdf_system || []).map(url => ({ url, deletable: false }))
+                ...(seda?.drawing_pdf_system || []).map(url => ({ url, deletable: false })),
+                ...(attachmentState.drawingRows || []).map(row => ({
+                    url: row.file_url,
+                    attachmentId: row.id,
+                    deletable: false
+                }))
             ];
 
             if (drawings.length > 0) {
@@ -1580,7 +1609,11 @@
                         </div>
                         <div class="flex items-center gap-3">
                             <a href="${d.url}" target="_blank" class="text-[10px] font-bold text-indigo-600 hover:underline uppercase">Open PDF</a>
-                            ${d.deletable ? `<button onclick="deleteEngineeringDrawing('${d.url}')" class="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase">Delete</button>` : ''}
+                            ${d.attachmentId
+                                ? `<button onclick="deleteAttachment(${d.attachmentId})" class="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase">Delete</button>`
+                                : d.deletable
+                                    ? `<button onclick="deleteEngineeringDrawing('${d.url}')" class="text-[10px] font-bold text-red-600 opacity-0 group-hover:opacity-100 transition-opacity uppercase">Delete</button>`
+                                    : ''}
                         </div>
                     </div>
                 `).join('');

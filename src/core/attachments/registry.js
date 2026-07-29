@@ -118,12 +118,26 @@ const DOC_TYPES = {
         required: false,
         order: 7,
     },
+    pv_system: {
+        category: 'drawing',
+        label: 'PV System Engineering Drawing',
+        hint: 'Engineering drawing uploaded for the invoice.',
+        accept: IMAGE_OR_PDF,
+        maxMB: 10,
+        multi: true,
+        required: false,
+        order: 1,
+    },
 };
 
 const CATEGORIES = {
     site_assessment: {
         label: 'Site Assessment',
         docTypes: Object.keys(DOC_TYPES).filter((k) => DOC_TYPES[k].category === 'site_assessment'),
+    },
+    drawing: {
+        label: 'Engineering Drawings',
+        docTypes: Object.keys(DOC_TYPES).filter((k) => DOC_TYPES[k].category === 'drawing'),
     },
 };
 
