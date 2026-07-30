@@ -30,6 +30,7 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const { getCanonicalUserIdentity } = require('../../../core/auth/userIdentity');
 const invoiceRepo = require('../../Invoicing/services/invoiceRepo');
+const { writeActivity } = require('../../../core/activityLog/writeActivity');
 
 const {
     createUploader,
@@ -72,20 +73,30 @@ try {
 }
 
 /**
- * Ownership per owner type. Returns { found, allowed, linkedCustomer }.
+ * Ownership per owner type. Returns { found, allowed, linkedCustomer, ownerLabel }.
  * Adding an owner type is an entry here plus one in the registry.
+ *
+ * ownerLabel is the human name of the record (an invoice number, not a bubble
+ * id) and exists for the activity_log description line — a feed row reading
+ * "uploaded ... to invoice 1767074039217x698000589910966300" is technically
+ * correct and useless to the person reading it.
  */
 const OWNERSHIP = {
     invoice: async (client, ownerId, userId) => {
         const res = await client.query(
-            'SELECT created_by, linked_agent, linked_customer FROM invoice WHERE bubble_id = $1',
+            'SELECT created_by, linked_agent, linked_customer, invoice_number FROM invoice WHERE bubble_id = $1',
             [ownerId]
         );
-        if (res.rows.length === 0) return { found: false, allowed: false, linkedCustomer: null };
+        if (res.rows.length === 0) return { found: false, allowed: false, linkedCustomer: null, ownerLabel: null };
 
         const row = res.rows[0];
         const allowed = await invoiceRepo.verifyOwnership(client, userId, row.created_by, row.linked_agent);
-        return { found: true, allowed, linkedCustomer: row.linked_customer || null };
+        return {
+            found: true,
+            allowed,
+            linkedCustomer: row.linked_customer || null,
+            ownerLabel: row.invoice_number || null,
+        };
     },
 };
 
@@ -132,8 +143,64 @@ function parseTakenAt(value) {
 
 async function resolveAccess(client, ownerType, ownerId, userId) {
     const check = OWNERSHIP[ownerType];
-    if (!check) return { found: false, allowed: false, linkedCustomer: null };
+    if (!check) return { found: false, allowed: false, linkedCustomer: null, ownerLabel: null };
     return check(client, ownerId, userId);
+}
+
+// Past-tense verb + preposition per action, so the call sites stay one-liners
+// and every attachment row in the shared feed reads the same way.
+const ACTIVITY_PHRASING = {
+    upload: { verb: 'uploaded', preposition: 'to' },
+    delete: { verb: 'deleted', preposition: 'from' },
+    restore: { verb: 'restored', preposition: 'on' },
+};
+
+/**
+ * One row in the shared cross-app `activity_log` per ee_attachment write.
+ *
+ * Separate from writeAudit() below on purpose: that one records a field-level
+ * before/after diff in invoice_audit_log, only for invoice owners, kept
+ * forever. This one is the 30-day "who did what" feed, every owner type, and is
+ * the reason an upload made in this app shows up next to one made in ee-admin.
+ *
+ * Shape matches what ee-admin already writes (entity_type 'attachment',
+ * entity_id = the owning record, entity_label = the filename) so the feed does
+ * not need per-app rendering rules. The attachment's own id lives in metadata.
+ *
+ * Fire-and-forget: writeActivity never throws and is deliberately not awaited,
+ * per SOP Rule 1 (a logging failure must not affect the user's upload) and
+ * Rule 2 (write after the real work has committed).
+ */
+function writeAttachmentActivity({ req, action, ownerType, ownerId, ownerLabel, docTypeLabel, attachment, auditContext }) {
+    const phrasing = ACTIVITY_PHRASING[action];
+    if (!phrasing) return;
+
+    const filename = attachment?.originalFilename || attachment?.original_filename || null;
+    const ownerText = ownerLabel ? `${ownerType} ${ownerLabel}` : ownerType;
+    const fileText = filename ? ` "${filename}"` : '';
+
+    writeActivity({
+        req,
+        action,
+        entityType: 'attachment',
+        entityId: ownerId,
+        entityLabel: filename,
+        description: `${phrasing.verb} ${docTypeLabel}${fileText} ${phrasing.preposition} ${ownerText}`,
+        // A real name from the audit context beats a second DB lookup. Its
+        // 'system' fallback is skipped so writeActivity can still resolve the
+        // actual actor rather than attributing a user action to the system.
+        actorName: auditContext?.userName && auditContext.userName !== 'system' ? auditContext.userName : null,
+        metadata: {
+            attachmentId: attachment?.attachmentId ?? attachment?.id ?? null,
+            ownerType,
+            ownerId,
+            docType: attachment?.docType || attachment?.doc_type || null,
+            category: attachment?.category || null,
+            mimeType: attachment?.mimeType || attachment?.mime_type || null,
+            sizeBytes: attachment?.sizeBytes ?? attachment?.size_bytes ?? null,
+            floor: attachment?.floor ?? null,
+        },
+    });
 }
 
 async function writeAudit(client, { ownerType, ownerId, actionType, label, url, auditContext }) {
@@ -303,6 +370,17 @@ async function handleUpload(req, res) {
             auditContext,
         });
 
+        writeAttachmentActivity({
+            req,
+            action: 'upload',
+            ownerType,
+            ownerId,
+            ownerLabel: access.ownerLabel,
+            docTypeLabel: docTypeDef.label,
+            attachment: row,
+            auditContext,
+        });
+
         logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'success' });
 
         return res.json(uploadSuccess({
@@ -403,12 +481,25 @@ async function handleDelete(req, res) {
             deletedByName: auditContext?.userName || null,
         });
 
+        const docTypeLabel = attachments.getDocType(existing.doc_type)?.label || existing.doc_type;
+
         await writeAudit(client, {
             ownerType,
             ownerId,
             actionType: 'DELETED',
-            label: attachments.getDocType(existing.doc_type)?.label || existing.doc_type,
+            label: docTypeLabel,
             url: existing.file_url,
+            auditContext,
+        });
+
+        writeAttachmentActivity({
+            req,
+            action: 'delete',
+            ownerType,
+            ownerId,
+            ownerLabel: access.ownerLabel,
+            docTypeLabel,
+            attachment: row || existing,
             auditContext,
         });
 
@@ -455,12 +546,25 @@ async function handleRestore(req, res) {
             restoredByName: auditContext?.userName || null,
         });
 
+        const docTypeLabel = attachments.getDocType(existing.doc_type)?.label || existing.doc_type;
+
         await writeAudit(client, {
             ownerType,
             ownerId,
             actionType: 'ADDED',
-            label: attachments.getDocType(existing.doc_type)?.label || existing.doc_type,
+            label: docTypeLabel,
             url: existing.file_url,
+            auditContext,
+        });
+
+        writeAttachmentActivity({
+            req,
+            action: 'restore',
+            ownerType,
+            ownerId,
+            ownerLabel: access.ownerLabel,
+            docTypeLabel,
+            attachment: row || existing,
             auditContext,
         });
 
