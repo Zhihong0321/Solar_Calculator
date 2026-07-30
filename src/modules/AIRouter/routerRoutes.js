@@ -21,6 +21,7 @@
 const express = require('express');
 const router = express.Router();
 const { aiRouter } = require('./aiRouter');
+const { writeAiActivity } = require('../../core/activityLog/writeAiActivity');
 
 /**
  * POST /api/ai/chat
@@ -54,9 +55,9 @@ const { aiRouter } = require('./aiRouter');
  *   }
  */
 router.post('/chat', async (req, res) => {
+    const startedAt = Date.now();
+    const { messages, temperature, max_tokens, force_provider } = req.body || {};
     try {
-        const { messages, temperature, max_tokens, force_provider } = req.body;
-        
         // Validation
         if (!messages || !Array.isArray(messages)) {
             return res.status(400).json({
@@ -82,10 +83,41 @@ router.post('/chat', async (req, res) => {
             max_tokens
         }, options);
         
+        const outputText = response.choices?.[0]?.message?.content || '';
+        const lastUserMsg = messages.filter(m => m.role === 'user').pop()?.content || '';
+        
+        writeAiActivity({
+            req,
+            agent: 'ai_router',
+            model: response.model || 'gemini-3-flash-preview',
+            apiUrl: req.originalUrl,
+            action: 'chat_completion',
+            inputSummary: lastUserMsg,
+            outputSummary: outputText,
+            inputTokens: response.usage?.prompt_tokens,
+            outputTokens: response.usage?.completion_tokens,
+            durationMs: Date.now() - startedAt,
+            status: 'success'
+        });
+
         res.json(response);
         
     } catch (err) {
         console.error('[AI Router API] Error:', err.message);
+
+        const lastUserMsg = (Array.isArray(messages) ? messages.filter(m => m.role === 'user').pop()?.content : '') || '';
+        writeAiActivity({
+            req,
+            agent: 'ai_router',
+            model: 'gemini-3-flash-preview',
+            apiUrl: req.originalUrl,
+            action: 'chat_completion',
+            inputSummary: lastUserMsg,
+            durationMs: Date.now() - startedAt,
+            status: 'failed',
+            errorMessage: err.message
+        });
+
         res.status(500).json({
             error: 'AI request failed',
             message: err.message

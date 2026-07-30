@@ -10,6 +10,7 @@
 
 const { extractPdfText, MIN_USABLE_TEXT } = require('./pdfText');
 const { fitVisionImage } = require('./fitVisionImage');
+const { writeAiActivity } = require('../../core/activityLog/writeAiActivity');
 
 const VISION_MIME = new Set(['image/bmp', 'image/gif', 'image/png', 'image/jpeg', 'image/webp']);
 const ACCEPTED_MIME = new Set([...VISION_MIME, 'application/pdf']);
@@ -100,7 +101,7 @@ function buildPrompt() {
  * Reads a receipt image or PDF (as a Buffer) and returns { draft, status, model }.
  * Throws on missing config or unsupported mime type — caller maps those to HTTP responses.
  */
-async function readReceipt({ bytes, mimeType }) {
+async function readReceipt({ bytes, mimeType, req = null }) {
   const baseUrl = (process.env.AI_ROUTER_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
   const model = process.env.AI_ROUTER_MODEL || DEFAULT_MODEL;
 
@@ -118,91 +119,112 @@ async function readReceipt({ bytes, mimeType }) {
   }
 
   const startedAt = Date.now();
-
-  // Two routes, chosen by what the file actually contains:
-  //   PDF   -> read the embedded text layer and send text. The words are already in the file;
-  //            turning them into a picture for a vision model to read back was pure overhead.
-  //   image -> send the image, because a photo of a paper receipt has no text to read.
-  // There is deliberately no PDF-to-image fallback. That path required rasterizing through canvas
-  // and never produced a single successful extraction in production.
-  const route = mimeType === 'application/pdf' ? 'pdf-text' : 'image';
+  let route = mimeType === 'application/pdf' ? 'pdf-text' : 'image';
   let pdfText = '';
   let visionBytes = null;
   let visionMimeType = null;
 
-  if (route === 'pdf-text') {
-    pdfText = await extractPdfText(bytes);
-    if (pdfText.length < MIN_USABLE_TEXT) {
-      const err = new Error('This PDF has no readable text (it looks like a scan). Please upload a photo of the receipt instead.');
-      err.status = 422;
+  try {
+    if (route === 'pdf-text') {
+      pdfText = await extractPdfText(bytes);
+      if (pdfText.length < MIN_USABLE_TEXT) {
+        const err = new Error('This PDF has no readable text (it looks like a scan). Please upload a photo of the receipt instead.');
+        err.status = 422;
+        throw err;
+      }
+    } else {
+      const fitted = await fitVisionImage(bytes, mimeType);
+      visionBytes = fitted.bytes;
+      visionMimeType = fitted.mimeType;
+    }
+
+    const content = route === 'pdf-text'
+      ? [{ type: 'text', text: `${buildPrompt()}\n\nReceipt text:\n"""\n${pdfText.slice(0, 6000)}\n"""` }]
+      : [
+          { type: 'text', text: buildPrompt() },
+          { type: 'image_url', image_url: { url: `data:${visionMimeType};base64,${visionBytes.toString('base64')}` } }
+        ];
+
+    const requestBody = JSON.stringify({
+      model,
+      messages: [{ role: 'user', content }],
+      temperature: 0
+    });
+
+    const RETRY_STATUS = new Set([429, 502, 503, 504]);
+    let response;
+    let lastDetail = '';
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      response = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: requestBody
+      });
+      if (!RETRY_STATUS.has(response.status)) break;
+      lastDetail = await response.text().catch(() => '');
+      if (attempt === 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+    }
+
+    if (!response.ok) {
+      const detail = lastDetail || (await response.text().catch(() => ''));
+      const err = new Error(`Router request failed with status ${response.status}: ${detail.slice(0, 300)}`);
+      err.status = 502;
       throw err;
     }
-  } else {
-    const fitted = await fitVisionImage(bytes, mimeType);
-    visionBytes = fitted.bytes;
-    visionMimeType = fitted.mimeType;
-  }
 
-  const content = route === 'pdf-text'
-    ? [{ type: 'text', text: `${buildPrompt()}\n\nReceipt text:\n"""\n${pdfText.slice(0, 6000)}\n"""` }]
-    : [
-        { type: 'text', text: buildPrompt() },
-        { type: 'image_url', image_url: { url: `data:${visionMimeType};base64,${visionBytes.toString('base64')}` } }
-      ];
+    const payload = await response.json();
+    const reply = payload.choices?.[0]?.message?.content || '';
+    const draft = parseDraft(reply);
+    const readAnything = draft.amount != null || draft.receipt_date != null || draft.vendor != null;
+    const durationMs = Date.now() - startedAt;
 
-  const requestBody = JSON.stringify({
-    model,
-    messages: [{ role: 'user', content }],
-    temperature: 0
-  });
+    if (!readAnything) {
+      console.error('[ClaimReceipt] OCR extracted nothing', JSON.stringify({
+        route,
+        model: payload.model || model,
+        finish_reason: payload.choices?.[0]?.finish_reason,
+        latency_ms: durationMs,
+        pdf_text_chars: pdfText.length,
+        sent_bytes: visionBytes ? visionBytes.length : 0,
+        raw_reply: reply.slice(0, 600)
+      }));
+    } else {
+      console.log(`[ClaimReceipt] OCR ok route=${route} model=${payload.model || model} latency=${durationMs}ms`);
+    }
 
-  // Retries rate limits, and Railway's cold-start 502 ("Application failed to respond") which the
-  // router throws on the first request after it has been idle.
-  const RETRY_STATUS = new Set([429, 502, 503, 504]);
-  let response;
-  let lastDetail = '';
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: requestBody
+    writeAiActivity({
+      req,
+      agent: 'claim_receipt_ocr',
+      model: payload.model || model,
+      apiUrl: `${baseUrl}/chat/completions`,
+      action: 'extract_receipt_ocr',
+      entityType: 'claim_receipt',
+      inputSummary: route === 'pdf-text' ? pdfText.slice(0, 1000) : `Vision image upload (${visionMimeType})`,
+      outputSummary: reply,
+      inputTokens: payload.usage?.prompt_tokens,
+      outputTokens: payload.usage?.completion_tokens,
+      durationMs,
+      status: readAnything ? 'success' : 'partial',
+      errorMessage: !readAnything ? 'OCR extracted no readable fields' : null
     });
-    if (!RETRY_STATUS.has(response.status)) break;
-    lastDetail = await response.text().catch(() => '');
-    if (attempt === 2) break;
-    await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
-  }
 
-  if (!response.ok) {
-    const detail = lastDetail || (await response.text().catch(() => ''));
-    const err = new Error(`Router request failed with status ${response.status}: ${detail.slice(0, 300)}`);
-    err.status = 502;
+    return { draft, status: readAnything ? 'ok' : 'failed', model, route };
+  } catch (err) {
+    writeAiActivity({
+      req,
+      agent: 'claim_receipt_ocr',
+      model,
+      apiUrl: `${baseUrl}/chat/completions`,
+      action: 'extract_receipt_ocr',
+      entityType: 'claim_receipt',
+      inputSummary: `Receipt file upload (${mimeType})`,
+      durationMs: Date.now() - startedAt,
+      status: 'failed',
+      errorMessage: err.message
+    });
     throw err;
   }
-
-  const payload = await response.json();
-  const reply = payload.choices?.[0]?.message?.content || '';
-  const draft = parseDraft(reply);
-  const readAnything = draft.amount != null || draft.receipt_date != null || draft.vendor != null;
-
-  // A dead extraction returns HTTP 200 with an all-null draft, which the UI renders as a green
-  // "Saved" over an empty form — indistinguishable from success. Log the raw reply when that
-  // happens so the failure is diagnosable from prod logs instead of by re-running it locally.
-  if (!readAnything) {
-    console.error('[ClaimReceipt] OCR extracted nothing', JSON.stringify({
-      route,
-      model: payload.model || model,
-      finish_reason: payload.choices?.[0]?.finish_reason,
-      latency_ms: Date.now() - startedAt,
-      pdf_text_chars: pdfText.length,
-      sent_bytes: visionBytes ? visionBytes.length : 0,
-      raw_reply: reply.slice(0, 600)
-    }));
-  } else {
-    console.log(`[ClaimReceipt] OCR ok route=${route} model=${payload.model || model} latency=${Date.now() - startedAt}ms`);
-  }
-
-  return { draft, status: readAnything ? 'ok' : 'failed', model, route };
 }
 
 // buildPrompt/parseDraft are exported for scripts/debug_claim_ocr.js, which has to reproduce the

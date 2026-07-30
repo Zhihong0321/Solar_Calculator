@@ -46,7 +46,7 @@ exports.ocr = async (req, res) => {
       console.error('[ClaimReceipt] R2 upload failed:', uploadErr.message);
     }
 
-    const { draft, status, model } = await ocrService.readReceipt({ bytes, mimeType });
+    const { draft, status, model } = await ocrService.readReceipt({ bytes, mimeType, req });
 
     res.json({ draft, status, model, md5, file_url: fileUrl, file_mime: mimeType });
   } catch (err) {
