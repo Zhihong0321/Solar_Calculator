@@ -3003,7 +3003,7 @@
                 ? (toNumber(activeCycle?.totalSavings) * 12 / toNumber(solarResult.finalSystemCost)) * 100
                 : 0;
 
-            async function runSolarPlan(overrides = {}, mode = 'plan') {
+            async function runSolarPlan(overrides = {}, mode = 'plan', options = {}) {
                 setErrorMessage('');
                 if (!billReady) {
                     setErrorMessage('请先完成账单分析。');
@@ -3012,6 +3012,11 @@
 
                 const nextInputs = { ...inputs, ...overrides };
                 const params = collectSolarParams(nextInputs);
+                // Slider drags fire one request per tick; logActivity=0 keeps them
+                // out of the activity log.
+                if (options.logActivity === false) {
+                    params.logActivity = 0;
+                }
                 const requestId = solarRequestSeqRef.current + 1;
                 solarRequestSeqRef.current = requestId;
 
@@ -3094,7 +3099,7 @@
                 const nextInputs = { ...inputs, batteryLossPercent: normalized };
                 setInputs(nextInputs);
                 if (solarResult && Number(inputs.batterySize) > 0) {
-                    await runSolarPlan({ batteryLossPercent: normalized }, 'battery');
+                    await runSolarPlan({ batteryLossPercent: normalized }, 'battery', { logActivity: false });
                 }
             }
 
@@ -3103,7 +3108,7 @@
                 const nextInputs = { ...inputs, batteryDodPercent: normalized };
                 setInputs(nextInputs);
                 if (solarResult && Number(inputs.batterySize) > 0) {
-                    await runSolarPlan({ batteryDodPercent: normalized }, 'battery');
+                    await runSolarPlan({ batteryDodPercent: normalized }, 'battery', { logActivity: false });
                 }
             }
 
@@ -3112,7 +3117,7 @@
                 const nextInputs = { ...inputs, afaRate: normalized };
                 setInputs(nextInputs);
                 if (solarResult) {
-                    await runSolarPlan({ afaRate: normalized }, 'battery');
+                    await runSolarPlan({ afaRate: normalized }, 'battery', { logActivity: false });
                 }
             }
 

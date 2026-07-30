@@ -254,18 +254,22 @@ router.get('/api/solar-calculation', attachAuthenticatedUser, async (req, res) =
       billCycleModes: buildBillCycleModes(result)
     });
 
-    writeActivity({
-      req,
-      action: 'calculate',
-      entityType: 'residential_roi_calculation',
-      description: 'generated a residential solar ROI calculation',
-      metadata: {
-        billAmount: req.query.amount,
-        sunPeakHour: req.query.sunPeakHour,
-        batterySize: req.query.batterySize,
-        monthlySavings: result.monthlySavings
-      }
-    });
+    // Slider-driven recalculations pass logActivity=0 so dragging a slider
+    // does not burst the activity_log with one row per tick.
+    if (req.query.logActivity !== '0') {
+      writeActivity({
+        req,
+        action: 'calculate',
+        entityType: 'residential_roi_calculation',
+        description: 'generated a residential solar ROI calculation',
+        metadata: {
+          billAmount: req.query.amount,
+          sunPeakHour: req.query.sunPeakHour,
+          batterySize: req.query.batterySize,
+          monthlySavings: result.monthlySavings
+        }
+      });
+    }
   } catch (err) {
     const validationMessages = [
       'Invalid bill amount',
@@ -348,30 +352,38 @@ router.get('/api/commercial/lookup-by-usage', attachAuthenticatedUser, async (re
     const result = await client.query(query, [Math.floor(usageKwh)]);
     client.release();
 
+    // Slider-driven recalculations pass logActivity=0 so dragging a slider
+    // does not burst the activity_log with one row per tick.
+    const shouldLogActivity = req.query.logActivity !== '0';
+
     if (result.rows.length === 0) {
       const fallbackResult = await tariffPool.query('SELECT * FROM bill_simulation_lookup WHERE tariff_group = \'LV_COMMERCIAL\' ORDER BY usage_kwh ASC LIMIT 1');
       if (fallbackResult.rows.length === 0) {
         return res.status(404).json({ error: 'No tariff data found in database' });
       }
       res.json({ tariff: fallbackResult.rows[0], matched: false });
+      if (shouldLogActivity) {
+        writeActivity({
+          req,
+          action: 'calculate',
+          entityType: 'commercial_roi_lookup',
+          description: `ran a commercial bill lookup (usage ${usageKwh} kWh)`,
+          metadata: { usageKwh, matched: false }
+        });
+      }
+      return;
+    }
+
+    res.json({ tariff: result.rows[0], matched: true });
+    if (shouldLogActivity) {
       writeActivity({
         req,
         action: 'calculate',
         entityType: 'commercial_roi_lookup',
         description: `ran a commercial bill lookup (usage ${usageKwh} kWh)`,
-        metadata: { usageKwh, matched: false }
+        metadata: { usageKwh, matched: true }
       });
-      return;
     }
-
-    res.json({ tariff: result.rows[0], matched: true });
-    writeActivity({
-      req,
-      action: 'calculate',
-      entityType: 'commercial_roi_lookup',
-      description: `ran a commercial bill lookup (usage ${usageKwh} kWh)`,
-      metadata: { usageKwh, matched: true }
-    });
   } catch (err) {
     console.error('TNB DB Error:', err);
     if (client) client.release();
