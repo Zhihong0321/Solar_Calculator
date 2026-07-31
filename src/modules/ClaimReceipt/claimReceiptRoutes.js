@@ -34,6 +34,9 @@ router.post('/api/claim-receipts', requireAuth, claimReceiptController.create);
 router.put('/api/claim-receipts/:id', requireAuth, claimReceiptController.update);
 router.delete('/api/claim-receipts/:id', requireAuth, claimReceiptController.remove);
 
+// Agent can view their own claims
+router.get('/api/claim-receipts/mine', requireAuth, claimReceiptController.getMyClaims);
+
 // Seeing every claim and approving/rejecting is reviewer-only.
 router.get('/api/claim-receipts', requireAuth, requireReviewer, claimReceiptController.list);
 router.patch('/api/claim-receipts/:id', requireAuth, requireReviewer, claimReceiptController.decide);

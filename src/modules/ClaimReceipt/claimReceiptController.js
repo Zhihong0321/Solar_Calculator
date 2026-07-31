@@ -182,3 +182,17 @@ exports.remove = async (req, res) => {
     res.status(500).json({ error: 'Failed to delete claim' });
   }
 };
+
+/** Get claims for the authenticated agent */
+exports.getMyClaims = async (req, res) => {
+  try {
+    const identity = await resolveSubmitterIdentity(req);
+    if (!identity) return res.status(401).json({ error: 'Could not resolve the authenticated user' });
+
+    const claims = await claimReceiptService.getByUserId(identity.userId);
+    res.json({ claims });
+  } catch (err) {
+    console.error('[ClaimReceipt] getMyClaims error:', err);
+    res.status(500).json({ error: 'Failed to load your claims' });
+  }
+};

@@ -103,6 +103,14 @@ class ClaimReceiptService {
     return result.rows[0] || null;
   }
 
+  async getByUserId(userId) {
+    const result = await pool.query(
+      'SELECT * FROM claim_receipt WHERE submitted_by_user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
+    return result.rows;
+  }
+
   async remove(id) {
     const result = await pool.query('DELETE FROM claim_receipt WHERE id = $1', [id]);
     return result.rowCount > 0;

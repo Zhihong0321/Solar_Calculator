@@ -1,0 +1,1 @@
+fetch: Are you able to query the production database to check activity_log records? If so, show the SQL needed to check recent claim_receipt submissions in the last 10 minutes.

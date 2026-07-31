@@ -441,4 +441,143 @@
       if (data && data.name) claimantInput.value = data.name;
     })
     .catch(function () {});
+
+  // Tab switching
+  var tabs = document.querySelectorAll(".tab");
+  var submitTab = document.getElementById("submit-tab");
+  var myClaimsTab = document.getElementById("my-claims-tab");
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      var targetTab = tab.dataset.tab;
+
+      tabs.forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+
+      if (targetTab === "submit") {
+        submitTab.classList.add("active");
+        myClaimsTab.classList.remove("active");
+      } else if (targetTab === "my-claims") {
+        submitTab.classList.remove("active");
+        myClaimsTab.classList.add("active");
+        loadMyClaims();
+      }
+    });
+  });
+
+  // Load my claims
+  function loadMyClaims() {
+    var listEl = document.getElementById("my-claims-list");
+    listEl.innerHTML = '<div class="empty-state">Loading...</div>';
+
+    fetch("/api/claim-receipts/mine", { credentials: "same-origin" })
+      .then(function (res) {
+        if (!res.ok) throw new Error("Failed to load claims");
+        return res.json();
+      })
+      .then(function (data) {
+        var claims = data.claims || [];
+        if (claims.length === 0) {
+          listEl.innerHTML = '<div class="empty-state">No claims submitted yet.<br>Switch to "Submit New" to create your first claim.</div>';
+          return;
+        }
+
+        listEl.innerHTML = "";
+        claims.forEach(function (claim) {
+          var card = document.createElement("div");
+          card.className = "my-claim-card";
+          card.dataset.claimId = claim.id;
+
+          var statusClass = (claim.status || "pending").toLowerCase();
+          var statusText = claim.status || "Pending";
+
+          var html = '<div class="my-claim-header">' +
+            '<div class="my-claim-vendor">' + escapeHtml(claim.vendor || "Unknown Vendor") + '</div>' +
+            '<div class="my-claim-status ' + statusClass + '">' + statusText + '</div>' +
+            '</div>' +
+            '<div class="my-claim-amount">' + (claim.currency || "RM") + ' ' + (claim.amount || "0.00") + '</div>' +
+            '<div class="my-claim-meta">' +
+            'Receipt: ' + (claim.receipt_date || "N/A") + ' • ' +
+            'Submitted: ' + formatDate(claim.created_at) +
+            '</div>';
+
+          if (claim.remark && statusClass === "rejected") {
+            html += '<div class="my-claim-remark">' +
+              '<div class="my-claim-remark-label">Rejection Reason:</div>' +
+              escapeHtml(claim.remark) +
+              '</div>';
+          }
+
+          html += '<div class="my-claim-actions">' +
+            '<button class="btn-expand" onclick="toggleDetails(' + claim.id + ')">View Details</button>';
+
+          if (statusClass === "pending") {
+            html += '<button class="btn-delete-claim" onclick="deleteClaim(' + claim.id + ')">Delete</button>';
+          }
+
+          html += '</div>' +
+            '<div class="my-claim-details" id="details-' + claim.id + '">' +
+            '<div class="my-claim-details-row"><span class="my-claim-details-label">Item:</span>' + escapeHtml(claim.item || "N/A") + '</div>' +
+            '<div class="my-claim-details-row"><span class="my-claim-details-label">Category:</span>' + escapeHtml(claim.category || "N/A") + '</div>' +
+            '<div class="my-claim-details-row"><span class="my-claim-details-label">Description:</span>' + escapeHtml(claim.description || "N/A") + '</div>' +
+            '<div class="my-claim-details-row"><span class="my-claim-details-label">Receipt ID:</span>' + escapeHtml(claim.receipt_id || "N/A") + '</div>';
+
+          if (claim.file_url) {
+            html += '<div class="my-claim-details-row"><span class="my-claim-details-label">Receipt:</span><a href="' + escapeHtml(claim.file_url) + '" target="_blank" style="color: #9aa4ff;">View File</a></div>';
+          }
+
+          if (claim.approved_by && (statusClass === "approved" || statusClass === "rejected")) {
+            html += '<div class="my-claim-details-row"><span class="my-claim-details-label">Reviewed by:</span>' + escapeHtml(claim.approved_by) + '</div>';
+            html += '<div class="my-claim-details-row"><span class="my-claim-details-label">Reviewed at:</span>' + formatDate(claim.approved_at) + '</div>';
+          }
+
+          html += '</div>';
+
+          card.innerHTML = html;
+          listEl.appendChild(card);
+        });
+      })
+      .catch(function (err) {
+        listEl.innerHTML = '<div class="empty-state" style="color: #f28b82;">Failed to load claims.<br>' + escapeHtml(err.message) + '</div>';
+      });
+  }
+
+  window.toggleDetails = function (claimId) {
+    var detailsEl = document.getElementById("details-" + claimId);
+    if (detailsEl) {
+      detailsEl.classList.toggle("show");
+    }
+  };
+
+  window.deleteClaim = function (claimId) {
+    if (!confirm("Are you sure you want to delete this claim? This cannot be undone.")) return;
+
+    fetch("/api/claim-receipts/" + claimId, {
+      method: "DELETE",
+      credentials: "same-origin"
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error("Failed to delete claim");
+        return res.json();
+      })
+      .then(function () {
+        loadMyClaims();
+      })
+      .catch(function (err) {
+        alert("Failed to delete claim: " + err.message);
+      });
+  };
+
+  function formatDate(dateStr) {
+    if (!dateStr) return "N/A";
+    var d = new Date(dateStr);
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function escapeHtml(text) {
+    if (!text) return "";
+    var div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
 })();
