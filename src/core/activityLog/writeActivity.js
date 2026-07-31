@@ -72,6 +72,8 @@ async function resolveActorContext(req) {
  *
  * @param {object} opts
  * @param {object} [opts.req]         - Express request, used to resolve the actor + source_url
+ * @param {string}  [opts.app]        - app slug (default: 'agent-os'). Pass 'claim-system' for
+ *                                       claim receipts to give them a separate namespace in the feed.
  * @param {string}  opts.action       - REQUIRED. free text verb, e.g. 'create', 'send', 'approve'
  * @param {string}  [opts.entityType] - e.g. 'invoice' | 'customer' | 'claim_receipt'
  * @param {string|number} [opts.entityId]
@@ -89,6 +91,7 @@ async function resolveActorContext(req) {
  */
 async function writeActivity({
   req = null,
+  app = null,
   action,
   entityType = null,
   entityId = null,
@@ -129,7 +132,7 @@ async function writeActivity({
        VALUES
          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb)`,
       [
-        APP_SLUG,
+        app || APP_SLUG,
         process.env.NODE_ENV === 'production' ? 'prod' : (process.env.NODE_ENV || 'dev'),
         sourceUrl || (req ? req.originalUrl : null),
         'user',

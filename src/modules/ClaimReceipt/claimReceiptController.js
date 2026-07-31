@@ -94,6 +94,7 @@ exports.create = async (req, res) => {
 
     writeActivity({
       req,
+      app: 'claim-system',
       action: 'create',
       entityType: 'claim_receipt',
       entityId: claim?.id,
@@ -114,6 +115,17 @@ exports.update = async (req, res) => {
     const claim = await claimReceiptService.update(req.params.id, parsed.fields);
     if (!claim) return res.status(404).json({ error: 'claim not found' });
     res.json({ claim });
+
+    writeActivity({
+      req,
+      app: 'claim-system',
+      action: 'update',
+      entityType: 'claim_receipt',
+      entityId: claim?.id,
+      entityLabel: claim?.vendor || null,
+      description: `updated claim receipt${claim?.vendor ? ` for ${claim.vendor}` : ''}${claim?.amount ? ` (RM${claim.amount})` : ''}`,
+      fields: Object.keys(parsed.fields)
+    });
   } catch (err) {
     console.error('[ClaimReceipt] Update error:', err);
     res.status(500).json({ error: 'Failed to update claim' });
@@ -138,6 +150,17 @@ exports.decide = async (req, res) => {
     const claim = await claimReceiptService.decide(req.params.id, req.body.status, identity, remark || null);
     if (!claim) return res.status(404).json({ error: 'claim not found' });
     res.json({ claim });
+
+    writeActivity({
+      req,
+      app: 'claim-system',
+      action: req.body.status === 'Approved' ? 'approve' : 'reject',
+      entityType: 'claim_receipt',
+      entityId: claim?.id,
+      entityLabel: claim?.vendor || null,
+      description: `${req.body.status === 'Approved' ? 'approved' : 'rejected'} claim receipt${claim?.vendor ? ` from ${claim.vendor}` : ''}${claim?.amount ? ` (RM${claim.amount})` : ''}${remark ? ` — ${remark}` : ''}`,
+      metadata: { status: req.body.status, remark: remark || null }
+    });
   } catch (err) {
     console.error('[ClaimReceipt] Decide error:', err);
     res.status(500).json({ error: 'Failed to update claim status' });

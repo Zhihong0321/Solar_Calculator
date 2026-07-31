@@ -7,12 +7,9 @@ const tariffPool = require('../../../core/database/tariffPool');
 const invoiceRepo = require('../services/invoiceRepo');
 const sedaService = require('../services/sedaService');
 const { insertInvoiceItem } = require('../services/invoiceItemSupport');
-const invoiceHtmlGenerator = require('../services/invoiceHtmlGenerator');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
-const invoiceHtmlGeneratorV3 = require('../services/invoiceHtmlGeneratorV3');
 const { generateInvoiceHtmlA4 } = require('../services/invoiceHtmlGeneratorA4');
 const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
-const { normalizeV3Locale } = require('../services/invoiceV3Content');
 const { applyPaymentTermsPolicyToInvoice } = require('../services/invoicePaymentTermsPolicy');
 const externalPdfService = require('../services/externalPdfService');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
@@ -717,48 +714,6 @@ async function handleAddSiteVisitItem(req, res) {
   }
 }
 
-function isLocalV3PreviewRequest(req) {
-  const previewFlag = String(req.query.preview || req.query.source || '').toLowerCase();
-  return previewFlag === 'local' || req.path.startsWith('/view-v3-preview/');
-}
-
-function resolveV3Locale(req, source) {
-  return normalizeV3Locale(
-    req.query.lang
-    || req.query.locale
-    || source?.meta?.locale
-    || source?.invoice?.locale
-    || 'en'
-  );
-}
-
-function buildV3PreviewUrls(tokenOrId, previewMode, locale) {
-  const encodedToken = encodeURIComponent(tokenOrId);
-  const basePath = previewMode === 'local'
-    ? `/view-v3-preview/${encodedToken}`
-    : `/view-v3/${encodedToken}`;
-  const buildUrl = (targetLocale) => {
-    const query = new URLSearchParams();
-    if (previewMode === 'local') {
-      query.set('preview', 'local');
-    }
-    if (targetLocale && targetLocale !== 'en') {
-      query.set('lang', targetLocale);
-    }
-    const queryString = query.toString();
-    return queryString ? `${basePath}?${queryString}` : basePath;
-  };
-  return {
-    currentViewUrl: buildUrl(locale),
-    pdfUrl: buildUrl(locale).replace(basePath, `${basePath}/pdf`),
-    languageSwitchUrls: {
-      en: buildUrl('en'),
-      'zh-Hans': buildUrl('zh-Hans'),
-      'ms-MY': buildUrl('ms-MY')
-    }
-  };
-}
-
 function shouldPreviewAfterEffectivePaymentTerms(req) {
   const raw = String(
     req.query.payment_terms_preview
@@ -792,133 +747,6 @@ function appendPaymentTermsPreviewQuery(url, req) {
   const separator = String(url).includes('?') ? '&' : '?';
   return `${url}${separator}payment_terms_preview=after-2026-07-01`;
 }
-
-async function loadV3InvoiceForRequest(client, tokenOrId, previewMode) {
-  if (previewMode === 'local') {
-    const snapshot = loadPreviewSnapshot(tokenOrId);
-    if (snapshot && snapshot.invoice) {
-      return {
-        invoice: snapshot.invoice,
-        template: snapshot.template || snapshot.invoice.template || {},
-        meta: snapshot.meta || null,
-        previewMode: 'local'
-      };
-    }
-  }
-
-  const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
-  if (!invoice) {
-    return null;
-  }
-
-  return {
-    invoice,
-    template: invoice.template || {},
-    meta: null,
-    previewMode: 'live'
-  };
-}
-
-async function renderV3Invoice(req, res, { forPdf = false } = {}) {
-  const { tokenOrId } = req.params;
-  const layout = String(req.query.layout || '').toLowerCase();
-  const previewMode = isLocalV3PreviewRequest(req) ? 'local' : 'live';
-  const client = await pool.connect();
-
-  try {
-    const source = await loadV3InvoiceForRequest(client, tokenOrId, previewMode);
-
-    if (!source) {
-      if (previewMode === 'local') {
-        return res.status(404).send('Local V3 preview snapshot not found');
-      }
-      return res.status(404).send('Invoice not found');
-    }
-
-    const policyInvoice = applyPaymentTermsPolicyToInvoice(
-      {
-        ...source.invoice,
-        template: source.template || source.invoice.template || {}
-      },
-      getPaymentTermsPolicyOptions(req)
-    );
-    const locale = resolveV3Locale(req, { ...source, invoice: policyInvoice });
-    const urls = buildV3PreviewUrls(tokenOrId, source.previewMode, locale);
-    const html = invoiceHtmlGeneratorV3.generateInvoiceHtmlV3(policyInvoice, policyInvoice.template || source.template, {
-      layout,
-      forPdf,
-      previewMode: source.previewMode,
-      locale,
-      mono: String(req.query.mono || '') === '1',
-      currentViewUrl: appendPaymentTermsPreviewQuery(urls.currentViewUrl, req),
-      pdfUrl: appendPaymentTermsPreviewQuery(urls.pdfUrl, req),
-      languageSwitchUrls: urls.languageSwitchUrls
-    });
-
-    if (forPdf) {
-      return html;
-    }
-
-    res.set({
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0'
-    });
-
-    return res.send(html);
-  } finally {
-    client.release();
-  }
-}
-
-/**
- * GET /legacy-view/:tokenOrId
- * Legacy public or private view of an invoice (V1)
- */
-router.get('/legacy-view/:tokenOrId', async (req, res) => {
-  try {
-    const { tokenOrId } = req.params;
-    const client = await pool.connect();
-    try {
-      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
-      if (invoice) {
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
-        const html = invoiceHtmlGenerator.generateInvoiceHtml(policyInvoice, policyInvoice.template);
-        res.send(html);
-      } else {
-        res.status(404).send('Invoice not found');
-      }
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    console.error('Error viewing legacy invoice:', err);
-    res.status(500).send('Error loading invoice');
-  }
-});
-
-/**
- * GET /legacy-view/:tokenOrId/pdf
- * Legacy PDF generator (V1)
- */
-router.get('/legacy-view/:tokenOrId/pdf', async (req, res) => {
-  try {
-    const { tokenOrId } = req.params;
-    const client = await pool.connect();
-    try {
-      const invoice = await invoiceRepo.getPublicInvoice(client, tokenOrId);
-      if (!invoice) return res.status(404).json({ success: false, error: 'Invoice not found' });
-      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
-      const html = invoiceHtmlGenerator.generateInvoiceHtml(policyInvoice, policyInvoice.template, { isPdf: true });
-      const pdfResult = await externalPdfService.generatePdf(html);
-      res.json(pdfResult);
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 /**
  * GET /view/:tokenOrId
@@ -1154,179 +982,15 @@ router.post('/view2/:tokenOrId/signature', async (req, res) => {
   }
 });
 
-/**
- * GET /view-v3/:tokenOrId
- * Long-form public or private view of an invoice (V3)
- */
-router.get('/view-v3/:tokenOrId', async (req, res) => {
-  try {
-    await renderV3Invoice(req, res);
-  } catch (err) {
-    console.error('Error viewing invoice V3:', err);
-    res.status(500).send('Error loading invoice');
-  }
-});
-
-router.get('/view-v3-preview/:tokenOrId', async (req, res) => {
-  try {
-    req.query.preview = 'local';
-    await renderV3Invoice(req, res);
-  } catch (err) {
-    console.error('Error viewing local invoice V3 preview:', err);
-    res.status(500).send('Error loading local invoice preview');
-  }
-});
-
-/**
- * GET /view-v3/:tokenOrId/pdf
- * Generate PDF for an invoice using V3 template
- */
-router.get('/view-v3/:tokenOrId/pdf', async (req, res) => {
-  try {
-    const html = await renderV3Invoice(req, res, { forPdf: true });
-    if (!html) {
-      return;
-    }
-    const pdfResult = await externalPdfService.generatePdf(html);
-
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-store');
-    res.json(pdfResult);
-  } catch (err) {
-    console.error('Error generating PDF for V3:', err);
-    res.status(500).json({ success: false, error: 'Error generating PDF: ' + err.message });
-  }
-});
-
-router.get('/view-v3-preview/:tokenOrId/pdf', async (req, res) => {
-  try {
-    req.query.preview = 'local';
-    const html = await renderV3Invoice(req, res, { forPdf: true });
-    if (!html) {
-      return;
-    }
-    const pdfResult = await externalPdfService.generatePdf(html);
-
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-store');
-    res.json(pdfResult);
-  } catch (err) {
-    console.error('Error generating local PDF for V3:', err);
-    res.status(500).json({ success: false, error: 'Error generating local PDF: ' + err.message });
-  }
-});
-
-/**
- * POST /view-v3/:tokenOrId/signature
- * Save customer signature for an invoice (v3 route)
- */
-router.post('/view-v3/:tokenOrId/signature', async (req, res) => {
-  try {
-    const { tokenOrId } = req.params;
-    const { signature } = req.body;
-
-    if (!signature) {
-      return res.status(400).json({ success: false, error: 'Signature data is required' });
-    }
-
-    const client = await pool.connect();
-    try {
-      const bubbleId = await invoiceRepo.resolveInvoiceBubbleId(client, tokenOrId);
-      if (!bubbleId) {
-        return res.status(404).json({ success: false, error: 'Invoice not found' });
-      }
-
-      await client.query(
-        `UPDATE invoice
-         SET customer_signature = $1,
-             signature_date = NOW(),
-             updated_at = NOW()
-         WHERE bubble_id = $2`,
-        [signature, bubbleId]
-      );
-
-      res.json({ success: true, message: 'Signature saved successfully' });
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    console.error('[SIGNATURE-V3] Critical error:', err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 router.post('/view/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 router.post('/view2/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
-router.post('/view-v3/:tokenOrId/solar-estimate', handlePublicSolarEstimate);
 
 router.post('/view/:tokenOrId/site-visit', handleAddSiteVisitItem);
 router.post('/view2/:tokenOrId/site-visit', handleAddSiteVisitItem);
 router.post('/api/invoice-view-activity', handleViewerActivity);
 router.post('/view/:tokenOrId/activity', handleViewerActivity);
 router.post('/view2/:tokenOrId/activity', handleViewerActivity);
-router.post('/view-v3/:tokenOrId/activity', handleViewerActivity);
 router.get('/view/:tokenOrId/tiger-neo-3-proposal', openTigerNeo3Proposal);
 router.get('/view2/:tokenOrId/tiger-neo-3-proposal', openTigerNeo3Proposal);
-router.get('/view-v3/:tokenOrId/tiger-neo-3-proposal', openTigerNeo3Proposal);
-
-/**
- * GET /proposal/:shareToken
- * Public view of a proposal
- */
-router.get('/proposal/:shareToken', async (req, res) => {
-  try {
-    const { shareToken } = req.params;
-    const client = await pool.connect();
-    try {
-      const invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
-
-      if (invoice) {
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
-        // Use generateProposalHtml to inject data into the portable-proposal template
-        const html = invoiceHtmlGenerator.generateProposalHtml(policyInvoice);
-        res.send(html);
-      } else {
-        res.status(404).send('Proposal not found');
-      }
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    console.error('Error viewing proposal:', err);
-    res.status(500).send('Error loading proposal');
-  }
-});
-
-/**
- * GET /proposal/:shareToken/pdf
- */
-router.get('/proposal/:shareToken/pdf', async (req, res) => {
-  try {
-    const { shareToken } = req.params;
-    const client = await pool.connect();
-    try {
-      const invoice = await invoiceRepo.getInvoiceByShareToken(client, shareToken);
-
-      if (!invoice) {
-        return res.status(404).json({ success: false, error: 'Proposal not found' });
-      }
-
-      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
-      // If generateProposalHtml is missing, fallback to generateInvoiceHtml
-      const html = invoiceHtmlGenerator.generateInvoiceHtml(policyInvoice, policyInvoice.template, { isPdf: true });
-      // This returns { success: true, downloadUrl: ... }, NOT a buffer
-      const pdfResult = await externalPdfService.generatePdf(html);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-store');
-      res.json(pdfResult);
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    console.error('Error generating Proposal PDF:', err);
-    res.status(500).json({ success: false, error: 'Error generating PDF: ' + err.message });
-  }
-});
 
 module.exports = router;
