@@ -1446,6 +1446,9 @@ function renderStyles() {
         column-count: 2;
         column-gap: 10px;
         word-break: break-word;
+        /* Terms are plain text with meaningful line breaks — section headings sit on their own
+           line, so collapsing whitespace would bury them mid-paragraph. */
+        white-space: pre-wrap;
       }
       @media (max-width: 1100px) {
         .a4-terms { column-count: 1; }
@@ -1567,7 +1570,18 @@ function renderStyles() {
           line-height: 1.5;
           text-align: justify;
           word-break: break-word;
+          white-space: pre-wrap;
         }
+        /* The T&C block is unbounded legal text, so the sign-off sheet must be allowed to grow
+           onto a following page. Clipping it to 297mm silently cut off the signature block —
+           and the tail of the terms — once the stored terms grew past roughly one sheet. */
+        .a4-page-sign,
+        .a4-page-sign .a4-page-inner {
+          height: auto;
+          max-height: none;
+          overflow: visible;
+        }
+        .a4-sig-section { break-inside: avoid; page-break-inside: avoid; }
         .a4-sig-box { min-height: 38mm; }
         .a4-cert { margin-top: 10px; }
         .a4-cert-card { padding: 6px 10px; }

@@ -4,6 +4,32 @@ const { parseOptionalCurrency, normalizeSolarEstimateFields } = require('./solar
 const { buildInvoiceInteractiveSupport } = require('./invoiceHtmlGeneratorV2InteractiveSupport');
 const { getPaymentTermsSchedule } = require('./invoicePaymentTermsPolicy');
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
+ * The stored terms text is plain text with meaningful line breaks (section headings sit on their
+ * own line). Normalise the breaks and let CSS `white-space: pre-wrap` preserve them, so headings
+ * such as "Warranty Repairs and Unauthorised Works" stay visible instead of collapsing into one
+ * run-on paragraph. Legacy rows may contain <br> tags, so those become real line breaks first.
+ */
+function formatTermsText(terms) {
+    return escapeHtml(
+        String(terms || '')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/\r\n?/g, '\n')
+            .replace(/[ \t]+$/gm, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim()
+    );
+}
+
 function buildTigerNeoProposalUrl(invoice) {
     const invoiceUid = String(invoice.share_token || invoice.bubble_id || invoice.id || '').trim();
     if (!invoiceUid) return '';
@@ -1060,7 +1086,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
       <div class="sw anim">
         <div class="sec-label">Terms &amp; Conditions</div>
         <div class="card">
-          <p style="font-size:9.5px;color:var(--g500);line-height:1.55">${terms.replace(/<br\s*\/?>/gi, ' ').replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim()}</p>
+          <p style="font-size:9.5px;color:var(--g500);line-height:1.55;white-space:pre-wrap">${formatTermsText(terms)}</p>
         </div>
       </div>
       ` : ''}

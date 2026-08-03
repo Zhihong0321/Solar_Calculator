@@ -11,6 +11,7 @@ const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const { generateInvoiceHtmlA4 } = require('../services/invoiceHtmlGeneratorA4');
 const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
 const { applyPaymentTermsPolicyToInvoice } = require('../services/invoicePaymentTermsPolicy');
+const { applyWarrantyTermsPolicyToInvoice } = require('../services/invoiceWarrantyTermsPolicy');
 const externalPdfService = require('../services/externalPdfService');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
@@ -739,6 +740,16 @@ function getPaymentTermsPolicyOptions(req) {
   };
 }
 
+/**
+ * Single entry point for every terms-and-conditions policy applied at render time, so a new
+ * policy only has to be added here instead of at each generator call site.
+ */
+function applyInvoiceTermsPolicies(invoice, req) {
+  return applyWarrantyTermsPolicyToInvoice(
+    applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req))
+  );
+}
+
 function appendPaymentTermsPreviewQuery(url, req) {
   if (!shouldPreviewAfterEffectivePaymentTerms(req)) {
     return url;
@@ -763,7 +774,7 @@ router.get('/view/:tokenOrId', async (req, res) => {
 
       if (invoice) {
         const sedaReadyInvoice = await ensureSedaRegistrationForQuotationView(client, invoice, authenticatedViewer?.identity);
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(sedaReadyInvoice, getPaymentTermsPolicyOptions(req));
+        const policyInvoice = applyInvoiceTermsPolicies(sedaReadyInvoice, req);
         if (layout === 'a4' || layout === 'a4-preview' || layout === 'print') {
           const html = generateInvoiceHtmlA4(policyInvoice, policyInvoice.template, {
             layout,
@@ -810,7 +821,7 @@ router.get('/view2/:tokenOrId', async (req, res) => {
 
       if (invoice) {
         const sedaReadyInvoice = await ensureSedaRegistrationForQuotationView(client, invoice, authenticatedViewer?.identity);
-        const policyInvoice = applyPaymentTermsPolicyToInvoice(sedaReadyInvoice, getPaymentTermsPolicyOptions(req));
+        const policyInvoice = applyInvoiceTermsPolicies(sedaReadyInvoice, req);
         const initialSolarEstimateData = await buildInitialPublicSolarEstimate(policyInvoice);
         const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, {
           layout,
@@ -845,7 +856,7 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Invoice not found' });
       }
 
-      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
+      const policyInvoice = applyInvoiceTermsPolicies(invoice, req);
       const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, { forPdf: true });
       // This returns { success: true, downloadUrl: ... }, NOT a buffer
       const pdfResult = await externalPdfService.generatePdf(html);
@@ -877,7 +888,7 @@ router.get('/view2/:tokenOrId/pdf', async (req, res) => {
         return res.status(404).json({ success: false, error: 'Invoice not found' });
       }
 
-      const policyInvoice = applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req));
+      const policyInvoice = applyInvoiceTermsPolicies(invoice, req);
       const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, { isPdf: true });
       // This returns { success: true, downloadUrl: ... }, NOT a buffer
       const pdfResult = await externalPdfService.generatePdf(html);
