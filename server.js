@@ -350,6 +350,26 @@ app.get('/agent/home', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'agent_dashboard.html'));
 });
 
+// Useful Tools directory proxy (hosted sales-app list; upstream sends no CORS headers)
+const USEFUL_TOOLS_DIRECTORY_URL = 'https://ee-html.up.railway.app/apps.json?tag=sales-app';
+app.get('/api/useful-tools', requireAuth, async (req, res) => {
+  try {
+    const upstream = await fetch(USEFUL_TOOLS_DIRECTORY_URL, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!upstream.ok) {
+      return res.status(502).json({ error: 'Directory unavailable', status: upstream.status });
+    }
+    const data = await upstream.json();
+    res.set('Cache-Control', 'public, max-age=120');
+    res.json({ count: data.count || 0, apps: Array.isArray(data.apps) ? data.apps : [] });
+  } catch (error) {
+    console.error('[useful-tools] directory fetch failed:', error.message);
+    res.status(502).json({ error: 'Directory unavailable' });
+  }
+});
+
 // SEDA Management Route
 app.get('/my-seda', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'my_seda.html'));
