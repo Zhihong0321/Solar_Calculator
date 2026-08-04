@@ -9,6 +9,7 @@ const sedaService = require('../services/sedaService');
 const { insertInvoiceItem } = require('../services/invoiceItemSupport');
 const invoiceHtmlGeneratorV2 = require('../services/invoiceHtmlGeneratorV2');
 const { generateInvoiceHtmlA4 } = require('../services/invoiceHtmlGeneratorA4');
+const { normalizeV3Locale } = require('../services/invoiceV3Content');
 const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
 const { applyPaymentTermsPolicyToInvoice } = require('../services/invoicePaymentTermsPolicy');
 const { applyWarrantyTermsPolicyToInvoice } = require('../services/invoiceWarrantyTermsPolicy');
