@@ -31,12 +31,23 @@ const PRODUCTION_TERMS_TEXT = [
   '5% Downpayment upon Signing Up: Customers are required to make a 5% downpayment.'
 ].join('\n');
 
-function testEffectiveDateBoundary() {
-  assert.equal(shouldApplyWarrantyRepairsClause({ invoice_date: '2026-07-31' }), false);
-  assert.equal(shouldApplyWarrantyRepairsClause({ invoice_date: '2026-08-01' }), true);
-  assert.equal(shouldApplyWarrantyRepairsClause({ invoice_date: '2026-09-15' }), true);
-  // No usable date means no clause — never guess at a document's age.
-  assert.equal(shouldApplyWarrantyRepairsClause({}), false);
+const SIGNED = { customer_signature: '//cdn.example/sig.png', signature_date: '2026-05-02' };
+
+function testUnsignedQuotationsAlwaysCarryTheClause() {
+  // The whole live pipeline predates the effective date; those offers still go out today.
+  assert.equal(shouldApplyWarrantyRepairsClause({ invoice_date: '2026-04-01' }), true);
+  assert.equal(shouldApplyWarrantyRepairsClause({ invoice_date: '2026-07-31' }), true);
+  assert.equal(shouldApplyWarrantyRepairsClause({}), true);
+  // An empty signature column must not count as signed.
+  assert.equal(shouldApplyWarrantyRepairsClause({ invoice_date: '2026-04-01', customer_signature: '   ' }), true);
+}
+
+function testSignedDocumentsStayFrozenAtTheirEffectiveDate() {
+  assert.equal(shouldApplyWarrantyRepairsClause({ ...SIGNED, invoice_date: '2026-07-31' }), false);
+  assert.equal(shouldApplyWarrantyRepairsClause({ ...SIGNED, invoice_date: '2026-08-01' }), true);
+  assert.equal(shouldApplyWarrantyRepairsClause({ ...SIGNED, invoice_date: '2026-09-15' }), true);
+  // Signature date alone is enough to treat the document as signed.
+  assert.equal(shouldApplyWarrantyRepairsClause({ signature_date: '2026-05-02', invoice_date: '2026-04-01' }), false);
 }
 
 function testClauseLandsInsideWarrantySection() {
@@ -65,9 +76,9 @@ function testClauseLandsInsideWarrantySection() {
   assert.match(text, /5% Downpayment upon Signing Up/);
 }
 
-function testPreEffectiveDocumentsAreUntouched() {
+function testPreEffectiveSignedDocumentsAreUntouched() {
   const template = applyWarrantyTermsPolicy(
-    { invoice_date: '2026-07-31' },
+    { ...SIGNED, invoice_date: '2026-07-31' },
     { terms_and_conditions: PRODUCTION_TERMS_TEXT }
   );
 
@@ -109,9 +120,10 @@ function testEmptyTemplateStillShowsClauseForNewDocuments() {
   assert.match(template.terms_and_conditions, /Warranty Repairs and Unauthorised Works/);
 }
 
-testEffectiveDateBoundary();
+testUnsignedQuotationsAlwaysCarryTheClause();
+testSignedDocumentsStayFrozenAtTheirEffectiveDate();
 testClauseLandsInsideWarrantySection();
-testPreEffectiveDocumentsAreUntouched();
+testPreEffectiveSignedDocumentsAreUntouched();
 testInsertionIsIdempotent();
 testDatabaseRowThatAlreadyCarriesTheClauseIsLeftAlone();
 testMissingWarrantySectionFallsBackToAppend();

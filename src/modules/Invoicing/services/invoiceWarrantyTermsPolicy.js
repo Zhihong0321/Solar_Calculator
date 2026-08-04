@@ -3,8 +3,9 @@
  * Domain: Invoicing Warranty Terms Policy
  * Primary Responsibility: Insert the "Warranty Repairs and Unauthorised Works" clause into the
  *   WARRANTY POLICY section of invoice_template.terms_and_conditions at render time.
- * Stability: Mirrors invoicePaymentTermsPolicy.js on purpose. The stored DB copy is never mutated,
- *   and documents dated before EFFECTIVE_DATE_KEY keep the exact wording the customer signed.
+ * Stability: Mirrors invoicePaymentTermsPolicy.js on purpose. The stored DB copy is never mutated.
+ *   Unsigned quotations always carry the clause; signed documents keep the exact wording the
+ *   customer agreed to, gated on EFFECTIVE_DATE_KEY.
  *   Insertion is idempotent, so updating the DB row later will not produce a duplicate clause.
  */
 const { getInvoicePolicyDateKey } = require('./invoicePaymentTermsPolicy');
@@ -28,7 +29,22 @@ const CLAUSE_PRESENT_PATTERNS = [
   /shall\s+not\s+be\s+claimable\s+or\s+reimbursable/i
 ];
 
+function isSignedDocument(invoice = {}) {
+  return Boolean(
+    String(invoice.customer_signature || '').trim()
+    || String(invoice.signature_date || '').trim()
+  );
+}
+
+/**
+ * An unsigned quotation is still a live offer, so it always carries the current warranty terms —
+ * otherwise the whole existing pipeline would keep going out without the clause. Once a customer
+ * has signed, the document is frozen at the wording they agreed to, and only documents dated on or
+ * after the effective date carry the clause.
+ */
 function shouldApplyWarrantyRepairsClause(invoice = {}) {
+  if (!isSignedDocument(invoice)) return true;
+
   const dateKey = getInvoicePolicyDateKey(invoice);
   return Boolean(dateKey && dateKey >= EFFECTIVE_DATE_KEY);
 }
