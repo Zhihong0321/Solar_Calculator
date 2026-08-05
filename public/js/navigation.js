@@ -250,7 +250,7 @@
             toolLabel: 'Vouchers',
             toolDescription: 'Discount management',
             icon: 'ticket',
-            visibleIf: ({ roles }) => roles.includes('kc')
+            visibleIf: ({ roles }) => roles.includes('kc') || roles.includes('voucher')
         },
         {
             pageKey: 'sales-team-management',

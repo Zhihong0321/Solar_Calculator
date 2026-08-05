@@ -974,7 +974,7 @@
           : [];
 
         // Check access level for Voucher Management
-        if (accessLevels.includes("kc")) {
+        if (accessLevels.includes("kc") || accessLevels.includes("voucher")) {
           const voucherCard = document.getElementById("voucherToolCard");
           if (voucherCard) voucherCard.classList.remove("hidden");
         }
