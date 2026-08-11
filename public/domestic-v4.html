@@ -958,6 +958,9 @@
                                     <SegmentedButton active={inputs.inverterType === 'hybrid'} onClick={() => setInputs((prev) => ({ ...prev, inverterType: 'hybrid' }))}>
                                         Hybrid
                                     </SegmentedButton>
+                                    <SegmentedButton active={inputs.inverterType === 'micro'} onClick={() => setInputs((prev) => ({ ...prev, inverterType: 'micro' }))}>
+                                        Micro
+                                    </SegmentedButton>
                                 </div>
                             </div>
 
@@ -2997,7 +3000,9 @@
             const billReady = Boolean(billBreakdown);
             const roiReady = Boolean(solarResult);
             const phaseLabel = Number(inputs.systemPhase) === 1 ? '1-Phase' : '3-Phase';
-            const inverterLabel = inputs.inverterType === 'hybrid' ? 'Hybrid' : 'String';
+            const inverterLabel = inputs.inverterType === 'hybrid'
+                ? 'Hybrid'
+                : (inputs.inverterType === 'micro' ? 'Micro' : 'String');
             const cycles = solarResult ? buildBillCycleMetrics(solarResult) : null;
             const activeCycle = cycles ? (cycles[selectedBillCycleMode] || cycles.fullMonth) : null;
             const annualRoi = solarResult && toNumber(solarResult.finalSystemCost) > 0

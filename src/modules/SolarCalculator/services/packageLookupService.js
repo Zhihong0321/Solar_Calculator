@@ -6,30 +6,42 @@ const getResidentialPackagePhasePrefix = (systemPhase) => {
 };
 
 const RESIDENTIAL_PACKAGE_TEXT_SQL = `LOWER(CONCAT_WS(' ', COALESCE(p.package_name, ''), COALESCE(p.invoice_desc, '')))\n`;
+// Micro packages are identified by name only ([1P]/[3P]MICRO SAJ ...) because string/hybrid
+// package descriptions can legitimately mention a micro inverter as an add-on component.
+const RESIDENTIAL_PACKAGE_NAME_SQL = `LOWER(COALESCE(p.package_name, ''))`;
 
-const normalizeResidentialInverterType = (value = 'string') => (
-  String(value || '').trim().toLowerCase() === 'hybrid' ? 'hybrid' : 'string'
-);
+const normalizeResidentialInverterType = (value = 'string') => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'hybrid') return 'hybrid';
+  if (normalized === 'micro') return 'micro';
+  return 'string';
+};
 
-const buildResidentialPackageInverterFilterSql = (paramIndex) => `
+const buildResidentialPackageInverterFilterSql = (paramIndex) => {
+  const packageText = RESIDENTIAL_PACKAGE_TEXT_SQL.trim();
+  const packageName = RESIDENTIAL_PACKAGE_NAME_SQL.trim();
+  const hybridMatch = `(${packageText} LIKE '%hybrid%' OR ${packageText} LIKE '%hybird%')`;
+  const microMatch = `(${packageName} LIKE '%micro%')`;
+
+  return `
   AND (
     $${paramIndex}::text IS NULL
     OR (
       $${paramIndex}::text = 'hybrid'
-      AND (
-        ${RESIDENTIAL_PACKAGE_TEXT_SQL.trim()} LIKE '%hybrid%'
-        OR ${RESIDENTIAL_PACKAGE_TEXT_SQL.trim()} LIKE '%hybird%'
-      )
+      AND ${hybridMatch}
+    )
+    OR (
+      $${paramIndex}::text = 'micro'
+      AND ${microMatch}
     )
     OR (
       $${paramIndex}::text = 'string'
-      AND NOT (
-        ${RESIDENTIAL_PACKAGE_TEXT_SQL.trim()} LIKE '%hybrid%'
-        OR ${RESIDENTIAL_PACKAGE_TEXT_SQL.trim()} LIKE '%hybird%'
-      )
+      AND NOT ${hybridMatch}
+      AND NOT ${microMatch}
     )
   )
 `;
+};
 
 const resolveLookupPackageType = (requestedType = '') => {
   const normalizedType = String(requestedType || '').trim().toLowerCase();

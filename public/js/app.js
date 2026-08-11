@@ -846,7 +846,13 @@ function normalizeResidentialInverterType(value = 'string') {
 
 
 
-    return String(value || '').trim().toLowerCase() === 'hybrid' ? 'hybrid' : 'string';
+    const normalized = String(value || '').trim().toLowerCase();
+
+    if (normalized === 'hybrid') return 'hybrid';
+
+    if (normalized === 'micro') return 'micro';
+
+    return 'string';
 
 
 
@@ -976,6 +982,18 @@ function isHybridResidentialPackage(pkg = {}) {
 
     return /(hybrid|hybird)/i.test(buildResidentialPackageText(pkg));
 
+}
+
+
+
+// Micro packages are identified by name only ([1P]/[3P]MICRO SAJ ...) because string/hybrid
+
+// package descriptions can legitimately mention a micro inverter as an add-on component.
+
+function isMicroResidentialPackage(pkg = {}) {
+
+    return /micro/i.test(String(pkg?.package_name || ''));
+
 
 
 
@@ -1070,7 +1088,13 @@ function matchesResidentialInverterType(pkg, inverterType = 'string') {
 
 
 
-    return normalizedType === 'hybrid' ? hybridPackage : !hybridPackage;
+    const microPackage = isMicroResidentialPackage(pkg);
+
+    if (normalizedType === 'hybrid') return hybridPackage;
+
+    if (normalizedType === 'micro') return microPackage;
+
+    return !hybridPackage && !microPackage;
 
 
 
