@@ -237,6 +237,20 @@
             icon: 'cloud'
         },
         {
+            pageKey: 'qr-generator',
+            path: '/qr-generator',
+            title: 'WhatsApp QR',
+            rootTab: TOOLS_ROOT_KEY,
+            routeType: 'tool',
+            stack: 'qr-generator',
+            showBack: true,
+            parentPage: 'agent-home',
+            toolGroup: 'Workspace',
+            toolLabel: 'WhatsApp QR',
+            toolDescription: 'wa.me QR code generator',
+            icon: 'qr'
+        },
+        {
             pageKey: 'voucher-management',
             path: '/voucher-management',
             title: 'Voucher Management',
@@ -449,6 +463,7 @@
         team: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
         review: '<path d="m9 11 3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>',
         kpi: '<path d="M4 19h16"></path><path d="M6 15V9"></path><path d="M12 15V5"></path><path d="M18 15v-3"></path>',
+        qr: '<rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><path d="M14 14h3v3h-3z"></path><path d="M20 14h1"></path><path d="M21 18v3h-3"></path>',
         external: '<path d="M14 3h7v7"></path><path d="M10 14 21 3"></path><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"></path>',
         plus: '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
         compose: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>',

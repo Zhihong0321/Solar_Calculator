@@ -394,6 +394,11 @@ app.get('/shared-email-access', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'shared_email_access.html'));
 });
 
+// WhatsApp QR Code Generator Route
+app.get('/qr-generator', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'qr_generator.html'));
+});
+
 // Voucher Management Route
 app.get('/voucher-management', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'voucher_management.html'));
