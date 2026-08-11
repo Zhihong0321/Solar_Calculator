@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <title>WhatsApp QR Generator | ETERNALGY OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --brand-blue: #3b82f6;
+      --slate-200: #e2e8f0;
+      --slate-900: #0f172a;
+    }
+
+    * {
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
+      color: var(--slate-900);
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid var(--slate-200);
+      border-radius: 1rem;
+    }
+
+    /* Form/preview split. Plain CSS so the page needs no new Tailwind utilities. */
+    .qr-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 1024px) {
+      .qr-layout {
+        grid-template-columns: 3fr 2fr;
+      }
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 0.4rem;
+    }
+
+    .field-input {
+      width: 100%;
+      border: 1px solid var(--slate-200);
+      border-radius: 0.75rem;
+      padding: 0.7rem 0.9rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--slate-900);
+      background: #fff;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .field-input:focus {
+      border-color: var(--brand-blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .field-input.is-invalid {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+    }
+
+    .phone-group {
+      display: flex;
+      align-items: stretch;
+    }
+
+    .phone-prefix {
+      display: flex;
+      align-items: center;
+      padding: 0 0.9rem;
+      border: 1px solid var(--slate-200);
+      border-right: none;
+      border-radius: 0.75rem 0 0 0.75rem;
+      background: #f8fafc;
+      color: #64748b;
+      font-weight: 700;
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+
+    .phone-group .field-input {
+      border-radius: 0 0.75rem 0.75rem 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.1rem;
+      border-radius: 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+
+    .btn-primary {
+      background: var(--slate-900);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #1e293b;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: #334155;
+      border-color: var(--slate-200);
+    }
+
+    .btn-secondary:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .btn-whatsapp {
+      background: #25d366;
+      color: #fff;
+    }
+
+    .btn-whatsapp:hover {
+      background: #1eb457;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #qrCanvas {
+      width: 100%;
+      max-width: 260px;
+      height: auto;
+      image-rendering: pixelated;
+      border-radius: 0.5rem;
+    }
+
+    .link-preview {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.72rem;
+      line-height: 1.5;
+      word-break: break-all;
+      color: #334155;
+      background: #f8fafc;
+      border: 1px solid var(--slate-200);
+      border-radius: 0.75rem;
+      padding: 0.7rem 0.85rem;
+    }
+
+    .saved-row {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      padding: 0.85rem 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .saved-row:last-child {
+      border-bottom: none;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 1.5rem;
+      transform: translate(-50%, 150%);
+      background: var(--slate-900);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.7rem 1.2rem;
+      border-radius: 999px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, .3);
+      transition: transform .25s ease;
+      z-index: 60;
+    }
+
+    .toast.show {
+      transform: translate(-50%, 0);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-5 md:px-8 py-4 flex items-center gap-4">
+      <a href="/agent/home" class="text-slate-400 hover:text-slate-900 transition" aria-label="Back to dashboard">
+        <i class="fa-solid fa-arrow-left text-lg"></i>
+      </a>
+      <div>
+        <h1 class="text-lg md:text-xl font-extrabold tracking-tight text-slate-900">WhatsApp QR Generator</h1>
+        <p class="text-[11px] text-slate-400 font-semibold">Create a scannable wa.me link with a pre-filled message</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-5 md:px-8 py-8 pb-32 space-y-8">
+    <div class="qr-layout">
+      <!-- Form -->
+      <section class="panel p-6 space-y-5">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">QR Details</h2>
+
+        <div>
+          <label class="field-label" for="qrName">QR Code Name</label>
+          <input id="qrName" class="field-input" type="text" maxlength="60" placeholder="e.g. Roadshow Booth A"
+            autocomplete="off">
+          <p class="text-[11px] text-slate-400 mt-1.5 font-medium">Shown under the QR code and used as the file name.</p>
+        </div>
+
+        <div>
+          <label class="field-label" for="qrPhone">Mobile Number (Malaysia)</label>
+          <div class="phone-group">
+            <span class="phone-prefix">+6</span>
+            <input id="qrPhone" class="field-input" type="tel" inputmode="numeric" placeholder="012-345 6789"
+              autocomplete="off">
+          </div>
+          <p id="phoneHint" class="text-[11px] text-slate-400 mt-1.5 font-medium">
+            Enter your local number starting with 0. Country code <span class="font-bold">6</span> is added
+            automatically.
+          </p>
+        </div>
+
+        <div>
+          <label class="field-label" for="qrMessage">Pre-filled Message</label>
+          <textarea id="qrMessage" class="field-input" rows="4" maxlength="900"
+            placeholder="Hi, I saw your solar promotion and would like a free quotation."></textarea>
+          <p class="text-[11px] text-slate-400 mt-1.5 font-medium">
+            <span id="msgCount">0</span>/900 characters. Leave empty to open a blank chat.
+          </p>
+        </div>
+
+        <div>
+          <span class="field-label">Generated Link</span>
+          <div id="linkPreview" class="link-preview">https://wa.me/…</div>
+        </div>
+
+        <div class="flex flex-wrap gap-2.5 pt-1">
+          <button id="generateBtn" class="btn btn-primary">
+            <i class="fa-solid fa-qrcode"></i> Generate QR
+          </button>
+          <button id="saveBtn" class="btn btn-secondary" disabled>
+            <i class="fa-solid fa-bookmark"></i> Save
+          </button>
+          <button id="resetBtn" class="btn btn-secondary">
+            <i class="fa-solid fa-rotate-left"></i> Clear
+          </button>
+        </div>
+
+        <p id="formError" class="text-xs font-semibold text-red-600 hidden"></p>
+      </section>
+
+      <!-- Preview -->
+      <section class="panel p-6 flex flex-col items-center text-center">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest self-start mb-5">Preview</h2>
+
+        <div id="qrEmpty" class="flex-1 flex flex-col items-center justify-center py-10 text-slate-300">
+          <i class="fa-solid fa-qrcode text-5xl mb-3"></i>
+          <p class="text-xs font-semibold text-slate-400">Your QR code will appear here</p>
+        </div>
+
+        <div id="qrResult" class="hidden w-full flex flex-col items-center">
+          <canvas id="qrCanvas"></canvas>
+          <p id="qrCaption" class="mt-3 text-sm font-bold text-slate-900 break-words w-full"></p>
+          <p id="qrNumberCaption" class="text-[11px] text-slate-400 font-semibold mt-0.5"></p>
+
+          <div class="flex flex-col gap-2 w-full mt-5">
+            <button id="downloadBtn" class="btn btn-primary w-full">
+              <i class="fa-solid fa-download"></i> Download PNG
+            </button>
+            <button id="copyBtn" class="btn btn-secondary w-full">
+              <i class="fa-solid fa-link"></i> Copy Link
+            </button>
+            <a id="testBtn" class="btn btn-whatsapp w-full" target="_blank" rel="noopener noreferrer">
+              <i class="fa-brands fa-whatsapp"></i> Test Link
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Saved -->
+    <section class="panel p-6">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Saved QR Codes</h2>
+        <span id="savedCount" class="text-[11px] font-bold text-slate-400">0</span>
+      </div>
+      <p class="text-[11px] text-slate-400 font-medium mb-3">Stored on this device only.</p>
+      <div id="savedList"></div>
+      <p id="savedEmpty" class="text-xs text-slate-400 font-medium py-6 text-center">No saved QR codes yet.</p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/js/vendor/qrcode-generator.js"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const STORAGE_KEY = 'atap_wa_qr_codes_v1';
+      const COUNTRY_CODE = '6';
+      const QUIET_ZONE = 4;       // modules of white border required by the QR spec
+      const PREVIEW_SCALE = 8;    // px per module on screen
+      const EXPORT_SCALE = 20;    // px per module in the downloaded PNG
+
+      const el = (id) => document.getElementById(id);
+      const nameInput = el('qrName');
+      const phoneInput = el('qrPhone');
+      const messageInput = el('qrMessage');
+      const linkPreview = el('linkPreview');
+      const formError = el('formError');
+      const phoneHint = el('phoneHint');
+      const canvas = el('qrCanvas');
+
+      let current = null; // { name, msisdn, message, url, qr }
+
+      /* ---------- phone + link helpers ---------- */
+
+      // Malaysian input is a local number starting with 0; wa.me needs 60...
+      function toMsisdn(raw) {
+        const digits = String(raw || '').replace(/\D/g, '');
+        if (!digits) return '';
+        if (digits.startsWith('60')) return digits;          // already international
+        if (digits.startsWith('0')) return COUNTRY_CODE + digits;  // 0123456789 -> 60123456789
+        if (digits.startsWith('1')) return COUNTRY_CODE + '0' + digits; // 123456789 -> 60123456789
+        return COUNTRY_CODE + digits;
+      }
+
+      function buildUrl(msisdn, message) {
+        if (!msisdn) return '';
+        const base = 'https://wa.me/' + msisdn;
+        const text = String(message || '').trim();
+        return text ? base + '?text=' + encodeURIComponent(text) : base;
+      }
+
+      function formatMsisdn(msisdn) {
+        return msisdn ? '+' + msisdn : '';
+      }
+
+      function isPlausibleNumber(msisdn) {
+        return /^\d{10,15}$/.test(msisdn);
+      }
+
+      function isMalaysianMobile(msisdn) {
+        return /^601\d{7,9}$/.test(msisdn);
+      }
+
+      /* ---------- UI helpers ---------- */
+
+      function showError(message) {
+        formError.textContent = message;
+        formError.classList.remove('hidden');
+      }
+
+      function clearError() {
+        formError.textContent = '';
+        formError.classList.add('hidden');
+        phoneInput.classList.remove('is-invalid');
+        nameInput.classList.remove('is-invalid');
+      }
+
+      let toastTimer = null;
+      function toast(message) {
+        const node = el('toast');
+        node.textContent = message;
+        node.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => node.classList.remove('show'), 2200);
+      }
+
+      function safeFileName(name) {
+        const slug = String(name || '').trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+        return (slug || 'whatsapp-qr') + '.png';
+      }
+
+      function refreshPreview() {
+        const msisdn = toMsisdn(phoneInput.value);
+        const url = buildUrl(msisdn, messageInput.value);
+        linkPreview.textContent = url || 'https://wa.me/…';
+        el('msgCount').textContent = messageInput.value.length;
+
+        if (!msisdn) {
+          phoneHint.innerHTML = 'Enter your local number starting with 0. Country code <span class="font-bold">6</span> is added automatically.';
+          phoneHint.className = 'text-[11px] text-slate-400 mt-1.5 font-medium';
+        } else if (isMalaysianMobile(msisdn)) {
+          phoneHint.textContent = 'Will dial ' + formatMsisdn(msisdn);
+          phoneHint.className = 'text-[11px] text-emerald-600 mt-1.5 font-semibold';
+        } else if (isPlausibleNumber(msisdn)) {
+          phoneHint.textContent = formatMsisdn(msisdn) + ' — not a typical Malaysian mobile. Double-check before sharing.';
+          phoneHint.className = 'text-[11px] text-amber-600 mt-1.5 font-semibold';
+        } else {
+          phoneHint.textContent = 'Number looks too short.';
+          phoneHint.className = 'text-[11px] text-red-500 mt-1.5 font-semibold';
+        }
+      }
+
+      /* ---------- QR rendering ---------- */
+
+      function encode(text) {
+        const qr = qrcode(0, 'M'); // 0 = auto-pick the smallest version that fits
+        qr.addData(text);
+        qr.make();
+        return qr;
+      }
+
+      function draw(target, qr, scale, label) {
+        const modules = qr.getModuleCount();
+        const side = (modules + QUIET_ZONE * 2) * scale;
+        const labelHeight = label ? Math.round(scale * 4.5) : 0;
+
+        target.width = side;
+        target.height = side + labelHeight;
+
+        const ctx = target.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, target.width, target.height);
+
+        ctx.fillStyle = '#0f172a';
+        for (let row = 0; row < modules; row++) {
+          for (let col = 0; col < modules; col++) {
+            if (qr.isDark(row, col)) {
+              ctx.fillRect((col + QUIET_ZONE) * scale, (row + QUIET_ZONE) * scale, scale, scale);
+            }
+          }
+        }
+
+        if (label) {
+          const fontSize = Math.round(scale * 1.8);
+          ctx.fillStyle = '#0f172a';
+          ctx.font = '700 ' + fontSize + 'px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(fitText(ctx, label, side - scale * 2), side / 2, side + labelHeight / 2 - scale * 0.6);
+        }
+      }
+
+      function fitText(ctx, text, maxWidth) {
+        if (ctx.measureText(text).width <= maxWidth) return text;
+        let cut = text;
+        while (cut.length > 1 && ctx.measureText(cut + '…').width > maxWidth) {
+          cut = cut.slice(0, -1);
+        }
+        return cut + '…';
+      }
+
+      /* ---------- actions ---------- */
+
+      function generate() {
+        clearError();
+
+        const name = nameInput.value.trim();
+        const msisdn = toMsisdn(phoneInput.value);
+        const message = messageInput.value.trim();
+
+        if (!name) {
+          nameInput.classList.add('is-invalid');
+          showError('Give this QR code a name.');
+          nameInput.focus();
+          return;
+        }
+        if (!isPlausibleNumber(msisdn)) {
+          phoneInput.classList.add('is-invalid');
+          showError('Enter a valid mobile number, e.g. 012-345 6789.');
+          phoneInput.focus();
+          return;
+        }
+
+        const url = buildUrl(msisdn, message);
+
+        let qr;
+        try {
+          qr = encode(url);
+        } catch (err) {
+          console.error('QR encode failed:', err);
+          showError('That message is too long to fit in a QR code. Shorten it and try again.');
+          return;
+        }
+
+        current = { name, msisdn, message, url, qr };
+
+        draw(canvas, qr, PREVIEW_SCALE, '');
+        el('qrCaption').textContent = name;
+        el('qrNumberCaption').textContent = formatMsisdn(msisdn);
+        el('testBtn').href = url;
+        el('qrEmpty').classList.add('hidden');
+        el('qrResult').classList.remove('hidden');
+        el('saveBtn').disabled = false;
+      }
+
+      function download() {
+        if (!current) return;
+        const exportCanvas = document.createElement('canvas');
+        draw(exportCanvas, current.qr, EXPORT_SCALE, current.name);
+        const link = document.createElement('a');
+        link.download = safeFileName(current.name);
+        link.href = exportCanvas.toDataURL('image/png');
+        link.click();
+      }
+
+      async function copyLink() {
+        if (!current) return;
+        try {
+          await navigator.clipboard.writeText(current.url);
+          toast('Link copied');
+        } catch (err) {
+          console.warn('Clipboard unavailable:', err);
+          window.prompt('Copy this link:', current.url);
+        }
+      }
+
+      function reset() {
+        clearError();
+        nameInput.value = '';
+        phoneInput.value = '';
+        messageInput.value = '';
+        current = null;
+        el('qrResult').classList.add('hidden');
+        el('qrEmpty').classList.remove('hidden');
+        el('saveBtn').disabled = true;
+        refreshPreview();
+        nameInput.focus();
+      }
+
+      /* ---------- saved list (device-local) ---------- */
+
+      function readSaved() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          return Array.isArray(raw) ? raw : [];
+        } catch (err) {
+          console.warn('Could not read saved QR codes:', err);
+          return [];
+        }
+      }
+
+      function writeSaved(items) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+        } catch (err) {
+          console.warn('Could not save QR codes:', err);
+          toast('Storage full — could not save');
+        }
+      }
+
+      function saveCurrent() {
+        if (!current) return;
+        const items = readSaved();
+        const entry = {
+          id: String(Date.now()),
+          name: current.name,
+          msisdn: current.msisdn,
+          message: current.message,
+          createdAt: new Date().toISOString()
+        };
+        const existing = items.findIndex((item) => item.name === entry.name);
+        if (existing >= 0) {
+          items[existing] = Object.assign({}, items[existing], entry, { id: items[existing].id });
+        } else {
+          items.unshift(entry);
+        }
+        writeSaved(items);
+        renderSaved();
+        toast(existing >= 0 ? 'Updated "' + entry.name + '"' : 'Saved "' + entry.name + '"');
+      }
+
+      function loadSaved(id) {
+        const entry = readSaved().find((item) => item.id === id);
+        if (!entry) return;
+        nameInput.value = entry.name;
+        phoneInput.value = entry.msisdn;
+        messageInput.value = entry.message || '';
+        refreshPreview();
+        generate();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function deleteSaved(id) {
+        const entry = readSaved().find((item) => item.id === id);
+        if (!entry) return;
+        if (!confirm('Delete "' + entry.name + '"?')) return;
+        writeSaved(readSaved().filter((item) => item.id !== id));
+        renderSaved();
+      }
+
+      function renderSaved() {
+        const items = readSaved();
+        const list = el('savedList');
+        el('savedCount').textContent = items.length;
+        el('savedEmpty').classList.toggle('hidden', items.length > 0);
+        list.innerHTML = '';
+
+        items.forEach((entry) => {
+          const row = document.createElement('div');
+          row.className = 'saved-row';
+
+          const info = document.createElement('div');
+          info.className = 'flex-1 min-w-0';
+          const title = document.createElement('p');
+          title.className = 'text-sm font-bold text-slate-900 truncate';
+          title.textContent = entry.name;
+          const meta = document.createElement('p');
+          meta.className = 'text-[11px] text-slate-400 font-semibold truncate';
+          meta.textContent = formatMsisdn(entry.msisdn) + (entry.message ? ' · ' + entry.message : '');
+          info.append(title, meta);
+
+          const actions = document.createElement('div');
+          actions.className = 'flex items-center gap-2 shrink-0';
+
+          const loadBtn = document.createElement('button');
+          loadBtn.className = 'btn btn-secondary';
+          loadBtn.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square"></i> Open';
+          loadBtn.addEventListener('click', () => loadSaved(entry.id));
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'btn btn-secondary text-red-600';
+          delBtn.setAttribute('aria-label', 'Delete ' + entry.name);
+          delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+          delBtn.addEventListener('click', () => deleteSaved(entry.id));
+
+          actions.append(loadBtn, delBtn);
+          row.append(info, actions);
+          list.appendChild(row);
+        });
+      }
+
+      /* ---------- wiring ---------- */
+
+      [phoneInput, messageInput].forEach((input) => input.addEventListener('input', refreshPreview));
+      el('generateBtn').addEventListener('click', generate);
+      el('downloadBtn').addEventListener('click', download);
+      el('copyBtn').addEventListener('click', copyLink);
+      el('saveBtn').addEventListener('click', saveCurrent);
+      el('resetBtn').addEventListener('click', reset);
+
+      [nameInput, phoneInput].forEach((input) => {
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            generate();
+          }
+        });
+      });
+
+      refreshPreview();
+      renderSaved();
+    })();
+  </script>
+  <script src="/js/navigation.js"></script>
+</body>
+
+</html>
