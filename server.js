@@ -259,16 +259,54 @@ app.post('/api/agent/register', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // 1. Create User first
+    // 1. Create User first. The "user" row is the record of truth for agent
+    //    identity — name, contact, MyKad, address all belong here. The agent
+    //    row below is kept only so existing linked_agent_profile joins resolve.
+    const userColumns = [
+      'bubble_id',
+      'email',
+      'access_level',
+      'linked_agent_profile',
+      'user_signed_up',
+      'profile_picture',
+      'introducer',
+      'agent_code'
+    ];
+    const userValues = [
+      user_bubble_id,
+      normalizedEmail,
+      ['pending'],
+      agent_bubble_id,
+      false,
+      profilePicUrl,
+      normalizedIntroducer,
+      normalizedAgentCode
+    ];
+
+    // Guarded the same way as agent.agent_code below: not every environment has
+    // received the identity columns on "user" yet.
+    for (const [column, value] of [
+      ['name', normalizedName],
+      ['contact', normalizedContact],
+      ['address', normalizedAddress],
+      ['agent_type', normalizedAgentType],
+      ['ic_front', icFrontUrl],
+      ['ic_back', icBackUrl]
+    ]) {
+      if (await hasTableColumn(client, 'user', column)) {
+        userColumns.push(column);
+        userValues.push(value);
+      }
+    }
+
+    const userPlaceholders = userValues.map((_, index) => `$${index + 1}`);
     const userQuery = `
       INSERT INTO "user" (
-        bubble_id, email, access_level, linked_agent_profile, user_signed_up, profile_picture, introducer, agent_code, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        ${userColumns.join(', ')}, created_at, updated_at
+      ) VALUES (${userPlaceholders.join(', ')}, NOW(), NOW())
       RETURNING *
     `;
-    await client.query(userQuery, [
-      user_bubble_id, normalizedEmail, ['pending'], agent_bubble_id, false, profilePicUrl, normalizedIntroducer, normalizedAgentCode
-    ]);
+    await client.query(userQuery, userValues);
 
     // 2. Create Agent linked back to user
     const agentColumns = [
@@ -481,14 +519,33 @@ app.put('/api/agent/profile', requireAuth, async (req, res) => {
 
     await client.query('BEGIN');
 
-    // 1. Update User table
+    // 1. Update User table — identity fields land here, same as registration,
+    //    otherwise every profile edit re-creates the user/agent divergence.
+    const userSetClauses = [
+      'email = $1',
+      'user_signature = CASE WHEN $2::boolean THEN $3 ELSE user_signature END'
+    ];
+    const userParams = [email, shouldUpdateSignature, normalizedSignature];
+
+    for (const [column, value] of [
+      ['name', name],
+      ['contact', contact],
+      ['banker', banker],
+      ['bankin_account', bankin_account]
+    ]) {
+      if (await hasTableColumn(client, 'user', column)) {
+        userParams.push(value);
+        userSetClauses.push(`${column} = $${userParams.length}`);
+      }
+    }
+
+    userParams.push(userId, bubbleId);
     await client.query(
       `UPDATE "user"
-       SET email = $1,
-           user_signature = CASE WHEN $2::boolean THEN $3 ELSE user_signature END,
+       SET ${userSetClauses.join(', ')},
            updated_at = NOW()
-       WHERE id::text = $4 OR bubble_id = $5`,
-      [email, shouldUpdateSignature, normalizedSignature, userId, bubbleId]
+       WHERE id::text = $${userParams.length - 1} OR bubble_id = $${userParams.length}`,
+      userParams
     );
 
     // 2. Update Agent table
