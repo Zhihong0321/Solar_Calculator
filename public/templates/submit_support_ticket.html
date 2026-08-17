@@ -34,6 +34,9 @@
         .status-processing { background: #dbeafe; color: #1d4ed8; }
         .status-solved { background: #dcfce7; color: #15803d; }
         .my-ticket-row:active { background-color: #f5f6f6; }
+        /* The page uses viewport-fit=cover, so content runs under the home indicator /
+           gesture bar. Pad the scroll panes so the last control stays reachable. */
+        #submitPane, #minePane { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
     </style>
 </head>
 <body class="flex flex-col overflow-hidden w-full">

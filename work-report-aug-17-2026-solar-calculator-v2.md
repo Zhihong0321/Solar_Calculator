@@ -9,5 +9,6 @@ REPO NAME : Solar Calculator v2
 - Upgraded My Tickets modal with embedded video viewer and full-screen external links
 - Lifted payment proof upload file size limit from 2MB to 8MB in Submit Payment form (/submit-payment)
 - Enhanced client-side image optimizer (image_optimizer.js) with 2.5K (2560px) max resolution, step-down downsampling for text sharpness, and orientation auto-correction
+- Fixed Submit Ticket button being cut off and unreachable at the bottom of Submit Support Ticket form (/submit-support-ticket) on mobile by adding safe-area-inset-bottom padding to the scroll panes
 
 =====================
