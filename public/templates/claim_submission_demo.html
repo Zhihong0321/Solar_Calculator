@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claim Submission</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 12px 10px 40px;
+      display: flex;
+      justify-content: center;
+      background: #0b0d12;
+      color: #f2f3f5;
+      font-size: 14px;
+    }
+    .shell { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
+    .header { display: flex; flex-direction: column; gap: 4px; padding: 4px 2px; }
+    .header-top { display: flex; align-items: center; justify-content: space-between; }
+    .badge {
+      align-self: flex-start; font-size: 10px; font-weight: 600; letter-spacing: 0.4px;
+      text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+      background: rgba(120, 130, 255, 0.18); color: #9aa4ff;
+    }
+    .back-link { font-size: 12px; color: #9aa4ff; text-decoration: none; }
+    h1 { font-size: 19px; margin: 2px 0 4px; }
+    .row-tight { display: flex; align-items: center; gap: 8px; }
+    .row-tight label { font-size: 12px; opacity: 0.65; flex-shrink: 0; }
+    .row-tight input {
+      flex: 1; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.04); color: inherit; font-size: 13px;
+    }
+    .card {
+      display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03);
+    }
+    .upload-card { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); }
+    .upload-area {
+      display: flex; align-items: center; justify-content: center; min-height: 56px;
+      border-radius: 8px; border: 1px dashed rgba(255,255,255,0.25); cursor: pointer;
+      text-align: center; padding: 10px; opacity: 0.65; font-size: 13px;
+    }
+    .card-head { display: flex; align-items: center; gap: 8px; }
+    .card-head-text { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+    .file-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .md5 { font-size: 10px; opacity: 0.5; font-family: monospace; }
+    .thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+    .thumb-pdf {
+      width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center;
+      justify-content: center; font-size: 9px; font-weight: 700; letter-spacing: 0.4px;
+      background: rgba(240, 100, 90, 0.18); color: #f2867a;
+    }
+    .status { margin: 0; font-size: 12px; opacity: 0.75; }
+    .status-ok { margin: 0; font-size: 12px; color: #7dd3a8; }
+    .status-error { margin: 0; font-size: 12px; color: #f28b82; }
+    .status-warn { margin: 0; font-size: 12px; color: #f5c26b; }
+    .field-error { font-size: 11px; color: #f28b82; }
+    .form-grid { display: flex; flex-direction: column; gap: 8px; }
+    .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+    .field.grow2 { flex: 2; }
+    .row { display: flex; gap: 8px; }
+    label.field-label { font-size: 11px; opacity: 0.65; }
+    .buyer-badge {
+      font-size: 11px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15); opacity: 0.8; align-self: flex-start;
+    }
+    input, select, textarea {
+      padding: 8px 10px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.04); color: inherit; font-size: 13px; font-family: inherit;
+      width: 100%; box-sizing: border-box;
+    }
+    textarea { min-height: 40px; resize: vertical; }
+    .btn {
+      flex: 1; margin-top: 2px; padding: 10px 14px; border-radius: 9px; border: none;
+      background: #6c7bff; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn-delete {
+      margin-top: 2px; padding: 10px 14px; border-radius: 9px; border: 1px solid rgba(242,139,130,0.4);
+      background: transparent; color: #f28b82; font-weight: 600; font-size: 14px; cursor: pointer;
+    }
+    .btn-delete:disabled { opacity: 0.5; cursor: default; }
+    .hidden { display: none; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tab {
+      flex: 1; padding: 10px 14px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.6); font-weight: 500;
+      font-size: 13px; cursor: pointer; text-align: center; transition: all 0.2s;
+    }
+    .tab.active {
+      background: rgba(108,123,255,0.15); border-color: rgba(108,123,255,0.4);
+      color: #9aa4ff;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .my-claim-card {
+      display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03);
+      margin-bottom: 10px;
+    }
+    .my-claim-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .my-claim-vendor { font-size: 14px; font-weight: 600; }
+    .my-claim-status {
+      font-size: 11px; padding: 3px 8px; border-radius: 999px; font-weight: 600;
+    }
+    .my-claim-status.pending { background: rgba(108,123,255,0.18); color: #9aa4ff; }
+    .my-claim-status.approved { background: rgba(125,211,168,0.18); color: #7dd3a8; }
+    .my-claim-status.rejected { background: rgba(242,139,130,0.18); color: #f28b82; }
+    .my-claim-amount { font-size: 16px; font-weight: 700; margin: 4px 0; }
+    .my-claim-meta { font-size: 11px; opacity: 0.6; }
+    .my-claim-actions { display: flex; gap: 6px; margin-top: 6px; }
+    .my-claim-actions button {
+      flex: 1; padding: 8px; border-radius: 7px; font-size: 12px; font-weight: 600;
+      cursor: pointer; border: 1px solid rgba(255,255,255,0.12);
+    }
+    .btn-expand { background: rgba(255,255,255,0.04); color: #9aa4ff; }
+    .btn-delete-claim { background: transparent; color: #f28b82; border-color: rgba(242,139,130,0.4); }
+    .my-claim-details {
+      margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px; display: none;
+    }
+    .my-claim-details.show { display: block; }
+    .my-claim-details-row { display: flex; gap: 8px; margin-bottom: 4px; }
+    .my-claim-details-label { opacity: 0.6; min-width: 80px; }
+    .empty-state {
+      text-align: center; padding: 40px 20px; opacity: 0.5; font-size: 13px;
+    }
+    .my-claim-remark {
+      margin-top: 8px; padding: 8px; border-radius: 6px;
+      background: rgba(242,139,130,0.08); border: 1px solid rgba(242,139,130,0.2);
+      font-size: 12px; color: #f28b82;
+    }
+    .my-claim-remark-label { font-weight: 600; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="header">
+      <div class="header-top">
+        <span class="badge">Claim System</span>
+        <a class="back-link" href="/agent/home">&larr; Agent Home</a>
+      </div>
+      <h1>Submit & Track Claims</h1>
+      <div class="row-tight">
+        <label for="claimant">Submitting as</label>
+        <input id="claimant" value="" placeholder="Your name" readonly />
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="submit">Submit New</button>
+      <button class="tab" data-tab="my-claims">My Claims</button>
+    </div>
+
+    <div id="submit-tab" class="tab-content active">
+      <section class="upload-card">
+        <label class="upload-area" for="file-input">+ Add receipt photo(s) or PDF — up to 6 read at once</label>
+        <input id="file-input" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,application/pdf" class="hidden" />
+        <p class="status hidden" id="upload-status"></p>
+      </section>
+
+      <div id="cards"></div>
+    </div>
+
+    <div id="my-claims-tab" class="tab-content">
+      <div id="my-claims-list"></div>
+    </div>
+  </div>
+
+  <script src="/js/claim_submission_demo.js" defer></script>
+</body>
+</html>

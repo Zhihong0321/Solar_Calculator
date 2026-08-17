@@ -1,15 +1,21 @@
 const multer = require('multer');
 const path = require('path');
 const supportTicketService = require('./supportTicketService');
+const googleDriveService = require('./googleDriveService');
 const { storageDriver } = require('../../core/upload');
 const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../core/auth/userIdentity');
 
-// Memory storage — buffers go straight to storageDriver.put (R2 or disk),
-// never touching the Railway volume directly.
-exports.uploadImages = multer({
+// Memory storage — buffers go to Google Drive / storageDriver (R2 or disk)
+exports.uploadMedia = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }
-}).array('images', 6);
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB
+}).fields([
+  { name: 'images', maxCount: 6 },
+  { name: 'video', maxCount: 1 }
+]);
+
+// Backwards compatibility alias
+exports.uploadImages = exports.uploadMedia;
 
 function buildUploadFilename(originalname) {
   const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -59,8 +65,8 @@ exports.getTicket = async (req, res) => {
 
 exports.updateTicket = async (req, res) => {
   try {
-    const { status, technician_remark, link_customer } = req.body;
-    const updated = await supportTicketService.updateTicket(req.params.id, { status, technician_remark, link_customer });
+    const { status, technician_remark, link_customer, video_url } = req.body;
+    const updated = await supportTicketService.updateTicket(req.params.id, { status, technician_remark, link_customer, video_url });
     if (!updated) return res.status(404).json({ error: 'Ticket not found' });
     const ticket = await supportTicketService.getTicketById(updated.id);
     res.json({ success: true, ticket: ticket || updated });
@@ -104,10 +110,16 @@ exports.searchCustomers = async (req, res) => {
 
 exports.createTicket = async (req, res) => {
   try {
-    const { title, problem_description, customer_id } = req.body;
+    const { title, problem_description, customer_id, video_url: bodyVideoUrl } = req.body;
     const createdBy = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
 
-    const stored = await Promise.all((req.files || []).map((file) => storageDriver.put(file.buffer, {
+    // Extract image files and video files from req.files
+    const imageFiles = req.files
+      ? (Array.isArray(req.files) ? req.files : (req.files['images'] || []))
+      : [];
+    const videoFiles = req.files && !Array.isArray(req.files) ? (req.files['video'] || []) : [];
+
+    const stored = await Promise.all(imageFiles.map((file) => storageDriver.put(file.buffer, {
       subdir: 'support_ticket_uploads',
       filename: buildUploadFilename(file.originalname),
       mimeType: file.mimetype,
@@ -115,12 +127,26 @@ exports.createTicket = async (req, res) => {
     })));
     const images = stored.map((s) => s.url);
 
+    // Handle video file upload or pasted video URL
+    let finalVideoUrl = typeof bodyVideoUrl === 'string' && bodyVideoUrl.trim() ? bodyVideoUrl.trim() : null;
+    if (videoFiles.length > 0) {
+      const videoFile = videoFiles[0];
+      const uploadResult = await googleDriveService.uploadVideo({
+        buffer: videoFile.buffer,
+        originalname: videoFile.originalname,
+        mimeType: videoFile.mimetype,
+        req,
+      });
+      finalVideoUrl = uploadResult.url;
+    }
+
     const ticket = await supportTicketService.createTicket({
       title,
       problem_description,
       link_customer: customer_id || null,
       created_by: createdBy,
       images: images.length ? images : null,
+      video_url: finalVideoUrl,
     });
 
     res.json({ success: true, ticket });
@@ -132,6 +158,14 @@ exports.createTicket = async (req, res) => {
     console.error('[SupportTicket] Create error:', err);
     res.status(400).json({ error: err.message || 'Failed to submit support ticket' });
   }
+};
+
+exports.getGoogleDriveConfig = (req, res) => {
+  res.json({
+    success: true,
+    folder_url: googleDriveService.getSharedFolderUrl(),
+    has_credentials: googleDriveService.hasCredentials(),
+  });
 };
 
 exports.listNotificationNumbers = async (req, res) => {

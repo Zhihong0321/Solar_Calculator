@@ -1,0 +1,967 @@
+{
+  "meta": {
+    "source_spreadsheet": "https://docs.google.com/spreadsheets/d/1aBCKeLnlUci2q98WwTIX77UwDqyrFFsK_1tFaSK4INU",
+    "gid": "1964999635",
+    "tab": "residential micro-inverter packages",
+    "fetched_at": "2026-08-04",
+    "row_count": 33,
+    "target_table": "public.package"
+  },
+  "packages": [
+    {
+      "panel_qty": 8,
+      "package_name": "[1P]MICRO SAJ JINKO 8 PCS 650W",
+      "invoice_desc": "8 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 2 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 20600.0,
+      "nett_price": 17440.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 2,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 16.0,
+        "mc4_qty_pair": 16,
+        "mounting_structure": "8 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 20.0,
+        "breaker": "EPS 2P32A",
+        "spd": "2P SPD",
+        "pv_meter": "2P PV METER",
+        "pvc_db_box": "8.5 way"
+      }
+    },
+    {
+      "panel_qty": 9,
+      "package_name": "[1P]MICRO SAJ JINKO 9 PCS 650W",
+      "invoice_desc": "9 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 2 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 22360.0,
+      "nett_price": 18970.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 2,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 18.0,
+        "mc4_qty_pair": 18,
+        "mounting_structure": "9 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 20.0,
+        "breaker": "EPS 2P32A",
+        "spd": "2P SPD",
+        "pv_meter": "2P PV METER",
+        "pvc_db_box": "8.5 way"
+      }
+    },
+    {
+      "panel_qty": 10,
+      "package_name": "[1P]MICRO SAJ JINKO 10 PCS 650W",
+      "invoice_desc": "10 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 2 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 23840.0,
+      "nett_price": 20180.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 2,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 20.0,
+        "mc4_qty_pair": 20,
+        "mounting_structure": "10 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 20.0,
+        "breaker": "EPS 2P32A",
+        "spd": "2P SPD",
+        "pv_meter": "2P PV METER",
+        "pvc_db_box": "8.5 way"
+      }
+    },
+    {
+      "panel_qty": 11,
+      "package_name": "[1P]MICRO SAJ JINKO 11 PCS 650W",
+      "invoice_desc": "11 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 3 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 25460.0,
+      "nett_price": 21570.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 3,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 22.0,
+        "mc4_qty_pair": 22,
+        "mounting_structure": "11 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 20.0,
+        "breaker": "EPS 2P32A",
+        "spd": "2P SPD",
+        "pv_meter": "2P PV METER",
+        "pvc_db_box": "8.5 way"
+      }
+    },
+    {
+      "panel_qty": 12,
+      "package_name": "[1P]MICRO SAJ JINKO 12 PCS 650W",
+      "invoice_desc": "12 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 3 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 26740.0,
+      "nett_price": 22630.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 3,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 24.0,
+        "mc4_qty_pair": 24,
+        "mounting_structure": "12 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 20.0,
+        "breaker": "EPS 2P32A",
+        "spd": "2P SPD",
+        "pv_meter": "2P PV METER",
+        "pvc_db_box": "8.5 way"
+      }
+    },
+    {
+      "panel_qty": 9,
+      "package_name": "[3P]MICRO SAJ JINKO 9 PCS 650W",
+      "invoice_desc": "9 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 2 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 24760.0,
+      "nett_price": 19780.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 2,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 18.0,
+        "mc4_qty_pair": 18,
+        "mounting_structure": "9 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 10,
+      "package_name": "[3P]MICRO SAJ JINKO 10 PCS 650W",
+      "invoice_desc": "10 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 2 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 26050.0,
+      "nett_price": 20770.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 2,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 20.0,
+        "mc4_qty_pair": 20,
+        "mounting_structure": "10 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 11,
+      "package_name": "[3P]MICRO SAJ JINKO 11 PCS 650W",
+      "invoice_desc": "11 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 3 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 27670.0,
+      "nett_price": 22100.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 3,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 22.0,
+        "mc4_qty_pair": 22,
+        "mounting_structure": "11 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 12,
+      "package_name": "[3P]MICRO SAJ JINKO 12 PCS 650W",
+      "invoice_desc": "12 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 3 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 28990.0,
+      "nett_price": 23120.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 3,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 24.0,
+        "mc4_qty_pair": 24,
+        "mounting_structure": "12 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 13,
+      "package_name": "[3P]MICRO SAJ JINKO 13 PCS 650W",
+      "invoice_desc": "13 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 3 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 30730.0,
+      "nett_price": 24590.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 3,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 26.0,
+        "mc4_qty_pair": 26,
+        "mounting_structure": "13 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 14,
+      "package_name": "[3P]MICRO SAJ JINKO 14 PCS 650W",
+      "invoice_desc": "14 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 3 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 32100.0,
+      "nett_price": 25640.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 3,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 28.0,
+        "mc4_qty_pair": 28,
+        "mounting_structure": "14 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 15,
+      "package_name": "[3P]MICRO SAJ JINKO 15 PCS 650W",
+      "invoice_desc": "15 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 4 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 33720.0,
+      "nett_price": 26960.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 4,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 30.0,
+        "mc4_qty_pair": 30,
+        "mounting_structure": "15 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 16,
+      "package_name": "[3P]MICRO SAJ JINKO 16 PCS 650W",
+      "invoice_desc": "16 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 4 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 34990.0,
+      "nett_price": 27960.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 4,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 32.0,
+        "mc4_qty_pair": 32,
+        "mounting_structure": "16 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 17,
+      "package_name": "[3P]MICRO SAJ JINKO 17 PCS 650W",
+      "invoice_desc": "17 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 4 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 36730.0,
+      "nett_price": 29420.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 4,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 34.0,
+        "mc4_qty_pair": 34,
+        "mounting_structure": "17 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 18,
+      "package_name": "[3P]MICRO SAJ JINKO 18 PCS 650W",
+      "invoice_desc": "18 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 4 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 38000.0,
+      "nett_price": 30410.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 4,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 36.0,
+        "mc4_qty_pair": 36,
+        "mounting_structure": "18 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 19,
+      "package_name": "[3P]MICRO SAJ JINKO 19 PCS 650W",
+      "invoice_desc": "19 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 5 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 39700.0,
+      "nett_price": 31510.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 5,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 38.0,
+        "mc4_qty_pair": 38,
+        "mounting_structure": "19 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 20,
+      "package_name": "[3P]MICRO SAJ JINKO 20 PCS 650W",
+      "invoice_desc": "20 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 5 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 40970.0,
+      "nett_price": 32210.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 5,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 40.0,
+        "mc4_qty_pair": 40,
+        "mounting_structure": "20 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 21,
+      "package_name": "[3P]MICRO SAJ JINKO 21 PCS 650W",
+      "invoice_desc": "21 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 5 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 42710.0,
+      "nett_price": 33370.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 5,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 42.0,
+        "mc4_qty_pair": 42,
+        "mounting_structure": "21 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 22,
+      "package_name": "[3P]MICRO SAJ JINKO 22 PCS 650W",
+      "invoice_desc": "22 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 5 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 43980.0,
+      "nett_price": 34040.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 5,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 44.0,
+        "mc4_qty_pair": 44,
+        "mounting_structure": "22 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 23,
+      "package_name": "[3P]MICRO SAJ JINKO 23 PCS 650W",
+      "invoice_desc": "23 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 6 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 45650.0,
+      "nett_price": 35070.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 6,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 46.0,
+        "mc4_qty_pair": 46,
+        "mounting_structure": "23 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 24,
+      "package_name": "[3P]MICRO SAJ JINKO 24 PCS 650W",
+      "invoice_desc": "24 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 6 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 46920.0,
+      "nett_price": 36020.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 6,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 48.0,
+        "mc4_qty_pair": 48,
+        "mounting_structure": "24 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 25,
+      "package_name": "[3P]MICRO SAJ JINKO 25 PCS 650W",
+      "invoice_desc": "25 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 6 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 48660.0,
+      "nett_price": 37430.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 6,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 50.0,
+        "mc4_qty_pair": 50,
+        "mounting_structure": "25 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 26,
+      "package_name": "[3P]MICRO SAJ JINKO 26 PCS 650W",
+      "invoice_desc": "26 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 6 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 49930.0,
+      "nett_price": 38360.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 6,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 52.0,
+        "mc4_qty_pair": 52,
+        "mounting_structure": "26 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 27,
+      "package_name": "[3P]MICRO SAJ JINKO 27 PCS 650W",
+      "invoice_desc": "27 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 7 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 51510.0,
+      "nett_price": 39640.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 7,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 54.0,
+        "mc4_qty_pair": 54,
+        "mounting_structure": "27 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 28,
+      "package_name": "[3P]MICRO SAJ JINKO 28 PCS 650W",
+      "invoice_desc": "28 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 7 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 53250.0,
+      "nett_price": 40180.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 7,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 56.0,
+        "mc4_qty_pair": 56,
+        "mounting_structure": "28 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 29,
+      "package_name": "[3P]MICRO SAJ JINKO 29 PCS 650W",
+      "invoice_desc": "29 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 7 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 55490.0,
+      "nett_price": 41520.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 7,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 58.0,
+        "mc4_qty_pair": 58,
+        "mounting_structure": "29 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 30,
+      "package_name": "[3P]MICRO SAJ JINKO 30 PCS 650W",
+      "invoice_desc": "30 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 7 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 56750.0,
+      "nett_price": 42430.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 7,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 60.0,
+        "mc4_qty_pair": 60,
+        "mounting_structure": "30 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 31,
+      "package_name": "[3P]MICRO SAJ JINKO 31 PCS 650W",
+      "invoice_desc": "31 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 8 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 58340.0,
+      "nett_price": 43660.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 8,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 62.0,
+        "mc4_qty_pair": 62,
+        "mounting_structure": "31 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 32,
+      "package_name": "[3P]MICRO SAJ JINKO 32 PCS 650W",
+      "invoice_desc": "32 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 8 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 59590.0,
+      "nett_price": 44570.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 8,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 64.0,
+        "mc4_qty_pair": 64,
+        "mounting_structure": "32 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 33,
+      "package_name": "[3P]MICRO SAJ JINKO 33 PCS 650W",
+      "invoice_desc": "33 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 8 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 61320.0,
+      "nett_price": 45950.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 8,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 66.0,
+        "mc4_qty_pair": 66,
+        "mounting_structure": "33 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 34,
+      "package_name": "[3P]MICRO SAJ JINKO 34 PCS 650W",
+      "invoice_desc": "34 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 8 X M2-1.8K-S4\n 1 X M2-1.0K-S2\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 62570.0,
+      "nett_price": 46860.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 8,
+          "model": "M2-1.8K-S4"
+        },
+        {
+          "qty": 1,
+          "model": "M2-1.0K-S2"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 68.0,
+        "mc4_qty_pair": 68,
+        "mounting_structure": "34 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 35,
+      "package_name": "[3P]MICRO SAJ JINKO 35 PCS 650W",
+      "invoice_desc": "35 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 9 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 64240.0,
+      "nett_price": 48140.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 9,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 70.0,
+        "mc4_qty_pair": 70,
+        "mounting_structure": "35 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    },
+    {
+      "panel_qty": 36,
+      "package_name": "[3P]MICRO SAJ JINKO 36 PCS 650W",
+      "invoice_desc": "36 X 650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon\n 9 X M2-1.8K-S4\n 1X SEDA ATAP SOLAR Application\n TNB Smart Meter Application\n Solar System Architecture Design\n Electrical System Design\n Roof and Site Surveying\n Roof Panel Installation\n Electrical Works\n SkyLift\n 3 Year MSIG All-Risk Solar System Coverage up to RM10000 assured",
+      "type": "Residential",
+      "price": 65490.0,
+      "nett_price": 49050.0,
+      "panel": "650W JinkoSolar TIGER NEO 3.0 Panel N-Type TOPCon",
+      "inverters": [
+        {
+          "qty": 9,
+          "model": "M2-1.8K-S4"
+        }
+      ],
+      "items_raw": {
+        "dc_cable": "Master Tec 4mm DC Cable",
+        "dc_cable_qty_m": 72.0,
+        "mc4_qty_pair": 72,
+        "mounting_structure": "36 unit",
+        "ac_cable": "SYNTHETIC RUBBER FLEXIBLE CORD 3*4mm",
+        "ac_cable_qty_m": 60.0,
+        "breaker": "EPS 3P32A",
+        "spd": "4P SPD",
+        "pv_meter": "4P PV METER",
+        "pvc_db_box": "10.5 way"
+      }
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claim Submission - Demo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  .receipt-card {
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: white;
+  }
+  .filter-tab {
+    padding: 12px 24px;
+    border: none;
+    background: #f3f4f6;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    font-weight: 500;
+  }
+  .filter-tab.active {
+    background: white;
+    border-bottom: 3px solid #3b82f6;
+  }
+  .claim-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    background: white;
+  }
+  .status-Pending {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body class="bg-gray-50">
+<div class="max-w-4xl mx-auto p-6">
+  <!-- Header -->
+  <div class="mb-6">
+    <a href="#" class="text-blue-600 hover:text-blue-500 mb-2 inline-block">
+      <i class="fa-solid fa-arrow-left"></i> Agent Home
+    </a>
+    <div class="flex items-center gap-3 mb-2">
+      <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded">Claim System</span>
+    </div>
+    <h1 class="text-2xl font-bold text-gray-900">Submit & Track Claims</h1>
+    <p class="text-gray-600 mt-1">Submitting as: <span id="claimant">Demo User</span></p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-2 mb-4">
+    <button type="button" class="filter-tab active" data-tab="submit">Submit New</button>
+    <button type="button" class="filter-tab" data-tab="my-claims">My Claims</button>
+  </div>
+
+  <!-- Submit New Tab -->
+  <div id="submit-tab" class="tab-content">
+    <!-- Upload Area -->
+    <div class="bg-white p-8 rounded-lg border-2 border-dashed border-gray-300 text-center cursor-pointer hover:border-blue-500 mb-6" id="upload-area">
+      <i class="fa-solid fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+      <p class="text-gray-600">+ Add receipt photo(s) or PDF — up to 6 read at once</p>
+      <input type="file" id="file-input" class="hidden" accept="image/*,application/pdf" multiple>
+    </div>
+
+    <!-- Cards Container -->
+    <div id="cards"></div>
+  </div>
+
+  <!-- My Claims Tab -->
+  <div id="my-claims-tab" class="tab-content hidden">
+    <div id="my-claims-list"></div>
+  </div>
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll('.filter-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    const tabName = tab.dataset.tab;
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+    document.getElementById(tabName + '-tab').classList.remove('hidden');
+  });
+});
+
+// Upload handling
+document.getElementById('upload-area').addEventListener('click', () => {
+  document.getElementById('file-input').click();
+});
+
+let claimData = null;
+
+document.getElementById('file-input').addEventListener('change', async (e) => {
+  const files = e.target.files;
+  if (files.length === 0) return;
+
+  // Simulate OCR processing
+  document.getElementById('cards').innerHTML = '<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-blue-600"></i><p class="mt-3 text-gray-600">Processing receipt...</p></div>';
+
+  setTimeout(() => {
+    showClaimForm();
+  }, 2000);
+});
+
+function showClaimForm() {
+  claimData = {
+    vendor: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    category: ''
+  };
+
+  const html = `
+    <div class="receipt-card">
+      <h3 class="font-semibold mb-4">Claim Details</h3>
+      <form id="claim-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Vendor Name</label>
+          <input type="text" name="vendor" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Store or supplier name">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Amount (RM)</label>
+          <input type="number" name="amount" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="0.00">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+          <input type="date" name="date" value="${claimData.date}" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea name="description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Purpose of this expense"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+          <select name="category" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+            <option value="">Select category</option>
+            <option value="Office Supplies">Office Supplies</option>
+            <option value="Travel">Travel</option>
+            <option value="Equipment">Equipment</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 font-medium">
+          Update
+        </button>
+      </form>
+    </div>
+  `;
+
+  document.getElementById('cards').innerHTML = html;
+
+  document.getElementById('claim-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    claimData = {
+      vendor: formData.get('vendor'),
+      amount: formData.get('amount'),
+      date: formData.get('date'),
+      description: formData.get('description'),
+      category: formData.get('category'),
+      status: 'Pending',
+      submittedAt: new Date().toISOString()
+    };
+
+    // Show success message
+    document.getElementById('cards').innerHTML = '<div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center"><i class="fa-solid fa-check-circle text-green-600 text-3xl mb-2"></i><p class="text-green-800 font-medium">Claim submitted successfully!</p></div>';
+
+    setTimeout(() => {
+      document.getElementById('cards').innerHTML = '';
+    }, 2000);
+  });
+}
+
+// Switch to My Claims tab handler
+document.querySelector('[data-tab="my-claims"]').addEventListener('click', () => {
+  if (claimData && claimData.vendor) {
+    showMyClaims();
+  } else {
+    document.getElementById('my-claims-list').innerHTML = '<p class="text-center text-gray-500 py-8">No claims submitted yet</p>';
+  }
+});
+
+function showMyClaims() {
+  const html = `
+    <div class="claim-item">
+      <div class="flex justify-between items-start mb-3">
+        <div>
+          <h3 class="font-semibold text-lg">${claimData.vendor}</h3>
+          <p class="text-gray-600 text-sm">${claimData.description}</p>
+        </div>
+        <span class="status-Pending">${claimData.status}</span>
+      </div>
+      <div class="grid grid-cols-3 gap-4 text-sm">
+        <div>
+          <span class="text-gray-500">Amount:</span>
+          <p class="font-medium">RM ${claimData.amount}</p>
+        </div>
+        <div>
+          <span class="text-gray-500">Date:</span>
+          <p class="font-medium">${claimData.date}</p>
+        </div>
+        <div>
+          <span class="text-gray-500">Category:</span>
+          <p class="font-medium">${claimData.category}</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('my-claims-list').innerHTML = html;
+}
+</script>
+</body>
+</html>

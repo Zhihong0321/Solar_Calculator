@@ -46,48 +46,116 @@
         return idx > 0 ? filename.substring(0, idx) : filename;
     }
 
-    async function optimizeImageFile(file, options = {}) {
-        const settings = { ...DEFAULTS, ...options };
-        const sourceDataUrl = await readFileAsDataUrl(file);
-        const img = await loadImage(sourceDataUrl);
-
-        const sourceW = img.naturalWidth || img.width;
-        const sourceH = img.naturalHeight || img.height;
-        const maxSide = Math.max(sourceW, sourceH);
-        const scale = maxSide > settings.maxDimension ? (settings.maxDimension / maxSide) : 1;
-        const targetW = Math.max(1, Math.round(sourceW * scale));
-        const targetH = Math.max(1, Math.round(sourceH * scale));
-
-        const canvas = document.createElement('canvas');
-        canvas.width = targetW;
-        canvas.height = targetH;
-        const ctx = canvas.getContext('2d', { alpha: false });
-        ctx.drawImage(img, 0, 0, targetW, targetH);
-
-        let outputType = settings.outputType;
-        let quality = settings.quality;
-        let dataUrl = canvas.toDataURL(outputType, quality);
-        let sizeBytes = estimateBase64Bytes(dataUrl);
-
-        if (settings.targetBytes && settings.targetBytes > 0) {
-            while (sizeBytes > settings.targetBytes && quality > settings.minQuality) {
-                quality = Math.max(settings.minQuality, quality - settings.qualityStep);
-                dataUrl = canvas.toDataURL(outputType, quality);
-                sizeBytes = estimateBase64Bytes(dataUrl);
-                if (quality === settings.minQuality) break;
+    async function loadImageSource(file) {
+        // Use createImageBitmap when available for orientation correction and speed
+        if (typeof window.createImageBitmap === 'function') {
+            try {
+                const bmp = await window.createImageBitmap(file, { imageOrientation: 'from-image' });
+                return {
+                    width: bmp.width,
+                    height: bmp.height,
+                    drawable: bmp,
+                    cleanup: () => {
+                        if (typeof bmp.close === 'function') bmp.close();
+                    }
+                };
+            } catch (_) {
+                // Fallback to Image element if createImageBitmap fails on specific format
             }
         }
 
-        const ext = outputType === 'image/webp' ? 'webp' : 'jpg';
+        const sourceDataUrl = await readFileAsDataUrl(file);
+        const img = await loadImage(sourceDataUrl);
         return {
-            dataUrl,
-            mimeType: outputType,
-            fileName: `${baseName(file.name)}.${ext}`,
-            width: targetW,
-            height: targetH,
-            originalSizeBytes: file.size,
-            sizeBytes
+            width: img.naturalWidth || img.width,
+            height: img.naturalHeight || img.height,
+            drawable: img,
+            cleanup: () => {}
         };
+    }
+
+    async function optimizeImageFile(file, options = {}) {
+        const settings = { ...DEFAULTS, ...options };
+        const src = await loadImageSource(file);
+
+        try {
+            const sourceW = src.width;
+            const sourceH = src.height;
+            const maxSide = Math.max(sourceW, sourceH);
+            const scale = maxSide > settings.maxDimension ? (settings.maxDimension / maxSide) : 1;
+            const targetW = Math.max(1, Math.round(sourceW * scale));
+            const targetH = Math.max(1, Math.round(sourceH * scale));
+
+            // High-quality canvas scaling with stepping if downscaling by more than 2x (preserves fine text sharpness)
+            let curCanvas = document.createElement('canvas');
+            curCanvas.width = sourceW;
+            curCanvas.height = sourceH;
+            let curCtx = curCanvas.getContext('2d', { alpha: false });
+            curCtx.imageSmoothingEnabled = true;
+            curCtx.imageSmoothingQuality = 'high';
+            curCtx.drawImage(src.drawable, 0, 0, sourceW, sourceH);
+
+            // Step-down downsampling to prevent aliasing and retain crisp document text
+            let curW = sourceW;
+            let curH = sourceH;
+            while (curW * 0.5 > targetW && curH * 0.5 > targetH) {
+                const nextW = Math.round(curW * 0.5);
+                const nextH = Math.round(curH * 0.5);
+                const nextCanvas = document.createElement('canvas');
+                nextCanvas.width = nextW;
+                nextCanvas.height = nextH;
+                const nextCtx = nextCanvas.getContext('2d', { alpha: false });
+                nextCtx.imageSmoothingEnabled = true;
+                nextCtx.imageSmoothingQuality = 'high';
+                nextCtx.drawImage(curCanvas, 0, 0, nextW, nextH);
+                curCanvas = nextCanvas;
+                curW = nextW;
+                curH = nextH;
+            }
+
+            // Final target canvas
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = targetW;
+            finalCanvas.height = targetH;
+            const finalCtx = finalCanvas.getContext('2d', { alpha: false });
+            finalCtx.imageSmoothingEnabled = true;
+            finalCtx.imageSmoothingQuality = 'high';
+            finalCtx.drawImage(curCanvas, 0, 0, targetW, targetH);
+
+            let outputType = settings.outputType;
+            let quality = settings.quality;
+            let dataUrl = finalCanvas.toDataURL(outputType, quality);
+
+            // Verify browser actually supports outputType (some older Safari return PNG for image/webp)
+            if (outputType === 'image/webp' && !dataUrl.startsWith('data:image/webp')) {
+                outputType = 'image/jpeg';
+                dataUrl = finalCanvas.toDataURL(outputType, quality);
+            }
+
+            let sizeBytes = estimateBase64Bytes(dataUrl);
+
+            if (settings.targetBytes && settings.targetBytes > 0) {
+                while (sizeBytes > settings.targetBytes && quality > settings.minQuality) {
+                    quality = Math.max(settings.minQuality, quality - settings.qualityStep);
+                    dataUrl = finalCanvas.toDataURL(outputType, quality);
+                    sizeBytes = estimateBase64Bytes(dataUrl);
+                    if (quality <= settings.minQuality) break;
+                }
+            }
+
+            const ext = outputType === 'image/webp' ? 'webp' : 'jpg';
+            return {
+                dataUrl,
+                mimeType: outputType,
+                fileName: `${baseName(file.name)}.${ext}`,
+                width: targetW,
+                height: targetH,
+                originalSizeBytes: file.size,
+                sizeBytes
+            };
+        } finally {
+            src.cleanup();
+        }
     }
 
     global.ImageOptimizer = {

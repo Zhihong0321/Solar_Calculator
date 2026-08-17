@@ -99,7 +99,30 @@
                 <div id="thumbList" class="grid grid-cols-3 gap-2 mt-2"></div>
             </div>
 
-            <button type="submit" id="submitBtn" class="w-full bg-emerald-700 text-white font-semibold py-3 rounded-lg">
+            <div>
+                <label class="block text-xs text-gray-500 uppercase font-semibold mb-1">Video Attachment <span class="normal-case font-normal text-gray-400">(optional, up to 100MB)</span></label>
+                <div class="border border-dashed border-gray-300 rounded-lg p-3 bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                    <input type="file" id="videoInput" accept="video/mp4,video/quicktime,video/webm,video/*"
+                           class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:text-sm cursor-pointer">
+                    
+                    <div id="videoPreviewContainer" class="hidden mt-2.5 p-2.5 bg-white border border-gray-200 rounded-lg flex items-center justify-between shadow-sm">
+                        <div class="flex items-center gap-2 text-xs text-gray-700 truncate">
+                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            <span id="videoFileName" class="font-medium truncate"></span>
+                            <span id="videoFileSize" class="text-gray-400 shrink-0"></span>
+                        </div>
+                        <button type="button" onclick="clearVideoFile()" class="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1">&times; Remove</button>
+                    </div>
+
+                    <div class="mt-2.5 pt-2 border-t border-gray-200/70">
+                        <label class="block text-[11px] text-gray-400 font-medium mb-1">Or paste a Video / Cloud Link directly:</label>
+                        <input type="url" id="videoUrlInput" placeholder="https://drive.google.com/... or cloud video URL"
+                               class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 outline-none text-gray-800">
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold py-3 rounded-lg transition-colors">
                 Submit Ticket
             </button>
 
@@ -191,6 +214,33 @@
             document.getElementById('selectedCustomer').classList.add('hidden');
         }
 
+        function formatBytes(bytes, decimals = 1) {
+            if (!+bytes) return '0 B';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+        document.getElementById('videoInput').addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            const container = document.getElementById('videoPreviewContainer');
+            if (file) {
+                document.getElementById('videoFileName').textContent = file.name;
+                document.getElementById('videoFileSize').textContent = `(${formatBytes(file.size)})`;
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        });
+
+        function clearVideoFile() {
+            const input = document.getElementById('videoInput');
+            input.value = '';
+            document.getElementById('videoPreviewContainer').classList.add('hidden');
+        }
+
         document.getElementById('imageInput').addEventListener('change', (e) => {
             const files = Array.from(e.target.files || []);
             const thumbList = document.getElementById('thumbList');
@@ -228,7 +278,9 @@
                 ? document.getElementById('titleInput').value.trim()
                 : titleChoice;
             const description = document.getElementById('descriptionInput').value.trim();
-            const files = document.getElementById('imageInput').files;
+            const imageFiles = document.getElementById('imageInput').files;
+            const videoFiles = document.getElementById('videoInput').files;
+            const videoUrl = document.getElementById('videoUrlInput').value.trim();
 
             if (!title || !description) return;
 
@@ -236,10 +288,12 @@
             formData.append('title', title);
             formData.append('problem_description', description);
             if (selectedCustomerId) formData.append('customer_id', selectedCustomerId);
-            for (const file of files) formData.append('images', file);
+            for (const file of imageFiles) formData.append('images', file);
+            if (videoFiles && videoFiles.length > 0) formData.append('video', videoFiles[0]);
+            if (videoUrl) formData.append('video_url', videoUrl);
 
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Submitting...';
+            submitBtn.textContent = videoFiles.length > 0 ? 'Submitting & Uploading Video...' : 'Submitting...';
 
             try {
                 const res = await fetch('/api/support-tickets', { method: 'POST', body: formData });
@@ -250,6 +304,7 @@
                     document.getElementById('titleInput').classList.add('hidden');
                     document.getElementById('titleInput').required = false;
                     document.getElementById('thumbList').innerHTML = '';
+                    clearVideoFile();
                     clearCustomer();
                 } else {
                     errorMsg.textContent = json.error || 'Failed to submit ticket';
@@ -326,11 +381,20 @@
                 const status = t.status || 'unread';
                 const statusClass = 'status-' + status.replace(/\s+/g, '-');
                 const date = t.created_date ? new Date(t.created_date).toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                const videoBadge = t.video_url ? `
+                    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        Video
+                    </span>
+                ` : '';
                 return `
                     <div onclick='openMyTicket(${JSON.stringify(t).replace(/'/g, "&#39;")})' class="my-ticket-row flex flex-col gap-1 px-4 py-3 cursor-pointer border-b border-gray-100 transition-colors">
                         <div class="flex justify-between items-start gap-2">
                             <h3 class="font-semibold text-gray-900 text-sm flex-1">${escapeHtml(t.title || 'Untitled')}</h3>
-                            <span class="status-pill ${statusClass}">${status}</span>
+                            <div class="flex items-center gap-1.5">
+                                ${videoBadge}
+                                <span class="status-pill ${statusClass}">${status}</span>
+                            </div>
                         </div>
                         <p class="text-xs text-gray-500 truncate">${escapeHtml(t.customer_name || 'No customer linked')}</p>
                         <span class="text-[11px] text-gray-400">${date}</span>
@@ -343,10 +407,74 @@
             document.getElementById('myTicketModalTitle').textContent = ticket.title || 'Untitled';
             const images = Array.isArray(ticket.images) ? ticket.images : [];
             const imageHtml = images.length ? `
-                <div class="grid grid-cols-3 gap-2">
-                    ${images.map(url => { const full = resolveImageUrl(url); return `<a href="${full}" target="_blank"><img src="${full}" class="w-full h-20 object-cover rounded-lg border border-gray-200"></a>`; }).join('')}
+                <div>
+                    <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Attached Photos (${images.length})</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        ${images.map(url => { const full = resolveImageUrl(url); return `<a href="${full}" target="_blank"><img src="${full}" class="w-full h-20 object-cover rounded-lg border border-gray-200"></a>`; }).join('')}
+                    </div>
                 </div>
             ` : '';
+
+            function renderVideoElement(url, theme = 'emerald') {
+                if (!url) return '';
+                const cleanUrl = String(url).trim();
+                const driveMatch = cleanUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || cleanUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                if (driveMatch && driveMatch[1]) {
+                    const fileId = driveMatch[1];
+                    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+                    return `
+                        <div>
+                            <p class="text-xs text-gray-400 uppercase font-semibold mb-1.5">Attached Video (Google Drive)</p>
+                            <div class="relative w-full aspect-video rounded-lg overflow-hidden border border-gray-200 bg-black">
+                                <iframe src="${embedUrl}" class="w-full h-full border-0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                            </div>
+                            <div class="mt-1.5 flex justify-end">
+                                <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900">
+                                    <span>Open in Google Drive</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const isDirectVideo = /\.(mp4|webm|mov|m4v|ogg)(\?|$)/i.test(cleanUrl) || cleanUrl.includes('.r2.dev') || cleanUrl.includes('/uploads/');
+                if (isDirectVideo) {
+                    return `
+                        <div>
+                            <p class="text-xs text-gray-400 uppercase font-semibold mb-1.5">Attached Video</p>
+                            <div class="w-full rounded-lg overflow-hidden border border-gray-200 bg-black">
+                                <video src="${cleanUrl}" controls playsinline preload="metadata" class="w-full max-h-72 object-contain bg-black"></video>
+                            </div>
+                            <div class="mt-1.5 flex justify-end">
+                                <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer"
+                                   class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900">
+                                    <span>Open video in new tab</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-semibold mb-1.5">Attached Video</p>
+                        <a href="${cleanUrl}" target="_blank" rel="noopener noreferrer"
+                           class="flex items-center justify-between p-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-emerald-800 font-semibold text-xs transition-colors">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span>Watch Video</span>
+                            </div>
+                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                        </a>
+                    </div>
+                `;
+            }
+
+            const videoHtml = renderVideoElement(ticket.video_url, 'emerald');
+
             const status = ticket.status || 'unread';
             const statusClass = 'status-' + status.replace(/\s+/g, '-');
 
@@ -360,6 +488,7 @@
                     <p class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(ticket.problem_description || '')}</p>
                 </div>
                 ${imageHtml}
+                ${videoHtml}
                 <div>
                     <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Support Team Remark</p>
                     <p class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(ticket.technician_remark || 'No remark yet.')}</p>

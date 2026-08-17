@@ -33,6 +33,7 @@ const ClaimReceipt = require('./src/modules/ClaimReceipt');
 const Attachments = require('./src/modules/Attachments');
 const uploadBackfillRoutes = require('./src/modules/UploadBackfill/backfillRoutes');
 const { maintenanceMiddleware } = require('./src/core/middleware/maintenance');
+const demoRoutes = require('./routes/demoRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -110,6 +111,7 @@ app.use(SupportTicket.router);
 app.use(ClaimReceipt.router);
 app.use(Attachments.router);
 app.use(uploadBackfillRoutes);
+app.use(demoRoutes);
 
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));

@@ -15,8 +15,20 @@ function normalizeMyPhoneNumber(raw) {
 
 class SupportTicketService {
   ADMIN_ROLES = ['admin', 'superadmin', 'engineering', 'project', 'ceo', 'support'];
+  _schemaChecked = false;
+
+  async ensureSchema() {
+    if (this._schemaChecked) return;
+    try {
+      await pool.query(`ALTER TABLE support_ticket ADD COLUMN IF NOT EXISTS video_url TEXT;`);
+      this._schemaChecked = true;
+    } catch (err) {
+      console.warn('[SupportTicket] ensureSchema error:', err.message);
+    }
+  }
 
   async listTickets({ status, search, limit = 100, offset = 0 } = {}) {
+    await this.ensureSchema();
     const conditions = [];
     const params = [];
 
@@ -45,6 +57,7 @@ class SupportTicketService {
         st.problem_description,
         st.technician_remark,
         st.images,
+        st.video_url,
         st.created_date,
         st.modified_date,
         COALESCE(cp.name, c.name) AS customer_name,
@@ -64,6 +77,7 @@ class SupportTicketService {
   }
 
   async listMyTickets(createdBy) {
+    await this.ensureSchema();
     const result = await pool.query(
       `SELECT
         st.id,
@@ -72,6 +86,7 @@ class SupportTicketService {
         st.problem_description,
         st.technician_remark,
         st.images,
+        st.video_url,
         st.created_date,
         st.modified_date,
         COALESCE(cp.name, c.name) AS customer_name
@@ -87,6 +102,7 @@ class SupportTicketService {
   }
 
   async getTicketById(id) {
+    await this.ensureSchema();
     const result = await pool.query(
       `SELECT
         st.*,
@@ -104,17 +120,19 @@ class SupportTicketService {
     return result.rows[0] || null;
   }
 
-  async createTicket({ title, problem_description, link_customer, created_by, images }) {
+  async createTicket({ title, problem_description, link_customer, created_by, images, video_url }) {
     if (!title || !title.trim()) {
       throw new Error('Title is required');
     }
 
+    await this.ensureSchema();
+
     const result = await pool.query(
       `INSERT INTO support_ticket
-        (created_date, modified_date, created_by, link_customer, problem_description, technician_remark, status, title, images)
-       VALUES (NOW(), NOW(), $1, $2, $3, NULL, 'unread', $4, $5)
+        (created_date, modified_date, created_by, link_customer, problem_description, technician_remark, status, title, images, video_url)
+       VALUES (NOW(), NOW(), $1, $2, $3, NULL, 'unread', $4, $5, $6)
        RETURNING *`,
-      [created_by ?? null, link_customer ?? null, problem_description ?? null, title.trim(), images ?? null]
+      [created_by ?? null, link_customer ?? null, problem_description ?? null, title.trim(), images ?? null, video_url ?? null]
     );
     return result.rows[0];
   }
@@ -207,6 +225,7 @@ class SupportTicketService {
       ticket.customer_name ? `Customer: ${ticket.customer_name}` : null,
       '',
       ticket.problem_description || '',
+      ticket.video_url ? `\n📹 Video: ${ticket.video_url}` : null,
       '',
       'View: https://calculator.atap.solar/support-tickets',
     ].filter((line) => line !== null).join('\n');
@@ -242,7 +261,8 @@ class SupportTicketService {
     return result.rows;
   }
 
-  async updateTicket(id, { status, technician_remark, link_customer }) {
+  async updateTicket(id, { status, technician_remark, link_customer, video_url }) {
+    await this.ensureSchema();
     // '' is treated as "clear this field" (see `status || null` below), so it must
     // bypass the whitelist the same way null and undefined do — otherwise an empty
     // form field throws instead of clearing.
@@ -264,6 +284,10 @@ class SupportTicketService {
     if (link_customer !== undefined) {
       params.push(link_customer || null);
       assignments.push(`link_customer = $${params.length}`);
+    }
+    if (video_url !== undefined) {
+      params.push(video_url || null);
+      assignments.push(`video_url = $${params.length}`);
     }
 
     const result = await pool.query(
