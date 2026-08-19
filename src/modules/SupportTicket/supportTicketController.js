@@ -112,6 +112,13 @@ exports.createTicket = async (req, res) => {
   try {
     const { title, problem_description, customer_id, video_url: bodyVideoUrl } = req.body;
     const createdBy = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
+    // Without this the insert silently stores created_by = NULL and the ticket becomes
+    // an orphan nobody can trace back to the submitter.
+    if (!createdBy) return res.status(401).json({ error: 'Unauthorized' });
+
+    if (!customer_id || !String(customer_id).trim()) {
+      return res.status(400).json({ error: 'A linked customer is required' });
+    }
 
     // Extract image files and video files from req.files
     const imageFiles = req.files

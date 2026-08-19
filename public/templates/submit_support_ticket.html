@@ -60,9 +60,10 @@
         <form id="ticketForm" class="p-4 space-y-5 max-w-lg mx-auto">
 
             <div>
-                <label class="block text-xs text-gray-500 uppercase font-semibold mb-1">Customer <span class="normal-case font-normal text-gray-400">(optional)</span></label>
-                <input type="text" id="customerSearch" placeholder="Search your customer by name/phone..."
+                <label class="block text-xs text-gray-500 uppercase font-semibold mb-1">Customer <span class="text-red-500">*</span></label>
+                <input type="text" id="customerSearch" placeholder="Search customer by name/phone..."
                        class="w-full bg-gray-100 border-none rounded-lg py-2.5 px-4 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" autocomplete="off">
+                <p id="customerError" class="hidden mt-1 text-xs text-red-600">Please search and select the customer this ticket is about.</p>
                 <div id="customerResults" class="border border-gray-200 rounded-lg mt-1 divide-y divide-gray-100 hidden max-h-48 overflow-y-auto"></div>
                 <div id="selectedCustomer" class="hidden mt-2 flex items-center justify-between bg-emerald-50 text-emerald-800 rounded-lg px-3 py-2 text-sm">
                     <span id="selectedCustomerName"></span>
@@ -175,13 +176,17 @@
 
         async function searchCustomers(query) {
             try {
-                const res = await fetch(`/api/customers?search=${encodeURIComponent(query)}&limit=10`);
+                // Ticket-scoped search: covers every customer, not just the ones this
+                // agent created. Service tickets are routinely raised on jobs the agent
+                // did not sell, and 4.5k migrated/self-service customers have no owner
+                // at all — /api/customers would hide all of them.
+                const res = await fetch(`/api/support-tickets/customers/search?q=${encodeURIComponent(query)}`);
                 if (res.status === 401) {
                     window.location.href = '/agent/home';
                     return;
                 }
                 const json = await res.json();
-                const customers = json?.data?.customers || [];
+                const customers = json?.customers || [];
                 renderCustomerResults(customers);
             } catch (err) {
                 console.error('Customer Search Error:', err);
@@ -206,6 +211,7 @@
 
         function selectCustomer(id, name) {
             selectedCustomerId = id;
+            document.getElementById('customerError').classList.add('hidden');
             document.getElementById('selectedCustomerName').textContent = name;
             document.getElementById('selectedCustomer').classList.remove('hidden');
             document.getElementById('customerResults').classList.add('hidden');
@@ -287,10 +293,17 @@
 
             if (!title || !description) return;
 
+            if (!selectedCustomerId) {
+                document.getElementById('customerError').classList.remove('hidden');
+                document.getElementById('customerSearch').focus();
+                document.getElementById('customerSearch').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
             const formData = new FormData();
             formData.append('title', title);
             formData.append('problem_description', description);
-            if (selectedCustomerId) formData.append('customer_id', selectedCustomerId);
+            formData.append('customer_id', selectedCustomerId);
             for (const file of imageFiles) formData.append('images', file);
             if (videoFiles && videoFiles.length > 0) formData.append('video', videoFiles[0]);
             if (videoUrl) formData.append('video_url', videoUrl);

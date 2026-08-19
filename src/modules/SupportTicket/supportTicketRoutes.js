@@ -34,7 +34,9 @@ router.get('/api/support-tickets/notification-numbers', requireAuth, requireAdmi
 router.post('/api/support-tickets/notification-numbers', requireAuth, requireAdmin, supportTicketController.addNotificationNumber);
 router.delete('/api/support-tickets/notification-numbers/:id', requireAuth, requireAdmin, supportTicketController.deleteNotificationNumber);
 
-router.get('/api/support-tickets/customers/search', requireAuth, requireAdmin, supportTicketController.searchCustomers);
+// Any authenticated agent may search here — the submit form needs to link a customer
+// they did not create. Read-only, returns name/phone only.
+router.get('/api/support-tickets/customers/search', requireAuth, supportTicketController.searchCustomers);
 
 router.get('/api/support-tickets/:id', requireAuth, requireAdmin, supportTicketController.getTicket);
 router.patch('/api/support-tickets/:id', requireAuth, requireAdmin, supportTicketController.updateTicket);
