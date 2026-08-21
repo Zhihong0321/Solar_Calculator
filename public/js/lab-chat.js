@@ -114,8 +114,9 @@
     const title = el('div', 'card-title');
     title.appendChild(el('span', null, '⌕'));
     const text = el('div');
-    text.appendChild(el('strong', null, card.query.keyword || 'Business search'));
-    text.appendChild(el('small', null, card.query.place ? 'Google Maps · ' + card.query.place : 'Google Maps'));
+    const isPlaceOnly = card.query.keyword === 'businesses' && card.query.place;
+    text.appendChild(el('strong', null, isPlaceOnly ? 'All businesses · ' + card.query.place : (card.query.keyword || 'Business search')));
+    text.appendChild(el('small', null, isPlaceOnly ? 'Google Maps' : (card.query.place ? 'Google Maps · ' + card.query.place : 'Google Maps')));
     title.appendChild(text);
     if (card.total) title.appendChild(el('b', null, card.total + ' found'));
     root.appendChild(title);

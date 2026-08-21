@@ -144,14 +144,18 @@ function trimText(value, max) {
 
 /** Ranked company list from Google Maps. */
 async function businessSearch(input, { requesterId, onProgress } = {}) {
-  const keyword = trimText(input && input.keyword, 120);
+  let keyword = trimText(input && input.keyword, 120);
+  const place = trimText(input && input.place, 120);
+
+  // Place-only search is allowed: "all businesses in Bandar Puteri Puchong".
+  // The upstream API requires a keyword, so a generic one stands in for "any".
+  if (!keyword && place) keyword = 'businesses';
   if (!keyword) {
-    const err = new Error('I need something to search for — a business type or keyword.');
+    const err = new Error('I need a place or a business type to search for.');
     err.code = 'NEEDS_KEYWORD';
     throw err;
   }
 
-  const place = trimText(input && input.place, 120);
   const max = Math.min(Math.max(parseInt(input && input.max, 10) || 20, 1), 100);
 
   const job = await eeAuto.searchJob({ keyword, place, max, requesterId }, { onProgress });
@@ -233,15 +237,15 @@ const TOOL_SCHEMA = [{
   type: 'function',
   function: {
     name: 'business_search',
-    description: 'Find real businesses on Google Maps by keyword and place, ranked, with rating, reviews, address, phone and website. Use this when the agent wants to find companies, prospects or competitors — for example "find solar installers in Puchong" or "cari kilang di Shah Alam".',
+    description: 'Find real businesses on Google Maps, ranked, with rating, reviews, address, phone and website. Two ways to use it: a keyword plus place ("solar installers in Puchong", "kilang di Shah Alam"), or a PLACE ALONE to list all businesses in that location ("semua business kat Bandar Puteri", "what companies are in Taman Perindustrian Subang"). At least one of keyword or place is needed.',
     parameters: {
       type: 'object',
       properties: {
-        keyword: { type: 'string', description: 'Business category, service or keyword to search for' },
-        place: { type: 'string', description: 'City, district, state or country. Omit if the agent did not name one.' },
+        keyword: { type: 'string', description: 'Business category, service or keyword. Omit for an all-businesses-in-a-location search.' },
+        place: { type: 'string', description: 'City, district, industrial park, state or country.' },
         max: { type: 'number', description: 'How many results to return, 1-100. Default 20.' }
       },
-      required: ['keyword']
+      required: []
     }
   }
 }, {
