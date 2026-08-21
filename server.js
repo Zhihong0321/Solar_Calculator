@@ -116,9 +116,14 @@ app.use(demoRoutes);
 // --- Prototype: conversational quotation (/lab/chat) ---
 // Opt-in and isolated. Not registered in the navigation shell, reachable only
 // by URL. Remove this block and src/modules/ChatQuote to drop it entirely.
-if (process.env.CHAT_LAB_ENABLED === 'true') {
+// Accepts true/1/yes/on in any case: a Railway variable typed as TRUE or 1
+// would otherwise fail silently and look identical to a failed deploy.
+const chatLabFlag = String(process.env.CHAT_LAB_ENABLED || '').trim().toLowerCase();
+if (['true', '1', 'yes', 'on'].includes(chatLabFlag)) {
   app.use(require('./src/modules/ChatQuote').router);
-  console.log('[ChatQuote] /lab/chat enabled');
+  console.log('[ChatQuote] /lab/chat ENABLED');
+} else {
+  console.log(`[ChatQuote] /lab/chat disabled (CHAT_LAB_ENABLED=${JSON.stringify(process.env.CHAT_LAB_ENABLED ?? null)})`);
 }
 
 // --- Global Routes & Static Files ---
