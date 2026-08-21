@@ -16,6 +16,7 @@ const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../core/a
 const repo = require('./threadRepo');
 const chatService = require('./chatService');
 const ai = require('./aiClient');
+const eeAuto = require('./eeAuto');
 
 const router = express.Router();
 const TEMPLATES = path.join(__dirname, '..', '..', '..', 'public', 'templates');
@@ -161,6 +162,25 @@ router.post('/lab/chat/api/threads/:key/adjust', requireAuthJson, async (req, re
   }
 });
 
+// ── Refresh a report that was still running when the turn ended ───────────
+router.get('/lab/chat/api/threads/:key/report/:kind/:reportId', requireAuthJson, async (req, res) => {
+  const thread = await loadOwnThread(req, res);
+  if (!thread) return undefined;
+
+  const { kind, reportId } = req.params;
+  if (kind !== 'leads' && kind !== 'research') {
+    return res.status(400).json({ error: 'Unknown report kind' });
+  }
+
+  try {
+    const card = await chatService.refreshReport({ thread, kind, reportId });
+    return res.json({ card });
+  } catch (err) {
+    console.error('[ChatQuote] refreshReport failed:', err.code || err.message);
+    return res.status(502).json({ error: 'Could not refresh that report' });
+  }
+});
+
 // ── Prototype health, no auth: confirms the mount without signing in ──────
 router.get('/lab/chat/api/health', (req, res) => {
   res.json({
@@ -168,7 +188,9 @@ router.get('/lab/chat/api/health', (req, res) => {
     phase: '0+1 threads',
     model: ai.CHAT_MODEL,
     visionModel: ai.VISION_MODEL,
-    aiConfigured: Boolean(process.env.AI_ROUTER_API_KEY)
+    aiConfigured: Boolean(process.env.AI_ROUTER_API_KEY),
+    tools: ['calculate_savings', 'business_search', 'company_research'],
+    eeAutoConfigured: eeAuto.isConfigured()
   });
 });
 

@@ -78,8 +78,144 @@
     if (node) node.remove();
   }
 
-  // ── savings card ─────────────────────────────────────────────────────────
+  // ── card dispatch ────────────────────────────────────────────────────────
   function buildCard(card) {
+    if (!card) return el('div');
+    if (card.type === 'leads') return buildLeadsCard(card);
+    if (card.type === 'research') return buildResearchCard(card);
+    return buildSavingsCard(card);
+  }
+
+  /** Shown while an ee-auto report is still being worked on. */
+  function pendingBlock(card, kind, label) {
+    const wrap = el('div', 'pending-block');
+    wrap.appendChild(el('span', 'pending-dot'));
+    wrap.appendChild(el('small', null, label));
+    const refresh = el('button', 'refresh-btn', 'Refresh');
+    refresh.type = 'button';
+    refresh.addEventListener('click', () => refreshReport(card, kind, refresh));
+    wrap.appendChild(refresh);
+    return wrap;
+  }
+
+  function reportLink(card, text) {
+    if (!card.viewUrl) return null;
+    const link = el('a', 'report-link', text);
+    link.href = card.viewUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    return link;
+  }
+
+  // ── leads card ───────────────────────────────────────────────────────────
+  function buildLeadsCard(card) {
+    const root = el('div', 'rich-card leads-card');
+
+    const title = el('div', 'card-title');
+    title.appendChild(el('span', null, '⌕'));
+    const text = el('div');
+    text.appendChild(el('strong', null, card.query.keyword || 'Business search'));
+    text.appendChild(el('small', null, card.query.place ? 'Google Maps · ' + card.query.place : 'Google Maps'));
+    title.appendChild(text);
+    if (card.total) title.appendChild(el('b', null, card.total + ' found'));
+    root.appendChild(title);
+
+    if (card.state === 'pending') {
+      root.appendChild(pendingBlock(card, 'leads', 'Still searching Google Maps…'));
+    }
+
+    if (card.error) root.appendChild(el('div', 'pkg-missing', card.error));
+
+    (card.companies || []).forEach((company) => root.appendChild(companyRow(company, card)));
+
+    if (!card.companies || !card.companies.length) {
+      if (card.state !== 'pending') root.appendChild(el('div', 'pkg-missing', 'No businesses matched that search.'));
+    }
+
+    const link = reportLink(card, 'Open full report ↗');
+    if (link) root.appendChild(link);
+    return root;
+  }
+
+  function companyRow(company, card) {
+    const row = el('div', 'company-row');
+
+    const rank = el('span', 'company-rank', company.rank != null ? company.rank : '·');
+    row.appendChild(rank);
+
+    const copy = el('div', 'company-copy');
+    copy.appendChild(el('strong', null, company.name || 'Unnamed'));
+
+    const bits = [];
+    if (company.rating) bits.push('★ ' + company.rating);
+    if (company.reviews) bits.push(company.reviews + ' reviews');
+    if (company.category) bits.push(company.category);
+    copy.appendChild(el('small', null, bits.join(' · ') || '—'));
+    if (company.address) copy.appendChild(el('small', 'company-addr', company.address));
+    row.appendChild(copy);
+
+    const actions = el('div', 'company-actions');
+    if (company.phone) {
+      const call = el('a', 'company-chip', '☏');
+      call.href = 'tel:' + company.phone;
+      call.title = company.phone;
+      actions.appendChild(call);
+    }
+    if (company.website) {
+      const site = el('a', 'company-chip', '⌂');
+      site.href = company.website;
+      site.target = '_blank';
+      site.rel = 'noopener noreferrer';
+      site.title = company.website;
+      actions.appendChild(site);
+    }
+    const dig = el('button', 'company-chip dig', '⌕+');
+    dig.type = 'button';
+    dig.title = 'Research this company';
+    dig.addEventListener('click', () => send('Research ' + company.name));
+    actions.appendChild(dig);
+    row.appendChild(actions);
+
+    return row;
+  }
+
+  // ── research card ────────────────────────────────────────────────────────
+  function buildResearchCard(card) {
+    const root = el('div', 'rich-card research-card');
+
+    const title = el('div', 'card-title');
+    title.appendChild(el('span', null, '❋'));
+    const text = el('div');
+    text.appendChild(el('strong', null, card.companyName || card.title || 'Company research'));
+    text.appendChild(el('small', null, 'Evidence-backed deep research'));
+    title.appendChild(text);
+    if (card.status) {
+      const pill = el('b', null, card.status);
+      if (card.status === 'partial') pill.classList.add('warn');
+      title.appendChild(pill);
+    }
+    root.appendChild(title);
+
+    if (card.state === 'pending') {
+      root.appendChild(pendingBlock(card, 'research', 'Research still running…'));
+    }
+
+    if (card.error) root.appendChild(el('div', 'pkg-missing', card.error));
+
+    if (card.final) {
+      const summary = typeof card.final === 'string' ? card.final : (card.final.summary || card.final.overview || null);
+      if (summary) root.appendChild(el('p', 'research-summary', String(summary).slice(0, 600)));
+    }
+
+    const link = reportLink(card, 'Read the full report ↗');
+    if (link) root.appendChild(link);
+    else if (card.state !== 'pending') root.appendChild(el('p', 'card-note', 'No report link was returned.'));
+
+    return root;
+  }
+
+  // ── savings card ─────────────────────────────────────────────────────────
+  function buildSavingsCard(card) {
     const root = el('div', 'rich-card savings-card');
 
     const title = el('div', 'card-title');
@@ -186,7 +322,9 @@
   function renderCard(card, container) {
     const node = buildCard(card);
     container.insertBefore(node, container.querySelector('time'));
-    latestCardEl = node;
+    // Only the savings card is adjustable, so only it is tracked for in-place
+    // replacement when a chip fires.
+    if (card.type === 'savings' || !card.type) latestCardEl = node;
     scroll();
     return node;
   }
@@ -284,6 +422,31 @@
       clearTyping();
       setBusy(false);
     }
+  }
+
+  async function refreshReport(card, kind, button) {
+    if (!card.reportId) return;
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Checking…';
+    try {
+      const res = await fetch(API + '/report/' + kind + '/' + encodeURIComponent(card.reportId));
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'refresh failed');
+      replaceCardNode(button.closest('.rich-card'), payload.card);
+    } catch (err) {
+      console.error(err);
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
+
+  function replaceCardNode(node, card) {
+    if (!node || !node.parentNode) return;
+    const fresh = buildCard(card);
+    node.parentNode.replaceChild(fresh, node);
+    if (card.type === 'savings') latestCardEl = fresh;
+    scroll();
   }
 
   async function adjust(patch) {

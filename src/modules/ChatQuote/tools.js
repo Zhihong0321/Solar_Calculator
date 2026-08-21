@@ -10,6 +10,7 @@ const pool = require('../../core/database/pool');
 const tariffPool = require('../../core/database/tariffPool');
 const { calculateSolarSavings } = require('../SolarCalculator/services/solarCalculatorService');
 const { buildBillCycleModes } = require('../SolarCalculator/services/billCycleModeService');
+const eeAuto = require('./eeAuto');
 
 // Mirrors the defaults the live calculator ships with (public/domestic-v4.html).
 // Keeping them here means the chat needs exactly one input from the agent: the bill.
@@ -132,6 +133,82 @@ async function calculateSavings(input, previous = null) {
   return card;
 }
 
+// ── Business intelligence (ee-auto) ───────────────────────────────────────
+
+function trimText(value, max) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  return text.length > max ? text.slice(0, max - 1) + '…' : text;
+}
+
+/** Ranked company list from Google Maps. */
+async function businessSearch(input, { requesterId, onProgress } = {}) {
+  const keyword = trimText(input && input.keyword, 120);
+  if (!keyword) {
+    const err = new Error('I need something to search for — a business type or keyword.');
+    err.code = 'NEEDS_KEYWORD';
+    throw err;
+  }
+
+  const place = trimText(input && input.place, 120);
+  const max = Math.min(Math.max(parseInt(input && input.max, 10) || 20, 1), 100);
+
+  const job = await eeAuto.searchJob({ keyword, place, max, requesterId }, { onProgress });
+  const companies = (job.data && job.data.companies) || [];
+
+  return {
+    type: 'leads',
+    state: job.state,
+    query: { keyword, place, max },
+    reportId: job.report && job.report.id,
+    status: job.report && job.report.status,
+    viewUrl: (job.report && job.report.view_url) || null,
+    error: (job.report && job.report.error) || null,
+    total: companies.length,
+    companies: companies.slice(0, 25).map((c) => ({
+      id: c.id,
+      name: c.name,
+      rating: c.rating,
+      reviews: c.reviews,
+      category: trimText(c.category, 60),
+      address: trimText(c.address, 120),
+      phone: c.phone || null,
+      website: c.website || null,
+      mapsUrl: c.maps_url || null,
+      rank: c.rank
+    }))
+  };
+}
+
+/** Evidence-guarded deep research on one company from a previous search. */
+async function companyResearch(input, { requesterId, onProgress } = {}) {
+  const companyId = input && (input.companyId || input.company_id);
+  if (!companyId) {
+    const err = new Error('I need a company from a search result first.');
+    err.code = 'NEEDS_COMPANY';
+    throw err;
+  }
+
+  const job = await eeAuto.researchJob({ companyId: String(companyId), requesterId }, { onProgress });
+  const data = job.data || {};
+
+  return {
+    type: 'research',
+    state: job.state,
+    companyId: String(companyId),
+    companyName: trimText(input && input.companyName, 120),
+    reportId: job.report && job.report.id,
+    status: job.report && job.report.status,
+    title: (job.report && job.report.title) || null,
+    viewUrl: (job.report && job.report.view_url) || null,
+    error: (job.report && job.report.error) || null,
+    // The report body is rendered by ee-auto's own mobile page; the card links
+    // out rather than trying to reproduce a long-form research document.
+    final: data.final || null
+  };
+}
+
 // OpenAI-format tool schema handed to the router.
 const TOOL_SCHEMA = [{
   type: 'function',
@@ -152,6 +229,43 @@ const TOOL_SCHEMA = [{
       required: ['amount']
     }
   }
+}, {
+  type: 'function',
+  function: {
+    name: 'business_search',
+    description: 'Find real businesses on Google Maps by keyword and place, ranked, with rating, reviews, address, phone and website. Use this when the agent wants to find companies, prospects or competitors — for example "find solar installers in Puchong" or "cari kilang di Shah Alam".',
+    parameters: {
+      type: 'object',
+      properties: {
+        keyword: { type: 'string', description: 'Business category, service or keyword to search for' },
+        place: { type: 'string', description: 'City, district, state or country. Omit if the agent did not name one.' },
+        max: { type: 'number', description: 'How many results to return, 1-100. Default 20.' }
+      },
+      required: ['keyword']
+    }
+  }
+}, {
+  type: 'function',
+  function: {
+    name: 'company_research',
+    description: 'Run evidence-backed deep research on ONE company that appeared in a previous business_search result. Use when the agent asks to know more about, investigate, or research a specific company from the list. Requires the company id from that list — never invent one.',
+    parameters: {
+      type: 'object',
+      properties: {
+        companyId: { type: 'string', description: 'The id of the company, taken from a previous business_search result' },
+        companyName: { type: 'string', description: 'The company name, for display while the research runs' }
+      },
+      required: ['companyId']
+    }
+  }
 }];
 
-module.exports = { calculateSavings, buildParams, TOOL_SCHEMA, DEFAULTS, ALLOWED_BATTERY };
+module.exports = {
+  calculateSavings,
+  businessSearch,
+  companyResearch,
+  buildParams,
+  TOOL_SCHEMA,
+  DEFAULTS,
+  ALLOWED_BATTERY
+};

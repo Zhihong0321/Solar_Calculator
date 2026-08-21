@@ -18,6 +18,7 @@
 const ai = require('./aiClient');
 const tools = require('./tools');
 const repo = require('./threadRepo');
+const eeAuto = require('./eeAuto');
 
 const HISTORY_LIMIT = 20;
 
@@ -25,8 +26,15 @@ const SYSTEM_PROMPT = `You are the quotation assistant inside ETERNALGY's solar 
 
 Your job in this conversation: turn a customer's average monthly TNB bill into a solar savings estimate, then help the agent adjust it.
 
+You have three tools:
+- calculate_savings — solar savings from a monthly TNB bill.
+- business_search — find real companies on Google Maps by keyword and place.
+- company_research — deep research on ONE company from a previous search.
+
 Rules you must follow:
 - NEVER state, estimate, or calculate any number yourself. Not savings, not system size, not price, not payback. Call the calculate_savings tool and let the app display the result.
+- NEVER invent company names, ratings, addresses or phone numbers. Only business_search may produce them.
+- company_research needs a company id from a previous business_search in this conversation. If you do not have one, run business_search first or ask which company the agent means.
 - If the agent gives a bill amount, call calculate_savings immediately. Do not ask for anything else first: sun peak hour, usage pattern and panel type all have sensible defaults.
 - If the agent asks to change something (battery, discount, panel count), call calculate_savings again with that change. The app remembers the previous inputs.
 - If you genuinely do not have a bill amount yet, ask for it in one short sentence.
@@ -66,6 +74,16 @@ function friendlyCalcError(err) {
   return 'The calculator could not complete that. Please try a different figure.';
 }
 
+function friendlyToolError(toolName, err) {
+  if (err && err.code === 'NO_EE_AUTO_TOKEN') return 'Business search is not configured on this server yet.';
+  if (err && err.code === 'EE_AUTO_UNAUTHORIZED') return 'The business intelligence service rejected our credentials. Please tell your admin.';
+  if (err && err.code === 'NEEDS_KEYWORD') return err.message;
+  if (err && err.code === 'NEEDS_COMPANY') return err.message;
+  if (toolName === 'business_search') return 'The business search service could not complete that. Try again in a moment.';
+  if (toolName === 'company_research') return 'The research service could not complete that. Try again in a moment.';
+  return friendlyCalcError(err);
+}
+
 function previousParamsOf(thread) {
   return thread && thread.last_calc && thread.last_calc.params ? thread.last_calc.params : null;
 }
@@ -91,7 +109,12 @@ async function handleTurn({ thread, text, emit }) {
 
   const finish = async (reply, card, extra = {}) => {
     await repo.appendMessage(thread.id, 'assistant', reply, card);
-    if (card) await repo.recordCalculation(thread.id, card);
+    // Only a savings card defines the thread — it is what the title, the
+    // preview and the adjustment chips are derived from. Research output is
+    // supporting material and must not overwrite the quotation state.
+    if (card && card.type === 'savings') await repo.recordCalculation(thread.id, card);
+    else if (card && card.type === 'leads') await repo.setPreview(thread.id, `${card.total} companies · ${card.query.keyword}`);
+    else if (card && card.type === 'research') await repo.setPreview(thread.id, `Research · ${card.companyName || 'company'}`);
     else if (extra.error) await repo.setPreview(thread.id, reply);
     return { reply, card, ...extra };
   };
@@ -112,9 +135,20 @@ async function handleTurn({ thread, text, emit }) {
   // ── Model path ──────────────────────────────────────────────────────────
   emit('status', { label: 'Thinking…' });
 
-  const context = previousParams
+  let context = previousParams
     ? `\n\nCurrent inputs on screen: ${JSON.stringify(previousParams)}. When the agent asks for a change, call calculate_savings with only the changed field.`
     : '';
+
+  // company_research needs a real id, so the last search's companies are put in
+  // front of the model rather than left for it to guess at.
+  const lastLeads = await repo.latestCardOfType(thread.id, 'leads');
+  if (lastLeads && lastLeads.companies && lastLeads.companies.length) {
+    const roster = lastLeads.companies
+      .slice(0, 25)
+      .map((c, i) => `${i + 1}. ${c.name} (companyId: ${c.id})`)
+      .join('\n');
+    context += `\n\nCompanies from the most recent business_search — use these exact ids for company_research, never invent one:\n${roster}`;
+  }
 
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT + context },
@@ -145,17 +179,42 @@ async function handleTurn({ thread, text, emit }) {
     console.warn('[ChatQuote] unparseable tool arguments:', call.function.arguments);
   }
 
-  emit('status', { label: 'Calculating savings…' });
+  const meta = { route: 'model', model: completion.model, latencyMs: completion.latencyMs };
+  const toolName = call.function.name;
+
   try {
+    if (toolName === 'business_search') {
+      emit('status', { label: 'Searching Google Maps…' });
+      const card = await tools.businessSearch(args, {
+        requesterId: thread.thread_key,
+        onProgress: ({ seconds }) => emit('status', { label: `Searching Google Maps… ${seconds}s` })
+      });
+      const reply = completion.content
+        || (card.state === 'pending'
+          ? 'Still searching. I will keep the report open — refresh the card in a moment.'
+          : `Found ${card.total} ${card.total === 1 ? 'company' : 'companies'}.`);
+      return await finish(reply, card, meta);
+    }
+
+    if (toolName === 'company_research') {
+      emit('status', { label: 'Researching the company…' });
+      const card = await tools.companyResearch(args, {
+        requesterId: thread.thread_key,
+        onProgress: ({ seconds }) => emit('status', { label: `Researching… ${seconds}s` })
+      });
+      const reply = completion.content
+        || (card.state === 'pending'
+          ? 'Research is still running. Refresh the card in a minute.'
+          : 'Research is ready.');
+      return await finish(reply, card, meta);
+    }
+
+    emit('status', { label: 'Calculating savings…' });
     const card = await tools.calculateSavings(args, previousParams);
-    return await finish(completion.content || 'Here are the numbers.', card, {
-      route: 'model',
-      model: completion.model,
-      latencyMs: completion.latencyMs
-    });
+    return await finish(completion.content || 'Here are the numbers.', card, meta);
   } catch (err) {
-    console.error('[ChatQuote] tool calculation failed:', err.code || err.message);
-    return await finish(friendlyCalcError(err), null, { route: 'model', error: true });
+    console.error(`[ChatQuote] tool ${toolName} failed:`, err.code || err.message);
+    return await finish(friendlyToolError(toolName, err), null, { ...meta, error: true });
   }
 }
 
@@ -173,4 +232,54 @@ async function adjust({ thread, patch }) {
   return card;
 }
 
-module.exports = { handleTurn, adjust, parseBillOnly, SYSTEM_PROMPT };
+/**
+ * Re-polls a report that was still running when its turn ended, and rewrites
+ * the stored card so the thread shows the finished result on reload.
+ */
+async function refreshReport({ thread, kind, reportId }) {
+  const polled = await eeAuto.fetchReport(kind === 'research' ? 'research' : 'search', reportId);
+  const report = polled.report || {};
+  const data = polled.data || {};
+  const stored = await repo.latestCardOfType(thread.id, kind);
+  const done = ['completed', 'partial', 'failed'].includes(report.status);
+
+  const card = kind === 'leads'
+    ? {
+      ...(stored || { type: 'leads', query: {} }),
+      state: done ? 'done' : 'pending',
+      status: report.status,
+      reportId: report.id || reportId,
+      viewUrl: report.view_url || (stored && stored.viewUrl) || null,
+      error: report.error || null,
+      total: (data.companies || []).length || (stored && stored.total) || 0,
+      companies: (data.companies || []).length
+        ? data.companies.slice(0, 25).map((c) => ({
+          id: c.id,
+          name: c.name,
+          rating: c.rating,
+          reviews: c.reviews,
+          category: c.category,
+          address: c.address,
+          phone: c.phone || null,
+          website: c.website || null,
+          mapsUrl: c.maps_url || null,
+          rank: c.rank
+        }))
+        : (stored && stored.companies) || []
+    }
+    : {
+      ...(stored || { type: 'research' }),
+      state: done ? 'done' : 'pending',
+      status: report.status,
+      reportId: report.id || reportId,
+      title: report.title || (stored && stored.title) || null,
+      viewUrl: report.view_url || (stored && stored.viewUrl) || null,
+      error: report.error || null,
+      final: data.final || (stored && stored.final) || null
+    };
+
+  if (stored) await repo.updateCardOfType(thread.id, kind, card);
+  return card;
+}
+
+module.exports = { handleTurn, adjust, refreshReport, parseBillOnly, SYSTEM_PROMPT };

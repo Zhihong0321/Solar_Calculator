@@ -134,6 +134,33 @@ async function updateLatestCard(threadId, card) {
   );
 }
 
+/** Newest card of a given type on the thread, or null. */
+async function latestCardOfType(threadId, type) {
+  const { rows } = await pool.query(
+    `SELECT card FROM lab_chat_message
+      WHERE thread_id = $1 AND card->>'type' = $2
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1`,
+    [threadId, type]
+  );
+  return rows[0] ? rows[0].card : null;
+}
+
+/** Rewrites the newest card of a type in place (report refresh). */
+async function updateCardOfType(threadId, type, card) {
+  await pool.query(
+    `UPDATE lab_chat_message
+        SET card = $3
+      WHERE id = (
+        SELECT id FROM lab_chat_message
+         WHERE thread_id = $1 AND card->>'type' = $2
+         ORDER BY created_at DESC, id DESC
+         LIMIT 1
+      )`,
+    [threadId, type, JSON.stringify(card)]
+  );
+}
+
 async function setPreview(threadId, text) {
   await pool.query(
     'UPDATE lab_chat_thread SET preview = $2, updated_at = now() WHERE id = $1',
@@ -159,6 +186,8 @@ module.exports = {
   appendMessage,
   recordCalculation,
   updateLatestCard,
+  latestCardOfType,
+  updateCardOfType,
   setPreview,
   softDelete,
   titleFromCard
