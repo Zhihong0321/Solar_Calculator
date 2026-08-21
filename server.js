@@ -113,6 +113,14 @@ app.use(Attachments.router);
 app.use(uploadBackfillRoutes);
 app.use(demoRoutes);
 
+// --- Prototype: conversational quotation (/lab/chat) ---
+// Opt-in and isolated. Not registered in the navigation shell, reachable only
+// by URL. Remove this block and src/modules/ChatQuote to drop it entirely.
+if (process.env.CHAT_LAB_ENABLED === 'true') {
+  app.use(require('./src/modules/ChatQuote').router);
+  console.log('[ChatQuote] /lab/chat enabled');
+}
+
 // --- Global Routes & Static Files ---
 app.use(express.static('public'));
 app.get('/v2-part-1.jpg', (req, res) => {
