@@ -49,6 +49,8 @@ button,input { font:inherit; } button { border:0; cursor:pointer; color:inherit;
 .quick-actions small { color:#667970; font-size:8px; font-weight:700; letter-spacing:.5px; }
 .dark .quick-actions small { color:var(--muted); }
 .quick-actions button { padding:9px 11px; text-align:left; border:1px solid #9bdabd; border-radius:10px; background:var(--surface); color:var(--green); font-size:11px; }
+.quick-actions small:not(:first-child) { margin-top:6px; }
+.quick-actions button.hint { border-style:dashed; border-color:var(--line); color:var(--muted); cursor:default; }
 
 .rich-card { margin:9px 0 5px; padding:11px; overflow:hidden; border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:0 2px 8px #0000000d; }
 .card-title { display:flex; align-items:center; gap:8px; margin-bottom:10px; }

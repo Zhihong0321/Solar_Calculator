@@ -334,12 +334,22 @@
   function showStarters() {
     const wrap = el('div', 'quick-actions');
     wrap.id = 'starters';
-    wrap.appendChild(el('small', null, 'QUICK START'));
-    ['450', 'RM 780 sebulan', 'bil customer 1200, ada battery 16kwh'].forEach((text) => {
-      const btn = el('button', null, text);
-      btn.type = 'button';
-      btn.addEventListener('click', () => { removeStarters(); send(text); });
-      wrap.appendChild(btn);
+    // Every capability must be visible here — a feature nobody can see is a
+    // feature that does not exist.
+    const groups = [
+      ['SOLAR SAVINGS — type a bill', ['450', 'bil customer 1200, ada battery 16kwh']],
+      ['BUSINESS SEARCH — find companies', ['find solar installers in Puchong', 'semua business kat Bandar Puteri']],
+      ['DEEP RESEARCH — after a search', ['tap ⌕+ on any company in the list']]
+    ];
+    groups.forEach(([label, items], groupIndex) => {
+      wrap.appendChild(el('small', null, label));
+      items.forEach((text) => {
+        const isHint = groupIndex === 2;
+        const btn = el('button', isHint ? 'hint' : null, text);
+        btn.type = 'button';
+        if (!isHint) btn.addEventListener('click', () => { removeStarters(); send(text); });
+        wrap.appendChild(btn);
+      });
     });
     feed.appendChild(wrap);
     scroll();
@@ -536,7 +546,7 @@
         if (res.ok) name = (await res.json()).name;
       } catch { /* greeting is cosmetic */ }
       const hello = name ? 'Hi ' + String(name).split(' ')[0] + '.' : 'Hi.';
-      addAgent(hello + " What's the customer's average monthly TNB bill?");
+      addAgent(hello + ' I can calculate solar savings from a TNB bill, search businesses on Google Maps, or deep-research a company. Just type what you want — English or Malay.');
       showStarters();
       return;
     }
