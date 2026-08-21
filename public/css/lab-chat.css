@@ -143,6 +143,9 @@ button,input { font:inherit; } button { border:0; cursor:pointer; color:inherit;
 .row-delete { width:22px; height:22px; border-radius:50%; background:transparent; color:var(--muted); font-size:11px; opacity:0; transition:opacity .15s; }
 .thread-row:hover .row-delete, .row-delete:focus { opacity:1; }
 .row-delete:hover { background:var(--field); color:#e2673f; }
+/* Touch screens have no hover — a hover-only delete button is unreachable. */
+@media (hover:none) { .row-delete { opacity:1; } }
+.thread-chevron { color:var(--muted); font-size:20px; line-height:1; justify-self:end; }
 
 .empty-state { padding:56px 34px; display:grid; justify-items:center; gap:9px; text-align:center; }
 .empty-icon { width:52px; height:52px; display:grid; place-items:center; border-radius:17px; background:var(--soft); color:var(--green); font-size:24px; }

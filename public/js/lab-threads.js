@@ -30,15 +30,18 @@
     const link = el('a', 'thread-row');
     link.href = '/lab/chat/t/' + encodeURIComponent(thread.thread_key);
 
-    const avatar = el('span', 'thread-avatar', thread.status === 'quoted' ? '☀' : '＋');
+    // A draft must still read as a conversation, never as a "+" control —
+    // an add-glyph here is indistinguishable from the New Quotation button.
+    const avatar = el('span', 'thread-avatar', thread.status === 'quoted' ? '☀' : 'Q');
     if (thread.status === 'quoted') avatar.classList.add('quoted');
 
     const copy = el('span', 'row-copy');
     copy.appendChild(el('strong', null, thread.title || 'New quotation'));
-    copy.appendChild(el('small', null, thread.preview || 'No calculation yet'));
+    copy.appendChild(el('small', null, thread.preview || 'Tap to open — then type the customer’s TNB bill'));
 
     const meta = el('span', 'row-meta');
     meta.appendChild(el('time', null, when(thread.updated_at)));
+    meta.appendChild(el('span', 'thread-chevron', '›'));
 
     const remove = el('button', 'row-delete', '✕');
     remove.type = 'button';
