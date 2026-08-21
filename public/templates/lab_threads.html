@@ -4,19 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
-  <title>Quotation — Lab</title>
+  <title>Quotations — Lab</title>
   <link rel="stylesheet" href="/css/lab-chat.css">
 </head>
 <body>
   <main class="stage" id="stage">
-    <section class="phone" aria-label="Conversational quotation prototype">
+    <section class="phone" aria-label="Quotation threads">
       <header class="topbar">
         <div class="title-group">
-          <a class="back" href="/lab/chat" aria-label="Back to quotations">&#8249;</a>
           <span class="agent-avatar" aria-hidden="true">Q<i></i></span>
           <div>
-            <small id="agent-status">Online</small>
-            <h1 id="thread-title">Quotation</h1>
+            <small id="subtitle">Your quotations</small>
+            <h1>Quotations</h1>
           </div>
         </div>
         <div class="header-buttons">
@@ -25,15 +24,18 @@
         </div>
       </header>
 
-      <div class="chat-content" id="feed"></div>
+      <div class="thread-list" id="list" aria-busy="true">
+        <p class="list-status">Loading…</p>
+      </div>
 
-      <form class="composer-wrap" id="composer" autocomplete="off">
-        <input id="input" placeholder="Enter the customer's monthly bill…" aria-label="Message">
-        <button class="send" id="send" type="submit" aria-label="Send">&#10148;</button>
-      </form>
+      <div class="list-footer">
+        <button class="new-thread" id="new-btn" type="button">
+          <span aria-hidden="true">+</span> New Quotation
+        </button>
+      </div>
     </section>
   </main>
 
-  <script src="/js/lab-chat.js"></script>
+  <script src="/js/lab-threads.js"></script>
 </body>
 </html>

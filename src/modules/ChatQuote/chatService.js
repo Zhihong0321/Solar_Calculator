@@ -4,17 +4,22 @@
  * Two paths on purpose:
  *
  *   fast path — the message is just a bill amount ("450", "RM 1,200"). We call
- *   the calculator directly. No model, no 4-second reasoning preamble, no cost.
- *   This is the common case and it has to feel instant.
+ *   the calculator directly. No model, no reasoning preamble, no cost. This is
+ *   the common case and it has to feel instant.
  *
  *   model path — anything else goes to the router with one tool. The model
  *   decides whether to call calculate_savings and with what arguments; it never
  *   produces the numbers itself.
+ *
+ * Conversation state lives in Postgres (threadRepo), so a thread survives a
+ * page reload, a deploy and a Railway restart.
  */
 
 const ai = require('./aiClient');
 const tools = require('./tools');
-const store = require('./sessionStore');
+const repo = require('./threadRepo');
+
+const HISTORY_LIMIT = 20;
 
 const SYSTEM_PROMPT = `You are the quotation assistant inside ETERNALGY's solar sales app. You are talking to a Malaysian solar sales agent, who may write in English, Malay, or a mix of both.
 
@@ -31,6 +36,8 @@ Rules you must follow:
 // "450", "rm450", "RM 1,200.50", "450 sebulan", "1200 per month"
 const BILL_ONLY = /^\s*(?:rm\s*)?([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:rm)?\s*(?:sebulan|per\s*month|a\s*month|\/\s*month|monthly|sebln)?\s*$/i;
 
+const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNRESET']);
+
 function parseBillOnly(text) {
   const match = BILL_ONLY.exec(text || '');
   if (!match) return null;
@@ -40,8 +47,6 @@ function parseBillOnly(text) {
   if (amount < 20 || amount > 100000) return null;
   return amount;
 }
-
-const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNRESET']);
 
 function friendlyCalcError(err) {
   if (err && err.code === 'NEEDS_AMOUNT') return "I need the customer's average monthly TNB bill first.";
@@ -61,16 +66,35 @@ function friendlyCalcError(err) {
   return 'The calculator could not complete that. Please try a different figure.';
 }
 
+function previousParamsOf(thread) {
+  return thread && thread.last_calc && thread.last_calc.params ? thread.last_calc.params : null;
+}
+
+/** Recent turns, oldest first, as plain model messages. */
+async function historyFor(thread) {
+  const rows = await repo.getMessages(thread.id, HISTORY_LIMIT);
+  return rows
+    .filter((row) => row.content)
+    .map((row) => ({ role: row.role, content: row.content }));
+}
+
 /**
- * Runs one turn. `emit(event, data)` streams progress to the browser.
- * Returns the final assistant payload.
+ * Runs one turn against a thread. `emit(event, data)` streams progress.
+ * Returns the assistant payload the browser renders.
  */
-async function handleTurn({ session, text, emit }) {
+async function handleTurn({ thread, text, emit }) {
   const trimmed = (text || '').trim();
   if (!trimmed) return { reply: 'Say that again?', card: null };
 
-  store.pushMessage(session, 'user', trimmed);
-  const previousParams = session.lastCalc ? session.lastCalc.params : null;
+  await repo.appendMessage(thread.id, 'user', trimmed);
+  const previousParams = previousParamsOf(thread);
+
+  const finish = async (reply, card, extra = {}) => {
+    await repo.appendMessage(thread.id, 'assistant', reply, card);
+    if (card) await repo.recordCalculation(thread.id, card);
+    else if (extra.error) await repo.setPreview(thread.id, reply);
+    return { reply, card, ...extra };
+  };
 
   // ── Fast path ───────────────────────────────────────────────────────────
   const billOnly = parseBillOnly(trimmed);
@@ -78,15 +102,10 @@ async function handleTurn({ session, text, emit }) {
     emit('status', { label: 'Calculating savings…' });
     try {
       const card = await tools.calculateSavings({ amount: billOnly }, previousParams);
-      store.setLastCalc(session, card.params, card);
-      const reply = `Here's what solar does for a RM ${billOnly} bill.`;
-      store.pushMessage(session, 'assistant', reply);
-      return { reply, card, route: 'fast' };
+      return await finish(`Here's what solar does for a RM ${billOnly} bill.`, card, { route: 'fast' });
     } catch (err) {
-      console.error('[ChatQuote] fast-path calculation failed:', err.message);
-      const reply = friendlyCalcError(err);
-      store.pushMessage(session, 'assistant', reply);
-      return { reply, card: null, route: 'fast', error: true };
+      console.error('[ChatQuote] fast-path calculation failed:', err.code || err.message);
+      return await finish(friendlyCalcError(err), null, { route: 'fast', error: true });
     }
   }
 
@@ -99,7 +118,7 @@ async function handleTurn({ session, text, emit }) {
 
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT + context },
-    ...session.messages
+    ...(await historyFor(thread))
   ];
 
   let completion;
@@ -110,15 +129,13 @@ async function handleTurn({ session, text, emit }) {
     const reply = err.code === 'NO_AI_KEY'
       ? 'AI is not configured on this server yet.'
       : 'I could not reach the AI service. Try the bill amount on its own and I will calculate it directly.';
-    store.pushMessage(session, 'assistant', reply);
-    return { reply, card: null, route: 'model', error: true };
+    return await finish(reply, null, { route: 'model', error: true });
   }
 
   const call = completion.toolCalls && completion.toolCalls[0];
   if (!call) {
     const reply = completion.content || 'Give me the average monthly TNB bill and I will work out the savings.';
-    store.pushMessage(session, 'assistant', reply);
-    return { reply, card: null, route: 'model', model: completion.model, latencyMs: completion.latencyMs };
+    return await finish(reply, null, { route: 'model', model: completion.model, latencyMs: completion.latencyMs });
   }
 
   let args = {};
@@ -131,28 +148,28 @@ async function handleTurn({ session, text, emit }) {
   emit('status', { label: 'Calculating savings…' });
   try {
     const card = await tools.calculateSavings(args, previousParams);
-    store.setLastCalc(session, card.params, card);
-    const reply = completion.content || 'Here are the numbers.';
-    store.pushMessage(session, 'assistant', reply);
-    return { reply, card, route: 'model', model: completion.model, latencyMs: completion.latencyMs };
+    return await finish(completion.content || 'Here are the numbers.', card, {
+      route: 'model',
+      model: completion.model,
+      latencyMs: completion.latencyMs
+    });
   } catch (err) {
-    console.error('[ChatQuote] tool calculation failed:', err.message);
-    const reply = friendlyCalcError(err);
-    store.pushMessage(session, 'assistant', reply);
-    return { reply, card: null, route: 'model', error: true };
+    console.error('[ChatQuote] tool calculation failed:', err.code || err.message);
+    return await finish(friendlyCalcError(err), null, { route: 'model', error: true });
   }
 }
 
 /** Chip-driven recalculation. Patches one field, no model involved. */
-async function adjust({ session, patch }) {
-  const previousParams = session.lastCalc ? session.lastCalc.params : null;
+async function adjust({ thread, patch }) {
+  const previousParams = previousParamsOf(thread);
   if (!previousParams) {
     const err = new Error('Nothing to adjust yet');
     err.code = 'NO_CALC';
     throw err;
   }
   const card = await tools.calculateSavings(patch || {}, previousParams);
-  store.setLastCalc(session, card.params, card);
+  await repo.recordCalculation(thread.id, card);
+  await repo.updateLatestCard(thread.id, card);
   return card;
 }
 

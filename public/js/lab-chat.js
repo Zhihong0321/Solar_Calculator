@@ -8,7 +8,9 @@
   const stage = document.getElementById('stage');
   const statusLine = document.getElementById('agent-status');
 
-  const SESSION_ID = 'lab-' + Math.random().toString(36).slice(2, 10);
+  // The thread is the URL: /lab/chat/t/th_xxxxxxxx
+  const THREAD_KEY = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
+  const API = '/lab/chat/api/threads/' + encodeURIComponent(THREAD_KEY);
   let busy = false;
   let latestCardEl = null;
 
@@ -230,10 +232,10 @@
     showTyping('Thinking…');
 
     try {
-      const res = await fetch('/lab/chat/api/message', {
+      const res = await fetch(API + '/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: message, sessionId: SESSION_ID })
+        body: JSON.stringify({ text: message })
       });
 
       if (res.status === 401) {
@@ -289,10 +291,10 @@
     setBusy(true);
     showTyping('Recalculating…');
     try {
-      const res = await fetch('/lab/chat/api/adjust', {
+      const res = await fetch(API + '/adjust', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patch, sessionId: SESSION_ID })
+        body: JSON.stringify({ patch })
       });
       const payload = await res.json();
       clearTyping();
@@ -326,57 +328,68 @@
   composer.addEventListener('submit', (event) => { event.preventDefault(); send(); });
 
   document.getElementById('theme-btn').addEventListener('click', () => {
-    stage.classList.toggle('dark');
-    document.getElementById('theme-btn').innerHTML = stage.classList.contains('dark') ? '&#9788;' : '&#9790;';
+    const dark = stage.classList.toggle('dark');
+    localStorage.setItem('labChatTheme', dark ? 'dark' : 'light');
+    document.getElementById('theme-btn').innerHTML = dark ? '&#9788;' : '&#9790;';
   });
 
-  document.getElementById('reset-btn').addEventListener('click', async () => {
-    await fetch('/lab/chat/api/reset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: SESSION_ID })
-    }).catch(() => {});
-    feed.innerHTML = '';
+  if (localStorage.getItem('labChatTheme') === 'dark') {
+    stage.classList.add('dark');
+    document.getElementById('theme-btn').innerHTML = '&#9788;';
+  }
+
+  /** Replays the stored thread, or greets when it is brand new. */
+  async function openThread() {
     feed.appendChild(el('div', 'day-pill', 'Today'));
-    latestCardEl = null;
-    greet();
-  });
 
-  async function greet() {
-    let name = null;
+    let payload = null;
     try {
-      const res = await fetch('/lab/chat/api/me');
-      if (res.ok) name = (await res.json()).name;
-    } catch { /* greeting is cosmetic */ }
-
-    const hello = name ? 'Hi ' + String(name).split(' ')[0] + '.' : 'Hi.';
-    addAgent(hello + " What's the customer's average monthly TNB bill?");
-    showStarters();
-  }
-
-  // ── ?sample=1 ────────────────────────────────────────────────────────────
-  // Renders the card from canned figures so the layout can be reviewed without
-  // database access. Explicitly labelled: these are not a real calculation.
-  function renderSample() {
-    const body = addAgent('Sample layout — these figures are made up.');
-    const node = renderCard({
-      type: 'savings',
-      params: { amount: 450, panelType: 650, batterySize: 0, fixedDiscount: 0 },
-      bill: { before: '450.00', after: '68.00', payable: '68.00', usageKwh: 780, savings: '382.00' },
-      system: { panels: 14, recommendedPanels: 14, panelWattage: 650, sizeKwp: '9.1', config: '14 x 650W panels (9.1 kW system)', batterySize: 0, phase: 3 },
-      package: { name: 'Residential 9.1kWp Hybrid', panelQty: 14, price: '38800.00', nettPrice: '36800.00', maxDiscount: 2000, linkedPackage: 'sample' },
-      cost: { beforeDiscount: '38800.00', discountAmount: '0.00', final: '38800.00', requiresSedaFee: false },
-      payback: '4.1',
-      confidence: '92.0'
-    }, body);
-    node.querySelectorAll('.chips button').forEach((b) => { b.disabled = true; });
-  }
-
-  greet().then(() => {
-    if (new URLSearchParams(location.search).get('sample') === '1') {
-      removeStarters();
-      renderSample();
+      const res = await fetch(API);
+      if (res.status === 404) {
+        addAgent('That quotation no longer exists.', { error: true });
+        return;
+      }
+      if (res.status === 401) {
+        addAgent('Your session expired. Reload the page to sign in again.', { error: true });
+        return;
+      }
+      payload = await res.json();
+    } catch (err) {
+      console.error(err);
+      addAgent('Could not load this quotation.', { error: true });
+      return;
     }
-  });
+
+    if (payload.thread && payload.thread.title) {
+      document.getElementById('thread-title').textContent = payload.thread.title;
+    }
+
+    const messages = payload.messages || [];
+    if (!messages.length) {
+      let name = null;
+      try {
+        const res = await fetch('/lab/chat/api/me');
+        if (res.ok) name = (await res.json()).name;
+      } catch { /* greeting is cosmetic */ }
+      const hello = name ? 'Hi ' + String(name).split(' ')[0] + '.' : 'Hi.';
+      addAgent(hello + " What's the customer's average monthly TNB bill?");
+      showStarters();
+      return;
+    }
+
+    messages.forEach((message) => {
+      if (message.role === 'user') {
+        addUser(message.content);
+      } else {
+        const body = addAgent(message.content);
+        if (message.card) renderCard(message.card, body);
+      }
+    });
+    scroll();
+  }
+
+  // The ?sample=1 preview is gone: with threads backed by Postgres there is a
+  // real card to look at, and invented figures on prod are a hazard.
+  openThread();
   input.focus();
 })();
