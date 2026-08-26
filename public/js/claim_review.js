@@ -3,6 +3,15 @@
 
   var claims = [];
   var activeFilter = "Pending";
+  var activeMonth = "";
+  var activeCategory = "";
+
+  var CATEGORIES = [
+    "Transport / Fuel", "Toll & Parking", "Meals & Refreshments", "Accommodation / Lodging",
+    "Tools & Hardware", "Site Consumables / Materials", "Courier & Postage",
+    "Printing & Stationery", "Equipment Rental", "Others"
+  ];
+  var MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   var reviewerNameEl = document.getElementById("reviewerName");
   var accessErrorEl = document.getElementById("accessError");
@@ -11,6 +20,11 @@
   var emptyStateEl = document.getElementById("emptyState");
   var filterTabs = document.querySelectorAll(".filter-tab");
   var refreshBtn = document.getElementById("refreshBtn");
+  var monthFilterEl = document.getElementById("monthFilter");
+  var categoryFilterEl = document.getElementById("categoryFilter");
+  var lightboxModal = document.getElementById("lightboxModal");
+  var lightboxImg = document.getElementById("lightboxImg");
+  var lightboxClose = document.getElementById("lightboxClose");
 
   function el(tag, attrs, children) {
     var node = document.createElement(tag);
@@ -31,6 +45,51 @@
   function money(claim) {
     var curr = claim.currency || "RM";
     return claim.amount != null ? curr + " " + Number(claim.amount).toFixed(2) : "Amount pending";
+  }
+
+  function openLightbox(src) {
+    lightboxImg.src = src;
+    lightboxModal.classList.remove("hidden");
+    lightboxModal.classList.add("flex");
+  }
+
+  function closeLightbox() {
+    lightboxModal.classList.add("hidden");
+    lightboxModal.classList.remove("flex");
+    lightboxImg.src = "";
+  }
+
+  lightboxClose.addEventListener("click", closeLightbox);
+  lightboxModal.addEventListener("click", function (e) {
+    if (e.target === lightboxModal) closeLightbox();
+  });
+
+  function monthKey(claim) {
+    var raw = claim.receipt_date || claim.created_at;
+    if (!raw) return null;
+    var d = new Date(raw);
+    if (isNaN(d.getTime())) return null;
+    var month = d.getMonth() + 1;
+    return d.getFullYear() + "-" + (month < 10 ? "0" + month : String(month));
+  }
+
+  function receiptThumb(claim) {
+    if (!claim.file_url) {
+      return el("div", { class: "shrink-0 w-28 h-28 rounded-md border border-dashed border-gray-200 bg-slate-50 text-slate-400 text-[11px] font-medium flex items-center justify-center text-center px-2", text: "No receipt" });
+    }
+    var isPdf = (claim.file_mime || "").indexOf("pdf") !== -1 || /\.pdf($|\?)/i.test(claim.file_url);
+    if (isPdf) {
+      var pdfBox = el("a", { href: claim.file_url, target: "_blank", rel: "noopener", class: "shrink-0 w-28 h-28 rounded-md border border-gray-200 bg-slate-50 text-slate-500 hover:bg-slate-100 flex flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors" });
+      pdfBox.innerHTML = '<i class="fa-solid fa-file-pdf text-xl"></i><span>View PDF</span>';
+      return pdfBox;
+    }
+    var img = el("img", {
+      src: claim.file_url,
+      alt: "Receipt",
+      class: "shrink-0 w-28 h-28 object-cover rounded-md border border-gray-200 bg-white cursor-zoom-in hover:opacity-90 transition-opacity"
+    });
+    img.addEventListener("click", function () { openLightbox(claim.file_url); });
+    return img;
   }
 
   function getClaimTimestamp(claim) {
@@ -62,7 +121,7 @@
     if (claim.description) bodyLines.push(el("p", { class: "text-sm text-slate-500 mt-1", text: claim.description }));
 
     var metaLine = el("p", { class: "text-xs text-slate-400 mt-3" }, [
-      document.createTextNode("Submitted " + (claim.created_at ? new Date(claim.created_at).toLocaleString() : "") + (claim.receipt_id ? " · Receipt #" + claim.receipt_id : ""))
+      document.createTextNode("Submitted " + (claim.created_at ? new Date(claim.created_at).toLocaleString() : "") + (claim.receipt_id ? " · Inv Number " + claim.receipt_id : ""))
     ]);
 
     var footerChildren = [metaLine];
@@ -150,10 +209,13 @@
 
     var footer = el("div", { class: "flex items-center justify-between flex-wrap gap-2 mt-1" }, footerChildren);
 
-    var cardChildren = [header].concat(bodyLines).concat([footer, actionsRow]);
-    if (rejectFormRow) cardChildren.push(rejectFormRow);
+    var detailChildren = [header].concat(bodyLines).concat([footer, actionsRow]);
+    if (rejectFormRow) detailChildren.push(rejectFormRow);
 
-    return el("div", { class: "border border-gray-200 rounded-md p-4 bg-white shadow-sm" }, cardChildren);
+    var detailCol = el("div", { class: "flex-1 min-w-0" }, detailChildren);
+    var row = el("div", { class: "flex gap-4" }, [receiptThumb(claim), detailCol]);
+
+    return el("div", { class: "border border-gray-200 rounded-md p-4 bg-white shadow-sm" }, [row]);
   }
 
   function renderGroupedByAgent(filteredClaims) {
@@ -263,7 +325,12 @@
   }
 
   function render() {
-    var filtered = activeFilter ? claims.filter(function (c) { return c.status === activeFilter; }) : claims;
+    var filtered = claims.filter(function (c) {
+      if (activeFilter && c.status !== activeFilter) return false;
+      if (activeMonth && monthKey(c) !== activeMonth) return false;
+      if (activeCategory && (c.category || "") !== activeCategory) return false;
+      return true;
+    });
     claimsListEl.innerHTML = "";
     if (filtered.length === 0) {
       emptyStateEl.classList.remove("hidden");
@@ -271,6 +338,37 @@
     }
     emptyStateEl.classList.add("hidden");
     renderGroupedByAgent(filtered);
+  }
+
+  function populateCategoryOptions() {
+    var currentValue = categoryFilterEl.value;
+    categoryFilterEl.innerHTML = "";
+    categoryFilterEl.appendChild(el("option", { value: "", text: "All Categories" }));
+    CATEGORIES.forEach(function (c) {
+      categoryFilterEl.appendChild(el("option", { value: c, text: c }));
+    });
+    categoryFilterEl.value = currentValue;
+  }
+
+  function populateMonthOptions() {
+    var seen = {};
+    claims.forEach(function (c) {
+      var k = monthKey(c);
+      if (k) seen[k] = true;
+    });
+    var sortedKeys = Object.keys(seen).sort().reverse();
+    var currentValue = monthFilterEl.value;
+
+    monthFilterEl.innerHTML = "";
+    monthFilterEl.appendChild(el("option", { value: "", text: "All Months" }));
+    sortedKeys.forEach(function (k) {
+      var parts = k.split("-");
+      var label = MONTH_NAMES[Number(parts[1]) - 1] + " " + parts[0];
+      monthFilterEl.appendChild(el("option", { value: k, text: label }));
+    });
+
+    if (sortedKeys.indexOf(currentValue) !== -1) monthFilterEl.value = currentValue;
+    else activeMonth = "";
   }
 
   // approved_by is resolved server-side from the authenticated session, not sent from here —
@@ -303,6 +401,7 @@
         reviewBodyEl.classList.remove("hidden");
         accessErrorEl.classList.add("hidden");
         claims = payload.claims || [];
+        populateMonthOptions();
         render();
       })
       .catch(function () {
@@ -321,6 +420,18 @@
   });
 
   refreshBtn.addEventListener("click", loadClaims);
+
+  monthFilterEl.addEventListener("change", function () {
+    activeMonth = monthFilterEl.value;
+    render();
+  });
+
+  categoryFilterEl.addEventListener("change", function () {
+    activeCategory = categoryFilterEl.value;
+    render();
+  });
+
+  populateCategoryOptions();
 
   fetch("/api/agent/me", { credentials: "same-origin" })
     .then(function (res) { return res.ok ? res.json() : null; })

@@ -47,11 +47,25 @@
                         </button>
                     </div>
 
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="monthFilter" class="text-xs font-semibold border border-gray-200 rounded-full pl-3 pr-7 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-slate-300">
+                            <option value="">All Months</option>
+                        </select>
+                        <select id="categoryFilter" class="text-xs font-semibold border border-gray-200 rounded-full pl-3 pr-7 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-slate-300">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+
                     <div id="claimsList" class="space-y-3"></div>
                     <p id="emptyState" class="hidden text-sm text-slate-400 text-center py-10">No claims in this view.</p>
                 </div>
             </div>
         </main>
+    </div>
+
+    <div id="lightboxModal" class="hidden fixed inset-0 bg-black/80 z-50 items-center justify-center p-4">
+        <img id="lightboxImg" src="" alt="Receipt" class="max-w-full max-h-full rounded-md shadow-2xl" />
+        <button type="button" id="lightboxClose" class="absolute top-4 right-4 text-white text-3xl leading-none hover:text-slate-300">&times;</button>
     </div>
 
     <script src="/js/claim_review.js" defer></script>

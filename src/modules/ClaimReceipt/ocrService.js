@@ -86,7 +86,9 @@ function buildPrompt() {
     '{',
     '  "vendor": "the shop/supplier who issued the receipt (never the buyer, never Eternalgy), or null",',
     '  "receipt_date": "YYYY-MM-DD or null",',
-    '  "receipt_id": "receipt/invoice/bill number or null",',
+    '  "receipt_id": "the FULL receipt/invoice/bill number exactly as printed, or null. Copy every' +
+      ' segment — do not drop a trailing sequence number after a dash or slash' +
+      ' (e.g. \'VXIVLC9J-0002\' must stay \'VXIVLC9J-0002\', never be shortened to \'VXIVLC9J\')",',
     '  "amount": number (grand total, no currency symbol) or null,',
     '  "currency": "the ISO code actually printed on the receipt (MYR, USD, SGD, …). Do NOT assume MYR — a $ or USD total is USD",',
     `  "category_hint": "one of [${CATEGORIES.join(', ')}] or null",`,
