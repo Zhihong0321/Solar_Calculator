@@ -73,6 +73,13 @@
       background: rgba(255,255,255,0.04); color: inherit; font-size: 13px; font-family: inherit;
       width: 100%; box-sizing: border-box;
     }
+    /* The dropdown list itself is rendered by the OS, on a white/light background, regardless of
+       the select's own dark styling above — without this, option text inherits the page's
+       near-white color and is illegible against that native popup. */
+    select option {
+      color: #111827;
+      background-color: #ffffff;
+    }
     textarea { min-height: 40px; resize: vertical; }
     .btn {
       flex: 1; margin-top: 2px; padding: 10px 14px; border-radius: 9px; border: none;
