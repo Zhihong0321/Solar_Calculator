@@ -19,10 +19,15 @@
 
   var EMPTY_FORM = { vendor: "", receipt_date: "", receipt_id: "", amount: "", currency: "MYR", category: "", item: "", description: "" };
 
-  var items = []; // { id, fileName, mimeType, previewUrl, stage, errorMessage, md5, model, claimId, fileUrl, fileMime, form, el }
+  var items = []; // { id, fileName, mimeType, previewUrl, stage, errorMessage, md5, model, claimId, fileUrl, fileMime, form, el, onBehalfOfUserId }
   var idCounter = 0;
   var queue = [];
   var active = 0;
+
+  // Admin/HR only: who new receipts get attributed to. null = the logged-in session itself.
+  // Captured onto each item when it's added (not read again later) so switching mid-batch can't
+  // retroactively change who an already-queued receipt is filed under.
+  var selectedSubmitterId = null;
 
   var claimantInput = document.getElementById("claimant");
   var fileInput = document.getElementById("file-input");
@@ -344,15 +349,20 @@
     item.stage = "saving";
     renderCard(item);
 
-    // submitted_by is resolved server-side from the authenticated session, not sent from here.
+    // submitted_by is resolved server-side from the authenticated session (or, for an admin/HR
+    // reviewer who picked someone else in "Submit as", from on_behalf_of_user_id) — never sent
+    // from here as free text.
+    var body = Object.assign({}, item.form, {
+      md5: item.md5,
+      file_url: item.fileUrl,
+      file_mime: item.fileMime
+    });
+    if (item.onBehalfOfUserId) body.on_behalf_of_user_id = item.onBehalfOfUserId;
+
     return fetch("/api/claim-receipts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({}, item.form, {
-        md5: item.md5,
-        file_url: item.fileUrl,
-        file_mime: item.fileMime
-      }))
+      body: JSON.stringify(body)
     })
       .then(function (res) { return res.json().then(function (payload) { return { res: res, payload: payload }; }); })
       .then(function (r) {
@@ -413,10 +423,12 @@
   function handleFiles(fileList) {
     Array.prototype.forEach.call(fileList, function (file) {
       var id = nextId();
+      var onBehalfOfUserId = selectedSubmitterId;
       preprocessImage(file).then(function (prepared) {
         var item = {
           id: id, file: prepared, fileName: prepared.name, mimeType: prepared.type,
-          previewUrl: URL.createObjectURL(prepared), stage: "queued", form: Object.assign({}, EMPTY_FORM)
+          previewUrl: URL.createObjectURL(prepared), stage: "queued", form: Object.assign({}, EMPTY_FORM),
+          onBehalfOfUserId: onBehalfOfUserId
         };
         items.push(item);
         renderCard(item);
@@ -431,16 +443,48 @@
     fileInput.value = "";
   });
 
-  // Display-only: the server always stamps submitted_by from the authenticated session, so this
-  // field is no longer sent anywhere — it's just showing the agent who this session will submit
-  // claims as (see claimantInput.readOnly below, and claimReceiptController.create).
-  claimantInput.readOnly = true;
+  // The server always stamps submitted_by server-side (see claimReceiptController.create) — this
+  // picker only ever sends a user id, never a free-text name. For everyone but admin/HR it's a
+  // single locked option showing their own name. For admin/HR it's populated with the full
+  // roster so they can file a receipt under a colleague instead of themselves.
+  function populateOwnNameOnly(name) {
+    claimantInput.innerHTML = "";
+    claimantInput.appendChild(el("option", { value: "", text: name || "You" }));
+    claimantInput.disabled = true;
+  }
+
+  claimantInput.addEventListener("change", function () {
+    selectedSubmitterId = claimantInput.value || null;
+  });
+
   fetch("/api/agent/me", { credentials: "same-origin" })
     .then(function (res) { return res.ok ? res.json() : null; })
     .then(function (data) {
-      if (data && data.name) claimantInput.value = data.name;
+      if (!data) return;
+      var levels = Array.isArray(data.access_level) ? data.access_level.map(function (l) { return String(l).toLowerCase(); }) : [];
+      var canSubmitForOthers = levels.indexOf("admin") !== -1 || levels.indexOf("hr") !== -1;
+      if (!canSubmitForOthers) {
+        populateOwnNameOnly(data.name);
+        return;
+      }
+
+      return fetch("/api/claim-receipts/submittable-users", { credentials: "same-origin" })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (payload) {
+          if (!payload) { populateOwnNameOnly(data.name); return; }
+          claimantInput.innerHTML = "";
+          claimantInput.appendChild(el("option", { value: "", text: "Myself" + (data.name ? " (" + data.name + ")" : "") }));
+          (payload.users || []).forEach(function (u) {
+            if (payload.selfId && String(u.id) === String(payload.selfId)) return;
+            claimantInput.appendChild(el("option", { value: String(u.id), text: u.name + (u.email ? " · " + u.email : "") }));
+          });
+          claimantInput.disabled = false;
+          claimantInput.value = "";
+        });
     })
-    .catch(function () {});
+    .catch(function () {
+      populateOwnNameOnly("");
+    });
 
   // Tab switching
   var tabs = document.querySelectorAll(".tab");

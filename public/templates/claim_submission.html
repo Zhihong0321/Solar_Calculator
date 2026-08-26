@@ -28,10 +28,11 @@
     h1 { font-size: 19px; margin: 2px 0 4px; }
     .row-tight { display: flex; align-items: center; gap: 8px; }
     .row-tight label { font-size: 12px; opacity: 0.65; flex-shrink: 0; }
-    .row-tight input {
+    .row-tight input, .row-tight select {
       flex: 1; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18);
       background: rgba(255,255,255,0.04); color: inherit; font-size: 13px;
     }
+    .row-tight select:disabled { opacity: 0.7; }
     .card {
       display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03);
@@ -145,8 +146,8 @@
       </div>
       <h1>Submit & Track Claims</h1>
       <div class="row-tight">
-        <label for="claimant">Submitting as</label>
-        <input id="claimant" value="" placeholder="Your name" readonly />
+        <label for="claimant">Submit as</label>
+        <select id="claimant"></select>
       </div>
     </header>
 

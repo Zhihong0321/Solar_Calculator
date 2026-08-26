@@ -31,4 +31,39 @@ async function resolveSubmitterIdentity(req) {
   };
 }
 
-module.exports = { resolveSubmitterIdentity };
+/** Looks up any user by id, for an admin/HR reviewer picking who to submit a claim on behalf of. */
+async function resolveIdentityByUserId(userId) {
+  if (!userId) return null;
+
+  const result = await pool.query(
+    `SELECT u.id::text AS user_id, a.name, u.email
+       FROM "user" u
+       LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
+      WHERE u.id::text = $1
+      LIMIT 1`,
+    [String(userId)]
+  );
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return {
+    userId: row.user_id,
+    name: row.name || row.email || 'Unknown',
+    email: row.email || null
+  };
+}
+
+/** Full roster for the "submit as" picker — same identity shape resolveSubmitterIdentity uses. */
+async function listSubmittableUsers() {
+  const result = await pool.query(
+    `SELECT u.id::text AS id, COALESCE(a.name, u.email) AS name, u.email
+       FROM "user" u
+       LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR a.linked_user_login = u.bubble_id)
+      WHERE COALESCE(a.name, u.email) IS NOT NULL
+      ORDER BY COALESCE(a.name, u.email) ASC`
+  );
+  return result.rows;
+}
+
+module.exports = { resolveSubmitterIdentity, resolveIdentityByUserId, listSubmittableUsers };

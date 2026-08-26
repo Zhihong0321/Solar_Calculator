@@ -5,8 +5,10 @@ const path = require('path');
 const claimReceiptService = require('./claimReceiptService');
 const ocrService = require('./ocrService');
 const r2Storage = require('../../core/upload/r2Storage');
-const { resolveSubmitterIdentity } = require('./resolveSubmitterIdentity');
+const { resolveSubmitterIdentity, resolveIdentityByUserId, listSubmittableUsers } = require('./resolveSubmitterIdentity');
+const { isReviewer } = require('./reviewerAccess');
 const { writeActivity } = require('../../core/activityLog/writeActivity');
+const { getRequestLegacyUserId } = require('../../core/auth/userIdentity');
 
 const EXT_BY_MIME = {
   'image/png': '.png',
@@ -67,9 +69,10 @@ exports.list = async (req, res) => {
 
 /**
  * Called automatically the moment OCR finishes on the client — there is no manual "submit" step.
- * submitted_by is never taken from the request body: it's resolved server-side from the
- * authenticated session, so a claim can never be attributed to someone other than whoever is
- * actually logged in.
+ * submitted_by is never taken from the request body as free text: either it's the authenticated
+ * session's own identity, or — if the session is an admin/HR reviewer and passed
+ * on_behalf_of_user_id — a specific other user's identity looked up server-side by id. Either way
+ * a claim can never be attributed to an arbitrary name a non-reviewer typed in.
  */
 exports.create = async (req, res) => {
   try {
@@ -78,8 +81,21 @@ exports.create = async (req, res) => {
 
     if (!req.body.md5) return res.status(400).json({ error: 'md5 is required' });
 
-    const identity = await resolveSubmitterIdentity(req);
-    if (!identity) return res.status(401).json({ error: 'Could not resolve the authenticated user' });
+    const actorIdentity = await resolveSubmitterIdentity(req);
+    if (!actorIdentity) return res.status(401).json({ error: 'Could not resolve the authenticated user' });
+
+    let identity = actorIdentity;
+    let onBehalfOfName = null;
+
+    if (req.body.on_behalf_of_user_id) {
+      if (!(await isReviewer(req))) {
+        return res.status(403).json({ error: 'Only admin/HR can submit a claim on behalf of another user' });
+      }
+      const target = await resolveIdentityByUserId(req.body.on_behalf_of_user_id);
+      if (!target) return res.status(400).json({ error: 'Selected user not found' });
+      identity = target;
+      onBehalfOfName = target.name;
+    }
 
     const claim = await claimReceiptService.create({
       md5: req.body.md5,
@@ -99,11 +115,25 @@ exports.create = async (req, res) => {
       entityType: 'claim_receipt',
       entityId: claim?.id,
       entityLabel: claim?.vendor || null,
-      description: `submitted a claim receipt${claim?.amount ? ` (RM${claim.amount})` : ''}`
+      description: onBehalfOfName
+        ? `submitted a claim receipt on behalf of ${onBehalfOfName}${claim?.amount ? ` (RM${claim.amount})` : ''}`
+        : `submitted a claim receipt${claim?.amount ? ` (RM${claim.amount})` : ''}`
     });
   } catch (err) {
     console.error('[ClaimReceipt] Create error:', err);
     res.status(500).json({ error: 'Failed to save claim' });
+  }
+};
+
+/** Roster for the admin/HR "submit as" picker, plus which row is the requester's own. */
+exports.listSubmittableUsers = async (req, res) => {
+  try {
+    const users = await listSubmittableUsers();
+    const selfId = getRequestLegacyUserId(req);
+    res.json({ users, selfId: selfId ? String(selfId) : null });
+  } catch (err) {
+    console.error('[ClaimReceipt] listSubmittableUsers error:', err);
+    res.status(500).json({ error: 'Failed to load users' });
   }
 };
 
