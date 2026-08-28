@@ -509,6 +509,214 @@
     });
   });
 
+  // ---- Business Trip Allowance (outstation / traveling claim) ----
+  // A manual allowance form: no receipt/OCR, submitted straight to the same claim_receipt
+  // table with category = "Business Trip Allowance" so both claim types live in one list and
+  // the admin review labels them by that category.
+  var TRIP_CATEGORY = "Business Trip Allowance";
+
+  var typeTabs = document.querySelectorAll(".type-tab");
+  var receiptForm = document.getElementById("receipt-form");
+  var tripForm = document.getElementById("trip-form");
+
+  var tripFrom = document.getElementById("trip-from");
+  var tripTo = document.getElementById("trip-to");
+  var tripDeparturePoint = document.getElementById("trip-departure-point");
+  var tripDestination = document.getElementById("trip-destination");
+
+  var tripReasonPhotograph = document.getElementById("trip-reason-photograph");
+  var tripReasonSitevisit = document.getElementById("trip-reason-sitevisit");
+  var tripReasonCollect = document.getElementById("trip-reason-collect");
+  var tripReasonOther = document.getElementById("trip-reason-other");
+  var tripReasonOtherRow = document.getElementById("trip-reason-other-row");
+  var tripReasonOtherText = document.getElementById("trip-reason-other-text");
+  var tripCustomerName = document.getElementById("trip-customer-name");
+  var tripCustomerAddress = document.getElementById("trip-customer-address");
+
+  var HOSTEL_ROWS = [1, 2].map(function (n) {
+    return {
+      day: document.getElementById("trip-hostel" + n + "-day"),
+      night: document.getElementById("trip-hostel" + n + "-night"),
+      cost: document.getElementById("trip-hostel" + n + "-cost")
+    };
+  });
+  var DISTANCE_ROWS = [1, 2, 3, 4, 5, 6].map(function (n) {
+    return {
+      from: document.getElementById("trip-distance" + n + "-from"),
+      to: document.getElementById("trip-distance" + n + "-to"),
+      cost: document.getElementById("trip-distance" + n + "-cost")
+    };
+  });
+  var tripTollCost = document.getElementById("trip-toll-cost");
+  var MEAL_INPUTS = [
+    document.getElementById("trip-meal-day1"),
+    document.getElementById("trip-meal-day2"),
+    document.getElementById("trip-meal-day3")
+  ];
+  var tripOtherRemark = document.getElementById("trip-other-remark");
+  var tripOtherCost = document.getElementById("trip-other-cost");
+
+  var tripTotal = document.getElementById("trip-total");
+  var tripSubmit = document.getElementById("trip-submit");
+  var tripStatus = document.getElementById("trip-status");
+
+  function num(v) {
+    if (v === null || v === undefined || v === "") return 0;
+    var n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  // Inclusive day count between two YYYY-MM-DD dates; 0 if missing/backwards.
+  function tripDays() {
+    if (!tripFrom.value || !tripTo.value) return 0;
+    var a = new Date(tripFrom.value + "T00:00:00");
+    var b = new Date(tripTo.value + "T00:00:00");
+    if (isNaN(a.getTime()) || isNaN(b.getTime()) || b < a) return 0;
+    return Math.round((b.getTime() - a.getTime()) / 86400000) + 1;
+  }
+
+  function computeTripTotal() {
+    var total = 0;
+    HOSTEL_ROWS.forEach(function (row) { total += num(row.cost.value); });
+    DISTANCE_ROWS.forEach(function (row) { total += num(row.cost.value); });
+    total += num(tripTollCost.value);
+    MEAL_INPUTS.forEach(function (input) { total += num(input.value); });
+    total += num(tripOtherCost.value);
+    tripTotal.value = total > 0 ? total.toFixed(2) : "";
+  }
+
+  function setTripStatus(text, cls) {
+    tripStatus.textContent = text || "";
+    tripStatus.className = "status" + (cls ? " " + cls : "");
+    tripStatus.classList.toggle("hidden", !text);
+  }
+
+  function resetTripForm() {
+    [tripFrom, tripTo, tripDeparturePoint, tripDestination, tripReasonOtherText,
+      tripCustomerName, tripCustomerAddress, tripTollCost, tripOtherRemark, tripOtherCost]
+      .forEach(function (el) { if (el) el.value = ""; });
+    HOSTEL_ROWS.forEach(function (row) { row.day.value = ""; row.night.value = ""; row.cost.value = ""; });
+    DISTANCE_ROWS.forEach(function (row) { row.from.value = ""; row.to.value = ""; row.cost.value = ""; });
+    MEAL_INPUTS.forEach(function (input) { input.value = ""; });
+    [tripReasonPhotograph, tripReasonSitevisit, tripReasonCollect, tripReasonOther]
+      .forEach(function (cb) { cb.checked = false; });
+    tripReasonOtherRow.classList.add("hidden");
+    tripTotal.value = "";
+  }
+
+  tripReasonOther.addEventListener("change", function () {
+    tripReasonOtherRow.classList.toggle("hidden", !tripReasonOther.checked);
+  });
+
+  var tripCostInputs = [tripTollCost, tripOtherCost].concat(MEAL_INPUTS);
+  HOSTEL_ROWS.forEach(function (row) { tripCostInputs.push(row.cost); });
+  DISTANCE_ROWS.forEach(function (row) { tripCostInputs.push(row.cost); });
+  tripCostInputs.forEach(function (el) {
+    el.addEventListener("input", computeTripTotal);
+    el.addEventListener("change", computeTripTotal);
+  });
+
+  tripSubmit.addEventListener("click", function () {
+    var destination = tripDestination.value.trim();
+    var departurePoint = tripDeparturePoint.value.trim();
+    var from = tripFrom.value;
+    var to = tripTo.value;
+    var total = num(tripTotal.value);
+
+    var reasons = [];
+    if (tripReasonPhotograph.checked) reasons.push("Photograph");
+    if (tripReasonSitevisit.checked) reasons.push("Site Visit");
+    if (tripReasonCollect.checked) reasons.push("Collect Payment");
+    if (tripReasonOther.checked) reasons.push("Other" + (tripReasonOtherText.value.trim() ? " (" + tripReasonOtherText.value.trim() + ")" : ""));
+
+    if (!destination) return setTripStatus("Destination is required.", "status-error");
+    if (!from || !to) return setTripStatus("Departure and return dates are required.", "status-error");
+    if (tripDays() === 0) return setTripStatus("Return date must be on or after departure date.", "status-error");
+    if (!reasons.length) return setTripStatus("Select at least one reason for the trip.", "status-error");
+    if (tripReasonOther.checked && !tripReasonOtherText.value.trim()) return setTripStatus("Specify the \"Other\" reason.", "status-error");
+    if (total <= 0) return setTripStatus("Enter at least one cost so the total is above zero.", "status-error");
+
+    var days = tripDays();
+    var lines = [];
+    lines.push("Reason: " + reasons.join(", "));
+    if (tripCustomerName.value.trim()) lines.push("Customer name: " + tripCustomerName.value.trim());
+    if (tripCustomerAddress.value.trim()) lines.push("Customer address: " + tripCustomerAddress.value.trim());
+    lines.push("Trip: " + (departurePoint || "?") + " → " + destination + " · " + from + " → " + to +
+      (days ? " (" + days + " day" + (days > 1 ? "s" : "") + ")" : ""));
+
+    HOSTEL_ROWS.forEach(function (row, i) {
+      var cost = num(row.cost.value);
+      if (cost > 0 || row.day.value || row.night.value) {
+        lines.push("Hostel " + (i + 1) + ": " + (row.day.value || 0) + " Day / " + (row.night.value || 0) +
+          " Night — RM" + cost.toFixed(2));
+      }
+    });
+    DISTANCE_ROWS.forEach(function (row, i) {
+      var cost = num(row.cost.value);
+      if (cost > 0 || row.from.value.trim() || row.to.value.trim()) {
+        lines.push("Distance " + (i + 1) + ": " + (row.from.value.trim() || "?") + " → " +
+          (row.to.value.trim() || "?") + " — RM" + cost.toFixed(2));
+      }
+    });
+    if (num(tripTollCost.value) > 0) lines.push("Toll & parking: RM" + num(tripTollCost.value).toFixed(2));
+    MEAL_INPUTS.forEach(function (input, i) {
+      if (num(input.value) > 0) lines.push("Meals Day " + (i + 1) + ": RM" + num(input.value).toFixed(2));
+    });
+    if (num(tripOtherCost.value) > 0) {
+      lines.push("Other: RM" + num(tripOtherCost.value).toFixed(2) +
+        (tripOtherRemark.value.trim() ? " (" + tripOtherRemark.value.trim() + ")" : ""));
+    }
+
+    var body = {
+      claim_type: "trip",
+      vendor: destination,
+      item: "Business trip: " + (departurePoint || "?") + " → " + destination,
+      description: lines.join("\n"),
+      receipt_date: from,
+      amount: total.toFixed(2),
+      currency: "MYR",
+      category: TRIP_CATEGORY
+    };
+    if (selectedSubmitterId) body.on_behalf_of_user_id = selectedSubmitterId;
+
+    tripSubmit.disabled = true;
+    setTripStatus("Submitting…");
+
+    fetch("/api/claim-receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    })
+      .then(function (res) { return res.json().then(function (p) { return { res: res, payload: p }; }); })
+      .then(function (r) {
+        tripSubmit.disabled = false;
+        if (!r.res.ok) {
+          setTripStatus(r.payload.error || "Submit failed.", "status-error");
+          return;
+        }
+        setTripStatus("Business Trip Allowance submitted ✓", "status-ok");
+        resetTripForm();
+        setTimeout(function () {
+          var myClaimsTabBtn = document.querySelector('.tab[data-tab="my-claims"]');
+          if (myClaimsTabBtn) myClaimsTabBtn.click();
+        }, 700);
+      })
+      .catch(function (err) {
+        tripSubmit.disabled = false;
+        setTripStatus(err && err.message ? err.message : "Submit threw.", "status-error");
+      });
+  });
+
+  typeTabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      typeTabs.forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+      var ftype = tab.dataset.ftype;
+      receiptForm.classList.toggle("active", ftype === "receipt");
+      tripForm.classList.toggle("active", ftype === "trip");
+    });
+  });
+
   // Load my claims
   function loadMyClaims() {
     var listEl = document.getElementById("my-claims-list");
@@ -534,14 +742,18 @@
 
           var statusClass = (claim.status || "pending").toLowerCase();
           var statusText = claim.status || "Pending";
+          var isTrip = claim.category === TRIP_CATEGORY;
 
           var html = '<div class="my-claim-header">' +
-            '<div class="my-claim-vendor">' + escapeHtml(claim.vendor || "Unknown Vendor") + '</div>' +
+            '<div>' +
+            (isTrip ? '<div class="my-claim-badge">Business Trip Allowance</div>' : '') +
+            '<div class="my-claim-vendor">' + escapeHtml(claim.vendor || (isTrip ? "Business Trip" : "Unknown Vendor")) + '</div>' +
+            '</div>' +
             '<div class="my-claim-status ' + statusClass + '">' + statusText + '</div>' +
             '</div>' +
             '<div class="my-claim-amount">' + (claim.currency || "RM") + ' ' + (claim.amount || "0.00") + '</div>' +
             '<div class="my-claim-meta">' +
-            'Receipt: ' + (claim.receipt_date || "N/A") + ' • ' +
+            (isTrip ? 'Trip: ' : 'Receipt: ') + (claim.receipt_date || "N/A") + ' • ' +
             'Submitted: ' + formatDate(claim.created_at) +
             '</div>';
 
@@ -563,7 +775,7 @@
             '<div class="my-claim-details" id="details-' + claim.id + '">' +
             '<div class="my-claim-details-row"><span class="my-claim-details-label">Item:</span>' + escapeHtml(claim.item || "N/A") + '</div>' +
             '<div class="my-claim-details-row"><span class="my-claim-details-label">Category:</span>' + escapeHtml(claim.category || "N/A") + '</div>' +
-            '<div class="my-claim-details-row"><span class="my-claim-details-label">Description:</span>' + escapeHtml(claim.description || "N/A") + '</div>' +
+            '<div class="my-claim-details-row my-claim-desc"><span class="my-claim-details-label">Description:</span>' + escapeHtml(claim.description || "N/A") + '</div>' +
             '<div class="my-claim-details-row"><span class="my-claim-details-label">Receipt ID:</span>' + escapeHtml(claim.receipt_id || "N/A") + '</div>';
 
           if (claim.file_url) {

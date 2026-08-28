@@ -63,7 +63,12 @@
     .field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
     .field.grow2 { flex: 2; }
     .row { display: flex; gap: 8px; }
-    label.field-label { font-size: 11px; opacity: 0.65; }
+    .field-label { font-size: 11px; opacity: 0.65; display: block; }
+    .card-section-title { font-size: 13px; font-weight: 700; opacity: 0.85; }
+    .checkbox-row { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+    .checkbox-row label { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: 0.85; }
+    .checkbox-row input[type="checkbox"] { width: auto; }
+    .field-narrow { flex: 0 0 64px; }
     .buyer-badge {
       font-size: 11px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.15); opacity: 0.8; align-self: flex-start;
@@ -142,6 +147,26 @@
       font-size: 12px; color: #f28b82;
     }
     .my-claim-remark-label { font-weight: 600; margin-bottom: 4px; }
+
+    /* Claim-type switcher: swap between the receipt claim and the Business Trip Allowance form. */
+    .type-tabs { display: flex; gap: 6px; }
+    .type-tab {
+      flex: 1; padding: 9px 10px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.6); font-weight: 500;
+      font-size: 12px; cursor: pointer; text-align: center; transition: all 0.2s;
+    }
+    .type-tab.active {
+      background: rgba(108,123,255,0.15); border-color: rgba(108,123,255,0.4); color: #9aa4ff;
+    }
+    .type-panel { display: none; }
+    .type-panel.active { display: block; }
+    .trip-total { font-weight: 700; color: #9aa4ff; }
+    .my-claim-badge {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 999px; background: rgba(245,194,107,0.16); color: #f5c26b;
+      margin-bottom: 4px; align-self: flex-start;
+    }
+    .my-claim-desc { white-space: pre-line; }
   </style>
 </head>
 <body>
@@ -164,13 +189,119 @@
     </div>
 
     <div id="submit-tab" class="tab-content active">
-      <section class="upload-card">
-        <label class="upload-area" for="file-input">+ Add receipt photo(s) or PDF — up to 6 read at once</label>
-        <input id="file-input" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,application/pdf" class="hidden" />
-        <p class="status hidden" id="upload-status"></p>
-      </section>
+      <div class="type-tabs">
+        <button type="button" class="type-tab active" data-ftype="receipt">Receipt Claim</button>
+        <button type="button" class="type-tab" data-ftype="trip">Business Trip Allowance</button>
+      </div>
 
-      <div id="cards"></div>
+      <div id="receipt-form" class="type-panel active">
+        <section class="upload-card">
+          <label class="upload-area" for="file-input">+ Add receipt photo(s) or PDF — up to 6 read at once</label>
+          <input id="file-input" type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,application/pdf" class="hidden" />
+          <p class="status hidden" id="upload-status"></p>
+        </section>
+
+        <div id="cards"></div>
+      </div>
+
+      <div id="trip-form" class="type-panel">
+        <section class="card">
+          <div class="row">
+            <div class="field"><label class="field-label" for="trip-from">Departure date</label><input id="trip-from" type="date" /></div>
+            <div class="field"><label class="field-label" for="trip-to">Return date</label><input id="trip-to" type="date" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><label class="field-label" for="trip-departure-point">Departure point</label><input id="trip-departure-point" placeholder="e.g. Johor Bahru" /></div>
+            <div class="field"><label class="field-label" for="trip-destination">Destination</label><input id="trip-destination" placeholder="e.g. Penang" /></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-section-title">1) Reason for business trip</div>
+          <div class="checkbox-row">
+            <label><input type="checkbox" id="trip-reason-photograph" /> Photograph</label>
+            <label><input type="checkbox" id="trip-reason-sitevisit" /> Site Visit</label>
+            <label><input type="checkbox" id="trip-reason-collect" /> Collect Payment</label>
+            <label><input type="checkbox" id="trip-reason-other" /> Other</label>
+          </div>
+          <div class="field hidden" id="trip-reason-other-row"><input id="trip-reason-other-text" placeholder="Specify other reason" /></div>
+          <div class="field"><label class="field-label" for="trip-customer-name">Customer name</label><input id="trip-customer-name" /></div>
+          <div class="field"><label class="field-label" for="trip-customer-address">Customer address</label><textarea id="trip-customer-address"></textarea></div>
+        </section>
+
+        <section class="card">
+          <div class="card-section-title">2) Cost</div>
+
+          <label class="field-label">Hostel</label>
+          <div class="row">
+            <div class="field field-narrow"><input id="trip-hostel1-day" inputmode="numeric" placeholder="Day" /></div>
+            <div class="field field-narrow"><input id="trip-hostel1-night" inputmode="numeric" placeholder="Night" /></div>
+            <div class="field"><input id="trip-hostel1-cost" inputmode="decimal" placeholder="Cost RM" /></div>
+          </div>
+          <div class="row">
+            <div class="field field-narrow"><input id="trip-hostel2-day" inputmode="numeric" placeholder="Day" /></div>
+            <div class="field field-narrow"><input id="trip-hostel2-night" inputmode="numeric" placeholder="Night" /></div>
+            <div class="field"><input id="trip-hostel2-cost" inputmode="decimal" placeholder="Cost RM" /></div>
+          </div>
+
+          <label class="field-label">Distance (up to 6 legs)</label>
+          <div class="row">
+            <div class="field"><input id="trip-distance1-from" placeholder="From" /></div>
+            <div class="field"><input id="trip-distance1-to" placeholder="To" /></div>
+            <div class="field"><input id="trip-distance1-cost" inputmode="decimal" placeholder="Cost RM" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><input id="trip-distance2-from" placeholder="From" /></div>
+            <div class="field"><input id="trip-distance2-to" placeholder="To" /></div>
+            <div class="field"><input id="trip-distance2-cost" inputmode="decimal" placeholder="Cost RM" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><input id="trip-distance3-from" placeholder="From" /></div>
+            <div class="field"><input id="trip-distance3-to" placeholder="To" /></div>
+            <div class="field"><input id="trip-distance3-cost" inputmode="decimal" placeholder="Cost RM" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><input id="trip-distance4-from" placeholder="From" /></div>
+            <div class="field"><input id="trip-distance4-to" placeholder="To" /></div>
+            <div class="field"><input id="trip-distance4-cost" inputmode="decimal" placeholder="Cost RM" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><input id="trip-distance5-from" placeholder="From" /></div>
+            <div class="field"><input id="trip-distance5-to" placeholder="To" /></div>
+            <div class="field"><input id="trip-distance5-cost" inputmode="decimal" placeholder="Cost RM" /></div>
+          </div>
+          <div class="row">
+            <div class="field"><input id="trip-distance6-from" placeholder="From" /></div>
+            <div class="field"><input id="trip-distance6-to" placeholder="To" /></div>
+            <div class="field"><input id="trip-distance6-cost" inputmode="decimal" placeholder="Cost RM" /></div>
+          </div>
+
+          <label class="field-label" for="trip-toll-cost">Toll</label>
+          <input id="trip-toll-cost" inputmode="decimal" placeholder="Cost RM" />
+
+          <label class="field-label">Meals</label>
+          <div class="row">
+            <div class="field"><label class="field-label" for="trip-meal-day1">Day 1</label><input id="trip-meal-day1" inputmode="decimal" placeholder="RM" /></div>
+            <div class="field"><label class="field-label" for="trip-meal-day2">Day 2</label><input id="trip-meal-day2" inputmode="decimal" placeholder="RM" /></div>
+            <div class="field"><label class="field-label" for="trip-meal-day3">Day 3</label><input id="trip-meal-day3" inputmode="decimal" placeholder="RM" /></div>
+          </div>
+
+          <label class="field-label">Other</label>
+          <div class="row">
+            <div class="field grow2"><input id="trip-other-remark" placeholder="Remark" /></div>
+            <div class="field"><input id="trip-other-cost" inputmode="decimal" placeholder="Cost RM" /></div>
+          </div>
+
+          <div class="row-tight">
+            <label for="trip-total">Total allowance (RM)</label>
+            <input id="trip-total" readonly class="trip-total" placeholder="auto-calculated" />
+          </div>
+          <div class="row">
+            <button type="button" id="trip-submit" class="btn">Submit Business Trip Allowance</button>
+          </div>
+          <p class="status hidden" id="trip-status"></p>
+        </section>
+      </div>
     </div>
 
     <div id="my-claims-tab" class="tab-content">
