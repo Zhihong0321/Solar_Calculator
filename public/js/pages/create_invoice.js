@@ -31,8 +31,9 @@ const BATTERY_PRODUCT_NAME = 'B3-16.0-LV Battery';
 const BATTERY_MODULE_SIZE_KWH = 16;
 const BATTERY_UNIT_PRICE = 8000;
 const BALLAST_UNIT_PRICE = 160;
-const ATS_ADDON_PRICE = 500;
+const ATS_ADDON_PRICE = 1200;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
+const ATS_DEFAULT_QTY = 1;
 const SURIA_REBATE_AMOUNT = 3000;
 
 function showSuriaTncPopup() {
@@ -137,6 +138,81 @@ function getBallastItem() {
     };
 }
 
+function updateAtsHelpText() {
+    const helpText = document.getElementById('atsHelpText');
+    const atsToggle = document.getElementById('atsEnabled');
+    const qty = Math.max(0, parseInt(document.getElementById('atsQty')?.value, 10) || 0);
+
+    if (atsToggle) {
+        atsToggle.checked = qty > 0;
+    }
+
+    if (helpText) {
+        helpText.textContent = qty > 0
+            ? `${qty} unit${qty === 1 ? '' : 's'} × RM ${ATS_ADDON_PRICE} = RM ${(qty * ATS_ADDON_PRICE).toLocaleString()}.`
+            : `Not added. Tick to add ${ATS_DEFAULT_QTY} unit.`;
+    }
+}
+
+function setAtsQty(value) {
+    const atsInput = document.getElementById('atsQty');
+    if (!atsInput) return 0;
+
+    const normalizedQty = Math.max(0, parseInt(value, 10) || 0);
+    atsInput.value = String(normalizedQty);
+    updateAtsHelpText();
+    return normalizedQty;
+}
+
+function getAtsQty() {
+    const atsInput = document.getElementById('atsQty');
+    if (!atsInput) return 0;
+
+    return setAtsQty(atsInput.value);
+}
+
+function getAtsItem() {
+    const qty = getAtsQty();
+    if (qty <= 0) return null;
+
+    return {
+        description: ATS_ADDON_DESCRIPTION,
+        qty: qty,
+        unit_price: ATS_ADDON_PRICE,
+        total_price: qty * ATS_ADDON_PRICE,
+        item_kind: 'ats'
+    };
+}
+
+function wireAtsSection() {
+    const atsToggle = document.getElementById('atsEnabled');
+    const atsInput = document.getElementById('atsQty');
+
+    const afterAtsChange = () => {
+        // The ATS card and the hybrid ATS banner must never both emit an ATS line.
+        if (getAtsQty() > 0 && hasATSInManualItems()) {
+            manualItems = manualItems.filter(item => !isATSItem(item));
+            renderManualItems();
+        }
+        syncATSAddonBanner();
+        updateInvoicePreview();
+    };
+
+    if (atsToggle) {
+        atsToggle.addEventListener('change', () => {
+            setAtsQty(atsToggle.checked ? ATS_DEFAULT_QTY : 0);
+            afterAtsChange();
+        });
+    }
+
+    if (atsInput) {
+        atsInput.addEventListener('input', afterAtsChange);
+        atsInput.addEventListener('change', afterAtsChange);
+    }
+
+    updateAtsHelpText();
+}
+
 function isBallastItem(item) {
     if (!item) return false;
 
@@ -172,7 +248,7 @@ function syncATSAddonBanner() {
 
     const packageName = document.getElementById('packageName')?.value || '';
     const isHybrid = isHybridPackage(packageName);
-    const alreadyHasATS = hasATSInManualItems();
+    const alreadyHasATS = hasATSInManualItems() || getAtsQty() > 0;
 
     if (isHybrid && !alreadyHasATS) {
         banner.classList.remove('hidden');
@@ -188,6 +264,7 @@ function onATSAddonToggle(checked) {
     manualItems = manualItems.filter(item => !isATSItem(item));
 
     if (checked) {
+        setAtsQty(0);
         manualItems.push({
             id: 'item_ats_addon',
             description: ATS_ADDON_DESCRIPTION,
@@ -220,6 +297,11 @@ function getAdditionalInvoiceItems() {
     const ballastItem = getBallastItem();
     if (ballastItem) {
         items.push(ballastItem);
+    }
+
+    const atsItem = getAtsItem();
+    if (atsItem) {
+        items.push(atsItem);
     }
 
     getMicroInverterItems().forEach(item => items.push(item));
@@ -1738,9 +1820,11 @@ function updateInvoicePreview() {
     getAdditionalInvoiceItems().forEach(item => {
         const itemToneClass = item.item_kind === 'ballast'
             ? 'text-cyan-800'
-            : item.item_kind === 'micro_inverter'
-                ? 'text-amber-800'
-                : 'text-gray-900';
+            : item.item_kind === 'ats'
+                ? 'text-orange-800'
+                : item.item_kind === 'micro_inverter'
+                    ? 'text-amber-800'
+                    : 'text-gray-900';
         const el = document.createElement('div');
         el.className = 'flex justify-between items-center py-2 border-b border-gray-200';
         el.innerHTML = `
@@ -2239,11 +2323,14 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     if (inv.items) {
                     let ballastQty = 0;
+                    let atsQty = 0;
                     inv.items.forEach(item => {
                         const type = (item.item_type || '').toLowerCase();
                         if (type === 'extra' || (!type && !item.is_a_package)) {
                             if (isBallastItem(item)) {
                                 ballastQty += parseInt(item.qty, 10) || Math.round((parseFloat(item.total_price) || 0) / BALLAST_UNIT_PRICE) || 0;
+                            } else if (isATSItem(item)) {
+                                atsQty += parseInt(item.qty, 10) || Math.round((parseFloat(item.total_price) || 0) / ATS_ADDON_PRICE) || 0;
                             } else {
                                 addManualItem({
                                     description: item.description,
@@ -2255,6 +2342,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                         }
                     });
                     setBallastQty(ballastQty);
+                    setAtsQty(atsQty);
                 }
 
                 const earnNowApplied = inv.items.some((item) => String(item?.description || '').toLowerCase().includes('earn now rebate'));
@@ -2359,6 +2447,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
 
     updateBallastLimitText();
+    wireAtsSection();
     updatePromotionOptionsUI();
     updateInvoicePreview();
     updateWorkspaceStatuses();
