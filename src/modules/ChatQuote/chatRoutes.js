@@ -75,11 +75,12 @@ router.get('/lab/chat/api/threads', requireAuthJson, async (req, res) => {
 
 router.post('/lab/chat/api/threads', requireAuthJson, async (req, res) => {
   try {
-    const thread = await repo.createThread(userIdOf(req));
+    const kind = repo.normalizeKind(req.body && req.body.kind);
+    const thread = await repo.createThread(userIdOf(req), kind);
     res.json({ thread });
   } catch (err) {
     console.error('[ChatQuote] createThread failed:', err.message);
-    res.status(500).json({ error: 'Could not start a new quotation' });
+    res.status(500).json({ error: 'Could not start a new thread' });
   }
 });
 
@@ -91,6 +92,7 @@ router.get('/lab/chat/api/threads/:key', requireAuthJson, async (req, res) => {
     return res.json({
       thread: {
         threadKey: thread.thread_key,
+        kind: repo.normalizeKind(thread.kind),
         title: thread.title,
         status: thread.status,
         createdAt: thread.created_at

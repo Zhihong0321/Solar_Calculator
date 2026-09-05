@@ -41,19 +41,29 @@ function previewFromCard(card) {
   return 'Saves RM ' + Math.round(Number(card.bill.savings)) + '/mo';
 }
 
-async function createThread(userId) {
+// A thread is one job of work. The kind decides which tools the assistant may
+// reach for, how the thread names itself, and what the page offers to do.
+const KINDS = new Set(['quotation', 'business']);
+const DEFAULT_TITLE = { quotation: 'New quotation', business: 'New business search' };
+
+function normalizeKind(kind) {
+  return KINDS.has(kind) ? kind : 'quotation';
+}
+
+async function createThread(userId, kind = 'quotation') {
+  const safeKind = normalizeKind(kind);
   const { rows } = await pool.query(
-    `INSERT INTO lab_chat_thread (thread_key, user_id)
-     VALUES ($1, $2)
-     RETURNING id, thread_key, title, status, preview, created_at, updated_at`,
-    [newThreadKey(), userId]
+    `INSERT INTO lab_chat_thread (thread_key, user_id, kind, title)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, thread_key, kind, title, status, preview, created_at, updated_at`,
+    [newThreadKey(), userId, safeKind, DEFAULT_TITLE[safeKind]]
   );
   return rows[0];
 }
 
 async function listThreads(userId, limit = 50) {
   const { rows } = await pool.query(
-    `SELECT thread_key, title, status, preview, updated_at
+    `SELECT thread_key, kind, title, status, preview, updated_at
        FROM lab_chat_thread
       WHERE user_id = $1 AND deleted_at IS NULL
       ORDER BY updated_at DESC
@@ -65,12 +75,37 @@ async function listThreads(userId, limit = 50) {
 
 async function getThread(userId, threadKey) {
   const { rows } = await pool.query(
-    `SELECT id, thread_key, title, status, last_calc, preview, created_at, updated_at
+    `SELECT id, thread_key, kind, title, status, last_calc, preview, created_at, updated_at
        FROM lab_chat_thread
       WHERE user_id = $1 AND thread_key = $2 AND deleted_at IS NULL`,
     [userId, threadKey]
   );
   return rows[0] || null;
+}
+
+/** Business threads name themselves from the search that was run. */
+async function recordSearch(threadId, card) {
+  const place = card.query && card.query.place;
+  const keyword = card.query && card.query.keyword;
+  const isPlaceOnly = keyword === 'businesses' && place;
+  const title = truncate(
+    isPlaceOnly ? `All businesses · ${place}` : [keyword, place].filter(Boolean).join(' · '),
+    MAX_TITLE
+  );
+  const preview = truncate(
+    card.state === 'pending' ? 'Searching…' : `${card.total} ${card.total === 1 ? 'company' : 'companies'} found`,
+    MAX_PREVIEW
+  );
+
+  await pool.query(
+    `UPDATE lab_chat_thread
+        SET title      = COALESCE($2, title),
+            preview    = COALESCE($3, preview),
+            status     = 'searched',
+            updated_at = now()
+      WHERE id = $1`,
+    [threadId, title, preview]
+  );
 }
 
 async function getMessages(threadId, limit = 100) {
@@ -185,6 +220,8 @@ module.exports = {
   getMessages,
   appendMessage,
   recordCalculation,
+  recordSearch,
+  normalizeKind,
   updateLatestCard,
   latestCardOfType,
   updateCardOfType,

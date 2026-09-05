@@ -331,20 +331,27 @@
   }
 
   // ── quick starters ───────────────────────────────────────────────────────
-  function showStarters() {
+  // Each thread kind shows only what it can actually do here. A starter the
+  // thread would refuse is worse than no starter at all.
+  const STARTERS = {
+    quotation: [
+      ['TYPE A BILL AMOUNT', ['450', 'bil customer 1200, ada battery 16kwh']]
+    ],
+    business: [
+      ['FIND BY PLACE', ['semua business kat Bandar Puteri Puchong', 'list all companies in Kulim Hi-Tech Park']],
+      ['FIND BY TYPE + PLACE', ['find solar installers in Puchong', 'cari kilang makanan di Shah Alam']],
+      ['THEN RESEARCH', ['tap ⌕+ on any company in the result']]
+    ]
+  };
+
+  function showStarters(kind) {
     const wrap = el('div', 'quick-actions');
     wrap.id = 'starters';
-    // Every capability must be visible here — a feature nobody can see is a
-    // feature that does not exist.
-    const groups = [
-      ['SOLAR SAVINGS — type a bill', ['450', 'bil customer 1200, ada battery 16kwh']],
-      ['BUSINESS SEARCH — find companies', ['find solar installers in Puchong', 'semua business kat Bandar Puteri']],
-      ['DEEP RESEARCH — after a search', ['tap ⌕+ on any company in the list']]
-    ];
-    groups.forEach(([label, items], groupIndex) => {
+    const groups = STARTERS[kind] || STARTERS.quotation;
+    groups.forEach(([label, items]) => {
       wrap.appendChild(el('small', null, label));
       items.forEach((text) => {
-        const isHint = groupIndex === 2;
+        const isHint = text.startsWith('tap ');
         const btn = el('button', isHint ? 'hint' : null, text);
         btn.type = 'button';
         if (!isHint) btn.addEventListener('click', () => { removeStarters(); send(text); });
@@ -520,7 +527,7 @@
     try {
       const res = await fetch(API);
       if (res.status === 404) {
-        addAgent('That quotation no longer exists.', { error: true });
+        addAgent('That thread no longer exists.', { error: true });
         return;
       }
       if (res.status === 401) {
@@ -530,12 +537,19 @@
       payload = await res.json();
     } catch (err) {
       console.error(err);
-      addAgent('Could not load this quotation.', { error: true });
+      addAgent('Could not load this thread.', { error: true });
       return;
     }
 
+    const kind = (payload.thread && payload.thread.kind) === 'business' ? 'business' : 'quotation';
+    document.body.dataset.kind = kind;
+
     if (payload.thread && payload.thread.title) {
       document.getElementById('thread-title').textContent = payload.thread.title;
+    }
+    if (kind === 'business') {
+      document.querySelector('.agent-avatar').firstChild.nodeValue = '⌕';
+      input.placeholder = 'Name a place, or a business type + place…';
     }
 
     const messages = payload.messages || [];
@@ -546,8 +560,10 @@
         if (res.ok) name = (await res.json()).name;
       } catch { /* greeting is cosmetic */ }
       const hello = name ? 'Hi ' + String(name).split(' ')[0] + '.' : 'Hi.';
-      addAgent(hello + ' I can calculate solar savings from a TNB bill, search businesses on Google Maps, or deep-research a company. Just type what you want — English or Malay.');
-      showStarters();
+      addAgent(kind === 'business'
+        ? hello + ' Tell me a place and I’ll list every business there — or add a business type to narrow it. Then tap ⌕+ on any result to research that company.'
+        : hello + ' What’s the customer’s average monthly TNB bill?');
+      showStarters(kind);
       return;
     }
 

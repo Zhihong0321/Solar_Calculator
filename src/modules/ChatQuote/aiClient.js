@@ -12,8 +12,16 @@
 
 const DEFAULT_BASE_URL = 'https://e-router.up.railway.app/v1';
 
-const CHAT_MODEL = process.env.CHAT_LAB_MODEL || 'gpt-5.6-luna';
+// step-3.7-flash is the default because the gpt-5.6-* models on the router
+// started returning upstream 403 "this account only allows Codex official
+// client" — an entire provider can vanish without warning, so the chat tries
+// the next model in the chain rather than failing the turn.
+const CHAT_MODEL = process.env.CHAT_LAB_MODEL || 'step-3.7-flash';
 const VISION_MODEL = process.env.CHAT_LAB_VISION_MODEL || 'step-3.7-flash';
+const FALLBACK_MODELS = (process.env.CHAT_LAB_FALLBACK_MODELS || 'step-3.5-flash-2603,gpt-5.6-luna')
+  .split(',')
+  .map((m) => m.trim())
+  .filter(Boolean);
 const MIN_TOKENS = 900;
 
 function baseUrl() {
@@ -62,7 +70,26 @@ async function post(body, { timeoutMs = 45000 } = {}) {
  * nor a tool call because reasoning consumed the allowance.
  */
 async function complete({ messages, tools, model, maxTokens, temperature }) {
-  const chosenModel = model || CHAT_MODEL;
+  // Try the chosen model, then each fallback, so one dead provider is a slower
+  // reply rather than a broken feature.
+  const chain = [model || CHAT_MODEL, ...FALLBACK_MODELS.filter((m) => m !== (model || CHAT_MODEL))];
+  let lastError = null;
+
+  for (const candidate of chain) {
+    try {
+      return await completeWith(candidate, { messages, tools, maxTokens, temperature });
+    } catch (err) {
+      // A provider outage is worth stepping past; a bad request is not.
+      const retryable = err.code === 'AI_ROUTER_ERROR' && err.status >= 500;
+      if (!retryable) throw err;
+      console.warn(`[ChatQuote] model ${candidate} unavailable (${err.status}), trying next`);
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('No usable model');
+}
+
+async function completeWith(chosenModel, { messages, tools, maxTokens, temperature }) {
   let budget = Math.max(maxTokens || MIN_TOKENS, MIN_TOKENS);
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -98,4 +125,4 @@ async function complete({ messages, tools, model, maxTokens, temperature }) {
   throw err;
 }
 
-module.exports = { complete, CHAT_MODEL, VISION_MODEL };
+module.exports = { complete, CHAT_MODEL, VISION_MODEL, FALLBACK_MODELS };

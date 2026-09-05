@@ -22,24 +22,45 @@ const eeAuto = require('./eeAuto');
 
 const HISTORY_LIMIT = 20;
 
-const SYSTEM_PROMPT = `You are the quotation assistant inside ETERNALGY's solar sales app. You are talking to a Malaysian solar sales agent, who may write in English, Malay, or a mix of both.
+const COMMON_VOICE = `You are talking to a Malaysian solar sales agent, who may write in English, Malay, or a mix of both.
+- Keep replies to one or two short sentences. The app renders the detail as a card underneath your reply, so never repeat figures in words.
+- Reply in the language the agent used. Malay in, Malay out.`;
+
+const QUOTATION_PROMPT = `You are the quotation assistant inside ETERNALGY's solar sales app. ${COMMON_VOICE}
 
 Your job in this conversation: turn a customer's average monthly TNB bill into a solar savings estimate, then help the agent adjust it.
 
-You have three tools:
-- calculate_savings — solar savings from a monthly TNB bill.
-- business_search — find real companies on Google Maps. Works with keyword + place, or with a place alone to list ALL businesses in that location.
-- company_research — deep research on ONE company from a previous search.
-
 Rules you must follow:
 - NEVER state, estimate, or calculate any number yourself. Not savings, not system size, not price, not payback. Call the calculate_savings tool and let the app display the result.
-- NEVER invent company names, ratings, addresses or phone numbers. Only business_search may produce them.
-- company_research needs a company id from a previous business_search in this conversation. If you do not have one, run business_search first or ask which company the agent means.
 - If the agent gives a bill amount, call calculate_savings immediately. Do not ask for anything else first: sun peak hour, usage pattern and panel type all have sensible defaults.
 - If the agent asks to change something (battery, discount, panel count), call calculate_savings again with that change. The app remembers the previous inputs.
 - If you genuinely do not have a bill amount yet, ask for it in one short sentence.
-- Keep replies to one or two short sentences. The app renders the detailed figures as a card underneath your reply, so do not repeat figures in words.
-- Reply in the language the agent used. Malay in, Malay out.`;
+- This thread is for quotations only. If the agent asks to find or research companies, tell them to start a Business Search from the list screen — you cannot do it here.`;
+
+const BUSINESS_PROMPT = `You are the business research assistant inside ETERNALGY's solar sales app. ${COMMON_VOICE}
+
+Your job in this conversation: find real businesses on Google Maps, then run deep research on the ones the agent cares about.
+
+Rules you must follow:
+- NEVER invent company names, ratings, addresses or phone numbers. Only the business_search tool may produce them.
+- business_search works two ways: a keyword plus a place, or a PLACE ALONE to list every business in that location. If the agent names only a place, call it with place only.
+- company_research needs a company id from a previous business_search in this conversation. If you do not have one, run business_search first, or ask which company the agent means.
+- This thread is for business search only. If the agent asks for solar savings or a TNB bill calculation, tell them to start a New Quotation from the list screen — you cannot do it here.`;
+
+// Kept for callers and tests that predate the split.
+const SYSTEM_PROMPT = QUOTATION_PROMPT;
+
+/** Each kind sees only the tools that belong to its job. */
+function promptFor(kind) {
+  return kind === 'business' ? BUSINESS_PROMPT : QUOTATION_PROMPT;
+}
+
+function toolsFor(kind) {
+  const names = kind === 'business'
+    ? ['business_search', 'company_research']
+    : ['calculate_savings'];
+  return tools.TOOL_SCHEMA.filter((t) => names.includes(t.function.name));
+}
 
 // "450", "rm450", "RM 1,200.50", "450 sebulan", "1200 per month"
 const BILL_ONLY = /^\s*(?:rm\s*)?([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*(?:rm)?\s*(?:sebulan|per\s*month|a\s*month|\/\s*month|monthly|sebln)?\s*$/i;
@@ -104,23 +125,25 @@ async function handleTurn({ thread, text, emit }) {
   const trimmed = (text || '').trim();
   if (!trimmed) return { reply: 'Say that again?', card: null };
 
+  const kind = repo.normalizeKind(thread.kind);
   await repo.appendMessage(thread.id, 'user', trimmed);
   const previousParams = previousParamsOf(thread);
 
   const finish = async (reply, card, extra = {}) => {
     await repo.appendMessage(thread.id, 'assistant', reply, card);
-    // Only a savings card defines the thread — it is what the title, the
-    // preview and the adjustment chips are derived from. Research output is
-    // supporting material and must not overwrite the quotation state.
+    // The card that defines the thread names it. In a quotation that is the
+    // savings card; in a business thread it is the search. Research is always
+    // supporting material and only moves the preview line.
     if (card && card.type === 'savings') await repo.recordCalculation(thread.id, card);
-    else if (card && card.type === 'leads') await repo.setPreview(thread.id, `${card.total} companies · ${card.query.keyword}`);
+    else if (card && card.type === 'leads') await repo.recordSearch(thread.id, card);
     else if (card && card.type === 'research') await repo.setPreview(thread.id, `Research · ${card.companyName || 'company'}`);
     else if (extra.error) await repo.setPreview(thread.id, reply);
     return { reply, card, ...extra };
   };
 
   // ── Fast path ───────────────────────────────────────────────────────────
-  const billOnly = parseBillOnly(trimmed);
+  // A bare number only means a bill inside a quotation thread.
+  const billOnly = kind === 'quotation' ? parseBillOnly(trimmed) : null;
   if (billOnly !== null) {
     emit('status', { label: 'Calculating savings…' });
     try {
@@ -135,34 +158,38 @@ async function handleTurn({ thread, text, emit }) {
   // ── Model path ──────────────────────────────────────────────────────────
   emit('status', { label: 'Thinking…' });
 
-  let context = previousParams
-    ? `\n\nCurrent inputs on screen: ${JSON.stringify(previousParams)}. When the agent asks for a change, call calculate_savings with only the changed field.`
-    : '';
+  let context = '';
 
-  // company_research needs a real id, so the last search's companies are put in
-  // front of the model rather than left for it to guess at.
-  const lastLeads = await repo.latestCardOfType(thread.id, 'leads');
-  if (lastLeads && lastLeads.companies && lastLeads.companies.length) {
-    const roster = lastLeads.companies
-      .slice(0, 25)
-      .map((c, i) => `${i + 1}. ${c.name} (companyId: ${c.id})`)
-      .join('\n');
-    context += `\n\nCompanies from the most recent business_search — use these exact ids for company_research, never invent one:\n${roster}`;
+  if (kind === 'quotation' && previousParams) {
+    context += `\n\nCurrent inputs on screen: ${JSON.stringify(previousParams)}. When the agent asks for a change, call calculate_savings with only the changed field.`;
+  }
+
+  if (kind === 'business') {
+    // company_research needs a real id, so the last search's companies are put
+    // in front of the model rather than left for it to guess at.
+    const lastLeads = await repo.latestCardOfType(thread.id, 'leads');
+    if (lastLeads && lastLeads.companies && lastLeads.companies.length) {
+      const roster = lastLeads.companies
+        .slice(0, 25)
+        .map((c, i) => `${i + 1}. ${c.name} (companyId: ${c.id})`)
+        .join('\n');
+      context += `\n\nCompanies from the most recent business_search — use these exact ids for company_research, never invent one:\n${roster}`;
+    }
   }
 
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT + context },
+    { role: 'system', content: promptFor(kind) + context },
     ...(await historyFor(thread))
   ];
 
   let completion;
   try {
-    completion = await ai.complete({ messages, tools: tools.TOOL_SCHEMA });
+    completion = await ai.complete({ messages, tools: toolsFor(kind) });
   } catch (err) {
     console.error('[ChatQuote] AI router failed:', err.message);
     const reply = err.code === 'NO_AI_KEY'
       ? 'AI is not configured on this server yet.'
-      : 'I could not reach the AI service. Try the bill amount on its own and I will calculate it directly.';
+      : 'I could not reach the AI service. Please try again in a moment.';
     return await finish(reply, null, { route: 'model', error: true });
   }
 
@@ -282,4 +309,4 @@ async function refreshReport({ thread, kind, reportId }) {
   return card;
 }
 
-module.exports = { handleTurn, adjust, refreshReport, parseBillOnly, SYSTEM_PROMPT };
+module.exports = { handleTurn, adjust, refreshReport, parseBillOnly, promptFor, toolsFor, SYSTEM_PROMPT, QUOTATION_PROMPT, BUSINESS_PROMPT };
