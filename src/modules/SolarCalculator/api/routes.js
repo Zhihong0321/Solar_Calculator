@@ -10,6 +10,94 @@ const { attachAuthenticatedUser } = require('../../../core/middleware/auth');
 
 const router = express.Router();
 
+const AFA_MONTH_LABELS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+function formatAfaLabel(year, month, rateValue) {
+  const sen = rateValue * 100;
+  const sign = sen >= 0 ? '+' : '';
+  return `${AFA_MONTH_LABELS[month - 1]} ${year} (${sign}${sen.toFixed(2)} sen)`;
+}
+
+// Guards POST /api/afa-rates. Unset AFA_UPDATE_PASSKEY (the default) = route
+// refuses every request, same fail-closed pattern as UploadBackfill's key check.
+function requireAfaPasskey(req, res, next) {
+  const configured = process.env.AFA_UPDATE_PASSKEY;
+  if (!configured) {
+    return res.status(404).json({ success: false, error: 'not found' });
+  }
+  if (req.headers['x-afa-passkey'] !== configured) {
+    return res.status(403).json({ success: false, error: 'forbidden' });
+  }
+  return next();
+}
+
+// Public: AFA rate options for the "AFA Bill Month" dropdown on the solar calculator
+router.get('/api/afa-rates', async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const result = await client.query(
+      `SELECT period_year, period_month, rate_value FROM afa_rates ORDER BY period_year DESC, period_month DESC LIMIT 60`
+    );
+    const options = result.rows.map((row) => ({
+      value: Number(row.rate_value),
+      label: formatAfaLabel(row.period_year, row.period_month, Number(row.rate_value)),
+      year: row.period_year,
+      month: row.period_month
+    }));
+    res.json({ options, current: options[0] || null });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch AFA rates', details: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// Protected: add or update a single month's AFA rate. Guarded by AFA_UPDATE_PASSKEY,
+// set as a Railway variable and sent back as the x-afa-passkey header.
+router.post('/api/afa-rates', requireAfaPasskey, async (req, res) => {
+  let client;
+  try {
+    const year = parseInt(req.body?.year, 10);
+    const month = parseInt(req.body?.month, 10);
+    const rateValue = parseFloat(req.body?.rateValue);
+
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return res.status(400).json({ error: 'year must be a valid integer, e.g. 2026' });
+    }
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'month must be an integer between 1 and 12' });
+    }
+    if (!Number.isFinite(rateValue)) {
+      return res.status(400).json({ error: 'rateValue must be a number, e.g. 0.0376 for +3.76 sen' });
+    }
+
+    client = await pool.connect();
+    const result = await client.query(
+      `INSERT INTO afa_rates (period_year, period_month, rate_value, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (period_year, period_month)
+       DO UPDATE SET rate_value = EXCLUDED.rate_value, updated_at = NOW()
+       RETURNING period_year, period_month, rate_value`,
+      [year, month, rateValue]
+    );
+    const row = result.rows[0];
+    res.json({
+      success: true,
+      rate: {
+        value: Number(row.rate_value),
+        label: formatAfaLabel(row.period_year, row.period_month, Number(row.rate_value)),
+        year: row.period_year,
+        month: row.period_month
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update AFA rate', details: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 // API endpoint to serve environment configuration to frontend
 router.get('/api/config', (req, res) => {
   const protocol = req.protocol;

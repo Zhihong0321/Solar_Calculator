@@ -903,7 +903,7 @@
             );
         }
 
-        function InputPanel({ inputs, setInputs, onAnalyseBill, analysingBill, planLoading, errorMessage }) {
+        function InputPanel({ inputs, setInputs, onAnalyseBill, analysingBill, planLoading, errorMessage, afaOptions }) {
             return (
                 <SectionWrap>
                     <Card>
@@ -931,7 +931,7 @@
                                 <SelectField
                                     value={inputs.historicalAfaRate}
                                     onChange={(value) => setInputs((prev) => ({ ...prev, historicalAfaRate: value }))}
-                                    options={AFA_OPTIONS.map((option) => ({
+                                    options={afaOptions.map((option) => ({
                                         value: String(option.value),
                                         label: option.label
                                     }))}
@@ -2963,6 +2963,7 @@
             const [batteryUpdating, setBatteryUpdating] = useState(false);
             const [errorMessage, setErrorMessage] = useState('');
             const [language, setLanguage] = useState(() => localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'zh');
+            const [afaOptions, setAfaOptions] = useState(AFA_OPTIONS);
             const solarRequestSeqRef = useRef(0);
             const billSummaryRef = useRef(null);
             const resultSectionRef = useRef(null);
@@ -2987,6 +2988,23 @@
                 }
 
                 loadConfig();
+            }, []);
+
+            useEffect(() => {
+                async function loadAfaRates() {
+                    try {
+                        const response = await fetch('/api/afa-rates');
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        if (Array.isArray(data.options) && data.options.length > 0) {
+                            setAfaOptions(data.options);
+                        }
+                    } catch (error) {
+                        console.error('Failed to load AFA rates', error);
+                    }
+                }
+
+                loadAfaRates();
             }, []);
 
             useEffect(() => {
@@ -3183,6 +3201,7 @@
                         analysingBill={analysingBill}
                         planLoading={planLoading}
                         errorMessage={errorMessage}
+                        afaOptions={afaOptions}
                     />
 
                     {billBreakdown && (
