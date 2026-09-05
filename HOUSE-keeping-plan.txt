@@ -1,0 +1,152 @@
+I have all the context I need. The repo already has a structured maintenance system — `AI First Codebase Management/` skills and `.agents/ai-first-maintenance-log.md` — which I will build on rather than reinvent.
+
+Let me give you the plan.
+
+---
+
+# Housekeeping + AI-Readability Plan — Solar Calculator v2
+
+## 1. Scan Summary (what's actually here)
+
+| Area | Finding |
+|---|---|
+| **Type** | Node.js / Express modular monolith. PG-backed, server-rendered HTML + Tailwind, some PWA. |
+| **Entry** | `server.js` (~38 KB) — has its own `/debug` route and a custom JSON-parser workaround baked in. |
+| **Backend modules** | `src/modules/*` — 19 feature modules + `src/core/*` (activity log, attachments, auth, db, middleware, upload). Each module is `routes/`, `services/`, sometimes `api/`. Consistent shape, well done. |
+| **Backend bloat** | `routes/sedaRoutes.js` **1,341 lines / 70 KB**. `src/core/middleware/auth.js` is reasonable. |
+| **Frontend JS** | `public/js/app.js` **2,059 lines / 193 KB**, `public/js/pages/create_invoice.js` **2,408 lines / 120 KB**, `pages/edit_invoice.js` **2,381 lines / 118 KB**. These are the worst offenders — single-file dumpers. |
+| **Frontend HTML** | `public/templates/invoice_office.html` **2,210 lines / 133 KB**, `my_invoice.html` 1,094 lines, `seda_register.html` 1,444 lines. |
+| **Tests** | Almost empty: `tests/navigation.mobile.spec.js` + 25 `scripts/test_*.js` scripts (not wired into `npm test`, mostly ad-hoc debug scripts with `test_` prefix). |
+| **Docs / notes** | ~80 ad-hoc root-level `work-report-*.md`, `SESSION-WITH-MISTAKE-01.MD`, multiple `*PLAN*.md`, `*BRIEF*.md`, several `.codex-server-*.log` etc. |
+| **Dead folders** | `_legacy/` (gitted-out but still on disk), `archived/`, `archive/legacy_backup-2026-04-21/`, `archive/soft-removed-docs/`, `archive/unused-invoice-templates-2026-07-30/`, `_ARCHIVE_QUARANTINE_2026-01-27/`, `ev-charger/`, `invoice-v2/`, `portable-invoice-viewer/`, `portable-proposal/`, `mobile_html_output/`, `legacy_t3_html_presentation/`, `eternalgy-design-2/`, `v3-quotation-view/`, `skill-release/`, `docs/`, `demo-generator/` (huge vendored copy of argo). |
+| **AI tooling (already present)** | `AI First Codebase Management/` (8 SKILL.md files + 3 scripts) and `.agents/ai-first-maintenance-log.md`, `baseline-note.md`, `decisions.md`, `maintenance-map.md`, `last-session.md` — **this is exactly the staged-maintenance framework you want**. |
+| **Day-to-day ritual** | `AGENTS.md` enforces daily `work-report-[mon-day-year]-[repo-name].md` updates — this is why you have 80+ of them at root. |
+| **AI-friendly code shape reference** | `AI First Codebase Management/references/ai-friendly-code-shape.md` is the target style doc — already authored. |
+| **`.gitignore`** | Already excludes `node_modules/`, `_legacy/`, `archived/`, `.env`, `playwright-report/`, `test-results/`, etc. Good. |
+
+**Key observation:** you already built the maintenance scaffolding (`AI First Codebase Management` + `.agents/` log + `AGENTS.md` daily-report ritual). The scaffolding is **unused at scale** — only ~5 entries in `.agents/ai-first-maintenance-log.md`, all dated 2026-04-21. Everything since has been feature work and ad-hoc daily reports.
+
+## 2. Top-priority problems (ranked)
+
+1. **3 monolithic frontend files (`app.js` 2,059 lines, `create_invoice.js` 2,408, `edit_invoice.js` 2,381).** These alone prevent any AI agent from editing invoices safely — any edit ripples across an unreviewable surface.
+2. **80+ root-level `work-report-*.md`** plus `SESSION-WITH-MISTAKE-01.MD`, `Why-Eternalgy-…`, `domestic-solar-calculation-process.md`, etc. — chronicling in the wrong layer; bloats repo, confuses agents.
+3. **13+ legacy/dead folders** still on disk (`_legacy/`, `archived/`, `archive/legacy_backup-2026-04-21/`, `ev-charger/`, `invoice-v2/`, `portable-proposal/`, `mobile_html_output/`, `legacy_t3_html_presentation/`, `eternalgy-design-2/`, `v3-quotation-view/`, `skill-release/`, `_ARCHIVE_QUARANTINE_2026-01-27/`). Many were already gitignored or moved into `archive/` — they're double-tracked.
+4. **`routes/sedaRoutes.js` 1,341 lines** and `public/templates/invoice_office.html` 2,210 lines — secondary monorepo-in-a-file problems.
+5. **No `npm test`** — scripts are ad-hoc, prefixed `test_` but not invoked from `package.json`. Tests `tests/` is empty except `navigation.mobile.spec.js`.
+6. **Ad-hoc logs everywhere:** `dev-server.log`, `server-30300.out.log`, `.codex-server-3000.*.log`, `.legion-check-log.txt`, etc. Not gitignored.
+7. **`server.js` carries a 90-line inline `/debug` route** for a one-off scoreboard-404 hunt — committed permanently.
+8. **No top-level `README.md`** describing what the project is and how to run it. New agents have to reverse-engineer from `package.json`.
+9. **No `docs/`-of-truth structure.** Insights live in scattered `*PLAN*.md` / `*BRIEF*.md` / session post-mortems.
+10. **`scripts/` mixes one-shot migrations (`migrate_seda_to_r2.js`, `backfill-*`) with `test_*` debug scripts.** Hard to tell which are run-once vs. ever-needed.
+
+## 3. Goal (what "AI-friendly foundation" means here)
+
+Optimize the repo so that, at any time, a fresh AI agent can:
+
+1. **Orient in <2 minutes**: read `README.md` → `ARCHITECTURE.md` → one module map.
+2. **Locate any feature** in ≤2 grep hits because responsibilities are one-feature-per-file.
+3. **Edit a feature safely** because files are <500 lines and have one responsibility each.
+4. **Trust the file list** because dead/legacy/orphan files are removed, not "soft-removed-and-still-shipped."
+5. **Run tests** with `npm test` and have it actually exercise the system.
+6. **Add a feature** by copying the module template, not by guessing.
+
+## 4. Phased Plan (do not collapse into one big pass)
+
+I'm proposing the same staged sequence already encoded in your `AI First Codebase Management/maintain-ai-first-codebase` skill — one stage, one target, one deliverable per round.
+
+### Stage 0 — Baseline-lock (already done on 2026-04-21, but stale)
+- **Target:** refresh `.agents/baseline-note.md` to reflect *current* state (the existing one is from April; lots of modules shipped since).
+- **Deliverable:** updated baseline note with `npm run test:solar-estimate-consistency`, `node --check server.js`, `node --check routes/sedaRoutes.js`, and `grep` checks for `app.js`/`create_invoice.js` presence.
+
+### Stage 1 — Map-ready (one round)
+- **Target:** produce `.agents/maintenance-map.md` (ranked), refreshed today. Reuse `AI First Codebase Management/scripts/inventory_large_files.py` and `find_context_noise.py` — already there.
+- **Output categories:** **digest**, **clean**, **optimize**, **overhaul** — each with a ranked top-1.
+- **Deliverable:** one updated `.agents/maintenance-map.md` and one entry in `.agents/ai-first-maintenance-log.md`.
+
+### Stage 2 — Digest (the big one — split the 3 monolithic frontend files)
+One file per round:
+- **Round 2a:** split `public/js/app.js` (2,059 LOC) — `app/router.js`, `app/auth.js`, `app/navigation.js`, `app/format.js`, `app/state.js`, `app/init.js`. Keep `app.js` as a 50-line bootstrap that imports them.
+- **Round 2b:** split `public/js/pages/create_invoice.js` (2,408 LOC) — by sub-feature observed in code: pricing engine, customer picker, package builder, voucher step, attachments, preview, submit.
+- **Round 2c:** split `public/js/pages/edit_invoice.js` (2,381 LOC) — same axes as create, deduped into shared modules under `public/js/pages/invoice_shared/`.
+- **Round 2d:** split `routes/sedaRoutes.js` (1,341 LOC) — already partially done (`claim`, `register`, `share`, etc.). Break by route family.
+
+*Acceptance: every file < 500 LOC, one responsibility each, behavior unchanged, all `scripts/test_seda_*.js` + `scripts/test_invoice_*.js` green.*
+
+### Stage 3 — Clean (one residual per round)
+Use the existing `residual-cleaner/SKILL.md` policy: prefer **soft-remove** (move to `archive/`) over delete. One folder per round:
+1. `_ARCHIVE_QUARANTINE_2026-01-27/` → already archived-in-place; remove if unreachable.
+2. `_legacy/` → move under `archive/legacy-2026-01-22/`.
+3. `archive/legacy_backup-2026-04-21/` → confirm still archived, consolidate.
+4. `archive/soft-removed-docs/` (single old doc) → keep or remove.
+5. `archive/unused-invoice-templates-2026-07-30/` → confirm already orphaned; keep one README pointer.
+6. `archived/` (3 HTML files) → confirm zero references, then `git rm`.
+7. `ev-charger/`, `invoice-v2/`, `portable-invoice-viewer/`, `portable-proposal/`, `mobile_html_output/`, `legacy_t3_html_presentation/`, `eternalgy-design-2/`, `v3-quotation-view/`, `skill-release/`, `docs/` → audit each: if zero `require()`/`<script>`/`<link>` refs in current code, soft-remove to `archive/`.
+8. `demo-generator/` (huge vendored copy of argo) → if demo generator is unused by `server.js`, archive; if used, leave alone but document.
+9. `experiments/roof-3d-mobile/` (its own React+Vite subproject with `node_modules`) → soft-remove unless referenced; it has its own `node_modules` which is a hygiene problem.
+
+### Stage 4 — Top-level doc graveyard cleanup
+This is your highest-leverage AI-readability win:
+1. Move **all** `work-report-*.md` into `.agents/work-reports/` (or `docs/changelog/`). Keep filename format intact. Future reports follow the same convention.
+2. Move `SESSION-WITH-MISTAKE-01.MD`, `Why-Eternalgy-…`, `domestic-solar-calculation-process.md`, `ROI_MATRIX_CALCULATION_GUIDE.md`, `ETERNALGY_FAQ_2026.md`, `support_history.md`, `support-ai-buildplan.md`, `project_support_ticket.md`, `may-31-maxdiscount-*.md`, `admin-os-brief-ee-attachment.md`, `ee-attachment-update-Admin-OS.md`, `plan-hybrid-inverter-upgrade-agent-os.md`, `FILE-UPLOAD-PROCESSOR.MD`, `PRE-ACTIVITY-REPORT.MD` → `docs/decisions/`, `docs/postmortems/`, `docs/specs/`, or `docs/archive/` by topic.
+3. Delete / gitignore logs: `dev-server.log`, `*.codex-server-*.log`, `server-*.out.log`, `server-*.err.log`, `.legion-check-log.txt`. Add them to `.gitignore`.
+4. Add a one-line pointer in `README.md` that says "for daily reports see `.agents/work-reports/`, for architectural decisions see `docs/decisions/`".
+
+### Stage 5 — Optimize (architecture, only after digest + clean)
+Candidate targets once monorepo-files are split:
+- **`server.js`** — extract `app.js` (Express config), `routes/index.js` (route mounting table), `bootstrap.js` (DB pool warmup, health scheduler). `server.js` becomes <80 lines.
+- **Remove the inline `/debug` route** — it's a one-off scoreboard-404 hunt committed permanently. Move to `src/core/middleware/debug.js` behind `process.env.ENABLE_DEBUG_ROUTE === '1'`.
+- **Module template** — write `src/modules/_template/` showing the canonical shape (`index.js` exports `{router, service}`, `api/`, `services/`, `README.md`) so future modules are uniform.
+- **Tailwind / asset pipeline** — the `tailwind.css` build is in `src/styles/` but imported nowhere in `server.js`. Document or move.
+- **Self-document `server.js` JSON-parser workaround** — that comment is correct but it's a hack on the hot path. Move to `src/core/middleware/jsonOrMultipart.js` and unit-test it.
+
+### Stage 6 — Overhaul (only after Stage 5)
+- Pick **one** target (per `overhaul-planner`): the candidate is *splitting client-side invoice rendering from server-rendered HTML*. Currently `public/templates/invoice_office.html` (2,210 LOC) is server-rendered, but `public/js/pages/create_invoice.js` (2,408 LOC) shadows it with a JS preview. One source of truth would help any future AI.
+- (No code in this stage — plan only.)
+
+### Stage 7 — Tests
+Without these, no AI agent can verify a change:
+1. Add `npm test` to `package.json` that runs `node --check` on every `.js` under `src/`, `routes/`, `scripts/`, plus the existing `scripts/test_*.js` suite.
+2. Promote `scripts/test_seda_*.js`, `scripts/test_invoice_*.js` into `tests/` and prefix them with a real test runner (vitest/node:test) — or document the current "script-as-test" convention.
+3. Add 1 Playwright smoke per module's primary route (claim, invoice, voucher, support).
+
+## 5. Foundation deliverables (the "easy wins" you can do first)
+
+Even before stages run, these three changes unblock every future AI session:
+
+1. **`README.md` at root** — what it is, how to run, how to deploy, link to `ARCHITECTURE.md` and `.agents/`.
+2. **`ARCHITECTURE.md`** — module map (19 modules + 6 core subsystems), one paragraph each, entry routes. Auto-generated from `src/modules/*/index.js` exports.
+3. **`.agents/CODEBASE-INDEX.md`** — the single file every future agent reads first. Lists: where state lives, where auth happens, where uploads go, where each integration point is. Reference: keep it short (<300 lines).
+4. **Update `.gitignore`** to add the orphan logs and `experiments/*/node_modules`.
+
+## 6. Order I recommend (concrete)
+
+Round 1 (one day, low risk): **foundation docs + log archive**
+- Write `README.md`, `ARCHITECTURE.md`, `.agents/CODEBASE-INDEX.md`.
+- Add orphan logs to `.gitignore`.
+- Move 80 work reports to `.agents/work-reports/`.
+- Update `AGENTS.md` to point new daily reports there.
+
+Round 2 (one round per file): **digest the 3 huge frontend files** (Stage 2).
+
+Round 3 (one folder per round): **clean legacy/dead folders** (Stage 3) — easy gains, high noise reduction.
+
+Round 4: **tests + `npm test`**.
+
+Round 5: **optimize** (server.js split, debug route, module template).
+
+Round 6: **plan overhaul** only.
+
+---
+
+## What I want your call on before I touch anything
+
+I want to be deliberate rather than start a 50-file change without alignment. Please pick:
+
+1. **Scope of round 1.** All of it (README + ARCHITECTURE + work-report archive + gitignore), or one of those first?
+2. **Round 2 starting target.** Which of the 3 huge JS files first — `app.js`, `create_invoice.js`, or `edit_invoice.js`? My recommendation: **`app.js`**, because it's the shared backbone that `navigation.js` and the page scripts depend on, so splitting it first makes later splits easier to verify.
+3. **Cleanup aggressiveness.** The `soft-remove` policy in `AI First Codebase Management/references/soft-remove-policy.md` says "prefer soft-remove." Are you OK with moving orphan folders into `archive/` instead of `git rm`, **except** for items that are already gitignored / double-archived (those can be hard-deleted)?
+4. **Daily-report destination.** I'm proposing `.agents/work-reports/` and updating `AGENTS.md` so future reports auto-route there. OK?
+
+Once you confirm those four, I'll execute round 1 in the staged, one-target-per-pass rhythm your existing `.agents/ai-first-maintenance-log.md` already tracks — and write an entry to that log per round.
+
+**Files I referenced while scanning (clickable):** `README.md` (to be created), `package.json`, `server.js`, `AGENTS.md`, `.gitignore`, `AI First Codebase Management/README.md`, `AI First Codebase Management/maintain-ai-first-codebase/SKILL.md`, `.agents/ai-first-maintenance-log.md`, `.agents/baseline-note.md`, `work-report-Sep-04-2026-solar-calculator-v2.md`, `work-report-aug-28-2026-solar-calculator-v2.md`, `SESSION-WITH-MISTAKE-01.MD`.
