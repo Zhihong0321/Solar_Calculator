@@ -39,7 +39,7 @@ const MICRO_INVERTER_MODELS = [
     { id: 'mi_s4', name: 'SAJ M2-1.8K S4 Micro Inverter', price: 1300, originalPrice: 1500 }
 ];
 const BALLAST_UNIT_PRICE = 160;
-const ATS_ADDON_PRICE = 500;
+const ATS_ADDON_PRICE = 1200;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
 const ATS_DEFAULT_QTY = 1;
 const LEGACY_INVOICE_PROMOTIONS_ENABLED = false; // PROMOS DISABLED — do not re-enable
