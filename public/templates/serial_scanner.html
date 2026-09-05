@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+  <title>Serial Number Scanner | ETERNALGY OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/css/tailwind.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    :root {
+      --brand-blue: #3b82f6;
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-400: #94a3b8;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+    }
+
+    * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
+      color: var(--slate-900);
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid var(--slate-200);
+      border-radius: 1rem;
+    }
+
+    .scanner-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 1024px) {
+      .scanner-layout { grid-template-columns: 3fr 2fr; }
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 0.4rem;
+    }
+
+    .field-input {
+      width: 100%;
+      border: 1px solid var(--slate-200);
+      border-radius: 0.75rem;
+      padding: 0.7rem 0.9rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--slate-900);
+      background: #fff;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .field-input:focus {
+      border-color: var(--brand-blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.1rem;
+      border-radius: 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+    }
+
+    .btn-primary { background: var(--slate-900); color: #fff; }
+    .btn-primary:hover { background: var(--slate-800); }
+
+    .btn-secondary { background: #f1f5f9; color: var(--slate-700); border-color: var(--slate-200); }
+    .btn-secondary:hover { background: #e2e8f0; }
+
+    .btn-rose { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
+    .btn-rose:hover { background: #ffe4e6; }
+
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+    .scanner-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: #0f172a;
+      border-radius: 1rem;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scanner-stage video,
+    .scanner-stage canvas,
+    .scanner-stage img.preview {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
+
+    .scanner-empty {
+      color: rgba(255, 255, 255, 0.75);
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .scanner-empty i { font-size: 3rem; margin-bottom: 0.75rem; display: block; opacity: 0.7; }
+
+    .scanner-status {
+      position: absolute;
+      left: 0.75rem;
+      bottom: 0.75rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.7);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      backdrop-filter: blur(6px);
+    }
+
+    .scanner-status.is-live { background: rgba(16, 185, 129, 0.85); }
+    .scanner-status.is-error { background: rgba(220, 38, 38, 0.85); }
+
+    .reticle {
+      position: absolute;
+      inset: 12% 8%;
+      border: 2px dashed rgba(59, 130, 246, 0.7);
+      border-radius: 1rem;
+      pointer-events: none;
+    }
+
+    .scanner-result {
+      position: absolute;
+      top: 0.75rem;
+      left: 0.75rem;
+      right: 0.75rem;
+      padding: 0.75rem 0.9rem;
+      border-radius: 0.75rem;
+      background: rgba(15, 23, 42, 0.85);
+      color: #fff;
+      backdrop-filter: blur(8px);
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.95rem;
+      font-weight: 600;
+      display: none;
+    }
+
+    .scanner-result.is-visible { display: block; }
+
+    .entry-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--slate-200);
+      border-radius: 0.75rem;
+      background: #f8fafc;
+      margin-bottom: 0.5rem;
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.85rem;
+    }
+
+    .entry-meta {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.65rem;
+      color: var(--slate-400);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-top: 0.15rem;
+    }
+
+    .entry-actions { display: flex; gap: 0.35rem; }
+    .icon-btn {
+      width: 2rem;
+      height: 2rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.5rem;
+      border: 1px solid var(--slate-200);
+      background: #fff;
+      color: var(--slate-700);
+      cursor: pointer;
+    }
+    .icon-btn:hover { background: var(--slate-100); }
+    .icon-btn.danger { color: #be123c; border-color: #fecdd3; }
+    .icon-btn.danger:hover { background: #fff1f2; }
+
+    .empty-state {
+      padding: 2.5rem 1rem;
+      text-align: center;
+      color: var(--slate-400);
+      font-size: 0.8rem;
+    }
+    .empty-state i { font-size: 2rem; margin-bottom: 0.5rem; display: block; opacity: 0.6; }
+
+    .scan-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      padding: 0.6rem 0.8rem;
+      border-radius: 0.75rem;
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+    }
+
+    .scan-stat__label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--slate-400);
+    }
+
+    .scan-stat__value {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--slate-900);
+    }
+
+    .toast {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translate(-50%, -2rem);
+      background: var(--slate-900);
+      color: #fff;
+      padding: 0.7rem 1.1rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, .3);
+      transition: transform .25s ease;
+      z-index: 60;
+    }
+    .toast.show { transform: translate(-50%, 0); }
+
+    details.help {
+      background: var(--slate-50);
+      border: 1px solid var(--slate-200);
+      border-radius: 0.75rem;
+      padding: 0.85rem 1rem;
+    }
+    details.help summary {
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--slate-700);
+      list-style: none;
+    }
+    details.help summary::-webkit-details-marker { display: none; }
+    details.help[open] summary { margin-bottom: 0.5rem; }
+    details.help p { font-size: 0.75rem; color: var(--slate-700); margin: 0.25rem 0; }
+    details.help code { background: #fff; padding: 0.05rem 0.35rem; border-radius: 0.35rem; border: 1px solid var(--slate-200); }
+
+    /* Target only the html5-qrcode inner video (it injects its own UI) */
+    #qrReader { width: 100%; }
+    #qrReader__dashboard_section_csr button { display: none; } /* hide its built-in file input UI - we have our own */
+    #qrReader__scan_region { background: transparent !important; }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-5 md:px-8 py-4 flex items-center gap-4">
+      <a href="/agent/home" class="text-slate-400 hover:text-slate-900 transition" aria-label="Back to dashboard">
+        <i class="fa-solid fa-arrow-left text-lg"></i>
+      </a>
+      <div>
+        <h1 class="text-lg md:text-xl font-extrabold tracking-tight text-slate-900">Serial Number Scanner</h1>
+        <p class="text-[11px] text-slate-400 font-semibold">Scan 1D & 2D barcodes from your camera or an image</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-5 md:px-8 py-8 pb-32 space-y-8">
+    <div class="scanner-layout">
+      <!-- Scanner -->
+      <section class="panel p-6 space-y-5">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Scanner</h2>
+          <div class="flex gap-2">
+            <span id="formatLabel" class="text-[11px] font-semibold text-slate-400">Auto-detect</span>
+          </div>
+        </div>
+
+        <div id="scannerStage" class="scanner-stage">
+          <div id="scannerEmpty" class="scanner-empty">
+            <i class="fa-solid fa-camera"></i>
+            <p class="text-sm font-semibold">Camera is off</p>
+            <p class="text-[11px] opacity-70">Start the camera or upload an image to scan a serial number.</p>
+          </div>
+          <div id="qrReader" class="hidden w-full h-full"></div>
+          <img id="imagePreview" class="preview hidden" alt="Selected image preview" />
+          <div id="reticle" class="reticle hidden"></div>
+          <div id="scannerStatus" class="scanner-status">Idle</div>
+          <div id="latestResult" class="scanner-result"></div>
+        </div>
+
+        <div class="flex flex-wrap gap-2.5">
+          <button id="startCamBtn" class="btn btn-primary">
+            <i class="fa-solid fa-camera"></i> Start Camera
+          </button>
+          <button id="stopCamBtn" class="btn btn-secondary" disabled>
+            <i class="fa-solid fa-stop"></i> Stop
+          </button>
+          <label class="btn btn-secondary cursor-pointer">
+            <i class="fa-solid fa-image"></i> Upload Image
+            <input id="imageInput" type="file" accept="image/*" class="hidden" />
+          </label>
+          <button id="torchBtn" class="btn btn-secondary" disabled>
+            <i class="fa-solid fa-bolt"></i> Torch
+          </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div class="scan-stat">
+            <span class="scan-stat__label">Scans</span>
+            <span id="scanCount" class="scan-stat__value">0</span>
+          </div>
+          <div class="scan-stat">
+            <span class="scan-stat__label">Unique</span>
+            <span id="uniqueCount" class="scan-stat__value">0</span>
+          </div>
+          <div class="scan-stat">
+            <span class="scan-stat__label">Last format</span>
+            <span id="lastFormat" class="scan-stat__value text-xs">—</span>
+          </div>
+        </div>
+
+        <details class="help">
+          <summary><i class="fa-solid fa-circle-info mr-1"></i> How to scan</summary>
+          <p>1. Click <code>Start Camera</code> and grant camera permission.</p>
+          <p>2. Point the camera at the barcode/QR — keep it steady inside the dashed box.</p>
+          <p>3. Or click <code>Upload Image</code> and pick a photo of the code.</p>
+          <p>4. Every successful scan is added to the list on the right. Use <code>Copy</code> or <code>Download CSV</code> to export.</p>
+        </details>
+      </section>
+
+      <!-- Results -->
+      <section class="panel p-6 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Captured Serial Numbers</h2>
+          <span id="entryCount" class="text-[11px] font-bold text-slate-400">0</span>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mb-4">
+          <button id="copyAllBtn" class="btn btn-secondary" disabled>
+            <i class="fa-solid fa-copy"></i> Copy All
+          </button>
+          <button id="downloadBtn" class="btn btn-secondary" disabled>
+            <i class="fa-solid fa-file-csv"></i> CSV
+          </button>
+          <button id="downloadJsonBtn" class="btn btn-secondary" disabled>
+            <i class="fa-solid fa-file-code"></i> JSON
+          </button>
+          <button id="clearBtn" class="btn btn-rose" disabled>
+            <i class="fa-solid fa-trash"></i> Clear
+          </button>
+        </div>
+
+        <div id="entries" class="flex-1 overflow-y-auto" style="max-height: 520px;">
+          <div id="emptyState" class="empty-state">
+            <i class="fa-solid fa-barcode"></i>
+            No scans yet — start the camera or upload an image.
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- html5-qrcode: lightweight browser barcode + QR scanner -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const STORAGE_KEY = 'atap_serial_scanner_entries_v1';
+      const DEDUPE_WINDOW_MS = 1500;        // ignore identical scans within this window
+      const MAX_ENTRIES = 500;              // safety cap on the captured list
+
+      // Many solar inverter panels and equipment stickers encode the serial number
+      // as a Code 128 / Code 39 / QR / DataMatrix / EAN. Auto-detect covers all of these.
+      const SCANNER_FORMATS = [
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.CODE_93,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.CODABAR,
+        Html5QrcodeSupportedFormats.DATA_MATRIX,
+        Html5QrcodeSupportedFormats.PDF_417,
+        Html5QrcodeSupportedFormats.AZTEC
+      ];
+      const FORMAT_LABELS = {
+        [Html5QrcodeSupportedFormats.QR_CODE]: 'QR',
+        [Html5QrcodeSupportedFormats.CODE_128]: 'Code 128',
+        [Html5QrcodeSupportedFormats.CODE_39]: 'Code 39',
+        [Html5QrcodeSupportedFormats.CODE_93]: 'Code 93',
+        [Html5QrcodeSupportedFormats.EAN_13]: 'EAN-13',
+        [Html5QrcodeSupportedFormats.EAN_8]: 'EAN-8',
+        [Html5QrcodeSupportedFormats.UPC_A]: 'UPC-A',
+        [Html5QrcodeSupportedFormats.UPC_E]: 'UPC-E',
+        [Html5QrcodeSupportedFormats.ITF]: 'ITF',
+        [Html5QrcodeSupportedFormats.CODABAR]: 'Codabar',
+        [Html5QrcodeSupportedFormats.DATA_MATRIX]: 'DataMatrix',
+        [Html5QrcodeSupportedFormats.PDF_417]: 'PDF417',
+        [Html5QrcodeSupportedFormats.AZTEC]: 'Aztec'
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      const stage = $('scannerStage');
+      const empty = $('scannerEmpty');
+      const reader = $('qrReader');
+      const preview = $('imagePreview');
+      const reticle = $('reticle');
+      const statusEl = $('scannerStatus');
+      const latestEl = $('latestResult');
+      const formatLabel = $('formatLabel');
+      const lastFormatEl = $('lastFormat');
+      const scanCountEl = $('scanCount');
+      const uniqueCountEl = $('uniqueCount');
+      const entryCountEl = $('entryCount');
+      const entriesEl = $('entries');
+      const emptyState = $('emptyState');
+      const startCamBtn = $('startCamBtn');
+      const stopCamBtn = $('stopCamBtn');
+      const torchBtn = $('torchBtn');
+      const imageInput = $('imageInput');
+      const copyAllBtn = $('copyAllBtn');
+      const downloadBtn = $('downloadBtn');
+      const downloadJsonBtn = $('downloadJsonBtn');
+      const clearBtn = $('clearBtn');
+      const toastEl = $('toast');
+
+      let scanner = null;
+      let cameraStream = null;
+      let torchSupported = false;
+      let torchOn = false;
+      let scanCount = 0;
+      let lastScanned = { value: null, at: 0 };
+      let entries = loadEntries();
+
+      function loadEntries() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+          console.warn('Could not read saved scans:', err);
+          return [];
+        }
+      }
+
+      function persistEntries() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)));
+        } catch (err) {
+          console.warn('Could not persist scans:', err);
+        }
+      }
+
+      function setStatus(text, mode = '') {
+        statusEl.textContent = text;
+        statusEl.classList.remove('is-live', 'is-error');
+        if (mode === 'live') statusEl.classList.add('is-live');
+        if (mode === 'error') statusEl.classList.add('is-error');
+      }
+
+      function showLatest(value, formatName) {
+        latestEl.innerHTML =
+          '<div style="font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8;font-family:Inter,sans-serif;margin-bottom:0.2rem;">' +
+          (formatName || 'Detected') + '</div>' +
+          '<div style="font-size:1rem;word-break:break-all;">' + escapeHtml(value) + '</div>';
+        latestEl.classList.add('is-visible');
+      }
+
+      function toast(message) {
+        toastEl.textContent = message;
+        toastEl.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => toastEl.classList.remove('show'), 1800);
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, ch => ({
+          '&': '&', '<': '<', '>': '>', '"': '"', "'": '''
+        })[ch]);
+      }
+
+      function formatNow() {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      }
+
+      function isDuplicate(value) {
+        const now = Date.now();
+        if (lastScanned.value === value && (now - lastScanned.at) < DEDUPE_WINDOW_MS) return true;
+        lastScanned = { value, at: now };
+        return false;
+      }
+
+      function addEntry(value, formatName, source) {
+        const entry = {
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          value: String(value),
+          format: formatName || 'Unknown',
+          source: source || 'camera',
+          scannedAt: new Date().toISOString()
+        };
+        entries.unshift(entry);
+        if (entries.length > MAX_ENTRIES) entries.length = MAX_ENTRIES;
+        persistEntries();
+        renderEntries();
+        renderStats(formatName);
+        showLatest(value, formatName);
+        setStatus('Scanned · ' + formatNow(), 'live');
+        toast('Captured ' + formatName + ': ' + value);
+      }
+
+      function renderEntries() {
+        if (!entries.length) {
+          emptyState.classList.remove('hidden');
+          entriesEl.querySelectorAll('.entry-row').forEach(n => n.remove());
+        } else {
+          emptyState.classList.add('hidden');
+          const rows = entries.map(entry => (
+            '<div class="entry-row" data-id="' + entry.id + '">' +
+              '<div class="min-w-0">' +
+                '<div class="truncate">' + escapeHtml(entry.value) + '</div>' +
+                '<div class="entry-meta">' + escapeHtml(entry.format) + ' · ' + escapeHtml(entry.source) + ' · ' + formatIso(entry.scannedAt) + '</div>' +
+              '</div>' +
+              '<div class="entry-actions">' +
+                '<button class="icon-btn" data-act="copy" title="Copy"><i class="fa-solid fa-copy text-xs"></i></button>' +
+                '<button class="icon-btn danger" data-act="delete" title="Remove"><i class="fa-solid fa-trash text-xs"></i></button>' +
+              '</div>' +
+            '</div>'
+          )).join('');
+          entriesEl.innerHTML = '<div>' + rows + '</div>';
+        }
+
+        const has = entries.length > 0;
+        copyAllBtn.disabled = !has;
+        downloadBtn.disabled = !has;
+        downloadJsonBtn.disabled = !has;
+        clearBtn.disabled = !has;
+        entryCountEl.textContent = String(entries.length);
+        uniqueCountEl.textContent = String(new Set(entries.map(e => e.value)).size);
+        scanCountEl.textContent = String(scanCount);
+      }
+
+      function formatIso(iso) {
+        try {
+          const d = new Date(iso);
+          const pad = (n) => String(n).padStart(2, '0');
+          return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        } catch { return ''; }
+      }
+
+      function renderStats(formatName) {
+        scanCount++;
+        scanCountEl.textContent = String(scanCount);
+        uniqueCountEl.textContent = String(new Set(entries.map(e => e.value)).size);
+        lastFormatEl.textContent = formatName || '—';
+      }
+
+      async function ensureScanner() {
+        if (scanner) return scanner;
+        scanner = new Html5Qrcode('qrReader', {
+          verbose: false,
+          formatsToSupport: SCANNER_FORMATS
+        });
+        return scanner;
+      }
+
+      async function startCamera() {
+        try {
+          preview.classList.add('hidden');
+          preview.src = '';
+          reticle.classList.remove('hidden');
+          empty.classList.add('hidden');
+          reader.classList.remove('hidden');
+          startCamBtn.disabled = true;
+          stopCamBtn.disabled = false;
+          setStatus('Requesting camera…');
+
+          const instance = await ensureScanner();
+          const config = {
+            fps: 10,
+            qrbox: (vw, vh) => {
+              const size = Math.floor(Math.min(vw, vh) * 0.7);
+              return { width: size, height: size };
+            },
+            aspectRatio: 1.3333333,
+            disableFlip: false
+          };
+          cameraStream = await instance.start(
+            { facingMode: 'environment' },
+            config,
+            (decodedText, decodedResult) => handleScan(decodedText, decodedResult, 'camera'),
+            () => { /* per-frame failures are normal, ignore */ }
+          );
+          setStatus('Scanning · point at a code', 'live');
+
+          // Probe torch support (MediaStreamTrack API)
+          try {
+            const track = cameraStream.getVideoTracks()[0];
+            torchSupported = !!(track && track.getCapabilities && track.getCapabilities().torch);
+          } catch { torchSupported = false; }
+          torchBtn.disabled = !torchSupported;
+        } catch (err) {
+          console.error('Camera start failed:', err);
+          setStatus('Camera unavailable', 'error');
+          toast('Could not start camera: ' + (err.message || err));
+          startCamBtn.disabled = false;
+          stopCamBtn.disabled = true;
+          reader.classList.add('hidden');
+          empty.classList.remove('hidden');
+          reticle.classList.add('hidden');
+        }
+      }
+
+      async function stopCamera() {
+        try {
+          if (scanner && scanner.isScanning) {
+            await scanner.stop();
+            await scanner.clear();
+          }
+        } catch (err) {
+          console.warn('Stop camera warning:', err);
+        } finally {
+          cameraStream = null;
+          torchOn = false;
+          torchSupported = false;
+          torchBtn.disabled = true;
+          startCamBtn.disabled = false;
+          stopCamBtn.disabled = true;
+          reader.classList.add('hidden');
+          empty.classList.remove('hidden');
+          reticle.classList.add('hidden');
+          setStatus('Idle');
+        }
+      }
+
+      async function toggleTorch() {
+        if (!cameraStream) return;
+        try {
+          const track = cameraStream.getVideoTracks()[0];
+          if (!track) return;
+          torchOn = !torchOn;
+          await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+          torchBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> ' + (torchOn ? 'Torch On' : 'Torch');
+        } catch (err) {
+          console.warn('Torch toggle failed:', err);
+          torchOn = false;
+          toast('Torch not available on this device');
+        }
+      }
+
+      function handleScan(decodedText, decodedResult, source) {
+        const formatName = FORMAT_LABELS[decodedResult?.result?.format?.format] || (decodedResult?.result?.format?.formatName) || 'Detected';
+        const value = (decodedText || '').trim();
+        if (!value) return;
+        if (isDuplicate(value)) return;
+        addEntry(value, formatName, source);
+      }
+
+      async function scanFromImageFile(file) {
+        if (!file) return;
+        try {
+          reticle.classList.remove('hidden');
+          empty.classList.add('hidden');
+          reader.classList.add('hidden');
+          setStatus('Reading image…');
+
+          // Show preview while decoding
+          const url = URL.createObjectURL(file);
+          preview.src = url;
+          preview.classList.remove('hidden');
+
+          const instance = await ensureScanner();
+          const decoded = await instance.scanFile(file, /* showImage */ false);
+          URL.revokeObjectURL(url);
+
+          const formatName = FORMAT_LABELS[decoded?.result?.format?.format] || (decoded?.result?.format?.formatName) || 'Detected';
+          const value = (decoded?.text || '').trim();
+          if (!value) {
+            setStatus('No code found in image', 'error');
+            toast('No barcode or QR was detected in that image.');
+            return;
+          }
+          if (isDuplicate(value)) {
+            setStatus('Duplicate scan');
+            toast('Already captured ' + formatName + ' ' + value);
+            return;
+          }
+          addEntry(value, formatName, 'image');
+        } catch (err) {
+          console.warn('Image scan failed:', err);
+          setStatus('No code found', 'error');
+          toast('Could not detect a code in that image.');
+        }
+      }
+
+      function bindEvents() {
+        startCamBtn.addEventListener('click', startCamera);
+        stopCamBtn.addEventListener('click', stopCamera);
+        torchBtn.addEventListener('click', toggleTorch);
+
+        imageInput.addEventListener('change', (event) => {
+          const file = event.target.files && event.target.files[0];
+          if (file) scanFromImageFile(file);
+          event.target.value = '';
+        });
+
+        entriesEl.addEventListener('click', async (event) => {
+          const btn = event.target.closest('button[data-act]');
+          if (!btn) return;
+          const row = btn.closest('.entry-row');
+          const id = row?.dataset.id;
+          if (!id) return;
+          const entry = entries.find(e => e.id === id);
+          if (!entry) return;
+          if (btn.dataset.act === 'copy') {
+            try {
+              await navigator.clipboard.writeText(entry.value);
+              toast('Copied');
+            } catch {
+              toast('Copy failed');
+            }
+          } else if (btn.dataset.act === 'delete') {
+            entries = entries.filter(e => e.id !== id);
+            persistEntries();
+            renderEntries();
+          }
+        });
+
+        copyAllBtn.addEventListener('click', async () => {
+          if (!entries.length) return;
+          const text = entries.map(e => e.value).join('\n');
+          try {
+            await navigator.clipboard.writeText(text);
+            toast('Copied ' + entries.length + ' scans');
+          } catch {
+            toast('Copy failed');
+          }
+        });
+
+        clearBtn.addEventListener('click', () => {
+          if (!entries.length) return;
+          if (!confirm('Clear all captured serial numbers on this device?')) return;
+          entries = [];
+          scanCount = 0;
+          lastScanned = { value: null, at: 0 };
+          persistEntries();
+          renderEntries();
+          latestEl.classList.remove('is-visible');
+          setStatus('Idle');
+        });
+
+        downloadBtn.addEventListener('click', () => {
+          if (!entries.length) return;
+          const header = 'value,format,source,scannedAt';
+          const body = entries.map(e =>
+            csvEscape(e.value) + ',' + csvEscape(e.format) + ',' + csvEscape(e.source) + ',' + csvEscape(e.scannedAt)
+          ).join('\n');
+          downloadBlob('serial-scans-' + Date.now() + '.csv', header + '\n' + body, 'text/csv');
+        });
+
+        downloadJsonBtn.addEventListener('click', () => {
+          if (!entries.length) return;
+          downloadBlob('serial-scans-' + Date.now() + '.json', JSON.stringify(entries, null, 2), 'application/json');
+        });
+
+        window.addEventListener('beforeunload', () => {
+          if (scanner && scanner.isScanning) {
+            scanner.stop().catch(() => { });
+          }
+        });
+      }
+
+      function csvEscape(value) {
+        const s = String(value ?? '');
+        if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      }
+
+      function downloadBlob(name, content, mime) {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 500);
+      }
+
+      // Render supported format list once on load.
+      formatLabel.textContent = Object.values(FORMAT_LABELS).slice(0, 4).join(' / ') + ' +';
+
+      bindEvents();
+      renderEntries();
+      setStatus('Idle');
+    })();
+  </script>
+</body>
+
+</html>

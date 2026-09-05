@@ -68,7 +68,7 @@ const RESERVED_FRIENDLY_SLUGS = new Set([
     'domestic-legacy', 'domestic-v3', 'domestic-v4', 'domestic-preview',
     'non-domestic', 'eei-optimizer', 'invoice-chat', 'bug-dashboard',
     'bug-chat', 'my-seda', 'my-referal', 'my-emails', 'shared-email-access',
-    'voucher-management', 'help', 'company-cloud', 'hosted-html',
+    'voucher-management', 'serial-scanner', 'help', 'company-cloud', 'hosted-html',
     'agent-registration', 'v2-part-1', 'battery_guide', 'health',
     'activity-report', 'activity-live-board', 'activity-review',
     'activity-report-v2', 'activity-v2-report', 'activity-v2-presets',

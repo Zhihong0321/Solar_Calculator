@@ -452,6 +452,11 @@ app.get('/qr-generator', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'qr_generator.html'));
 });
 
+// Serial Number Scanner Route (camera + image barcode/QR scanner)
+app.get('/serial-scanner', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'serial_scanner.html'));
+});
+
 // Voucher Management Route
 app.get('/voucher-management', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'voucher_management.html'));
