@@ -79,7 +79,21 @@ exports.create = async (req, res) => {
     const parsed = claimReceiptService.parseClaimFields(req.body);
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
 
-    if (!req.body.md5) return res.status(400).json({ error: 'md5 is required' });
+    // Receipt claims always arrive from the OCR pipeline with a real file md5. A manual
+    // Business Trip Allowance claim has no file/OCR, so it can't have one — synthesize a
+    // nonce'd md5 from the submitted fields so the existing integrity field stays populated
+    // without loosening the requirement for receipt claims.
+    let md5 = req.body.md5;
+    if (!md5) {
+      if (parsed.fields.category === 'Business Trip Allowance') {
+        md5 = crypto
+          .createHash('md5')
+          .update(JSON.stringify(Object.assign({}, req.body, { _nonce: crypto.randomUUID() })))
+          .digest('hex');
+      } else {
+        return res.status(400).json({ error: 'md5 is required' });
+      }
+    }
 
     const actorIdentity = await resolveSubmitterIdentity(req);
     if (!actorIdentity) return res.status(401).json({ error: 'Could not resolve the authenticated user' });
@@ -98,7 +112,7 @@ exports.create = async (req, res) => {
     }
 
     const claim = await claimReceiptService.create({
-      md5: req.body.md5,
+      md5,
       submittedBy: identity.name,
       submittedByUserId: identity.userId,
       submittedByEmail: identity.email,

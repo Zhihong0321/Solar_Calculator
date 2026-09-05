@@ -9,8 +9,13 @@
   var CATEGORIES = [
     "Transport / Fuel", "Toll & Parking", "Meals & Refreshments", "Accommodation / Lodging",
     "Tools & Hardware", "Site Consumables / Materials", "Courier & Postage",
-    "Printing & Stationery", "Equipment Rental", "Others"
+    "Printing & Stationery", "Equipment Rental", "Others",
+    // Outstation / traveling claims are manual allowance forms, not receipt claims. They live
+    // in the same claim_receipt list (so they still appear under Claim Submission) but are
+    // labeled by this category marker instead of a receipt category.
+    "Business Trip Allowance"
   ];
+  var TRIP_CATEGORY = "Business Trip Allowance";
   var MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   var reviewerNameEl = document.getElementById("reviewerName");
@@ -105,11 +110,17 @@
   }
 
   function claimCard(claim) {
+    var isTrip = claim.category === TRIP_CATEGORY;
+    var titleChildren = [
+      el("h3", { class: "text-sm font-bold text-slate-900", text: claim.vendor || (isTrip ? "Business Trip" : "Vendor pending") })
+    ];
+    if (isTrip) {
+      titleChildren.push(el("span", { class: "inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200", text: "Business Trip Allowance" }));
+    }
+    titleChildren.push(el("p", { class: "text-xs text-slate-400 mt-0.5", text: (claim.category || "Category pending") + (claim.receipt_date ? " · " + claim.receipt_date.substring(0, 10) : "") }));
+
     var header = el("div", { class: "flex items-start justify-between gap-4" }, [
-      el("div", {}, [
-        el("h3", { class: "text-sm font-bold text-slate-900", text: claim.vendor || "Vendor pending" }),
-        el("p", { class: "text-xs text-slate-400 mt-0.5", text: (claim.category || "Category pending") + (claim.receipt_date ? " · " + claim.receipt_date.substring(0, 10) : "") })
-      ]),
+      el("div", {}, titleChildren),
       el("div", { class: "text-right" }, [
         el("div", { class: "text-sm font-bold text-slate-900", text: money(claim) }),
         el("span", { class: "status-pill status-" + (claim.status || "Pending"), text: claim.status || "Pending" })
@@ -118,7 +129,7 @@
 
     var bodyLines = [];
     if (claim.item) bodyLines.push(el("p", { class: "text-sm text-slate-700 mt-2" }, [el("strong", { text: "Item: " }), document.createTextNode(claim.item)]));
-    if (claim.description) bodyLines.push(el("p", { class: "text-sm text-slate-500 mt-1", text: claim.description }));
+    if (claim.description) bodyLines.push(el("p", { class: "text-sm text-slate-500 mt-1 whitespace-pre-line", text: claim.description }));
 
     var metaLine = el("p", { class: "text-xs text-slate-400 mt-3" }, [
       document.createTextNode("Submitted " + (claim.created_at ? new Date(claim.created_at).toLocaleString() : "") + (claim.receipt_id ? " · Inv Number " + claim.receipt_id : ""))

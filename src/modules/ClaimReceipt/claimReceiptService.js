@@ -7,7 +7,18 @@ const { BUYER_NAME, BUYER_PATTERN } = require('./ocrService');
  * null until the claimant fills them in via Update — so only the buyer-guard and amount's
  * *shape* (a positive number when present at all) are enforced; completeness isn't.
  */
+const TRIP_CATEGORY = 'Business Trip Allowance';
+
+// A trip claim (outstation / traveling / business trip allowance) has no vendor receipt —
+// it's a manual allowance form. The category marker doubles as the type discriminator on every
+// list that reads from the single claim_receipt table, so the admin review shows both claim
+// types in one place, labeled by their category.
+function isTripClaimBody(body) {
+  return body.claim_type === 'trip' || body.category === TRIP_CATEGORY;
+}
+
 function parseClaimFields(body) {
+  const isTrip = isTripClaimBody(body);
   const vendor = typeof body.vendor === 'string' ? body.vendor.trim() : '';
   if (BUYER_PATTERN.test(vendor)) {
     return { ok: false, error: `${BUYER_NAME} is the buyer on every claim — it can't also be the vendor.` };
@@ -21,6 +32,9 @@ function parseClaimFields(body) {
     }
     amount = parsed;
   }
+  if (isTrip && amount === null) {
+    return { ok: false, error: 'Total allowance amount is required for a Business Trip Allowance claim.' };
+  }
 
   return {
     ok: true,
@@ -32,7 +46,7 @@ function parseClaimFields(body) {
       receipt_id: typeof body.receipt_id === 'string' && body.receipt_id ? body.receipt_id : null,
       amount,
       currency: typeof body.currency === 'string' && body.currency ? body.currency : 'MYR',
-      category: typeof body.category === 'string' && body.category ? body.category : null
+      category: isTrip ? TRIP_CATEGORY : (typeof body.category === 'string' && body.category ? body.category : null)
     }
   };
 }
