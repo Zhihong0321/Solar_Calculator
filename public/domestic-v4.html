@@ -135,6 +135,10 @@
             ['安装前后 · 电费对比', 'Before vs After · Bill Comparison'],
             ['安装前', 'Before'],
             ['安装后', 'After Solar'],
+            ['TNB 电费（按 AFA 0 计）', 'TNB Bill (AFA 0)'],
+            ['AFA 调整（所选费率）', 'AFA Adjustment (selected)'],
+            ['含所选 AFA', 'With selected AFA'],
+            ['所选费率', 'Selected AFA'],
             ['每月电费', 'Monthly Bill'],
             ['现在', 'Now'],
             ['太阳能后', 'After Solar'],
@@ -240,6 +244,10 @@
             [/置信度/g, 'Confidence'],
             [/每月 ·/g, 'Monthly ·'],
             [/安装前后 · 电费对比/g, 'Before vs After · Bill Comparison'],
+            [/TNB 电费（按 AFA 0 计）/g, 'TNB Bill (AFA 0)'],
+            [/AFA 调整（所选费率）/g, 'AFA Adjustment (selected)'],
+            [/含所选 AFA/g, 'With selected AFA'],
+            [/所选费率/g, 'Selected AFA'],
             [/安装前/g, 'Before'],
             [/安装后/g, 'After Solar'],
             [/每月电费/g, 'Monthly Bill'],
@@ -1389,9 +1397,23 @@
             );
         }
 
-        function BeforeAfterCard({ beforeBill, activeCycle }) {
+        function BeforeAfterCard({ solarResult, activeCycle, afaRate }) {
             const afterBill = activeCycle.payableAfterSolar;
-            const percentageSaved = beforeBill > 0 ? Math.round((1 - afterBill / beforeBill) * 100) : 0;
+            const beforeBreakdown = solarResult?.billBreakdownComparison?.before
+                || solarResult?.details?.billBreakdown?.before
+                || null;
+            const usageKwh = toNumber(solarResult?.details?.monthlyUsageKwh, toNumber(beforeBreakdown?.eeiUsageKwh));
+            const selectedAfaRate = toNumber(afaRate);
+            const selectedAfaSen = selectedAfaRate * 100;
+            const storedAfa = toNumber(beforeBreakdown?.afa);
+            const billWithAfaFromApi = toNumber(solarResult?.details?.billBefore, toNumber(beforeBreakdown?.total));
+            const tnbAtAfa0 = toNumber(beforeBreakdown?.totalBase, billWithAfaFromApi - storedAfa);
+            const afaAdjustment = usageKwh * selectedAfaRate;
+            const billWithSelectedAfa = tnbAtAfa0 + afaAdjustment;
+            const percentageSaved = billWithSelectedAfa > 0 ? Math.round((1 - afterBill / billWithSelectedAfa) * 100) : 0;
+            const afaRmSign = afaAdjustment >= 0 ? '+' : '−';
+            const afaSenSign = selectedAfaSen >= 0 ? '+' : '';
+            const barMax = Math.max(tnbAtAfa0, billWithSelectedAfa, afterBill, 1);
 
             return (
                 <SectionWrap>
@@ -1400,44 +1422,57 @@
                             安装前后 · 电费对比
                         </div>
 
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', marginBottom: 14 }}>
-                            <div style={{ flex: 1, background: '#f3f4f6', borderRadius: 12, padding: '14px 12px', textAlign: 'center' }}>
-                                <div style={{ fontSize: 10, color: '#9ca3af', marginBottom: 4 }}>安装前</div>
-                                <div style={{ fontSize: 30, fontWeight: 800, color: '#9ca3af', textDecoration: 'line-through' }}>
-                                    RM {fmt(beforeBill)}
+                        <div style={{ display: 'flex', alignItems: 'stretch', gap: 5, marginBottom: 8 }}>
+                            <div style={{ flex: 1.15, background: '#f3f4f6', borderRadius: 12, padding: '12px 4px', textAlign: 'center', minWidth: 0 }}>
+                                <div style={{ fontSize: 9, color: '#9ca3af', marginBottom: 4, lineHeight: 1.3 }}>TNB 电费（按 AFA 0 计）</div>
+                                <div style={{ fontSize: 19, fontWeight: 800, color: '#6b7280', whiteSpace: 'nowrap' }}>
+                                    RM {fmt(tnbAtAfa0)}
                                 </div>
-                                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>每月电费</div>
+                                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>每月电费</div>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 20, fontWeight: 800, flexShrink: 0 }}>
+                                +
+                            </div>
+
+                            <div style={{ flex: 1, background: '#fffbeb', borderRadius: 12, padding: '12px 4px', textAlign: 'center', border: '1px solid #fde68a', minWidth: 0 }}>
+                                <div style={{ fontSize: 9, color: '#d97706', marginBottom: 4, fontWeight: 700, lineHeight: 1.3 }}>AFA 调整（所选费率）</div>
+                                <div style={{ fontSize: 19, fontWeight: 800, color: '#b45309', whiteSpace: 'nowrap' }}>
+                                    {afaRmSign}RM {fmt(Math.abs(afaAdjustment))}
+                                </div>
+                                <div style={{ fontSize: 10, color: '#d97706', marginTop: 3, lineHeight: 1.3, whiteSpace: 'nowrap' }}>
+                                    {afaSenSign}{selectedAfaSen.toFixed(2)} sen/kWh{usageKwh > 0 ? ` × ${fmt(usageKwh)} kWh` : ''}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, flexShrink: 0 }}>
                                 <Tag color={ACCENT.primary} bg={ACCENT.bg}>−{percentageSaved}%</Tag>
-                                <div style={{ fontSize: 20, color: ACCENT.primary }}>→</div>
+                                <div style={{ fontSize: 18, color: ACCENT.primary }}>→</div>
                             </div>
 
-                            <div style={{
-                                flex: 1,
-                                background: ACCENT.bg,
-                                borderRadius: 12,
-                                padding: '14px 12px',
-                                textAlign: 'center',
-                                border: `2px solid ${ACCENT.border}`
-                            }}>
-                                <div style={{ fontSize: 10, color: ACCENT.primary, marginBottom: 4, fontWeight: 700 }}>☀️ 安装后</div>
-                                <div style={{ fontSize: 30, fontWeight: 800, color: ACCENT.primary }}>RM {fmt(afterBill)}</div>
-                                <div style={{ fontSize: 11, color: ACCENT.primary, marginTop: 3 }}>每月电费</div>
+                            <div style={{ flex: 1.15, background: ACCENT.bg, borderRadius: 12, padding: '12px 4px', textAlign: 'center', border: `2px solid ${ACCENT.border}`, minWidth: 0 }}>
+                                <div style={{ fontSize: 9, color: ACCENT.primary, marginBottom: 4, fontWeight: 700, lineHeight: 1.3 }}>☀️ 安装后</div>
+                                <div style={{ fontSize: 19, fontWeight: 800, color: ACCENT.primary, whiteSpace: 'nowrap' }}>RM {fmt(afterBill)}</div>
+                                <div style={{ fontSize: 10, color: ACCENT.primary, marginTop: 3 }}>每月电费</div>
                             </div>
                         </div>
 
+                        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12, textAlign: 'center' }}>
+                            RM {fmt(tnbAtAfa0)} {afaRmSign} RM {fmt(Math.abs(afaAdjustment))} = RM {fmt(billWithSelectedAfa)} → RM {fmt(afterBill)}
+                            <span style={{ color: '#9ca3af' }}> · 所选费率 {afaSenSign}{selectedAfaSen.toFixed(2)} sen/kWh</span>
+                        </div>
+
                         {[
-                            { label: '现在', value: beforeBill, max: Math.max(beforeBill, afterBill, 1), color: '#d1d5db' },
-                            { label: '太阳能后', value: afterBill, max: Math.max(beforeBill, afterBill, 1), color: ACCENT.primary }
+                            { label: 'AFA 0', value: tnbAtAfa0, color: '#d1d5db', text: '#6b7280' },
+                            { label: '含所选 AFA', value: billWithSelectedAfa, color: '#fbbf24', text: '#92400e' },
+                            { label: '太阳能后', value: afterBill, color: ACCENT.primary, text: '#fff' }
                         ].map((row) => (
                             <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                                <div style={{ width: 52, fontSize: 11, color: '#6b7280', textAlign: 'right', flexShrink: 0 }}>{row.label}</div>
+                                <div style={{ width: 72, fontSize: 10, color: '#6b7280', textAlign: 'right', flexShrink: 0 }}>{row.label}</div>
                                 <div style={{ flex: 1, height: 22, background: '#f3f4f6', borderRadius: 6, overflow: 'hidden' }}>
                                     <div style={{
                                         height: '100%',
-                                        width: `${(row.value / row.max) * 100}%`,
+                                        width: `${(Math.max(0, row.value) / barMax) * 100}%`,
                                         background: row.color,
                                         borderRadius: 6,
                                         display: 'flex',
@@ -1447,7 +1482,8 @@
                                         <span style={{
                                             fontSize: 10,
                                             fontWeight: 700,
-                                            color: row.color === '#d1d5db' ? '#6b7280' : '#fff'
+                                            color: row.text,
+                                            whiteSpace: 'nowrap'
                                         }}>
                                             RM {fmt(row.value)}
                                         </span>
@@ -3232,7 +3268,7 @@
                                 <CycleToggle selected={selectedBillCycleMode} onSelect={setSelectedBillCycleMode} />
                             </div>
                             <SavingsHero activeCycle={activeCycle} solarResult={solarResult} annualRoi={annualRoi} />
-                            <BeforeAfterCard beforeBill={toNumber(solarResult.details?.billBefore)} activeCycle={activeCycle} />
+                            <BeforeAfterCard solarResult={solarResult} activeCycle={activeCycle} afaRate={inputs.afaRate} />
                             <EnergyFlowCard solarResult={solarResult} />
                             <SavingsBreakdownCard solarResult={solarResult} activeCycle={activeCycle} />
                             <ProjectionChartCard solarResult={solarResult} activeCycle={activeCycle} />
