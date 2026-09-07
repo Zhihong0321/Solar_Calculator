@@ -5,6 +5,8 @@ const { findClosestTariff, calculateSolarSavings } = require('../services/solarC
 const { calculateEeiOptimizer } = require('../services/eeiOptimizerService');
 const { buildBillCycleModes } = require('../services/billCycleModeService');
 const { lookupBestPackage } = require('../services/packageLookupService');
+const { generateSolarResultPage, wantsJson, renderErrorPage } = require('../services/resultPageService');
+const { handleSolarCalculationDocs } = require('./solarCalculationDocs');
 const { writeActivity } = require('../../../core/activityLog/writeActivity');
 const { attachAuthenticatedUser } = require('../../../core/middleware/auth');
 
@@ -370,6 +372,75 @@ router.get('/api/solar-calculation', attachAuthenticatedUser, async (req, res) =
     res.status(status).json({ error: 'Failed to calculate solar savings', details: err.message });
   }
 });
+
+const SOLAR_PAGE_VALIDATION_MESSAGES = [
+  'Invalid bill amount',
+  'Sun Peak Hour must be between 3.0 and 4.5',
+  'Morning Usage must be between 1% and 100%',
+  'SMP price must be between RM 0.19 and RM 0.2703',
+  'Battery size must be 0, 16, 32, or 48 kWh'
+];
+
+async function handleSolarResultPage(req, res) {
+  const rawInput = {
+    ...(req.query || {}),
+    ...((req.body && typeof req.body === 'object') ? req.body : {})
+  };
+
+  try {
+    const payload = await generateSolarResultPage(pool, tariffPool, rawInput);
+
+    if (wantsJson(req, payload.format)) {
+      res.json({
+        success: true,
+        html: payload.html,
+        result: payload.result,
+        billCycleModes: payload.billCycleModes,
+        inputs: payload.inputs,
+        cycle: payload.cycle
+      });
+    } else {
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.send(payload.html);
+    }
+
+    if (req.query.logActivity !== '0' && req.body?.logActivity !== '0') {
+      writeActivity({
+        req,
+        action: 'calculate',
+        entityType: 'residential_roi_result_page',
+        description: 'generated a residential solar result page',
+        metadata: {
+          billAmount: payload.inputs.amount,
+          sunPeakHour: payload.inputs.sunPeakHour,
+          batterySize: payload.inputs.batterySize,
+          monthlySavings: payload.result.monthlySavings
+        }
+      });
+    }
+    return;
+  } catch (err) {
+    const status = SOLAR_PAGE_VALIDATION_MESSAGES.includes(err.message) ? 400 : 500;
+    if (wantsJson(req, String(rawInput.format || '').toLowerCase() === 'json' ? 'json' : 'html')) {
+      return res.status(status).json({
+        error: 'Failed to calculate solar savings',
+        details: err.message
+      });
+    }
+    res.status(status);
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderErrorPage(err.message));
+  }
+}
+
+// Public self-describing docs. No auth. Browser → HTML, curl → JSON.
+router.get('/api/solar-calculation/docs', handleSolarCalculationDocs);
+
+// Page API: same calculator as /api/solar-calculation, but returns a complete
+// HTML result page. GET query or POST JSON. format=json (or Accept JSON) also
+// returns { html, result, billCycleModes }.
+router.get('/api/solar-calculation/page', attachAuthenticatedUser, handleSolarResultPage);
+router.post('/api/solar-calculation/page', attachAuthenticatedUser, handleSolarResultPage);
 
 // API endpoint for EEI Optimizer calculation
 router.get('/api/eei-optimizer/calculate', async (req, res) => {
