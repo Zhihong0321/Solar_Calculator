@@ -196,6 +196,54 @@ router.get('/api/v1/invoices/my-invoices', requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /api/v1/invoices/scanner/search
+ * Search invoices specifically for barcode scanning workflow
+ */
+router.get('/api/v1/invoices/scanner/search', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        const query = String(req.query.q || '').trim();
+        if (!query) {
+            return res.json({ success: true, data: [] });
+        }
+        client = await pool.connect();
+        const pattern = `%${query.toLowerCase()}%`;
+        const result = await client.query(`
+            SELECT 
+                i.bubble_id,
+                i.invoice_number,
+                COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') AS customer_name,
+                COALESCE(c.phone, i.customer_phone_snapshot, '') AS customer_phone,
+                COALESCE(pkg.package_name, i.package_name_snapshot, 'Custom Package') AS package_name,
+                i.linked_package,
+                i.invoice_date,
+                i.status
+            FROM invoice i
+            LEFT JOIN customer c ON i.linked_customer = c.customer_id
+            LEFT JOIN package pkg ON (i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text)
+            WHERE (i.status != 'deleted' OR i.status IS NULL)
+              AND (
+                LOWER(COALESCE(i.invoice_number, '')) LIKE $1
+                OR LOWER(COALESCE(c.name, '')) LIKE $1
+                OR LOWER(COALESCE(i.customer_name_snapshot, '')) LIKE $1
+                OR LOWER(COALESCE(c.phone, '')) LIKE $1
+                OR LOWER(COALESCE(i.customer_phone_snapshot, '')) LIKE $1
+                OR LOWER(COALESCE(pkg.package_name, '')) LIKE $1
+              )
+            ORDER BY i.id DESC
+            LIMIT 15;
+        `, [pattern]);
+
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error('[ScannerSearch] Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
  * GET /api/v1/invoices/:bubbleId
  * Get single invoice details
  */
@@ -210,6 +258,277 @@ router.get('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
         }
         res.json({ success: true, data: invoice });
     } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * GET /api/v1/invoices/:bubbleId/scanner-context
+ * Resolve scannable products (panels & inverters) and existing barcodes for an invoice
+ */
+router.get('/api/v1/invoices/:bubbleId/scanner-context', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    let client = null;
+    try {
+        client = await pool.connect();
+        const invRes = await client.query(`
+            SELECT 
+                i.bubble_id,
+                i.invoice_number,
+                COALESCE(c.name, i.customer_name_snapshot, 'Unknown Customer') AS customer_name,
+                COALESCE(c.phone, i.customer_phone_snapshot, '') AS customer_phone,
+                COALESCE(pkg.package_name, i.package_name_snapshot, 'Custom Package') AS package_name,
+                i.linked_package,
+                i.invoice_date,
+                i.status
+            FROM invoice i
+            LEFT JOIN customer c ON i.linked_customer = c.customer_id
+            LEFT JOIN package pkg ON (i.linked_package = pkg.bubble_id OR i.linked_package = pkg.id::text)
+            WHERE i.bubble_id = $1 OR i.id::text = $1
+            LIMIT 1;
+        `, [bubbleId]);
+
+        if (invRes.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+
+        const invoice = invRes.rows[0];
+        const scannableProducts = [];
+
+        if (invoice.linked_package) {
+            const pkgRes = await client.query(`
+                SELECT 
+                    pkg.bubble_id,
+                    pkg.package_name,
+                    pkg.panel,
+                    pkg.panel_qty,
+                    pkg.inverter_1,
+                    pkg.inverter_2,
+                    pkg.inverter_3,
+                    pkg.inverter_4,
+                    p_panel.name AS panel_name,
+                    p_panel.description AS panel_desc,
+                    p_inv1.name AS inv1_name,
+                    p_inv1.description AS inv1_desc,
+                    p_inv2.name AS inv2_name,
+                    p_inv2.description AS inv2_desc,
+                    p_inv3.name AS inv3_name,
+                    p_inv3.description AS inv3_desc,
+                    p_inv4.name AS inv4_name,
+                    p_inv4.description AS inv4_desc
+                FROM package pkg
+                LEFT JOIN product p_panel ON pkg.panel = p_panel.bubble_id
+                LEFT JOIN product p_inv1 ON pkg.inverter_1 = p_inv1.bubble_id
+                LEFT JOIN product p_inv2 ON pkg.inverter_2 = p_inv2.bubble_id
+                LEFT JOIN product p_inv3 ON pkg.inverter_3 = p_inv3.bubble_id
+                LEFT JOIN product p_inv4 ON pkg.inverter_4 = p_inv4.bubble_id
+                WHERE pkg.bubble_id = $1 OR pkg.id::text = $1
+                LIMIT 1;
+            `, [invoice.linked_package]);
+
+            if (pkgRes.rows.length > 0) {
+                const pkg = pkgRes.rows[0];
+                if (pkg.panel) {
+                    scannableProducts.push({
+                        productId: pkg.panel,
+                        name: pkg.panel_name || 'Solar Panel',
+                        description: pkg.panel_desc || '',
+                        type: 'panel',
+                        targetQty: parseInt(pkg.panel_qty, 10) || 1
+                    });
+                }
+                const inverters = [
+                    { id: pkg.inverter_1, name: pkg.inv1_name, desc: pkg.inv1_desc },
+                    { id: pkg.inverter_2, name: pkg.inv2_name, desc: pkg.inv2_desc },
+                    { id: pkg.inverter_3, name: pkg.inv3_name, desc: pkg.inv3_desc },
+                    { id: pkg.inverter_4, name: pkg.inv4_name, desc: pkg.inv4_desc }
+                ];
+                inverters.forEach((inv, index) => {
+                    if (inv.id) {
+                        scannableProducts.push({
+                            productId: inv.id,
+                            name: inv.name || `Inverter ${index + 1}`,
+                            description: inv.desc || '',
+                            type: 'inverter',
+                            targetQty: 1
+                        });
+                    }
+                });
+            }
+        }
+
+        const barcodesRes = await client.query(`
+            SELECT id, bubble_id, barcode, linked_product, created_at
+            FROM barcode
+            WHERE linked_invoice = $1
+            ORDER BY id ASC;
+        `, [invoice.bubble_id]);
+
+        const barcodesByProduct = {};
+        barcodesRes.rows.forEach((row) => {
+            const pid = row.linked_product;
+            if (!barcodesByProduct[pid]) barcodesByProduct[pid] = [];
+            barcodesByProduct[pid].push(row);
+        });
+
+        const productsWithScans = scannableProducts.map(p => ({
+            ...p,
+            scannedCount: (barcodesByProduct[p.productId] || []).length,
+            scannedBarcodes: barcodesByProduct[p.productId] || []
+        }));
+
+        res.json({
+            success: true,
+            data: {
+                invoice,
+                products: productsWithScans,
+                allBarcodes: barcodesRes.rows
+            }
+        });
+    } catch (err) {
+        console.error('[ScannerContext] Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * POST /api/v1/invoices/:bubbleId/barcodes
+ * Batch save scanned barcodes for an invoice and linked product
+ */
+router.post('/api/v1/invoices/:bubbleId/barcodes', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    const { productId, barcodes } = req.body;
+
+    if (!productId || !Array.isArray(barcodes) || barcodes.length === 0) {
+        return res.status(400).json({ success: false, error: 'productId and barcodes array are required' });
+    }
+
+    const userId = getAuthenticatedUserId(req) || 'system';
+    let client = null;
+    try {
+        client = await pool.connect();
+        await client.query('BEGIN');
+
+        const invRes = await client.query(
+            'SELECT bubble_id, invoice_number FROM invoice WHERE bubble_id = $1 OR id::text = $1 LIMIT 1',
+            [bubbleId]
+        );
+        if (invRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+        const actualInvoiceId = invRes.rows[0].bubble_id;
+        const invoiceNumber = invRes.rows[0].invoice_number;
+
+        const insertedBarcodes = [];
+        const barcodeBubbleIds = [];
+
+        for (const code of barcodes) {
+            const cleanCode = String(code).trim();
+            if (!cleanCode) continue;
+
+            const bubbleIdGen = `${Date.now()}x${Math.random().toString(16).slice(2, 10)}`;
+            const insertRes = await client.query(`
+                INSERT INTO barcode (
+                    bubble_id, barcode, linked_product, linked_invoice,
+                    created_by, created_date, modified_date, created_at, updated_at
+                )
+                VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), NOW(), NOW())
+                ON CONFLICT (linked_product, barcode) 
+                DO UPDATE SET linked_invoice = EXCLUDED.linked_invoice, updated_at = NOW()
+                RETURNING bubble_id, barcode, linked_product, linked_invoice;
+            `, [bubbleIdGen, cleanCode, productId, actualInvoiceId, String(userId)]);
+
+            if (insertRes.rows.length > 0) {
+                insertedBarcodes.push(insertRes.rows[0]);
+                barcodeBubbleIds.push(insertRes.rows[0].bubble_id);
+            }
+        }
+
+        if (barcodeBubbleIds.length > 0) {
+            await client.query(`
+                UPDATE invoice
+                SET linked_barcode = ARRAY(
+                    SELECT DISTINCT unnest(COALESCE(linked_barcode, ARRAY[]::text[]) || $1::text[])
+                )
+                WHERE bubble_id = $2;
+            `, [barcodeBubbleIds, actualInvoiceId]);
+        }
+
+        await client.query('COMMIT');
+
+        writeActivity({
+            req,
+            action: 'update',
+            entityType: 'invoice',
+            entityId: actualInvoiceId,
+            entityLabel: invoiceNumber,
+            description: `linked ${insertedBarcodes.length} barcode(s) to product ${productId} on invoice ${invoiceNumber}`
+        });
+
+        res.json({
+            success: true,
+            data: {
+                count: insertedBarcodes.length,
+                barcodes: insertedBarcodes
+            }
+        });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK');
+        console.error('[SaveBarcodes] Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * DELETE /api/v1/invoices/:bubbleId/barcodes/:barcodeValue
+ * Delete a barcode from an invoice
+ */
+router.delete('/api/v1/invoices/:bubbleId/barcodes/:barcodeValue', requireAuth, async (req, res) => {
+    const { bubbleId, barcodeValue } = req.params;
+    let client = null;
+    try {
+        client = await pool.connect();
+        await client.query('BEGIN');
+
+        const invRes = await client.query(
+            'SELECT bubble_id FROM invoice WHERE bubble_id = $1 OR id::text = $1 LIMIT 1',
+            [bubbleId]
+        );
+        if (invRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+        const actualInvoiceId = invRes.rows[0].bubble_id;
+
+        const bcRes = await client.query(
+            'DELETE FROM barcode WHERE linked_invoice = $1 AND (barcode = $2 OR bubble_id = $2) RETURNING bubble_id',
+            [actualInvoiceId, barcodeValue]
+        );
+
+        if (bcRes.rows.length > 0) {
+            const removedIds = bcRes.rows.map(r => r.bubble_id);
+            await client.query(`
+                UPDATE invoice
+                SET linked_barcode = ARRAY(
+                    SELECT item FROM unnest(COALESCE(linked_barcode, ARRAY[]::text[])) item
+                    WHERE item != ALL($1::text[])
+                )
+                WHERE bubble_id = $2;
+            `, [removedIds, actualInvoiceId]);
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, deleted: bcRes.rows.length });
+    } catch (err) {
+        if (client) await client.query('ROLLBACK');
+        console.error('[DeleteBarcode] Error:', err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
