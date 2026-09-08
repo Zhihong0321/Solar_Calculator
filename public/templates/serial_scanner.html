@@ -114,12 +114,22 @@
       justify-content: center;
     }
 
-    .scanner-stage video,
-    .scanner-stage canvas,
+    /* While the camera runs the stage must follow the video's own aspect ratio.
+       html5-qrcode maps its crop region with videoWidth/clientWidth and
+       videoHeight/clientHeight, which only holds if the <video> keeps its
+       natural proportions. Forcing a height (or object-fit: cover) made the
+       decoder read a stretched, offset slice of the frame - the barcode inside
+       the reticle was never the part being decoded. */
+    .scanner-stage.is-camera {
+      aspect-ratio: auto;
+      height: auto;
+    }
+
+    /* Never override the size of html5-qrcode's own video/canvas. */
     .scanner-stage img.preview {
       width: 100% !important;
       height: 100% !important;
-      object-fit: cover !important;
+      object-fit: contain !important;
     }
 
     .scanner-empty {
@@ -147,9 +157,11 @@
     .scanner-status.is-live { background: rgba(16, 185, 129, 0.85); }
     .scanner-status.is-error { background: rgba(220, 38, 38, 0.85); }
 
+    /* Matches the qrbox below (85% wide, 50% tall, centred) so what the user
+       lines up is actually what gets decoded. */
     .reticle {
       position: absolute;
-      inset: 12% 8%;
+      inset: 25% 7.5%;
       border: 2px dashed rgba(59, 130, 246, 0.7);
       border-radius: 1rem;
       pointer-events: none;
@@ -318,7 +330,7 @@
             <p class="text-sm font-semibold">Camera is off</p>
             <p class="text-[11px] opacity-70">Start the camera or upload an image to scan a serial number.</p>
           </div>
-          <div id="qrReader" class="hidden w-full h-full"></div>
+          <div id="qrReader" class="hidden w-full"></div>
           <img id="imagePreview" class="preview hidden" alt="Selected image preview" />
           <div id="reticle" class="reticle hidden"></div>
           <div id="scannerStatus" class="scanner-status">Idle</div>
@@ -355,6 +367,12 @@
             <span id="lastFormat" class="scan-stat__value text-xs">—</span>
           </div>
         </div>
+
+        <details class="help">
+          <summary><i class="fa-solid fa-wrench mr-1"></i> Scanner diagnostics</summary>
+          <p id="scannerDiag" style="font-family:ui-monospace,monospace;font-size:0.7rem;word-break:break-all;">Camera not started.</p>
+          <p class="opacity-70">The two <code>ratio</code> numbers must match. If they differ, the decoder is reading a distorted crop of the frame.</p>
+        </details>
 
         <details class="help">
           <summary><i class="fa-solid fa-circle-info mr-1"></i> How to scan</summary>
@@ -467,12 +485,18 @@
       const downloadJsonBtn = $('downloadJsonBtn');
       const clearBtn = $('clearBtn');
       const toastEl = $('toast');
+      const diagEl = $('scannerDiag');
 
       let scanner = null;
       let cameraStream = null;
       let torchSupported = false;
       let torchOn = false;
       let scanCount = 0;
+      // Live scan telemetry - without this the page was silent whether the
+      // decoder was running, starved, or dead.
+      let framesTried = 0;
+      let lastHitAt = 0;
+      let diagTimer = null;
       let lastScanned = { value: null, at: 0 };
       let entries = loadEntries();
 
@@ -602,11 +626,49 @@
 
       async function ensureScanner() {
         if (scanner) return scanner;
+        // experimentalFeatures is read from the CONSTRUCTOR config only -
+        // html5-qrcode silently ignores it when passed to start().
         scanner = new Html5Qrcode('qrReader', {
           verbose: false,
-          formatsToSupport: SCANNER_FORMATS
+          formatsToSupport: SCANNER_FORMATS,
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true }
         });
         return scanner;
+      }
+
+      // Every frame html5-qrcode fails to decode calls back here. Previously a
+      // no-op, which is why an unreadable barcode produced no feedback at all.
+      function handleScanFailure() {
+        framesTried++;
+        const quiet = Date.now() - lastHitAt;
+        if (framesTried % 5 !== 0) return;
+        if (quiet > 6000) {
+          setStatus('No code detected · ' + framesTried + ' frames', 'error');
+        } else {
+          setStatus('Scanning · ' + framesTried + ' frames', 'live');
+        }
+      }
+
+      // On-screen diagnostics: if this still fails on a real phone we want the
+      // numbers, not another guess.
+      function startDiagnostics() {
+        stopDiagnostics();
+        diagTimer = setInterval(() => {
+          const vid = document.querySelector('#qrReader video');
+          if (!vid) { diagEl.textContent = 'video element missing'; return; }
+          diagEl.textContent =
+            'stream ' + vid.videoWidth + '×' + vid.videoHeight +
+            ' · shown ' + vid.clientWidth + '×' + vid.clientHeight +
+            ' · ratio ' + (vid.videoWidth / (vid.clientWidth || 1)).toFixed(2) +
+            '/' + (vid.videoHeight / (vid.clientHeight || 1)).toFixed(2) +
+            ' · detector ' + ('BarcodeDetector' in window ? 'native' : 'zxing') +
+            ' · frames ' + framesTried + ' · hits ' + scanCount;
+        }, 1000);
+      }
+
+      function stopDiagnostics() {
+        if (diagTimer) clearInterval(diagTimer);
+        diagTimer = null;
       }
 
       async function startCamera() {
@@ -616,8 +678,11 @@
           reticle.classList.remove('hidden');
           empty.classList.add('hidden');
           reader.classList.remove('hidden');
+          stage.classList.add('is-camera');
           startCamBtn.disabled = true;
           stopCamBtn.disabled = false;
+          framesTried = 0;
+          lastHitAt = Date.now();
           setStatus('Requesting camera…');
 
           const instance = await ensureScanner();
@@ -628,9 +693,11 @@
               // reliably in a horizontal band than in a square box.
               return { width: Math.floor(vw * 0.85), height: Math.floor(vh * 0.5) };
             },
-            aspectRatio: 1.3333333,
-            disableFlip: false,
-            experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            // No aspectRatio here: html5-qrcode turns it into an
+            // applyConstraints({aspectRatio}) call that fights the 1920x1080
+            // upgrade below, leaving the track renegotiating instead of
+            // delivering frames.
+            disableFlip: false
           };
           // html5-qrcode rejects any cameraIdOrConfig object with more than
           // one key, so start with facingMode only and upgrade the live track
@@ -639,9 +706,10 @@
             { facingMode: 'environment' },
             config,
             (decodedText, decodedResult) => handleScan(decodedText, decodedResult, 'camera'),
-            () => { /* per-frame failures are normal, ignore */ }
+            handleScanFailure
           );
           setStatus('Scanning · point at a code', 'live');
+          startDiagnostics();
 
           // html5-qrcode 2.3.8's start() resolves with null, not the stream,
           // so recover the live stream from the injected <video> element —
@@ -678,9 +746,12 @@
           toast('Could not start camera: ' + (err.message || err));
           startCamBtn.disabled = false;
           stopCamBtn.disabled = true;
+          stage.classList.remove('is-camera');
           reader.classList.add('hidden');
           empty.classList.remove('hidden');
           reticle.classList.add('hidden');
+          stopDiagnostics();
+          diagEl.textContent = 'Camera failed: ' + (err && (err.message || err.name) || err);
         }
       }
 
@@ -699,9 +770,11 @@
           torchBtn.disabled = true;
           startCamBtn.disabled = false;
           stopCamBtn.disabled = true;
+          stage.classList.remove('is-camera');
           reader.classList.add('hidden');
           empty.classList.remove('hidden');
           reticle.classList.add('hidden');
+          stopDiagnostics();
           setStatus('Idle');
         }
       }
@@ -725,6 +798,7 @@
         const formatName = FORMAT_LABELS[decodedResult?.result?.format?.format] || (decodedResult?.result?.format?.formatName) || 'Detected';
         const value = (decodedText || '').trim();
         if (!value) return;
+        lastHitAt = Date.now();
         if (isDuplicate(value)) return;
         addEntry(value, formatName, source);
       }
