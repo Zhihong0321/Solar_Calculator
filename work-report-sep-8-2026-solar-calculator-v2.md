@@ -6,6 +6,7 @@ REPO NAME : Solar Calculator v2
 - Added Excel (CSV) report generation in Claim Review admin system with filter-aware exports and UTF-8 BOM encoding.
 - Validated and restored AI OCR receipt parsing endpoint following provider key update and session routing configuration.
 - Fixed Serial Number Scanner buttons not responding on mobile: repaired a JavaScript syntax error in escapeHtml (unterminated string in the HTML entity map) that stopped the whole page script from parsing, so Start Camera, Stop, and Torch now bind and work.
+- Fixed Serial Number Scanner camera never decoding: request 1080p stream with continuous autofocus instead of the default 640x480 fixed-focus feed, switched the scan box from square to a wide horizontal band for 1D barcodes, and enabled the native BarcodeDetector fast path on Chrome Android.
 
 =====================
 

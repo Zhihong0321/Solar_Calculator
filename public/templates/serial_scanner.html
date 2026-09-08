@@ -624,14 +624,23 @@
           const config = {
             fps: 10,
             qrbox: (vw, vh) => {
-              const size = Math.floor(Math.min(vw, vh) * 0.7);
-              return { width: size, height: size };
+              // Wide + short: 1D barcodes (Code 128/39, EAN) decode far more
+              // reliably in a horizontal band than in a square box.
+              return { width: Math.floor(vw * 0.85), height: Math.floor(vh * 0.5) };
             },
             aspectRatio: 1.3333333,
-            disableFlip: false
+            disableFlip: false,
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true }
           };
+          // 1080p + continuous autofocus: the default ~640x480 fixed-focus
+          // stream is too low-res to decode printed equipment stickers.
           cameraStream = await instance.start(
-            { facingMode: 'environment' },
+            {
+              facingMode: 'environment',
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              advanced: [{ focusMode: 'continuous' }]
+            },
             config,
             (decodedText, decodedResult) => handleScan(decodedText, decodedResult, 'camera'),
             () => { /* per-frame failures are normal, ignore */ }
