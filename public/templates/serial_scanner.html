@@ -356,6 +356,15 @@
           </button>
         </div>
 
+        <!-- Phone cameras cannot focus closer than ~15cm. Getting near enough
+             for the bars to resolve puts the sticker inside that limit, so the
+             frame blurs. Zoom instead: stay at focusing distance and magnify. -->
+        <div id="zoomRow" class="hidden items-center gap-3">
+          <span class="field-label" style="margin:0;white-space:nowrap;">Zoom</span>
+          <input id="zoomRange" type="range" style="flex:1;" />
+          <span id="zoomValue" class="text-[11px] font-bold text-slate-400">1.0×</span>
+        </div>
+
         <div class="grid grid-cols-3 gap-3">
           <div class="scan-stat">
             <span class="scan-stat__label">Scans</span>
@@ -371,11 +380,10 @@
           </div>
         </div>
 
-        <details class="help">
-          <summary><i class="fa-solid fa-wrench mr-1"></i> Scanner diagnostics</summary>
-          <p id="scannerDiag" style="font-family:ui-monospace,monospace;font-size:0.7rem;word-break:break-all;">Camera not started.</p>
-          <p class="opacity-70">The two <code>ratio</code> numbers must match. If they differ, the decoder is reading a distorted crop of the frame.</p>
-        </details>
+        <p id="scannerDiag"
+           style="font-family:ui-monospace,monospace;font-size:0.65rem;line-height:1.5;word-break:break-all;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:0.5rem;padding:0.5rem 0.6rem;margin:0;">
+          Camera not started.
+        </p>
 
         <details class="help">
           <summary><i class="fa-solid fa-circle-info mr-1"></i> How to scan</summary>
@@ -489,6 +497,9 @@
       const clearBtn = $('clearBtn');
       const toastEl = $('toast');
       const diagEl = $('scannerDiag');
+      const zoomRow = $('zoomRow');
+      const zoomRange = $('zoomRange');
+      const zoomValue = $('zoomValue');
 
       let scanner = null;
       let cameraStream = null;
@@ -500,6 +511,15 @@
       let framesTried = 0;
       let lastHitAt = 0;
       let diagTimer = null;
+      let lastSharpness = null;
+      // Below this mean edge-contrast the bars are smeared past decoding.
+      // Calibrated by decoding this exact serial format under increasing blur:
+      // sharpness 89 and 70 decoded, 41 and below never did. 35 sits just under
+      // the observed cliff. Approximate - it was measured against synthetic
+      // blur with one decoder, so treat it as a warning, not a verdict. The raw
+      // number is shown in diagnostics so it can be re-tuned against real
+      // readings.
+      const SHARP_MIN = 35;
       let lastScanned = { value: null, at: 0 };
       let entries = loadEntries();
 
@@ -654,7 +674,10 @@
         const quiet = Date.now() - lastHitAt;
         if (framesTried % 5 !== 0) return;
         if (quiet > 6000) {
-          const hint = NO_HIT_HINTS[Math.floor(quiet / 4000) % NO_HIT_HINTS.length];
+          // Prefer the measured cause over a rotating guess.
+          const hint = (lastSharpness != null && lastSharpness < SHARP_MIN)
+            ? 'Out of focus · pull back, then tap to focus'
+            : NO_HIT_HINTS[Math.floor(quiet / 4000) % NO_HIT_HINTS.length];
           setStatus(hint, 'error');
         } else {
           setStatus('Scanning · ' + framesTried + ' frames', 'live');
@@ -744,7 +767,60 @@
         nativeRaf = setTimeout(() => nativeScanLoop(), 120);
       }
 
+      // Expose whatever focus/zoom control the track actually has. Both are
+      // optional in the MediaStreamTrack spec and missing on plenty of
+      // devices, so everything here is capability-gated.
+      function setupCameraControls(track) {
+        zoomRow.classList.add('hidden');
+        zoomRow.classList.remove('flex');
+        if (!track || !track.getCapabilities) return;
+
+        let caps = {};
+        try { caps = track.getCapabilities() || {}; } catch { return; }
+
+        if (caps.zoom && typeof caps.zoom.max === 'number' && caps.zoom.max > caps.zoom.min) {
+          zoomRange.min = caps.zoom.min;
+          zoomRange.max = caps.zoom.max;
+          zoomRange.step = caps.zoom.step || 0.1;
+          let current = caps.zoom.min;
+          try { current = track.getSettings().zoom ?? caps.zoom.min; } catch { }
+          zoomRange.value = current;
+          zoomValue.textContent = Number(current).toFixed(1) + '×';
+          zoomRow.classList.remove('hidden');
+          zoomRow.classList.add('flex');
+          zoomRange.oninput = async () => {
+            const z = Number(zoomRange.value);
+            zoomValue.textContent = z.toFixed(1) + '×';
+            try { await track.applyConstraints({ advanced: [{ zoom: z }] }); }
+            catch (err) { console.warn('Zoom failed:', err); }
+          };
+        }
+
+        // Tap the viewfinder to drive focus at that point. Falls back to a
+        // plain refocus where pointsOfInterest is unsupported.
+        stage.onclick = async (event) => {
+          if (!usingNative || !nativeVideo) return;
+          const box = nativeVideo.getBoundingClientRect();
+          if (!box.width || !box.height) return;
+          const x = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
+          const y = Math.min(1, Math.max(0, (event.clientY - box.top) / box.height));
+          const attempts = [
+            { advanced: [{ focusMode: 'single-shot', pointsOfInterest: [{ x, y }] }] },
+            { advanced: [{ pointsOfInterest: [{ x, y }] }] },
+            { advanced: [{ focusMode: 'continuous' }] }
+          ];
+          for (const c of attempts) {
+            try { await track.applyConstraints(c); toast('Focusing…'); return; }
+            catch { /* try the next shape */ }
+          }
+          toast('This camera exposes no focus control');
+        };
+      }
+
       function stopNativeCamera() {
+        stage.onclick = null;
+        zoomRow.classList.add('hidden');
+        zoomRow.classList.remove('flex');
         usingNative = false;
         reticle.classList.remove('full-frame');
         if (nativeRaf) clearTimeout(nativeRaf);
@@ -774,6 +850,35 @@
         return 'native?';
       }
 
+      // Rough focus metric: mean absolute difference between horizontally
+      // adjacent pixels across a centre strip. A sharp barcode has hard black
+      // /white transitions and scores high; a blurred one smears them into
+      // greys and scores low. Cheap enough to run once a second.
+      const sharpCanvas = document.createElement('canvas');
+      sharpCanvas.width = 240;
+      sharpCanvas.height = 80;
+
+      function measureSharpness(video) {
+        if (!video || !video.videoWidth) return null;
+        try {
+          const c = sharpCanvas.getContext('2d', { willReadFrequently: true });
+          const sh = Math.round(video.videoHeight * 0.25);
+          c.drawImage(video,
+            0, Math.round((video.videoHeight - sh) / 2), video.videoWidth, sh,
+            0, 0, sharpCanvas.width, sharpCanvas.height);
+          const d = c.getImageData(0, 0, sharpCanvas.width, sharpCanvas.height).data;
+          let total = 0, n = 0;
+          for (let y = 0; y < sharpCanvas.height; y += 2) {
+            for (let x = 1; x < sharpCanvas.width; x++) {
+              const i = (y * sharpCanvas.width + x) * 4;
+              total += Math.abs(d[i] - d[i - 4]);
+              n++;
+            }
+          }
+          return n ? total / n : null;
+        } catch { return null; }
+      }
+
       // On-screen diagnostics: if this still fails on a real phone we want the
       // numbers, not another guess.
       function startDiagnostics() {
@@ -789,12 +894,17 @@
           let track = null;
           try { track = vid.srcObject && vid.srcObject.getVideoTracks()[0]; } catch { }
           const settings = (track && track.getSettings && track.getSettings()) || {};
+          let caps = {};
+          try { caps = (track && track.getCapabilities && track.getCapabilities()) || {}; } catch { }
+          lastSharpness = measureSharpness(vid);
+          const sharpTxt = lastSharpness == null ? 'n/a'
+            : lastSharpness.toFixed(1) + (lastSharpness < SHARP_MIN ? ' BLURRY' : ' ok');
           diagEl.textContent =
             'stream ' + vid.videoWidth + '×' + vid.videoHeight +
             ' · decodes at ' + cropPx + 'px' +
-            ' · shown ' + vid.clientWidth + '×' + vid.clientHeight +
-            ' · ratio ' + (vid.videoWidth / (vid.clientWidth || 1)).toFixed(2) +
-            '/' + (vid.videoHeight / (vid.clientHeight || 1)).toFixed(2) +
+            ' · sharpness ' + sharpTxt +
+            ' · zoom ' + (settings.zoom != null ? settings.zoom : 'n/a') +
+            (caps.zoom ? ' (max ' + caps.zoom.max + ')' : '') +
             ' · focus ' + (settings.focusMode || 'n/a') +
             ' · detector ' + decoderInUse() +
             ' · frames ' + framesTried + ' · hits ' + scanCount;
@@ -830,6 +940,7 @@
                 torchSupported = !!(ntrack && ntrack.getCapabilities && ntrack.getCapabilities().torch);
               } catch { torchSupported = false; }
               torchBtn.disabled = !torchSupported;
+              setupCameraControls(ntrack);
               return;
             } catch (nativeErr) {
               console.warn('Native BarcodeDetector path failed, using html5-qrcode:', nativeErr);
