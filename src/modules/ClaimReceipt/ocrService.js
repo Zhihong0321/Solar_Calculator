@@ -8,7 +8,7 @@
 
 'use strict';
 
-const { extractPdfText, MIN_USABLE_TEXT } = require('./pdfText');
+const { extractPdfText, rasterizePdfFirstPage, MIN_USABLE_TEXT } = require('./pdfText');
 const { fitVisionImage } = require('./fitVisionImage');
 const { writeAiActivity } = require('../../core/activityLog/writeAiActivity');
 
@@ -130,9 +130,16 @@ async function readReceipt({ bytes, mimeType, req = null }) {
     if (route === 'pdf-text') {
       pdfText = await extractPdfText(bytes);
       if (pdfText.length < MIN_USABLE_TEXT) {
-        const err = new Error('This PDF has no readable text (it looks like a scan). Please upload a photo of the receipt instead.');
-        err.status = 422;
-        throw err;
+        const rasterBuf = await rasterizePdfFirstPage(bytes);
+        if (rasterBuf) {
+          const fitted = await fitVisionImage(rasterBuf, 'image/png');
+          visionBytes = fitted.bytes;
+          visionMimeType = fitted.mimeType;
+          route = 'pdf-raster';
+        } else {
+          console.warn('[ClaimReceipt] PDF has no usable text layer and rasterization produced no image');
+          return { draft: EMPTY_DRAFT, status: 'failed', model, route: 'pdf-empty' };
+        }
       }
     } else {
       const fitted = await fitVisionImage(bytes, mimeType);

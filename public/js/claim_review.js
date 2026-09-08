@@ -25,6 +25,7 @@
   var emptyStateEl = document.getElementById("emptyState");
   var filterTabs = document.querySelectorAll(".filter-tab");
   var refreshBtn = document.getElementById("refreshBtn");
+  var exportCsvBtn = document.getElementById("exportCsvBtn");
   var monthFilterEl = document.getElementById("monthFilter");
   var categoryFilterEl = document.getElementById("categoryFilter");
   var lightboxModal = document.getElementById("lightboxModal");
@@ -129,7 +130,19 @@
 
     var bodyLines = [];
     if (claim.item) bodyLines.push(el("p", { class: "text-sm text-slate-700 mt-2" }, [el("strong", { text: "Item: " }), document.createTextNode(claim.item)]));
-    if (claim.description) bodyLines.push(el("p", { class: "text-sm text-slate-500 mt-1 whitespace-pre-line", text: claim.description }));
+    if (claim.description) {
+      var descEl = el("p", { class: "text-sm text-slate-500 mt-1 whitespace-pre-line" });
+      var parts = claim.description.split(/(https:\/\/[^\s,\)]+)/g);
+      parts.forEach(function (part) {
+        if (/^https:\/\//.test(part)) {
+          var a = el("a", { href: part, target: "_blank", rel: "noopener", class: "text-blue-600 hover:underline font-semibold", text: "[View Attachment]" });
+          descEl.appendChild(a);
+        } else {
+          descEl.appendChild(document.createTextNode(part));
+        }
+      });
+      bodyLines.push(descEl);
+    }
 
     var metaLine = el("p", { class: "text-xs text-slate-400 mt-3" }, [
       document.createTextNode("Submitted " + (claim.created_at ? new Date(claim.created_at).toLocaleString() : "") + (claim.receipt_id ? " · Inv Number " + claim.receipt_id : ""))
@@ -431,6 +444,81 @@
   });
 
   refreshBtn.addEventListener("click", loadClaims);
+
+  function csvEscape(val) {
+    if (val === null || val === undefined) return '""';
+    var s = String(val).replace(/"/g, '""');
+    return '"' + s + '"';
+  }
+
+  function exportCSV() {
+    var filtered = claims.filter(function (c) {
+      if (activeFilter && c.status !== activeFilter) return false;
+      if (activeMonth && monthKey(c) !== activeMonth) return false;
+      if (activeCategory && (c.category || "") !== activeCategory) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      alert("No claims to export in current view.");
+      return;
+    }
+
+    var headers = [
+      "Claim ID",
+      "Submitted At",
+      "Claimant",
+      "Claimant Email",
+      "Category",
+      "Vendor / Destination",
+      "Item",
+      "Description",
+      "Receipt Date",
+      "Receipt / Invoice No",
+      "Amount",
+      "Currency",
+      "Status",
+      "Reviewed By",
+      "Reviewed At",
+      "Remark / Reason",
+      "Receipt URL"
+    ];
+
+    var rows = filtered.map(function (c) {
+      return [
+        csvEscape(c.id),
+        csvEscape(c.created_at ? new Date(c.created_at).toLocaleString() : ""),
+        csvEscape(c.submitted_by || ""),
+        csvEscape(c.submitted_by_email || ""),
+        csvEscape(c.category || ""),
+        csvEscape(c.vendor || ""),
+        csvEscape(c.item || ""),
+        csvEscape(c.description || ""),
+        csvEscape(c.receipt_date || ""),
+        csvEscape(c.receipt_id || ""),
+        csvEscape(c.amount != null ? Number(c.amount).toFixed(2) : "0.00"),
+        csvEscape(c.currency || "MYR"),
+        csvEscape(c.status || "Pending"),
+        csvEscape(c.approved_by || ""),
+        csvEscape(c.approved_at ? new Date(c.approved_at).toLocaleString() : ""),
+        csvEscape(c.remark || ""),
+        csvEscape(c.file_url || "")
+      ].join(",");
+    });
+
+    var csvContent = "\uFEFF" + headers.map(function (h) { return '"' + h + '"'; }).join(",") + "\n" + rows.join("\n");
+    var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    var link = document.createElement("a");
+    var statusLabel = activeFilter ? activeFilter.toLowerCase() : "all";
+    var dateLabel = new Date().toISOString().split("T")[0];
+    link.href = URL.createObjectURL(blob);
+    link.download = "claim_report_" + statusLabel + "_" + dateLabel + ".csv";
+    link.click();
+  }
+
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener("click", exportCSV);
+  }
 
   monthFilterEl.addEventListener("change", function () {
     activeMonth = monthFilterEl.value;

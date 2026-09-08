@@ -48,11 +48,17 @@
     });
   }
 
+  function isPdfFile(file) {
+    if (!file) return false;
+    if (file.type === "application/pdf") return true;
+    return Boolean(file.name && /\.pdf$/i.test(file.name));
+  }
+
   // Resizes + re-encodes raster images to JPEG on-device before upload. PDFs and GIFs pass
   // through untouched (GIFs may be animated; canvas would flatten to a single frame). Falls back
   // to the original file on any failure (unsupported format, browser lacking createImageBitmap).
   function preprocessImage(file) {
-    if (!file.type || file.type.indexOf("image/") !== 0 || file.type === "image/gif") {
+    if (isPdfFile(file) || !file.type || file.type.indexOf("image/") !== 0 || file.type === "image/gif") {
       return Promise.resolve(file);
     }
 
@@ -128,7 +134,8 @@
 
   function buildCard(item) {
     var thumbSlot;
-    if (item.mimeType === "application/pdf") {
+    var isPdf = item.mimeType === "application/pdf" || (item.fileName && /\.pdf$/i.test(item.fileName));
+    if (isPdf) {
       thumbSlot = el("span", { class: "thumb-pdf", text: "PDF" });
     } else {
       thumbSlot = el("img", { class: "thumb", src: item.previewUrl, alt: item.fileName });
@@ -302,24 +309,24 @@
     renderCard(item);
 
     var body = new FormData();
-    body.append("file", item.file);
+    body.append("file", item.file, item.fileName);
 
     return fetch("/api/claim-receipts/ocr", { method: "POST", body: body })
       .then(function (res) { return res.json().then(function (payload) { return { res: res, payload: payload }; }); })
       .then(function (r) {
         if (!r.res.ok) {
           item.stage = "error";
-          item.errorMessage = r.payload.error || "OCR request failed";
-          item.md5 = r.payload.md5;
+          item.errorMessage = r.payload.error || "OCR request failed — please fill in manually.";
+          item.md5 = r.payload.md5 || ("file-" + Date.now());
           renderCard(item);
           return;
         }
-        var draft = r.payload.draft;
+        var draft = r.payload.draft || {};
         // The server returns status "failed" when the model read nothing at all. Without this the
         // card renders a green "Saved" over an empty form — identical to a successful read, which
         // is how a total extraction failure stayed invisible.
         item.readStatus = r.payload.status;
-        item.md5 = r.payload.md5;
+        item.md5 = r.payload.md5 || ("file-" + Date.now());
         item.model = r.payload.model;
         item.fileUrl = r.payload.file_url;
         item.fileMime = r.payload.file_mime;
@@ -338,7 +345,8 @@
       })
       .catch(function (error) {
         item.stage = "error";
-        item.errorMessage = error && error.message ? error.message : "OCR request threw";
+        item.errorMessage = error && error.message ? error.message : "OCR request threw — please fill in manually.";
+        item.md5 = item.md5 || ("file-" + Date.now());
         renderCard(item);
       });
   }
@@ -425,9 +433,11 @@
       var id = nextId();
       var onBehalfOfUserId = selectedSubmitterId;
       preprocessImage(file).then(function (prepared) {
+        var isPdf = isPdfFile(prepared);
+        var effectiveMime = isPdf ? "application/pdf" : (prepared.type || "image/jpeg");
         var item = {
-          id: id, file: prepared, fileName: prepared.name, mimeType: prepared.type,
-          previewUrl: URL.createObjectURL(prepared), stage: "queued", form: Object.assign({}, EMPTY_FORM),
+          id: id, file: prepared, fileName: prepared.name, mimeType: effectiveMime,
+          previewUrl: isPdf ? "" : URL.createObjectURL(prepared), stage: "queued", form: Object.assign({}, EMPTY_FORM),
           onBehalfOfUserId: onBehalfOfUserId
         };
         items.push(item);
@@ -560,6 +570,52 @@
   var tripSubmit = document.getElementById("trip-submit");
   var tripStatus = document.getElementById("trip-status");
 
+  var tripHostelFiles = document.getElementById("trip-hostel-files");
+  var tripHostelPreview = document.getElementById("trip-hostel-preview");
+  var tripTollFiles = document.getElementById("trip-toll-files");
+  var tripTollPreview = document.getElementById("trip-toll-preview");
+  var tripMealFiles = document.getElementById("trip-meal-files");
+  var tripMealPreview = document.getElementById("trip-meal-preview");
+
+  var tripAttachments = {
+    hostel: [],
+    toll: [],
+    meal: []
+  };
+
+  function setupAttachInput(inputEl, previewEl, key) {
+    if (!inputEl) return;
+    inputEl.addEventListener("change", function () {
+      if (inputEl.files && inputEl.files.length) {
+        Array.prototype.forEach.call(inputEl.files, function (file) {
+          tripAttachments[key].push(file);
+        });
+        inputEl.value = "";
+        renderAttachTags(key, previewEl);
+      }
+    });
+  }
+
+  function renderAttachTags(key, previewEl) {
+    if (!previewEl) return;
+    previewEl.innerHTML = "";
+    tripAttachments[key].forEach(function (file, idx) {
+      var tag = el("span", { class: "trip-attach-tag", text: file.name });
+      var removeBtn = el("span", { class: "remove-tag", text: "×", title: "Remove" });
+      removeBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        tripAttachments[key].splice(idx, 1);
+        renderAttachTags(key, previewEl);
+      });
+      tag.appendChild(removeBtn);
+      previewEl.appendChild(tag);
+    });
+  }
+
+  setupAttachInput(tripHostelFiles, tripHostelPreview, "hostel");
+  setupAttachInput(tripTollFiles, tripTollPreview, "toll");
+  setupAttachInput(tripMealFiles, tripMealPreview, "meal");
+
   function num(v) {
     if (v === null || v === undefined || v === "") return 0;
     var n = Number(v);
@@ -602,6 +658,12 @@
       .forEach(function (cb) { cb.checked = false; });
     tripReasonOtherRow.classList.add("hidden");
     tripTotal.value = "";
+    tripAttachments.hostel = [];
+    tripAttachments.toll = [];
+    tripAttachments.meal = [];
+    if (tripHostelPreview) tripHostelPreview.innerHTML = "";
+    if (tripTollPreview) tripTollPreview.innerHTML = "";
+    if (tripMealPreview) tripMealPreview.innerHTML = "";
   }
 
   tripReasonOther.addEventListener("change", function () {
@@ -679,14 +741,71 @@
     };
     if (selectedSubmitterId) body.on_behalf_of_user_id = selectedSubmitterId;
 
-    tripSubmit.disabled = true;
-    setTripStatus("Submitting…");
+    function uploadTripFiles(fileList) {
+      if (!fileList || !fileList.length) return Promise.resolve([]);
+      var uploads = fileList.map(function (file) {
+        var fd = new FormData();
+        fd.append("file", file, file.name);
+        return fetch("/api/claim-receipts/upload-attachment", { method: "POST", body: fd })
+          .then(function (res) { return res.ok ? res.json() : null; })
+          .then(function (data) {
+            return data && data.file_url ? { url: data.file_url, name: file.name } : null;
+          })
+          .catch(function () { return null; });
+      });
+      return Promise.all(uploads).then(function (results) {
+        return results.filter(Boolean);
+      });
+    }
 
-    fetch("/api/claim-receipts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    })
+    tripSubmit.disabled = true;
+    setTripStatus("Uploading attachment(s)…");
+
+    Promise.all([
+      uploadTripFiles(tripAttachments.hostel),
+      uploadTripFiles(tripAttachments.toll),
+      uploadTripFiles(tripAttachments.meal)
+    ])
+      .then(function (results) {
+        var hostelUrls = results[0];
+        var tollUrls = results[1];
+        var mealUrls = results[2];
+
+        if (hostelUrls.length) {
+          lines.push("Hostel receipts: " + hostelUrls.map(function (u) { return u.url; }).join(" , "));
+        }
+        if (tollUrls.length) {
+          lines.push("Toll receipts: " + tollUrls.map(function (u) { return u.url; }).join(" , "));
+        }
+        if (mealUrls.length) {
+          lines.push("Meal receipts: " + mealUrls.map(function (u) { return u.url; }).join(" , "));
+        }
+
+        var allUrls = hostelUrls.concat(tollUrls).concat(mealUrls);
+        var primaryUrl = allUrls.length ? allUrls[0].url : null;
+        var primaryMime = primaryUrl && /\.pdf($|\?)/i.test(primaryUrl) ? "application/pdf" : "image/jpeg";
+
+        var body = {
+          claim_type: "trip",
+          vendor: destination,
+          item: "Business trip: " + (departurePoint || "?") + " → " + destination,
+          description: lines.join("\n"),
+          receipt_date: from,
+          amount: total.toFixed(2),
+          currency: "MYR",
+          category: TRIP_CATEGORY,
+          file_url: primaryUrl,
+          file_mime: primaryMime
+        };
+        if (selectedSubmitterId) body.on_behalf_of_user_id = selectedSubmitterId;
+
+        setTripStatus("Submitting…");
+        return fetch("/api/claim-receipts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+      })
       .then(function (res) { return res.json().then(function (p) { return { res: res, payload: p }; }); })
       .then(function (r) {
         tripSubmit.disabled = false;
@@ -775,7 +894,7 @@
             '<div class="my-claim-details" id="details-' + claim.id + '">' +
             '<div class="my-claim-details-row"><span class="my-claim-details-label">Item:</span>' + escapeHtml(claim.item || "N/A") + '</div>' +
             '<div class="my-claim-details-row"><span class="my-claim-details-label">Category:</span>' + escapeHtml(claim.category || "N/A") + '</div>' +
-            '<div class="my-claim-details-row my-claim-desc"><span class="my-claim-details-label">Description:</span>' + escapeHtml(claim.description || "N/A") + '</div>' +
+            '<div class="my-claim-details-row my-claim-desc"><span class="my-claim-details-label">Description:</span>' + formatDescHtml(claim.description || "N/A") + '</div>' +
             '<div class="my-claim-details-row"><span class="my-claim-details-label">Receipt ID:</span>' + escapeHtml(claim.receipt_id || "N/A") + '</div>';
 
           if (claim.file_url) {
@@ -835,5 +954,13 @@
     var div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  function formatDescHtml(text) {
+    if (!text) return "N/A";
+    var escaped = escapeHtml(text);
+    return escaped.replace(/(https:\/\/[^\s,\)]+)/g, function (url) {
+      return '<a href="' + url + '" target="_blank" rel="noopener" style="color: #9aa4ff; text-decoration: underline; word-break: break-all;">View Receipt</a>';
+    });
   }
 })();

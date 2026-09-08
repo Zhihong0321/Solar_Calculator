@@ -7,6 +7,7 @@ const { requireReviewer } = require('./reviewerAccess');
 
 // Submitting/editing/deleting a claim only requires being a logged-in agent.
 router.post('/api/claim-receipts/ocr', requireAuth, claimReceiptController.uploadReceipt, claimReceiptController.ocr);
+router.post('/api/claim-receipts/upload-attachment', requireAuth, claimReceiptController.uploadReceipt, claimReceiptController.uploadAttachment);
 router.post('/api/claim-receipts', requireAuth, claimReceiptController.create);
 router.put('/api/claim-receipts/:id', requireAuth, claimReceiptController.update);
 router.delete('/api/claim-receipts/:id', requireAuth, claimReceiptController.remove);

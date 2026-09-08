@@ -42,9 +42,14 @@
                         <button type="button" class="filter-tab" data-status="Approved">Approved</button>
                         <button type="button" class="filter-tab" data-status="Rejected">Rejected</button>
                         <button type="button" class="filter-tab" data-status="">All Statuses</button>
-                        <button type="button" id="refreshBtn" class="ml-auto text-sm text-blue-600 hover:text-blue-500">
-                            <i class="fa-solid fa-arrows-rotate"></i> Refresh
-                        </button>
+                        <div class="ml-auto flex items-center gap-2">
+                            <button type="button" id="exportCsvBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-sm cursor-pointer">
+                                <i class="fa-solid fa-file-csv"></i> Export CSV
+                            </button>
+                            <button type="button" id="refreshBtn" class="text-sm text-blue-600 hover:text-blue-500">
+                                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                            </button>
+                        </div>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">

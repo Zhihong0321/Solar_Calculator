@@ -16,13 +16,12 @@
 
 'use strict';
 
-// Below this, treat the PDF as image-only (a scan) and fall back to rasterizing. Real receipts
-// clear this easily — the two smallest in production came in at 613 and 861 characters.
-const MIN_USABLE_TEXT = 80;
+// Below this, treat the PDF as image-only (a scan) and fall back to rasterizing.
+const MIN_USABLE_TEXT = 40;
 
 /**
- * Returns page 1's text as a single normalized line, or '' if the PDF has no usable text layer.
- * Never throws — a failure here just means the caller rasterizes instead.
+ * Returns text from up to the first 3 pages of a PDF, or '' if no usable text layer is found.
+ * Never throws — a failure here falls back to rasterizing.
  */
 async function extractPdfText(bytes) {
   let task;
@@ -30,13 +29,21 @@ async function extractPdfText(bytes) {
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
     task = pdfjsLib.getDocument({ data: new Uint8Array(bytes) });
     const doc = await task.promise;
-    const page = await doc.getPage(1);
-    const content = await page.getTextContent();
-    return content.items
-      .map((item) => (typeof item.str === 'string' ? item.str : ''))
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const maxPages = Math.min(doc.numPages, 3);
+    const pagesText = [];
+
+    for (let p = 1; p <= maxPages; p += 1) {
+      const page = await doc.getPage(p);
+      const content = await page.getTextContent();
+      const text = content.items
+        .map((item) => (typeof item.str === 'string' ? item.str : ''))
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (text) pagesText.push(text);
+    }
+
+    return pagesText.join('\n\n').trim();
   } catch (_) {
     return '';
   } finally {
@@ -44,4 +51,48 @@ async function extractPdfText(bytes) {
   }
 }
 
-module.exports = { extractPdfText, MIN_USABLE_TEXT };
+/**
+ * Rasterizes page 1 of a PDF to a PNG Buffer using @napi-rs/canvas.
+ * Used as a fallback for scanned PDFs or PDFs with no usable text layer.
+ * Returns null on any failure.
+ */
+async function rasterizePdfFirstPage(bytes) {
+  let task;
+  try {
+    const { createCanvas } = require('@napi-rs/canvas');
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+
+    class CanvasFactory {
+      create(w, h) {
+        const canvas = createCanvas(w, h);
+        return { canvas, context: canvas.getContext('2d') };
+      }
+      reset(cc, w, h) { cc.canvas.width = w; cc.canvas.height = h; }
+      destroy(cc) { cc.canvas.width = 0; cc.canvas.height = 0; }
+    }
+
+    const factory = new CanvasFactory();
+    task = pdfjsLib.getDocument({
+      data: new Uint8Array(bytes),
+      canvasFactory: factory
+    });
+    const doc = await task.promise;
+    const page = await doc.getPage(1);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvasObj = factory.create(viewport.width, viewport.height);
+    await page.render({
+      canvasContext: canvasObj.context,
+      viewport,
+      canvasFactory: factory
+    }).promise;
+
+    return canvasObj.canvas.toBuffer('image/png');
+  } catch (err) {
+    console.error('[ClaimReceipt] PDF rasterization error:', err.message);
+    return null;
+  } finally {
+    if (task) await task.destroy().catch(() => {});
+  }
+}
+
+module.exports = { extractPdfText, rasterizePdfFirstPage, MIN_USABLE_TEXT };

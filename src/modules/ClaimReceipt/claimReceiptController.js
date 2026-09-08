@@ -34,7 +34,10 @@ exports.ocr = async (req, res) => {
     }
 
     const bytes = req.file.buffer;
-    const mimeType = req.file.mimetype || 'application/octet-stream';
+    let mimeType = req.file.mimetype || 'application/octet-stream';
+    if (req.file.originalname && /\.pdf$/i.test(req.file.originalname)) {
+      mimeType = 'application/pdf';
+    }
     const md5 = crypto.createHash('md5').update(bytes).digest('hex');
 
     let fileUrl = null;
@@ -48,12 +51,50 @@ exports.ocr = async (req, res) => {
       console.error('[ClaimReceipt] R2 upload failed:', uploadErr.message);
     }
 
-    const { draft, status, model } = await ocrService.readReceipt({ bytes, mimeType, req });
+    let draft = { vendor: null, receipt_date: null, receipt_id: null, amount: null, currency: 'MYR', category_hint: null, item: null, description: null };
+    let status = 'failed';
+    let model = null;
+
+    try {
+      const ocrResult = await ocrService.readReceipt({ bytes, mimeType, req });
+      draft = ocrResult.draft;
+      status = ocrResult.status;
+      model = ocrResult.model;
+    } catch (ocrErr) {
+      console.error('[ClaimReceipt] OCR failed, falling back to manual entry:', ocrErr.message);
+    }
 
     res.json({ draft, status, model, md5, file_url: fileUrl, file_mime: mimeType });
   } catch (err) {
     console.error('[ClaimReceipt] OCR error:', err);
-    res.status(err.status || 500).json({ error: err.message || 'OCR failed' });
+    res.status(err.status || 500).json({ error: err.message || 'Upload failed' });
+  }
+};
+
+/** Uploads an attachment (photo/PDF) for trip allowance or general claim evidence. */
+exports.uploadAttachment = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Missing file upload' });
+    }
+
+    const bytes = req.file.buffer;
+    let mimeType = req.file.mimetype || 'application/octet-stream';
+    if (req.file.originalname && /\.pdf$/i.test(req.file.originalname)) {
+      mimeType = 'application/pdf';
+    }
+    const ext = EXT_BY_MIME[mimeType] || path.extname(req.file.originalname) || '';
+    const key = `claim_receipt_uploads/trip_${Date.now()}-${crypto.randomUUID()}${ext}`;
+    const fileUrl = await r2Storage.uploadBuffer(bytes, key, mimeType);
+
+    res.json({
+      file_url: fileUrl,
+      file_mime: mimeType,
+      original_name: req.file.originalname
+    });
+  } catch (err) {
+    console.error('[ClaimReceipt] uploadAttachment error:', err);
+    res.status(500).json({ error: 'Failed to upload attachment' });
   }
 };
 
