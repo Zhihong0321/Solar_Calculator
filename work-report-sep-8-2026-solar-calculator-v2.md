@@ -7,6 +7,7 @@ REPO NAME : Solar Calculator v2
 - Validated and restored AI OCR receipt parsing endpoint following provider key update and session routing configuration.
 - Fixed Serial Number Scanner buttons not responding on mobile: repaired a JavaScript syntax error in escapeHtml (unterminated string in the HTML entity map) that stopped the whole page script from parsing, so Start Camera, Stop, and Torch now bind and work.
 - Fixed Serial Number Scanner camera never decoding: request 1080p stream with continuous autofocus instead of the default 640x480 fixed-focus feed, switched the scan box from square to a wide horizontal band for 1D barcodes, and enabled the native BarcodeDetector fast path on Chrome Android.
+- Fixed Serial Number Scanner camera start crash ("cameraIdOrConfig object should have exactly 1 key"): html5-qrcode 2.3.8 only accepts a single-key constraints object, so start() now passes { facingMode } only; the 1080p resolution and continuous-autofocus upgrade is re-applied to the live track via separate applyConstraints calls (resolution first, focusMode second, so unsupported autofocus can no longer abort the resolution bump), and the stream is recovered from the library-injected video element because start() resolves with null. Verified live in browser at 1920x1080 with no startup errors.
 
 =====================
 

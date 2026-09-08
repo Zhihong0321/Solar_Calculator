@@ -632,24 +632,43 @@
             disableFlip: false,
             experimentalFeatures: { useBarCodeDetectorIfSupported: true }
           };
-          // 1080p + continuous autofocus: the default ~640x480 fixed-focus
-          // stream is too low-res to decode printed equipment stickers.
+          // html5-qrcode rejects any cameraIdOrConfig object with more than
+          // one key, so start with facingMode only and upgrade the live track
+          // via applyConstraints below.
           cameraStream = await instance.start(
-            {
-              facingMode: 'environment',
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-              advanced: [{ focusMode: 'continuous' }]
-            },
+            { facingMode: 'environment' },
             config,
             (decodedText, decodedResult) => handleScan(decodedText, decodedResult, 'camera'),
             () => { /* per-frame failures are normal, ignore */ }
           );
           setStatus('Scanning · point at a code', 'live');
 
+          // html5-qrcode 2.3.8's start() resolves with null, not the stream,
+          // so recover the live stream from the injected <video> element —
+          // it is needed for both the resolution upgrade and the torch.
+          if (!cameraStream) {
+            const vid = document.querySelector('#qrReader video');
+            cameraStream = (vid && vid.srcObject) || null;
+          }
+          const track = cameraStream ? cameraStream.getVideoTracks()[0] : null;
+          // 1080p: the default ~640x480 stream is too low-res to decode
+          // printed equipment stickers.
+          try {
+            if (track && track.applyConstraints) {
+              await track.applyConstraints({ width: { ideal: 1920 }, height: { ideal: 1080 } });
+            }
+          } catch { /* unsupported on this device, ignore */ }
+          // Continuous autofocus must be applied separately: devices without
+          // focus control throw OverconstrainedError, which would otherwise
+          // abort the resolution upgrade above.
+          try {
+            if (track && track.applyConstraints) {
+              await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+            }
+          } catch { /* no autofocus control on this device, ignore */ }
+
           // Probe torch support (MediaStreamTrack API)
           try {
-            const track = cameraStream.getVideoTracks()[0];
             torchSupported = !!(track && track.getCapabilities && track.getCapabilities().torch);
           } catch { torchSupported = false; }
           torchBtn.disabled = !torchSupported;
