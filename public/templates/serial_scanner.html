@@ -157,11 +157,14 @@
     .scanner-status.is-live { background: rgba(16, 185, 129, 0.85); }
     .scanner-status.is-error { background: rgba(220, 38, 38, 0.85); }
 
-    /* Matches the qrbox below (85% wide, 50% tall, centred) so what the user
+    /* Matches the qrbox below (94% wide, 70% tall, centred) so what the user
        lines up is actually what gets decoded. */
+    /* The native path decodes the whole frame, so the guide covers it all. */
+    .reticle.full-frame { inset: 4% !important; }
+
     .reticle {
       position: absolute;
-      inset: 25% 7.5%;
+      inset: 15% 3%;
       border: 2px dashed rgba(59, 130, 246, 0.7);
       border-radius: 1rem;
       pointer-events: none;
@@ -638,15 +641,137 @@
 
       // Every frame html5-qrcode fails to decode calls back here. Previously a
       // no-op, which is why an unreadable barcode produced no feedback at all.
+      // Rotated through while nothing is decoding - the three things that
+      // actually stop a phone reading an equipment sticker.
+      const NO_HIT_HINTS = [
+        'No code detected · turn the barcode horizontal',
+        'No code detected · pull back until it focuses',
+        'No code detected · fill the box, then hold still'
+      ];
+
       function handleScanFailure() {
         framesTried++;
         const quiet = Date.now() - lastHitAt;
         if (framesTried % 5 !== 0) return;
         if (quiet > 6000) {
-          setStatus('No code detected · ' + framesTried + ' frames', 'error');
+          const hint = NO_HIT_HINTS[Math.floor(quiet / 4000) % NO_HIT_HINTS.length];
+          setStatus(hint, 'error');
         } else {
           setStatus('Scanning · ' + framesTried + ' frames', 'live');
         }
+      }
+
+      // ---------------------------------------------------------------------
+      // Native BarcodeDetector path
+      //
+      // html5-qrcode downscales every camera frame to the size of the on-screen
+      // viewfinder before decoding: its decode canvas is sized from qrbox,
+      // which is measured in CSS pixels, so a 1920x1080 stream is resampled to
+      // roughly 550x230 (about 390px wide on a phone). A 22-character Code 128
+      // is ~277 modules; at that width it lands near 1.4 pixels per module,
+      // under the ~2 needed to resolve the bars. No amount of steadiness or
+      // camera resolution can fix that - the pixels are thrown away first.
+      //
+      // BarcodeDetector accepts the <video> element directly and reads it at
+      // full sensor resolution, and unlike ZXing's 1D reader it also handles
+      // barcodes that are rotated rather than horizontal. Use it when present
+      // (Android Chrome), and keep html5-qrcode as the fallback.
+      // ---------------------------------------------------------------------
+      const NATIVE_FORMAT_LABELS = {
+        qr_code: 'QR', code_128: 'Code 128', code_39: 'Code 39', code_93: 'Code 93',
+        ean_13: 'EAN-13', ean_8: 'EAN-8', upc_a: 'UPC-A', upc_e: 'UPC-E',
+        itf: 'ITF', codabar: 'Codabar', data_matrix: 'DataMatrix',
+        pdf417: 'PDF417', aztec: 'Aztec'
+      };
+
+      let nativeVideo = null;
+      let nativeDetector = null;
+      let nativeRaf = null;
+      let usingNative = false;
+
+      async function startNativeCamera() {
+        const formats = await BarcodeDetector.getSupportedFormats();
+        const wanted = formats.filter(f => f in NATIVE_FORMAT_LABELS);
+        if (!wanted.length) throw new Error('no usable BarcodeDetector formats');
+        nativeDetector = new BarcodeDetector({ formats: wanted });
+
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            advanced: [{ focusMode: 'continuous' }]
+          }
+        });
+
+        nativeVideo = document.createElement('video');
+        nativeVideo.playsInline = true;
+        nativeVideo.muted = true;
+        nativeVideo.setAttribute('muted', 'true');
+        nativeVideo.style.width = '100%';
+        nativeVideo.style.display = 'block';
+        nativeVideo.srcObject = cameraStream;
+        reader.innerHTML = '';
+        reader.appendChild(nativeVideo);
+        await nativeVideo.play();
+
+        usingNative = true;
+        reticle.classList.add('full-frame');
+        // Set the live status before the loop starts, so a fast first hit is
+        // not overwritten by a stale "Scanning" once start() returns.
+        setStatus('Scanning · point at a code', 'live');
+        nativeScanLoop();
+      }
+
+      async function nativeScanLoop() {
+        if (!usingNative || !nativeVideo) return;
+        try {
+          // Decode straight off the video element - no intermediate canvas, so
+          // no downscaling.
+          const found = await nativeDetector.detect(nativeVideo);
+          if (found && found.length) {
+            const best = found.reduce((a, b) =>
+              (b.boundingBox?.width || 0) > (a.boundingBox?.width || 0) ? b : a);
+            const label = NATIVE_FORMAT_LABELS[best.format] || best.format;
+            handleScan(best.rawValue, { nativeFormat: label }, 'camera');
+          } else {
+            handleScanFailure();
+          }
+        } catch (err) {
+          handleScanFailure();
+        }
+        nativeRaf = setTimeout(() => nativeScanLoop(), 120);
+      }
+
+      function stopNativeCamera() {
+        usingNative = false;
+        reticle.classList.remove('full-frame');
+        if (nativeRaf) clearTimeout(nativeRaf);
+        nativeRaf = null;
+        try {
+          if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+        } catch { /* already gone */ }
+        if (nativeVideo) { nativeVideo.srcObject = null; nativeVideo.remove(); }
+        nativeVideo = null;
+        nativeDetector = null;
+        reader.innerHTML = '';
+      }
+
+      // html5-qrcode picks the native BarcodeDetector when the browser has it
+      // and falls back to its bundled ZXing build otherwise. ZXing's 1D reader
+      // only scans horizontal lines, so a sideways barcode reads on one and
+      // not the other - worth knowing which one is running.
+      function decoderInUse() {
+        if (usingNative) return 'native full-res';
+        if (!('BarcodeDetector' in window)) return 'zxing (no native)';
+        try {
+          const shim = scanner && scanner.qrcode;
+          if (shim && typeof shim.wasPrimaryDecoderUsedInLastDecode === 'boolean') {
+            return shim.wasPrimaryDecoderUsedInLastDecode ? 'native' : 'zxing (fallback)';
+          }
+        } catch { /* internal shape changed, fall through */ }
+        return 'native?';
       }
 
       // On-screen diagnostics: if this still fails on a real phone we want the
@@ -656,12 +781,22 @@
         diagTimer = setInterval(() => {
           const vid = document.querySelector('#qrReader video');
           if (!vid) { diagEl.textContent = 'video element missing'; return; }
+          // Width in pixels of the image the decoder actually sees. The native
+          // path reads the video at full resolution; html5-qrcode resamples to
+          // its qr-canvas first, so report that canvas instead of the stream.
+          const qc = document.getElementById('qr-canvas');
+          const cropPx = usingNative ? vid.videoWidth : (qc ? qc.width : 0);
+          let track = null;
+          try { track = vid.srcObject && vid.srcObject.getVideoTracks()[0]; } catch { }
+          const settings = (track && track.getSettings && track.getSettings()) || {};
           diagEl.textContent =
             'stream ' + vid.videoWidth + '×' + vid.videoHeight +
+            ' · decodes at ' + cropPx + 'px' +
             ' · shown ' + vid.clientWidth + '×' + vid.clientHeight +
             ' · ratio ' + (vid.videoWidth / (vid.clientWidth || 1)).toFixed(2) +
             '/' + (vid.videoHeight / (vid.clientHeight || 1)).toFixed(2) +
-            ' · detector ' + ('BarcodeDetector' in window ? 'native' : 'zxing') +
+            ' · focus ' + (settings.focusMode || 'n/a') +
+            ' · detector ' + decoderInUse() +
             ' · frames ' + framesTried + ' · hits ' + scanCount;
         }, 1000);
       }
@@ -685,57 +820,84 @@
           lastHitAt = Date.now();
           setStatus('Requesting camera…');
 
+          // Preferred path: full-resolution decoding via BarcodeDetector.
+          if ('BarcodeDetector' in window) {
+            try {
+              await startNativeCamera();
+              startDiagnostics();
+              const ntrack = cameraStream && cameraStream.getVideoTracks()[0];
+              try {
+                torchSupported = !!(ntrack && ntrack.getCapabilities && ntrack.getCapabilities().torch);
+              } catch { torchSupported = false; }
+              torchBtn.disabled = !torchSupported;
+              return;
+            } catch (nativeErr) {
+              console.warn('Native BarcodeDetector path failed, using html5-qrcode:', nativeErr);
+              stopNativeCamera();
+            }
+          }
+
           const instance = await ensureScanner();
           const config = {
             fps: 10,
             qrbox: (vw, vh) => {
-              // Wide + short: 1D barcodes (Code 128/39, EAN) decode far more
-              // reliably in a horizontal band than in a square box.
-              return { width: Math.floor(vw * 0.85), height: Math.floor(vh * 0.5) };
+              // Take almost the whole frame. The previous 85% x 50% crop threw
+              // away half the vertical pixels, and on a phone-sized viewfinder
+              // that left a dense Code 128 at under 2 source pixels per module
+              // - below what any decoder can resolve.
+              return { width: Math.floor(vw * 0.94), height: Math.floor(vh * 0.7) };
             },
-            // No aspectRatio here: html5-qrcode turns it into an
-            // applyConstraints({aspectRatio}) call that fights the 1920x1080
-            // upgrade below, leaving the track renegotiating instead of
-            // delivering frames.
+            // Resolution is negotiated at getUserMedia time, not renegotiated
+            // afterwards. Post-start applyConstraints({width,height}) is
+            // widely ignored on Android and silently left us on a ~640x480
+            // stream, which is the resolution a long serial-number barcode
+            // cannot survive. `aspectRatio` is deliberately absent: it becomes
+            // a competing applyConstraints call.
+            videoConstraints: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              // Best-effort per spec - ignored rather than overconstraining.
+              advanced: [{ focusMode: 'continuous' }]
+            },
             disableFlip: false
           };
-          // html5-qrcode rejects any cameraIdOrConfig object with more than
-          // one key, so start with facingMode only and upgrade the live track
-          // via applyConstraints below.
-          cameraStream = await instance.start(
-            { facingMode: 'environment' },
-            config,
-            (decodedText, decodedResult) => handleScan(decodedText, decodedResult, 'camera'),
-            handleScanFailure
-          );
+
+          try {
+            // The first argument still has to be a valid single-key camera
+            // selector; html5-qrcode validates it before it ever looks at
+            // config.videoConstraints, which is what actually reaches
+            // getUserMedia when present.
+            await instance.start(
+              { facingMode: 'environment' },
+              config,
+              (decodedText, decodedResult) => handleScan(decodedText, decodedResult, 'camera'),
+              handleScanFailure
+            );
+          } catch (highResErr) {
+            // Some devices reject the 1080p request outright. Fall back to a
+            // bare rear-camera request rather than leaving the user with a
+            // dead viewfinder.
+            console.warn('1080p camera request failed, retrying plain:', highResErr);
+            diagEl.textContent = 'high-res request failed (' +
+              (highResErr && (highResErr.name || highResErr.message)) + '), retrying plain';
+            await instance.start(
+              { facingMode: 'environment' },
+              { fps: 10, qrbox: config.qrbox, disableFlip: false },
+              (decodedText, decodedResult) => handleScan(decodedText, decodedResult, 'camera'),
+              handleScanFailure
+            );
+          }
+
           setStatus('Scanning · point at a code', 'live');
           startDiagnostics();
 
-          // html5-qrcode 2.3.8's start() resolves with null, not the stream,
-          // so recover the live stream from the injected <video> element —
-          // it is needed for both the resolution upgrade and the torch.
-          if (!cameraStream) {
-            const vid = document.querySelector('#qrReader video');
-            cameraStream = (vid && vid.srcObject) || null;
-          }
+          // start() resolves with null in 2.3.8, so recover the live stream
+          // from the injected <video> element for the torch probe.
+          const vid = document.querySelector('#qrReader video');
+          cameraStream = (vid && vid.srcObject) || null;
           const track = cameraStream ? cameraStream.getVideoTracks()[0] : null;
-          // 1080p: the default ~640x480 stream is too low-res to decode
-          // printed equipment stickers.
-          try {
-            if (track && track.applyConstraints) {
-              await track.applyConstraints({ width: { ideal: 1920 }, height: { ideal: 1080 } });
-            }
-          } catch { /* unsupported on this device, ignore */ }
-          // Continuous autofocus must be applied separately: devices without
-          // focus control throw OverconstrainedError, which would otherwise
-          // abort the resolution upgrade above.
-          try {
-            if (track && track.applyConstraints) {
-              await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-            }
-          } catch { /* no autofocus control on this device, ignore */ }
 
-          // Probe torch support (MediaStreamTrack API)
           try {
             torchSupported = !!(track && track.getCapabilities && track.getCapabilities().torch);
           } catch { torchSupported = false; }
@@ -757,6 +919,7 @@
 
       async function stopCamera() {
         try {
+          if (usingNative) stopNativeCamera();
           if (scanner && scanner.isScanning) {
             await scanner.stop();
             await scanner.clear();
@@ -795,7 +958,10 @@
       }
 
       function handleScan(decodedText, decodedResult, source) {
-        const formatName = FORMAT_LABELS[decodedResult?.result?.format?.format] || (decodedResult?.result?.format?.formatName) || 'Detected';
+        const formatName = decodedResult?.nativeFormat
+          || FORMAT_LABELS[decodedResult?.result?.format?.format]
+          || decodedResult?.result?.format?.formatName
+          || 'Detected';
         const value = (decodedText || '').trim();
         if (!value) return;
         lastHitAt = Date.now();
@@ -816,12 +982,33 @@
           preview.src = url;
           preview.classList.remove('hidden');
 
-          const instance = await ensureScanner();
-          const decoded = await instance.scanFile(file, /* showImage */ false);
+          // Prefer the native detector here too: html5-qrcode's scanFile
+          // resamples the photo to its own canvas, which throws away exactly
+          // the detail a long serial-number barcode needs.
+          let value = '';
+          let formatName = 'Detected';
+          if ('BarcodeDetector' in window) {
+            try {
+              const formats = await BarcodeDetector.getSupportedFormats();
+              const det = new BarcodeDetector({ formats: formats.filter(f => f in NATIVE_FORMAT_LABELS) });
+              const bmp = await createImageBitmap(file);
+              const found = await det.detect(bmp);
+              bmp.close?.();
+              if (found && found.length) {
+                value = (found[0].rawValue || '').trim();
+                formatName = NATIVE_FORMAT_LABELS[found[0].format] || found[0].format;
+              }
+            } catch (err) {
+              console.warn('Native image decode failed, falling back:', err);
+            }
+          }
+          if (!value) {
+            const instance = await ensureScanner();
+            const decoded = await instance.scanFile(file, /* showImage */ false);
+            formatName = FORMAT_LABELS[decoded?.result?.format?.format] || (decoded?.result?.format?.formatName) || 'Detected';
+            value = (decoded?.text || '').trim();
+          }
           URL.revokeObjectURL(url);
-
-          const formatName = FORMAT_LABELS[decoded?.result?.format?.format] || (decoded?.result?.format?.formatName) || 'Detected';
-          const value = (decoded?.text || '').trim();
           if (!value) {
             setStatus('No code found in image', 'error');
             toast('No barcode or QR was detected in that image.');
@@ -911,6 +1098,7 @@
         });
 
         window.addEventListener('beforeunload', () => {
+          if (usingNative) stopNativeCamera();
           if (scanner && scanner.isScanning) {
             scanner.stop().catch(() => { });
           }
