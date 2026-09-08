@@ -67,9 +67,9 @@ const FILE_FIELDS = {
         storageSubdir: 'roof_images',
     },
     site_assessment_images: {
-        label: 'Site Assessment Image',
-        accept: ['image/*'],
-        maxMB: 10,
+        label: 'Site Assessment Image / Video',
+        accept: ['image/*', 'video/*'],
+        maxMB: 100,
         storageSubdir: 'site_assessment_images',
     },
     pv_drawings: {

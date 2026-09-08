@@ -60,6 +60,13 @@ function mimeFromExtension(filename = '') {
         '.bmp':  'image/bmp',
         '.heic': 'image/heic',
         '.heif': 'image/heif',
+        '.mp4':  'video/mp4',
+        '.mov':  'video/quicktime',
+        '.webm': 'video/webm',
+        '.m4v':  'video/x-m4v',
+        '.3gp':  'video/3gpp',
+        '.avi':  'video/x-msvideo',
+        '.mkv':  'video/x-matroska',
     };
     return map[ext] || '';
 }
@@ -81,6 +88,13 @@ function fileExtension(file) {
         'image/bmp':       '.bmp',
         'image/heic':      '.heic',
         'image/heif':      '.heif',
+        'video/mp4':       '.mp4',
+        'video/quicktime': '.mov',
+        'video/webm':      '.webm',
+        'video/x-m4v':     '.m4v',
+        'video/3gpp':      '.3gp',
+        'video/x-msvideo': '.avi',
+        'video/x-matroska': '.mkv',
     };
     return mimeExtMap[mime] || '.bin';
 }

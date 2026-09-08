@@ -46,6 +46,7 @@ const {
 } = require('../../../core/upload');
 
 const attachments = require('../../../core/attachments');
+const googleDriveService = require('../../SupportTicket/googleDriveService');
 
 const router = express.Router();
 
@@ -296,22 +297,48 @@ async function handleUpload(req, res) {
         }
 
         const mime = resolvedMime(req.file);
+        const isVideo = (mime && mime.startsWith('video/')) || /\.(mp4|webm|mov|m4v|ogg|3gp|avi|mkv)$/i.test(req.file.originalname || '');
         // Checksum the bytes we actually received. The client could send one, but
         // a duplicate check the client can influence is not a duplicate check.
         const checksum = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
 
         let stored;
-        try {
-            stored = await storageDriver.put(req.file.buffer, {
-                subdir: attachments.STORAGE_SUBDIR,
-                filename: req.file.filename,
-                mimeType: mime,
-                req,
-            });
-        } catch (storeErr) {
-            console.error('[Attachments] storage put failed:', storeErr.message);
-            logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: storeErr.message });
-            return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: docType, error: `${docTypeDef.label}: Failed to store file. Please try again.` }));
+        if (isVideo) {
+            try {
+                const uploadRes = await googleDriveService.uploadVideo({
+                    buffer: req.file.buffer,
+                    originalname: req.file.originalname,
+                    mimeType: mime,
+                    req,
+                    subdir: 'site_assessment_videos',
+                    filenamePrefix: `site_video_${ownerId}`,
+                });
+                stored = {
+                    url: uploadRes.url,
+                    filename: req.file.filename,
+                    mimeType: mime || 'video/mp4',
+                    bytes: req.file.size,
+                    source: uploadRes.source || 'google_drive',
+                    fileId: uploadRes.fileId || null,
+                };
+            } catch (videoErr) {
+                console.error('[Attachments] video upload failed:', videoErr.message);
+                logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: videoErr.message });
+                return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: docType, error: `${docTypeDef.label}: Failed to upload video to Google Drive. Please try again.` }));
+            }
+        } else {
+            try {
+                stored = await storageDriver.put(req.file.buffer, {
+                    subdir: attachments.STORAGE_SUBDIR,
+                    filename: req.file.filename,
+                    mimeType: mime,
+                    req,
+                });
+            } catch (storeErr) {
+                console.error('[Attachments] storage put failed:', storeErr.message);
+                logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: storeErr.message });
+                return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: docType, error: `${docTypeDef.label}: Failed to store file. Please try again.` }));
+            }
         }
 
         let row;
@@ -325,8 +352,8 @@ async function handleUpload(req, res) {
                 docType,
                 caption: req.body?.caption ? String(req.body.caption).slice(0, 500) : null,
                 fileUrl: stored.url,
-                storageSubdir: attachments.STORAGE_SUBDIR,
-                storageKey: `${attachments.STORAGE_SUBDIR}/${stored.filename}`,
+                storageSubdir: isVideo ? (stored.source || 'google_drive') : attachments.STORAGE_SUBDIR,
+                storageKey: isVideo && stored.fileId ? `gdrive/${stored.fileId}` : `${attachments.STORAGE_SUBDIR}/${stored.filename}`,
                 originalFilename: req.file.originalname || stored.filename,
                 mimeType: stored.mimeType || mime,
                 sizeBytes: stored.bytes ?? req.file.size,
@@ -337,11 +364,27 @@ async function handleUpload(req, res) {
                 takenAt: parseTakenAt(req.body?.takenAt),
                 gpsLat: parseCoordinate(req.body?.gpsLat, 90),
                 gpsLng: parseCoordinate(req.body?.gpsLng, 180),
-                metadata: floor === null ? {} : { floor },
+                metadata: {
+                    ...(floor === null ? {} : { floor }),
+                    ...(isVideo ? { isVideo: true, videoSource: stored.source || 'google_drive' } : {})
+                },
             });
+
+            // Keep legacy array column synchronized if owner is invoice
+            if (ownerType === 'invoice') {
+                await client.query(
+                    `UPDATE invoice
+                     SET site_assessment_image = array_cat(COALESCE(site_assessment_image, ARRAY[]::text[]), $1),
+                         updated_at = NOW()
+                     WHERE bubble_id = $2`,
+                    [[stored.url], ownerId]
+                ).catch(err => console.warn('[Attachments] legacy site_assessment_image sync warning:', err.message));
+            }
         } catch (dbErr) {
             // Reclaim the object: nothing else would ever find it on R2.
-            await storageDriver.remove(stored.url, { subdir: attachments.STORAGE_SUBDIR }).catch(() => {});
+            if (!isVideo) {
+                await storageDriver.remove(stored.url, { subdir: attachments.STORAGE_SUBDIR }).catch(() => {});
+            }
             console.error('[Attachments] DB insert failed — stored file rolled back:', stored.url, dbErr.message);
             logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'error', code: ERROR_CODES.DB_FAILED, error: dbErr.message });
 

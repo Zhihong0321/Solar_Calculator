@@ -59,9 +59,10 @@ class GoogleDriveService {
     return data.access_token;
   }
 
-  async uploadVideo({ buffer, originalname, mimeType, req }) {
-    const filename = `ticket_video_${Date.now()}_${originalname || 'video.mp4'}`;
-    const folderId = this.getFolderId();
+  async uploadVideo({ buffer, originalname, mimeType, req, folderId: customFolderId, filenamePrefix, customFilename, subdir }) {
+    const prefix = filenamePrefix || 'ticket_video';
+    const filename = customFilename || `${prefix}_${Date.now()}_${originalname || 'video.mp4'}`;
+    const folderId = customFolderId || this.getFolderId();
 
     // If Google Service Account is configured, upload directly to Google Drive
     if (this.hasCredentials()) {
@@ -86,7 +87,7 @@ class GoogleDriveService {
           Buffer.from(closeDelimiter),
         ]);
 
-        const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,webContentLink', {
+        const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink,webContentLink', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -103,7 +104,7 @@ class GoogleDriveService {
 
         // Make file readable with link
         try {
-          await fetch(`https://www.googleapis.com/drive/v3/files/${fileData.id}/permissions`, {
+          await fetch(`https://www.googleapis.com/drive/v3/files/${fileData.id}/permissions?supportsAllDrives=true`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -131,7 +132,7 @@ class GoogleDriveService {
 
     // Fallback: Use standard storageDriver (R2 / disk storage)
     const stored = await storageDriver.put(buffer, {
-      subdir: 'support_ticket_uploads',
+      subdir: subdir || 'support_ticket_uploads',
       filename,
       mimeType: mimeType || 'video/mp4',
       req,

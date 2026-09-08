@@ -545,6 +545,28 @@
         </div>
     </div>
 
+    <!-- Video Modal -->
+    <div id="videoModal" class="fixed inset-0 z-[100] hidden bg-slate-950/95 backdrop-blur-sm overflow-y-auto flex items-center justify-center p-4" onclick="closeVideoModal()">
+        <div class="relative w-full max-w-4xl bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-800" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 text-xs font-bold text-slate-200">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="uppercase tracking-wider">Site Video Preview</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a id="videoDirectLink" href="#" target="_blank" rel="noopener noreferrer" class="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold text-xs transition-colors">
+                        <span>Open in Google Drive</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                    </a>
+                    <button onclick="closeVideoModal()" class="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+            <div id="videoPlayerContainer" class="w-full aspect-video bg-black flex items-center justify-center"></div>
+        </div>
+    </div>
+
     <script defer src="/js/utils/image_optimizer.js"></script>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
@@ -1333,10 +1355,32 @@
         }
 
         function renderAttachmentTile(row) {
-            const isPdf = String(row.mime_type || row.file_url || '').toLowerCase().includes('pdf');
+            const urlStr = String(row.file_url || '');
+            const urlLower = urlStr.toLowerCase();
+            const mimeLower = String(row.mime_type || '').toLowerCase();
+            const isPdf = mimeLower.includes('pdf') || urlLower.includes('.pdf');
+            const isVideo = mimeLower.startsWith('video/')
+                || urlLower.includes('drive.google.com')
+                || /\.(mp4|webm|mov|m4v|ogg|3gp|avi|mkv)(\?|$)/i.test(urlLower);
+
             const geo = (row.gps_lat !== null && row.gps_lat !== undefined)
-                ? `<span class="absolute bottom-1 left-1 rounded bg-emerald-600/90 px-1 py-0.5 text-[8px] font-black uppercase text-white" title="Geotagged">GPS</span>`
+                ? `<span class="absolute bottom-1 left-1 rounded bg-emerald-600/90 px-1 py-0.5 text-[8px] font-black uppercase text-white z-10" title="Geotagged">GPS</span>`
                 : '';
+
+            if (isVideo) {
+                const isGdrive = urlLower.includes('drive.google.com');
+                return `
+                    <div class="relative group aspect-square rounded-lg border border-slate-700 bg-slate-900 flex flex-col items-center justify-center gap-1.5 cursor-pointer overflow-hidden p-2 shadow-sm hover:border-emerald-500 transition-colors" onclick="viewVideo('${escapeAttr(urlStr)}')">
+                        <div class="w-9 h-9 rounded-full bg-emerald-600/80 group-hover:bg-emerald-500 group-hover:scale-110 flex items-center justify-center transition-all shadow-md">
+                            <svg class="w-4 h-4 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                        <span class="text-[9px] font-black tracking-wider uppercase text-emerald-400">${isGdrive ? 'GDrive Video' : 'Video'}</span>
+                        ${geo}
+                        <button onclick="event.stopPropagation();deleteAttachment(${row.id})" class="absolute top-1 right-1 p-1 bg-red-600/90 hover:bg-red-600 text-white rounded-md transition-colors z-10" title="Delete">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>`;
+            }
 
             if (isPdf) {
                 return `
@@ -1384,6 +1428,10 @@
                 ? ''
                 : `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-slate-400">Optional</span>`;
 
+            const acceptTypes = Array.isArray(def.accept) && def.accept.length
+                ? def.accept.join(',')
+                : 'image/*,video/*';
+
             return `
                 <div class="rounded-xl border ${satisfied ? 'border-slate-200' : 'border-amber-200 bg-amber-50/40'} p-3">
                     <div class="flex items-start justify-between gap-2">
@@ -1398,7 +1446,7 @@
                         <label class="shrink-0 btn-action btn-primary cursor-pointer flex items-center gap-1.5">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                             ${total ? 'Add' : 'Capture'}
-                            <input id="${inputId}" type="file" ${def.multi ? 'multiple' : ''} accept="${(def.accept || []).includes('application/pdf') ? 'image/*,application/pdf' : 'image/*'}" class="hidden" onchange="uploadAttachments(this, '${def.key}', ${floor === null ? 'null' : floor})">
+                            <input id="${inputId}" type="file" ${def.multi ? 'multiple' : ''} accept="${acceptTypes}" class="hidden" onchange="uploadAttachments(this, '${def.key}', ${floor === null ? 'null' : floor})">
                         </label>
                     </div>
                     ${total ? `
@@ -1727,6 +1775,10 @@
             return (file.type || '').toLowerCase() === 'application/pdf' || /\.pdf$/i.test(file.name || '');
         }
 
+        function isVideoFile(file) {
+            return (file.type || '').startsWith('video/') || /\.(mp4|webm|mov|m4v|ogg|3gp|avi|mkv)$/i.test(file.name || '');
+        }
+
         function formatBytes(bytes) {
             if (window.ImageOptimizer?.formatBytes) return window.ImageOptimizer.formatBytes(bytes);
             if (!Number.isFinite(bytes)) return '0 B';
@@ -1997,6 +2049,16 @@
                 const issues = [];
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
+                    if (isVideoFile(file)) {
+                        const VIDEO_MAX_BYTES = 100 * 1024 * 1024;
+                        if (file.size > VIDEO_MAX_BYTES) {
+                            issues.push(`${file.name}: exceeds 100 MB max video limit.`);
+                            continue;
+                        }
+                        prepared.push({ file, meta: metas[i] });
+                        continue;
+                    }
+
                     if (isPdfFile(file)) {
                         if (file.size > PV_DRAWING_MAX_BYTES) {
                             issues.push(`${file.name}: exceeds ${formatBytes(PV_DRAWING_MAX_BYTES)}.`);
@@ -2224,6 +2286,47 @@
             img.classList.add('scale-95');
             setTimeout(() => modal.classList.add('hidden'), 300);
         }
+
+        function viewVideo(url) {
+            if (!url) return;
+            const modal = document.getElementById('videoModal');
+            const container = document.getElementById('videoPlayerContainer');
+            const directLink = document.getElementById('videoDirectLink');
+            if (!modal || !container) {
+                window.open(url, '_blank', 'noopener');
+                return;
+            }
+
+            directLink.href = url;
+            const isGdrive = String(url).includes('drive.google.com');
+            const linkSpan = directLink.querySelector('span');
+            if (linkSpan) linkSpan.textContent = isGdrive ? 'Open in Google Drive' : 'Open Video';
+
+            if (isGdrive) {
+                const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                const fileId = match ? match[1] : null;
+                const embedUrl = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : url;
+                container.innerHTML = `<iframe src="${embedUrl}" class="w-full h-full border-0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+            } else {
+                container.innerHTML = `<video src="${url}" controls playsinline preload="metadata" autoplay class="w-full h-full object-contain bg-black"></video>`;
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeVideoModal() {
+            const modal = document.getElementById('videoModal');
+            const container = document.getElementById('videoPlayerContainer');
+            if (modal) modal.classList.add('hidden');
+            if (container) container.innerHTML = '';
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closePhotoModal();
+                closeVideoModal();
+            }
+        });
 
         async function quickTagEngineering(type, btn) {
             if (!confirm(`Request ${type} from Engineering Department? This will tag them in the chat.`)) return;
