@@ -5,7 +5,12 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   application_name: 'agent-os',
-  ssl: IS_PRODUCTION ? { rejectUnauthorized: false } : false
+  ssl: IS_PRODUCTION ? { rejectUnauthorized: false } : false,
+  // node-postgres queues a connect() past `max` with NO timeout by default —
+  // a saturated pool hangs every caller forever instead of failing. 10s makes
+  // exhaustion surface as a normal error (e.g. the frontend's own 15s abort)
+  // rather than a request that never resolves.
+  connectionTimeoutMillis: 10000
 });
 
 pool.on('error', (err) => {

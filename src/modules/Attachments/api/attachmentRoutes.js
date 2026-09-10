@@ -254,6 +254,15 @@ async function handleUpload(req, res) {
             return res.status(403).json(uploadError(ERROR_CODES.FORBIDDEN, { field: docType, error: 'You do not have access to this record.' }));
         }
 
+        // Release the DB connection before the slow part. Multer parsing and,
+        // worse, the Google Drive video upload below can take a minute+ on a
+        // site connection — holding a pool client for that whole span starves
+        // every other request (e.g. the Site Assessment checklist's own GET)
+        // of a connection, since the pool has no acquire timeout and just
+        // queues forever. Re-acquired below, only for the DB write.
+        client.release();
+        client = null;
+
         const multerErr = await getUploader(docType)(req, res);
         if (multerErr) {
             const isTooLarge = multerErr.code === 'LIMIT_FILE_SIZE';
@@ -324,7 +333,7 @@ async function handleUpload(req, res) {
             } catch (videoErr) {
                 console.error('[Attachments] video upload failed:', videoErr.message);
                 logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: videoErr.message });
-                return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: docType, error: `${docTypeDef.label}: Failed to upload video to Google Drive. Please try again.` }));
+                return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: docType, error: `${docTypeDef.label}: Failed to upload video to Google Drive: ${videoErr.message}` }));
             }
         } else {
             try {
@@ -340,6 +349,8 @@ async function handleUpload(req, res) {
                 return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: docType, error: `${docTypeDef.label}: Failed to store file. Please try again.` }));
             }
         }
+
+        client = await pool.connect();
 
         let row;
         try {
