@@ -3,7 +3,10 @@ const path = require('path');
 const supportTicketService = require('./supportTicketService');
 const googleDriveService = require('./googleDriveService');
 const { storageDriver } = require('../../core/upload');
+const edaStorage = require('../../core/upload/edaStorage');
 const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../core/auth/userIdentity');
+
+const EDA_SUBDIR = 'support_ticket_uploads';
 
 // Memory storage — buffers go to Google Drive / storageDriver (R2 or disk)
 exports.uploadMedia = multer({
@@ -172,7 +175,61 @@ exports.getGoogleDriveConfig = (req, res) => {
     success: true,
     folder_url: googleDriveService.getSharedFolderUrl(),
     has_credentials: googleDriveService.hasCredentials(),
+    has_eda_credentials: googleDriveService.hasEdaCredentials(),
   });
+};
+
+// Proxies a read from eter-drive-api. This store has no public/anonymous
+// read (every request must be SigV4-signed), so a video_url pointing at it
+// has to resolve to this route rather than a URL on the bucket itself.
+exports.streamMedia = async (req, res) => {
+  const filename = req.params.filename;
+  if (!filename) {
+    return res.status(400).json({ error: 'Missing filename' });
+  }
+  try {
+    const key = `${EDA_SUBDIR}/${filename}`;
+    const object = await edaStorage.getObject(key);
+    res.setHeader('Content-Type', object.ContentType || 'application/octet-stream');
+    if (object.ContentLength) res.setHeader('Content-Length', object.ContentLength);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    object.Body.pipe(res);
+  } catch (err) {
+    const status = err.name === 'NoSuchKey' ? 404 : 500;
+    res.status(status).json({ error: err.message || 'Failed to load media' });
+  }
+};
+
+// Diagnostic round-trip against eter-drive-api: put, get, verify, delete.
+// Reports which endpoint (internal Railway private network, or the public
+// Railway URL) actually served each step, so this can be hit after a deploy
+// to confirm the store is reachable from wherever this app is running.
+exports.testEdaStorage = async (req, res) => {
+  if (!edaStorage.hasCredentials()) {
+    return res.status(200).json({ success: false, configured: false, error: 'EDA_S3_ACCESS_KEY_ID / EDA_S3_SECRET_ACCESS_KEY are not set' });
+  }
+
+  const key = `${EDA_SUBDIR}/_healthcheck_${Date.now()}.txt`;
+  const contents = `eda healthcheck ${new Date().toISOString()}`;
+  const steps = [];
+
+  try {
+    const put = await edaStorage.uploadBuffer(Buffer.from(contents), key, 'text/plain');
+    steps.push({ step: 'put', ok: true, endpoint: put.endpoint });
+
+    const got = await edaStorage.getObject(key);
+    const readBack = await got.Body.transformToString();
+    const matches = readBack === contents;
+    steps.push({ step: 'get', ok: matches, endpoint: got.endpoint, matches });
+
+    await edaStorage.deleteObject(key);
+    steps.push({ step: 'delete', ok: true });
+
+    res.json({ success: steps.every((s) => s.ok), configured: true, bucket: edaStorage.getBucket(), steps });
+  } catch (err) {
+    steps.push({ step: 'error', ok: false, message: err.message });
+    res.status(500).json({ success: false, configured: true, bucket: edaStorage.getBucket(), steps });
+  }
 };
 
 exports.listNotificationNumbers = async (req, res) => {

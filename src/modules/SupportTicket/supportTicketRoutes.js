@@ -27,6 +27,8 @@ const requireAdmin = async (req, res, next) => {
 router.get('/api/support-tickets', requireAuth, requireAdmin, supportTicketController.listTickets);
 router.post('/api/support-tickets', requireAuth, supportTicketController.uploadMedia, supportTicketController.createTicket);
 router.get('/api/support-tickets/gdrive-config', requireAuth, supportTicketController.getGoogleDriveConfig);
+router.get('/api/support-tickets/eda-test', requireAuth, requireAdmin, supportTicketController.testEdaStorage);
+router.get('/api/support-tickets/media/:filename', supportTicketController.streamMedia);
 router.get('/api/support-tickets/mine', requireAuth, supportTicketController.listMyTickets);
 router.post('/api/support-tickets/sync', requireAuth, requireAdmin, supportTicketController.syncFromBubble);
 

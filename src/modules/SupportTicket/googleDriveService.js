@@ -1,8 +1,23 @@
 const jwt = require('jsonwebtoken');
 const { storageDriver } = require('../../core/upload');
+const edaStorage = require('../../core/upload/edaStorage');
 
 const DEFAULT_FOLDER_ID = '1wewcq9UiGs8WxJrvq-16qPjt-5CzzF8q';
 const SHARED_FOLDER_URL = 'https://drive.google.com/drive/folders/1wewcq9UiGs8WxJrvq-16qPjt-5CzzF8q?usp=sharing';
+const EDA_SUBDIR = 'support_ticket_uploads';
+
+/**
+ * eter-drive-api has no public/anonymous read, so a stored object has no
+ * browsable URL of its own — this app must proxy the read itself (see
+ * supportTicketController.streamMedia).
+ */
+function buildEdaMediaUrl(req, filename) {
+    const encoded = encodeURIComponent(filename);
+    if (!req) return `/api/support-tickets/media/${encoded}`;
+    const proto = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    return `${proto}://${host}/api/support-tickets/media/${encoded}`;
+}
 
 class GoogleDriveService {
   getFolderId() {
@@ -19,9 +34,14 @@ class GoogleDriveService {
     return Boolean(email && key);
   }
 
+  hasEdaCredentials() {
+    return edaStorage.hasCredentials();
+  }
+
   async getAccessToken() {
     const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
     const privateKeyRaw = process.env.GOOGLE_PRIVATE_KEY;
+    const delegatedUser = process.env.GOOGLE_DRIVE_DELEGATED_USER;
 
     if (!clientEmail || !privateKeyRaw) {
       throw new Error('Google Drive service account credentials are not configured in environment variables');
@@ -30,17 +50,19 @@ class GoogleDriveService {
     const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
     const now = Math.floor(Date.now() / 1000);
 
-    const token = jwt.sign(
-      {
-        iss: clientEmail,
-        scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive',
-        aud: 'https://oauth2.googleapis.com/token',
-        exp: now + 3600,
-        iat: now,
-      },
-      privateKey,
-      { algorithm: 'RS256' }
-    );
+    const payload = {
+      iss: clientEmail,
+      scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive',
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: now + 3600,
+      iat: now,
+    };
+
+    if (delegatedUser) {
+      payload.sub = delegatedUser;
+    }
+
+    const token = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
 
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -59,7 +81,7 @@ class GoogleDriveService {
     return data.access_token;
   }
 
-  async uploadVideo({ buffer, originalname, mimeType, req, folderId: customFolderId, filenamePrefix, customFilename, subdir }) {
+  async uploadVideo({ buffer, originalname, mimeType, req, folderId: customFolderId, filenamePrefix, customFilename, subdir, strict = false }) {
     const prefix = filenamePrefix || 'ticket_video';
     const filename = customFilename || `${prefix}_${Date.now()}_${originalname || 'video.mp4'}`;
     const folderId = customFolderId || this.getFolderId();
@@ -99,7 +121,11 @@ class GoogleDriveService {
 
         const fileData = await uploadRes.json();
         if (!uploadRes.ok) {
-          throw new Error(`Google Drive upload failed: ${fileData.error?.message || uploadRes.status}`);
+          const apiMsg = fileData.error?.message || uploadRes.status;
+          if (String(apiMsg).includes('storage quota')) {
+            throw new Error(`Google Drive upload failed: Service Accounts do not have personal storage quota. The target folder must be inside a Google Workspace Shared Drive with the service account added as Content Manager, or Domain-Wide Delegation must be enabled.`);
+          }
+          throw new Error(`Google Drive upload failed: ${apiMsg}`);
         }
 
         // Make file readable with link
@@ -126,8 +152,33 @@ class GoogleDriveService {
           fileId: fileData.id,
         };
       } catch (gdriveErr) {
-        console.error('[GoogleDrive] Upload to GDrive failed, falling back to storageDriver:', gdriveErr.message);
+        console.error('[GoogleDrive] Upload to GDrive failed:', gdriveErr.message);
+        if (strict) {
+          throw gdriveErr;
+        }
       }
+    }
+
+    // Eter Drive API (S3-compatible storage) — the current default video
+    // backend now that no Google service account is configured.
+    if (this.hasEdaCredentials()) {
+      try {
+        const key = `${EDA_SUBDIR}/${filename}`;
+        const { endpoint } = await edaStorage.uploadBuffer(buffer, key, mimeType || 'video/mp4');
+        return {
+          source: 'eter_drive_api',
+          url: buildEdaMediaUrl(req, filename),
+          key,
+          endpoint,
+        };
+      } catch (edaErr) {
+        console.error('[EterDriveApi] Upload failed:', edaErr.message);
+        if (strict) {
+          throw edaErr;
+        }
+      }
+    } else if (strict) {
+      throw new Error('No video storage backend is configured (Google Drive service account or Eter Drive API)');
     }
 
     // Fallback: Use standard storageDriver (R2 / disk storage)
