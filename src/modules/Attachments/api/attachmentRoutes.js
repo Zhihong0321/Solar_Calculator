@@ -46,7 +46,6 @@ const {
 } = require('../../../core/upload');
 
 const attachments = require('../../../core/attachments');
-const googleDriveService = require('../../SupportTicket/googleDriveService');
 
 const router = express.Router();
 
@@ -255,11 +254,12 @@ async function handleUpload(req, res) {
         }
 
         // Release the DB connection before the slow part. Multer parsing and,
-        // worse, the Google Drive video upload below can take a minute+ on a
-        // site connection — holding a pool client for that whole span starves
-        // every other request (e.g. the Site Assessment checklist's own GET)
-        // of a connection, since the pool has no acquire timeout and just
-        // queues forever. Re-acquired below, only for the DB write.
+        // worse, the R2 upload below (site videos run up to 100MB) can take a
+        // while on a site connection — holding a pool client for that whole
+        // span starves every other request (e.g. the Site Assessment
+        // checklist's own GET) of a connection, since the pool has no acquire
+        // timeout and just queues forever. Re-acquired below, only for the DB
+        // write.
         client.release();
         client = null;
 
@@ -311,43 +311,23 @@ async function handleUpload(req, res) {
         // a duplicate check the client can influence is not a duplicate check.
         const checksum = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
 
+        // Videos go to their own R2 subdir (kept separate from STORAGE_SUBDIR
+        // so images and videos don't share a prefix); sharp can't touch video
+        // bytes so optimize is skipped rather than relying on isOptimizable().
+        const storageSubdirUsed = isVideo ? 'site_assessment_videos' : attachments.STORAGE_SUBDIR;
         let stored;
-        if (isVideo) {
-            try {
-                const uploadRes = await googleDriveService.uploadVideo({
-                    buffer: req.file.buffer,
-                    originalname: req.file.originalname,
-                    mimeType: mime,
-                    req,
-                    subdir: 'site_assessment_videos',
-                    filenamePrefix: `site_video_${ownerId}`,
-                });
-                stored = {
-                    url: uploadRes.url,
-                    filename: req.file.filename,
-                    mimeType: mime || 'video/mp4',
-                    bytes: req.file.size,
-                    source: uploadRes.source || 'google_drive',
-                    fileId: uploadRes.fileId || null,
-                };
-            } catch (videoErr) {
-                console.error('[Attachments] video upload failed:', videoErr.message);
-                logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: videoErr.message });
-                return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: docType, error: `${docTypeDef.label}: Failed to upload video to Google Drive: ${videoErr.message}` }));
-            }
-        } else {
-            try {
-                stored = await storageDriver.put(req.file.buffer, {
-                    subdir: attachments.STORAGE_SUBDIR,
-                    filename: req.file.filename,
-                    mimeType: mime,
-                    req,
-                });
-            } catch (storeErr) {
-                console.error('[Attachments] storage put failed:', storeErr.message);
-                logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: storeErr.message });
-                return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: docType, error: `${docTypeDef.label}: Failed to store file. Please try again.` }));
-            }
+        try {
+            stored = await storageDriver.put(req.file.buffer, {
+                subdir: storageSubdirUsed,
+                filename: req.file.filename,
+                mimeType: mime,
+                req,
+                optimize: !isVideo,
+            });
+        } catch (storeErr) {
+            console.error('[Attachments] storage put failed:', storeErr.message);
+            logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: storeErr.message });
+            return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: docType, error: `${docTypeDef.label}: Failed to store file. Please try again.` }));
         }
 
         client = await pool.connect();
@@ -363,8 +343,8 @@ async function handleUpload(req, res) {
                 docType,
                 caption: req.body?.caption ? String(req.body.caption).slice(0, 500) : null,
                 fileUrl: stored.url,
-                storageSubdir: isVideo ? (stored.source || 'google_drive') : attachments.STORAGE_SUBDIR,
-                storageKey: isVideo && stored.fileId ? `gdrive/${stored.fileId}` : `${attachments.STORAGE_SUBDIR}/${stored.filename}`,
+                storageSubdir: storageSubdirUsed,
+                storageKey: `${storageSubdirUsed}/${stored.filename}`,
                 originalFilename: req.file.originalname || stored.filename,
                 mimeType: stored.mimeType || mime,
                 sizeBytes: stored.bytes ?? req.file.size,
@@ -377,7 +357,7 @@ async function handleUpload(req, res) {
                 gpsLng: parseCoordinate(req.body?.gpsLng, 180),
                 metadata: {
                     ...(floor === null ? {} : { floor }),
-                    ...(isVideo ? { isVideo: true, videoSource: stored.source || 'google_drive' } : {})
+                    ...(isVideo ? { isVideo: true, videoSource: stored.backend } : {})
                 },
             });
 
@@ -393,9 +373,7 @@ async function handleUpload(req, res) {
             }
         } catch (dbErr) {
             // Reclaim the object: nothing else would ever find it on R2.
-            if (!isVideo) {
-                await storageDriver.remove(stored.url, { subdir: attachments.STORAGE_SUBDIR }).catch(() => {});
-            }
+            await storageDriver.remove(stored.url, { subdir: storageSubdirUsed }).catch(() => {});
             console.error('[Attachments] DB insert failed — stored file rolled back:', stored.url, dbErr.message);
             logUpload({ route: req.path, field: docType, recordId: ownerId, mime, sizeBytes: req.file.size, filename: req.file.filename, result: 'error', code: ERROR_CODES.DB_FAILED, error: dbErr.message });
 
