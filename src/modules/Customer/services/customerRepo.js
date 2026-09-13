@@ -82,16 +82,23 @@ async function getCustomersByUserId(client, ownerKey, options = {}) {
   `;
 
   // 7-item SEDA document checklist: MyKad/IC, TNB bill, TNB meter, site image,
-  // property ownership proof, emergency contact, customer signature.
-  const sedaFormDoneExpr = `(
-    CASE WHEN (COALESCE(s.ic_copy_front, '') <> '' AND COALESCE(s.ic_copy_back, '') <> '') OR COALESCE(s.mykad_pdf, '') <> '' THEN 1 ELSE 0 END +
-    CASE WHEN COALESCE(s.tnb_bill_1, '') <> '' OR COALESCE(s.tnb_bill_2, '') <> '' OR COALESCE(s.tnb_bill_3, '') <> '' OR COALESCE(array_length(s.tnb_bills_12_months, 1), 0) > 0 THEN 1 ELSE 0 END +
-    CASE WHEN COALESCE(s.tnb_meter, '') <> '' THEN 1 ELSE 0 END +
-    CASE WHEN COALESCE(array_length(s.site_images, 1), 0) > 0 THEN 1 ELSE 0 END +
-    CASE WHEN COALESCE(s.property_ownership_prove, '') <> '' THEN 1 ELSE 0 END +
-    CASE WHEN COALESCE(s.e_contact_name, '') <> '' AND COALESCE(s.e_contact_no, '') <> '' THEN 1 ELSE 0 END +
-    CASE WHEN COALESCE(s.customer_signature, '') <> '' THEN 1 ELSE 0 END
-  )`;
+  // property ownership proof, emergency contact, customer signature. Exposed
+  // both as individual flags (per-item breakdown on the card) and as a sum.
+  const sedaChecklist = {
+    seda_has_ic: `(COALESCE(s.ic_copy_front, '') <> '' AND COALESCE(s.ic_copy_back, '') <> '') OR COALESCE(s.mykad_pdf, '') <> ''`,
+    seda_has_tnb_bill: `COALESCE(s.tnb_bill_1, '') <> '' OR COALESCE(s.tnb_bill_2, '') <> '' OR COALESCE(s.tnb_bill_3, '') <> '' OR COALESCE(array_length(s.tnb_bills_12_months, 1), 0) > 0`,
+    seda_has_tnb_meter: `COALESCE(s.tnb_meter, '') <> ''`,
+    seda_has_site_image: `COALESCE(array_length(s.site_images, 1), 0) > 0`,
+    seda_has_ownership_proof: `COALESCE(s.property_ownership_prove, '') <> ''`,
+    seda_has_emergency_contact: `COALESCE(s.e_contact_name, '') <> '' AND COALESCE(s.e_contact_no, '') <> ''`,
+    seda_has_signature: `COALESCE(s.customer_signature, '') <> ''`
+  };
+  const sedaChecklistSelect = Object.entries(sedaChecklist)
+    .map(([column, expr]) => `(${expr}) AS ${column}`)
+    .join(',\n            ');
+  const sedaFormDoneExpr = Object.values(sedaChecklist)
+    .map((expr) => `CASE WHEN ${expr} THEN 1 ELSE 0 END`)
+    .join(' + ');
 
   const result = await client.query(
     `SELECT c.*,
@@ -103,7 +110,8 @@ async function getCustomersByUserId(client, ownerKey, options = {}) {
             COALESCE(cpa.last_payment_date, cia.last_invoice_activity) AS last_activity,
             s.mapper_status AS seda_form_status,
             s.seda_status AS seda_admin_status,
-            ${sedaFormDoneExpr} AS seda_form_done,
+            ${sedaChecklistSelect},
+            (${sedaFormDoneExpr}) AS seda_form_done,
             7 AS seda_form_total
      ${joinClause}
      WHERE ${whereClause}

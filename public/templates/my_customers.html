@@ -121,6 +121,22 @@
         .badge-verified { background: #eff6ff; color: #1e40af; }
         .badge-submitted, .badge-pending { background: #fffbeb; color: #854d0e; }
         .badge-draft, .badge-neutral { background: #f1f5f9; color: #475569; }
+
+        /* SEDA document checklist chips */
+        .checklist-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+        }
+
+        .checklist-chip.checklist-done { background: #f0fdf4; color: #166534; }
+        .checklist-chip.checklist-done i { color: #16a34a; }
+        .checklist-chip.checklist-missing { background: #f8fafc; color: #94a3b8; }
+        .checklist-chip.checklist-missing i { color: #cbd5e1; }
     </style>
 </head>
 
@@ -443,6 +459,25 @@
             return 'badge-draft';
         }
 
+        const SEDA_CHECKLIST_ITEMS = [
+            { key: 'seda_has_ic', label: 'IC' },
+            { key: 'seda_has_tnb_bill', label: 'TNB Bill' },
+            { key: 'seda_has_tnb_meter', label: 'TNB Meter' },
+            { key: 'seda_has_site_image', label: 'Site Image' },
+            { key: 'seda_has_ownership_proof', label: 'Ownership' },
+            { key: 'seda_has_emergency_contact', label: 'E-Contact' },
+            { key: 'seda_has_signature', label: 'Signature' }
+        ];
+
+        function renderChecklistItems(c) {
+            return SEDA_CHECKLIST_ITEMS.map(item => {
+                const done = Boolean(c[item.key]);
+                return `<span class="checklist-chip ${done ? 'checklist-done' : 'checklist-missing'}">
+                    <i class="fa-solid ${done ? 'fa-check' : 'fa-xmark'}"></i> ${item.label}
+                </span>`;
+            }).join('');
+        }
+
         function renderCustomerCard(c) {
             const avatar = c.profile_picture
                 ? `<img src="${c.profile_picture}" class="h-11 w-11 rounded-lg object-cover border border-slate-200 shrink-0">`
@@ -465,6 +500,9 @@
                     </div>
                     <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div class="h-full bg-blue-500 rounded-full" style="width:${Math.min(((Number(c.seda_form_done) || 0) / (Number(c.seda_form_total) || 7)) * 100, 100)}%"></div>
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-1.5">
+                        ${renderChecklistItems(c)}
                     </div>
                 </div>
                 <div class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
