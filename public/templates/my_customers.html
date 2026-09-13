@@ -86,6 +86,41 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* Paid / Unpaid tabs */
+        .customer-tab {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            color: #64748b;
+            transition: all 0.15s;
+        }
+
+        .customer-tab:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .customer-tab.tab-active {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        /* Status badges on customer cards */
+        .badge-pill {
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .badge-approved { background: #f0fdf4; color: #166534; }
+        .badge-verified { background: #eff6ff; color: #1e40af; }
+        .badge-submitted, .badge-pending { background: #fffbeb; color: #854d0e; }
+        .badge-draft, .badge-neutral { background: #f1f5f9; color: #475569; }
     </style>
 </head>
 
@@ -143,7 +178,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         <!-- Search -->
-        <div class="max-w-2xl mb-8">
+        <div class="max-w-2xl mb-6">
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,40 +191,24 @@
             </div>
         </div>
 
-        <!-- Table Container -->
-        <div class="biz-card rounded-lg overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50">
-                        <tr>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                Name / ID</th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                Contact</th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">
-                                Lead Source</th>
-                            <th scope="col"
-                                class="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="customerTableBody" class="bg-white divide-y divide-slate-200">
-                        <tr>
-                            <td colspan="4" class="px-6 py-10 text-center text-sm text-slate-500">Loading directory...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <!-- Paid / Unpaid Tabs -->
+        <div class="flex items-center gap-2 mb-6">
+            <button type="button" class="customer-tab tab-active" data-status="paid" onclick="switchTab('paid')">
+                Paid Customers
+            </button>
+            <button type="button" class="customer-tab" data-status="unpaid" onclick="switchTab('unpaid')">
+                Unpaid Customers
+            </button>
+        </div>
 
-            <!-- Pagination -->
-            <div id="pagination"
-                class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-                <!-- Injected via JS -->
-            </div>
+        <!-- Customer Card Grid -->
+        <div id="customerGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="col-span-full px-6 py-10 text-center text-sm text-slate-500">Loading directory...</div>
+        </div>
+
+        <!-- Pagination -->
+        <div id="pagination" class="biz-card rounded-lg mt-4 px-6 py-4 flex items-center justify-between">
+            <!-- Injected via JS -->
         </div>
     </div>
 
@@ -351,8 +370,9 @@
     <!-- CustomerManager Module -->
     <script src="/js/components/customerManager.js"></script>
     <script>
-        let currentLimit = 10;
+        let currentLimit = 12;
         let currentOffset = 0;
+        let currentStatus = 'paid'; // 'paid' | 'unpaid' — which directory tab is active
 
         document.addEventListener('DOMContentLoaded', () => {
             // Initialize CustomerManager for modal mode
@@ -386,12 +406,107 @@
             } catch (e) { console.error(e); }
         }
 
+        function switchTab(status) {
+            if (status === currentStatus) return;
+            currentStatus = status;
+            currentOffset = 0;
+            document.querySelectorAll('.customer-tab').forEach(btn => {
+                btn.classList.toggle('tab-active', btn.dataset.status === status);
+            });
+            loadCustomers(document.getElementById('searchInput')?.value || '');
+        }
+
+        // Helper function to format lead source
+        function formatLeadSource(source) {
+            if (!source) return '-';
+            const labels = {
+                'referral': 'Referral',
+                'bni': 'BNI',
+                'roadshow': 'Roadshow',
+                'digital_ads': 'Digital Ads',
+                'own_network': 'Own Network',
+                'other': 'Other'
+            };
+            return labels[source] || source;
+        }
+
+        function formatMoney(n) {
+            const num = Number(n) || 0;
+            return 'RM ' + num.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+
+        function statusBadgeClass(status) {
+            const s = (status || '').toLowerCase();
+            if (s.includes('approved')) return 'badge-approved';
+            if (s.includes('verified')) return 'badge-verified';
+            if (s.includes('submitted') || s.includes('pending')) return 'badge-submitted';
+            return 'badge-draft';
+        }
+
+        function renderCustomerCard(c) {
+            const avatar = c.profile_picture
+                ? `<img src="${c.profile_picture}" class="h-11 w-11 rounded-lg object-cover border border-slate-200 shrink-0">`
+                : `<div class="h-11 w-11 rounded-lg bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600 uppercase border border-slate-200 shrink-0">${(c.name || '?').charAt(0)}</div>`;
+
+            const statusBlock = currentStatus === 'paid' ? `
+                <div class="mt-3">
+                    <div class="flex items-center justify-between text-xs mb-1">
+                        <span class="font-semibold text-slate-600">${formatMoney(c.total_paid)} / ${formatMoney(c.total_invoiced)}</span>
+                        <span class="font-bold text-emerald-600">${Number(c.paid_percent) || 0}%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-emerald-500 rounded-full" style="width:${Math.min(Number(c.paid_percent) || 0, 100)}%"></div>
+                    </div>
+                </div>
+                <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <span class="flex items-center gap-1.5">Form <span class="badge-pill ${statusBadgeClass(c.seda_form_status)}">${c.seda_form_status || 'Not Started'}</span></span>
+                    <span class="flex items-center gap-1.5">SEDA <span class="badge-pill ${statusBadgeClass(c.seda_admin_status)}">${c.seda_admin_status || 'Pending'}</span></span>
+                </div>
+            ` : `
+                <div class="mt-3 flex items-center gap-1.5 text-slate-400 text-xs font-semibold">
+                    <span class="w-1.5 h-1.5 bg-slate-300 rounded-full"></span> No payment recorded
+                </div>
+                <div class="mt-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${c.lead_source ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-400'}">
+                        ${formatLeadSource(c.lead_source)}
+                    </span>
+                </div>
+            `;
+
+            return `
+                <div class="biz-card rounded-xl p-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            ${avatar}
+                            <div class="min-w-0">
+                                <p class="text-sm font-bold text-slate-900 truncate">${c.name}</p>
+                                <p class="text-[11px] text-slate-400 font-mono">ID: ${c.id}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button onclick='openModal(${JSON.stringify(c).replace(/'/g, "&#39;")})' title="Edit" class="p-1.5 text-slate-400 hover:text-slate-700">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            </button>
+                            <button onclick="openHistoryModal(${c.id})" title="History" class="p-1.5 text-slate-400 hover:text-slate-700">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </button>
+                            <button onclick="deleteCustomer(${c.id})" title="Delete" class="p-1.5 text-slate-400 hover:text-red-600">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-500 truncate">${c.phone || '-'}${c.email ? ' &middot; ' + c.email : ''}</div>
+                    ${statusBlock}
+                </div>
+            `;
+        }
+
         async function loadCustomers(search = '') {
-            const tbody = document.getElementById('customerTableBody');
-            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-10 text-center text-sm text-slate-500">Updating list...</td></tr>';
+            const grid = document.getElementById('customerGrid');
+            grid.innerHTML = '<div class="col-span-full px-6 py-10 text-center text-sm text-slate-500">Updating list...</div>';
 
             try {
-                const res = await fetch(`/api/customers?limit=${currentLimit}&offset=${currentOffset}&search=${encodeURIComponent(search)}`);
+                const res = await fetch(`/api/customers?limit=${currentLimit}&offset=${currentOffset}&search=${encodeURIComponent(search)}&status=${currentStatus}`);
                 const result = await res.json();
 
                 if (!result.success) throw new Error(result.error);
@@ -400,55 +515,13 @@
                 const total = result.data.total;
 
                 if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-16 text-center text-sm text-slate-500">No customers found matching your criteria.</td></tr>';
+                    const label = currentStatus === 'paid' ? 'paid' : 'unpaid';
+                    grid.innerHTML = `<div class="col-span-full px-6 py-16 text-center text-sm text-slate-500">No ${label} customers found${search ? ' matching your search' : ''}.</div>`;
                     document.getElementById('pagination').innerHTML = '';
                     return;
                 }
 
-                // Helper function to format lead source
-                const formatLeadSource = (source) => {
-                    if (!source) return '-';
-                    const labels = {
-                        'referral': 'Referral',
-                        'bni': 'BNI',
-                        'roadshow': 'Roadshow',
-                        'digital_ads': 'Digital Ads',
-                        'own_network': 'Own Network',
-                        'other': 'Other'
-                    };
-                    return labels[source] || source;
-                };
-
-                tbody.innerHTML = list.map(c => `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                ${c.profile_picture ?
-                        `<img src="${c.profile_picture}" class="h-9 w-9 rounded object-cover border border-slate-200">` :
-                        `<div class="h-9 w-9 rounded bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 uppercase border border-slate-200">${c.name.charAt(0)}</div>`
-                    }
-                                <div class="ml-4">
-                                    <div class="text-sm font-semibold text-slate-900">${c.name}</div>
-                                    <div class="text-xs text-slate-400 font-mono">ID: ${c.id}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-slate-900">${c.phone || '-'}</div>
-                            <div class="text-xs text-slate-500">${c.email || ''}</div>
-                        </td>
-                        <td class="px-6 py-4 hidden lg:table-cell">
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${c.lead_source ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-400'}">
-                                ${formatLeadSource(c.lead_source)}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button onclick='openModal(${JSON.stringify(c).replace(/'/g, "&#39;")})' class="text-slate-600 hover:text-slate-900 mr-3 text-xs font-semibold uppercase">Edit</button>
-                            <button onclick="openHistoryModal(${c.id})" class="text-slate-600 hover:text-slate-900 mr-3 text-xs font-semibold uppercase">History</button>
-                            <button onclick="deleteCustomer(${c.id})" class="text-red-600 hover:text-red-900 text-xs font-semibold uppercase">Delete</button>
-                        </td>
-                    </tr>
-                `).join('');
+                grid.innerHTML = list.map(c => renderCustomerCard(c)).join('');
 
                 // Pagination
                 const start = currentOffset + 1;
@@ -465,7 +538,7 @@
                 `;
 
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-red-500 text-sm">Error: ${err.message}</td></tr>`;
+                grid.innerHTML = `<div class="col-span-full px-6 py-4 text-center text-red-500 text-sm">Error: ${err.message}</div>`;
             }
         }
 

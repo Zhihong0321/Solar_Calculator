@@ -195,14 +195,14 @@ router.get('/api/customers', requireAuth, async (req, res) => {
   let client = null;
   try {
     const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
-    const { limit, offset, search } = req.query;
+    const { limit, offset, search, status } = req.query;
 
     if (!userId) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
     client = await pool.connect();
-    const result = await customerRepo.getCustomersByUserId(client, userId, { limit, offset, search });
+    const result = await customerRepo.getCustomersByUserId(client, userId, { limit, offset, search, status });
 
     res.json({
       success: true,

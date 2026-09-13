@@ -29,45 +29,86 @@ async function resolveCustomerOwnerIdentifiers(client, ownerKey) {
  * Get customers by owner identity (created_by)
  * @param {object} client - Database client
  * @param {string} ownerKey - User bubble_id (preferred) or legacy user id
- * @param {object} options - { limit, offset, search }
+ * @param {object} options - { limit, offset, search, status: 'paid'|'unpaid' }
+ *
+ * Each row is enriched with payment totals and their linked SEDA registration's
+ * form/admin status, since the "My Customers" directory shows these per card.
+ *
+ * Paid totals come from the `payment` table, not `invoice.paid_amount` — that
+ * column is unpopulated Bubble-sync leftover (see fetchOfficePaidAmount in
+ * invoiceOfficeRoutes.js: only `payment` rows count as verified/paid money).
  */
 async function getCustomersByUserId(client, ownerKey, options = {}) {
   const limit = parseInt(options.limit) || 100;
   const offset = parseInt(options.offset) || 0;
   const search = options.search ? `%${options.search}%` : null;
+  const status = options.status === 'paid' || options.status === 'unpaid' ? options.status : null;
   const ownerIdentifiers = await resolveCustomerOwnerIdentifiers(client, ownerKey);
 
-  let query = `
-    SELECT * FROM customer 
-    WHERE created_by = ANY($1::text[])
+  const whereParams = [ownerIdentifiers];
+  const conditions = ['c.created_by = ANY($1::text[])'];
+
+  if (search) {
+    whereParams.push(search);
+    conditions.push(`(c.name ILIKE $${whereParams.length} OR c.phone ILIKE $${whereParams.length} OR c.email ILIKE $${whereParams.length})`);
+  }
+
+  if (status === 'paid') {
+    conditions.push('COALESCE(cpa.total_paid, 0) > 0');
+  } else if (status === 'unpaid') {
+    conditions.push('COALESCE(cpa.total_paid, 0) = 0');
+  }
+
+  const whereClause = conditions.join(' AND ');
+  const joinClause = `
+    FROM customer c
+    LEFT JOIN (
+      SELECT linked_customer,
+             SUM(COALESCE(amount, 0)) AS total_paid,
+             MAX(payment_date) AS last_payment_date
+      FROM payment
+      WHERE linked_customer IS NOT NULL
+      GROUP BY linked_customer
+    ) cpa ON cpa.linked_customer = c.customer_id
+    LEFT JOIN (
+      SELECT linked_customer,
+             SUM(COALESCE(total_amount, 0)) AS total_invoiced,
+             MAX(updated_at) AS last_invoice_activity
+      FROM invoice
+      WHERE is_deleted IS NOT TRUE AND linked_customer IS NOT NULL
+      GROUP BY linked_customer
+    ) cia ON cia.linked_customer = c.customer_id
+    LEFT JOIN seda_registration s ON s.bubble_id = c.linked_seda_registration
   `;
-  const params = [ownerIdentifiers];
 
-  if (search) {
-    query += ` AND (name ILIKE $2 OR phone ILIKE $2 OR email ILIKE $2)`;
-    params.push(search);
-  }
+  const result = await client.query(
+    `SELECT c.*,
+            COALESCE(cpa.total_paid, 0) AS total_paid,
+            COALESCE(cia.total_invoiced, 0) AS total_invoiced,
+            CASE WHEN COALESCE(cia.total_invoiced, 0) > 0
+                 THEN ROUND((COALESCE(cpa.total_paid, 0) / cia.total_invoiced) * 100, 1)
+                 ELSE 0 END AS paid_percent,
+            COALESCE(cpa.last_payment_date, cia.last_invoice_activity) AS last_activity,
+            s.mapper_status AS seda_form_status,
+            s.seda_status AS seda_admin_status
+     ${joinClause}
+     WHERE ${whereClause}
+     ORDER BY COALESCE(cpa.last_payment_date, cia.last_invoice_activity, c.updated_at, c.created_at) DESC
+     LIMIT $${whereParams.length + 1} OFFSET $${whereParams.length + 2}`,
+    [...whereParams, limit, offset]
+  );
 
-  query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-  params.push(limit, offset);
-
-  const result = await client.query(query, params);
-
-  // Count total
-  let countQuery = `SELECT COUNT(*) as total FROM customer WHERE created_by = ANY($1::text[])`;
-  const countParams = [ownerIdentifiers];
-  if (search) {
-    countQuery += ` AND (name ILIKE $2 OR phone ILIKE $2 OR email ILIKE $2)`;
-    countParams.push(search);
-  }
-
-  const countResult = await client.query(countQuery, countParams);
+  const countResult = await client.query(
+    `SELECT COUNT(*) as total ${joinClause} WHERE ${whereClause}`,
+    whereParams
+  );
 
   return {
     customers: result.rows,
     total: parseInt(countResult.rows[0].total),
     limit,
-    offset
+    offset,
+    status: status || 'all'
   };
 }
 
