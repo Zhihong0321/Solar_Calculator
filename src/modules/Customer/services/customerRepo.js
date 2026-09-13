@@ -108,6 +108,7 @@ async function getCustomersByUserId(client, ownerKey, options = {}) {
                  THEN ROUND((COALESCE(cpa.total_paid, 0) / cia.total_invoiced) * 100, 1)
                  ELSE 0 END AS paid_percent,
             COALESCE(cpa.last_payment_date, cia.last_invoice_activity) AS last_activity,
+            s.bubble_id AS seda_bubble_id,
             s.mapper_status AS seda_form_status,
             s.seda_status AS seda_admin_status,
             ${sedaChecklistSelect},
