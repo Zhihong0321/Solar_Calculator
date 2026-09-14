@@ -187,7 +187,7 @@ router.get('/api/v1/customer-portal/:customerId', async (req, res) => {
               i.linked_payment, i.share_token, i.linked_seda_registration, i.linked_customer,
               i.created_by, i.linked_agent, i.linked_package,
               i.customer_signature, i.signature_date,
-              p.package_name AS package_name
+              p.package_name AS package_name, p.type AS package_category
        FROM invoice i
        LEFT JOIN package p ON p.bubble_id = i.linked_package
        WHERE i.linked_customer = $1
@@ -256,6 +256,7 @@ router.get('/api/v1/customer-portal/:customerId', async (req, res) => {
         invoice_date: invoice.invoice_date,
         status: invoice.status,
         package_name: invoice.package_name,
+        package_category: invoice.package_category,
         total_amount: totalAmount,
         paid_amount: paidAmount,
         balance_due: Math.max(totalAmount - paidAmount, 0),
