@@ -1,9 +1,15 @@
 const express = require('express');
+const multer = require('multer');
+const crypto = require('crypto');
 const pool = require('../../../core/database/pool');
 const sedaRepo = require('../../Invoicing/services/sedaRepo');
 const { ensureSedaRegistrationForQuotationView } = require('../../Invoicing/api/invoiceViewRoutes');
+const { getPaymentTermsSchedule } = require('../../Invoicing/services/invoicePaymentTermsPolicy');
+const { writeInvoiceAuditEntry } = require('../../Invoicing/services/auditWriter');
+const { storageDriver } = require('../../../core/upload');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 const SEDA_SHARE_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -180,6 +186,7 @@ router.get('/api/v1/customer-portal/:customerId', async (req, res) => {
       `SELECT i.bubble_id, i.invoice_number, i.invoice_date, i.status, i.total_amount,
               i.linked_payment, i.share_token, i.linked_seda_registration, i.linked_customer,
               i.created_by, i.linked_agent, i.linked_package,
+              i.customer_signature, i.signature_date,
               p.package_name AS package_name
        FROM invoice i
        LEFT JOIN package p ON p.bubble_id = i.linked_package
@@ -226,6 +233,22 @@ router.get('/api/v1/customer-portal/:customerId', async (req, res) => {
         }
       }
 
+      const pendingRes = await client.query(
+        `SELECT bubble_id, amount, payment_date, payment_method, remark, created_at
+         FROM submitted_payment
+         WHERE linked_invoice = $1 AND status = 'pending'
+         ORDER BY created_at DESC`,
+        [invoice.bubble_id]
+      );
+      const pendingPayments = pendingRes.rows.map((row) => ({
+        bubble_id: row.bubble_id,
+        amount: Number(row.amount || 0),
+        payment_date: row.payment_date,
+        payment_method: row.payment_method,
+        remark: row.remark,
+        submitted_at: row.created_at
+      }));
+
       const quotationToken = invoice.share_token || invoice.bubble_id;
       invoices.push({
         bubble_id: invoice.bubble_id,
@@ -236,6 +259,10 @@ router.get('/api/v1/customer-portal/:customerId', async (req, res) => {
         total_amount: totalAmount,
         paid_amount: paidAmount,
         balance_due: Math.max(totalAmount - paidAmount, 0),
+        is_signed: Boolean(invoice.customer_signature),
+        signature_date: invoice.signature_date,
+        payment_schedule: getPaymentTermsSchedule(invoice).rows,
+        pending_payments: pendingPayments,
         quotation_url: `${baseUrl}/view/${quotationToken}`,
         printable_url: `${baseUrl}/view/${quotationToken}?layout=a4`,
         seda
@@ -246,6 +273,121 @@ router.get('/api/v1/customer-portal/:customerId', async (req, res) => {
   } catch (err) {
     console.error('[CustomerPortal] Failed to load customer portal:', err);
     res.status(500).json({ success: false, error: 'Failed to load customer data.' });
+  } finally {
+    client.release();
+  }
+});
+
+const PAYMENT_PROOF_MIME_EXT = {
+  'application/pdf': '.pdf',
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/heic': '.heic',
+  'image/heif': '.heif'
+};
+
+// Public payment submission — the existing POST /api/v1/invoices/:bubbleId/payment
+// (paymentRoutes.js) requires a staff `requireAuth` cookie, so it can't be reused
+// here. This writes to the same `submitted_payment` table (status: 'pending')
+// using the same shape/attachment pipeline, distinguished by created_by so
+// Finance can tell a customer-submitted payment apart from a staff one. There
+// is no verify/approve endpoint anywhere in this codebase (see research notes
+// in the PR/commit history) — a submitted payment only becomes "paid" once
+// Finance creates a row in `payment` through whatever external process they
+// already use today; this endpoint does not change that.
+router.post('/api/v1/customer-portal/invoice/:bubbleId/submit-payment', upload.single('proof'), async (req, res) => {
+  const { bubbleId } = req.params;
+  const { amount, payment_date: paymentDate, payment_method: paymentMethod, reference_no: referenceNo, remark: customerRemark } = req.body;
+
+  const finalAmount = parseFloat(amount);
+  if (!finalAmount || finalAmount <= 0) {
+    return res.status(400).json({ success: false, error: 'A valid payment amount is required.' });
+  }
+  if (!paymentDate) {
+    return res.status(400).json({ success: false, error: 'Payment date is required.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const invoiceRes = await client.query(
+      `SELECT bubble_id, linked_customer, linked_agent
+       FROM invoice
+       WHERE bubble_id = $1 OR share_token = $1
+       LIMIT 1`,
+      [bubbleId]
+    );
+    const invoice = invoiceRes.rows[0];
+    if (!invoice) {
+      return res.status(404).json({ success: false, error: 'Invoice not found.' });
+    }
+
+    let attachmentUrl = null;
+    if (req.file) {
+      const mimeType = (req.file.mimetype || '').toLowerCase();
+      if (!PAYMENT_PROOF_MIME_EXT[mimeType]) {
+        return res.status(400).json({ success: false, error: `Unsupported file type: ${mimeType || 'unknown'}. Please upload a PDF or image.` });
+      }
+      const filename = `payment_${invoice.bubble_id}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${PAYMENT_PROOF_MIME_EXT[mimeType]}`;
+      const stored = await storageDriver.put(req.file.buffer, {
+        subdir: 'uploaded_payment',
+        filename,
+        mimeType,
+        req
+      });
+      attachmentUrl = stored.url;
+    }
+
+    const remark = `${customerRemark || ''} [Ref: ${referenceNo || 'N/A'}]`.trim();
+    const newPaymentBubbleId = `pay_${crypto.randomBytes(8).toString('hex')}`;
+    const standardMethod = (paymentMethod || 'Bank Transfer').slice(0, 100);
+
+    await client.query(
+      `INSERT INTO submitted_payment (
+          bubble_id, amount, payment_date, attachment, remark,
+          linked_invoice, created_by, status, payment_method,
+          payment_method_v2, linked_agent, linked_customer,
+          created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())`,
+      [
+        newPaymentBubbleId,
+        finalAmount,
+        paymentDate,
+        attachmentUrl ? [attachmentUrl] : [],
+        remark,
+        invoice.bubble_id,
+        `customer-portal:${invoice.linked_customer || 'unknown'}`,
+        'pending',
+        standardMethod,
+        standardMethod,
+        invoice.linked_agent || null,
+        invoice.linked_customer || null
+      ]
+    );
+
+    await writeInvoiceAuditEntry(client, {
+      invoiceBubbleId: invoice.bubble_id,
+      entityType: 'submitted_payment',
+      actionType: 'insert',
+      entityId: newPaymentBubbleId,
+      changes: [
+        { field: 'Amount', after: finalAmount },
+        { field: 'Method', after: standardMethod },
+        { field: 'Date', after: paymentDate },
+        { field: 'Status', after: 'pending' }
+      ],
+      actorRole: 'customer',
+      sourceApp: 'customer-portal'
+    });
+
+    res.json({
+      success: true,
+      payment: { bubble_id: newPaymentBubbleId, amount: finalAmount, payment_date: paymentDate, status: 'pending' }
+    });
+  } catch (err) {
+    console.error('[CustomerPortal] Payment submission failed:', err);
+    res.status(500).json({ success: false, error: 'Failed to submit payment. Please try again.' });
   } finally {
     client.release();
   }
