@@ -74,12 +74,58 @@ function maskPhone(phone) {
   return `${head}${'•'.repeat(Math.max(digits.length - 5, 3))}${tail}`;
 }
 
+// Verified paid amount must come only from `payment` rows, never
+// invoice.paid_amount (see .agents/decisions.md, 2026-04-23).
+async function getVerifiedPaidAmount(client, invoiceBubbleId, linkedPaymentIds) {
+  const res = await client.query(
+    `SELECT COALESCE(SUM(amount), 0) AS paid_amount
+     FROM payment
+     WHERE linked_invoice = $1 OR bubble_id = ANY($2::text[])`,
+    [invoiceBubbleId, linkedPaymentIds || []]
+  );
+  return Number(res.rows[0]?.paid_amount || 0);
+}
+
 const SEARCH_RESULT_LIMIT = 20;
+const SEARCH_INVOICE_PREVIEW_LIMIT = 5;
+
+// Same-name duplicates are common, so the search list needs enough per-match
+// context (quotation + amounts) for a customer to recognize their own record
+// without ever showing another customer's full contact details.
+async function getInvoicePreviewsForCustomer(client, customerId) {
+  const result = await client.query(
+    `SELECT bubble_id, invoice_number, total_amount, linked_payment
+     FROM invoice
+     WHERE linked_customer = $1
+       AND COALESCE(is_latest, true) = true
+       AND COALESCE(is_deleted, false) = false
+       AND (status IS NULL OR status <> 'deleted')
+     ORDER BY invoice_date DESC NULLS LAST, created_at DESC NULLS LAST
+     LIMIT $2`,
+    [customerId, SEARCH_INVOICE_PREVIEW_LIMIT + 1]
+  );
+
+  const rows = result.rows.slice(0, SEARCH_INVOICE_PREVIEW_LIMIT);
+  const invoices = [];
+  for (const row of rows) {
+    const totalAmount = Number(row.total_amount || 0);
+    const paidAmount = await getVerifiedPaidAmount(client, row.bubble_id, row.linked_payment);
+    invoices.push({
+      invoice_number: row.invoice_number,
+      total_amount: totalAmount,
+      paid_amount: paidAmount
+    });
+  }
+
+  return { invoices, moreCount: Math.max(result.rows.length - SEARCH_INVOICE_PREVIEW_LIMIT, 0) };
+}
 
 // Registered before the /:customerId route below so Express doesn't treat
-// "search" as a customer_id. Returns lightweight, phone-masked matches only —
-// enough for a customer to recognize their own record in a list, not enough
-// for someone scanning common names to harvest full contact details.
+// "search" as a customer_id. Returns phone-masked matches only — enough for
+// a customer to recognize their own record in a list, not enough for
+// someone scanning common names to harvest full contact details. Quotation
+// numbers/amounts are included (not masked) since they're needed to tell
+// same-name customers apart and aren't sensitive on their own.
 router.get('/api/v1/customer-portal/search', async (req, res) => {
   const name = String(req.query.name || '').trim();
   if (name.length < 2) {
@@ -96,13 +142,19 @@ router.get('/api/v1/customer-portal/search', async (req, res) => {
       [`%${name}%`, SEARCH_RESULT_LIMIT]
     );
 
-    const matches = result.rows.map((row) => ({
-      customer_id: row.customer_id,
-      name: row.name,
-      phone_masked: maskPhone(row.phone)
-    }));
+    const matches = [];
+    for (const row of result.rows) {
+      const { invoices, moreCount } = await getInvoicePreviewsForCustomer(pool, row.customer_id);
+      matches.push({
+        customer_id: row.customer_id,
+        name: row.name,
+        phone_masked: maskPhone(row.phone),
+        invoices,
+        more_invoices: moreCount
+      });
+    }
 
-    res.json({ success: true, matches, truncated: matches.length === SEARCH_RESULT_LIMIT });
+    res.json({ success: true, matches, truncated: result.rows.length === SEARCH_RESULT_LIMIT });
   } catch (err) {
     console.error('[CustomerPortal] Name search failed:', err);
     res.status(500).json({ success: false, error: 'Search failed. Please try again.' });
@@ -141,15 +193,7 @@ router.get('/api/v1/customer-portal/:customerId', async (req, res) => {
 
     const invoices = [];
     for (const invoice of invoicesResult.rows) {
-      // Verified paid amount must come only from `payment` rows, never
-      // invoice.paid_amount (see .agents/decisions.md, 2026-04-23).
-      const paidRes = await client.query(
-        `SELECT COALESCE(SUM(amount), 0) AS paid_amount
-         FROM payment
-         WHERE linked_invoice = $1 OR bubble_id = ANY($2::text[])`,
-        [invoice.bubble_id, invoice.linked_payment || []]
-      );
-      const paidAmount = Number(paidRes.rows[0]?.paid_amount || 0);
+      const paidAmount = await getVerifiedPaidAmount(client, invoice.bubble_id, invoice.linked_payment);
       const totalAmount = Number(invoice.total_amount || 0);
 
       // Guarantee a SEDA registration (and a live share token) exists for
