@@ -1006,3 +1006,8 @@ router.get('/view/:tokenOrId/tiger-neo-3-proposal', openTigerNeo3Proposal);
 router.get('/view2/:tokenOrId/tiger-neo-3-proposal', openTigerNeo3Proposal);
 
 module.exports = router;
+// Reused by src/modules/CustomerPortal so the customer-ID portal guarantees the
+// same SEDA auto-provisioning (with advisory lock) that already happens the
+// moment a customer opens the public quotation view.
+module.exports.ensureSedaRegistrationForQuotationView = ensureSedaRegistrationForQuotationView;
+module.exports.isEvChargerInvoice = isEvChargerInvoice;

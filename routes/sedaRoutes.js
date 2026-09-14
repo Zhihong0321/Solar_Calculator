@@ -23,11 +23,13 @@ const crypto  = require('crypto');
 const pool              = require('../src/core/database/pool');
 const { requireAuth }   = require('../src/core/middleware/auth');
 const { getCanonicalUserIdentity } = require('../src/core/auth/userIdentity');
+const multer            = require('multer');
 const {
     createUploader,
     resolveDiskPath,
     safeDelete,
     resolvedMime,
+    fileExtension,
     validateFilename,
     validateSize,
     uploadSuccess,
@@ -46,6 +48,7 @@ const { optimizeBuffer, extensionForMime } = require('../src/core/upload/imageOp
 // ─── SEDA-specific modules ────────────────────────────────────────────────────
 const sedaRepo          = require('../src/modules/Invoicing/services/sedaRepo');
 const extractionService = require('../src/modules/Invoicing/services/extractionService');
+const uploadAssistant   = require('../src/modules/Invoicing/services/sedaUploadAssistant');
 const { writeInvoiceAuditEntry } = require('../src/modules/Invoicing/services/auditWriter');
 
 const router = express.Router();
@@ -56,11 +59,25 @@ const router = express.Router();
 // See .agents/decisions.md 2026-07-20.
 const OCR_ENABLED = false;
 
+// Separate kill switch for the AI Upload Assistant (ai-upload routes below). Deliberately
+// independent from OCR_ENABLED — this is a different feature (multi-file batch classify +
+// human-confirmed placement, via MarkItDown + a vault-sourced DeepSeek credential), not a
+// revival of the old per-field extract-*/verify-* endpoints. See .agents/decisions.md.
+const UPLOAD_ASSISTANT_ENABLED = true;
+
 function ocrDisabledResponse(res) {
     return res.status(503).json({
         success: false,
         code: 'OCR_DISABLED',
         error: 'Document verification is temporarily disabled. Please fill in this field manually.',
+    });
+}
+
+function uploadAssistantDisabledResponse(res) {
+    return res.status(503).json({
+        success: false,
+        code: 'UPLOAD_ASSISTANT_DISABLED',
+        error: 'The AI Upload Assistant is temporarily disabled. Please upload files into the fields below manually.',
     });
 }
 
@@ -462,96 +479,114 @@ async function handleUpload(req, res, recordId) {
 
         const mime = resolvedMime(req.file);
 
-        // Compress in memory before storing. Uploads no longer touch disk, so
-        // scripts/optimize_seda_uploads.js never sees them — without this, full
-        // resolution phone photos go straight to R2 and burn the storage quota.
-        // Never throws: on failure the original buffer is returned unchanged.
-        const optimized = await optimizeBuffer(req.file.buffer, mime);
-        if (optimized.optimized) {
-            logUpload({
-                route: req.path, field, recordId, result: 'optimized',
-                sizeBytes: optimized.finalBytes,
-                error: `compressed ${optimized.originalBytes} -> ${optimized.finalBytes} bytes`,
-            });
-        }
-
-        // The stored extension must match the bytes we actually wrote — a PNG
-        // re-encoded to JPEG would otherwise keep a .png name.
-        const storedFilename = optimized.mimeType === mime
-            ? req.file.filename
-            : req.file.filename.replace(/\.[^.]+$/, extensionForMime(optimized.mimeType));
-
-        let fileUrl;
+        let persisted;
         try {
-            fileUrl = await r2Storage.uploadBuffer(
-                optimized.buffer,
-                `seda_registration/${storedFilename}`,
-                optimized.mimeType
-            );
-        } catch (r2Err) {
-            console.error('[SEDA Upload] R2 upload failed:', r2Err.message);
-            logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: r2Err.message });
-            return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field, error: `${rule.label}: Failed to store file. Please try again.` }));
+            persisted = await persistSedaFile({ field, rule, recordId, buffer: req.file.buffer, mime, filename: req.file.filename, req, routePath: req.path });
+        } catch (persistErr) {
+            return res.status(persistErr.status || 500).json(persistErr.body || uploadError(ERROR_CODES.STORAGE_FAILED, { field, error: persistErr.message }));
         }
 
-        // DB update — use finally to guarantee single client.release()
-        let client;
-        try {
-            client = await pool.connect();
-            if (rule.isArray) {
-                const updateResult = await client.query(
-                    `UPDATE seda_registration
-                     SET ${rule.column} = array_append(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
-                         modified_date = NOW(),
-                         updated_at = NOW()
-                     WHERE bubble_id = $2
-                       AND COALESCE(array_length(${rule.column}, 1), 0) < $3`,
-                    [fileUrl, recordId, rule.maxItems || 12]
-                );
-                if (!updateResult.rowCount) {
-                    await r2Storage.deleteObject(r2Storage.keyFromUrl(fileUrl));
-                    return res.status(409).json(uploadError(ERROR_CODES.DB_FAILED, { field, error: `${rule.label}: maximum ${rule.maxItems || 12} files already uploaded.` }));
-                }
-            } else {
-                await client.query(
-                    `UPDATE seda_registration
-                     SET ${rule.column} = $1, modified_date = NOW(), updated_at = NOW()
-                     WHERE bubble_id = $2`,
-                    [fileUrl, recordId]
-                );
-            }
-            const _auditInvoiceId = await getLinkedInvoiceBubbleId(client, recordId);
-            const _auditActor = getSedaActor(req, recordId);
-            await writeInvoiceAuditEntry(client, {
-                invoiceBubbleId: _auditInvoiceId,
-                entityType: 'seda_upload',
-                actionType: 'ADDED',
-                entityId: recordId,
-                changes: [{ field: rule.label, after: fileUrl }],
-                actorName: _auditActor.name,
-                actorUserId: _auditActor.id,
-                actorRole: _auditActor.role,
-                sourceApp: req.user ? 'agent-os' : 'public-seda-form',
-            });
-        } catch (dbErr) {
-            // Reclaim the R2 object — nothing references it now, and unlike the old
-            // disk path there is no volume sweep or purge job that would ever find it.
-            await r2Storage.deleteObject(r2Storage.keyFromUrl(fileUrl));
-            console.error('[SEDA Upload] DB update failed — R2 object rolled back:', fileUrl, dbErr.message);
-            logUpload({ route: req.path, field, recordId, mime, sizeBytes: req.file.size, filename: storedFilename, result: 'error', code: ERROR_CODES.DB_FAILED, error: dbErr.message });
-            return res.status(500).json(uploadError(ERROR_CODES.DB_FAILED, { field, error: 'File saved but database update failed. Please try uploading again — the retry is safe.' }));
-        } finally {
-            if (client) client.release();
-        }
+        return res.json(uploadSuccess({ field, url: persisted.url, filename: persisted.filename, mime: persisted.mime, size: persisted.size }));
 
-        logUpload({ route: req.path, field, recordId, mime: optimized.mimeType, sizeBytes: optimized.finalBytes, filename: storedFilename, result: 'success' });
-        return res.json(uploadSuccess({ field, url: fileUrl, filename: storedFilename, mime: optimized.mimeType, size: optimized.finalBytes }));
-        
     } catch (err) {
         console.error('[SEDA Upload] Unhandled error:', err.message);
         await drainRequest(req);
         return res.status(500).json(uploadError(ERROR_CODES.STORAGE_FAILED, { field: req.params.field, error: 'Internal server error during upload.' }));
     }
+}
+
+/**
+ * Shared "store one file against one SEDA field" logic: compress -> R2 -> DB column
+ * update -> audit entry. Used by both the per-field upload route (handleUpload, one
+ * multer-validated file at a time) and the AI Upload Assistant batch route (already-
+ * classified buffers, no multer involved). Throws { status, body } on failure —
+ * callers decide how to surface that (abort the request vs. skip one file in a batch).
+ */
+async function persistSedaFile({ field, rule, recordId, buffer, mime, filename, req, routePath }) {
+    // Compress in memory before storing. Uploads no longer touch disk, so
+    // scripts/optimize_seda_uploads.js never sees them — without this, full
+    // resolution phone photos go straight to R2 and burn the storage quota.
+    // Never throws: on failure the original buffer is returned unchanged.
+    const optimized = await optimizeBuffer(buffer, mime);
+    if (optimized.optimized) {
+        logUpload({
+            route: routePath, field, recordId, result: 'optimized',
+            sizeBytes: optimized.finalBytes,
+            error: `compressed ${optimized.originalBytes} -> ${optimized.finalBytes} bytes`,
+        });
+    }
+
+    // The stored extension must match the bytes we actually wrote — a PNG
+    // re-encoded to JPEG would otherwise keep a .png name.
+    const storedFilename = optimized.mimeType === mime
+        ? filename
+        : filename.replace(/\.[^.]+$/, extensionForMime(optimized.mimeType));
+
+    let fileUrl;
+    try {
+        fileUrl = await r2Storage.uploadBuffer(
+            optimized.buffer,
+            `seda_registration/${storedFilename}`,
+            optimized.mimeType
+        );
+    } catch (r2Err) {
+        console.error('[SEDA Upload] R2 upload failed:', r2Err.message);
+        logUpload({ route: routePath, field, recordId, mime, sizeBytes: buffer.length, result: 'error', code: ERROR_CODES.STORAGE_FAILED, error: r2Err.message });
+        throw { status: 500, body: uploadError(ERROR_CODES.STORAGE_FAILED, { field, error: `${rule.label}: Failed to store file. Please try again.` }) };
+    }
+
+    let client;
+    try {
+        client = await pool.connect();
+        if (rule.isArray) {
+            const updateResult = await client.query(
+                `UPDATE seda_registration
+                 SET ${rule.column} = array_append(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
+                     modified_date = NOW(),
+                     updated_at = NOW()
+                 WHERE bubble_id = $2
+                   AND COALESCE(array_length(${rule.column}, 1), 0) < $3`,
+                [fileUrl, recordId, rule.maxItems || 12]
+            );
+            if (!updateResult.rowCount) {
+                await r2Storage.deleteObject(r2Storage.keyFromUrl(fileUrl));
+                throw { status: 409, body: uploadError(ERROR_CODES.DB_FAILED, { field, error: `${rule.label}: maximum ${rule.maxItems || 12} files already uploaded.` }) };
+            }
+        } else {
+            await client.query(
+                `UPDATE seda_registration
+                 SET ${rule.column} = $1, modified_date = NOW(), updated_at = NOW()
+                 WHERE bubble_id = $2`,
+                [fileUrl, recordId]
+            );
+        }
+        const _auditInvoiceId = await getLinkedInvoiceBubbleId(client, recordId);
+        const _auditActor = getSedaActor(req, recordId);
+        await writeInvoiceAuditEntry(client, {
+            invoiceBubbleId: _auditInvoiceId,
+            entityType: 'seda_upload',
+            actionType: 'ADDED',
+            entityId: recordId,
+            changes: [{ field: rule.label, after: fileUrl }],
+            actorName: _auditActor.name,
+            actorUserId: _auditActor.id,
+            actorRole: _auditActor.role,
+            sourceApp: req.user ? 'agent-os' : 'public-seda-form',
+        });
+    } catch (dbErr) {
+        if (dbErr && dbErr.status && dbErr.body) throw dbErr; // already-handled 409 above
+        // Reclaim the R2 object — nothing references it now, and unlike the old
+        // disk path there is no volume sweep or purge job that would ever find it.
+        await r2Storage.deleteObject(r2Storage.keyFromUrl(fileUrl));
+        console.error('[SEDA Upload] DB update failed — R2 object rolled back:', fileUrl, dbErr.message);
+        logUpload({ route: routePath, field, recordId, mime, sizeBytes: buffer.length, filename: storedFilename, result: 'error', code: ERROR_CODES.DB_FAILED, error: dbErr.message });
+        throw { status: 500, body: uploadError(ERROR_CODES.DB_FAILED, { field, error: 'File saved but database update failed. Please try uploading again — the retry is safe.' }) };
+    } finally {
+        if (client) client.release();
+    }
+
+    logUpload({ route: routePath, field, recordId, mime: optimized.mimeType, sizeBytes: optimized.finalBytes, filename: storedFilename, result: 'success' });
+    return { url: fileUrl, filename: storedFilename, mime: optimized.mimeType, size: optimized.finalBytes };
 }
 
 function drainRequest(req) {
@@ -956,6 +991,142 @@ async function restoreSedaFile(req, res, recordId, source) {
     }
 }
 
+// ─── AI Upload Assistant — batch classify + auto-place ────────────────────────
+// Accepts several files in one request, identifies each independently (see
+// sedaUploadAssistant.js), and immediately persists the ones it's confident about
+// through the same persistSedaFile() path as a manual per-field upload. Anything
+// it can't confidently place is left for the agent/customer to drop into the
+// regular per-field boxes — this endpoint never guesses past "low" confidence.
+
+const AI_BATCH_MAX_FILES = 10;
+const AI_BATCH_MAX_MB = 25;
+
+// createUploader() (src/core/upload/engine.js) is field-keyed: one uploader per known
+// FILE_FIELDS column, set up before multer runs. This endpoint is the opposite shape —
+// an unlabelled batch of files whose destination field is only known *after* the AI
+// identifies each one — so it can't be expressed as a createUploader() config. Same
+// reasoning ClaimReceipt's own multer.memoryStorage() instance uses.
+const aiUploadMulter = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: AI_BATCH_MAX_MB * 1024 * 1024, files: AI_BATCH_MAX_FILES },
+}).array('files', AI_BATCH_MAX_FILES);
+
+// A raw multer error (oversized file, too many files) would otherwise fall through to
+// Express's default error handler with no JSON shape — wrap it so the batch fails the
+// same clean way every other upload error in this file does.
+function runAiUploadMulter(req, res, next) {
+    aiUploadMulter(req, res, (err) => {
+        if (!err) return next();
+        const isSize = err.code === 'LIMIT_FILE_SIZE';
+        const isCount = err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE';
+        const message = isSize
+            ? `One of the files is too large. Maximum is ${AI_BATCH_MAX_MB} MB per file.`
+            : isCount
+                ? `Too many files at once. Maximum is ${AI_BATCH_MAX_FILES} files per batch.`
+                : (err.message || 'Upload failed.');
+        return res.status(400).json({ success: false, error: message });
+    });
+}
+
+// TNB bills are the one document type with repeatable slots (month 1/2/3, then the
+// 12-month bucket) — the assistant reports target_field: 'tnb_bill' generically and
+// this picks the next free slot, using the DB row plus anything already claimed
+// earlier in the same batch (so three bills dropped together don't all land on bill 1).
+function resolveTnbBillSlot(row, assignedThisBatch) {
+    for (const key of ['tnb_bill_1', 'tnb_bill_2', 'tnb_bill_3']) {
+        if (!row[key] && !assignedThisBatch.has(key)) return key;
+    }
+    return 'tnb_bills_12_months';
+}
+
+async function handleAiUpload(req, res, recordId) {
+    if (!UPLOAD_ASSISTANT_ENABLED) return uploadAssistantDisabledResponse(res);
+
+    const files = req.files || [];
+    if (!files.length) {
+        return res.status(400).json({ success: false, error: 'No files uploaded.' });
+    }
+
+    let row;
+    const client = await pool.connect();
+    try {
+        const r = await client.query(
+            `SELECT tnb_bill_1, tnb_bill_2, tnb_bill_3 FROM seda_registration WHERE bubble_id = $1`,
+            [recordId]
+        );
+        if (!r.rows.length) return res.status(404).json({ success: false, error: 'SEDA registration not found.' });
+        row = r.rows[0];
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
+
+    const uploaded = [];
+    const unrecognized = [];
+    const extractedFields = {};
+    const assignedThisBatch = new Set();
+
+    for (const file of files) {
+        const mime = resolvedMime(file);
+        let identified;
+        try {
+            identified = await uploadAssistant.identifyDocument({
+                buffer: file.buffer,
+                mimeType: mime,
+                originalName: file.originalname,
+                req,
+                recordId,
+            });
+        } catch (err) {
+            unrecognized.push({ filename: file.originalname, reason: 'The assistant could not process this file.' });
+            continue;
+        }
+
+        for (const [key, value] of Object.entries(identified.extracted_fields || {})) {
+            if (!extractedFields[key]) extractedFields[key] = value;
+        }
+
+        if (!identified.target_field || identified.confidence === 'low') {
+            unrecognized.push({
+                filename: file.originalname,
+                document_type: identified.document_type,
+                reason: identified.reason || 'Could not confidently identify this document.',
+            });
+            continue;
+        }
+
+        const fieldKey = identified.target_field === 'tnb_bill'
+            ? resolveTnbBillSlot(row, assignedThisBatch)
+            : identified.target_field;
+        const rule = FILE_FIELDS[fieldKey];
+
+        const sizeCheck = rule ? validateSize(file.size, rule.maxMB, rule.label) : { ok: false, error: `Unknown target field "${fieldKey}".` };
+        if (!sizeCheck.ok) {
+            unrecognized.push({ filename: file.originalname, document_type: identified.document_type, reason: sizeCheck.error });
+            continue;
+        }
+
+        try {
+            const storedName = `${fieldKey}_${recordId}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${fileExtension(file)}`;
+            const persisted = await persistSedaFile({ field: fieldKey, rule, recordId, buffer: file.buffer, mime, filename: storedName, req, routePath: req.path });
+            if (fieldKey.startsWith('tnb_bill_')) assignedThisBatch.add(fieldKey);
+            uploaded.push({
+                field: fieldKey,
+                label: rule.label,
+                filename: file.originalname,
+                url: persisted.url,
+                document_type: identified.document_type,
+                confidence: identified.confidence,
+            });
+        } catch (persistErr) {
+            unrecognized.push({ filename: file.originalname, reason: (persistErr && persistErr.body && persistErr.body.error) || 'Failed to save this file.' });
+        }
+    }
+
+    return res.json({ success: true, data: { uploaded, unrecognized, extracted_fields: extractedFields } });
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // PUBLIC ROUTES — customer access via shareToken
 // Auth: shareToken only. Can only access their own record.
@@ -1098,6 +1269,24 @@ router.post('/api/v1/seda-public/:shareToken/upload/:field', async (req, res) =>
     req.params.id = recordId;
     return handleUpload(req, res, recordId);
 });
+
+// AI Upload Assistant (public) — verify shareToken, then run multer before the handler
+async function requireSedaShareTokenForAiUpload(req, res, next) {
+    let client;
+    try {
+        client = await pool.connect();
+        const seda = await sedaRepo.getByShareToken(client, req.params.shareToken);
+        if (!seda) return res.status(404).json({ success: false, error: 'Registration not found or link has expired.' });
+        req.params.id = seda.bubble_id;
+        next();
+    } catch (err) {
+        res.status(500).json({ success: false, error: 'Failed to verify registration.' });
+    } finally {
+        if (client) client.release();
+    }
+}
+
+router.post('/api/v1/seda-public/:shareToken/ai-upload', requireSedaShareTokenForAiUpload, runAiUploadMulter, (req, res) => handleAiUpload(req, res, req.params.id));
 
 router.delete('/api/v1/seda-public/:shareToken/file/:field', async (req, res) => {
     const client = await pool.connect();
@@ -1437,6 +1626,10 @@ router.post('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, r
 // Authenticated file upload — requireAuth + requireSedaOwnership runs first
 router.post('/api/v1/seda/:id/upload/:field', requireAuth, requireSedaOwnership, (req, res) => {
     return handleUpload(req, res, req.params.id);
+});
+
+router.post('/api/v1/seda/:id/ai-upload', requireAuth, requireSedaOwnership, runAiUploadMulter, (req, res) => {
+    return handleAiUpload(req, res, req.params.id);
 });
 
 router.delete('/api/v1/seda/:id/file/:field', requireAuth, requireSedaOwnership, (req, res) => {

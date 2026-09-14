@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BeforeAfterCard preview</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<style>
+  body { margin:0; background:#e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+  #root { max-width: 420px; margin: 0 auto; padding: 12px 0 24px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+        const ACCENT = {
+            primary: '#16a34a',
+            light: '#22c55e',
+            bg: '#dcfce7',
+            dark: '#14532d',
+            border: '#86efac'
+        };
+        function fmt(value, digits = 2) {
+            return Number(value || 0).toLocaleString('en-MY', {
+                minimumFractionDigits: digits,
+                maximumFractionDigits: digits
+            });
+        }
+
+        function toNumber(value, fallback = 0) {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        }
+        function Card({ children, style, dark }) {
+            return (
+                <div style={{
+                    background: dark ? '#1a2e1c' : '#fff',
+                    borderRadius: 16,
+                    padding: '18px 16px',
+                    ...style
+                }}>
+                    {children}
+                </div>
+            );
+        }
+
+        function SectionWrap({ children }) {
+            return <div style={{ padding: '10px 14px 0' }}>{children}</div>;
+        }
+
+        function Tag({ children, color, bg }) {
+            return (
+                <span style={{
+                    display: 'inline-block',
+                    background: bg || '#dcfce7',
+                    color: color || '#16a34a',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: 20
+                }}>
+                    {children}
+                </span>
+            );
+        }
+        function BeforeAfterCard({ solarResult, activeCycle, afaRate }) {
+            const afterBill = activeCycle.payableAfterSolar;
+            const beforeBreakdown = solarResult?.billBreakdownComparison?.before
+                || solarResult?.details?.billBreakdown?.before
+                || null;
+            const usageKwh = toNumber(solarResult?.details?.monthlyUsageKwh, toNumber(beforeBreakdown?.eeiUsageKwh));
+            const selectedAfaRate = toNumber(afaRate);
+            const selectedAfaSen = selectedAfaRate * 100;
+            const storedAfa = toNumber(beforeBreakdown?.afa);
+            const billWithAfaFromApi = toNumber(solarResult?.details?.billBefore, toNumber(beforeBreakdown?.total));
+            const tnbAtAfa0 = toNumber(beforeBreakdown?.totalBase, billWithAfaFromApi - storedAfa);
+            const afaAdjustment = usageKwh * selectedAfaRate;
+            const billWithSelectedAfa = tnbAtAfa0 + afaAdjustment;
+            const percentageSaved = billWithSelectedAfa > 0 ? Math.round((1 - afterBill / billWithSelectedAfa) * 100) : 0;
+            const afaRmSign = afaAdjustment >= 0 ? '+' : '−';
+            const afaSenSign = selectedAfaSen >= 0 ? '+' : '';
+            const barMax = Math.max(tnbAtAfa0, billWithSelectedAfa, afterBill, 1);
+
+            return (
+                <SectionWrap>
+                    <Card>
+                        <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>
+                            安装前后 · 电费对比
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'stretch', gap: 5, marginBottom: 8 }}>
+                            <div style={{ flex: 1.15, background: '#f3f4f6', borderRadius: 12, padding: '12px 4px', textAlign: 'center', minWidth: 0 }}>
+                                <div style={{ fontSize: 9, color: '#9ca3af', marginBottom: 4, lineHeight: 1.3 }}>TNB 电费（按 AFA 0 计）</div>
+                                <div style={{ fontSize: 19, fontWeight: 800, color: '#6b7280', whiteSpace: 'nowrap' }}>
+                                    RM {fmt(tnbAtAfa0)}
+                                </div>
+                                <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 3 }}>每月电费</div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: 20, fontWeight: 800, flexShrink: 0 }}>
+                                +
+                            </div>
+
+                            <div style={{ flex: 1, background: '#fffbeb', borderRadius: 12, padding: '12px 4px', textAlign: 'center', border: '1px solid #fde68a', minWidth: 0 }}>
+                                <div style={{ fontSize: 9, color: '#d97706', marginBottom: 4, fontWeight: 700, lineHeight: 1.3 }}>AFA 调整（所选费率）</div>
+                                <div style={{ fontSize: 19, fontWeight: 800, color: '#b45309', whiteSpace: 'nowrap' }}>
+                                    {afaRmSign}RM {fmt(Math.abs(afaAdjustment))}
+                                </div>
+                                <div style={{ fontSize: 10, color: '#d97706', marginTop: 3, lineHeight: 1.3, whiteSpace: 'nowrap' }}>
+                                    {afaSenSign}{selectedAfaSen.toFixed(2)} sen/kWh{usageKwh > 0 ? ` × ${fmt(usageKwh)} kWh` : ''}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, flexShrink: 0 }}>
+                                <Tag color={ACCENT.primary} bg={ACCENT.bg}>−{percentageSaved}%</Tag>
+                                <div style={{ fontSize: 18, color: ACCENT.primary }}>→</div>
+                            </div>
+
+                            <div style={{ flex: 1.15, background: ACCENT.bg, borderRadius: 12, padding: '12px 4px', textAlign: 'center', border: `2px solid ${ACCENT.border}`, minWidth: 0 }}>
+                                <div style={{ fontSize: 9, color: ACCENT.primary, marginBottom: 4, fontWeight: 700, lineHeight: 1.3 }}>☀️ 安装后</div>
+                                <div style={{ fontSize: 19, fontWeight: 800, color: ACCENT.primary, whiteSpace: 'nowrap' }}>RM {fmt(afterBill)}</div>
+                                <div style={{ fontSize: 10, color: ACCENT.primary, marginTop: 3 }}>每月电费</div>
+                            </div>
+                        </div>
+
+                        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12, textAlign: 'center' }}>
+                            RM {fmt(tnbAtAfa0)} {afaRmSign} RM {fmt(Math.abs(afaAdjustment))} = RM {fmt(billWithSelectedAfa)} → RM {fmt(afterBill)}
+                            <span style={{ color: '#9ca3af' }}> · 所选费率 {afaSenSign}{selectedAfaSen.toFixed(2)} sen/kWh</span>
+                        </div>
+
+                        {[
+                            { label: 'AFA 0', value: tnbAtAfa0, color: '#d1d5db', text: '#6b7280' },
+                            { label: '含所选 AFA', value: billWithSelectedAfa, color: '#fbbf24', text: '#92400e' },
+                            { label: '太阳能后', value: afterBill, color: ACCENT.primary, text: '#fff' }
+                        ].map((row) => (
+                            <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                <div style={{ width: 72, fontSize: 10, color: '#6b7280', textAlign: 'right', flexShrink: 0 }}>{row.label}</div>
+                                <div style={{ flex: 1, height: 22, background: '#f3f4f6', borderRadius: 6, overflow: 'hidden' }}>
+                                    <div style={{
+                                        height: '100%',
+                                        width: `${(Math.max(0, row.value) / barMax) * 100}%`,
+                                        background: row.color,
+                                        borderRadius: 6,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        paddingLeft: 8
+                                    }}>
+                                        <span style={{
+                                            fontSize: 10,
+                                            fontWeight: 700,
+                                            color: row.text,
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            RM {fmt(row.value)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </Card>
+                </SectionWrap>
+            );
+        }
+
+const solarResult = {
+  confidenceLevel: 90,
+  details: {
+    monthlyUsageKwh: 493,
+    billBefore: 504.67,
+    billBreakdown: { before: { total: 504.67, totalBase: 480.12, afa: 24.55, eeiUsageKwh: 493 } }
+  },
+  billBreakdownComparison: { before: { total: 504.67, totalBase: 480.12, afa: 24.55, eeiUsageKwh: 493 } }
+};
+const activeCycle = { key: 'fullMonth', payableAfterSolar: 148.33, totalSavings: 356.34 };
+
+function App() {
+  const [afaRate] = useState(0.0498);
+  return (
+    <div>
+      <BeforeAfterCard solarResult={solarResult} activeCycle={activeCycle} afaRate={afaRate} />
+      <BeforeAfterCard solarResult={solarResult} activeCycle={activeCycle} afaRate={-0.02} />
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

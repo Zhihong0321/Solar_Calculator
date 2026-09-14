@@ -1,0 +1,7 @@
+# Python deps for scripts/seda_ai_assistant.py (SEDA Upload AI Assistant).
+# Kept deliberately narrow — only the markitdown extras this feature actually
+# uses (pdf/docx/pptx/xlsx text extraction), not markitdown[all] (which pulls
+# in Azure SDKs, audio transcription, youtube-transcript-api, etc.).
+markitdown[pdf,docx,pptx,xlsx]==0.1.7
+openai>=1.0
+Pillow>=10.0

@@ -869,6 +869,10 @@
                 .replace(/'/g, '&#39;');
         }
 
+        function escapeAttr(str) {
+            return String(str == null ? '' : str).replace(/'/g, "\\'");
+        }
+
         function formatDateTime(value) {
             if (!value) return '-';
             return new Date(value).toLocaleString('en-MY', {
@@ -1384,7 +1388,7 @@
 
             if (isPdf) {
                 return `
-                    <div class="relative group aspect-square rounded-lg border border-slate-200 bg-red-50 flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="window.open('${row.file_url}','_blank','noopener')">
+                    <div class="relative group aspect-square rounded-lg border border-slate-200 bg-red-50 flex flex-col items-center justify-center gap-1 cursor-pointer" onclick="window.open('${escapeAttr(row.file_url)}','_blank','noopener')">
                         <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         <span class="text-[9px] font-bold uppercase text-red-700">PDF</span>
                         <button onclick="event.stopPropagation();deleteAttachment(${row.id})" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md">
@@ -1395,7 +1399,7 @@
 
             return `
                 <div class="relative group aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                    <img src="${row.file_url}" loading="lazy" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${row.file_url}')">
+                    <img src="${escapeAttr(row.file_url)}" loading="lazy" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${escapeAttr(row.file_url)}')">
                     ${geo}
                     <button onclick="deleteAttachment(${row.id})" class="absolute top-1 right-1 p-1 bg-red-600 text-white rounded-md">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -1406,7 +1410,7 @@
         function renderReadOnlyTile(url, badge) {
             return `
                 <div class="relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                    <img src="${url}" loading="lazy" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${url}')">
+                    <img src="${escapeAttr(url)}" loading="lazy" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="viewImage('${escapeAttr(url)}')">
                     <span class="absolute left-1 top-1 rounded-md bg-white/85 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600">${badge}</span>
                 </div>`;
         }
@@ -2297,18 +2301,19 @@
                 return;
             }
 
-            directLink.href = url;
-            const isGdrive = String(url).includes('drive.google.com');
+            const cleanUrl = String(url).trim();
+            directLink.href = cleanUrl;
+            const isGdrive = cleanUrl.includes('drive.google.com');
             const linkSpan = directLink.querySelector('span');
             if (linkSpan) linkSpan.textContent = isGdrive ? 'Open in Google Drive' : 'Open Video';
 
             if (isGdrive) {
-                const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-                const fileId = match ? match[1] : null;
-                const embedUrl = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : url;
+                const driveMatch = cleanUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || cleanUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                const fileId = driveMatch ? driveMatch[1] : null;
+                const embedUrl = fileId ? `https://drive.google.com/file/d/${fileId}/preview` : cleanUrl;
                 container.innerHTML = `<iframe src="${embedUrl}" class="w-full h-full border-0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
             } else {
-                container.innerHTML = `<video src="${url}" controls playsinline preload="metadata" autoplay class="w-full h-full object-contain bg-black"></video>`;
+                container.innerHTML = `<video src="${cleanUrl}" controls playsinline preload="metadata" autoplay class="w-full h-full object-contain bg-black"></video>`;
             }
 
             modal.classList.remove('hidden');

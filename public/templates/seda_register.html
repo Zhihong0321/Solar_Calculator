@@ -426,6 +426,29 @@
 
         <form id="sedaForm" class="space-y-8">
 
+            <!-- AI Upload Assistant -->
+            <div class="form-card" style="border-color:#bfdbfe;background:linear-gradient(180deg,#eff6ff 0%,#ffffff 55%);">
+                <h2 class="section-title" style="border-bottom-color:#dbeafe;">
+                    <span class="flex items-center justify-center w-6 h-6 rounded text-white text-[10px]" style="background:#2563eb;">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </span>
+                    AI Upload Assistant
+                </h2>
+                <p class="text-xs text-slate-500 mb-4">Drop in as many documents as you have at once — MyKad, TNB
+                    bill, SSM forms, property proof, tax document, meter photo, company stamp. The assistant sorts
+                    each one into the right field automatically; anything it can't confidently place is left for you
+                    to upload manually below.</p>
+                <div class="file-upload-box" id="aiAssistantDrop"
+                    onclick="document.getElementById('aiAssistantFiles').click()">
+                    <p class="text-sm text-slate-600 font-semibold"><i class="fa-solid fa-cloud-arrow-up mr-2 text-blue-500"></i>Click
+                        or drop files here</p>
+                    <p class="text-[10px] text-slate-400 mt-1">PDF or image, up to 10 files, max 25 MB each</p>
+                    <input type="file" id="aiAssistantFiles" accept="application/pdf,image/*" multiple class="hidden"
+                        onchange="handleAiAssistantFiles(this)">
+                </div>
+                <div id="aiAssistantResult" class="mt-4 space-y-2" style="display:none;"></div>
+            </div>
+
             <!-- Applicant Details -->
             <div class="form-card">
                 <h2 class="section-title">
@@ -1434,6 +1457,68 @@
             el.dispatchEvent(new Event('change'));
         }
 
+        // ── AI Upload Assistant ──────────────────────────────────────────────────
+        // Drop several files at once; the server identifies + auto-places each one it's
+        // confident about (reusing the normal upload path), and returns any leftover text
+        // fields it read along the way. Never overwrites a field the user already filled in.
+        function aiAssistantUploadUrl() { return `${apiBase()}/ai-upload`; }
+
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function insertValueIfEmpty(targetId, value) {
+            const el = document.getElementById(targetId);
+            if (!el || el.value.trim()) return false;
+            insertValue(targetId, value);
+            return true;
+        }
+
+        async function handleAiAssistantFiles(inputEl) {
+            const files = Array.from(inputEl.files || []);
+            if (!files.length) return;
+
+            const resultBox = document.getElementById('aiAssistantResult');
+            resultBox.style.display = 'block';
+            resultBox.innerHTML = `<div class="text-xs text-slate-500 flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin"></i>Reading ${files.length} document${files.length > 1 ? 's' : ''}...</div>`;
+
+            const form = new FormData();
+            files.forEach((f) => form.append('files', f, f.name || 'upload'));
+            inputEl.value = '';
+
+            let json;
+            try {
+                const res = await fetch(aiAssistantUploadUrl(), { method: 'POST', body: form });
+                json = await res.json();
+                if (!res.ok || !json?.success) throw new Error(json?.error || `Request failed (HTTP ${res.status}).`);
+            } catch (err) {
+                resultBox.innerHTML = `<div class="text-xs text-red-600 font-semibold"><i class="fa-solid fa-circle-exclamation mr-2"></i>${escapeHtml(err.message || 'Could not read these documents.')} You can still upload them manually below.</div>`;
+                return;
+            }
+
+            const { uploaded = [], unrecognized = [], extracted_fields = {} } = json.data || {};
+
+            let filledCount = 0;
+            Object.entries(extracted_fields).forEach(([key, value]) => {
+                if (insertValueIfEmpty(key, value)) filledCount += 1;
+            });
+
+            const rows = [];
+            uploaded.forEach((u) => {
+                rows.push(`<div class="flex items-center gap-2 text-xs text-emerald-700"><i class="fa-solid fa-circle-check"></i><span class="font-semibold">${escapeHtml(u.label)}</span><span class="text-slate-400">— ${escapeHtml(u.filename)}</span></div>`);
+            });
+            unrecognized.forEach((u) => {
+                rows.push(`<div class="flex items-center gap-2 text-xs text-amber-700"><i class="fa-solid fa-circle-question"></i><span class="font-semibold">${escapeHtml(u.filename)}</span><span class="text-slate-400">— ${escapeHtml(u.reason || 'Not recognized, please upload manually below.')}</span></div>`);
+            });
+            if (filledCount) {
+                rows.push(`<div class="flex items-center gap-2 text-xs text-blue-700"><i class="fa-solid fa-pen"></i>Auto-filled ${filledCount} empty field${filledCount > 1 ? 's' : ''} from what it read.</div>`);
+            }
+            resultBox.innerHTML = rows.join('') || '<div class="text-xs text-slate-400">No files processed.</div>';
+
+            if (uploaded.length) await loadData();
+            updateChecklist();
+        }
+
         // ── MyKad mode toggle ─────────────────────────────────────────────────
         function setMyKadMode(mode) {
             document.getElementById('btnModeImages').className = mode === 'images' ? 'px-4 py-2 text-xs font-bold rounded-lg bg-slate-900 text-white' : 'px-4 py-2 text-xs font-bold rounded-lg text-slate-500 hover:bg-slate-100';
@@ -1575,6 +1660,26 @@
 
         // ── Init ──────────────────────────────────────────────────────────────
         renderTnbBillUploads();
+
+        (function wireAiAssistantDragDrop() {
+            const drop = document.getElementById('aiAssistantDrop');
+            const input = document.getElementById('aiAssistantFiles');
+            if (!drop || !input) return;
+            ['dragenter', 'dragover'].forEach(evt => drop.addEventListener(evt, (e) => {
+                e.preventDefault();
+                drop.style.borderColor = '#2563eb';
+            }));
+            ['dragleave', 'drop'].forEach(evt => drop.addEventListener(evt, (e) => {
+                e.preventDefault();
+                drop.style.borderColor = '';
+            }));
+            drop.addEventListener('drop', (e) => {
+                if (!e.dataTransfer?.files?.length) return;
+                input.files = e.dataTransfer.files;
+                handleAiAssistantFiles(input);
+            });
+        })();
+
         document.getElementById('sedaForm').addEventListener('submit', saveSedaForm);
         document.querySelectorAll('input, select, textarea').forEach(el => {
             el.addEventListener('change', updateChecklist);

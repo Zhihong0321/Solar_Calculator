@@ -7,6 +7,85 @@
 
 <!-- Add new entries at the top, below this line -->
 
+## 2026-09-14 — Customer-ID portal endpoint added for a separate client-facing PWA
+
+- made by: Claude Sonnet 5, at user direction
+- reason: a new, separately-repo'd client-facing PWA ("Eter Customer App", `E:\000\Eter Customer App`)
+  needs to load a customer's full invoice/quotation/SEDA history by Customer ID alone — no such
+  aggregation endpoint existed (existing public access is always scoped to one invoice or one SEDA
+  registration via `share_token`, never to a customer's full history).
+- shape: `src/modules/CustomerPortal` (`GET /api/v1/customer-portal/:customerId`, public, no auth).
+  Returns the customer row plus every `is_latest`/non-deleted invoice linked to it, each with a
+  Quotation link (`${SOLAR_APP_BASE_URL}/view/:token`), a Printable link (same + `?layout=a4`), and
+  a SEDA summary. Reuses existing logic rather than duplicating it:
+  - verified `paid_amount` comes only from `payment` rows (`SUM(amount) WHERE linked_invoice=$1 OR
+    bubble_id = ANY(linked_payment)`), matching the 2026-04-23 rule below — never `invoice.paid_amount`.
+  - SEDA auto-provisioning reuses `ensureSedaRegistrationForQuotationView` (now exported from
+    `src/modules/Invoicing/api/invoiceViewRoutes.js`), the exact function `/view/:tokenOrId` already
+    runs on every public quotation load (advisory-locked, EV-charger invoices skipped).
+  - if the linked SEDA registration's `share_token` is missing, disabled, or expired, this endpoint
+    refreshes it (new token, `share_enabled=true`, 30-day expiry) so the customer app's SEDA button
+    never dead-ends on token expiry — a deliberate deviation from `/seda-public/:shareToken`, which
+    just 404s on an expired token instead of refreshing it.
+  - the SEDA Registration Form itself is rebuilt inside the new app, but calls the *existing*
+    `/api/v1/seda-public/:shareToken/*` JSON API directly (cross-origin — CORS is already `origin: '*'`
+    server-wide) rather than going through any new endpoint here.
+- accepted risk (explicit user decision, not a default): the Customer ID (`cust_` + 8 hex chars,
+  ~32 bits) is the *only* credential required — no second factor. This matches the existing
+  accepted-risk profile of `share_token`-gated public routes, but a customer_id is shorter and,
+  unlike a share_token, is also used elsewhere as a plain identifier (so it may already appear in
+  places outside a private share link). Revisit if this ever needs to gate anything more sensitive
+  than what `/view/:tokenOrId` and `/seda-public/:shareToken` already expose.
+- do not reverse without: explicit user approval — the friction-free (no second factor) design was
+  a deliberate, explicit choice, not an oversight.
+- status: ACTIVE
+
+## 2026-09-13 — SEDA Upload AI Assistant: MarkItDown + Python subprocess, own kill switch
+
+- made by: Claude Sonnet 5, at user direction
+- reason: user wants a multi-file drop zone on the SEDA form that auto-identifies each
+  document (MyKad, TNB bill, SSM forms, property proof, tax doc, meter photo, company
+  stamp) and places it in the right field, extracting whatever applicant/site data is
+  visible along the way. Model: `deepseek-v4.1-flash`, credential sourced from the
+  `my-vault-v2` vault (`vault_llm_credentials`, row `YERPLAN_TOKEN_PLAN` — an OpenAI-
+  compatible reseller). Text extraction/routing uses Microsoft's MarkItDown
+  (https://github.com/microsoft/markitdown), per explicit user instruction.
+- shape: `routes/sedaRoutes.js` (`POST /api/v1/seda/:id/ai-upload` and the
+  `seda-public/:shareToken` equivalent) accepts up to 10 files in one request. Each file
+  is classified by `src/modules/Invoicing/services/sedaUploadAssistant.js`, which spawns
+  `scripts/seda_ai_assistant.py` (one process per file) — MarkItDown is Python-only, so
+  there's no way to call it from Node directly. The script tries free/deterministic text
+  extraction first (PDF/DOCX/XLSX/PPTX with a real text layer — zero LLM tokens), and
+  only falls back to a vision call (image, or a scanned PDF with no text layer) after
+  resizing the image to keep that call cheap (≤1600px longest edge, ≤500KB JPEG). Files
+  the assistant is confident about are persisted immediately through the same
+  `persistSedaFile()` path a manual per-field upload uses (optimize → R2 → DB column →
+  audit entry); anything below "high/medium" confidence is left for manual upload via
+  the existing per-field boxes — this never silently overwrites a field or guesses past
+  low confidence.
+- new infra: `requirements.txt` (repo root) + Dockerfile now installs `python3`/`pip3`
+  (node:20-slim is Debian; `--break-system-packages` since nothing else in the image is
+  Python-based). Local `.env` / `.env.example` carry
+  `SEDA_AI_ASSISTANT_BASE_URL`/`_API_KEY`/`_MODEL`.
+- deliberately separate from `OCR_ENABLED` (the 2026-07-20 entry below, which disabled
+  `extract-tnb`/`extract-mykad`/`verify-meter`/`verify-ownership` for unreliable
+  extraction): this is a different feature (`UPLOAD_ASSISTANT_ENABLED` in
+  `routes/sedaRoutes.js`), a different model, and — critically — always requires a human
+  to have dropped the file and see the placement result, rather than running unattended
+  against files already on a record. Flipping `OCR_ENABLED` back on should not be read as
+  a signal about this feature's reliability, and vice versa.
+- rejected alternatives:
+  - routing through the existing `AI_ROUTER_BASE_URL` (`e-router.up.railway.app`, used by
+    `src/modules/ClaimReceipt`): rejected because the user asked specifically for the
+    `deepseek-v4.1-flash` vault credential, not the router's default model
+  - reusing `src/modules/AIRouter/aiRouter.js`: that module was simplified down to a
+    single hardcoded UniAPI/gemini-3-flash-preview config and isn't provider-pluggable;
+    not worth re-generalizing for one caller
+- do not reverse without: confirming the vault credential is still valid (it's a
+  reseller key, not a first-party DeepSeek key) and re-testing the vision path, since
+  `api.qiyue999.com` behavior for image_url content isn't officially documented
+- status: ACTIVE
+
 ## 2026-07-20 — HostedHtml served from R2 public URL; stale-cache accepted
 
 - made by: user

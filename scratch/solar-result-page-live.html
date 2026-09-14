@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solar Result · RM 500 bill</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    html, body { background:#bbf7d0; }
+    body {
+      font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+      color:#111827;
+      display:flex;
+      justify-content:center;
+      min-height:100vh;
+    }
+    #root {
+      width:100%;
+      max-width:430px;
+      min-height:100vh;
+      background:#f1f5f1;
+      padding-bottom:28px;
+    }
+    @media (min-width:500px) {
+      body { padding:28px 16px; align-items:flex-start; }
+      #root { border-radius:36px; overflow:hidden; box-shadow:0 32px 80px rgba(0,0,0,.22); }
+    }
+    .pad { padding:10px 14px 0; }
+    .card { background:#fff; border-radius:16px; padding:18px 16px; }
+    .eyebrow { font-size:11px; color:#9ca3af; font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
+    .muted { color:#6b7280; }
+    .green { color:#16a34a; }
+    .hero { background:#0d1f0f; border-radius:20px; overflow:hidden; padding:20px 20px 18px; }
+    .hero-top { display:flex; justify-content:space-between; align-items:flex-start; }
+    .hero-kicker { font-size:10px; color:#22c55e; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+    .hero-value { font-size:58px; font-weight:800; color:#22c55e; letter-spacing:-2px; line-height:1; margin-top:6px; }
+    .split { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:8px; }
+    .pill { border-radius:12px; padding:12px 6px; text-align:center; min-width:0; }
+    .pill h4 { font-size:9px; margin-bottom:4px; line-height:1.3; }
+    .pill .n { font-size:16px; font-weight:800; }
+    .tag { display:inline-block; background:#dcfce7; color:#16a34a; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; }
+    .hbar { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+    .hbar .lbl { width:72px; font-size:10px; color:#6b7280; text-align:right; flex-shrink:0; }
+    .track { flex:1; height:22px; background:#f3f4f6; border-radius:6px; overflow:hidden; }
+    .flow-bar .track, .money-row .track { height:8px; border-radius:4px; }
+    .money-row .track { height:26px; border-radius:5px; }
+    .fill { height:100%; border-radius:inherit; }
+    .flow-cols { display:flex; gap:10px; }
+    .flow-col { flex:1; background:#f8faf8; border-radius:12px; padding:12px; }
+    .flow-bar { margin-bottom:6px; }
+    .flow-bar-row { display:flex; justify-content:space-between; margin-bottom:3px; font-size:11px; color:#6b7280; }
+    .fit-box { margin-top:8px; background:#fffbeb; border-radius:8px; padding:8px 10px; display:flex; justify-content:space-between; align-items:center; }
+    .amber { background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px; margin-bottom:10px; }
+    .green-box { background:#dcfce7; border:1px solid #86efac; border-radius:12px; padding:12px; margin-bottom:10px; }
+    .compare-block { margin-bottom:10px; }
+    .compare-label { font-size:12px; color:#374151; font-weight:500; margin-bottom:3px; }
+    .compare-pair { display:flex; gap:10px; }
+    .compare-side { width:24px; flex-shrink:0; }
+    .compare-bars { flex:1; }
+    .tiny { font-size:10px; height:26px; line-height:26px; text-align:right; }
+    .money-row { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+    .money-row strong { width:72px; flex-shrink:0; text-align:right; font-size:11px; }
+    .total-dark { background:#0d1f0f; border-radius:12px; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; }
+    .grid-head, .grid-row { display:grid; grid-template-columns:1fr 64px 64px 68px; padding:8px 10px; font-size:11px; }
+    .grid-head { background:#f8faf8; font-size:10px; font-weight:700; color:#9ca3af; text-transform:uppercase; }
+    .grid-row { border-top:1px solid #f3f4f6; }
+    .grid-row.alt { background:#fafafa; }
+    .right { text-align:right; }
+    .meta { font-size:11px; color:#6b7280; margin-top:5px; }
+    .sys-row { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid #f3f4f6; font-size:13px; }
+    .sys-row span { flex:1; min-width:0; }
+    .sys-row strong { text-align:right; flex:1.2; min-width:0; overflow-wrap:anywhere; }
+    .note { font-size:10px; color:#6b7280; margin-bottom:5px; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="pad">
+      <div class="hero">
+        <div class="hero-top">
+          <div>
+            <div class="hero-kicker">Step 4 · ROI</div>
+            <div class="meta">Monthly Savings</div>
+          </div>
+          <div style="text-align:center">
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="26" fill="none" stroke="#1a3a1a" stroke-width="5"></circle>
+              <circle cx="32" cy="32" r="26" fill="none" stroke="#22c55e" stroke-width="5" stroke-dasharray="147.02653618800232 163.36281798666926" stroke-linecap="round" transform="rotate(-90 32 32)"></circle>
+              <text x="32" y="35" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">90%</text>
+            </svg>
+            <div style="font-size:9px;color:#6b7280;margin-top:-2px">Confidence</div>
+          </div>
+        </div>
+        <div class="hero-value">RM 356.34</div>
+        <div class="meta">Monthly · Full Month Bill Cycle</div>
+      </div>
+    </div>
+
+    <div class="pad">
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:14px">Before vs After · Bill Comparison</div>
+        <div class="split">
+          <div class="pill" style="background:#f3f4f6">
+            <h4 class="muted">TNB Bill (AFA 0)</h4>
+            <div class="n muted">RM 504.67</div>
+            <div class="meta">Monthly Bill</div>
+          </div>
+          <div class="pill" style="background:#fffbeb;border:1px solid #fde68a">
+            <h4 style="color:#d97706;font-weight:700">AFA Adjustment</h4>
+            <div class="n" style="color:#b45309">+RM 0.00</div>
+            <div class="meta" style="color:#d97706">+0.00 sen/kWh</div>
+          </div>
+          <div class="pill" style="background:#dcfce7;border:2px solid #86efac">
+            <h4 class="green" style="font-weight:700">After Solar</h4>
+            <div class="n green">RM 148.33</div>
+            <div class="meta"><span class="tag">−71%</span></div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#6b7280;margin-bottom:12px;text-align:center;line-height:1.45">
+          RM 504.67 + RM 0.00 = RM 504.67 → RM 148.33
+          <div style="color:#9ca3af;margin-top:2px">Selected AFA +0.00 sen/kWh × 1,058.00 kWh</div>
+        </div>
+        
+          <div class="hbar">
+            <div class="lbl">AFA 0</div>
+            <div class="track">
+              <div class="fill" style="width:100%;background:#d1d5db;display:flex;align-items:center;padding-left:8px">
+                <span style="font-size:10px;font-weight:700;color:#6b7280;white-space:nowrap">RM 504.67</span>
+              </div>
+            </div>
+          </div>
+          <div class="hbar">
+            <div class="lbl">With selected AFA</div>
+            <div class="track">
+              <div class="fill" style="width:100%;background:#fbbf24;display:flex;align-items:center;padding-left:8px">
+                <span style="font-size:10px;font-weight:700;color:#92400e;white-space:nowrap">RM 504.67</span>
+              </div>
+            </div>
+          </div>
+          <div class="hbar">
+            <div class="lbl">After Solar</div>
+            <div class="track">
+              <div class="fill" style="width:29.391483543701824%;background:#16a34a;display:flex;align-items:center;padding-left:8px">
+                <span style="font-size:10px;font-weight:700;color:#fff;white-space:nowrap">RM 148.33</span>
+              </div>
+            </div>
+          </div>
+      </div>
+    </div>
+
+    <div class="pad">
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:14px">⚡ Energy Flow</div>
+        <div class="flow-cols">
+          <div class="flow-col">
+            <div style="font-size:11px;font-weight:700;margin-bottom:2px">☀️ Total Solar Generation</div>
+            <div style="font-size:18px;font-weight:800;color:#d97706;margin-bottom:10px">1,060.80 kWh</div>
+            <div style="font-size:11px;color:#9ca3af;font-weight:700;margin-bottom:8px">Where Solar Generation Goes</div>
+            
+    <div class="flow-bar">
+      <div class="flow-bar-row">
+        <span>Offset by Solar</span>
+        <strong style="color:#16a34a">1,058.00 kWh</strong>
+      </div>
+      <div class="track" style="background:#dcfce7">
+        <div class="fill" style="width:100%;background:#16a34a"></div>
+      </div>
+    </div>
+            
+    <div class="flow-bar">
+      <div class="flow-bar-row">
+        <span>Export to FiT</span>
+        <strong style="color:#d97706">739.76 kWh</strong>
+      </div>
+      <div class="track" style="background:#fef3c7">
+        <div class="fill" style="width:70%;background:#d97706"></div>
+      </div>
+    </div>
+            
+    <div class="flow-bar">
+      <div class="flow-bar-row">
+        <span>Credit Next Month (Backup)</span>
+        <strong style="color:#3b82f6">2.80 kWh</strong>
+      </div>
+      <div class="track" style="background:#eff6ff">
+        <div class="fill" style="width:0%;background:#3b82f6"></div>
+      </div>
+    </div>
+            <div class="fit-box">
+              <div style="font-size:11px;color:#9ca3af">FiT Income</div>
+              <div style="font-size:16px;font-weight:800;color:#d97706">+RM 199.96</div>
+            </div>
+          </div>
+          <div class="flow-col">
+            <div style="font-size:11px;font-weight:700;margin-bottom:2px">🏠 Home Consumption</div>
+            <div style="font-size:18px;font-weight:800;margin-bottom:10px">1,058.00 kWh</div>
+            
+    <div class="flow-bar">
+      <div class="flow-bar-row">
+        <span>Grid Import</span>
+        <strong style="color:#60a5fa">0.00 kWh</strong>
+      </div>
+      <div class="track" style="background:#eff6ff">
+        <div class="fill" style="width:0%;background:#60a5fa"></div>
+      </div>
+    </div>
+            
+    <div class="flow-bar">
+      <div class="flow-bar-row">
+        <span>Offset by Solar</span>
+        <strong style="color:#16a34a">1,058.00 kWh</strong>
+      </div>
+      <div class="track" style="background:#dcfce7">
+        <div class="fill" style="width:100%;background:#16a34a"></div>
+      </div>
+    </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pad">
+      <div class="card">
+        <div class="eyebrow">Savings Breakdown</div>
+        <div class="meta" style="margin-bottom:14px">Monthly savings = export income + bill reduction (including EEI)</div>
+        <div class="amber">
+          <div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">💰 Export Income (FiT)</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600">FiT Export</div>
+              <div class="meta">739.76 kWh × RM 0.2703</div>
+            </div>
+            <strong style="color:#d97706">+RM 199.96</strong>
+          </div>
+        </div>
+        <div class="green-box">
+          <div style="font-size:11px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">📉 Bill Reduction</div>
+          
+    <div class="compare-block">
+      <div class="compare-label">Energy + Network + Capacity</div>
+      <div class="compare-pair">
+        <div class="compare-side">
+          <div class="tiny muted">Before</div>
+          <div class="tiny muted">After</div>
+        </div>
+        <div class="compare-bars">
+          <div class="money-row">
+            <div class="track gray"><div class="fill" style="width:90.9090909090909%;background:#d1d5db;min-width:8px"></div></div>
+            <strong class="muted">RM 470.07</strong>
+          </div>
+          <div class="money-row">
+            <div class="track green"><div class="fill" style="width:63.4973127793346%;background:#16a34a;min-width:8px"></div></div>
+            <strong class="green">RM 328.33</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+          
+    <div class="compare-block">
+      <div class="compare-label">SST + KWTBB + Retail</div>
+      <div class="compare-pair">
+        <div class="compare-side">
+          <div class="tiny muted">Before</div>
+          <div class="tiny muted">After</div>
+        </div>
+        <div class="compare-bars">
+          <div class="money-row">
+            <div class="track gray"><div class="fill" style="width:56.93333333333332%;background:#d1d5db;min-width:8px"></div></div>
+            <strong class="muted">RM 17.08</strong>
+          </div>
+          <div class="money-row">
+            <div class="track green"><div class="fill" style="width:17.466666666666665%;background:#16a34a;min-width:8px"></div></div>
+            <strong class="green">RM 5.24</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+          <div class="note">Net import &lt;= 0 kWh, EEI becomes zero</div>
+          
+    <div class="compare-block">
+      <div class="compare-label">EEI Incentive (TNB)</div>
+      <div class="compare-pair">
+        <div class="compare-side">
+          <div class="tiny muted">Before</div>
+          <div class="tiny muted">After</div>
+        </div>
+        <div class="compare-bars">
+          <div class="money-row">
+            <div class="track gray"><div class="fill" style="width:0%;background:#d1d5db;min-width:0px"></div></div>
+            <strong class="muted">RM 0.00</strong>
+          </div>
+          <div class="money-row">
+            <div class="track green"><div class="fill" style="width:0%;background:#16a34a;min-width:0px"></div></div>
+            <strong class="green">RM 0.00</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <span style="font-size:12px;font-weight:600" class="green">Total Reduction</span>
+            <span style="font-size:18px;font-weight:800" class="green">RM 156.38</span>
+          </div>
+        </div>
+        <div class="total-dark">
+          <div>
+            <div class="meta">Income + Reduction</div>
+            <div style="font-size:14px;font-weight:700;color:#fff">Total Monthly Savings</div>
+          </div>
+          <div style="font-size:32px;font-weight:800;color:#22c55e">RM 356.34</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pad">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div>
+            <div class="eyebrow">25-Year Savings Forecast</div>
+            <div style="font-size:26px;font-weight:800;color:#16a34a;margin-top:2px">RM 156k+</div>
+            <div class="meta">Estimated 25-year return (with 3% annual tariff increase)</div>
+          </div>
+        </div>
+        
+    <svg width="100%" viewBox="0 0 320 150" style="overflow:visible">
+      
+    <line x1="36" y1="124" x2="308" y2="124" stroke="#f3f4f6" stroke-width="1"></line>
+    <text x="32" y="128" text-anchor="end" font-size="9" fill="#9ca3af">0</text>
+  
+    <line x1="36" y1="88.375" x2="308" y2="88.375" stroke="#f3f4f6" stroke-width="1"></line>
+    <text x="32" y="92.375" text-anchor="end" font-size="9" fill="#9ca3af">50k</text>
+  
+    <line x1="36" y1="52.75" x2="308" y2="52.75" stroke="#f3f4f6" stroke-width="1"></line>
+    <text x="32" y="56.75" text-anchor="end" font-size="9" fill="#9ca3af">100k</text>
+  
+    <line x1="36" y1="17.125" x2="308" y2="17.125" stroke="#f3f4f6" stroke-width="1"></line>
+    <text x="32" y="21.125" text-anchor="end" font-size="9" fill="#9ca3af">150k</text>
+  
+      <path d="M 36,124 L 46.88,120.953293 L 57.760000000000005,117.81518479 L 68.64,114.5829333337 L 79.52000000000001,111.253714333711 L 90.4,107.82461876372233 L 101.28,104.292650326634 L 112.16000000000001,100.65472283643302 L 123.04,96.907657521526 L 133.92000000000002,93.04818024717179 L 144.8,89.07291865458694 L 155.68,84.97839921422454 L 166.56,80.76104419065129 L 177.44,76.41716851637082 L 188.32000000000002,71.94297657186195 L 199.2,67.3345588690178 L 210.08,62.58788863508833 L 220.96,57.69881829414098 L 231.84,52.6630758429652 L 242.72,47.47626111825416 L 253.60000000000002,42.133841951801784 L 264.48,36.63115021035584 L 275.36,30.96337771666653 L 286.24,25.125572048166504 L 297.12,19.112632209611505 L 308,12.919304175899853 L 308,124 L 36,124 Z" fill="#dcfce7" opacity="0.5"></path>
+      <path d="M 36,124 L 46.88,120.953293 L 57.760000000000005,117.81518479 L 68.64,114.5829333337 L 79.52000000000001,111.253714333711 L 90.4,107.82461876372233 L 101.28,104.292650326634 L 112.16000000000001,100.65472283643302 L 123.04,96.907657521526 L 133.92000000000002,93.04818024717179 L 144.8,89.07291865458694 L 155.68,84.97839921422454 L 166.56,80.76104419065129 L 177.44,76.41716851637082 L 188.32000000000002,71.94297657186195 L 199.2,67.3345588690178 L 210.08,62.58788863508833 L 220.96,57.69881829414098 L 231.84,52.6630758429652 L 242.72,47.47626111825416 L 253.60000000000002,42.133841951801784 L 264.48,36.63115021035584 L 275.36,30.96337771666653 L 286.24,25.125572048166504 L 297.12,19.112632209611505 L 308,12.919304175899853" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"></path>
+      <line x1="36" y1="105.35458750000001" x2="308" y2="105.35458750000001" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="4 3"></line>
+      <line x1="102.368" y1="10" x2="102.368" y2="124" stroke="#22c55e" stroke-width="1" stroke-dasharray="2 2" opacity="0.7"></line>
+      <circle cx="102.368" cy="105.35458750000001" r="5" fill="#22c55e" stroke="#16a34a" stroke-width="1.5"></circle>
+      <text x="109.368" y="98.35458750000001" font-size="9" fill="#16a34a" font-weight="700">6.1yr payback</text>
+      <line x1="36" y1="124" x2="308" y2="124" stroke="#e5e7eb" stroke-width="1"></line>
+      
+    <text x="36" y="137" text-anchor="middle" font-size="9" fill="#9ca3af">Now</text>
+  
+    <text x="90.4" y="137" text-anchor="middle" font-size="9" fill="#9ca3af">5y</text>
+  
+    <text x="144.8" y="137" text-anchor="middle" font-size="9" fill="#9ca3af">10y</text>
+  
+    <text x="199.2" y="137" text-anchor="middle" font-size="9" fill="#9ca3af">15y</text>
+  
+    <text x="253.60000000000002" y="137" text-anchor="middle" font-size="9" fill="#9ca3af">20y</text>
+  
+    <text x="308" y="137" text-anchor="middle" font-size="9" fill="#9ca3af">25y</text>
+  
+      <text x="304" y="4.919304175899853" text-anchor="end" font-size="9" fill="#16a34a" font-weight="700">RM 156k</text>
+    </svg>
+      </div>
+    </div>
+
+    <div class="pad">
+      <div class="card">
+        <div class="eyebrow">Recommended Package</div>
+        <div style="font-size:16px;font-weight:700;margin:6px 0 2px">[3P] STRING SAJ JINKO 16 PCS</div>
+        <div class="meta">16 x 650W panels (10.4 kW system)</div>
+        <div class="sys-row"><span class="muted">System size</span><strong>10.4 kWp · 16 × 650W</strong></div>
+        <div class="sys-row"><span class="muted">Phase / inverter</span><strong>3-phase · string</strong></div>
+        <div class="sys-row"><span class="muted">Sun peak / daytime use</span><strong>3.4 h · 30%</strong></div>
+        <div class="sys-row"><span class="muted">Battery</span><strong>None</strong></div>
+        <div class="sys-row"><span class="muted">System cost</span><strong>RM 26,169.00</strong></div>
+        <div class="sys-row"><span class="muted">Payback</span><strong class="green">6.1 yr</strong></div>
+        
+      </div>
+    </div>
+
+    <div class="pad">
+      <div class="card">
+        <div class="eyebrow" style="margin-bottom:10px">📊 Bill Component Details</div>
+        <div style="border:1px solid #f3f4f6;border-radius:10px;overflow:hidden">
+          <div class="grid-head">
+            <div>Item</div>
+            <div class="right">Before</div>
+            <div class="right">After</div>
+            <div class="right">Savings</div>
+          </div>
+          
+      <div class="grid-row ">
+        <span>Usage</span>
+        <span class="right muted">RM 285.98</span>
+        <span class="right muted">RM 199.75</span>
+        <span class="right green">−RM 86.23</span>
+      </div>
+      <div class="grid-row alt">
+        <span>Network</span>
+        <span class="right muted">RM 135.95</span>
+        <span class="right muted">RM 94.96</span>
+        <span class="right green">−RM 40.99</span>
+      </div>
+      <div class="grid-row ">
+        <span>Capacity Fee</span>
+        <span class="right muted">RM 48.14</span>
+        <span class="right muted">RM 33.62</span>
+        <span class="right green">−RM 14.52</span>
+      </div>
+      <div class="grid-row alt">
+        <span>SST</span>
+        <span class="right muted">RM 17.08</span>
+        <span class="right muted">RM 5.24</span>
+        <span class="right green">−RM 11.84</span>
+      </div>
+      <div class="grid-row ">
+        <span>EEI</span>
+        <span class="right muted">RM 0.00</span>
+        <span class="right muted">RM 0.00</span>
+        <span class="right muted">RM 0.00</span>
+      </div>
+      <div class="grid-row alt">
+        <span>AFA Charge</span>
+        <span class="right muted">RM 0.00</span>
+        <span class="right muted">RM 0.00</span>
+        <span class="right muted">RM 0.00</span>
+      </div>
+        </div>
+        <div class="sys-row"><span class="muted">Bill reduction</span><strong class="green">−RM 156.38</strong></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

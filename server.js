@@ -17,6 +17,7 @@ const { storageDriver } = require('./src/core/upload');
 const Invoicing = require('./src/modules/Invoicing');
 const SolarCalculator = require('./src/modules/SolarCalculator');
 const Customer = require('./src/modules/Customer');
+const CustomerPortal = require('./src/modules/CustomerPortal');
 const Chat = require('./src/modules/Chat');
 const Referral = require('./src/modules/Referral');
 const Email = require('./src/modules/Email');
@@ -96,6 +97,7 @@ app.use((err, req, res, next) => {
 app.use(Invoicing.router);
 app.use(SolarCalculator.router);
 app.use(Customer.router);
+app.use(CustomerPortal.router);
 app.use(Chat.router);
 app.use(Referral.router);
 app.use(Email.router);

@@ -4,6 +4,15 @@ FROM node:20-slim
 # Create and change to the app directory
 WORKDIR /usr/src/app
 
+# Python + MarkItDown (scripts/seda_ai_assistant.py — SEDA Upload AI Assistant).
+# node:20-slim is Debian, so python3/pip3 aren't present by default.
+# --break-system-packages: this container runs nothing else Python-based, so PEP 668's
+# "externally managed environment" guard has nothing to protect here.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt ./
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+
 # Copy application dependency manifests to the container image.
 # A wildcard is used to ensure both package.json and package-lock.json are copied.
 # Copying this separately prevents re-running npm install on every code change.
