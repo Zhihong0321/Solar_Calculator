@@ -204,6 +204,19 @@ function testRenderer() {
   assert('escapes nothing from fixture numbers', html.includes(model.solarConfig.split('(')[0].trim()) || html.includes('8 x 650W'));
   assert('does not include interactive quotation CTA', !html.includes('Create Quotation Link'));
 
+  const standardModes = buildBillCycleModes(FIXTURE_RESULT);
+  const exemptionModes = buildBillCycleModes({
+    ...FIXTURE_RESULT,
+    savingsBreakdown: {
+      ...FIXTURE_RESULT.savingsBreakdown,
+      extraAfaSstSaving: { eligible: true, total: 64.76 }
+    }
+  });
+  assert(
+    'keeps AFA + SST exemption saving out of <28-day ROI total',
+    exemptionModes.under28Days.totalSavings === standardModes.under28Days.totalSavings
+  );
+
   const xss = renderSolarResultPage({
     ...FIXTURE_RESULT,
     selectedPackage: { packageName: '<script>alert(1)</script>', price: '1' },

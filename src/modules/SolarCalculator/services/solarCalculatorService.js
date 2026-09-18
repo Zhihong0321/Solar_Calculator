@@ -574,6 +574,19 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
       ? Math.max(0, afterBill - exportSavingRaw)
       : Math.max(0, billBefore - (billReduction + actualEeiSaving + exportSaving));
 
+    // Domestic accounts whose post-solar billed usage is 800 kWh or below are
+    // exempt from SST and AFA. These values are displayed separately in the
+    // ROI breakdown; the total ROI remains bill comparison plus export income.
+    const postSolarBillUsageKwh = afterUsageMatched !== null ? afterUsageMatched : netUsageKwh;
+    const qualifiesForAfaSstExemption = postSolarBillUsageKwh <= 800;
+    const extraSstSaving = qualifiesForAfaSstExemption
+      ? Math.max(0, beforeBreakdown ? beforeBreakdown.sst : 0)
+      : 0;
+    const extraAfaSaving = qualifiesForAfaSstExemption
+      ? monthlyUsageKwh * afaRate
+      : 0;
+    const extraAfaSstSaving = extraSstSaving + extraAfaSaving;
+
     const totalMonthlySavings = billReduction + actualEeiSaving + exportSaving;
     const totalMonthlySavingsBaseline = billReductionBaseline + actualEeiSavingBaseline + exportSavingBaseline;
     const batteryValueFromStoredEnergy = monthlyMaxDischarge * (morningUsageRate + afaRate);
@@ -623,7 +636,17 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
       afaImpact: Number(afaSaving.toFixed(2)),
       baseBillReduction: Number(baseBillReduction.toFixed(2)),
       grossBillReduction: Number(grossBillReduction.toFixed(2)),
-      total: Number((billReduction + actualEeiSaving + exportSaving).toFixed(2)),
+      extraAfaSstSaving: {
+        eligible: qualifiesForAfaSstExemption,
+        postSolarBillUsageKwh: Number(postSolarBillUsageKwh.toFixed(2)),
+        thresholdKwh: 800,
+        sst: Number(extraSstSaving.toFixed(2)),
+        afaRate: Number(afaRate.toFixed(4)),
+        beforeSolarUsageKwh: Number(monthlyUsageKwh.toFixed(2)),
+        afa: Number(extraAfaSaving.toFixed(2)),
+        total: Number(extraAfaSstSaving.toFixed(2))
+      },
+      total: Number(totalMonthlySavings.toFixed(2)),
       payableAfterSolar: Number(estimatedPayableAfterSolar.toFixed(2))
     };
 

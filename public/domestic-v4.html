@@ -1591,6 +1591,11 @@
             const totalImportAfterSolarKwh = Math.max(0, toNumber(details.netUsageKwh, details.afterUsageKwh));
             const totalExportKwh = Math.max(0, toNumber(details.exportKwh));
             const netImportKwh = Math.max(0, toNumber(details.actualUsageForEeiKwh));
+            const extraAfaSstSaving = breakdown.extraAfaSstSaving || {};
+            const hasExtraAfaSstSaving = Boolean(extraAfaSstSaving.eligible);
+            const extraSstSaving = toNumber(extraAfaSstSaving.sst);
+            const extraAfaSaving = toNumber(extraAfaSstSaving.afa);
+            const extraAfaSstTotal = toNumber(extraAfaSstSaving.total);
             const totalReduce = toNumber(breakdown.billReduction) + eeiSaving;
             const maxBar = Math.max(energyBefore, exportRm, 1) * 1.1;
             const eeiScaleMax = resolveCompactScaleMax(eeiBefore, eeiAfter);
@@ -1726,6 +1731,30 @@
                                 <span style={{ fontSize: 18, fontWeight: 800, color: ACCENT.primary }}>RM {fmt(totalReduce)}</span>
                             </div>
                         </div>
+
+                        {hasExtraAfaSstSaving && (
+                            <div style={{ background: '#eff6ff', borderRadius: 12, padding: 12, marginBottom: 10, border: '1px solid #bfdbfe' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>
+                                    Extra AFA + SST Saving
+                                </div>
+                                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10 }}>
+                                    Post-solar billed usage {fmt(extraAfaSstSaving.postSolarBillUsageKwh)} kWh (≤ {fmt(extraAfaSstSaving.thresholdKwh, 0)} kWh): AFA and SST exempt. Shown separately and not added to Total Monthly Savings.
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6, fontSize: 12 }}>
+                                    <span style={{ color: '#334155' }}>SST (before solar bill)</span>
+                                    <span style={{ fontWeight: 700, color: '#1d4ed8' }}>+RM {fmt(extraSstSaving)}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 10, fontSize: 12 }}>
+                                    <span style={{ color: '#334155' }}>AFA ({fmt(extraAfaSstSaving.beforeSolarUsageKwh)} kWh × RM {fmt(extraAfaSstSaving.afaRate, 4)}/kWh)</span>
+                                    <span style={{ fontWeight: 700, color: '#1d4ed8' }}>+RM {fmt(extraAfaSaving)}</span>
+                                </div>
+                                <Divider style={{ margin: '8px 0' }} />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: '#1d4ed8' }}>Extra exemption saving</span>
+                                    <span style={{ fontSize: 18, fontWeight: 800, color: '#1d4ed8' }}>+RM {fmt(extraAfaSstTotal)}</span>
+                                </div>
+                            </div>
+                        )}
 
                         <div style={{
                             background: '#0d1f0f',
