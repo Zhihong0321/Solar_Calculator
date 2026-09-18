@@ -582,8 +582,10 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     const extraSstSaving = qualifiesForAfaSstExemption
       ? Math.max(0, beforeBreakdown ? beforeBreakdown.sst : 0)
       : 0;
+    // Use the AFA Bill Month dropdown rate, not the separate AFA Projection
+    // slider, so this reference value matches the selected bill month.
     const extraAfaSaving = qualifiesForAfaSstExemption
-      ? monthlyUsageKwh * afaRate
+      ? monthlyUsageKwh * historicalAfaRate
       : 0;
     const extraAfaSstSaving = extraSstSaving + extraAfaSaving;
 
@@ -641,7 +643,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         postSolarBillUsageKwh: Number(postSolarBillUsageKwh.toFixed(2)),
         thresholdKwh: 800,
         sst: Number(extraSstSaving.toFixed(2)),
-        afaRate: Number(afaRate.toFixed(4)),
+        afaRate: Number(historicalAfaRate.toFixed(4)),
         beforeSolarUsageKwh: Number(monthlyUsageKwh.toFixed(2)),
         afa: Number(extraAfaSaving.toFixed(2)),
         total: Number(extraAfaSstSaving.toFixed(2))
