@@ -84,12 +84,53 @@ async function getCustomersByUserId(client, ownerKey, options = {}) {
   // 7-item SEDA document checklist: MyKad/IC, TNB bill, TNB meter, site image,
   // property ownership proof, emergency contact, customer signature. Exposed
   // both as individual flags (per-item breakdown on the card) and as a sum.
+  // Site image is presence only: any invoice site-assessment photo (>0) vs none.
+  // It does not require the site-assessment slots to be complete.
+  // Live rows in ee_attachment win. The invoice array is the fallback for
+  // photos uploaded before that table had rows for the invoice.
+  const siteAssessmentPhoto = `(
+      site_att.mime_type ILIKE 'image/%'
+      OR site_att.file_url ~* '\\.(jpe?g|png|webp|gif|heic|heif|bmp)([?#]|$)'
+      OR COALESCE(site_att.original_filename, '') ~* '\\.(jpe?g|png|webp|gif|heic|heif|bmp)$'
+    ) AND COALESCE(site_att.mime_type, '') NOT ILIKE 'video/%'`;
   const sedaChecklist = {
     seda_has_ic: `(COALESCE(s.ic_copy_front, '') <> '' AND COALESCE(s.ic_copy_back, '') <> '') OR COALESCE(s.mykad_pdf, '') <> ''`,
     seda_has_tnb_bill: `COALESCE(s.tnb_bill_1, '') <> '' OR COALESCE(s.tnb_bill_2, '') <> '' OR COALESCE(s.tnb_bill_3, '') <> '' OR COALESCE(array_length(s.tnb_bills_12_months, 1), 0) > 0`,
     seda_has_tnb_meter: `COALESCE(s.tnb_meter, '') <> ''`,
-    seda_has_site_image: `COALESCE(array_length(s.site_images, 1), 0) > 0`,
-    seda_has_ownership_proof: `COALESCE(s.property_ownership_prove, '') <> ''`,
+    seda_has_site_image: `EXISTS (
+      SELECT 1
+      FROM invoice site_inv
+      WHERE site_inv.linked_customer = c.customer_id
+        AND site_inv.is_deleted IS NOT TRUE
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM ee_attachment site_att
+            WHERE site_att.owner_type = 'invoice'
+              AND site_att.owner_id = site_inv.bubble_id
+              AND site_att.category = 'site_assessment'
+              AND site_att.deleted_at IS NULL
+              AND site_att.purged_at IS NULL
+              AND ${siteAssessmentPhoto}
+          )
+          OR (
+            NOT EXISTS (
+              SELECT 1
+              FROM ee_attachment site_att
+              WHERE site_att.owner_type = 'invoice'
+                AND site_att.owner_id = site_inv.bubble_id
+                AND site_att.category = 'site_assessment'
+                AND site_att.purged_at IS NULL
+            )
+            AND EXISTS (
+              SELECT 1
+              FROM unnest(COALESCE(site_inv.site_assessment_image, ARRAY[]::text[])) AS site_url
+              WHERE site_url ~* '\\.(jpe?g|png|webp|gif|heic|heif|bmp)([?#]|$)'
+            )
+          )
+        )
+    )`,
+    seda_has_ownership_proof: `COALESCE(array_length(s.property_ownership_prove, 1), 0) > 0`,
     seda_has_emergency_contact: `COALESCE(s.e_contact_name, '') <> '' AND COALESCE(s.e_contact_no, '') <> ''`,
     seda_has_signature: `COALESCE(s.customer_signature, '') <> ''`
   };
