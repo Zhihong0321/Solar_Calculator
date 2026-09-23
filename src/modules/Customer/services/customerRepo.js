@@ -130,7 +130,14 @@ async function getCustomersByUserId(client, ownerKey, options = {}) {
     )`,
     seda_has_ownership_proof: `COALESCE(s.property_ownership_prove::text, '') <> '' AND COALESCE(s.property_ownership_prove::text, '') <> '{}'`,
     seda_has_emergency_contact: `COALESCE(s.e_contact_name, '') <> '' AND COALESCE(s.e_contact_no, '') <> ''`,
-    seda_has_signature: `COALESCE(s.customer_signature, '') <> ''`
+    // Signature lives on the invoice (customer_signature text), not SEDA.
+    seda_has_signature: `EXISTS (
+      SELECT 1
+      FROM invoice sig_inv
+      WHERE sig_inv.linked_customer = c.customer_id
+        AND sig_inv.is_deleted IS NOT TRUE
+        AND COALESCE(sig_inv.customer_signature::text, '') <> ''
+    )`
   };
   const sedaChecklistSelect = Object.entries(sedaChecklist)
     .map(([column, expr]) => `(${expr}) AS ${column}`)
