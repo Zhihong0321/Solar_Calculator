@@ -201,7 +201,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     );
     const isEvCharger =
         (invoice.package_name && invoice.package_name.toLowerCase().includes('ev charger')) ||
-        ['1779719505392x510517187223558528', '1779719505392x532985182726628480', '1779719505392x185856407051952896', '1779719505392x930851860072331776', '1779719505392x911258790790266368'].includes(invoice.linked_package);
+        ['1779719505392x510517187223558528', '1779719505392x532985182726628480', '1779719505392x185856407051952896', '1779719505392x930851860072331776', '1779719505392x911258790790266368', 'pkg_ev_11kw_3p_charger_only_20260713', 'pkg_ev_installation_1p_20260713', 'pkg_ev_installation_3p_20260713'].includes(invoice.linked_package);
     const isCommercialPackage = normalizedPackageType === 'commercial';
     const BATTERY_PRODUCT_REF = '1776182988047x800815659516747800';
     const hasBatteryItem = items.some((item) => {

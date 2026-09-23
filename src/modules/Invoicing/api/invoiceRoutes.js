@@ -5,6 +5,7 @@ const { requireAuth } = require('../../../core/middleware/auth');
 const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
 const invoiceService = require('../services/invoiceService');
+const { listEvChargerQuotePackages } = require('../services/invoiceLookupSupport');
 const invoiceHistoryRepo = require('../services/invoiceHistoryRepo');
 const { writeActivity } = require('../../../core/activityLog/writeActivity');
 let beginAgentAuditTransaction = async (client) => {
@@ -115,6 +116,20 @@ router.get('/create-invoice', requireAuth, (req, res) => {
 
 router.get('/create-ev-charger-invoice', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, '../../../../public/templates/create_ev_charger_invoice.html'));
+});
+
+router.get('/api/v1/ev-charger/packages', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        client = await pool.connect();
+        const packages = await listEvChargerQuotePackages(client);
+        res.json({ success: true, packages });
+    } catch (err) {
+        console.error('Error listing EV charger packages:', err);
+        res.status(500).json({ success: false, error: 'Failed to load EV charger packages' });
+    } finally {
+        if (client) client.release();
+    }
 });
 
 router.get('/edit-invoice', requireAuth, (req, res) => {

@@ -1,60 +1,38 @@
-// EV Charger Invoice — Simplified creation flow
-// Only 5 fixed package options, no solar-specific logic
+// EV Charger Invoice — package cards come from the package table so the
+// price on the card is the price written onto the quotation.
 
-const EV_CHARGER_PACKAGES = [
-    {
-        id: 1029,
-        bubble_id: '1779719505392x510517187223558528',
-        name: 'EV CHARGER SINGLE PHASE 7.4KW',
-        shortLabel: '7.4kW Single Phase',
-        category: 'charger',
-        price: 4888,
-        desc: 'Type 2 · 32A · 5m cable · 3-year warranty'
-    },
-    {
-        id: 1030,
-        bubble_id: '1779719505392x532985182726628480',
-        name: 'EV CHARGER THREE PHASE 22KW',
-        shortLabel: '22kW Three Phase',
-        category: 'charger',
-        price: 8888,
-        desc: 'Type 2 · 32A · 5m cable · 3-year warranty'
-    },
-    {
-        id: 1031,
-        bubble_id: '1779719505392x185856407051952896',
-        name: 'EV CHARGER INSTALLATION SINGLE PHASE 7KW',
-        shortLabel: 'Install 7kW Single Phase',
-        category: 'installation',
-        price: 1688,
-        desc: 'Installation only · 15m cabling · 1-year warranty'
-    },
-    {
-        id: 1032,
-        bubble_id: '1779719505392x930851860072331776',
-        name: 'EV CHARGER INSTALLATION THREE PHASE 11KW',
-        shortLabel: 'Install 11kW Three Phase',
-        category: 'installation',
-        price: 1988,
-        desc: 'Installation only · 15m cabling · 1-year warranty'
-    },
-    {
-        id: 1033,
-        bubble_id: '1779719505392x911258790790266368',
-        name: 'EV CHARGER INSTALLATION THREE PHASE 22KW',
-        shortLabel: 'Install 22kW Three Phase',
-        category: 'installation',
-        price: 1988,
-        desc: 'Installation only · 15m cabling · 1-year warranty'
-    }
-];
-
+let evChargerPackages = [];
 let selectedPackage = null;
 let extraItems = [];
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[ch]));
+}
+
+function formatRm(amount) {
+    return `RM ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
+function packageBadge(category) {
+    if (category === 'installation') {
+        return '<span class="inline-block text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Installation</span>';
+    }
+    if (category === 'bundle') {
+        return '<span class="inline-block text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Charger + Install</span>';
+    }
+    return '<span class="inline-block text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Charger</span>';
+}
+
 // ── Init ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    renderPackageCards();
+    bindPackageGrid();
+    loadPackages();
     renderPresetExtras();
     renderExtraItems();
     bindEvents();
@@ -62,39 +40,85 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Package Cards ─────────────────────────────────────
+async function loadPackages() {
+    const grid = document.getElementById('packageGrid');
+    if (grid) {
+        grid.innerHTML = '<div class="text-sm text-slate-400 sm:col-span-2">Loading packages...</div>';
+    }
+
+    try {
+        const response = await fetch('/api/v1/ev-charger/packages');
+        const result = await response.json();
+        if (!response.ok || !result.success || !Array.isArray(result.packages)) {
+            throw new Error(result.error || 'Failed to load packages');
+        }
+
+        evChargerPackages = result.packages.map((pkg) => ({
+            bubble_id: pkg.bubble_id,
+            name: pkg.name,
+            shortLabel: pkg.name,
+            category: pkg.category,
+            price: Number(pkg.price) || 0,
+            desc: pkg.desc || ''
+        }));
+        renderPackageCards();
+    } catch (err) {
+        if (grid) {
+            grid.innerHTML = `<div class="text-sm text-red-600 sm:col-span-2">${escapeHtml(err.message)}</div>`;
+        }
+    }
+}
+
 function renderPackageCards() {
     const grid = document.getElementById('packageGrid');
     if (!grid) return;
 
-    grid.innerHTML = EV_CHARGER_PACKAGES.map(pkg => {
-        const isCharger = pkg.category === 'charger';
-        const badge = isCharger
-            ? '<span class="inline-block text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Charger</span>'
-            : '<span class="inline-block text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Installation</span>';
-        const priceText = `RM ${pkg.price.toLocaleString()}`;
-        const descLine = pkg.desc ? `<div class="text-[11px] text-slate-400 mt-1 leading-snug">${pkg.desc}</div>` : '';
+    if (!evChargerPackages.length) {
+        grid.innerHTML = '<div class="text-sm text-slate-400 sm:col-span-2">No EV charger packages are available.</div>';
+        return;
+    }
+
+    grid.innerHTML = evChargerPackages.map((pkg) => {
+        const descLine = pkg.desc
+            ? `<div class="text-[11px] text-slate-400 mt-1 leading-snug">${escapeHtml(pkg.desc)}</div>`
+            : '';
 
         return `
-        <div class="pkg-card relative rounded-xl border-2 border-slate-200 bg-white p-4"
-             data-bubble-id="${pkg.bubble_id}" onclick="selectPackage('${pkg.bubble_id}')">
+        <div class="pkg-card relative rounded-xl border-2 border-slate-200 bg-white p-4" role="button" tabindex="0" data-bubble-id="${escapeHtml(pkg.bubble_id)}">
             <div class="pkg-check absolute top-2 right-2 h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-white text-xs font-bold">&#10003;</div>
-            <div class="mb-2">${badge}</div>
-            <div class="text-sm font-bold text-slate-900 leading-snug">${pkg.shortLabel}</div>
+            <div class="mb-2">${packageBadge(pkg.category)}</div>
+            <div class="text-sm font-bold text-slate-900 leading-snug">${escapeHtml(pkg.shortLabel)}</div>
             ${descLine}
-            <div class="mt-3 text-base font-extrabold text-slate-900">${priceText}</div>
+            <div class="mt-3 text-base font-extrabold text-slate-900">${escapeHtml(formatRm(pkg.price))}</div>
         </div>`;
     }).join('');
 }
 
+function bindPackageGrid() {
+    const grid = document.getElementById('packageGrid');
+    if (!grid || grid.dataset.bound === '1') return;
+    grid.dataset.bound = '1';
+    grid.addEventListener('click', (event) => {
+        const card = event.target.closest('.pkg-card');
+        if (!card) return;
+        selectPackage(card.dataset.bubbleId);
+    });
+    grid.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        const card = event.target.closest('.pkg-card');
+        if (!card) return;
+        event.preventDefault();
+        selectPackage(card.dataset.bubbleId);
+    });
+}
+
 function selectPackage(bubbleId) {
-    // Deselect all
     document.querySelectorAll('.pkg-card').forEach(c => c.classList.remove('selected'));
 
-    // Select clicked
-    const card = document.querySelector(`.pkg-card[data-bubble-id="${bubbleId}"]`);
+    const card = document.querySelector(`.pkg-card[data-bubble-id="${CSS.escape(bubbleId)}"]`);
     if (card) card.classList.add('selected');
 
-    selectedPackage = EV_CHARGER_PACKAGES.find(p => p.bubble_id === bubbleId) || null;
+    selectedPackage = evChargerPackages.find(p => p.bubble_id === bubbleId) || null;
     document.getElementById('selectedPackageId').value = bubbleId;
 
     updateSummary();

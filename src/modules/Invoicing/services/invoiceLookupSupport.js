@@ -4,6 +4,57 @@
  * Primary Responsibility: Stable package, template, and voucher lookup helpers for invoicing flows.
  * Stability: Keep simple read-side lookup queries here so invoiceRepo can focus on orchestration and persistence transitions.
  */
+const EV_CHARGER_ADDON_NAME = /(site visit|extra cable|upgrade cable|conceal|ceiling open|wall crossing|isolator)/i;
+const EV_CHARGER_CATEGORY_ORDER = { charger: 0, installation: 1, bundle: 2 };
+
+function categorizeEvChargerPackage(name) {
+  const value = String(name || '').toLowerCase();
+  if (value.includes('with installation')) return 'bundle';
+  if (value.includes('installation')) return 'installation';
+  return 'charger';
+}
+
+function shortEvChargerDescription(invoiceDesc) {
+  const text = String(invoiceDesc || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  const sentence = text.split(/(?<=\.)\s/)[0];
+  return sentence.length > 180 ? `${sentence.slice(0, 177)}...` : sentence;
+}
+
+/**
+ * Active EV Charger packages that can be the main quotation package.
+ * Add-on fees (site visit, extra cable, and similar) stay off this list;
+ * the EV quote page already offers those as optional extra lines.
+ */
+async function listEvChargerQuotePackages(client) {
+  const result = await client.query(
+    `SELECT COALESCE(bubble_id, id::text) AS bubble_id,
+            package_name,
+            price,
+            invoice_desc
+     FROM package
+     WHERE active IS TRUE
+       AND lower(trim(type)) = 'ev charger'
+     ORDER BY price ASC, package_name ASC`
+  );
+
+  return result.rows
+    .filter((row) => !EV_CHARGER_ADDON_NAME.test(row.package_name || ''))
+    .map((row) => ({
+      bubble_id: row.bubble_id,
+      name: row.package_name,
+      price: parseFloat(row.price) || 0,
+      category: categorizeEvChargerPackage(row.package_name),
+      desc: shortEvChargerDescription(row.invoice_desc)
+    }))
+    .sort((a, b) => {
+      const categoryDelta = (EV_CHARGER_CATEGORY_ORDER[a.category] ?? 9) - (EV_CHARGER_CATEGORY_ORDER[b.category] ?? 9);
+      if (categoryDelta !== 0) return categoryDelta;
+      if (a.price !== b.price) return a.price - b.price;
+      return String(a.name).localeCompare(String(b.name));
+    });
+}
+
 async function getPackageById(client, packageId) {
   try {
     const result = await client.query(
@@ -96,5 +147,6 @@ module.exports = {
   getPackageById,
   getTemplateById,
   getVoucherByCode,
-  getVoucherById
+  getVoucherById,
+  listEvChargerQuotePackages
 };
