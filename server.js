@@ -47,7 +47,7 @@ app.set('trust proxy', 1);
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Password', 'X-Requested-With', 'Accept', 'Origin'],
   credentials: true
 }));
 
@@ -114,6 +114,7 @@ app.use(ClaimReceipt.router);
 app.use(Attachments.router);
 app.use(uploadBackfillRoutes);
 app.use(demoRoutes);
+app.use(require('./routes/integrationApiRoutes'));
 
 // --- Prototype: conversational quotation (/lab/chat) ---
 // Opt-in and isolated. Not registered in the navigation shell, reachable only

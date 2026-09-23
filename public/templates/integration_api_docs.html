@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Integration API · Eternalgy</title>
+  <style>
+    :root { color-scheme: light; --ink:#162536; --muted:#617185; --line:#dbe3e9; --blue:#155d99; --pale:#f4f8fb; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:#fff; font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif; }
+    a { color:var(--blue); }
+    .shell { display:grid; grid-template-columns:250px minmax(0,1fr); min-height:100vh; }
+    aside { padding:30px 20px; background:var(--pale); border-right:1px solid var(--line); position:sticky; top:0; height:100vh; overflow:auto; }
+    aside strong { display:block; font-size:18px; margin-bottom:22px; }
+    aside a { display:block; padding:7px 9px; color:#35516b; text-decoration:none; border-radius:7px; }
+    aside a:hover { background:#e4eef5; }
+    main { max-width:1060px; padding:44px 54px 90px; width:100%; }
+    h1 { font-size:36px; line-height:1.15; margin:0 0 12px; }
+    h2 { border-top:1px solid var(--line); padding-top:32px; margin-top:42px; font-size:24px; }
+    h3 { font-size:18px; margin-top:30px; }
+    p { max-width:800px; }
+    .lead { color:var(--muted); font-size:17px; }
+    .note { background:#eaf4fb; border-left:4px solid var(--blue); padding:14px 18px; border-radius:4px; }
+    .warning { background:#fff4df; border-left:4px solid #ba7c0c; padding:14px 18px; border-radius:4px; }
+    pre { background:#142334; color:#e9f4fb; padding:18px 20px; border-radius:9px; overflow:auto; font-size:13px; }
+    code { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+    p code, td code { background:#edf2f6; padding:2px 5px; border-radius:4px; }
+    table { width:100%; border-collapse:collapse; margin:16px 0 25px; }
+    th,td { border-bottom:1px solid var(--line); text-align:left; padding:11px 12px; vertical-align:top; }
+    th { background:var(--pale); }
+    .method { display:inline-block; min-width:56px; text-align:center; font:bold 11px/20px ui-monospace,monospace; border-radius:4px; color:#fff; background:#176b9c; margin-right:8px; }
+    .method.patch { background:#a26316; }
+    .endpoint { padding:15px 18px; border:1px solid var(--line); border-radius:9px; margin:14px 0; }
+    .endpoint p { margin:8px 0 0; color:var(--muted); }
+    @media(max-width:760px) { .shell { display:block; } aside { position:static; height:auto; border-right:0; border-bottom:1px solid var(--line); } main { padding:28px 20px 70px; } table { display:block; overflow:auto; } }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside aria-label="Documentation navigation">
+    <strong>Eternalgy API</strong>
+    <a href="#overview">Overview</a><a href="#authentication">Authentication</a><a href="#conventions">Conventions</a>
+    <a href="#users">Users</a><a href="#invoices">Invoices</a><a href="#seda">SEDA registrations</a>
+    <a href="#payments">Payments</a><a href="#examples">Examples</a><a href="#existing">Existing app API</a>
+  </aside>
+  <main>
+    <section id="overview">
+      <h1>Integration API</h1>
+      <p class="lead">Read users, invoices, SEDA registrations, and recorded payments. Edit selected user profile fields. These endpoints are intended for server to server integrations.</p>
+      <p><strong>Base path:</strong> <code>/api/integration/v1</code> &nbsp; <strong>Documentation:</strong> <code>/api/integration/docs</code></p>
+      <div class="note">This API reads the <code>payment</code> table, which is the app's recorded payment source. It does not read or submit <code>submitted_payment</code> workflow rows.</div>
+    </section>
+    <section id="authentication">
+      <h2>Authentication</h2>
+      <p>Send the integration password in the <code>X-Api-Password</code> header on every API request. Ask the application owner for the password. The server uses <code>INTEGRATION_API_PASSWORD</code> when configured, otherwise the application default password. Keep it in a secret store and use HTTPS.</p>
+      <pre><code>X-Api-Password: &lt;integration-password&gt;
+Content-Type: application/json</code></pre>
+      <p>Missing or invalid password returns <code>401</code> with <code>{"success":false,"error":"Invalid API password"}</code>. The documentation page is readable without the password.</p>
+    </section>
+    <section id="conventions">
+      <h2>Request and response conventions</h2>
+      <p>Responses are JSON. Successful reads return <code>{"success":true,"data":...}</code>. List responses also contain <code>limit</code> and <code>offset</code>. A missing record returns <code>404</code>; invalid input returns <code>400</code>; server errors return <code>500</code>. Database date and numeric fields keep the existing PostgreSQL JSON serialization.</p>
+      <table><thead><tr><th>Parameter</th><th>Applies to</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>limit</code></td><td>All lists</td><td>Integer 1–100; default 50.</td></tr>
+        <tr><td><code>offset</code></td><td>All lists</td><td>Non-negative integer; default 0.</td></tr>
+        <tr><td><code>:id</code></td><td>Detail and edit</td><td>Record <code>bubble_id</code>. Users also accept numeric database <code>id</code>.</td></tr>
+      </tbody></table>
+      <p>List data is sorted newest first. Results are pages; request the next page with a higher <code>offset</code> until fewer than <code>limit</code> records are returned.</p>
+    </section>
+    <section id="users">
+      <h2>Users</h2>
+      <div class="endpoint"><span class="method">GET</span><code>/users</code><p>List user profiles. Sensitive authentication columns are omitted.</p></div>
+      <div class="endpoint"><span class="method">GET</span><code>/users/:id</code><p>Read one user by Bubble ID or numeric ID.</p></div>
+      <div class="endpoint"><span class="method patch">PATCH</span><code>/users/:id</code><p>Edit selected user profile fields. Send only the fields to change.</p></div>
+      <p>User responses include <code>id</code>, <code>bubble_id</code>, <code>email</code>, <code>access_level</code>, <code>linked_agent_profile</code>, <code>name</code>, <code>contact</code>, <code>banker</code>, <code>bankin_account</code>, <code>user_signature</code>, <code>profile_picture</code>, <code>created_at</code>, and <code>updated_at</code>. Profile values fall back to the linked agent record where appropriate.</p>
+      <table><thead><tr><th>Editable field</th><th>Rules</th></tr></thead><tbody>
+        <tr><td><code>email</code></td><td>Email format.</td></tr><tr><td><code>contact</code></td><td>Malaysian mobile number: starts with 0, 10 or 11 digits.</td></tr>
+        <tr><td><code>name</code>, <code>banker</code>, <code>bankin_account</code>, <code>user_signature</code></td><td>String or null, at most 2000 characters.</td></tr>
+      </tbody></table>
+      <p>Edits update the user record and matching agent profile in one transaction. Unknown fields, including role and access controls, are rejected.</p>
+    </section>
+    <section id="invoices">
+      <h2>Invoices</h2>
+      <div class="endpoint"><span class="method">GET</span><code>/invoices</code><p>List invoice rows. Optional exact filter: <code>?linked_customer=&lt;customer-id&gt;</code>.</p></div>
+      <div class="endpoint"><span class="method">GET</span><code>/invoices/:id</code><p>Read one invoice by Bubble ID.</p></div>
+      <p>Returns the existing invoice database fields, including invoice version fields. The list includes all versions; consumers can use <code>is_latest</code> to identify the current version.</p>
+    </section>
+    <section id="seda">
+      <h2>SEDA registrations</h2>
+      <div class="endpoint"><span class="method">GET</span><code>/seda</code><p>List SEDA registration rows. Optional exact filter: <code>?linked_customer=&lt;customer-id&gt;</code>.</p></div>
+      <div class="endpoint"><span class="method">GET</span><code>/seda/:id</code><p>Read one registration by Bubble ID.</p></div>
+      <p>Returns the existing <code>seda_registration</code> database fields, including linked invoice IDs, applicant details, statuses, and upload references where present.</p>
+    </section>
+    <section id="payments">
+      <h2>Recorded payments</h2>
+      <div class="endpoint"><span class="method">GET</span><code>/payments</code><p>List rows from <code>payment</code>. Optional filter: <code>?linked_invoice=&lt;invoice-id&gt;</code>, including payment IDs in the invoice's <code>linked_payment</code> array.</p></div>
+      <div class="endpoint"><span class="method">GET</span><code>/payments/:id</code><p>Read one recorded payment by Bubble ID.</p></div>
+      <div class="warning">These routes never read <code>submitted_payment</code>. Existing session API routes under <code>/api/v1/submitted-payments</code> serve the separate submission workflow.</div>
+    </section>
+    <section id="examples">
+      <h2>Examples</h2>
+      <pre><code>curl -H "X-Api-Password: &lt;integration-password&gt;" \
+  "https://YOUR-HOST/api/integration/v1/users?limit=20&amp;offset=0"
+
+curl -H "X-Api-Password: &lt;integration-password&gt;" \
+  "https://YOUR-HOST/api/integration/v1/invoices/INVOICE_BUBBLE_ID"
+
+curl -H "X-Api-Password: &lt;integration-password&gt;" \
+  "https://YOUR-HOST/api/integration/v1/seda/SEDA_BUBBLE_ID"
+
+curl -H "X-Api-Password: &lt;integration-password&gt;" \
+  "https://YOUR-HOST/api/integration/v1/payments?linked_invoice=INVOICE_BUBBLE_ID"
+
+curl -X PATCH -H "X-Api-Password: &lt;integration-password&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Updated Name","contact":"0123456789"}' \
+  "https://YOUR-HOST/api/integration/v1/users/USER_BUBBLE_ID"</code></pre>
+      <pre><code>{
+  "success": true,
+  "data": [{ "bubble_id": "...", "email": "..." }],
+  "limit": 20,
+  "offset": 0
+}</code></pre>
+    </section>
+    <section id="existing">
+      <h2>Existing app API</h2>
+      <p>The app also has session authenticated routes used by its screens. They use the logged in user's cookie and have their own ownership checks and response shapes.</p>
+      <table><thead><tr><th>Area</th><th>Existing route</th><th>Purpose</th></tr></thead><tbody>
+        <tr><td>User</td><td><code>GET /api/user/me</code>, <code>GET/PUT /api/agent/profile</code></td><td>Current logged in profile.</td></tr>
+        <tr><td>Invoice</td><td><code>GET /api/v1/invoices/my-invoices</code>, <code>GET /api/v1/invoices/:bubbleId</code></td><td>Agent invoice views.</td></tr>
+        <tr><td>SEDA</td><td><code>GET /api/v1/seda/my-seda</code>, <code>GET /api/v1/seda/:id</code></td><td>Agent SEDA views.</td></tr>
+        <tr><td>Submitted payment</td><td><code>GET /api/v1/submitted-payments/:bubbleId</code></td><td>Payment submission workflow, separate from recorded payments.</td></tr>
+      </tbody></table>
+    </section>
+  </main>
+</div>
+</body>
+</html>
