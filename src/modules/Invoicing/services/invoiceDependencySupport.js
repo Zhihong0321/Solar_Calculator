@@ -49,7 +49,10 @@ async function findOrCreateCustomer(client, data) {
     return { id: insertRes.rows[0].id, bubbleId: customerBubbleId };
   } catch (err) {
     console.error('Error in findOrCreateCustomer:', err);
-    return null;
+    if (err?.constraint === 'customer_lead_source_check') {
+      throw new Error('Lead source is not valid. Use Referral, BNI, Roadshow, Digital Ads, Own Network, or Other.');
+    }
+    throw err;
   }
 }
 
