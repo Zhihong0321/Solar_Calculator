@@ -86,8 +86,9 @@ async function getCustomersByUserId(client, ownerKey, options = {}) {
   // both as individual flags (per-item breakdown on the card) and as a sum.
   // Site image is presence only: any invoice site-assessment photo (>0) vs none.
   // It does not require the site-assessment slots to be complete.
-  // Live rows in ee_attachment win. The invoice array is the fallback for
-  // photos uploaded before that table had rows for the invoice.
+  // Live rows in ee_attachment win. Cast the legacy invoice column to text so
+  // both text and text[] shapes still work as a non-empty photo check.
+  // property_ownership_prove is text in production — never call array_length on it.
   const siteAssessmentPhoto = `(
       site_att.mime_type ILIKE 'image/%'
       OR site_att.file_url ~* '\\.(jpe?g|png|webp|gif|heic|heif|bmp)([?#]|$)'
@@ -122,15 +123,12 @@ async function getCustomersByUserId(client, ownerKey, options = {}) {
                 AND site_att.category = 'site_assessment'
                 AND site_att.purged_at IS NULL
             )
-            AND EXISTS (
-              SELECT 1
-              FROM unnest(COALESCE(site_inv.site_assessment_image, ARRAY[]::text[])) AS site_url
-              WHERE site_url ~* '\\.(jpe?g|png|webp|gif|heic|heif|bmp)([?#]|$)'
-            )
+            AND COALESCE(site_inv.site_assessment_image::text, '') !~* '^\\s*(\\{\\})?\\s*$'
+            AND COALESCE(site_inv.site_assessment_image::text, '') ~* '\\.(jpe?g|png|webp|gif|heic|heif|bmp)'
           )
         )
     )`,
-    seda_has_ownership_proof: `COALESCE(array_length(s.property_ownership_prove, 1), 0) > 0`,
+    seda_has_ownership_proof: `COALESCE(s.property_ownership_prove::text, '') <> '' AND COALESCE(s.property_ownership_prove::text, '') <> '{}'`,
     seda_has_emergency_contact: `COALESCE(s.e_contact_name, '') <> '' AND COALESCE(s.e_contact_no, '') <> ''`,
     seda_has_signature: `COALESCE(s.customer_signature, '') <> ''`
   };
