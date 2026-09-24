@@ -701,15 +701,15 @@
             </p>
           </a>
 
-          <a href="#" onclick="shareReferralLink(event)" class="tool-card">
+          <a href="https://referral.atap.solar/" target="_blank" rel="noopener noreferrer" class="tool-card">
             <div class="tool-icon" style="background-color: #f0fdf4;">
               <img src="/assets/images/referral.png" alt="Referral Icon" class="w-8 h-8 object-contain"
                 onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='block';" />
               <i class="fa-solid fa-share-nodes text-2xl text-emerald-500" style="display: none;"></i>
             </div>
-            <h3 class="text-sm font-bold text-slate-900 text-center">Referral Program</h3>
+            <h3 class="text-sm font-bold text-slate-900 text-center">Referral Programme</h3>
             <p class="text-[10px] text-slate-400 font-medium mt-1">
-              Share Link
+              Visit Referral Site
             </p>
           </a>
 
@@ -1214,29 +1214,6 @@
         // Fallback to client-side
         document.cookie = "auth_token=; Max-Age=0; path=/;";
         window.location.href = "/login";
-      }
-    }
-
-    async function shareReferralLink(event) {
-      event.preventDefault();
-      const shareData = {
-        title: 'Referral Program',
-        text: 'Join our Referral Program!',
-        url: 'https://referral.atap.solar'
-      };
-
-      if (navigator.share) {
-        try {
-          await navigator.share(shareData);
-        } catch (err) {
-          console.warn('Error sharing or user cancelled:', err);
-        }
-      } else {
-        navigator.clipboard.writeText(shareData.url).then(() => {
-          alert("Referral link copied to clipboard!");
-        }).catch(err => {
-          console.error("Failed to copy text: ", err);
-        });
       }
     }
 
