@@ -150,6 +150,21 @@
             mobileHideSelectors: ['body > header']
         },
         {
+            pageKey: 'telemarketing',
+            path: '/telemarketing',
+            title: 'Telemarketing',
+            rootTab: TOOLS_ROOT_KEY,
+            routeType: 'tool',
+            stack: 'telemarketing',
+            showBack: true,
+            parentPage: 'agent-home',
+            toolGroup: 'Workspace',
+            toolLabel: 'Telemarketing',
+            toolDescription: 'Assigned Leads & Disposition',
+            icon: 'headset',
+            mobileHideSelectors: ['body > header']
+        },
+        {
             pageKey: 'my-referal',
             path: '/my-referal',
             title: 'My Referrals',
@@ -468,6 +483,7 @@
         stamp: '<path d="M7 21h10"></path><path d="M8 17h8"></path><path d="M9 17v-1a3 3 0 0 1 3-3 3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v3a3 3 0 0 0 3 3 3 3 0 0 1 3 3v1"></path>',
         mail: '<path d="M4 5h16v14H4z"></path><path d="m4 7 8 6 8-6"></path>',
         chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>',
+        headset: '<path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>',
         referral: '<path d="M16 6a3 3 0 1 0-3-3"></path><path d="M8 18a3 3 0 1 0 3 3"></path><path d="m13 5-6 14"></path>',
         profile: '<circle cx="12" cy="8" r="4"></circle><path d="M5 21a7 7 0 0 1 14 0"></path>',
         help: '<circle cx="12" cy="12" r="9"></circle><path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path>',

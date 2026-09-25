@@ -30,6 +30,7 @@ const Health = require('./src/modules/Health');
 const BugReport = require('./src/modules/BugReport');
 const HostedHtml = require('./src/modules/HostedHtml');
 const SupportTicket = require('./src/modules/SupportTicket');
+const Telemarketing = require('./src/modules/Telemarketing');
 const ClaimReceipt = require('./src/modules/ClaimReceipt');
 const Attachments = require('./src/modules/Attachments');
 const uploadBackfillRoutes = require('./src/modules/UploadBackfill/backfillRoutes');
@@ -115,6 +116,7 @@ app.use(Attachments.router);
 app.use(uploadBackfillRoutes);
 app.use(demoRoutes);
 app.use(require('./routes/integrationApiRoutes'));
+app.use(Telemarketing.router);
 
 // --- Prototype: conversational quotation (/lab/chat) ---
 // Opt-in and isolated. Not registered in the navigation shell, reachable only
@@ -439,6 +441,10 @@ app.get('/agent/profile', requireAuth, (req, res) => {
 // Agent Referral Management Route
 app.get('/my-referal', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'templates', 'my_referal.html'));
+});
+
+app.get('/telemarketing', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'templates', 'telemarketing.html'));
 });
 
 // Agent Email Management Route

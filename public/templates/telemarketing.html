@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Telemarketing Leads | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/tailwind.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+        body { background: #0b1120; color: #f1f5f9; min-height: 100vh; }
+        .card { background: #131c2e; border: 1px solid #1e293b; transition: all 0.2s ease; }
+        .card:hover { border-color: #334155; }
+        .status-pill { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 9999px; padding: 0.35rem 0.75rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; }
+        .stat-card { background: #131c2e; border: 1px solid #1e293b; cursor: pointer; transition: all 0.2s ease; }
+        .stat-card:hover { transform: translateY(-2px); border-color: #3b82f6; }
+        .stat-card.active { border-color: #3b82f6; background: #172554; }
+        .filter-btn { border: 1px solid #334155; background: #1e293b; color: #94a3b8; transition: all 0.15s ease; }
+        .filter-btn:hover { background: #334155; color: #ffffff; }
+        .filter-btn.active { background: #3b82f6; color: #ffffff; border-color: #3b82f6; font-weight: 700; }
+        .modal-overlay { background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+    
+    <!-- Header -->
+    <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-30 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <a href="/agent/home" class="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition" title="Back to Dashboard">
+                    <i class="fa-solid fa-arrow-left text-sm"></i>
+                </a>
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 bg-blue-600/20 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/30">
+                        <i class="fa-solid fa-headset text-base"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-lg sm:text-xl font-extrabold text-white tracking-tight">Telemarketing Leads</h1>
+                            <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-700/40">Assigned</span>
+                        </div>
+                        <p class="text-xs text-slate-400 font-medium">Outbound sales pipeline & disposition management</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 ml-auto">
+                <div id="telemarketerBadge" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/70 text-xs">
+                    <i class="fa-solid fa-user-check text-emerald-400 text-xs"></i>
+                    <span id="telemarketerName" class="font-bold text-white">Loading...</span>
+                    <span id="telemarketerUidTag" class="text-[10px] text-slate-400 font-mono"></span>
+                </div>
+                <button onclick="promptSwitchUid()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition" title="Switch User or UID">
+                    <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                    <span class="hidden md:inline">Switch UID</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 space-y-6">
+
+        <!-- KPI Status Bar -->
+        <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div onclick="filterByStatus('all')" id="stat-all" class="stat-card rounded-2xl p-4 active">
+                <div class="flex items-center justify-between">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total</p>
+                    <i class="fa-solid fa-layer-group text-xs text-slate-500"></i>
+                </div>
+                <p id="count-all" class="text-2xl sm:text-3xl font-black text-white mt-1">--</p>
+                <p class="text-[10px] text-slate-400 font-medium mt-0.5">All assigned leads</p>
+            </div>
+
+            <div onclick="filterByStatus('assigned')" id="stat-assigned" class="stat-card rounded-2xl p-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-amber-400">Pending</p>
+                    <i class="fa-solid fa-clock text-xs text-amber-500/70"></i>
+                </div>
+                <p id="count-assigned" class="text-2xl sm:text-3xl font-black text-amber-400 mt-1">--</p>
+                <p class="text-[10px] text-slate-400 font-medium mt-0.5">Needs first call</p>
+            </div>
+
+            <div onclick="filterByStatus('contacted')" id="stat-contacted" class="stat-card rounded-2xl p-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-sky-400">Contacted</p>
+                    <i class="fa-solid fa-phone text-xs text-sky-500/70"></i>
+                </div>
+                <p id="count-contacted" class="text-2xl sm:text-3xl font-black text-sky-400 mt-1">--</p>
+                <p class="text-[10px] text-slate-400 font-medium mt-0.5">Call initiated</p>
+            </div>
+
+            <div onclick="filterByStatus('interested')" id="stat-interested" class="stat-card rounded-2xl p-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Interested</p>
+                    <i class="fa-solid fa-star text-xs text-emerald-500/70"></i>
+                </div>
+                <p id="count-interested" class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">--</p>
+                <p class="text-[10px] text-slate-400 font-medium mt-0.5">Hot opportunity</p>
+            </div>
+
+            <div onclick="filterByStatus('not_interested')" id="stat-not_interested" class="stat-card rounded-2xl p-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Not Interested</p>
+                    <i class="fa-solid fa-thumbs-down text-xs text-slate-500"></i>
+                </div>
+                <p id="count-not_interested" class="text-2xl sm:text-3xl font-black text-slate-300 mt-1">--</p>
+                <p class="text-[10px] text-slate-400 font-medium mt-0.5">Declined / Closed</p>
+            </div>
+
+            <div onclick="filterByStatus('do_not_call')" id="stat-do_not_call" class="stat-card rounded-2xl p-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-rose-400">Do Not Call</p>
+                    <i class="fa-solid fa-ban text-xs text-rose-500/70"></i>
+                </div>
+                <p id="count-do_not_call" class="text-2xl sm:text-3xl font-black text-rose-400 mt-1">--</p>
+                <p class="text-[10px] text-slate-400 font-medium mt-0.5">Blacklisted / Opt-out</p>
+            </div>
+        </section>
+
+        <!-- Search & Filter Controls -->
+        <section class="card rounded-2xl p-4 space-y-3">
+            <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="Search company name, category, address, or phone..." 
+                        class="w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+                        oninput="handleSearchInput(event)"
+                    />
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="categoryFilter" onchange="handleCategoryFilter(event)" class="bg-slate-900 border border-slate-700 text-slate-300 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-blue-500">
+                        <option value="all">All Categories</option>
+                    </select>
+                    <button onclick="reloadLeads()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition" title="Refresh leads">
+                        <i class="fa-solid fa-rotate text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Filter Tabs -->
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar text-xs">
+                <button onclick="filterByStatus('all')" class="filter-btn active px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="all">All</button>
+                <button onclick="filterByStatus('assigned')" class="filter-btn px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="assigned">Pending (Assigned)</button>
+                <button onclick="filterByStatus('contacted')" class="filter-btn px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="contacted">Contacted</button>
+                <button onclick="filterByStatus('interested')" class="filter-btn px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="interested">Interested</button>
+                <button onclick="filterByStatus('not_interested')" class="filter-btn px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="not_interested">Not Interested</button>
+                <button onclick="filterByStatus('do_not_call')" class="filter-btn px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="do_not_call">Do Not Call</button>
+            </div>
+        </section>
+
+        <!-- Count & Status Info -->
+        <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+            <span id="resultsInfo">Loading leads...</span>
+            <span id="activeFilterBadge" class="hidden px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono"></span>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center py-16">
+            <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-slate-700 border-t-blue-500 mb-3"></div>
+            <p class="text-slate-400 text-sm font-medium">Fetching assigned telemarketing leads...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-16 card rounded-2xl p-8">
+            <div class="w-16 h-16 bg-slate-800 text-slate-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-address-book text-2xl"></i>
+            </div>
+            <h3 class="text-base font-bold text-white">No Leads Found</h3>
+            <p class="text-xs text-slate-400 max-w-sm mx-auto mt-1" id="emptyStateMessage">No leads match your current status or filter criteria.</p>
+            <button onclick="filterByStatus('all')" class="mt-4 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white transition">
+                Reset Filters
+            </button>
+        </div>
+
+        <!-- Leads List Grid -->
+        <div id="leadsGrid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Populated via JavaScript -->
+        </div>
+
+    </main>
+
+    <!-- Update Lead Status & Notes Modal -->
+    <div id="updateModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-5 animate-fade-in">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Disposition Update</p>
+                    <h3 id="updateModalTitle" class="text-lg font-bold text-white mt-0.5 truncate">Update Lead</h3>
+                </div>
+                <button onclick="closeUpdateModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Status Selection -->
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Disposition Status</label>
+                    <select id="modalStatusSelect" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:outline-none focus:border-blue-500">
+                        <option value="assigned">Pending (Assigned)</option>
+                        <option value="contacted">Contacted (In Progress)</option>
+                        <option value="interested">Interested (Lead Qualified)</option>
+                        <option value="not_interested">Not Interested (Closed)</option>
+                        <option value="do_not_call">Do Not Call (Blacklist)</option>
+                    </select>
+                </div>
+
+                <!-- Notes Tabs -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Call Notes</label>
+                        <div class="flex items-center gap-1 text-[11px]">
+                            <button type="button" id="tabAppendNote" onclick="setNoteMode('append')" class="px-2 py-0.5 rounded bg-blue-600 text-white font-bold">Append Dated Note</button>
+                            <button type="button" id="tabEditAllNotes" onclick="setNoteMode('replace')" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-white font-semibold">Edit Full Notes</button>
+                        </div>
+                    </div>
+
+                    <!-- Append Mode Box -->
+                    <div id="appendNoteContainer" class="space-y-2">
+                        <textarea id="modalAppendNoteInput" rows="3" placeholder="e.g. Called GM Mr. Tan; interested in 100kWp solar rooftop quotation. Follow up next Monday." class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500"></textarea>
+                        
+                        <!-- Quick Suggestions -->
+                        <div class="flex flex-wrap gap-1.5">
+                            <span class="text-[10px] text-slate-500 font-bold self-center">Quick tags:</span>
+                            <button type="button" onclick="insertNoteTag('No answer / Line busy')" class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">No answer</button>
+                            <button type="button" onclick="insertNoteTag('Left WhatsApp message')" class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">Sent WhatsApp</button>
+                            <button type="button" onclick="insertNoteTag('Gatekeeper refusal / PIC unavailable')" class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">PIC unavailable</button>
+                            <button type="button" onclick="insertNoteTag('Requested solar proposal')" class="text-[10px] px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">Requested Proposal</button>
+                        </div>
+
+                        <!-- Previous Notes Readout -->
+                        <div id="existingNotesPreviewBox" class="rounded-xl bg-slate-950/60 p-3 border border-slate-800/80 text-xs max-h-32 overflow-y-auto custom-scrollbar">
+                            <p class="text-[10px] uppercase font-bold text-slate-500 mb-1">Existing Notes Log:</p>
+                            <pre id="existingNotesContent" class="text-slate-300 whitespace-pre-wrap font-sans text-xs">No previous notes</pre>
+                        </div>
+                    </div>
+
+                    <!-- Replace Mode Box -->
+                    <div id="replaceNoteContainer" class="hidden space-y-2">
+                        <textarea id="modalReplaceNotesInput" rows="6" placeholder="Full note contents..." class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 font-mono text-xs"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+                <button type="button" onclick="closeUpdateModal()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition">Cancel</button>
+                <button type="button" id="modalSaveBtn" onclick="saveLeadUpdate()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-lg transition flex items-center gap-2">
+                    <span id="saveBtnText">Save Updates</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lead Intelligence & Contact Drawer Modal -->
+    <div id="detailModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl p-6 max-h-[90vh] flex flex-col animate-fade-in">
+            <!-- Header -->
+            <div class="flex items-start justify-between pb-4 border-b border-slate-800">
+                <div class="min-w-0 pr-4">
+                    <span id="detailCategory" class="text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded border border-blue-700/30">Category</span>
+                    <h2 id="detailName" class="text-xl font-bold text-white mt-1.5 truncate">Company Name</h2>
+                    <p id="detailAddress" class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-location-dot text-slate-500"></i>
+                        <span>Address</span>
+                    </p>
+                </div>
+                <button onclick="closeDetailModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="overflow-y-auto flex-1 py-4 space-y-6 custom-scrollbar pr-1">
+                
+                <!-- Quick Link Chips -->
+                <div class="flex flex-wrap gap-2">
+                    <a id="detailMapsLink" href="#" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400 text-xs font-semibold flex items-center gap-1.5 border border-slate-700">
+                        <i class="fa-solid fa-map-location-dot"></i>
+                        <span>Open Google Maps</span>
+                    </a>
+                    <a id="detailWebsiteLink" href="#" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 border border-slate-700">
+                        <i class="fa-solid fa-globe"></i>
+                        <span>Website</span>
+                    </a>
+                    <span id="detailRatingBadge" class="px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 text-xs font-bold border border-amber-500/20 flex items-center gap-1">
+                        <i class="fa-solid fa-star"></i>
+                        <span id="detailRatingText">--</span>
+                    </span>
+                </div>
+
+                <!-- Decision Makers Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-2.5">
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-user-tie text-blue-400"></i>
+                            <span>Decision Makers</span>
+                            <span id="decisionMakersCount" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">0</span>
+                        </h4>
+                    </div>
+                    <div id="detailDecisionMakersList" class="space-y-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Phone Contacts Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-2.5">
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-phone text-emerald-400"></i>
+                            <span>Phone Contacts</span>
+                            <span id="phoneContactsCount" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">0</span>
+                        </h4>
+                    </div>
+                    <div id="detailPhoneList" class="space-y-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Email Contacts Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-2.5">
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-envelope text-indigo-400"></i>
+                            <span>Email Contacts</span>
+                            <span id="emailContactsCount" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded-full text-slate-400">0</span>
+                        </h4>
+                    </div>
+                    <div id="detailEmailList" class="space-y-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Notes Section -->
+                <div>
+                    <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-note-sticky text-amber-400"></i>
+                        <span>Disposition History & Notes</span>
+                    </h4>
+                    <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 text-xs font-sans text-slate-300 leading-relaxed whitespace-pre-wrap" id="detailNotesBox">
+                        No notes recorded yet.
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer Action -->
+            <div class="pt-4 border-t border-slate-800 flex items-center justify-between">
+                <span id="detailStatusBadge" class="status-pill bg-slate-800 text-slate-300">assigned</span>
+                <button id="detailOpenUpdateBtn" onclick="" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white transition flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span>Update Status & Notes</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // State
+        let currentUid = '';
+        let allLeads = [];
+        let filteredLeads = [];
+        let currentStatusFilter = 'all';
+        let searchQuery = '';
+        let selectedCategory = 'all';
+        let currentEditingLead = null;
+        let noteMode = 'append'; // 'append' or 'replace'
+
+        // Status definitions
+        const STATUS_CONFIG = {
+            'assigned': { label: 'Pending', color: 'bg-amber-500/20 text-amber-300 border border-amber-500/30', icon: 'fa-clock' },
+            'contacted': { label: 'Contacted', color: 'bg-sky-500/20 text-sky-300 border border-sky-500/30', icon: 'fa-phone' },
+            'interested': { label: 'Interested', color: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30', icon: 'fa-star' },
+            'not_interested': { label: 'Not Interested', color: 'bg-slate-700/50 text-slate-300 border border-slate-600/50', icon: 'fa-thumbs-down' },
+            'do_not_call': { label: 'Do Not Call', color: 'bg-rose-500/20 text-rose-300 border border-rose-500/30', icon: 'fa-ban' }
+        };
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryUid = urlParams.get('uid');
+            if (queryUid) {
+                currentUid = queryUid;
+            }
+            await initTelemarketing();
+        });
+
+        async function initTelemarketing() {
+            setLoading(true);
+            try {
+                // 1. Fetch Profile & Stats
+                const profileUrl = currentUid 
+                    ? `/api/v1/telemarketing/profile?uid=${encodeURIComponent(currentUid)}` 
+                    : '/api/v1/telemarketing/profile';
+                
+                const profileRes = await fetch(profileUrl);
+                const profileData = await profileRes.json();
+
+                if (!profileRes.ok || !profileData.ok) {
+                    throw new Error(profileData.error || 'Failed to load telemarketer profile');
+                }
+
+                currentUid = profileData.telemarketer?.uid || currentUid || 'gan zhi hong';
+                updateTelemarketerHeader(profileData.telemarketer);
+                updateStatsCards(profileData.stats);
+
+                // 2. Fetch Assigned Leads
+                await reloadLeads();
+
+            } catch (err) {
+                console.error('[Telemarketing] Init error:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Load Failed',
+                    text: err.message || 'Could not load telemarketer leads.',
+                    background: '#131c2e',
+                    color: '#fff'
+                });
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function updateTelemarketerHeader(tm) {
+            if (!tm) return;
+            const badge = document.getElementById('telemarketerBadge');
+            const nameEl = document.getElementById('telemarketerName');
+            const uidTag = document.getElementById('telemarketerUidTag');
+            
+            if (nameEl) nameEl.textContent = tm.name || 'Telemarketer';
+            if (uidTag) uidTag.textContent = tm.uid ? `(${tm.uid.slice(0, 10)}...)` : '';
+            if (badge) badge.classList.remove('hidden');
+        }
+
+        function updateStatsCards(stats) {
+            if (!stats) return;
+            document.getElementById('count-all').textContent = stats.total ?? 0;
+            document.getElementById('count-assigned').textContent = stats.pending ?? stats.assigned ?? 0;
+            document.getElementById('count-contacted').textContent = stats.contacted ?? 0;
+            document.getElementById('count-interested').textContent = stats.interested ?? 0;
+            document.getElementById('count-not_interested').textContent = stats.not_interested ?? 0;
+            document.getElementById('count-do_not_call').textContent = stats.do_not_call ?? 0;
+        }
+
+        async function reloadLeads() {
+            setLoading(true);
+            try {
+                const params = new URLSearchParams();
+                if (currentUid) params.set('uid', currentUid);
+                params.set('limit', '150'); // Read all active leads for user
+
+                const res = await fetch(`/api/v1/telemarketing/leads?${params.toString()}`);
+                const data = await res.json();
+
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.error || 'Failed to retrieve leads');
+                }
+
+                allLeads = Array.isArray(data.leads) ? data.leads : [];
+                populateCategoryFilter(allLeads);
+                applyClientFilters();
+
+            } catch (err) {
+                console.error('[Telemarketing] Leads load error:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error Loading Leads',
+                    text: err.message,
+                    background: '#131c2e',
+                    color: '#fff'
+                });
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function populateCategoryFilter(leads) {
+            const select = document.getElementById('categoryFilter');
+            if (!select) return;
+
+            const categories = [...new Set(leads.map(l => (l.category || '').trim()).filter(Boolean))].sort();
+            
+            // Keep "All Categories" as first option
+            select.innerHTML = '<option value="all">All Categories</option>';
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                select.appendChild(opt);
+            });
+        }
+
+        function applyClientFilters() {
+            filteredLeads = allLeads.filter(lead => {
+                // Status filter
+                if (currentStatusFilter !== 'all') {
+                    if (lead.lead_status !== currentStatusFilter) return false;
+                }
+
+                // Category filter
+                if (selectedCategory !== 'all') {
+                    if ((lead.category || '').trim() !== selectedCategory) return false;
+                }
+
+                // Search query
+                if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const name = (lead.name || '').toLowerCase();
+                    const cat = (lead.category || '').toLowerCase();
+                    const addr = (lead.address || '').toLowerCase();
+                    const phone = (lead.phone || '').toLowerCase();
+                    const notes = (lead.lead_notes || '').toLowerCase();
+                    if (!name.includes(q) && !cat.includes(q) && !addr.includes(q) && !phone.includes(q) && !notes.includes(q)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            renderLeads();
+        }
+
+        function renderLeads() {
+            const grid = document.getElementById('leadsGrid');
+            const empty = document.getElementById('emptyState');
+            const info = document.getElementById('resultsInfo');
+
+            if (!grid || !empty) return;
+
+            if (filteredLeads.length === 0) {
+                grid.classList.add('hidden');
+                empty.classList.remove('hidden');
+                info.textContent = `Showing 0 of ${allLeads.length} leads`;
+                return;
+            }
+
+            empty.classList.add('hidden');
+            grid.classList.remove('hidden');
+            info.textContent = `Showing ${filteredLeads.length} of ${allLeads.length} leads`;
+
+            grid.innerHTML = filteredLeads.map(lead => {
+                const statusCfg = STATUS_CONFIG[lead.lead_status] || STATUS_CONFIG['assigned'];
+                const rating = lead.rating ? `★ ${parseFloat(lead.rating).toFixed(1)} (${lead.reviews || 0})` : null;
+                const dmCount = lead.contact_decision_makers_count || 0;
+                const phoneCount = lead.contact_phones_count || (lead.phone ? 1 : 0);
+                const emailCount = lead.contact_emails_count || 0;
+                
+                // Form primary phone
+                const rawPhone = lead.phone ? lead.phone.split('\n')[0].replace(/^1\s*/, '').trim() : '';
+                const cleanPhone = rawPhone.replace(/[^\d+]/g, '');
+                const isMobile = /^(\+?601|01)\d{7,9}$/.test(cleanPhone);
+
+                return `
+                    <article class="card rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm relative group">
+                        <div class="space-y-3">
+                            <!-- Top: Category & Status -->
+                            <div class="flex items-start justify-between gap-2">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-950/60 px-2.5 py-1 rounded-lg border border-blue-800/40 truncate max-w-[170px]">
+                                    ${escapeHtml(lead.category || 'General Commercial')}
+                                </span>
+                                <span class="status-pill ${statusCfg.color}">
+                                    <i class="fa-solid ${statusCfg.icon} text-[10px]"></i>
+                                    <span>${statusCfg.label}</span>
+                                </span>
+                            </div>
+
+                            <!-- Company Name -->
+                            <div>
+                                <h3 class="text-base font-bold text-white leading-snug line-clamp-2 group-hover:text-blue-400 transition">
+                                    ${escapeHtml(lead.name || 'Unnamed Business')}
+                                </h3>
+                                ${lead.address ? `
+                                    <p class="text-xs text-slate-400 mt-1 flex items-start gap-1.5 line-clamp-2">
+                                        <i class="fa-solid fa-location-dot text-slate-500 mt-0.5 text-[11px] shrink-0"></i>
+                                        <span>${escapeHtml(lead.address)}</span>
+                                    </p>
+                                ` : ''}
+                            </div>
+
+                            <!-- Rating & Fast Links -->
+                            <div class="flex flex-wrap items-center gap-2 pt-1">
+                                ${rating ? `
+                                    <span class="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                        ${rating}
+                                    </span>
+                                ` : ''}
+                                ${lead.maps_url ? `
+                                    <a href="${escapeHtml(lead.maps_url)}" target="_blank" class="text-[11px] font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                                        <i class="fa-solid fa-map-location-dot"></i> Maps
+                                    </a>
+                                ` : ''}
+                                ${lead.website ? `
+                                    <a href="${escapeHtml(lead.website)}" target="_blank" class="text-[11px] font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-1">
+                                        <i class="fa-solid fa-globe"></i> Website
+                                    </a>
+                                ` : ''}
+                            </div>
+
+                            <!-- Contact Intel Badges -->
+                            <div class="grid grid-cols-3 gap-1.5 text-center text-xs py-2 px-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                                <div>
+                                    <p class="text-[9px] uppercase font-bold text-slate-400">Leaders</p>
+                                    <p class="font-extrabold text-blue-400 mt-0.5">${dmCount}</p>
+                                </div>
+                                <div class="border-x border-slate-800">
+                                    <p class="text-[9px] uppercase font-bold text-slate-400">Phones</p>
+                                    <p class="font-extrabold text-emerald-400 mt-0.5">${phoneCount}</p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] uppercase font-bold text-slate-400">Emails</p>
+                                    <p class="font-extrabold text-indigo-400 mt-0.5">${emailCount}</p>
+                                </div>
+                            </div>
+
+                            <!-- Notes Preview Box -->
+                            <div class="rounded-xl bg-slate-950/70 p-2.5 border border-slate-800/80 text-xs">
+                                <div class="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400 mb-1">
+                                    <span>Disposition Notes</span>
+                                    ${lead.lead_updated_at ? `<span>${formatShortDate(lead.lead_updated_at)}</span>` : ''}
+                                </div>
+                                <p class="text-slate-300 font-sans line-clamp-2 italic ${lead.lead_notes ? '' : 'text-slate-400'}">
+                                    ${escapeHtml(lead.lead_notes || 'No call notes logged yet.')}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Card Action Buttons -->
+                        <div class="pt-4 mt-3 border-t border-slate-800/80 flex items-center gap-2">
+                            ${rawPhone ? `
+                                <a href="tel:${cleanPhone}" class="p-2.5 rounded-xl bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 transition text-center" title="Call ${rawPhone}">
+                                    <i class="fa-solid fa-phone text-xs"></i>
+                                </a>
+                            ` : ''}
+                            ${isMobile ? `
+                                <a href="https://wa.me/${cleanPhone.replace(/^0/, '60')}" target="_blank" class="p-2.5 rounded-xl bg-teal-600/20 text-teal-400 hover:bg-teal-600 hover:text-white border border-teal-500/30 transition text-center" title="WhatsApp">
+                                    <i class="fa-brands fa-whatsapp text-xs"></i>
+                                </a>
+                            ` : ''}
+                            <button onclick="openDetailModal('${lead.id}')" class="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 border border-slate-700">
+                                <i class="fa-solid fa-address-book text-slate-400 text-xs"></i>
+                                <span>Intel</span>
+                            </button>
+                            <button onclick="openUpdateModal('${lead.id}')" class="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                <span>Update</span>
+                            </button>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        // Filter Handlers
+        function filterByStatus(status) {
+            currentStatusFilter = status;
+            
+            // Update active state on top stats cards
+            document.querySelectorAll('.stat-card').forEach(card => card.classList.remove('active'));
+            const activeCard = document.getElementById(`stat-${status}`);
+            if (activeCard) activeCard.classList.add('active');
+
+            // Update active state on pill buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.status === status) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            applyClientFilters();
+        }
+
+        function handleSearchInput(e) {
+            searchQuery = e.target.value;
+            applyClientFilters();
+        }
+
+        function handleCategoryFilter(e) {
+            selectedCategory = e.target.value;
+            applyClientFilters();
+        }
+
+        // Update Modal Logic
+        function openUpdateModal(leadId) {
+            const lead = allLeads.find(l => String(l.id) === String(leadId));
+            if (!lead) return;
+
+            currentEditingLead = lead;
+            document.getElementById('updateModalTitle').textContent = lead.name || 'Update Lead';
+            document.getElementById('modalStatusSelect').value = lead.lead_status || 'assigned';
+            
+            document.getElementById('modalAppendNoteInput').value = '';
+            document.getElementById('modalReplaceNotesInput').value = lead.lead_notes || '';
+            document.getElementById('existingNotesContent').textContent = lead.lead_notes || 'No previous notes logged.';
+
+            setNoteMode('append');
+            document.getElementById('updateModal').classList.remove('hidden');
+        }
+
+        function closeUpdateModal() {
+            document.getElementById('updateModal').classList.add('hidden');
+            currentEditingLead = null;
+        }
+
+        function setNoteMode(mode) {
+            noteMode = mode;
+            const appendBtn = document.getElementById('tabAppendNote');
+            const replaceBtn = document.getElementById('tabEditAllNotes');
+            const appendBox = document.getElementById('appendNoteContainer');
+            const replaceBox = document.getElementById('replaceNoteContainer');
+
+            if (mode === 'append') {
+                appendBtn.className = 'px-2 py-0.5 rounded bg-blue-600 text-white font-bold';
+                replaceBtn.className = 'px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-white font-semibold';
+                appendBox.classList.remove('hidden');
+                replaceBox.classList.add('hidden');
+            } else {
+                replaceBtn.className = 'px-2 py-0.5 rounded bg-blue-600 text-white font-bold';
+                appendBtn.className = 'px-2 py-0.5 rounded bg-slate-800 text-slate-400 hover:text-white font-semibold';
+                appendBox.classList.add('hidden');
+                replaceBox.classList.remove('hidden');
+            }
+        }
+
+        function insertNoteTag(text) {
+            const input = document.getElementById('modalAppendNoteInput');
+            if (!input) return;
+            const current = input.value.trim();
+            input.value = current ? `${current}; ${text}` : text;
+            input.focus();
+        }
+
+        async function saveLeadUpdate() {
+            if (!currentEditingLead) return;
+
+            const saveBtn = document.getElementById('modalSaveBtn');
+            const saveBtnText = document.getElementById('saveBtnText');
+            saveBtn.disabled = true;
+            saveBtnText.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Saving...';
+
+            const newStatus = document.getElementById('modalStatusSelect').value;
+            const payload = {
+                leadStatus: newStatus
+            };
+
+            if (noteMode === 'append') {
+                const appendText = document.getElementById('modalAppendNoteInput').value.trim();
+                if (appendText) {
+                    payload.appendNotes = appendText;
+                }
+            } else {
+                const fullText = document.getElementById('modalReplaceNotesInput').value;
+                payload.notes = fullText;
+            }
+
+            try {
+                const res = await fetch(`/api/v1/telemarketing/leads/${encodeURIComponent(currentEditingLead.id)}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telemarketer-UID': currentUid
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (!res.ok || !data.ok) {
+                    throw new Error(data.error || 'Failed to update lead');
+                }
+
+                // Update lead in local state
+                const updatedLead = data.lead;
+                const idx = allLeads.findIndex(l => String(l.id) === String(currentEditingLead.id));
+                if (idx !== -1) {
+                    allLeads[idx] = { ...allLeads[idx], ...updatedLead };
+                }
+
+                closeUpdateModal();
+                applyClientFilters();
+
+                // Refresh stats from backend
+                const profileRes = await fetch(`/api/v1/telemarketing/profile?uid=${encodeURIComponent(currentUid)}`);
+                const profileData = await profileRes.json();
+                if (profileRes.ok && profileData.ok && profileData.stats) {
+                    updateStatsCards(profileData.stats);
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Disposition Saved',
+                    text: 'Lead status and notes successfully updated.',
+                    timer: 1600,
+                    showConfirmButton: false,
+                    background: '#131c2e',
+                    color: '#fff'
+                });
+
+            } catch (err) {
+                console.error('[Telemarketing] Save error:', err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Update Failed',
+                    text: err.message,
+                    background: '#131c2e',
+                    color: '#fff'
+                });
+            } finally {
+                saveBtn.disabled = false;
+                saveBtnText.textContent = 'Save Updates';
+            }
+        }
+
+        // Full Intel Drawer Modal Logic
+        async function openDetailModal(leadId) {
+            const modal = document.getElementById('detailModal');
+            modal.classList.remove('hidden');
+
+            // Quick pre-populate from local lead
+            const lead = allLeads.find(l => String(l.id) === String(leadId)) || {};
+            document.getElementById('detailName').textContent = lead.name || 'Loading...';
+            document.getElementById('detailCategory').textContent = lead.category || 'Business';
+            document.getElementById('detailAddress').innerHTML = `<i class="fa-solid fa-location-dot text-slate-500"></i> ${escapeHtml(lead.address || 'Address not listed')}`;
+            document.getElementById('detailNotesBox').textContent = lead.lead_notes || 'No call notes recorded yet.';
+            
+            const statusCfg = STATUS_CONFIG[lead.lead_status] || STATUS_CONFIG['assigned'];
+            const statusBadge = document.getElementById('detailStatusBadge');
+            statusBadge.className = `status-pill ${statusCfg.color}`;
+            statusBadge.innerHTML = `<i class="fa-solid ${statusCfg.icon} text-[10px]"></i> <span>${statusCfg.label}</span>`;
+
+            document.getElementById('detailOpenUpdateBtn').onclick = () => {
+                closeDetailModal();
+                openUpdateModal(leadId);
+            };
+
+            // Fetch full enriched lead details
+            try {
+                const res = await fetch(`/api/v1/telemarketing/leads/${encodeURIComponent(leadId)}`, {
+                    headers: { 'X-Telemarketer-UID': currentUid }
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to fetch details');
+
+                const detailedLead = data.lead || lead;
+                renderDetailModalFull(detailedLead);
+
+            } catch (err) {
+                console.warn('[Telemarketing] Detail fetch fallback to local:', err.message);
+                renderDetailModalFull(lead);
+            }
+        }
+
+        function renderDetailModalFull(lead) {
+            document.getElementById('detailName').textContent = lead.name || 'Unknown';
+            document.getElementById('detailCategory').textContent = lead.category || 'General';
+            document.getElementById('detailNotesBox').textContent = lead.lead_notes || 'No call notes recorded yet.';
+
+            // Maps & Website links
+            const mapsEl = document.getElementById('detailMapsLink');
+            if (lead.maps_url) {
+                mapsEl.href = lead.maps_url;
+                mapsEl.classList.remove('hidden');
+            } else {
+                mapsEl.classList.add('hidden');
+            }
+
+            const webEl = document.getElementById('detailWebsiteLink');
+            if (lead.website) {
+                webEl.href = lead.website;
+                webEl.classList.remove('hidden');
+            } else {
+                webEl.classList.add('hidden');
+            }
+
+            const ratingEl = document.getElementById('detailRatingBadge');
+            if (lead.rating) {
+                document.getElementById('detailRatingText').textContent = `${parseFloat(lead.rating).toFixed(1)} (${lead.reviews || 0} reviews)`;
+                ratingEl.classList.remove('hidden');
+            } else {
+                ratingEl.classList.add('hidden');
+            }
+
+            // Decision Makers
+            const dmList = document.getElementById('detailDecisionMakersList');
+            const dms = Array.isArray(lead.decision_makers) ? lead.decision_makers : [];
+            document.getElementById('decisionMakersCount').textContent = dms.length;
+
+            if (dms.length === 0) {
+                dmList.innerHTML = `<p class="text-xs text-slate-500 italic p-3 rounded-xl bg-slate-950/40 border border-slate-800">No evidenced decision makers found for this record.</p>`;
+            } else {
+                dmList.innerHTML = dms.map(dm => `
+                    <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold text-white truncate">${escapeHtml(dm.name || 'Decision Maker')}</p>
+                            <p class="text-[11px] text-blue-400 font-medium">${escapeHtml(dm.role || 'Executive')}</p>
+                            ${dm.direct_phone ? `<p class="text-[10px] text-slate-400 mt-0.5"><i class="fa-solid fa-phone text-[9px]"></i> ${escapeHtml(dm.direct_phone)}</p>` : ''}
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            ${dm.profile_url ? `
+                                <a href="${escapeHtml(dm.profile_url)}" target="_blank" class="p-2 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white transition text-xs" title="LinkedIn Profile">
+                                    <i class="fa-brands fa-linkedin"></i>
+                                </a>
+                            ` : ''}
+                            ${dm.role_evidence_url ? `
+                                <a href="${escapeHtml(dm.role_evidence_url)}" target="_blank" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition text-xs" title="Evidence Website">
+                                    <i class="fa-solid fa-link"></i>
+                                </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Phone Contacts
+            const phoneList = document.getElementById('detailPhoneList');
+            const phones = Array.isArray(lead.phone_contacts) ? lead.phone_contacts : [];
+            document.getElementById('phoneContactsCount').textContent = phones.length;
+
+            if (phones.length === 0 && !lead.phone) {
+                phoneList.innerHTML = `<p class="text-xs text-slate-500 italic p-3 rounded-xl bg-slate-950/40 border border-slate-800">No telephone contacts available.</p>`;
+            } else if (phones.length === 0 && lead.phone) {
+                const clean = lead.phone.replace(/[^\d+]/g, '');
+                phoneList.innerHTML = `
+                    <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold text-white">${escapeHtml(lead.phone)}</p>
+                            <p class="text-[10px] text-slate-500">Google Maps Phone</p>
+                        </div>
+                        <a href="tel:${clean}" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-phone"></i> Call
+                        </a>
+                    </div>
+                `;
+            } else {
+                phoneList.innerHTML = phones.map(p => `
+                    <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold text-white">${escapeHtml(p.number_raw || p.number_e164)}</p>
+                            <p class="text-[10px] text-slate-400">${escapeHtml(p.label || p.type || 'Phone')}</p>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            ${p.dial_url ? `
+                                <a href="${escapeHtml(p.dial_url)}" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 transition">
+                                    <i class="fa-solid fa-phone"></i> Call
+                                </a>
+                            ` : ''}
+                            ${p.whatsapp_url ? `
+                                <a href="${escapeHtml(p.whatsapp_url)}" target="_blank" class="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold flex items-center gap-1 transition">
+                                    <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                                </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Email Contacts
+            const emailList = document.getElementById('detailEmailList');
+            const emails = Array.isArray(lead.email_contacts) ? lead.email_contacts : [];
+            document.getElementById('emailContactsCount').textContent = emails.length;
+
+            if (emails.length === 0) {
+                emailList.innerHTML = `<p class="text-xs text-slate-500 italic p-3 rounded-xl bg-slate-950/40 border border-slate-800">No public email addresses indexed.</p>`;
+            } else {
+                emailList.innerHTML = emails.map(e => `
+                    <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold text-white truncate">${escapeHtml(e.email)}</p>
+                            <p class="text-[10px] text-slate-400">${escapeHtml(e.label || e.type || 'Email')}</p>
+                        </div>
+                        <a href="mailto:${escapeHtml(e.email)}" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 transition shrink-0">
+                            <i class="fa-solid fa-envelope"></i> Send
+                        </a>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        // Switch UID Prompt
+        async function promptSwitchUid() {
+            const { value: newUid } = await Swal.fire({
+                title: 'Switch Telemarketer UID',
+                text: 'Enter a telemarketer UID or name (e.g. "gan zhi hong" or "1694840898359x952314974070402000"):',
+                input: 'text',
+                inputValue: currentUid,
+                showCancelButton: true,
+                confirmButtonText: 'Load Leads',
+                background: '#131c2e',
+                color: '#fff',
+                inputAttributes: {
+                    autocapitalize: 'off',
+                    class: 'bg-slate-800 text-white border border-slate-700 rounded-lg p-2'
+                }
+            });
+
+            if (newUid && newUid.trim() !== '') {
+                currentUid = newUid.trim();
+                const url = new URL(window.location);
+                url.searchParams.set('uid', currentUid);
+                window.history.pushState({}, '', url);
+                await initTelemarketing();
+            }
+        }
+
+        // Helpers
+        function setLoading(isLoading) {
+            const loading = document.getElementById('loadingState');
+            const grid = document.getElementById('leadsGrid');
+            if (isLoading) {
+                loading.classList.remove('hidden');
+                grid.classList.add('hidden');
+            } else {
+                loading.classList.add('hidden');
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatShortDate(iso) {
+            if (!iso) return '';
+            try {
+                const d = new Date(iso);
+                return d.toLocaleDateString('en-MY', { month: 'short', day: 'numeric' });
+            } catch {
+                return '';
+            }
+        }
+    </script>
+</body>
+</html>
