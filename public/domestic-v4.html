@@ -949,10 +949,10 @@
                             <div>
                                 <FieldLabel>Electrical Phase</FieldLabel>
                                 <div style={{ display: 'flex', gap: 8 }}>
-                                    <SegmentedButton active={Number(inputs.systemPhase) === 3} onClick={() => setInputs((prev) => ({ ...prev, systemPhase: 3 }))}>
+                                    <SegmentedButton active={Number(inputs.systemPhase) === 3} onClick={() => setInputs((prev) => ({ ...prev, systemPhase: 3, overridePanels: '' }))}>
                                         3-Phase
                                     </SegmentedButton>
-                                    <SegmentedButton active={Number(inputs.systemPhase) === 1} onClick={() => setInputs((prev) => ({ ...prev, systemPhase: 1 }))}>
+                                    <SegmentedButton active={Number(inputs.systemPhase) === 1} onClick={() => setInputs((prev) => ({ ...prev, systemPhase: 1, overridePanels: '' }))}>
                                         1-Phase
                                     </SegmentedButton>
                                 </div>
@@ -1211,7 +1211,7 @@
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                 <div>
                                     <FieldLabel>Panel Rating (W)</FieldLabel>
-                                    <TextField value={inputs.panelType} onChange={(value) => setInputs((prev) => ({ ...prev, panelType: value }))} />
+                                    <TextField value={inputs.panelType} onChange={(value) => setInputs((prev) => ({ ...prev, panelType: value, overridePanels: '' }))} />
                                 </div>
                                 <div>
                                     <FieldLabel>Export Rate (RM/kWh)</FieldLabel>
@@ -3030,6 +3030,9 @@
             const [language, setLanguage] = useState(() => localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'zh');
             const [afaOptions, setAfaOptions] = useState(AFA_OPTIONS);
             const solarRequestSeqRef = useRef(0);
+            const lastSolarParamsRef = useRef(null);
+            const lastBillInputsRef = useRef(null);
+            const hasGeneratedPlanRef = useRef(false);
             const billSummaryRef = useRef(null);
             const resultSectionRef = useRef(null);
 
@@ -3093,17 +3096,52 @@
                 ? (toNumber(activeCycle?.totalSavings) * 12 / toNumber(solarResult.finalSystemCost)) * 100
                 : 0;
 
+            useEffect(() => {
+                if (!hasGeneratedPlanRef.current && !planLoading && !batteryUpdating) return;
+                const signature = JSON.stringify(collectSolarParams(inputs));
+                if (signature === lastSolarParamsRef.current && (solarResult || planLoading || batteryUpdating)) return;
+
+                // Hide the old result immediately and prevent an older request from restoring it.
+                solarRequestSeqRef.current += 1;
+                const requestId = solarRequestSeqRef.current;
+                setSolarResult(null);
+                const timer = setTimeout(async () => {
+                    const billSignature = JSON.stringify([inputs.billAmount, inputs.historicalAfaRate]);
+                    if (billSignature !== lastBillInputsRef.current || !billReady) {
+                        try {
+                            const response = await fetch(`/api/calculate-bill?amount=${encodeURIComponent(toNumber(inputs.billAmount))}&afaRate=${encodeURIComponent(toNumber(inputs.historicalAfaRate))}`);
+                            const payload = await response.json();
+                            if (!response.ok || !payload.tariff) {
+                                throw new Error(payload?.error || `Error ${response.status}`);
+                            }
+                            if (requestId !== solarRequestSeqRef.current) return;
+                            setBillResult(payload);
+                            lastBillInputsRef.current = billSignature;
+                        } catch (error) {
+                            if (requestId !== solarRequestSeqRef.current) return;
+                            setBillResult(null);
+                            setErrorMessage(error.message);
+                            return;
+                        }
+                    }
+                    if (requestId === solarRequestSeqRef.current) {
+                        runSolarPlan({}, 'auto', { logActivity: false });
+                    }
+                }, 250);
+                return () => clearTimeout(timer);
+            }, [inputs]);
+
             async function runSolarPlan(overrides = {}, mode = 'plan', options = {}) {
                 setErrorMessage('');
-                if (!billReady) {
+                if (!billReady && mode !== 'auto') {
                     setErrorMessage('请先完成账单分析。');
                     return null;
                 }
 
                 const nextInputs = { ...inputs, ...overrides };
                 const params = collectSolarParams(nextInputs);
-                // Slider drags fire one request per tick; logActivity=0 keeps them
-                // out of the activity log.
+                lastSolarParamsRef.current = JSON.stringify(params);
+                // Automatic input changes should not create an activity entry for every edit.
                 if (options.logActivity === false) {
                     params.logActivity = 0;
                 }
@@ -3129,6 +3167,7 @@
 
                     setInputs(nextInputs);
                     setSolarResult(payload);
+                    hasGeneratedPlanRef.current = true;
                     if (mode === 'plan') {
                         scrollToElement(resultSectionRef);
                     }
@@ -3138,6 +3177,7 @@
                         return null;
                     }
                     setErrorMessage(error.message);
+                    setSolarResult(null);
                     return null;
                 } finally {
                     if (requestId === solarRequestSeqRef.current) {
@@ -3153,6 +3193,8 @@
             async function handleAnalyseBill() {
                 setErrorMessage('');
                 setAnalysingBill(true);
+                solarRequestSeqRef.current += 1;
+                hasGeneratedPlanRef.current = false;
                 setSolarResult(null);
                 setSelectedBillCycleMode('fullMonth');
 
@@ -3163,6 +3205,7 @@
                         throw new Error(payload?.error || `Error ${response.status}`);
                     }
                     setBillResult(payload);
+                    lastBillInputsRef.current = JSON.stringify([inputs.billAmount, inputs.historicalAfaRate]);
                     scrollToElement(billSummaryRef);
                 } catch (error) {
                     setBillResult(null);
