@@ -23,7 +23,7 @@ Fix the property ownership upload UI so users can add another file after the fir
 ## Work Status
 complete
 User correctly rejected previous numeric-limit-only change as insufficient UI verification. Ownership uploads now have an explicit Add more button after the first file and a count. The input is outside the preview container and no enclosing click handler wraps its synthetic click or previews. Button disables at five and re-enables after deletion. Invoice Office navigates to the shared signed-in form; public share links use that same template.
-Four Playwright tests passed in installed Chrome: click real button and native filechooser to add each of five files individually, reload with all five, delete one, add replacement. Tested mobile 390px and desktop 1280px in signed-in/public modes. API responses were mocked; production DB/R2 and the live page were not verified. Default Playwright browser executable was absent; tests explicitly use installed Chrome. Whitespace check passed with CRLF support. No commit or deployment.
+Four Playwright tests passed in installed Chrome: click real button and native filechooser to add each of five files individually, reload with all five, delete one, add replacement. Tested mobile 390px and desktop 1280px in signed-in/public modes. API responses were mocked; production DB/R2 and the live page were not verified. Default Playwright browser executable was absent; tests explicitly use installed Chrome. Whitespace check passed with CRLF support. Committed and pushed as b604691 to origin/codex/pre-activity-report-v2. No deployment was performed.
 
 ## Pending Decisions
 none
@@ -38,7 +38,7 @@ none
 - Preserve all prior user changes and prior multi-file support in seda_register.html and sedaRoutes.js.
 
 ## Recommended First Action Next Session
-If deployment is requested, inspect the combined working tree before committing/deploying, then verify first and second ownership uploads on the deployed signed-in and public forms.
+If deployment is requested, deploy the pushed branch, then verify first and second ownership uploads on the deployed signed-in and public forms. Preserve the unrelated working tree changes.
 
 ## Open Ambiguities Added
 none
