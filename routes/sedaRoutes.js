@@ -18,6 +18,7 @@ const express = require('express');
 const path    = require('path');
 const fs      = require('fs');
 const crypto  = require('crypto');
+const { ownershipFiles, appendOwnershipFileSql, removeOwnershipFileSql } = require('../src/modules/Invoicing/services/sedaOwnershipFiles');
 
 // ─── Core shared modules ──────────────────────────────────────────────────────
 const pool              = require('../src/core/database/pool');
@@ -300,7 +301,7 @@ const FILE_FIELDS = {
     tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_2'               },
     tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_3'               },
     tnb_bills_12_months: { label: 'TNB Bills Up to 12 Months', accept: ['application/pdf', 'image/*'], maxMB: 25, column: 'tnb_bills_12_months', isArray: true, maxItems: 12 },
-    property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'property_ownership_prove', isArray: true, maxItems: 5 },
+    property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'property_ownership_prove', isArray: true, jsonText: true, maxItems: 5 },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                         maxMB: 20, column: 'tnb_meter'                },
     tax_document:   { label: 'Tax Document',            accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tax_document'              },
     ssm_registration: { label: 'SSM Registration',      accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'ssm_registration'          },
@@ -540,7 +541,7 @@ async function persistSedaFile({ field, rule, recordId, buffer, mime, filename, 
         client = await pool.connect();
         if (rule.isArray) {
             const updateResult = await client.query(
-                `UPDATE seda_registration
+                rule.jsonText ? appendOwnershipFileSql() : `UPDATE seda_registration
                  SET ${rule.column} = array_append(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
                      modified_date = NOW(),
                      updated_at = NOW()
@@ -819,7 +820,7 @@ async function softDeleteSedaFile(req, res, recordId, source) {
         }
 
         const currentValue = existing.rows[0]?.current_value;
-        const currentList = Array.isArray(currentValue) ? currentValue : [];
+        const currentList = rule.jsonText ? ownershipFiles(currentValue) : (Array.isArray(currentValue) ? currentValue : []);
         const activeFileFound = rule.isArray
             ? currentList.includes(url)
             : (currentValue || null) === url;
@@ -831,7 +832,7 @@ async function softDeleteSedaFile(req, res, recordId, source) {
         await client.query('BEGIN');
         if (rule.isArray) {
             await client.query(
-                `UPDATE seda_registration
+                rule.jsonText ? removeOwnershipFileSql() : `UPDATE seda_registration
                  SET ${rule.column} = array_remove(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
                      modified_date = NOW(),
                      updated_at = NOW()
@@ -926,7 +927,7 @@ async function restoreSedaFile(req, res, recordId, source) {
         }
 
         const currentValue = existing.rows[0]?.current_value;
-        const currentList = Array.isArray(currentValue) ? currentValue : [];
+        const currentList = rule.jsonText ? ownershipFiles(currentValue) : (Array.isArray(currentValue) ? currentValue : []);
         const fileAlreadyActive = rule.isArray
             ? currentList.includes(recycleEntry.fileUrl)
             : (currentValue || null) === recycleEntry.fileUrl;
@@ -938,7 +939,7 @@ async function restoreSedaFile(req, res, recordId, source) {
         await client.query('BEGIN');
         if (rule.isArray) {
             const restoreResult = await client.query(
-                `UPDATE seda_registration
+                rule.jsonText ? appendOwnershipFileSql() : `UPDATE seda_registration
                  SET ${rule.column} = array_append(COALESCE(${rule.column}, ARRAY[]::text[]), $1),
                      modified_date = NOW(),
                      updated_at = NOW()
@@ -1165,6 +1166,7 @@ router.get('/api/v1/seda-public/:shareToken', async (req, res) => {
             success: true,
             data: {
                 ...seda,
+                property_ownership_prove: ownershipFiles(seda.property_ownership_prove),
                 customer_profile: {
                     name: seda.customer_profile_name,
                     phone: seda.customer_phone,
@@ -1401,6 +1403,7 @@ router.get('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, re
             success: true,
             data: {
                 ...seda,
+                property_ownership_prove: ownershipFiles(seda.property_ownership_prove),
                 customer_profile: customer,
                 invoice_details: invoice,
                 deleted_uploads: await getSedaDeletedUploads(client, seda.bubble_id)
@@ -1530,8 +1533,8 @@ router.post('/api/v1/seda/verify-ownership', requireAuth, requireSedaBodyOwnersh
             'SELECT property_ownership_prove, installation_address, check_ownership FROM seda_registration WHERE bubble_id = $1',
             [sedaId]
         );
-        const ownershipFiles = Array.isArray(r.rows[0]?.property_ownership_prove) ? r.rows[0].property_ownership_prove : [];
-        const storedUrl = ownershipFiles[ownershipFiles.length - 1] || null; // most recently uploaded doc
+        const files = ownershipFiles(r.rows[0]?.property_ownership_prove);
+        const storedUrl = files[files.length - 1] || null; // most recently uploaded doc
         if (!storedUrl) return res.status(400).json({ success: false, error: 'No ownership document uploaded yet.' });
 
         const { buffer, mime } = await readFileFromStoredUrl(storedUrl);

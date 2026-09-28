@@ -6,42 +6,45 @@
 - session type: action
 
 ## Task This Session
-Fix the property ownership upload UI so users can add another file after the first upload, up to five files.
+Fix ownership upload database failures after verifying the actual production schema.
 
 ## Files Modified
-- public/templates/seda_register.html — added a dedicated persistent Add ownership files/Add more ownership files button, count, and limit state; separated input and previews from the click target. Complete.
-- tests/seda-ownership-upload.spec.js — four real Chrome interaction tests for signed-in/public forms at mobile/desktop widths. Complete.
+- routes/sedaRoutes.js — ownership uploads/restores use atomic JSON-text SQL, deletes use JSON-text removal; signed-in/public reads normalize legacy/JSON values; verification reads latest normalized URL. Complete.
+- src/modules/Invoicing/services/sedaOwnershipFiles.js — shared legacy URL/JSON normalization and TEXT-compatible SQL builders. Complete.
+- src/modules/Invoicing/api/invoiceOfficeRoutes.js — normalize ownership files in Invoice Office API. Complete.
+- scripts/test_seda_ownership_storage.js — three isolated regression tests executing actual upload persistence function. Complete.
+- .agents/decisions.md — verified TEXT storage decision. Complete.
 - .agents/last-session.md — updated handoff. Complete.
-- work-report-sep-28-2026-solar-calculator-v2.md — completed UI fix report.
+- work-report-sep-28-2026-solar-calculator-v2.md — completed correction report.
 
 ## Files Read But Not Changed
-- routes/sedaRoutes.js
-- tests/navigation.mobile.spec.js
-- skill-release/work-report-updater/SKILL.md
-- C:/Users/Eternalgy/.codex/plugins/cache/openai-bundled/computer-use/26.924.22138/skills/computer-use/SKILL.md
+- read_seda_schema.js
+- src/modules/Invoicing/services/sedaRepo.js
+- package.json
+- scripts/test_seda_route_guards.js
+- .agents/skills/ai-first-maintenance-bundle/decision-registrar/SKILL.md
 
 ## Work Status
 complete
-User correctly rejected previous numeric-limit-only change as insufficient UI verification. Ownership uploads now have an explicit Add more button after the first file and a count. The input is outside the preview container and no enclosing click handler wraps its synthetic click or previews. Button disables at five and re-enables after deletion. Invoice Office navigates to the shared signed-in form; public share links use that same template.
-Four Playwright tests passed in installed Chrome: click real button and native filechooser to add each of five files individually, reload with all five, delete one, add replacement. Tested mobile 390px and desktop 1280px in signed-in/public modes. API responses were mocked; production DB/R2 and the live page were not verified. Default Playwright browser executable was absent; tests explicitly use installed Chrome. Whitespace check passed with CRLF support. Committed and pushed as b604691 to origin/codex/pre-activity-report-v2. No deployment was performed.
+Production schema inspected via solar_prod read-only PostgreSQL connector: property_ownership_prove is TEXT, not TEXT[]. Earlier array assumption was wrong. Read-only validation covered all 12,423 records including 1,427 legacy single URLs. Corrected code stores JSON lists in existing TEXT; no production schema/data changes were performed. Actual generated append/remove UPDATE queries passed production EXPLAIN (without ANALYZE, no writes). Production SELECT expressions validated null, empty, legacy, JSON, fifth-file acceptance and sixth-file guard. Three storage tests and four mobile/desktop signed-in/public browser tests passed. Browser API and regression DB/R2 dependencies are mocked. Deployment/live upload success is not verified.
 
 ## Pending Decisions
 none
 
 ## Discovered But Not Acted On
-- User reports every property ownership upload form is affected; no live URL was supplied. Do not claim the live site is fixed until deployment and live validation occur.
-- Earlier limit configuration remains at five in frontend/server.
-- Prior unrelated user changes remain in invoice_office.html, health_check_r2.js, migrate_seda_to_r2.js, billCycleModeService.js, demo-generator/, and the September 23 report.
-- Earlier handoff described an EV charger lead-source fix awaiting deployment, not revalidated here.
+- Existing route-guard suite: 12 passed, 4 fail because OCR is intentionally disabled (HTTP 503); unrelated to this change. Its upload mocks do not isolate R2 and should be updated before running again.
+- Existing migration/health scripts have pre-existing ownership-array assumptions; do not run them on TEXT ownership data without correcting that handling.
+- Unrelated user changes remain in health_check_r2.js, migrate_seda_to_r2.js, billCycleModeService.js, demo-generator/, and September 23 report.
 
 ## Do Not Touch Next Session
-- Preserve all prior user changes and prior multi-file support in seda_register.html and sedaRoutes.js.
+- Preserve unrelated working tree changes.
+- Do not treat ownership proof as a PostgreSQL array unless a deliberate production migration changes its type.
 
 ## Recommended First Action Next Session
-If deployment is requested, deploy the pushed branch, then verify first and second ownership uploads on the deployed signed-in and public forms. Preserve the unrelated working tree changes.
+Verify that the corrected commit is deployed, then retry an ownership upload and confirm persistence/reload of the first and second files on the live forms.
 
 ## Open Ambiguities Added
 none
 
 ## Decisions Recorded
-none — explicit Add more button directly implements the requested UI fix.
+- Ownership files use JSON in the existing TEXT column, preserving legacy URL values.

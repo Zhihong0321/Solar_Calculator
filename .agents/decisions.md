@@ -153,3 +153,15 @@
 - files affected: `src/modules/Invoicing/api/invoiceOfficeRoutes.js`, `public/templates/invoice_office.html`, `src/modules/Invoicing/services/invoiceRepo.js`
 - do not reverse without: explicit user approval and a deliberate redesign to a single audited payment source of truth with migration rules for existing invoice/payment data
 - status: STABLE
+
+## 2026-09-28 — Ownership files use JSON in the existing TEXT column
+
+- made by: GPT-6
+- reason: Production schema inspection confirmed seda_registration.property_ownership_prove is TEXT, while tnb_bills_12_months is TEXT[]. Native array operations on ownership proof caused upload database failures. Store multiple URLs as JSON text and normalize legacy single URLs when reading. Preserve existing documents without a schema migration.
+- rejected alternatives:
+  - PostgreSQL array_append/array_remove on ownership proof: incompatible with the verified production TEXT type.
+  - require a production column migration: unnecessary for this fix; would add a coordinated deployment dependency.
+- constraints it encodes: existing production schema compatibility, preservation of legacy URLs, atomic five-file limit.
+- files affected: routes/sedaRoutes.js, src/modules/Invoicing/services/sedaOwnershipFiles.js, src/modules/Invoicing/api/invoiceOfficeRoutes.js
+- do not reverse without: verifying the live column type and providing a tested data migration if changing storage format.
+- status: ACTIVE

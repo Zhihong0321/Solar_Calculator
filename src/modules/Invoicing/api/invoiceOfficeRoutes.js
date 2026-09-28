@@ -3,6 +3,7 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
+const { ownershipFiles } = require('../services/sedaOwnershipFiles');
 const { writeInvoiceAuditEntry } = require('../services/auditWriter');
 const {
     createUploader,
@@ -533,6 +534,8 @@ async function fetchOfficeExtras(client, invoice) {
         );
         seda = fallbackSedaRes.rows[0] || null;
     }
+
+    if (seda) seda.property_ownership_prove = ownershipFiles(seda.property_ownership_prove);
 
     const deletedUploads = await listRecycleBinEntries(client, {
         module: 'invoice-office',
