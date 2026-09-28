@@ -763,12 +763,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="input-group">
                         <label class="input-label">Property Ownership Proof</label>
-                        <div class="file-upload-box" onclick="document.getElementById('filePropertyProof').click()">
-                            <p class="text-xs text-slate-400 font-medium">Upload PDF or image</p>
-                            <input type="file" id="filePropertyProof" accept="application/pdf,image/*" class="hidden"
-                                onchange="uploadFile(this)">
+                        <div class="file-upload-box" style="cursor:default;">
+                            <button type="button" id="addPropertyProof" class="file-preview-open"
+                                style="font-size:0.8rem;padding:0.75rem 1rem;cursor:pointer;"
+                                onclick="document.getElementById('filePropertyProof').click()">Add ownership files</button>
+                            <p id="propertyProofCount" class="mt-2 text-xs text-slate-400 font-medium" aria-live="polite">0 of 5 files uploaded</p>
+                            <p class="mt-2 text-xs text-slate-400">Add PDF or image files together or one at a time.</p>
                             <div id="previewPropertyProof" class="file-preview"></div>
                         </div>
+                        <input type="file" id="filePropertyProof" accept="application/pdf,image/*" multiple class="hidden"
+                            onchange="uploadFile(this)">
+                        <p class="mt-2 text-[10px] text-slate-400">e.g. Sale &amp; Purchase Agreement, Geran/land title, quit rent or assessment bill — up to 5 supporting documents.</p>
                     </div>
                     <div class="input-group">
                         <label class="input-label">TNB Meter Image</label>
@@ -840,7 +845,7 @@
             fileMyKadPdf: { key: 'mykad_pdf', label: 'MyKad PDF', preview: 'previewMyKadPdf', check: 'check-mykad', maxMB: 40 },
             ...TNB_BILL_FIELDS,
             fileTnbBills12: { key: 'tnb_bills_12_months', label: 'TNB Bills Up to 12 Months', preview: 'previewTnbBills12', check: null, maxMB: 25, multiple: true, maxFiles: 12 },
-            filePropertyProof: { key: 'property_proof', label: 'Property Ownership Proof', preview: 'previewPropertyProof', check: 'check-property_proof', maxMB: 25 },
+            filePropertyProof: { key: 'property_proof', label: 'Property Ownership Proof', preview: 'previewPropertyProof', check: 'check-property_proof', maxMB: 25, multiple: true, maxFiles: 5 },
             fileTnbMeter: { key: 'tnb_meter', label: 'TNB Meter Image', preview: 'previewTnbMeter', check: 'check-tnb_meter', maxMB: 20 },
             fileTaxDocument: { key: 'tax_document', label: 'Tax Document', preview: 'previewTaxDocument', check: null, maxMB: 25 },
             fileSsmRegistration: { key: 'ssm_registration', label: 'SSM Registration', preview: 'previewSsmRegistration', check: null, maxMB: 25 },
@@ -930,6 +935,18 @@
             el.style.display = 'none';
             const box = el.closest('.file-upload-box') || el.parentElement;
             box?.querySelector('.upload-done-tag')?.remove();
+            if (previewId === 'previewPropertyProof') syncPropertyProofUpload();
+        }
+
+        function syncPropertyProofUpload() {
+            const files = fileUrls.property_proof;
+            const count = Array.isArray(files) ? files.filter(Boolean).length : (files ? 1 : 0);
+            const maxFiles = FIELDS.filePropertyProof.maxFiles;
+            const button = document.getElementById('addPropertyProof');
+            button.disabled = count >= maxFiles;
+            button.textContent = count >= maxFiles ? '5 files uploaded — delete a file to add another' : (count ? 'Add more ownership files' : 'Add ownership files');
+            button.style.opacity = button.disabled ? '0.5' : '1';
+            document.getElementById('propertyProofCount').textContent = `${count} of ${maxFiles} files uploaded`;
         }
 
         function clearAllPreviews() {
@@ -972,6 +989,7 @@
             const el = document.getElementById(previewId);
             if (!el) return;
             const list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+            if (fieldKey === 'property_proof') syncPropertyProofUpload();
             if (!list.length) {
                 clearPreview(previewId);
                 return;
@@ -1213,7 +1231,7 @@
                 { id: 'check-installAddress', value: () => !!document.getElementById('installAddress')?.value.trim() },
                 { id: 'check-mykad', value: () => !!(fileUrls.mykad_pdf || (fileUrls.mykad_front && fileUrls.mykad_back)) },
                 { id: 'check-tnb_bill_1', value: () => !!fileUrls.tnb_bill_1 },
-                { id: 'check-property_proof', value: () => !!fileUrls.property_proof },
+                { id: 'check-property_proof', value: () => Array.isArray(fileUrls.property_proof) ? fileUrls.property_proof.length > 0 : !!fileUrls.property_proof },
                 { id: 'check-tnb_meter', value: () => !!fileUrls.tnb_meter },
             ];
 
@@ -1286,7 +1304,7 @@
                         return acc;
                     }, {}),
                     tnb_bills_12_months: Array.isArray(d.tnb_bills_12_months) ? d.tnb_bills_12_months : [],
-                    property_proof: d.property_ownership_prove || null,
+                    property_proof: Array.isArray(d.property_ownership_prove) ? d.property_ownership_prove : [],
                     tnb_meter: d.tnb_meter || null,
                     tax_document: d.tax_document || null,
                     ssm_registration: d.ssm_registration || null,
@@ -1548,7 +1566,8 @@
             if (!fileUrls.mykad_pdf && (!fileUrls.mykad_front || !fileUrls.mykad_back)) missing.push('- MyKad (Front & Back or PDF)');
             if (!fileUrls.tnb_bill_1) missing.push('- TNB Bill (Latest Month)');
             if (!fileUrls.tnb_meter) missing.push('- TNB Meter Photo');
-            if (!fileUrls.property_proof) missing.push('- Property Ownership Proof (S&P / Geran)');
+            const hasPropertyProof = Array.isArray(fileUrls.property_proof) ? fileUrls.property_proof.length > 0 : !!fileUrls.property_proof;
+            if (!hasPropertyProof) missing.push('- Property Ownership Proof (S&P / Geran)');
             const eName = document.getElementById('emergencyName').value.trim();
             const ePhone = document.getElementById('emergencyPhone').value.trim();
             if (!eName || !ePhone) missing.push('- Emergency Contact Name & Phone');

@@ -300,7 +300,7 @@ const FILE_FIELDS = {
     tnb_bill_2:     { label: 'TNB Bill Month 2',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_2'               },
     tnb_bill_3:     { label: 'TNB Bill Month 3',         accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tnb_bill_3'               },
     tnb_bills_12_months: { label: 'TNB Bills Up to 12 Months', accept: ['application/pdf', 'image/*'], maxMB: 25, column: 'tnb_bills_12_months', isArray: true, maxItems: 12 },
-    property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'property_ownership_prove'  },
+    property_proof: { label: 'Property Ownership Proof', accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'property_ownership_prove', isArray: true, maxItems: 5 },
     tnb_meter:      { label: 'TNB Meter Image',          accept: ['image/*'],                         maxMB: 20, column: 'tnb_meter'                },
     tax_document:   { label: 'Tax Document',            accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'tax_document'              },
     ssm_registration: { label: 'SSM Registration',      accept: ['application/pdf', 'image/*'],      maxMB: 25, column: 'ssm_registration'          },
@@ -1530,7 +1530,8 @@ router.post('/api/v1/seda/verify-ownership', requireAuth, requireSedaBodyOwnersh
             'SELECT property_ownership_prove, installation_address, check_ownership FROM seda_registration WHERE bubble_id = $1',
             [sedaId]
         );
-        const storedUrl = r.rows[0]?.property_ownership_prove;
+        const ownershipFiles = Array.isArray(r.rows[0]?.property_ownership_prove) ? r.rows[0].property_ownership_prove : [];
+        const storedUrl = ownershipFiles[ownershipFiles.length - 1] || null; // most recently uploaded doc
         if (!storedUrl) return res.status(400).json({ success: false, error: 'No ownership document uploaded yet.' });
 
         const { buffer, mime } = await readFileFromStoredUrl(storedUrl);

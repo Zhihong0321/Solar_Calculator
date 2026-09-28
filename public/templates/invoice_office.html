@@ -1264,7 +1264,7 @@
                 { id: 'dot-tnb1', val: !!seda.tnb_bill_1 },
                 { id: 'dot-tnb2', val: !!seda.tnb_bill_2 },
                 { id: 'dot-tnb3', val: !!seda.tnb_bill_3 },
-                { id: 'dot-owner', val: !!seda.property_ownership_prove },
+                { id: 'dot-owner', val: Array.isArray(seda.property_ownership_prove) ? seda.property_ownership_prove.length > 0 : !!seda.property_ownership_prove },
                 { id: 'dot-meter', val: !!seda.tnb_meter }
             ];
 
