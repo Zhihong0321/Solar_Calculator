@@ -240,6 +240,34 @@ async function getShareUrl(client, bubbleId, protocol, host) {
     }
 }
 
+const SEDA_SHARE_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Return a live share token for a SEDA registration row, refreshing it
+ * (new token, share_enabled = true, 30-day expiry) when missing, disabled or expired.
+ * @param {object} client - Database client
+ * @param {object} seda - Row with bubble_id, share_token, share_enabled, share_expires_at
+ * @returns {Promise<string|null>} Live share token
+ */
+async function ensureFreshShareToken(client, seda) {
+    if (!seda) return null;
+
+    const expired = Boolean(seda.share_expires_at) && new Date(seda.share_expires_at).getTime() <= Date.now();
+    if (seda.share_token && seda.share_enabled && !expired) {
+        return seda.share_token;
+    }
+
+    const token = generateShareToken();
+    const expiresAt = new Date(Date.now() + SEDA_SHARE_LIFETIME_MS);
+    await client.query(
+        `UPDATE seda_registration
+         SET share_token = $1, share_enabled = true, share_expires_at = $2, updated_at = NOW()
+         WHERE bubble_id = $3`,
+        [token, expiresAt, seda.bubble_id]
+    );
+    return token;
+}
+
 /**
  * Update the linked customer for a SEDA registration
  * @param {object} client 
@@ -281,6 +309,7 @@ module.exports = {
   getByShareToken,
   getShareUrl,
   generateShareToken,
+  ensureFreshShareToken,
   updateSedaLinkedCustomer,
   updateSedaAgent,
   resolveUserBubbleId,

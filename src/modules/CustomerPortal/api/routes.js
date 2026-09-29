@@ -11,8 +11,6 @@ const { storageDriver } = require('../../../core/upload');
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
-const SEDA_SHARE_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
-
 /**
  * Public, unauthenticated portal for a customer to look up their own records
  * by Customer ID. Deliberately as low-friction as the existing invoice/SEDA
@@ -51,25 +49,6 @@ async function findCustomerByAnyIdShape(client, rawId) {
   }
 
   return null;
-}
-
-async function ensureFreshSedaShareToken(client, seda) {
-  if (!seda) return null;
-
-  const expired = Boolean(seda.share_expires_at) && new Date(seda.share_expires_at).getTime() <= Date.now();
-  if (seda.share_token && seda.share_enabled && !expired) {
-    return seda.share_token;
-  }
-
-  const token = sedaRepo.generateShareToken();
-  const expiresAt = new Date(Date.now() + SEDA_SHARE_LIFETIME_MS);
-  await client.query(
-    `UPDATE seda_registration
-     SET share_token = $1, share_enabled = true, share_expires_at = $2, updated_at = NOW()
-     WHERE bubble_id = $3`,
-    [token, expiresAt, seda.bubble_id]
-  );
-  return token;
 }
 
 function maskPhone(phone) {
@@ -224,7 +203,7 @@ router.get('/api/v1/customer-portal/:customerId', async (req, res) => {
         );
         const sedaRow = sedaRes.rows[0];
         if (sedaRow) {
-          const shareToken = await ensureFreshSedaShareToken(client, sedaRow);
+          const shareToken = await sedaRepo.ensureFreshShareToken(client, sedaRow);
           seda = {
             share_token: shareToken,
             reg_status: sedaRow.reg_status,

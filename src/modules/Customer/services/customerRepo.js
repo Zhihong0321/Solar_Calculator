@@ -3,6 +3,7 @@
  * Handles database operations for customer management
  */
 const crypto = require('crypto');
+const sedaRepo = require('../../Invoicing/services/sedaRepo');
 
 async function resolveCustomerOwnerIdentifiers(client, ownerKey) {
   const normalizedOwnerKey = String(ownerKey);
@@ -157,6 +158,15 @@ async function getCustomersByUserId(client, ownerKey, options = {}) {
             s.bubble_id AS seda_bubble_id,
             s.mapper_status AS seda_form_status,
             s.seda_status AS seda_admin_status,
+            s.share_token AS seda_share_token,
+            s.share_enabled AS seda_share_enabled,
+            s.share_expires_at AS seda_share_expires_at,
+            (SELECT sinv.bubble_id
+               FROM invoice sinv
+              WHERE sinv.linked_seda_registration = s.bubble_id
+                AND sinv.is_deleted IS NOT TRUE
+              ORDER BY COALESCE(sinv.is_latest, true) DESC, sinv.created_at DESC NULLS LAST
+              LIMIT 1) AS seda_invoice_uid,
             ${sedaChecklistSelect},
             (${sedaFormDoneExpr}) AS seda_form_done,
             7 AS seda_form_total
@@ -171,6 +181,30 @@ async function getCustomersByUserId(client, ownerKey, options = {}) {
     `SELECT COUNT(*) as total ${joinClause} WHERE ${whereClause}`,
     whereParams
   );
+
+  // Paid customers open the hosted SEDA form (customer + invoice + share token).
+  // Share tokens are refreshed when missing/expired so the link never dead-ends,
+  // and are never sent to the browser — only the finished URL is.
+  const sedaFormBaseUrl = (process.env.SEDA_FORM_BASE_URL || 'https://e-welcome.up.railway.app').replace(/\/+$/, '');
+  for (const row of result.rows) {
+    const { seda_share_token, seda_share_enabled, seda_share_expires_at } = row;
+    delete row.seda_share_token;
+    delete row.seda_share_enabled;
+    delete row.seda_share_expires_at;
+    row.seda_form_url = null;
+    if (!(Number(row.total_paid) > 0) || !row.seda_bubble_id || !row.seda_invoice_uid) continue;
+
+    const token = await sedaRepo.ensureFreshShareToken(client, {
+      bubble_id: row.seda_bubble_id,
+      share_token: seda_share_token,
+      share_enabled: seda_share_enabled,
+      share_expires_at: seda_share_expires_at
+    });
+    row.seda_form_url = `${sedaFormBaseUrl}/seda-form.html`
+      + `?customer=${encodeURIComponent(row.customer_id)}`
+      + `&invoice=${encodeURIComponent(row.seda_invoice_uid)}`
+      + `&token=${encodeURIComponent(token)}`;
+  }
 
   return {
     customers: result.rows,
