@@ -337,10 +337,7 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         ? `<button onclick="viewProposal('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-proposal"><span>View Proposal</span></button>` : '';
     const a4Btn = (invoice.share_token || invoice.bubble_id)
         ? `<button onclick="openA4Preview('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-preview"><span>PRINTABLE</span></button>` : '';
-    const pdfBtn = !isEvCharger && (invoice.share_token || invoice.bubble_id)
-        ? `<button onclick="downloadInvoicePdf('${invoice.share_token || invoice.bubble_id}')" class="action-btn btn-pdf"><span id="pdfButtonText">Download PDF</span></button>` : '';
-
-    const allActionBtns = shareBtn + referBtn + sedaBtn + tigerNeoBtn + viewProposalBtn + a4Btn + pdfBtn;
+    const allActionBtns = shareBtn + referBtn + sedaBtn + tigerNeoBtn + viewProposalBtn + a4Btn;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -680,11 +677,8 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
         </div>
       </div>
       <div class="nav-r">
-        <button class="nav-lang">EN | 中</button>
+        <button type="button" class="nav-lang" aria-label="Switch to Chinese">中文</button>
         <div class="nav-live">LIVE</div>
-        <button class="nav-pdf" title="Download PDF" onclick="downloadPdf()">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="18"/><line x1="15" y1="15" x2="12" y2="18"/></svg>
-        </button>
       </div>
     </nav>
 
@@ -1032,7 +1026,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
               <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;${idx < invoice.warranties.length - 1 ? 'border-bottom:1px solid var(--g100);' : ''}">
                 <div>
                   <div style="font-size:11.5px;font-weight:700;color:var(--g900)">${w.name || 'Product'}</div>
-                  <div style="font-size:9.5px;color:var(--g500);font-weight:500;margin-top:1px">${w.terms || ''}</div>
+                  <div data-language-preserve style="font-size:9.5px;color:var(--g500);font-weight:500;margin-top:1px">${w.terms || ''}</div>
                 </div>
               </div>
             `).join('')}
@@ -1086,7 +1080,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
       <div class="sw anim">
         <div class="sec-label">Terms &amp; Conditions</div>
         <div class="card">
-          <p style="font-size:9.5px;color:var(--g500);line-height:1.55;white-space:pre-wrap">${formatTermsText(terms)}</p>
+          <p data-language-preserve style="font-size:9.5px;color:var(--g500);line-height:1.55;white-space:pre-wrap">${formatTermsText(terms)}</p>
         </div>
       </div>
       ` : ''}
@@ -1153,6 +1147,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
   </script>
   <script src="/js/invoice-view-tracker.js" defer></script>
   ` : ''}
+  <script src="/js/invoice-view-language.js"></script>
 </body>
 </html>
   `;

@@ -646,9 +646,9 @@ function renderDetailsPage({ invoice, template, copy, ai4, components, estimate,
                 <div class="a4-comp-card-body">
                   <span class="a4-comp-card-tag">Inverter</span>
                   <h3 class="a4-comp-card-name">${escapeHtml(components.inverterName || 'SAJ Inverter')}</h3>
-                  <p class="a4-comp-card-desc">Three-phase string inverter tied to the linked package for stable AC conversion.</p>
+                  <p class="a4-comp-card-desc">${escapeHtml(components.inverterPhase === 1 ? 'Single-phase inverter' : components.inverterPhase === 3 ? 'Three-phase inverter' : 'Inverter')} tied to the linked package for stable AC conversion.</p>
                   <div class="a4-comp-specs">
-                    <div><span>Phase</span><strong>3-Phase</strong></div>
+                    <div><span>Phase</span><strong>${components.inverterPhase ? `${components.inverterPhase}-Phase` : '—'}</strong></div>
                     <div><span>Function</span><strong>String inverter</strong></div>
                     <div><span>Brand</span><strong>SAJ</strong></div>
                     <div><span>Topology</span><strong>Transformerless</strong></div>
@@ -1646,8 +1646,22 @@ function generateInvoiceHtmlA4(invoice, template, options = {}) {
     || items.find((it) => (it.product_name || it.description || '').toLowerCase().includes('inverter'))
     || items.find((it) => (it.product_name || it.description || '').toLowerCase().includes('saj'));
   const inverterNameText = inverterName
-    ? (inverterName.product_name || inverterName.description || '').trim()
+    ? (typeof inverterName === 'string' ? inverterName : inverterName.product_name || inverterName.description || '').trim()
     : '';
+  // Product phase takes precedence over the package label; unknown phase stays unspecified.
+  const phaseSources = [inverterNameText, invoice.package_name, invoice.package_name_snapshot];
+  let inverterPhase = null;
+  for (const source of phaseSources) {
+    const text = String(source || '');
+    if (/\[1P\]|\b(?:single|1)[\s-]*phase\b/i.test(text)) {
+      inverterPhase = 1;
+      break;
+    }
+    if (/\[3P\]|\b(?:three|3)[\s-]*phase\b/i.test(text)) {
+      inverterPhase = 3;
+      break;
+    }
+  }
 
   const totalAmount = Number(invoice.total_amount) || 0;
   const sstAmount = Number(invoice.sst_amount) || 0;
@@ -1672,6 +1686,7 @@ function generateInvoiceHtmlA4(invoice, template, options = {}) {
     hasSajInverter,
     hasMasterTecCable,
     inverterName: inverterNameText,
+    inverterPhase,
     subtotal,
     discount: discountAmount,
     voucher: voucherAmount,
