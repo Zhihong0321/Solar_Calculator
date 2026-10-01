@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS afa_rates (
 -- Seed with the rate history previously hardcoded as AFA_OPTIONS in
 -- public/domestic-v4.html, so the dropdown's content is unchanged by this migration.
 INSERT INTO afa_rates (period_year, period_month, rate_value) VALUES
+    (2026, 10, 0.0361),
     (2026, 9, 0.0376),
     (2026, 8, 0.0380),
     (2026, 7, 0.0359),
