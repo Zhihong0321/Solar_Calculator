@@ -41,12 +41,12 @@
     <strong>Eternalgy API</strong>
     <a href="#overview">Overview</a><a href="#authentication">Authentication</a><a href="#conventions">Conventions</a>
     <a href="#users">Users</a><a href="#invoices">Invoices</a><a href="#seda">SEDA registrations</a>
-    <a href="#payments">Payments</a><a href="#examples">Examples</a><a href="#existing">Existing app API</a>
+    <a href="#payments">Payments</a><a href="#support-tickets">Support tickets</a><a href="#examples">Examples</a><a href="#existing">Existing app API</a>
   </aside>
   <main>
     <section id="overview">
       <h1>Integration API</h1>
-      <p class="lead">Read users, invoices, SEDA registrations, and recorded payments. Edit selected user profile fields. These endpoints are intended for server to server integrations.</p>
+      <p class="lead">Read users, invoices, SEDA registrations, recorded payments, and support ticket submissions. Edit selected user profile and support ticket fields. These endpoints are intended for server to server integrations.</p>
       <p><strong>Base path:</strong> <code>/api/integration/v1</code> &nbsp; <strong>Documentation:</strong> <code>/api/integration/docs</code></p>
       <div class="note">This API reads the <code>payment</code> table, which is the app's recorded payment source. It does not read or submit <code>submitted_payment</code> workflow rows.</div>
     </section>
@@ -63,7 +63,7 @@ Content-Type: application/json</code></pre>
       <table><thead><tr><th>Parameter</th><th>Applies to</th><th>Meaning</th></tr></thead><tbody>
         <tr><td><code>limit</code></td><td>All lists</td><td>Integer 1–100; default 50.</td></tr>
         <tr><td><code>offset</code></td><td>All lists</td><td>Non-negative integer; default 0.</td></tr>
-        <tr><td><code>:id</code></td><td>Detail and edit</td><td>Record <code>bubble_id</code>. Users also accept numeric database <code>id</code>.</td></tr>
+        <tr><td><code>:id</code></td><td>Detail and edit</td><td>Record <code>bubble_id</code>. Users and support tickets also accept numeric database <code>id</code>.</td></tr>
       </tbody></table>
       <p>List data is sorted newest first. Results are pages; request the next page with a higher <code>offset</code> until fewer than <code>limit</code> records are returned.</p>
     </section>
@@ -96,6 +96,33 @@ Content-Type: application/json</code></pre>
       <div class="endpoint"><span class="method">GET</span><code>/payments</code><p>List rows from <code>payment</code>. Optional filter: <code>?linked_invoice=&lt;invoice-id&gt;</code>, including payment IDs in the invoice's <code>linked_payment</code> array.</p></div>
       <div class="endpoint"><span class="method">GET</span><code>/payments/:id</code><p>Read one recorded payment by Bubble ID.</p></div>
       <div class="warning">These routes never read <code>submitted_payment</code>. Existing session API routes under <code>/api/v1/submitted-payments</code> serve the separate submission workflow.</div>
+    </section>
+    <section id="support-tickets">
+      <h2>Support ticket submissions</h2>
+      <div class="endpoint"><span class="method">GET</span><code>/support-tickets</code><p>List submissions with standard limit and offset pagination. Optional exact filters: <code>status</code>, <code>link_customer</code>, and <code>created_by</code>. Filters may be combined.</p></div>
+      <div class="endpoint"><span class="method">GET</span><code>/support-tickets/:id</code><p>Read a submission by numeric local ID or Bubble ID.</p></div>
+      <div class="endpoint"><span class="method patch">PATCH</span><code>/support-tickets/:id</code><p>Update selected fields. Send a non-empty JSON object containing only the fields to change. Returns the updated ticket in <code>data</code>.</p></div>
+      <p>Reads return existing database fields, including <code>id</code>, <code>bubble_id</code>, <code>title</code>, <code>problem_description</code>, <code>technician_remark</code>, <code>status</code>, <code>link_customer</code>, <code>created_by</code>, <code>images</code>, <code>video_url</code> when present, <code>created_date</code>, <code>modified_date</code>, and <code>synced_at</code>. Local submissions may have no Bubble ID. Images are arrays of URLs; legacy Bubble URLs may start with <code>//</code>.</p>
+      <p>Customer references are stored as submitted: legacy Bubble customer-profile IDs or local customer IDs. Creator references identify the submitting user. Related customer and user records are not expanded.</p>
+      <table><thead><tr><th>Editable field</th><th>Rules</th></tr></thead><tbody>
+        <tr><td><code>status</code></td><td><code>unread</code>, <code>read by support</code>, <code>processing</code>, <code>solved</code>, or <code>deleted</code>. Null or an empty string clears the status.</td></tr>
+        <tr><td><code>technician_remark</code></td><td>Plain text string or null; line breaks are preserved.</td></tr>
+        <tr><td><code>link_customer</code></td><td>Customer reference string; null or an empty string clears the link.</td></tr>
+        <tr><td><code>video_url</code></td><td>Video reference string; null or an empty string clears the reference. This endpoint does not upload files.</td></tr>
+      </tbody></table>
+      <p>Omitted fields remain unchanged. Every successful update sets <code>modified_date</code> to the current server time. Title, problem description, images, submitter, IDs, and timestamps cannot be edited through this endpoint. Unknown fields, invalid statuses, and values other than strings or null return <code>400</code>. Missing tickets return <code>404</code>.</p>
+      <p>Lists include deleted tickets unless filtered by status, and sort by creation date descending with local ID as the tie breaker; missing creation dates sort last. Clearing a status stores null, which the support screen counts as unread; the integration list's status filter uses the stored value.</p>
+      <pre><code>curl -H "X-Api-Password: &lt;integration-password&gt;" \
+  "https://YOUR-HOST/api/integration/v1/support-tickets?status=unread&amp;limit=20&amp;offset=0"
+
+curl -H "X-Api-Password: &lt;integration-password&gt;" \
+  "https://YOUR-HOST/api/integration/v1/support-tickets/42"
+
+curl -X PATCH -H "X-Api-Password: &lt;integration-password&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"processing","technician_remark":"Inspection scheduled."}' \
+  "https://YOUR-HOST/api/integration/v1/support-tickets/42"</code></pre>
+      <pre><code>{"success":true,"data":{"id":42,"bubble_id":null,"title":"System trip","status":"processing","technician_remark":"Inspection scheduled."}}</code></pre>
     </section>
     <section id="examples">
       <h2>Examples</h2>

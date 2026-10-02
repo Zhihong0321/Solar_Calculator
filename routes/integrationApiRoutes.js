@@ -143,6 +143,65 @@ router.patch('/api/integration/v1/users/:id', (req, res) => withClient(res, asyn
   }
 }));
 
+const TICKET_FIELDS = ['status', 'technician_remark', 'link_customer', 'video_url'];
+const TICKET_STATUSES = ['unread', 'read by support', 'processing', 'solved', 'deleted'];
+
+router.get('/api/integration/v1/support-tickets', (req, res) => {
+  const page = pageParams(req, res);
+  if (!page) return;
+  const params = [];
+  const conditions = [];
+  for (const field of ['status', 'link_customer', 'created_by']) {
+    const value = req.query[field];
+    if (value === undefined) continue;
+    if (typeof value !== 'string' || !value.trim() || (field === 'status' && !TICKET_STATUSES.includes(value))) {
+      return res.status(400).json({ success: false, error: `Invalid ${field}` });
+    }
+    params.push(value);
+    conditions.push(`st.${field} = $${params.length}`);
+  }
+  params.push(page.limit, page.offset);
+  return withClient(res, async (client) => {
+    const result = await client.query(`SELECT st.* FROM support_ticket st
+      ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+      ORDER BY st.created_date DESC NULLS LAST, st.id DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
+    return res.json({ success: true, data: result.rows, ...page });
+  });
+});
+
+router.get('/api/integration/v1/support-tickets/:id', (req, res) => withClient(res, async (client) => {
+  const result = await client.query('SELECT * FROM support_ticket WHERE bubble_id = $1 OR id::text = $1 LIMIT 1', [req.params.id]);
+  if (!result.rows.length) return res.status(404).json({ success: false, error: 'Ticket not found' });
+  return res.json({ success: true, data: result.rows[0] });
+}));
+
+router.patch('/api/integration/v1/support-tickets/:id', (req, res) => {
+  const body = req.body;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return res.status(400).json({ success: false, error: 'A JSON object is required' });
+  }
+  const fields = Object.keys(body);
+  if (!fields.length || fields.some((field) => !TICKET_FIELDS.includes(field))) {
+    return res.status(400).json({ success: false, error: `Only these fields can be edited: ${TICKET_FIELDS.join(', ')}` });
+  }
+  if (fields.some((field) => body[field] !== null && typeof body[field] !== 'string')) {
+    return res.status(400).json({ success: false, error: 'Values must be strings or null' });
+  }
+  if ('status' in body && body.status !== null && body.status !== '' && !TICKET_STATUSES.includes(body.status)) {
+    return res.status(400).json({ success: false, error: 'Invalid status' });
+  }
+  const params = fields.map((field) => field === 'technician_remark' ? body[field] : body[field] || null);
+  const assignments = fields.map((field, index) => `${field} = $${index + 1}`);
+  params.push(req.params.id);
+  return withClient(res, async (client) => {
+    const result = await client.query(`UPDATE support_ticket SET ${assignments.join(', ')}, modified_date = NOW()
+      WHERE bubble_id = $${params.length} OR id::text = $${params.length} RETURNING *`, params);
+    if (!result.rows.length) return res.status(404).json({ success: false, error: 'Ticket not found' });
+    return res.json({ success: true, data: result.rows[0] });
+  });
+});
+
 for (const [resource, config] of Object.entries(RESOURCE_TABLES)) {
   router.get(`/api/integration/v1/${resource}`, (req, res) => {
     const page = pageParams(req, res);

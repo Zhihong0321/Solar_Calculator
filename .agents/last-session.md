@@ -1,43 +1,46 @@
 # Last Session Handoff
 
-- date: 2026-10-01
+- date: 2026-10-02
 - model: GPT-6
 - session type: action
 
 ## Task This Session
-Fix quotation/invoice Chinese language button and remove unused PDF controls.
+Expand the integration API to read and update support ticket submissions and update its documentation.
 
 ## Files Modified
-- src/modules/Invoicing/services/invoiceHtmlGeneratorV2.js — wired language script, removed both PDF controls, marked stored legal text for preservation.
-- public/js/invoice-view-language.js — English/Chinese UI label toggle, URL preference and dynamic label updates.
-- scripts/test_invoice_view_language.js — browser regression checks using installed Edge.
-- .agents/last-session.md — handoff updated.
-- work-report-oct-1-2026-solar-calculator-v2.md — work report updated.
+- routes/integrationApiRoutes.js — added ticket list, detail, and partial update endpoints; complete.
+- public/templates/integration_api_docs.html — added ticket schema, filters, update rules, and curl examples; complete.
+- scripts/test_integration_api.js — added ticket endpoint regression checks; complete.
+- work-report-oct-2-2026-solar-calculator-v2.md — completed work report.
+- .agents/last-session.md — session handoff.
 
 ## Files Read But Not Changed
-- src/modules/Invoicing/api/invoiceViewRoutes.js
-- src/modules/Invoicing/services/invoiceHtmlGeneratorV2InteractiveSupport.js
-- AGENTS.md and required reporting/handoff skills were read earlier in this chat.
+- AGENTS.md
+- project_support_ticket.md
+- src/modules/SupportTicket/supportTicketService.js
+- src/modules/SupportTicket/supportTicketRoutes.js
+- src/modules/SupportTicket/supportTicketController.js
+- package.json
+- .agents/skills/ai-first-maintenance-bundle/session-handoff/SKILL.md
 
 ## Work Status
-complete — browser checks passed for both toggle directions, initial Chinese URL, dynamic labels, preserved customer name, preserved query parameters, and removal of PDF controls. Deployment not performed.
+Complete. node scripts/test_integration_api.js and git diff --check passed. Tests use a mocked database; live database and deployment were not verified.
 
 ## Pending Decisions
-none
+None.
 
 ## Discovered But Not Acted On
-- Default Playwright Chromium executable unavailable; tests use installed Edge.
-- Stored product descriptions, warranties and legal terms retain their original language.
+- User removed the work-report requirement. AGENTS.md now instructs agents not to create or update work-report files.
+- Bubble imports can overwrite ticket fields when explicitly synchronized through the existing support module.
 
 ## Do Not Touch Next Session
-- Preserve unrelated existing modifications in R2 scripts, billCycleModeService.js and demo-generator.
-- Preserve the earlier A4 inverter fix and regression test from this chat.
+- Existing unrelated changes in scripts/health_check_r2.js, scripts/migrate_seda_to_r2.js, src/modules/SolarCalculator/services/billCycleModeService.js, demo-generator/, and work-report-sep-23-2026-solar-calculator-v2.md were present before this task.
 
 ## Recommended First Action Next Session
-Run node scripts/test_invoice_view_language.js if modifying quotation view language controls.
+If deployment is requested, review the ticket endpoint diff and verify reads and a user-authorized update against the target database after deployment.
 
 ## Open Ambiguities Added
-none
+None.
 
 ## Decisions Recorded
-none
+None. Ticket updates follow the existing support module's four editable fields.

@@ -7,6 +7,10 @@ const queries = [];
 const client = {
   async query(sql, params = []) {
     queries.push({ sql, params });
+    if (sql.includes('support_ticket')) {
+      if (params.includes('missing')) return { rows: [] };
+      return { rows: [{ id: 42, bubble_id: 'ticket-42', title: 'System trip', status: sql.startsWith('UPDATE') ? params[0] : 'unread' }] };
+    }
     if (sql.includes('SELECT id, bubble_id, linked_agent_profile FROM "user"')) {
       return { rows: [{ id: 7, bubble_id: 'user-7', linked_agent_profile: 'agent-7' }] };
     }
@@ -82,9 +86,50 @@ async function main() {
     const badPage = await request('/api/integration/v1/invoices?limit=101');
     assert.equal(badPage.status, 400);
 
+    const ticketList = await request('/api/integration/v1/support-tickets?status=unread&link_customer=customer-1&created_by=user-7&limit=20&offset=2');
+    assert.equal(ticketList.status, 200);
+    assert.equal((await ticketList.json()).data[0].id, 42);
+    assert.deepEqual(queries.at(-1).params, ['unread', 'customer-1', 'user-7', 20, 2]);
+    for (const id of ['42', 'ticket-42']) {
+      const ticket = await request(`/api/integration/v1/support-tickets/${id}`);
+      assert.equal(ticket.status, 200);
+      assert.equal((await ticket.json()).data.id, 42);
+      assert.deepEqual(queries.at(-1).params, [id]);
+    }
+    assert.equal((await request('/api/integration/v1/support-tickets/missing')).status, 404);
+    for (const query of ['limit=101', 'offset=-1', 'status=invalid', 'created_by=', 'link_customer=a&link_customer=b']) {
+      assert.equal((await request(`/api/integration/v1/support-tickets?${query}`)).status, 400);
+    }
+    const patchTicket = (id, body) => request(`/api/integration/v1/support-tickets/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    for (const body of [{}, [], { title: 'Changed' }, { status: 'invalid' }, { technician_remark: 123 }, { created_by: 'other' }]) {
+      const before = queries.length;
+      assert.equal((await patchTicket('42', body)).status, 400);
+      assert.equal(queries.length, before, 'Invalid patches must not query the database');
+    }
+    const ticketEdit = await patchTicket('ticket-42', { status: 'processing', technician_remark: 'Visit\nscheduled' });
+    assert.equal(ticketEdit.status, 200);
+    assert.equal((await ticketEdit.json()).data.status, 'processing');
+    assert.deepEqual(queries.at(-1).params, ['processing', 'Visit\nscheduled', 'ticket-42']);
+    assert(queries.at(-1).sql.includes('modified_date = NOW()'));
+    assert(!queries.at(-1).sql.includes('title ='));
+    assert.equal((await patchTicket('42', { status: '', link_customer: null, video_url: '' })).status, 200);
+    assert.deepEqual(queries.at(-1).params, [null, null, null, '42']);
+    assert.equal((await patchTicket('missing', { status: 'solved' })).status, 404);
+    const beforeUnauthorized = queries.length;
+    assert.equal((await fetch(`${base}/api/integration/v1/support-tickets`)).status, 401);
+    assert.equal((await fetch(`${base}/api/integration/v1/support-tickets/42`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{"status":"solved"}'
+    })).status, 401);
+    assert.equal(queries.length, beforeUnauthorized);
+
     const docs = await fetch(`${base}/api/integration/docs`);
     assert.equal(docs.status, 200);
-    assert((await docs.text()).includes('Recorded payments'));
+    const docsHtml = await docs.text();
+    assert(docsHtml.includes('Recorded payments'));
+    assert(docsHtml.includes('Support ticket submissions'));
+    assert(docsHtml.includes('/support-tickets/:id'));
     console.log('Integration API checks passed');
   } finally {
     await new Promise((resolve) => server.close(resolve));
