@@ -7,6 +7,7 @@
  * Performance Note: Uses atomic updates for invoice number generation to prevent race conditions.
  */
 const crypto = require('crypto');
+const { resolveMicroInverterWarrantyProduct } = require('./invoiceMicroInverterWarrantySupport');
 const {
   calculateInvoiceFinancials,
   validateDiscountLimit,
@@ -175,7 +176,8 @@ async function _fetchWarrantyInfo(client, packageId, invoiceItems = []) {
     // 2. Collect directly linked product items such as batteries/accessories.
     if (Array.isArray(invoiceItems) && invoiceItems.length > 0) {
       invoiceItems.forEach((item) => {
-        if (item?.linked_product) productIds.push(item.linked_product);
+        const productId = item?.linked_product || resolveMicroInverterWarrantyProduct(item);
+        if (productId) productIds.push(productId);
       });
     }
 
