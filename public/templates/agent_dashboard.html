@@ -685,15 +685,15 @@
             </p>
           </a>
 
-          <a href="/hosted-html" class="tool-card">
+          <button type="button" onclick="openHostedHtmlPromptModal()" class="tool-card w-full text-center cursor-pointer">
             <div class="tool-icon">
               <i class="fa-solid fa-globe text-2xl text-violet-600"></i>
             </div>
             <h3 class="text-sm font-bold text-slate-900">Hosted HTML</h3>
             <p class="text-[10px] text-slate-400 font-medium mt-1">
-              Publish & share single-file HTML pages
+              Copy AI prompt to publish apps
             </p>
-          </a>
+          </button>
 
           <a href="https://ai2026-production.up.railway.app/" target="_blank" class="tool-card">
             <div class="tool-icon">
@@ -1299,8 +1299,212 @@
       })[ch]);
     }
 
+    // ---- Hosted HTML AI Prompt Modal ----
+    const HOSTED_HTML_AI_PROMPT = `# TASK: Deploy Static Web App to HTML Host Engine
+
+You are tasked with preparing, packaging, and publishing a web application to the HTML Host Engine service at https://ee-html.up.railway.app.
+
+---
+
+## Service Credentials & Overview
+- Service Base URL: https://ee-html.up.railway.app
+- API Key: eternalgy2026
+- Auth Header: Authorization: Bearer eternalgy2026 (or x-api-key: eternalgy2026)
+- Admin Console: https://ee-html.up.railway.app/admin (key: eternalgy2026)
+
+---
+
+## Strict Rules & Constraints
+1. Static Files Only:
+   - Only static assets: HTML, CSS, JavaScript, images, fonts, JSON, WASM, etc.
+   - NO server-side runtime (no Node.js, Python, PHP, server routes, or database connections).
+   - Any API calls must execute client-side in the browser.
+   - NEVER embed the API key into client-side code (HTML, CSS, JS).
+
+2. Zip Bundle Structure:
+   - Must be uploaded as a .zip archive (max upload size: 145.4 MB).
+   - index.html MUST be at the root of the archive (zip the contents of your build/dist folder, not the parent folder).
+
+3. Asset Paths MUST Be Relative:
+   - The app is served under the subpath https://ee-html.up.railway.app/app/<slug>/.
+   - All links, CSS, and script tags must use relative paths (e.g. href="./style.css" or src="assets/app.js").
+   - Do NOT use root-absolute paths like href="/style.css" or src="/app.js" as they will break under the subpath.
+
+4. Slug Guidelines:
+   - Lowercase a-z, digits 0-9, and hyphens - (1–63 characters).
+   - Must start and end with an alphanumeric character.
+
+5. Tags (sales-app):
+   - If the app is intended for the Sales Agent OS / Dashboard ("Useful Tools"), include: tags=sales-app.
+   - Untagged apps are accessible via direct link only and will not show up in the sales tools directory.
+
+---
+
+## Deployment Steps
+
+### 1. Bundle into ZIP
+Windows PowerShell:
+Compress-Archive -Path "C:\\path\\to\\app\\*" -DestinationPath "build.zip" -Force
+
+Linux / macOS:
+cd /path/to/app-folder && zip -r ../build.zip . && cd ..
+
+### 2. Deploy via API (POST /api/apps)
+curl -X POST https://ee-html.up.railway.app/api/apps \\
+  -H "Authorization: Bearer eternalgy2026" \\
+  -F "bundle=@build.zip;type=application/zip" \\
+  -F "slug=<your-app-slug>" \\
+  -F "name=<Display Name>" \\
+  -F "tags=sales-app"
+
+(Omit tags=sales-app if private).
+
+### 3. Update Existing App (PUT /api/apps/:slug)
+curl -X PUT https://ee-html.up.railway.app/api/apps/<your-app-slug> \\
+  -H "Authorization: Bearer eternalgy2026" \\
+  -F "bundle=@build.zip;type=application/zip" \\
+  -F "name=<Display Name>"
+
+### 4. Delete App
+curl -X DELETE https://ee-html.up.railway.app/api/apps/<your-app-slug> \\
+  -H "Authorization: Bearer eternalgy2026"
+
+---
+
+## Expected Output
+When deployment succeeds (HTTP 201 / 200), return the live URL:
+https://ee-html.up.railway.app/app/<your-app-slug>/`;
+
+    function openHostedHtmlPromptModal() {
+      const modal = document.getElementById('hostedHtmlPromptModal');
+      const textarea = document.getElementById('hostedHtmlPromptText');
+      if (textarea) textarea.value = HOSTED_HTML_AI_PROMPT;
+      if (modal) modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeHostedHtmlPromptModal() {
+      const modal = document.getElementById('hostedHtmlPromptModal');
+      if (modal) modal.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    async function copyHostedHtmlPrompt() {
+      const textarea = document.getElementById('hostedHtmlPromptText');
+      const btn = document.getElementById('copyHostedHtmlPromptBtn');
+      const label = document.getElementById('copyHostedHtmlPromptText');
+      const textToCopy = (textarea && textarea.value) || HOSTED_HTML_AI_PROMPT;
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(textToCopy);
+        } else if (textarea) {
+          textarea.select();
+          document.execCommand('copy');
+        }
+        if (btn && label) {
+          btn.classList.remove('bg-violet-600', 'hover:bg-violet-700');
+          btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+          label.textContent = 'Copied to Clipboard!';
+          setTimeout(() => {
+            btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+            btn.classList.add('bg-violet-600', 'hover:bg-violet-700');
+            label.textContent = 'Copy Prompt for AI';
+          }, 2500);
+        }
+      } catch (err) {
+        console.error('Failed to copy prompt:', err);
+        if (textarea) {
+          textarea.focus();
+          textarea.select();
+        }
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('hostedHtmlPromptModal');
+        if (modal && !modal.classList.contains('hidden')) {
+          closeHostedHtmlPromptModal();
+        }
+      }
+    });
+
     document.addEventListener("DOMContentLoaded", fetchAgentData);
   </script>
+
+  <!-- Hosted HTML AI Prompt Modal -->
+  <div id="hostedHtmlPromptModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="hostedHtmlModalTitle">
+    <div class="fixed inset-0" onclick="closeHostedHtmlPromptModal()"></div>
+    <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-10 flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center">
+            <i class="fa-solid fa-globe text-base"></i>
+          </div>
+          <div>
+            <h3 id="hostedHtmlModalTitle" class="text-base font-bold text-slate-900">Hosted HTML — AI Prompt</h3>
+            <p class="text-xs text-slate-500 font-medium">Prompt to instruct any AI to operate <code class="text-violet-700 bg-violet-50 px-1 py-0.5 rounded font-mono">ee-html.up.railway.app</code></p>
+          </div>
+        </div>
+        <button type="button" onclick="closeHostedHtmlPromptModal()" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" aria-label="Close modal">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 overflow-y-auto space-y-4">
+        <!-- Quick Info bar -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+          <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+            <span class="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Host Service</span>
+            <a href="https://ee-html.up.railway.app" target="_blank" rel="noopener noreferrer" class="font-bold text-brand-blue hover:underline truncate block mt-0.5">
+              ee-html.up.railway.app <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+            </a>
+          </div>
+          <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+            <span class="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">API Key</span>
+            <span class="font-mono font-bold text-slate-800 block mt-0.5">eternalgy2026</span>
+          </div>
+          <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+            <span class="block text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Admin Console</span>
+            <a href="https://ee-html.up.railway.app/admin" target="_blank" rel="noopener noreferrer" class="font-bold text-violet-600 hover:underline truncate block mt-0.5">
+              Open Admin <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Prompt Textarea & Copy Actions -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label for="hostedHtmlPromptText" class="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Copy-Paste Prompt for AI
+            </label>
+            <span class="text-[11px] text-slate-400">Feed this directly to your AI agent</span>
+          </div>
+          <textarea id="hostedHtmlPromptText" readonly class="w-full h-72 sm:h-80 p-3.5 bg-slate-900 text-slate-100 font-mono text-xs rounded-xl border border-slate-700 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-violet-500 select-all"></textarea>
+        </div>
+      </div>
+
+      <!-- Footer with 1-click Copy button -->
+      <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/70 flex flex-wrap items-center justify-between gap-3">
+        <div class="text-xs text-slate-500">
+          Click button to copy prompt with key pre-filled.
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeHostedHtmlPromptModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/60 transition-colors">
+            Close
+          </button>
+          <button type="button" id="copyHostedHtmlPromptBtn" onclick="copyHostedHtmlPrompt()" class="bg-violet-600 hover:bg-violet-700 active:scale-95 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-2">
+            <i class="fa-solid fa-copy"></i>
+            <span id="copyHostedHtmlPromptText">Copy Prompt for AI</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/navigation.js"></script>
 </body>
 
