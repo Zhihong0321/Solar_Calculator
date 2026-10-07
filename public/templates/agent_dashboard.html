@@ -685,13 +685,13 @@
             </p>
           </a>
 
-          <button type="button" id="hostedHtmlBtn" onclick="copyHostedHtmlPrompt()" class="tool-card w-full text-center cursor-pointer">
-            <div id="hostedHtmlIcon" class="tool-icon">
+          <button type="button" onclick="openHostedHtmlModal()" class="tool-card w-full text-center cursor-pointer">
+            <div class="tool-icon">
               <i class="fa-solid fa-globe text-2xl text-violet-600"></i>
             </div>
             <h3 class="text-sm font-bold text-slate-900">Hosted HTML</h3>
-            <p id="hostedHtmlSubtitle" class="text-[10px] text-slate-400 font-medium mt-1">
-              Click to copy AI prompt
+            <p class="text-[10px] text-slate-400 font-medium mt-1">
+              Publish & share HTML via AI
             </p>
           </button>
 
@@ -1375,10 +1375,22 @@ curl -X DELETE https://ee-html.up.railway.app/api/apps/<your-app-slug> \\
 When deployment succeeds (HTTP 201 / 200), return the live URL:
 https://ee-html.up.railway.app/app/<your-app-slug>/`;
 
-    async function copyHostedHtmlPrompt() {
-      const icon = document.getElementById('hostedHtmlIcon');
-      const subtitle = document.getElementById('hostedHtmlSubtitle');
-      const toast = document.getElementById('hostedHtmlToast');
+    function openHostedHtmlModal() {
+      const modal = document.getElementById('hostedHtmlModal');
+      if (modal) modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeHostedHtmlModal() {
+      const modal = document.getElementById('hostedHtmlModal');
+      if (modal) modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    async function copyHostedHtmlInstruction() {
+      const btn = document.getElementById('hostedHtmlCopyBtn');
+      const label = document.getElementById('hostedHtmlCopyLabel');
+      const icon = document.getElementById('hostedHtmlCopyIcon');
 
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1397,43 +1409,58 @@ https://ee-html.up.railway.app/app/<your-app-slug>/`;
           document.body.removeChild(ta);
         }
 
-        if (icon) {
-          icon.innerHTML = '<i class="fa-solid fa-check text-2xl" style="color: #10b981;"></i>';
-          icon.style.backgroundColor = '#ecfdf5';
-        }
-        if (subtitle) {
-          subtitle.innerHTML = '<span style="color: #059669; font-weight: 700;">Copied to clipboard!</span>';
-        }
-        if (toast) {
-          toast.style.opacity = '1';
-          toast.style.transform = 'translateX(-50%) translateY(0)';
+        if (btn && label) {
+          btn.style.backgroundColor = '#10b981';
+          btn.style.borderColor = '#10b981';
+          label.textContent = 'Copied to Clipboard!';
+          if (icon) icon.className = 'fa-solid fa-check';
           setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateX(-50%) translateY(20px)';
+            btn.style.backgroundColor = '#0f172a';
+            btn.style.borderColor = '#0f172a';
+            label.textContent = 'Copy Instructions for AI';
+            if (icon) icon.className = 'fa-solid fa-copy';
           }, 2500);
         }
-
-        setTimeout(() => {
-          if (icon) {
-            icon.innerHTML = '<i class="fa-solid fa-globe text-2xl text-violet-600"></i>';
-            icon.style.backgroundColor = '';
-          }
-          if (subtitle) {
-            subtitle.textContent = 'Click to copy AI prompt';
-          }
-        }, 2500);
       } catch (err) {
-        console.error('Copy prompt failed:', err);
+        console.error('Copy instruction failed:', err);
       }
     }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeHostedHtmlModal();
+    });
 
     document.addEventListener("DOMContentLoaded", fetchAgentData);
   </script>
 
-  <!-- High-contrast toast notification for 1-click copy -->
-  <div id="hostedHtmlToast" style="position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%) translateY(20px); background: #0f172a; color: #ffffff; padding: 14px 28px; border-radius: 9999px; font-size: 0.9375rem; font-weight: 700; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); z-index: 99999; opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease; display: flex; align-items: center; gap: 10px; font-family: inherit;">
-    <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 1.25rem;"></i>
-    <span>AI prompt copied to clipboard! (Ready to paste)</span>
+  <!-- Hosted HTML Simple Modal -->
+  <div id="hostedHtmlModal" style="display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center; padding: 16px; background-color: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px);">
+    <div style="position: absolute; inset: 0;" onclick="closeHostedHtmlModal()"></div>
+    <div style="position: relative; width: 100%; max-width: 440px; background: #ffffff; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #e2e8f0; overflow: hidden; z-index: 10; padding: 28px 24px; text-align: center;">
+      <!-- Close button -->
+      <button type="button" onclick="closeHostedHtmlModal()" style="position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 8px; border: none; background: #f1f5f9; color: #475569; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;" aria-label="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <!-- Globe Icon -->
+      <div style="width: 56px; height: 56px; border-radius: 16px; background: #ede9fe; color: #7c3aed; display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 16px;">
+        <i class="fa-solid fa-globe"></i>
+      </div>
+
+      <!-- Title -->
+      <h3 style="font-size: 1.125rem; font-weight: 800; color: #0f172a; margin: 0 0 10px;">Hosted HTML</h3>
+
+      <!-- Text to human -->
+      <p style="font-size: 0.9375rem; color: #334155; line-height: 1.55; margin: 0 0 24px; padding: 0 4px; font-weight: 500;">
+        Click this button, you will copy paste instruction to tell your AI how to publish your HTML project on EE Server.
+      </p>
+
+      <!-- The 1 Button -->
+      <button type="button" id="hostedHtmlCopyBtn" onclick="copyHostedHtmlInstruction()" style="width: 100%; padding: 14px 20px; background: #0f172a; color: #ffffff; border: 2px solid #0f172a; border-radius: 12px; font-size: 0.9375rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);">
+        <i class="fa-solid fa-copy" id="hostedHtmlCopyIcon" style="font-size: 1rem; color: #ffffff;"></i>
+        <span id="hostedHtmlCopyLabel" style="color: #ffffff;">Copy Instructions for AI</span>
+      </button>
+    </div>
   </div>
 
   <script src="/js/navigation.js"></script>
