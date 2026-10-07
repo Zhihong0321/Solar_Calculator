@@ -5,6 +5,7 @@ const packageRoutes = require('./api/packageRoutes');
 const userRoutes = require('./api/userRoutes');
 const paymentRoutes = require('./api/paymentRoutes');
 const adminRoutes = require('./api/adminRoutes');
+const atsAddonPriceRoutes = require('./api/atsAddonPriceRoutes');
 
 const router = require('express').Router();
 
@@ -16,6 +17,7 @@ router.use(invoiceOfficeRoutes);
 router.use(invoiceViewRoutes);
 router.use(paymentRoutes);
 router.use(adminRoutes);
+router.use(atsAddonPriceRoutes);
 
 module.exports = {
   router: router

@@ -23,18 +23,48 @@ const EPP_RATES = {
 // Initialize it in DOMContentLoaded for inline mode
 
 const MICRO_INVERTER_MODELS = [
-    { id: 'mi_s2', name: 'SAJ M2-1.0K S2 Micro Inverter', price: 700, originalPrice: 1000 },
-    { id: 'mi_s4', name: 'SAJ M2-1.8K S4 Micro Inverter', price: 1300, originalPrice: 1500 }
+    { id: 'mi_s2', name: 'SAJ M2-1.0K S2 Micro Inverter', price: 700, originalPrice: 1000, productId: '1712027911264x544501973692448800' },
+    { id: 'mi_s4', name: 'SAJ M2-1.8K S4 Micro Inverter', price: 1300, originalPrice: 1500, productId: '1712027846244x376551508591509500' }
 ];
 const BATTERY_PRODUCT_REF = '1776182988047x800815659516747800';
 const BATTERY_PRODUCT_NAME = 'B3-16.0-LV Battery';
 const BATTERY_MODULE_SIZE_KWH = 16;
 const BATTERY_UNIT_PRICE = 8000;
 const BALLAST_UNIT_PRICE = 160;
-const ATS_ADDON_PRICE = 1200;
+let ATS_ADDON_PRICE = 1200;
 const ATS_ADDON_DESCRIPTION = 'ADD ON ATS';
 const ATS_DEFAULT_QTY = 1;
 const SURIA_REBATE_AMOUNT = 3000;
+
+function formatAtsPrice(price) {
+    const numeric = Number(price);
+    if (Number.isInteger(numeric)) return numeric.toLocaleString();
+    return numeric.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function applyAtsAddonPrice(price) {
+    const numeric = Number(price);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    ATS_ADDON_PRICE = numeric;
+    const formatted = formatAtsPrice(numeric);
+    const card = document.getElementById('atsCardPriceText');
+    if (card) card.textContent = `Add RM ${formatted} per ATS unit.`;
+    const bannerTitle = document.getElementById('atsBannerTitle');
+    if (bannerTitle) bannerTitle.textContent = `ADD ON ATS — RM ${formatted}`;
+    const bannerDetail = document.getElementById('atsBannerDetail');
+    if (bannerDetail) bannerDetail.textContent = `Hybrid Inverter package. Tick to include ADD ON ATS (RM ${formatted}) as an invoice item.`;
+    updateAtsHelpText();
+}
+
+async function loadAtsAddonPrice() {
+    try {
+        const res = await fetch('/api/v1/settings/ats-addon-price');
+        const json = await res.json();
+        if (json && json.success && json.data) applyAtsAddonPrice(json.data.price);
+    } catch (err) {
+        console.warn('[ATS] Unable to load add-on price:', err);
+    }
+}
 
 function showSuriaTncPopup() {
     const p = document.createElement('div');
@@ -83,7 +113,8 @@ function getMicroInverterItems() {
                 qty: qty,
                 unit_price: model.price,
                 total_price: qty * model.price,
-                item_kind: 'micro_inverter'
+                item_kind: 'micro_inverter',
+                linked_product: model.productId
             });
         }
     });
@@ -2225,6 +2256,7 @@ async function loadDraftVoucherStepForPackage(packageId, { scrollToSection = fal
 
 // Initialize preview on page load
 document.addEventListener('DOMContentLoaded', async function () {
+    await loadAtsAddonPrice();
     console.log('DOM Content Loaded - Initializing Creation Page');
     window.InvoicePageShared.initializeInvoicePageBase();
     window.InvoicePageShared.initWorkspaceShell({ updateWorkspaceStatuses });
