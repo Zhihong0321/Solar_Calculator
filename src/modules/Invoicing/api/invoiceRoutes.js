@@ -557,13 +557,23 @@ router.delete('/api/v1/invoices/:bubbleId/barcodes/:barcodeValue', requireAuth, 
 router.post('/api/v1/invoices/on-the-fly', requireAuth, async (req, res) => {
     try {
         const invoiceData = req.body;
-        const userId = getAuthenticatedUserId(req);
-        if (!userId) {
-            return res.status(401).json({ success: false, error: 'Unauthorized' });
+        const phone = String(invoiceData.phone ?? '').replace(/[^0-9]/g, '');
+        if (!phone) {
+            return res.status(400).json({ success: false, error: 'phone is required' });
         }
 
-        // Add userId to payload as expected by service
-        invoiceData.userId = userId;
+        const matches = await pool.query(
+            `SELECT id, bubble_id FROM "user" WHERE regexp_replace(contact, '[^0-9]', '', 'g') = $1 LIMIT 2`,
+            [phone]
+        );
+        if (matches.rows.length !== 1) {
+            return res.status(400).json({
+                success: false,
+                error: matches.rows.length ? 'phone matches more than one user' : 'no user found for phone'
+            });
+        }
+
+        invoiceData.userId = matches.rows[0].bubble_id || String(matches.rows[0].id);
         invoiceData.auditActor = req.user;
 
         const result = await invoiceService.createInvoice(pool, invoiceData);
