@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>AI Tools | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      * { font-family: "Inter", sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; color: #0f172a; background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%); }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+      .back { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #64748b; text-decoration: none; }
+      .back:hover { color: #0f172a; }
+      h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin: 16px 0 4px; }
+      .sub { font-size: 13px; color: #64748b; margin: 0 0 24px; }
+      .item { margin-bottom: 16px; }
+      .tool { width: 100%; text-align: left; display: flex; align-items: center; gap: 16px; padding: 20px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; cursor: pointer; transition: all 0.2s; }
+      .tool:hover { border-color: #3b82f6; box-shadow: 0 12px 20px -8px rgba(59, 130, 246, 0.2); transform: translateY(-2px); }
+      .tool:disabled { opacity: 0.6; cursor: wait; transform: none; }
+      .icon { flex: none; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+      .tool h2 { margin: 0; font-size: 15px; font-weight: 800; }
+      .tool p { margin: 4px 0 0; font-size: 12px; color: #64748b; line-height: 1.4; }
+      .state { margin-left: auto; flex: none; font-size: 12px; font-weight: 700; color: #475569; display: inline-flex; align-items: center; gap: 6px; text-align: right; }
+      .state.ok { color: #059669; }
+      .error { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: #fef2f2; color: #b91c1c; font-size: 13px; font-weight: 600; display: none; }
+      .manual { margin-top: 12px; display: none; }
+      .manual p { font-size: 12px; color: #64748b; margin: 0 0 6px; }
+      .manual textarea { width: 100%; height: 220px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+      @media (max-width: 480px) { .tool { flex-wrap: wrap; } .state { margin-left: 64px; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a href="/agent/home" class="back"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+      <h1>AI Tools</h1>
+      <p class="sub">Click a tool to copy its instructions, then paste them into your AI assistant.</p>
+      <div id="tools"></div>
+    </div>
+
+    <script>
+      (function () {
+        var COPY_LABEL = '<i class="fa-solid fa-copy"></i> Copy prompt';
+        var DONE_LABEL = '<i class="fa-solid fa-check"></i> Copied! Paste it into your AI';
+
+        var TOOLS = [
+          {
+            title: 'INVOICE CREATION API',
+            description: 'Copy a ready-made prompt so your AI can create solar quotations for you. Your phone number is already filled in.',
+            icon: 'fa-file-invoice-dollar',
+            iconStyle: 'background:#eef2ff;color:#4f46e5;',
+            endpoint: '/api/ai-tools/invoice-creation-prompt'
+          },
+          {
+            title: 'HTML HOSTING',
+            description: 'Copy a ready-made prompt so your AI can publish a web page or app and give you a live link.',
+            icon: 'fa-globe',
+            iconStyle: 'background:#f5f3ff;color:#7c3aed;',
+            endpoint: '/api/ai-tools/hosted-html-prompt'
+          }
+        ];
+
+        function fetchPrompt(endpoint) {
+          return fetch(endpoint, { credentials: 'same-origin', cache: 'no-store' })
+            .then(function (res) {
+              if (res.status === 401) { window.location.href = '/login'; throw new Error('Please log in again.'); }
+              return res.json().then(function (body) {
+                if (!res.ok || !body.success) throw new Error(body.error || 'Failed to load the prompt.');
+                return body.prompt;
+              });
+            });
+        }
+
+        function copyText(text) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(text);
+          }
+          return new Promise(function (resolve, reject) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+            document.body.removeChild(ta);
+            ok ? resolve() : reject(new Error('copy blocked'));
+          });
+        }
+
+        function buildCard(tool) {
+          var item = document.createElement('div');
+          item.className = 'item';
+          item.innerHTML =
+            '<button type="button" class="tool">' +
+              '<div class="icon" style="' + tool.iconStyle + '"><i class="fa-solid ' + tool.icon + '"></i></div>' +
+              '<div><h2></h2><p></p></div>' +
+              '<span class="state">' + COPY_LABEL + '</span>' +
+            '</button>' +
+            '<div class="error"></div>' +
+            '<div class="manual"><p>Your browser blocked automatic copy. Select all the text below and copy it manually.</p><textarea readonly></textarea></div>';
+          item.querySelector('h2').textContent = tool.title;
+          item.querySelector('p').textContent = tool.description;
+
+          var btn = item.querySelector('.tool');
+          var state = item.querySelector('.state');
+          var errorBox = item.querySelector('.error');
+          var manualBox = item.querySelector('.manual');
+          var manualText = item.querySelector('textarea');
+          var resetTimer = null;
+
+          function setState(html, ok) {
+            state.innerHTML = html;
+            state.className = 'state' + (ok ? ' ok' : '');
+          }
+
+          btn.addEventListener('click', function () {
+            errorBox.style.display = 'none';
+            manualBox.style.display = 'none';
+            btn.disabled = true;
+            setState('<i class="fa-solid fa-spinner fa-spin"></i> Preparing...', false);
+            clearTimeout(resetTimer);
+
+            var promptText = null;
+            var promptPromise = fetchPrompt(tool.endpoint).then(function (text) { promptText = text; return text; });
+
+            var copyPromise;
+            if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+              // Safari requires the clipboard write to start inside the click handler.
+              var clipItem = new ClipboardItem({
+                'text/plain': promptPromise.then(function (text) { return new Blob([text], { type: 'text/plain' }); })
+              });
+              copyPromise = navigator.clipboard.write([clipItem]);
+            } else {
+              copyPromise = promptPromise.then(copyText);
+            }
+
+            copyPromise
+              .then(function () {
+                setState(DONE_LABEL, true);
+              })
+              .catch(function (err) {
+                return promptPromise.then(function (text) {
+                  return copyText(text).then(function () { setState(DONE_LABEL, true); });
+                }).catch(function (finalErr) {
+                  setState(COPY_LABEL, false);
+                  if (promptText) {
+                    manualText.value = promptText;
+                    manualBox.style.display = 'block';
+                    manualText.focus();
+                    manualText.select();
+                  } else {
+                    errorBox.textContent = (finalErr && finalErr.message) || (err && err.message) || 'Something went wrong.';
+                    errorBox.style.display = 'block';
+                  }
+                });
+              })
+              .then(function () {
+                btn.disabled = false;
+                resetTimer = setTimeout(function () { setState(COPY_LABEL, false); }, 4000);
+              });
+          });
+
+          return item;
+        }
+
+        var container = document.getElementById('tools');
+        TOOLS.forEach(function (tool) { container.appendChild(buildCard(tool)); });
+      })();
+    </script>
+  </body>
+</html>

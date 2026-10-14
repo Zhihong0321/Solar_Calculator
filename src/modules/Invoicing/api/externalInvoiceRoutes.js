@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const pool = require('../../../core/database/pool');
 const tariffPool = require('../../../core/database/tariffPool');
@@ -17,6 +18,19 @@ const SOLAR_DEFAULTS = Object.freeze({
   systemPhase: 3,
   panelType: 650
 });
+
+function requireExternalApiKey(req, res, next) {
+  const expectedKey = process.env.JWT_SECRET;
+  if (!expectedKey) {
+    return res.status(503).json({ success: false, error: 'API key is not configured on the server.' });
+  }
+  const provided = Buffer.from(String(req.get('x-api-key') || '').trim());
+  const expected = Buffer.from(expectedKey);
+  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+    return res.status(401).json({ success: false, error: 'Invalid API key. Send it in the X-Api-Key header.' });
+  }
+  return next();
+}
 
 function digitsOnly(value) {
   return typeof value === 'string' || typeof value === 'number' ? String(value).replace(/\D/g, '') : '';
@@ -60,7 +74,7 @@ async function findAgentByPhone(client, phoneDigits) {
   return result.rows;
 }
 
-router.post('/api/external/v1/invoices', async (req, res) => {
+router.post('/api/external/v1/invoices', requireExternalApiKey, async (req, res) => {
   const parsed = parseInput(req.body);
   if (parsed.error) {
     return res.status(400).json({ success: false, error: parsed.error });
