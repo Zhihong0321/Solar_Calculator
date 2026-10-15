@@ -103,6 +103,7 @@
             ['使用现有计算逻辑', 'Using Existing Calculator Logic'],
             ['分析中...', 'Analysing...'],
             ['分析账单', 'Analyse Bill'],
+            ['太阳能系统讲解', 'Solar System Explainer'],
             ['第一步 · TNB 电费', 'Step 1 · TNB Bill'],
             ['账单明细', 'Bill Breakdown'],
             ['匹配精度 ±0.01%', 'Matching Accuracy ±0.01%'],
@@ -224,6 +225,7 @@
             [/使用现有计算逻辑/g, 'Using Existing Calculator Logic'],
             [/分析中\.\.\./g, 'Analysing...'],
             [/分析账单/g, 'Analyse Bill'],
+            [/太阳能系统讲解/g, 'Solar System Explainer'],
             [/账单明细/g, 'Bill Breakdown'],
             [/匹配精度/g, 'Matching Accuracy'],
             [/推算用电量/g, 'Estimated Usage'],
@@ -1007,6 +1009,28 @@
                             >
                                 {analysingBill ? '分析中...' : '分析账单'}
                             </button>
+
+                            <a
+                                href="https://ee-html.up.railway.app/app/solar-ads-deck-demo/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    display: 'block',
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    padding: '15px',
+                                    background: '#fff',
+                                    color: '#111827',
+                                    border: '1.5px solid #111827',
+                                    borderRadius: 14,
+                                    fontSize: 15,
+                                    fontWeight: 700,
+                                    textAlign: 'center',
+                                    textDecoration: 'none'
+                                }}
+                            >
+                                太阳能系统讲解
+                            </a>
                         </div>
                     </Card>
                 </SectionWrap>
