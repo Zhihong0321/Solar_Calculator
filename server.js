@@ -118,6 +118,7 @@ app.use(demoRoutes);
 app.use(require('./routes/integrationApiRoutes'));
 app.use(require('./src/modules/Invoicing/api/externalInvoiceRoutes'));
 app.use(require('./src/modules/AiTools/aiToolsRoutes'));
+app.use(require('./src/modules/ExternalTools/externalToolsRoutes'));
 app.use(Telemarketing.router);
 
 // --- Prototype: conversational quotation (/lab/chat) ---

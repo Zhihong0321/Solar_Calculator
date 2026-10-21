@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>External Tools | ETERNALGY OS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      * { font-family: "Inter", sans-serif; -webkit-font-smoothing: antialiased; box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; color: #0f172a; background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%); }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+      .back { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #64748b; text-decoration: none; }
+      .back:hover { color: #0f172a; }
+      h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin: 16px 0 4px; }
+      .sub { font-size: 13px; color: #64748b; margin: 0 0 24px; }
+      .section-title { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin: 32px 0 12px; }
+      .panel { padding: 20px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; }
+      label { display: block; font-size: 12px; font-weight: 700; color: #334155; margin: 0 0 6px; }
+      .field { margin-bottom: 14px; }
+      input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 14px; color: #0f172a; background: #fff; }
+      input:focus, textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+      textarea { resize: vertical; min-height: 72px; }
+      .hint { font-size: 11px; color: #94a3b8; margin-top: 4px; text-align: right; }
+      .submit { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border: 0; border-radius: 10px; background: #0f172a; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+      .submit:hover { background: #1e293b; }
+      .submit:disabled { opacity: 0.6; cursor: wait; }
+      .msg { margin-top: 12px; padding: 12px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; display: none; }
+      .msg.error { background: #fef2f2; color: #b91c1c; }
+      .msg.ok { background: #ecfdf5; color: #047857; }
+      .tool { display: flex; align-items: center; gap: 16px; padding: 18px 20px; margin-bottom: 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; text-decoration: none; color: inherit; transition: all 0.2s; }
+      .tool:hover { border-color: #3b82f6; box-shadow: 0 12px 20px -8px rgba(59, 130, 246, 0.2); transform: translateY(-2px); }
+      .icon { flex: none; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; background: #ecfeff; color: #0891b2; }
+      .tool-body { min-width: 0; flex: 1; }
+      .tool h2 { margin: 0; font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+      .tool .by { font-weight: 500; color: #64748b; font-size: 13px; }
+      .tool p { margin: 4px 0 0; font-size: 12px; color: #64748b; line-height: 1.4; overflow-wrap: anywhere; }
+      .open { flex: none; color: #94a3b8; font-size: 14px; }
+      .empty { padding: 24px; text-align: center; font-size: 13px; color: #94a3b8; background: #fff; border: 1px dashed #e2e8f0; border-radius: 16px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a href="/agent/home" class="back"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+      <h1>External Tools</h1>
+      <p class="sub">Apps built by the team outside our system. Publish a link to your app so everyone can use it.</p>
+
+      <div class="section-title">Publish your app</div>
+      <form id="publishForm" class="panel" novalidate>
+        <div class="field">
+          <label for="title">Title</label>
+          <input id="title" name="title" type="text" maxlength="100" placeholder="e.g. Sales Calendar" required />
+        </div>
+        <div class="field">
+          <label for="shortDescription">Short Description</label>
+          <textarea id="shortDescription" name="shortDescription" maxlength="300" placeholder="What does your app do?" required></textarea>
+          <div class="hint"><span id="descCount">0</span>/300</div>
+        </div>
+        <div class="field">
+          <label for="url">URL</label>
+          <input id="url" name="url" type="url" maxlength="2000" placeholder="https://..." required />
+        </div>
+        <button type="submit" class="submit" id="submitBtn"><i class="fa-solid fa-paper-plane"></i> Publish</button>
+        <div class="msg" id="formMsg"></div>
+      </form>
+
+      <div class="section-title">Published apps</div>
+      <div id="tools"><div class="empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div></div>
+    </div>
+
+    <script>
+      (function () {
+        var form = document.getElementById('publishForm');
+        var submitBtn = document.getElementById('submitBtn');
+        var formMsg = document.getElementById('formMsg');
+        var desc = document.getElementById('shortDescription');
+        var descCount = document.getElementById('descCount');
+        var container = document.getElementById('tools');
+
+        function handle401(res) {
+          if (res.status === 401) { window.location.href = '/login'; throw new Error('Please log in again.'); }
+          return res;
+        }
+
+        function showMsg(text, ok) {
+          formMsg.textContent = text;
+          formMsg.className = 'msg ' + (ok ? 'ok' : 'error');
+          formMsg.style.display = 'block';
+        }
+
+        function renderEmpty(text) {
+          container.innerHTML = '<div class="empty"></div>';
+          container.firstChild.textContent = text;
+        }
+
+        function buildCard(tool) {
+          var a = document.createElement('a');
+          a.className = 'tool';
+          a.href = tool.url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.innerHTML =
+            '<div class="icon"><i class="fa-solid fa-arrow-up-right-from-square"></i></div>' +
+            '<div class="tool-body"><h2><span class="t"></span> <span class="by"></span></h2><p></p></div>' +
+            '<i class="fa-solid fa-chevron-right open"></i>';
+          a.querySelector('.t').textContent = tool.title;
+          a.querySelector('.by').textContent = 'by ' + (tool.author_name || 'Unknown');
+          a.querySelector('p').textContent = tool.short_description;
+          return a;
+        }
+
+        function loadTools() {
+          return fetch('/api/external-tools', { credentials: 'same-origin', cache: 'no-store' })
+            .then(handle401)
+            .then(function (res) {
+              return res.json().then(function (body) {
+                if (!res.ok || !body.success) throw new Error(body.error || 'Failed to load external tools.');
+                return body.tools;
+              });
+            })
+            .then(function (tools) {
+              if (!tools.length) return renderEmpty('No apps published yet. Be the first!');
+              container.innerHTML = '';
+              tools.forEach(function (tool) { container.appendChild(buildCard(tool)); });
+            })
+            .catch(function (err) { renderEmpty(err.message || 'Failed to load external tools.'); });
+        }
+
+        desc.addEventListener('input', function () { descCount.textContent = desc.value.length; });
+
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          formMsg.style.display = 'none';
+
+          var payload = {
+            title: form.title.value.trim(),
+            shortDescription: desc.value.trim(),
+            url: form.url.value.trim()
+          };
+          if (!payload.title || !payload.shortDescription || !payload.url) {
+            return showMsg('Please fill in Title, Short Description and URL.', false);
+          }
+          if (!/^https?:\/\//i.test(payload.url)) {
+            return showMsg('URL must start with http:// or https://.', false);
+          }
+
+          submitBtn.disabled = true;
+          fetch('/api/external-tools', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          })
+            .then(handle401)
+            .then(function (res) {
+              return res.json().then(function (body) {
+                if (!res.ok || !body.success) throw new Error(body.error || 'Failed to publish the tool.');
+              });
+            })
+            .then(function () {
+              form.reset();
+              descCount.textContent = '0';
+              showMsg('Published! Your app is now listed below.', true);
+              return loadTools();
+            })
+            .catch(function (err) { showMsg(err.message || 'Failed to publish the tool.', false); })
+            .then(function () { submitBtn.disabled = false; });
+        });
+
+        loadTools();
+      })();
+    </script>
+  </body>
+</html>
