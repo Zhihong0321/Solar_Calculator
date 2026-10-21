@@ -11,3 +11,6 @@ CREATE TABLE IF NOT EXISTS external_tool (
 );
 
 CREATE INDEX IF NOT EXISTS idx_external_tool_created_at ON external_tool (created_at DESC);
+
+-- Preset categories: 'Sales - Competition' | 'Sales - Tools & Report' | 'Other'
+ALTER TABLE external_tool ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Other';
