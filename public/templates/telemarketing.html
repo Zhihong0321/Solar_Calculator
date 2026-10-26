@@ -157,7 +157,7 @@
                     WhatsApp Message
                 </span>
                 <span class="flex items-center gap-2 text-[11px] text-slate-400">
-                    <span id="waTemplateStatus">No custom message</span>
+                    <span id="waTemplateStatus">Default message</span>
                     <i class="fa-solid fa-chevron-down text-xs transition group-open/wa:rotate-180"></i>
                 </span>
             </summary>
@@ -166,7 +166,7 @@
                     <span class="text-[10px] uppercase font-bold text-slate-500 mr-1">Fixed</span>
                     Hi {Person name} ({Company name})
                 </div>
-                <textarea id="waCustomMessage" rows="4" oninput="handleWaMessageInput(event)" placeholder="Your message, e.g. This is Ali from Eternalgy Solar. We help businesses cut electricity bills with rooftop solar. May I share a free saving estimate?" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-teal-500"></textarea>
+                <textarea id="waCustomMessage" rows="4" oninput="handleWaMessageInput(event)" placeholder="Your message" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-teal-500"></textarea>
                 <p class="text-[11px] text-slate-400">Saved on this device. Tapping a WhatsApp button opens the chat with this message ready; tap Send in WhatsApp.</p>
             </div>
         </details>
@@ -389,6 +389,8 @@
         let currentEditingLead = null;
         let noteMode = 'append'; // 'append' or 'replace'
         let waCustomMessage = '';
+        let waMessageIsDefault = true; // true until the agent edits the message on this device
+        let telemarketerName = '';
         const WA_MESSAGE_STORAGE_KEY = 'telemarketing.waCustomMessage';
         const dmNameCache = {}; // leadId -> first decision maker name ('' when none)
         const dmNameFetches = {};
@@ -457,6 +459,8 @@
             const uidTag = document.getElementById('telemarketerUidTag');
             
             if (nameEl) nameEl.textContent = tm.name || 'Telemarketer';
+            telemarketerName = (tm.name || '').trim();
+            if (waMessageIsDefault) applyWaMessage(getDefaultWaMessage());
             if (uidTag) uidTag.textContent = tm.uid ? `(${tm.uid.slice(0, 10)}...)` : '';
             if (badge) badge.classList.remove('hidden');
         }
@@ -1101,19 +1105,29 @@
         }
 
         // WhatsApp message: fixed greeting + the agent's own message (saved on this device)
+        function getDefaultWaMessage() {
+            return `I am ${telemarketerName || '{your name}'}, from Eternalgy Sdn Bhd. would like visit your office for a TNB Bill Saving with Solar PV sharing. for Commercial also Residential.\n\nWould you be free for this free sharing?`;
+        }
+
         function loadWaMessage() {
+            let saved = null;
             try {
-                waCustomMessage = localStorage.getItem(WA_MESSAGE_STORAGE_KEY) || '';
-            } catch {
-                waCustomMessage = '';
-            }
+                saved = localStorage.getItem(WA_MESSAGE_STORAGE_KEY);
+            } catch {}
+            waMessageIsDefault = saved === null;
+            applyWaMessage(waMessageIsDefault ? getDefaultWaMessage() : saved);
+        }
+
+        function applyWaMessage(text) {
+            waCustomMessage = text;
             const input = document.getElementById('waCustomMessage');
-            if (input) input.value = waCustomMessage;
+            if (input) input.value = text;
             updateWaTemplateStatus();
         }
 
         function handleWaMessageInput(e) {
             waCustomMessage = e.target.value;
+            waMessageIsDefault = false;
             try {
                 localStorage.setItem(WA_MESSAGE_STORAGE_KEY, waCustomMessage);
             } catch {}
@@ -1122,7 +1136,8 @@
 
         function updateWaTemplateStatus() {
             const status = document.getElementById('waTemplateStatus');
-            if (status) status.textContent = waCustomMessage.trim() ? 'Custom message set' : 'No custom message';
+            if (!status) return;
+            status.textContent = waMessageIsDefault ? 'Default message' : (waCustomMessage.trim() ? 'Custom message set' : 'No custom message');
         }
 
         function buildWhatsAppMessage(lead) {
