@@ -134,6 +134,19 @@ router.get('/api/ai-tools/hosted-html-prompt', requireAuth, (req, res) => {
   res.json({ success: true, prompt: HOSTED_HTML_PROMPT });
 });
 
+router.get('/api/ai-tools/consent-letter', requireAuth, (req, res) => {
+  res.download(
+    path.join(__dirname, 'assets', 'seda-consent-letter-individual-to-individual.pdf'),
+    'SEDA Consent Letter Ownership (Individual to Individual).pdf',
+    err => {
+      if (err && !res.headersSent) {
+        console.error('[AI Tools] Failed to send consent letter:', err);
+        res.status(500).json({ success: false, error: 'Failed to download the consent letter.' });
+      }
+    }
+  );
+});
+
 router.get('/ai-tools', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, '..', '..', '..', 'public', 'templates', 'ai_tools.html'));
 });
