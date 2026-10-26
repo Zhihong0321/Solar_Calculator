@@ -69,7 +69,7 @@
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 space-y-6">
 
         <!-- KPI Status Bar -->
-        <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div onclick="filterByStatus('all')" id="stat-all" class="stat-card rounded-2xl p-4 active">
                 <div class="flex items-center justify-between">
                     <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total</p>
@@ -114,15 +114,6 @@
                 <p id="count-not_interested" class="text-2xl sm:text-3xl font-black text-slate-300 mt-1">--</p>
                 <p class="text-[10px] text-slate-400 font-medium mt-0.5">Declined / Closed</p>
             </div>
-
-            <div onclick="filterByStatus('do_not_call')" id="stat-do_not_call" class="stat-card rounded-2xl p-4">
-                <div class="flex items-center justify-between">
-                    <p class="text-[11px] font-bold uppercase tracking-wider text-rose-400">Do Not Call</p>
-                    <i class="fa-solid fa-ban text-xs text-rose-500/70"></i>
-                </div>
-                <p id="count-do_not_call" class="text-2xl sm:text-3xl font-black text-rose-400 mt-1">--</p>
-                <p class="text-[10px] text-slate-400 font-medium mt-0.5">Blacklisted / Opt-out</p>
-            </div>
         </section>
 
         <!-- Search & Filter Controls -->
@@ -155,9 +146,30 @@
                 <button onclick="filterByStatus('contacted')" class="filter-btn px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="contacted">Contacted</button>
                 <button onclick="filterByStatus('interested')" class="filter-btn px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="interested">Interested</button>
                 <button onclick="filterByStatus('not_interested')" class="filter-btn px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="not_interested">Not Interested</button>
-                <button onclick="filterByStatus('do_not_call')" class="filter-btn px-3.5 py-1.5 rounded-lg whitespace-nowrap" data-status="do_not_call">Do Not Call</button>
             </div>
         </section>
+
+        <!-- WhatsApp Message Template -->
+        <details id="waTemplateCard" class="card rounded-2xl p-4 group/wa">
+            <summary class="flex items-center justify-between gap-3 cursor-pointer list-none select-none">
+                <span class="flex items-center gap-2 text-sm font-bold text-white">
+                    <i class="fa-brands fa-whatsapp text-teal-400 text-base"></i>
+                    WhatsApp Message
+                </span>
+                <span class="flex items-center gap-2 text-[11px] text-slate-400">
+                    <span id="waTemplateStatus">No custom message</span>
+                    <i class="fa-solid fa-chevron-down text-xs transition group-open/wa:rotate-180"></i>
+                </span>
+            </summary>
+            <div class="mt-3 space-y-2">
+                <div class="rounded-xl bg-slate-950/70 border border-slate-800 px-3 py-2 text-xs text-slate-300">
+                    <span class="text-[10px] uppercase font-bold text-slate-500 mr-1">Fixed</span>
+                    Hi {Person name} ({Company name})
+                </div>
+                <textarea id="waCustomMessage" rows="4" oninput="handleWaMessageInput(event)" placeholder="Your message, e.g. This is Ali from Eternalgy Solar. We help businesses cut electricity bills with rooftop solar. May I share a free saving estimate?" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-teal-500"></textarea>
+                <p class="text-[11px] text-slate-400">Saved on this device. Tapping a WhatsApp button opens the chat with this message ready; tap Send in WhatsApp.</p>
+            </div>
+        </details>
 
         <!-- Count & Status Info -->
         <div class="flex items-center justify-between text-xs text-slate-400 px-1">
@@ -376,6 +388,11 @@
         let selectedCategory = 'all';
         let currentEditingLead = null;
         let noteMode = 'append'; // 'append' or 'replace'
+        let waCustomMessage = '';
+        const WA_MESSAGE_STORAGE_KEY = 'telemarketing.waCustomMessage';
+        const dmNameCache = {}; // leadId -> first decision maker name ('' when none)
+        const dmNameFetches = {};
+        let dmPrefetchObserver = null;
 
         // Status definitions
         const STATUS_CONFIG = {
@@ -393,6 +410,7 @@
             if (queryUid) {
                 currentUid = queryUid;
             }
+            loadWaMessage();
             await initTelemarketing();
         });
 
@@ -449,9 +467,7 @@
             document.getElementById('count-assigned').textContent = stats.pending ?? stats.assigned ?? 0;
             document.getElementById('count-contacted').textContent = stats.contacted ?? 0;
             document.getElementById('count-interested').textContent = stats.interested ?? 0;
-            document.getElementById('count-not_interested').textContent = stats.not_interested ?? 0;
-            document.getElementById('count-do_not_call').textContent = stats.do_not_call ?? 0;
-        }
+            document.getElementById('count-not_interested').textContent = stats.not_interested ?? 0;        }
 
         async function reloadLeads() {
             setLoading(true);
@@ -503,6 +519,9 @@
 
         function applyClientFilters() {
             filteredLeads = allLeads.filter(lead => {
+                // Blacklisted leads are never listed
+                if (lead.lead_status === 'do_not_call') return false;
+
                 // Status filter
                 if (currentStatusFilter !== 'all') {
                     if (lead.lead_status !== currentStatusFilter) return false;
@@ -529,6 +548,9 @@
                 return true;
             });
 
+            // Leads with a mobile number (01...) always come first; otherwise keep server order
+            filteredLeads.sort((a, b) => hasMobilePhone(b) - hasMobilePhone(a));
+
             renderLeads();
         }
 
@@ -539,16 +561,18 @@
 
             if (!grid || !empty) return;
 
+            const listableCount = allLeads.filter(l => l.lead_status !== 'do_not_call').length;
+
             if (filteredLeads.length === 0) {
                 grid.classList.add('hidden');
                 empty.classList.remove('hidden');
-                info.textContent = `Showing 0 of ${allLeads.length} leads`;
+                info.textContent = `Showing 0 of ${listableCount} leads`;
                 return;
             }
 
             empty.classList.add('hidden');
             grid.classList.remove('hidden');
-            info.textContent = `Showing ${filteredLeads.length} of ${allLeads.length} leads`;
+            info.textContent = `Showing ${filteredLeads.length} of ${listableCount} leads`;
 
             grid.innerHTML = filteredLeads.map(lead => {
                 const statusCfg = STATUS_CONFIG[lead.lead_status] || STATUS_CONFIG['assigned'];
@@ -559,10 +583,12 @@
                 
                 // Form primary phone
                 const { display: rawPhone, dial: cleanPhone } = getPrimaryPhone(lead.phone);
-                const isMobile = /^(\+?601|01)\d{7,9}$/.test(cleanPhone);
+                const isMobile = isMobileNumber(cleanPhone);
+
+                const needsDmName = isMobile && dmCount > 0 && !(lead.id in dmNameCache);
 
                 return `
-                    <article class="card rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm relative group">
+                    <article class="card rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm relative group" ${needsDmName ? `data-dm-prefetch="${escapeHtml(lead.id)}"` : ''}>
                         <div class="space-y-3">
                             <!-- Top: Category & Status -->
                             <div class="flex items-start justify-between gap-2">
@@ -643,7 +669,7 @@
                                     <span>Call ${escapeHtml(rawPhone)}</span>
                                 </a>
                                 ${isMobile ? `
-                                    <a href="https://wa.me/${cleanPhone.replace(/^\+/, '').replace(/^0/, '60')}" target="_blank" rel="noopener" class="min-h-[44px] min-w-[44px] p-3 rounded-xl bg-teal-600/20 text-teal-400 hover:bg-teal-600 hover:text-white border border-teal-500/30 transition flex items-center justify-center" title="WhatsApp">
+                                    <a href="${escapeHtml(buildWhatsAppUrl(lead, cleanPhone))}" onclick="this.href = buildWhatsAppUrlForLead('${escapeHtml(lead.id)}', '${cleanPhone}')" target="_blank" rel="noopener" class="min-h-[44px] min-w-[44px] p-3 rounded-xl bg-teal-600/20 text-teal-400 hover:bg-teal-600 hover:text-white border border-teal-500/30 transition flex items-center justify-center" title="WhatsApp">
                                         <i class="fa-brands fa-whatsapp"></i>
                                     </a>
                                 ` : ''}
@@ -664,6 +690,8 @@
                     </article>
                 `;
             }).join('');
+
+            observeDecisionMakerPrefetch(grid);
         }
 
         // Filter Handlers
@@ -858,6 +886,7 @@
                 if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to fetch details');
 
                 const detailedLead = data.lead || lead;
+                dmNameCache[leadId] = getFirstDecisionMakerName(detailedLead);
                 renderDetailModalFull(detailedLead);
 
             } catch (err) {
@@ -954,7 +983,7 @@
                 phoneList.innerHTML = phones.map(p => {
                     const { dial } = getPrimaryPhone(p.number_e164 || p.number_raw || '');
                     const telHref = /^tel:/i.test(p.dial_url || '') ? escapeHtml(p.dial_url) : (dial ? buildTelHref(dial) : '');
-                    const waHref = /^https:\/\//i.test(p.whatsapp_url || '') ? escapeHtml(p.whatsapp_url) : '';
+                    const waHref = (p.whatsapp_url || isMobileNumber(dial)) && dial ? escapeHtml(buildWhatsAppUrl(lead, dial)) : '';
                     return `
                     <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
                         <div class="min-w-0">
@@ -1060,6 +1089,104 @@
             let dial = first.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
             if (dial.replace(/\D/g, '').length < 6) dial = '';
             return { display: first, dial };
+        }
+
+        // Malaysian mobile: 01... or the same number written as +601... / 601...
+        function isMobileNumber(dial) {
+            return /^(\+?601|01)\d{7,9}$/.test(dial || '');
+        }
+
+        function hasMobilePhone(lead) {
+            return isMobileNumber(getPrimaryPhone(lead.phone).dial) ? 1 : 0;
+        }
+
+        // WhatsApp message: fixed greeting + the agent's own message (saved on this device)
+        function loadWaMessage() {
+            try {
+                waCustomMessage = localStorage.getItem(WA_MESSAGE_STORAGE_KEY) || '';
+            } catch {
+                waCustomMessage = '';
+            }
+            const input = document.getElementById('waCustomMessage');
+            if (input) input.value = waCustomMessage;
+            updateWaTemplateStatus();
+        }
+
+        function handleWaMessageInput(e) {
+            waCustomMessage = e.target.value;
+            try {
+                localStorage.setItem(WA_MESSAGE_STORAGE_KEY, waCustomMessage);
+            } catch {}
+            updateWaTemplateStatus();
+        }
+
+        function updateWaTemplateStatus() {
+            const status = document.getElementById('waTemplateStatus');
+            if (status) status.textContent = waCustomMessage.trim() ? 'Custom message set' : 'No custom message';
+        }
+
+        function buildWhatsAppMessage(lead) {
+            const person = (dmNameCache[lead.id] || '').trim();
+            const company = (lead.name || '').trim();
+            const greeting = person && company ? `Hi ${person} (${company})` : `Hi ${person || company || 'there'}`;
+            const custom = waCustomMessage.trim();
+            return custom ? `${greeting}\n\n${custom}` : greeting;
+        }
+
+        function buildWhatsAppUrl(lead, dial) {
+            const number = String(dial || '').replace(/\D/g, '').replace(/^0/, '60');
+            return `https://wa.me/${number}?text=${encodeURIComponent(buildWhatsAppMessage(lead))}`;
+        }
+
+        // Rebuilt at tap time so the latest message and decision maker name are used
+        function buildWhatsAppUrlForLead(leadId, dial) {
+            const lead = allLeads.find(l => String(l.id) === String(leadId)) || { id: leadId };
+            return buildWhatsAppUrl(lead, dial);
+        }
+
+        function getFirstDecisionMakerName(lead) {
+            const dms = Array.isArray(lead.decision_makers) ? lead.decision_makers : [];
+            const dm = dms.find(d => d && String(d.name || '').trim());
+            return dm ? String(dm.name).trim() : '';
+        }
+
+        // Look up decision maker names only for cards the agent actually scrolls to
+        function observeDecisionMakerPrefetch(grid) {
+            if (dmPrefetchObserver) dmPrefetchObserver.disconnect();
+            const cards = grid.querySelectorAll('[data-dm-prefetch]');
+            if (!cards.length) return;
+
+            if (!('IntersectionObserver' in window)) {
+                cards.forEach(card => prefetchDecisionMakerName(card.dataset.dmPrefetch));
+                return;
+            }
+
+            dmPrefetchObserver = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+                    dmPrefetchObserver.unobserve(entry.target);
+                    prefetchDecisionMakerName(entry.target.dataset.dmPrefetch);
+                });
+            }, { rootMargin: '200px 0px' });
+            cards.forEach(card => dmPrefetchObserver.observe(card));
+        }
+
+        async function prefetchDecisionMakerName(leadId) {
+            if (!leadId || leadId in dmNameCache || dmNameFetches[leadId]) return;
+            dmNameFetches[leadId] = true;
+            try {
+                const res = await fetch(`/api/v1/telemarketing/leads/${encodeURIComponent(leadId)}`, {
+                    headers: { 'X-Telemarketer-UID': currentUid }
+                });
+                const data = await res.json();
+                if (res.ok && data.ok && data.lead) {
+                    dmNameCache[leadId] = getFirstDecisionMakerName(data.lead);
+                }
+            } catch (err) {
+                console.warn('[Telemarketing] Decision maker lookup failed:', err.message);
+            } finally {
+                delete dmNameFetches[leadId];
+            }
         }
 
         function buildTelHref(dial) {
