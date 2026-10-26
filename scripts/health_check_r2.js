@@ -53,7 +53,7 @@ const URL_COLUMNS = [
     ['seda_registration', 'tnb_bill_2', 'text'],
     ['seda_registration', 'tnb_bill_3', 'text'],
     ['seda_registration', 'tnb_bills_12_months', 'array'],
-    ['seda_registration', 'property_ownership_prove', 'text'],
+    ['seda_registration', 'property_ownership_prove', 'array'],
     ['seda_registration', 'tnb_meter', 'text'],
     ['seda_registration', 'tax_document', 'text'],
     ['seda_registration', 'ssm_registration', 'text'],

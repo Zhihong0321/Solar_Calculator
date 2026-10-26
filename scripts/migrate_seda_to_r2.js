@@ -48,7 +48,7 @@ const FILE_COLUMNS = [
     { column: 'tnb_bill_2',               isArray: false },
     { column: 'tnb_bill_3',               isArray: false },
     { column: 'tnb_bills_12_months',      isArray: true  },
-    { column: 'property_ownership_prove', isArray: false },
+    { column: 'property_ownership_prove', isArray: true  },
     { column: 'tnb_meter',                isArray: false },
     { column: 'tax_document',             isArray: false },
     { column: 'ssm_registration',         isArray: false },
