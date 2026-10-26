@@ -90,6 +90,8 @@ function getPaymentTermsSchedule(invoice = {}) {
       : (useCurrentTerms ? 'Applies from 1 Jul 2026' : 'Applies before 1 Jul 2026'),
     canPreviewCurrentTerms: !useCurrentTerms,
     isAfterEffectivePreview: forceCurrentPreview && !useCurrentByDate,
+    previewButtonLabel: 'After 1 Jul 2026 Preview',
+    backButtonLabel: 'Back to Invoice Date Terms',
     rows: buildPaymentTermsSchedule(useCurrentTerms ? CURRENT_TERMS : LEGACY_TERMS)
   };
 }

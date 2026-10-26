@@ -23,7 +23,7 @@ const fetchWarrantyInfo = vm.runInNewContext(`(${loaderSource})`, { resolveMicro
 
 (async () => {
   const calls = [];
-  const product = { name: 'SAJ M2-1.8K-S4 Micro Inverter', product_warranty_desc: '10 Years Manufacturer Warranty' };
+  const product = { name: 'SAJ M2-1.8K-S4 Micro Inverter', product_warranty_desc: '12 Years Manufacturer Warranty' };
   const client = {
     async query(sql, params) {
       calls.push({ sql, params });
@@ -48,7 +48,7 @@ const fetchWarrantyInfo = vm.runInNewContext(`(${loaderSource})`, { resolveMicro
     const html = render(invoice, {});
     assert.ok(html.includes(product.name));
     assert.ok(!html.includes('10 Years Product Warranty'));
-    assert.ok(html.includes('10 Years Manufacturer Warranty'));
+    assert.ok(html.includes('12 Years Manufacturer Warranty'));
   }
   console.log('Invoice microinverter warranty reader checks passed.');
 })().catch((err) => { console.error(err); process.exitCode = 1; });

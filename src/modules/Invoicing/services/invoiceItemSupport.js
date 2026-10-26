@@ -5,6 +5,34 @@
  * Stability: Keep these helpers focused on row insertion mechanics so invoiceRepo can stay centered on workflow decisions.
  */
 const crypto = require('crypto');
+const { resolveMicroInverterWarrantyProduct } = require('./invoiceMicroInverterWarrantySupport');
+
+// Explicit catalog links take precedence. Unlinked manual rows may match a unique
+// catalog name exactly (case-insensitive, trimmed); never infer from partial text.
+async function resolveExtraItemProducts(client, items = []) {
+  const resolved = items.map((item) => ({
+    ...item,
+    linked_product: item.linked_product || item.linkedProduct || resolveMicroInverterWarrantyProduct(item)
+  }));
+  const names = [...new Set(resolved.filter((item) => !item.linked_product)
+    .map((item) => String(item.description || '').trim().toLowerCase()).filter(Boolean))];
+  if (!names.length) return resolved;
+
+  const result = await client.query(
+    `SELECT bubble_id, id::text AS id, LOWER(TRIM(name)) AS match_name
+     FROM product WHERE LOWER(TRIM(name)) = ANY($1::text[])`,
+    [names]
+  );
+  const matches = new Map();
+  for (const product of result.rows) {
+    const previous = matches.get(product.match_name);
+    matches.set(product.match_name, previous === undefined ? (product.bubble_id || product.id) : null);
+  }
+  return resolved.map((item) => ({
+    ...item,
+    linked_product: item.linked_product || matches.get(String(item.description || '').trim().toLowerCase()) || null
+  }));
+}
 
 function createInvoiceItemBubbleId() {
   return `item_${crypto.randomBytes(8).toString('hex')}`;
@@ -68,6 +96,7 @@ async function syncLinkedInvoiceItems(client, invoiceId, itemIds) {
 }
 
 module.exports = {
+  resolveExtraItemProducts,
   insertInvoiceItem,
   syncLinkedInvoiceItems
 };

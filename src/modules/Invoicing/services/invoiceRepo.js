@@ -23,6 +23,7 @@ const {
   appendInvoiceEstimateUpdateFields
 } = require('./invoiceEstimateSupport');
 const {
+  resolveExtraItemProducts,
   insertInvoiceItem,
   syncLinkedInvoiceItems
 } = require('./invoiceItemSupport');
@@ -1158,10 +1159,11 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     createdItemIds.push(parentsDayItemBubbleId);
   }
 
-  // 1.5 Extra Items
-  if (Array.isArray(data.extraItems) && data.extraItems.length > 0) {
+  // 1.5 Extra Items: persist catalog links for warranty loading on create and edit.
+  const extraItems = await resolveExtraItemProducts(client, Array.isArray(data.extraItems) ? data.extraItems : []);
+  if (extraItems.length > 0) {
     let extraItemSortOrder = 50;
-    for (const item of data.extraItems) {
+    for (const item of extraItems) {
       const linkedProductId = item.linked_product || item.linkedProduct || null;
       const itemBubbleId = await insertInvoiceItem(client, invoiceId, {
         description: item.description || 'Extra Item',
@@ -1274,7 +1276,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
     await syncLinkedInvoiceItems(client, invoiceId, createdItemIds);
   }
 
-  return { packageItemBubbleId };
+  return { packageItemBubbleId, extraItems };
 }
 
 /**
@@ -1379,7 +1381,7 @@ async function createInvoiceOnTheFly(client, data) {
     }
 
     // 5. Create Line Items
-    const { packageItemBubbleId } = await _createLineItems(client, invoice.bubble_id, data, financials, deps, voucherInfo);
+    const { packageItemBubbleId, extraItems } = await _createLineItems(client, invoice.bubble_id, data, financials, deps, voucherInfo);
 
     // 5.5 Audit hybrid upgrade application
     if (data._hybridAudit && packageItemBubbleId) {
@@ -1431,7 +1433,7 @@ async function createInvoiceOnTheFly(client, data) {
     await client.query('COMMIT');
 
     // 6. Fetch warranty info so the create response is fully hydrated (matches getInvoiceByBubbleId behaviour)
-    const warranties = await _fetchWarrantyInfo(client, invoice.linked_package, []);
+    const warranties = await _fetchWarrantyInfo(client, invoice.linked_package, extraItems);
 
     // 7. Log Action with Snapshot (after commit)
     // DB Trigger now handles extra persistence automatically
