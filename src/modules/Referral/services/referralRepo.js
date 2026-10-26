@@ -24,44 +24,25 @@ async function getReferralColumns(client) {
 async function resolveAgentIdentifiers(client, actorId) {
   const normalized = String(actorId);
   const identifiers = new Set();
+  const isDigits = /^\d+$/.test(normalized);
 
-  // 1. Try to resolve as a USER first to avoid ambiguous integer collisions between user.id and agent.id
+  // Identity is rooted strictly in the "user" table.
+  // Table "agent" is not a source of identity.
   const userResult = await client.query(
     `SELECT u.id::text AS user_id,
-            a.id::text AS agent_id,
-            a.bubble_id AS agent_bubble_id,
-            u.bubble_id AS user_bubble_id,
-            u.linked_agent_profile
+            u.bubble_id AS user_bubble_id
      FROM "user" u
-     LEFT JOIN agent a ON (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.linked_user_login)
-     WHERE u.id::text = $1 OR u.bubble_id = $1`,
+     WHERE u.bubble_id = $1 ${isDigits ? 'OR u.id::text = $1' : ''}`,
     [normalized]
   );
 
   if (userResult.rows.length > 0) {
     userResult.rows.forEach((row) => {
-      // Identity keys on the USER only. agent.id is intentionally excluded (agent is retired).
-      // row.user_id (raw user integer id) is included because the WhatsApp assignment
-      // bot writes user.id into referral.linked_agent for newly assigned leads.
-      [row.user_id, row.agent_bubble_id, row.user_bubble_id, row.linked_agent_profile]
-        .filter(Boolean)
-        .forEach((v) => identifiers.add(String(v)));
+      if (row.user_bubble_id) identifiers.add(String(row.user_bubble_id));
+      if (row.user_id) identifiers.add(String(row.user_id));
     });
   } else {
-    // 2. If no user found, try resolving as an AGENT directly (e.g. if actorId is an agent bubble_id)
-    const agentResult = await client.query(
-      `SELECT a.bubble_id AS agent_bubble_id,
-              a.linked_user_login AS user_bubble_id
-       FROM agent a
-       WHERE a.bubble_id = $1`,
-      [normalized]
-    );
-    agentResult.rows.forEach((row) => {
-      // agent.id is intentionally excluded (agent is retired); key on bubble_id / user identity only.
-      [row.agent_bubble_id, row.user_bubble_id]
-        .filter(Boolean)
-        .forEach((v) => identifiers.add(String(v)));
-    });
+    identifiers.add(normalized);
   }
 
   return Array.from(identifiers);
@@ -153,28 +134,16 @@ async function getReferralsByAgentId(client, agentId) {
             ${location.state} AS lead_state,
             ${location.city} AS lead_city,
             ${location.address} AS lead_address,
-            COALESCE(assigned_user.name, assigned_agent.name, ${assignmentExpr}) AS assigned_agent_name,
-            COALESCE(preferred_user.name, preferred_agent.name, ${preferredAgentExpr}) AS preferred_agent_name
+            COALESCE(assigned_user.name, ${assignmentExpr}) AS assigned_agent_name,
+            COALESCE(preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name
      FROM referral r
      LEFT JOIN customer c ON r.linked_customer_profile = c.customer_id
      LEFT JOIN "user" assigned_user
        ON (assigned_user.bubble_id = ${assignmentExpr}
-           OR assigned_user.id::text = ${assignmentExpr})
-     LEFT JOIN agent assigned_agent
-       ON (assigned_user.id IS NULL AND (
-             assigned_agent.id::text = ${assignmentExpr}
-             OR assigned_agent.bubble_id = ${assignmentExpr}
-             OR assigned_agent.linked_user_login = ${assignmentExpr}
-          ))
+           OR (${assignmentExpr} ~ '^[0-9]+$' AND assigned_user.id::text = ${assignmentExpr}))
      LEFT JOIN "user" preferred_user
        ON (preferred_user.bubble_id = ${preferredAgentExpr}
-           OR preferred_user.id::text = ${preferredAgentExpr})
-     LEFT JOIN agent preferred_agent
-       ON (preferred_user.id IS NULL AND ${preferredAgentExpr} IS NOT NULL AND (
-             preferred_agent.id::text = ${preferredAgentExpr}
-             OR preferred_agent.bubble_id = ${preferredAgentExpr}
-             OR preferred_agent.linked_user_login = ${preferredAgentExpr}
-          ))
+           OR (${preferredAgentExpr} ~ '^[0-9]+$' AND preferred_user.id::text = ${preferredAgentExpr}))
      WHERE ${activeReferralClause} AND ${assignmentExpr} = ANY($1::text[])
      ORDER BY r.created_at DESC`,
     [identifiers]
@@ -318,8 +287,8 @@ async function getReferralManagementQueue(client, filters = {}) {
             ${location.state} AS lead_state,
             ${location.city} AS lead_city,
             ${location.address} AS lead_address,
-            COALESCE(assigned_user.name, assigned_agent.name, ${assignmentExpr}) AS assigned_agent_name,
-            COALESCE(preferred_user.name, preferred_agent.name, ${preferredAgentExpr}) AS preferred_agent_name,
+            COALESCE(assigned_user.name, ${assignmentExpr}) AS assigned_agent_name,
+            COALESCE(preferred_user.name, ${preferredAgentExpr}) AS preferred_agent_name,
             linked_invoice.invoice_id AS linked_invoice_id,
             linked_invoice.invoice_number AS linked_invoice_number
      FROM referral r
@@ -336,22 +305,10 @@ async function getReferralManagementQueue(client, filters = {}) {
      ) linked_invoice ON TRUE
      LEFT JOIN "user" assigned_user
        ON (assigned_user.bubble_id = ${assignmentExpr}
-           OR assigned_user.id::text = ${assignmentExpr})
-     LEFT JOIN agent assigned_agent
-       ON (assigned_user.id IS NULL AND (
-             assigned_agent.id::text = ${assignmentExpr}
-             OR assigned_agent.bubble_id = ${assignmentExpr}
-             OR assigned_agent.linked_user_login = ${assignmentExpr}
-          ))
+           OR (${assignmentExpr} ~ '^[0-9]+$' AND assigned_user.id::text = ${assignmentExpr}))
      LEFT JOIN "user" preferred_user
        ON (preferred_user.bubble_id = ${preferredAgentExpr}
-           OR preferred_user.id::text = ${preferredAgentExpr})
-     LEFT JOIN agent preferred_agent
-       ON (preferred_user.id IS NULL AND ${preferredAgentExpr} IS NOT NULL AND (
-             preferred_agent.id::text = ${preferredAgentExpr}
-             OR preferred_agent.bubble_id = ${preferredAgentExpr}
-             OR preferred_agent.linked_user_login = ${preferredAgentExpr}
-          ))
+           OR (${preferredAgentExpr} ~ '^[0-9]+$' AND preferred_user.id::text = ${preferredAgentExpr}))
      ${whereClause}
      ORDER BY r.created_at DESC`,
     params
@@ -364,31 +321,57 @@ async function getAssignableAgents(client) {
   const result = await client.query(
     `SELECT DISTINCT
        u.bubble_id AS assignment_key,
-       a.id::text AS agent_id,
-       a.bubble_id AS agent_bubble_id,
        u.id::text AS user_id,
        u.bubble_id AS user_bubble_id,
-       a.name,
+       u.name,
        u.email,
        u.access_level
-     FROM agent a
-     LEFT JOIN "user" u
-       ON (u.linked_agent_profile = a.bubble_id OR u.bubble_id = a.linked_user_login)
-     WHERE a.name IS NOT NULL
-       AND u.id IS NOT NULL
+     FROM "user" u
+     WHERE u.bubble_id IS NOT NULL
        AND EXISTS (
          SELECT 1
          FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS role
-         WHERE role IN ('sales', 'hr', 'kc')
-            OR role LIKE 'team-%'
+         WHERE LOWER(role) LIKE '%sales%'
+            OR LOWER(role) LIKE '%osa%'
+            OR LOWER(role) LIKE '%oum%'
        )
-     ORDER BY a.name`
+       AND NOT EXISTS (
+         SELECT 1
+         FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS role
+         WHERE LOWER(role) = 'blocked'
+       )
+     ORDER BY u.name`
   );
 
   return result.rows;
 }
 
 async function updateReferralAssignment(client, referralBubbleId, assignmentKey) {
+  let validatedBubbleId = null;
+
+  if (assignmentKey) {
+    const isDigits = /^\d+$/.test(String(assignmentKey));
+    const userRes = await client.query(
+      `SELECT bubble_id
+       FROM "user"
+       WHERE (bubble_id = $1 ${isDigits ? 'OR id::text = $1' : ''})
+         AND EXISTS (
+           SELECT 1
+           FROM unnest(COALESCE(access_level, ARRAY[]::text[])) AS role
+           WHERE LOWER(role) LIKE '%sales%'
+              OR LOWER(role) LIKE '%osa%'
+              OR LOWER(role) LIKE '%oum%'
+         )
+       LIMIT 1`,
+      [String(assignmentKey)]
+    );
+
+    if (userRes.rows.length === 0) {
+      throw new Error('Assigned user must be an active sales user');
+    }
+    validatedBubbleId = userRes.rows[0].bubble_id;
+  }
+
   const columns = await getReferralColumns(client);
   const updates = ['linked_agent = $1', 'updated_at = NOW()'];
 
@@ -401,7 +384,7 @@ async function updateReferralAssignment(client, referralBubbleId, assignmentKey)
      SET ${updates.join(', ')}
      WHERE bubble_id = $2${columns.has('deleted_at') ? ' AND deleted_at IS NULL' : ''}
      RETURNING *`,
-    [assignmentKey || null, referralBubbleId]
+    [validatedBubbleId, referralBubbleId]
   );
 
   return result.rows.length > 0 ? result.rows[0] : null;
@@ -444,15 +427,29 @@ async function getCustomerIdFromShareToken(client, shareToken) {
 
 /**
  * Get agent ID from customer
+ * Resolves to the user's bubble_id if they are an active sales user
  * @param {object} client - Database client
  * @param {string} customerId - Customer bubble_id (customer_id)
  */
 async function getAgentIdFromCustomer(client, customerId) {
   const result = await client.query(
-    `SELECT created_by FROM customer WHERE customer_id = $1`,
+    `SELECT u.bubble_id
+     FROM customer c
+     JOIN "user" u
+       ON (u.bubble_id = c.created_by
+           OR (c.created_by ~ '^[0-9]+$' AND u.id::text = c.created_by))
+     WHERE c.customer_id = $1
+       AND EXISTS (
+         SELECT 1
+         FROM unnest(COALESCE(u.access_level, ARRAY[]::text[])) AS role
+         WHERE LOWER(role) LIKE '%sales%'
+            OR LOWER(role) LIKE '%osa%'
+            OR LOWER(role) LIKE '%oum%'
+       )
+     LIMIT 1`,
     [customerId]
   );
-  return result.rows.length > 0 ? result.rows[0].created_by : null;
+  return result.rows.length > 0 ? result.rows[0].bubble_id : null;
 }
 
 module.exports = {

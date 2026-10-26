@@ -998,29 +998,20 @@ async function getPendingReferralsByAgent(client) {
 
   const result = await client.query(
     `SELECT
-       COALESCE(u.name, a.name, ${assignmentExpr}) AS agent_name,
+       COALESCE(u.name, ${assignmentExpr}, 'Unassigned') AS agent_name,
        ${assignmentExpr} AS agent_key,
        COUNT(*) AS pending_count
      FROM referral r
      LEFT JOIN "user" u
        ON (u.bubble_id = ${assignmentExpr}
-           OR u.id::text = ${assignmentExpr})
-     LEFT JOIN agent a
-       ON (u.id IS NULL AND (
-             a.id::text = ${assignmentExpr}
-             OR a.bubble_id = ${assignmentExpr}
-             OR a.linked_user_login = ${assignmentExpr}
-          ))
+           OR (${assignmentExpr} ~ '^[0-9]+$' AND u.id::text = ${assignmentExpr}))
      WHERE ${activeReferralClause} AND ${statusExpr} = 'Pending'
-     GROUP BY ${assignmentExpr}, u.name, a.name
+     GROUP BY ${assignmentExpr}, u.name
      ORDER BY pending_count DESC`
   );
   return result.rows;
 }
 
-/**
- * Cache-friendly referral column check
- */
 let _referralColumnsCache = null;
 async function _getReferralColumnsCache(client) {
   if (_referralColumnsCache) return _referralColumnsCache;
