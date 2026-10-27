@@ -255,8 +255,9 @@ async function createAndLinkCustomerForUnlinkedSeda(client, snapshot, formValues
  * @param {object} client - Database client
  * @param {string} customerBubbleId - Customer bubble ID
  * @param {object} formValues - Form values from SEDA save
+ * @param {object} actor - Saving user ({ id, name }), recorded in customer.log on name change
  */
-async function updateLinkedCustomerFromSeda(client, customerBubbleId, formValues) {
+async function updateLinkedCustomerFromSeda(client, customerBubbleId, formValues, actor = {}) {
     if (!customerBubbleId) return;
 
     const customerColumns = await getTableColumns(client, 'customer', 'customer');
@@ -281,6 +282,10 @@ async function updateLinkedCustomerFromSeda(client, customerBubbleId, formValues
     addUpdate('ic_number', formValues.ic_no);
 
     if (values.length === 0) return;
+
+    addUpdate('updated_by', actor.id ? String(actor.id) : null);
+    // Name for the customer.log trigger; transaction-local (caller holds BEGIN).
+    await client.query(`SELECT set_config('app.user_name', $1, true)`, [actor.name || '']);
 
     values.push(customerBubbleId);
     await client.query(
@@ -1600,7 +1605,7 @@ router.post('/api/v1/seda/:id', requireAuth, requireSedaOwnership, async (req, r
             }
         } else {
             // Update linked customer profile with form values
-            await updateLinkedCustomerFromSeda(client, snapshot.linked_customer, formValues);
+            await updateLinkedCustomerFromSeda(client, snapshot.linked_customer, formValues, getSedaActor(req, null));
         }
 
         const _saveInvoiceId = await getLinkedInvoiceBubbleId(client, req.params.id);

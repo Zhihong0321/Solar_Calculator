@@ -1862,11 +1862,14 @@ async function updateInvoiceTransaction(client, data) {
       if (userRes.rows.length > 0) linkedAgent = userRes.rows[0].linked_agent_profile;
     }
 
-    // Resolve Customer
+    // Resolve Customer: editing updates the invoice's existing customer in place.
+    // A new customer is created only when the invoice has none linked yet, so
+    // payments/SEDA that point at the current customer stay in sync.
     let customerBubbleId = null;
 
     if (data.customerName) {
       const custResult = await createInvoiceCustomer(client, {
+        existingCustomerBubbleId: currentData.linked_customer || null,
         name: data.customerName,
         phone: data.customerPhone,
         address: data.customerAddress,
