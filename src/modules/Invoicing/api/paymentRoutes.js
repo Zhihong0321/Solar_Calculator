@@ -129,7 +129,7 @@ router.post('/api/v1/invoices/:bubbleId/payment', requireAuth, async (req, res) 
                      SET payment_method = $1, payment_method_v2 = $1, amount = $2, payment_date = $3, 
                          remark = $4, issuer_bank = $5, epp_month = $6, epp_type = $7,
                          modified_date = NOW(), updated_at = NOW()
-                     WHERE bubble_id = $9 AND (created_by = $10 OR 1=1)`,
+                     WHERE bubble_id = $8 AND (created_by = $9 OR 1=1)`,
                     [
                         standardMethod,
                         finalAmount,
