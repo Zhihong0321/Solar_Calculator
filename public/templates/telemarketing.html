@@ -391,6 +391,8 @@
         let waCustomMessage = '';
         let waMessageIsDefault = true; // true until the agent edits the message on this device
         let telemarketerName = '';
+        let telemarketerPhone = '';
+        let telemarketerEmail = '';
         const WA_MESSAGE_STORAGE_KEY = 'telemarketing.waCustomMessage';
         const dmNameCache = {}; // leadId -> first decision maker name ('' when none)
         const dmNameFetches = {};
@@ -460,6 +462,8 @@
             
             if (nameEl) nameEl.textContent = tm.name || 'Telemarketer';
             telemarketerName = (tm.name || '').trim();
+            telemarketerPhone = (tm.phone || '').trim();
+            telemarketerEmail = (tm.email || '').trim();
             if (waMessageIsDefault) applyWaMessage(getDefaultWaMessage());
             if (uidTag) uidTag.textContent = tm.uid ? `(${tm.uid.slice(0, 10)}...)` : '';
             if (badge) badge.classList.remove('hidden');
@@ -1025,7 +1029,7 @@
                             <p class="text-xs font-bold text-white truncate">${escapeHtml(e.email)}</p>
                             <p class="text-[10px] text-slate-400">${escapeHtml(e.label || e.type || 'Email')}</p>
                         </div>
-                        <a href="mailto:${escapeHtml(e.email)}" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 transition shrink-0">
+                        <a href="${escapeHtml(buildMailtoUrl(lead, e.email))}" onclick="this.href = buildMailtoUrlForLead('${escapeHtml(lead.id)}', '${escapeHtml(e.email)}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 transition shrink-0">
                             <i class="fa-solid fa-envelope"></i> Send
                         </a>
                     </div>
@@ -1157,6 +1161,47 @@
         function buildWhatsAppUrlForLead(leadId, dial) {
             const lead = allLeads.find(l => String(l.id) === String(leadId)) || { id: leadId };
             return buildWhatsAppUrl(lead, dial);
+        }
+
+        // Email: pre-written body opened in the device's mail app (mailto works on iOS and Android)
+        function buildEmailBody(lead) {
+            const person = (dmNameCache[lead.id] || getFirstDecisionMakerName(lead) || '').trim();
+            const company = (lead.name || '').trim();
+            const greeting = person && company ? `Hi ${person}, ${company} ,` : `Hi ${person || company || 'there'} ,`;
+            return [
+                greeting,
+                '',
+                "Let's unlock the hidden money in your TNB bills.",
+                '',
+                "60% of a solar system's cost can come off Eternalgy Sdn Bhd's taxable income, if it's installed before 31 Dec 2026.",
+                '',
+                "Most companies we talk to haven't heard of it.",
+                '',
+                "Send me one recent TNB bill, and I'll show you what you'd pay after solar.",
+                '',
+                'Worth a look?',
+                '',
+                'Eternalgy | The Benchmark of Long-Lasting Solar PV Systems',
+                'CIDB G7 contractor · SEDA Registered PV Service Provider · MyHIJAU certified',
+                '12 MWp+ installed · 1,100+ sites commissioned · Golden Bull Award 2025',
+                '',
+                '',
+                'Regards',
+                telemarketerName || '{User Name}',
+                'Solar PV Sales Consultant',
+                telemarketerPhone || '{User mobile number}',
+                telemarketerEmail || '{User email add}'
+            ].join('\r\n');
+        }
+
+        function buildMailtoUrl(lead, email) {
+            return `mailto:${encodeURIComponent(String(email || '').trim())}?subject=${encodeURIComponent('Turn TNB Bill into Investment')}&body=${encodeURIComponent(buildEmailBody(lead))}`;
+        }
+
+        // Rebuilt at tap time so the latest decision maker name is used
+        function buildMailtoUrlForLead(leadId, email) {
+            const lead = allLeads.find(l => String(l.id) === String(leadId)) || { id: leadId };
+            return buildMailtoUrl(lead, email);
         }
 
         function getFirstDecisionMakerName(lead) {
