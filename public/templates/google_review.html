@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Google Review Programme | ETERNALGY OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/google-review.css">
+</head>
+<body>
+    <header class="gr-header">
+        <div class="gr-header-inner">
+            <a href="/agent/home" class="gr-back" title="Back to Dashboard"><i class="fa-solid fa-arrow-left"></i></a>
+            <div>
+                <h1 class="gr-title">Google Review Programme</h1>
+                <p class="gr-subtitle">Collect a Google review from a SEDA-approved client</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="gr-main narrow">
+        <div class="gr-pagelinks">
+            <a href="/google-review/my-claims" class="gr-link-btn"><i class="fa-solid fa-list-check"></i> My Claims</a>
+            <a href="/google-review/admin" id="adminLink" class="gr-link-btn gr-hidden"><i class="fa-solid fa-user-shield"></i> Review Claims</a>
+        </div>
+        <div class="gr-reward">
+            <i class="fa-solid fa-gift"></i>
+            <div>
+                <strong>You earn RM<span id="agentBonus">15</span> · Client gets RM<span id="customerBonus">15</span> TNG reload</strong>
+                <span>Paid after HR approves your claim.</span>
+            </div>
+        </div>
+
+        <div id="successMsg" class="gr-msg success"></div>
+
+        <!-- Step 1: customer -->
+        <section class="gr-card">
+            <div class="gr-step-head">
+                <span class="gr-step-num" id="step1Num">1</span>
+                <h2 class="gr-step-title">Search customer (SEDA approved)</h2>
+            </div>
+            <div id="searchBlock">
+                <div class="gr-search-wrap">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="searchInput" class="gr-input" type="search" placeholder="Name, phone or address" autocomplete="off">
+                </div>
+                <div id="customerList" class="gr-list"><div class="gr-empty">Loading customers…</div></div>
+            </div>
+            <div id="selectedBlock" class="gr-selected gr-hidden">
+                <i class="fa-solid fa-user-check" style="color:#93c5fd"></i>
+                <div class="gr-cust-main">
+                    <div class="gr-cust-name" id="selectedName"></div>
+                    <div class="gr-cust-meta" id="selectedMeta"></div>
+                </div>
+                <button type="button" class="gr-btn link" id="changeCustomerBtn">Change</button>
+            </div>
+        </section>
+
+        <!-- Step 2: photo -->
+        <section class="gr-card">
+            <div class="gr-step-head">
+                <span class="gr-step-num" id="step2Num">2</span>
+                <h2 class="gr-step-title">Photo of the posted review</h2>
+            </div>
+            <div class="gr-photo-btns">
+                <button type="button" class="gr-btn" id="cameraBtn"><i class="fa-solid fa-camera"></i> Take photo</button>
+                <button type="button" class="gr-btn" id="screenshotBtn"><i class="fa-solid fa-image"></i> Upload screenshot</button>
+            </div>
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" class="gr-hidden">
+            <input type="file" id="fileInput" accept="image/*" class="gr-hidden">
+            <p class="gr-hint">Screenshot of the review, or a photo of the client's phone showing the posted review.</p>
+            <div id="photoPreview" class="gr-preview gr-hidden">
+                <img id="photoImg" alt="Review photo preview">
+                <button type="button" class="gr-btn small bad" id="removePhotoBtn"><i class="fa-solid fa-xmark"></i> Remove</button>
+            </div>
+        </section>
+
+        <!-- Step 3: TNG mobile -->
+        <section class="gr-card">
+            <div class="gr-step-head">
+                <span class="gr-step-num" id="step3Num">3</span>
+                <h2 class="gr-step-title">Client mobile number for TNG credit</h2>
+            </div>
+            <div id="mobileOptions"><div class="gr-empty" style="padding:8px">Select a customer first.</div></div>
+            <div id="otherMobileWrap" class="gr-hidden">
+                <input id="otherMobileInput" class="gr-input" type="tel" inputmode="tel" placeholder="e.g. 012-345 6789">
+            </div>
+        </section>
+
+        <div id="errorMsg" class="gr-msg error"></div>
+
+        <button type="button" class="gr-btn primary block" id="submitBtn" disabled>
+            <i class="fa-solid fa-paper-plane"></i> Submit claim
+        </button>
+    </main>
+
+    <script>
+    (() => {
+        const $ = (id) => document.getElementById(id);
+        const state = { customer: null, photo: null, mobileChoice: null };
+        let searchTimer = null;
+        let searchSeq = 0;
+
+        const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        function normalizeMobile(input) {
+            let d = String(input || '').replace(/\D/g, '');
+            if (d.startsWith('60')) d = '0' + d.slice(2);
+            return /^01\d{8,9}$/.test(d) ? d : null;
+        }
+        function formatMobile(d) {
+            if (!d) return '';
+            return d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)} ${d.slice(7)}` : `${d.slice(0, 3)}-${d.slice(3, 6)} ${d.slice(6)}`;
+        }
+
+        function showError(msg) { const el = $('errorMsg'); el.textContent = msg || ''; el.classList.toggle('show', !!msg); }
+        function showSuccess(html) { const el = $('successMsg'); el.innerHTML = html || ''; el.classList.toggle('show', !!html); }
+
+        async function api(url, opts) {
+            const res = await fetch(url, Object.assign({ credentials: 'same-origin' }, opts));
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+            return data;
+        }
+
+        // ── Step 1: search ─────────────────────────────────────────
+        async function loadCustomers(q) {
+            const seq = ++searchSeq;
+            const list = $('customerList');
+            try {
+                const { customers } = await api(`/api/google-review/customers?q=${encodeURIComponent(q || '')}`);
+                if (seq !== searchSeq) return;
+                if (!customers.length) {
+                    list.innerHTML = '<div class="gr-empty">No SEDA-approved customer matches.</div>';
+                    return;
+                }
+                list.innerHTML = customers.map((c, i) => {
+                    const claimed = !!c.claim_id;
+                    const meta = claimed
+                        ? `Already claimed (${escapeHtml(c.claim_status)}) by ${escapeHtml(c.claim_submitted_by || 'another agent')}`
+                        : escapeHtml([c.phone || c.applicant_phone, c.address].filter(Boolean).join(' · ') || 'No contact on file');
+                    return `<button type="button" class="gr-cust" data-i="${i}" ${claimed ? 'disabled' : ''}>
+                        <i class="fa-solid ${claimed ? 'fa-circle-check' : 'fa-user'}" style="color:${claimed ? '#34d399' : '#64748b'}"></i>
+                        <span class="gr-cust-main">
+                            <span class="gr-cust-name" style="display:block">${escapeHtml(c.name || '(No name)')}</span>
+                            <span class="gr-cust-meta" style="display:block">${meta}</span>
+                        </span>
+                        ${claimed ? '' : '<i class="fa-solid fa-chevron-right" style="color:#64748b;font-size:12px"></i>'}
+                    </button>`;
+                }).join('');
+                list.querySelectorAll('.gr-cust:not(:disabled)').forEach((btn) => {
+                    btn.addEventListener('click', () => selectCustomer(customers[Number(btn.dataset.i)]));
+                });
+            } catch (err) {
+                if (seq !== searchSeq) return;
+                list.innerHTML = `<div class="gr-empty">${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        function selectCustomer(c) {
+            state.customer = c;
+            state.mobileChoice = null;
+            $('selectedName').textContent = c.name || '(No name)';
+            $('selectedMeta').textContent = c.address || '';
+            $('searchBlock').classList.add('gr-hidden');
+            $('selectedBlock').classList.remove('gr-hidden');
+            renderMobileOptions();
+            showError('');
+            showSuccess('');
+            refresh();
+        }
+
+        $('changeCustomerBtn').addEventListener('click', () => {
+            state.customer = null;
+            state.mobileChoice = null;
+            $('selectedBlock').classList.add('gr-hidden');
+            $('searchBlock').classList.remove('gr-hidden');
+            renderMobileOptions();
+            $('searchInput').focus();
+            refresh();
+        });
+
+        $('searchInput').addEventListener('input', (e) => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => loadCustomers(e.target.value), 250);
+        });
+
+        // ── Step 2: photo ──────────────────────────────────────────
+        $('cameraBtn').addEventListener('click', () => $('cameraInput').click());
+        $('screenshotBtn').addEventListener('click', () => $('fileInput').click());
+        ['cameraInput', 'fileInput'].forEach((id) => $(id).addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            e.target.value = '';
+            if (!file) return;
+            if (!file.type.startsWith('image/')) { showError('Please choose an image file.'); return; }
+            showError('');
+            state.photo = await shrinkImage(file);
+            $('photoImg').src = URL.createObjectURL(state.photo);
+            $('photoPreview').classList.remove('gr-hidden');
+            refresh();
+        }));
+        $('removePhotoBtn').addEventListener('click', () => {
+            state.photo = null;
+            $('photoPreview').classList.add('gr-hidden');
+            $('photoImg').removeAttribute('src');
+            refresh();
+        });
+
+        // Phone camera photos can be 5–10MB; scale large images down so uploads finish on mobile data.
+        async function shrinkImage(file) {
+            if (file.size < 1.5 * 1024 * 1024) return file;
+            try {
+                const bitmap = await createImageBitmap(file);
+                const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(bitmap.width * scale);
+                canvas.height = Math.round(bitmap.height * scale);
+                canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+                return blob ? new File([blob], 'review.jpg', { type: 'image/jpeg' }) : file;
+            } catch (err) {
+                return file;
+            }
+        }
+
+        // ── Step 3: mobile ─────────────────────────────────────────
+        function renderMobileOptions() {
+            const wrap = $('mobileOptions');
+            $('otherMobileWrap').classList.add('gr-hidden');
+            if (!state.customer) {
+                wrap.innerHTML = '<div class="gr-empty" style="padding:8px">Select a customer first.</div>';
+                return;
+            }
+            const seen = new Set();
+            const options = [];
+            [[state.customer.phone, 'Customer phone'], [state.customer.applicant_phone, 'SEDA applicant phone']].forEach(([raw, label]) => {
+                const n = normalizeMobile(raw);
+                if (n && !seen.has(n)) { seen.add(n); options.push({ value: n, label }); }
+            });
+            wrap.innerHTML = options.map((o, i) => `
+                <label class="gr-radio">
+                    <input type="radio" name="mobile" value="${o.value}" ${i === 0 ? 'checked' : ''}>
+                    <span><b>${formatMobile(o.value)}</b><small>${o.label}</small></span>
+                </label>`).join('') + `
+                <label class="gr-radio">
+                    <input type="radio" name="mobile" value="__other" ${options.length ? '' : 'checked'}>
+                    <span><b>Other number</b><small>Type the number the client wants the TNG credit on</small></span>
+                </label>`;
+            state.mobileChoice = options.length ? options[0].value : '__other';
+            if (!options.length) $('otherMobileWrap').classList.remove('gr-hidden');
+            wrap.querySelectorAll('input[name="mobile"]').forEach((r) => r.addEventListener('change', () => {
+                state.mobileChoice = r.value;
+                $('otherMobileWrap').classList.toggle('gr-hidden', r.value !== '__other');
+                if (r.value === '__other') $('otherMobileInput').focus();
+                refresh();
+            }));
+        }
+        $('otherMobileInput').addEventListener('input', refresh);
+
+        function selectedMobile() {
+            if (state.mobileChoice === '__other') return normalizeMobile($('otherMobileInput').value);
+            return state.mobileChoice;
+        }
+
+        // ── Submit ─────────────────────────────────────────────────
+        function refresh() {
+            const mobile = selectedMobile();
+            $('step1Num').classList.toggle('done', !!state.customer);
+            $('step2Num').classList.toggle('done', !!state.photo);
+            $('step3Num').classList.toggle('done', !!(state.customer && mobile));
+            $('submitBtn').disabled = !(state.customer && state.photo && mobile);
+        }
+
+        $('submitBtn').addEventListener('click', async () => {
+            const mobile = selectedMobile();
+            if (!state.customer || !state.photo || !mobile) return;
+            const btn = $('submitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting…';
+            showError('');
+            try {
+                const form = new FormData();
+                form.append('customer_id', state.customer.customer_id);
+                form.append('tng_mobile', mobile);
+                form.append('photo', state.photo, state.photo.name || 'review.jpg');
+                await api('/api/google-review/claims', { method: 'POST', body: form });
+                showSuccess(`<i class="fa-solid fa-circle-check"></i> Claim submitted for <b>${escapeHtml(state.customer.name)}</b> (TNG ${formatMobile(mobile)}). <a href="/google-review/my-claims" style="text-decoration:underline">View my claims</a>`);
+                resetForm();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit claim';
+                refresh();
+            }
+        });
+
+        function resetForm() {
+            state.customer = null;
+            state.photo = null;
+            state.mobileChoice = null;
+            $('otherMobileInput').value = '';
+            $('photoPreview').classList.add('gr-hidden');
+            $('selectedBlock').classList.add('gr-hidden');
+            $('searchBlock').classList.remove('gr-hidden');
+            renderMobileOptions();
+            loadCustomers($('searchInput').value);
+        }
+
+        // ── Init ───────────────────────────────────────────────────
+        api('/api/google-review/me').then((me) => {
+            $('agentBonus').textContent = me.agentBonus;
+            $('customerBonus').textContent = me.customerBonus;
+            if (me.isReviewer) $('adminLink').classList.remove('gr-hidden');
+        }).catch(() => {});
+        loadCustomers('');
+        refresh();
+    })();
+    </script>
+    <script src="/js/navigation.js"></script>
+</body>
+</html>

@@ -32,6 +32,7 @@ const HostedHtml = require('./src/modules/HostedHtml');
 const SupportTicket = require('./src/modules/SupportTicket');
 const Telemarketing = require('./src/modules/Telemarketing');
 const ClaimReceipt = require('./src/modules/ClaimReceipt');
+const GoogleReview = require('./src/modules/GoogleReview');
 const Attachments = require('./src/modules/Attachments');
 const uploadBackfillRoutes = require('./src/modules/UploadBackfill/backfillRoutes');
 const { maintenanceMiddleware } = require('./src/core/middleware/maintenance');
@@ -120,6 +121,7 @@ app.use(require('./src/modules/Invoicing/api/externalInvoiceRoutes'));
 app.use(require('./src/modules/AiTools/aiToolsRoutes'));
 app.use(require('./src/modules/ExternalTools/externalToolsRoutes'));
 app.use(Telemarketing.router);
+app.use(GoogleReview.router);
 
 // --- Prototype: conversational quotation (/lab/chat) ---
 // Opt-in and isolated. Not registered in the navigation shell, reachable only

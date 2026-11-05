@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Google Review Claims | ETERNALGY OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/google-review.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.all.min.js"></script>
+</head>
+<body>
+    <header class="gr-header">
+        <div class="gr-header-inner">
+            <a href="/agent/home" class="gr-back" title="Back to Dashboard"><i class="fa-solid fa-arrow-left"></i></a>
+            <div>
+                <h1 class="gr-title">Google Review Claims</h1>
+                <p class="gr-subtitle">Approve claims and mark RM15 + RM15 TNG payouts</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="gr-main">
+        <div class="gr-pagelinks">
+            <button type="button" class="gr-link-btn" id="refreshBtn"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+        </div>
+        <div id="accessError" class="gr-msg error"></div>
+
+        <div id="body" class="gr-hidden" style="display:flex;flex-direction:column;gap:12px">
+            <div class="gr-stats">
+                <div class="gr-stat"><div class="gr-stat-label">Pending review</div><div class="gr-stat-value" id="statPending">–</div></div>
+                <div class="gr-stat"><div class="gr-stat-label">Approved, unpaid</div><div class="gr-stat-value" id="statApproved">–</div></div>
+                <div class="gr-stat"><div class="gr-stat-label">To pay out</div><div class="gr-stat-value" id="statToPay">–</div></div>
+                <div class="gr-stat"><div class="gr-stat-label">Paid out</div><div class="gr-stat-value" id="statPaid">–</div></div>
+            </div>
+
+            <div class="gr-tabs" id="tabs">
+                <button type="button" class="gr-tab active" data-status="Pending">Pending</button>
+                <button type="button" class="gr-tab" data-status="Approved">Approved (to pay)</button>
+                <button type="button" class="gr-tab" data-status="Paid">Paid</button>
+                <button type="button" class="gr-tab" data-status="Rejected">Rejected</button>
+                <button type="button" class="gr-tab" data-status="">All</button>
+            </div>
+
+            <div class="gr-search-wrap">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input id="searchInput" class="gr-input" type="search" placeholder="Search customer, agent or mobile" autocomplete="off">
+            </div>
+
+            <div id="list" class="gr-list" style="max-height:none;margin-top:0"><div class="gr-empty">Loading…</div></div>
+        </div>
+    </main>
+
+    <div class="gr-lightbox" id="lightbox"><img id="lightboxImg" alt="Review photo"></div>
+
+    <script>
+    (() => {
+        const $ = (id) => document.getElementById(id);
+        const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const fmtDate = (v) => v ? new Date(v).toLocaleString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        const fmtMobile = (d) => !d ? '' : d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)} ${d.slice(7)}` : `${d.slice(0, 3)}-${d.slice(3, 6)} ${d.slice(6)}`;
+        const rm = (n) => `RM${Number(n || 0).toLocaleString('en-MY', { maximumFractionDigits: 2 })}`;
+        let claims = [];
+        let filter = 'Pending';
+
+        async function api(url, opts) {
+            const res = await fetch(url, Object.assign({ credentials: 'same-origin' }, opts));
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { const e = new Error(data.error || `Request failed (${res.status})`); e.status = res.status; throw e; }
+            return data;
+        }
+
+        function render() {
+            const approved = claims.filter((c) => c.status === 'Approved');
+            const paid = claims.filter((c) => c.status === 'Paid');
+            $('statPending').textContent = claims.filter((c) => c.status === 'Pending').length;
+            $('statApproved').textContent = approved.length;
+            $('statToPay').textContent = rm(approved.reduce((s, c) => s + Number(c.agent_bonus) + Number(c.customer_bonus), 0));
+            $('statPaid').textContent = rm(paid.reduce((s, c) => s + Number(c.agent_bonus) + Number(c.customer_bonus), 0));
+
+            const q = $('searchInput').value.trim().toLowerCase();
+            const qDigits = q.replace(/\D/g, '');
+            const rows = claims.filter((c) => (!filter || c.status === filter) && (!q
+                || String(c.customer_name || '').toLowerCase().includes(q)
+                || String(c.submitted_by_name || '').toLowerCase().includes(q)
+                || (qDigits && String(c.tng_mobile || '').includes(qDigits))));
+
+            if (!rows.length) {
+                $('list').innerHTML = '<div class="gr-card gr-empty">No claims here.</div>';
+                return;
+            }
+            $('list').innerHTML = rows.map((c) => `
+                <div class="gr-card gr-claim">
+                    <img class="gr-thumb" src="${escapeHtml(c.photo_url)}" alt="Review photo" loading="lazy" data-full="${escapeHtml(c.photo_url)}">
+                    <div class="gr-claim-body">
+                        <div class="gr-claim-top">
+                            <div class="gr-claim-name">${escapeHtml(c.customer_name || c.customer_id)}</div>
+                            <span class="gr-pill ${escapeHtml(c.status)}">${escapeHtml(c.status)}</span>
+                        </div>
+                        <div class="gr-claim-meta">
+                            Agent: <b>${escapeHtml(c.submitted_by_name || c.submitted_by_user_id)}</b> · bonus ${rm(c.agent_bonus)}<br>
+                            TNG reload: <b>${escapeHtml(fmtMobile(c.tng_mobile))}</b> · ${rm(c.customer_bonus)}
+                            <button type="button" class="gr-btn link" data-copy="${escapeHtml(c.tng_mobile)}" title="Copy number"><i class="fa-regular fa-copy"></i></button><br>
+                            Submitted ${escapeHtml(fmtDate(c.created_at))}
+                            ${c.reviewed_at ? `<br>${c.status === 'Rejected' ? 'Rejected' : 'Approved'} by ${escapeHtml(c.reviewed_by_name)} · ${escapeHtml(fmtDate(c.reviewed_at))}` : ''}
+                            ${c.paid_at ? `<br>Paid by ${escapeHtml(c.paid_by_name)} · ${escapeHtml(fmtDate(c.paid_at))}` : ''}
+                        </div>
+                        ${c.remark ? `<div class="gr-remark"><i class="fa-solid fa-comment"></i> ${escapeHtml(c.remark)}</div>` : ''}
+                        <div class="gr-actions">
+                            ${c.status === 'Pending' ? `
+                                <button type="button" class="gr-btn small ok" data-act="Approved" data-id="${c.id}"><i class="fa-solid fa-check"></i> Approve</button>
+                                <button type="button" class="gr-btn small bad" data-act="Rejected" data-id="${c.id}"><i class="fa-solid fa-xmark"></i> Reject</button>` : ''}
+                            ${c.status === 'Approved' ? `
+                                <button type="button" class="gr-btn small primary" data-act="Paid" data-id="${c.id}"><i class="fa-solid fa-money-bill-wave"></i> Mark paid (agent + TNG)</button>` : ''}
+                        </div>
+                    </div>
+                </div>`).join('');
+        }
+
+        async function load() {
+            try {
+                const data = await api('/api/google-review/claims');
+                claims = data.claims || [];
+                $('accessError').classList.remove('show');
+                $('body').classList.remove('gr-hidden');
+                render();
+            } catch (err) {
+                $('accessError').textContent = err.status === 403 ? 'This page is for HR and KC only.' : err.message;
+                $('accessError').classList.add('show');
+                $('body').classList.add('gr-hidden');
+            }
+        }
+
+        async function decide(id, status) {
+            const claim = claims.find((c) => String(c.id) === String(id));
+            if (!claim) return;
+            const name = escapeHtml(claim.customer_name || claim.customer_id);
+            let remark = '';
+            if (status === 'Rejected') {
+                const r = await Swal.fire({
+                    title: 'Reject claim?', html: `Customer: <b>${name}</b>`, input: 'text',
+                    inputPlaceholder: 'Reason (shown to the agent)', showCancelButton: true, confirmButtonText: 'Reject',
+                    confirmButtonColor: '#dc2626', inputValidator: (v) => (!v || !v.trim()) ? 'A reason is required' : undefined
+                });
+                if (!r.isConfirmed) return;
+                remark = r.value.trim();
+            } else {
+                const text = status === 'Paid'
+                    ? `Confirm <b>${rm(claim.agent_bonus)}</b> paid to <b>${escapeHtml(claim.submitted_by_name)}</b> and <b>${rm(claim.customer_bonus)}</b> TNG reloaded to <b>${escapeHtml(fmtMobile(claim.tng_mobile))}</b>.`
+                    : `Approve the Google review claim for <b>${name}</b> by ${escapeHtml(claim.submitted_by_name)}?`;
+                const r = await Swal.fire({ title: status === 'Paid' ? 'Mark as paid?' : 'Approve claim?', html: text, showCancelButton: true, confirmButtonText: status === 'Paid' ? 'Mark paid' : 'Approve', confirmButtonColor: '#2563eb' });
+                if (!r.isConfirmed) return;
+            }
+            try {
+                const { claim: updated } = await api(`/api/google-review/claims/${id}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, remark })
+                });
+                claims = claims.map((c) => String(c.id) === String(id) ? updated : c);
+                render();
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Could not update', text: err.message });
+                load();
+            }
+        }
+
+        $('tabs').addEventListener('click', (e) => {
+            const btn = e.target.closest('.gr-tab');
+            if (!btn) return;
+            filter = btn.dataset.status;
+            document.querySelectorAll('.gr-tab').forEach((t) => t.classList.toggle('active', t === btn));
+            render();
+        });
+        $('searchInput').addEventListener('input', render);
+        $('refreshBtn').addEventListener('click', load);
+        $('list').addEventListener('click', (e) => {
+            const img = e.target.closest('.gr-thumb');
+            if (img) { $('lightboxImg').src = img.dataset.full; $('lightbox').classList.add('show'); return; }
+            const copy = e.target.closest('[data-copy]');
+            if (copy) { navigator.clipboard?.writeText(copy.dataset.copy); copy.innerHTML = '<i class="fa-solid fa-check"></i>'; return; }
+            const act = e.target.closest('[data-act]');
+            if (act) decide(act.dataset.id, act.dataset.act);
+        });
+        $('lightbox').addEventListener('click', () => $('lightbox').classList.remove('show'));
+
+        load();
+    })();
+    </script>
+    <script src="/js/navigation.js"></script>
+</body>
+</html>
