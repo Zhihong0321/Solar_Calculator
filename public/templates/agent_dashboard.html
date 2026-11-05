@@ -246,6 +246,14 @@
         <i class="fa-solid fa-user-group w-5"></i>
         <span>My Referrals</span>
       </a>
+      <a href="/google-review" class="nav-link">
+        <i class="fa-solid fa-star w-5"></i>
+        <span>Google Review Programme</span>
+      </a>
+      <a href="/google-review/admin" id="googleReviewAdminNav" class="nav-link hidden">
+        <i class="fa-solid fa-star-half-stroke w-5"></i>
+        <span>Google Review Claims</span>
+      </a>
       <a href="/referral-leads-management" id="referralLeadManagementNav" class="nav-link hidden">
         <i class="fa-solid fa-user-check w-5"></i>
         <span>Referral Leads</span>
@@ -562,6 +570,16 @@
             </p>
           </a>
 
+          <a href="/google-review" class="tool-card">
+            <div class="tool-icon">
+              <i class="fa-solid fa-star text-2xl text-amber-500"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900">Google Review Programme</h3>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">
+              Claim RM15 per client review
+            </p>
+          </a>
+
           <a href="/qr-generator" class="tool-card">
             <div class="tool-icon">
               <i class="fa-solid fa-qrcode text-2xl text-green-600"></i>
@@ -631,6 +649,16 @@
             <h3 class="text-sm font-bold text-slate-900">Referral Leads</h3>
             <p class="text-[10px] text-slate-400 font-medium mt-1">
               Assign Incoming Referrals
+            </p>
+          </a>
+
+          <a href="/google-review/admin" id="googleReviewAdminCard" class="tool-card hidden">
+            <div class="tool-icon">
+              <i class="fa-solid fa-star-half-stroke text-2xl text-amber-500"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900">Google Review Claims</h3>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">
+              Approve &amp; pay review claims
             </p>
           </a>
 
@@ -1065,6 +1093,12 @@
 
           const referralLeadManagementNav = document.getElementById("referralLeadManagementNav");
           if (referralLeadManagementNav) referralLeadManagementNav.classList.remove("hidden");
+
+          const googleReviewAdminCard = document.getElementById("googleReviewAdminCard");
+          if (googleReviewAdminCard) googleReviewAdminCard.classList.remove("hidden");
+
+          const googleReviewAdminNav = document.getElementById("googleReviewAdminNav");
+          if (googleReviewAdminNav) googleReviewAdminNav.classList.remove("hidden");
         }
 
         if (accessLevels.includes("ee-core")) {
