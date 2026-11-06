@@ -11,15 +11,6 @@ const SEDA_APPROVED_SQL = `(
   OR LOWER(TRIM(COALESCE(s.mapper_status, ''))) = 'approved'
 )`;
 
-// Fully paid = a non-deleted invoice of this SEDA registration is at 100% paid.
-// Same rule as the Quotations page "Fully Paid" badge (percent_of_total_amount, rounded >= 100).
-const FULLY_PAID_SQL = `EXISTS (
-  SELECT 1 FROM invoice i
-   WHERE (i.linked_seda_registration = s.bubble_id OR i.bubble_id = ANY(s.linked_invoice))
-     AND COALESCE(i.status, '') <> 'deleted'
-     AND i.percent_of_total_amount >= 99.5
-)`;
-
 const STATE_ALIASES = [
   [/\bnegeri\s*sembilan\b|\bn\.?\s*sembilan\b/i, 'Negeri Sembilan'],
   [/\bpulau\s*pinang\b|\bpenang\b|\bp\.?\s*pinang\b/i, 'Pulau Pinang'],
@@ -150,7 +141,6 @@ async function searchApprovedCustomers(query) {
          LEFT JOIN google_review_claim g
                 ON g.customer_id = c.customer_id AND g.status <> 'Rejected'
         WHERE ${SEDA_APPROVED_SQL}
-          AND ${FULLY_PAID_SQL}
           AND ($1 = '' OR c.name ILIKE $2 OR c.phone ILIKE $2 OR s.applicant_phone ILIKE $2
                OR s.installation_address ILIKE $2 OR c.address ILIKE $2 OR s.state ILIKE $2)
         ORDER BY c.customer_id, s.created_at DESC NULLS LAST
@@ -176,13 +166,13 @@ async function searchApprovedCustomers(query) {
     .map(([state, customers]) => ({ state, customers }));
 }
 
-/** Same eligibility as the list (SEDA approved + fully paid), so a claim can only target a listed customer. */
+/** Same eligibility as the list (SEDA approved), so a claim can only target a listed customer. */
 async function getApprovedCustomer(customerId) {
   const result = await pool.query(
     `SELECT c.customer_id, c.name, s.bubble_id AS seda_bubble_id
        FROM seda_registration s
        JOIN customer c ON c.customer_id = s.linked_customer
-      WHERE c.customer_id = $1 AND ${SEDA_APPROVED_SQL} AND ${FULLY_PAID_SQL}
+      WHERE c.customer_id = $1 AND ${SEDA_APPROVED_SQL}
       ORDER BY s.created_at DESC NULLS LAST
       LIMIT 1`,
     [customerId]

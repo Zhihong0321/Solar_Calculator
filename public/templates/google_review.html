@@ -38,7 +38,7 @@
         <section class="gr-card">
             <div class="gr-step-head">
                 <span class="gr-step-num" id="step1Num">1</span>
-                <h2 class="gr-step-title">Search customer (SEDA approved · fully paid)</h2>
+                <h2 class="gr-step-title">Search customer (SEDA approved)</h2>
             </div>
             <div id="searchBlock">
                 <div class="gr-search-wrap">
@@ -132,7 +132,7 @@
                 const { groups } = await api(`/api/google-review/customers?q=${encodeURIComponent(q || '')}`);
                 if (seq !== searchSeq) return;
                 if (!groups.length) {
-                    list.innerHTML = '<div class="gr-empty">No SEDA-approved, fully paid customer matches.</div>';
+                    list.innerHTML = '<div class="gr-empty">No SEDA-approved customer matches.</div>';
                     return;
                 }
                 const customers = [];

@@ -95,7 +95,7 @@ exports.createClaim = async (req, res) => {
     if (!tngMobile) return res.status(400).json({ error: 'Enter a valid Malaysian mobile number (e.g. 012-345 6789)' });
 
     const customer = await service.getApprovedCustomer(customerId);
-    if (!customer) return res.status(400).json({ error: 'This customer is not SEDA approved and fully paid' });
+    if (!customer) return res.status(400).json({ error: 'This customer is not SEDA approved' });
 
     const mime = req.file.mimetype || 'image/jpeg';
     const ext = EXT_BY_MIME[mime] || path.extname(req.file.originalname || '') || '.jpg';
