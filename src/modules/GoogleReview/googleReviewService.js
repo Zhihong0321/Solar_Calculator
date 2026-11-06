@@ -11,6 +11,81 @@ const SEDA_APPROVED_SQL = `(
   OR LOWER(TRIM(COALESCE(s.mapper_status, ''))) = 'approved'
 )`;
 
+// Fully paid = a non-deleted invoice of this SEDA registration is at 100% paid.
+// Same rule as the Quotations page "Fully Paid" badge (percent_of_total_amount, rounded >= 100).
+const FULLY_PAID_SQL = `EXISTS (
+  SELECT 1 FROM invoice i
+   WHERE (i.linked_seda_registration = s.bubble_id OR i.bubble_id = ANY(s.linked_invoice))
+     AND COALESCE(i.status, '') <> 'deleted'
+     AND i.percent_of_total_amount >= 99.5
+)`;
+
+const STATE_ALIASES = [
+  [/\bnegeri\s*sembilan\b|\bn\.?\s*sembilan\b/i, 'Negeri Sembilan'],
+  [/\bpulau\s*pinang\b|\bpenang\b|\bp\.?\s*pinang\b/i, 'Pulau Pinang'],
+  [/\bkuala\s*lumpur\b|\bw\.?p\.?\s*kl\b/i, 'Kuala Lumpur'],
+  [/\bmelaka\b|\bmalacca\b/i, 'Melaka'],
+  [/\bjohor\b/i, 'Johor'],
+  [/\bselangor\b/i, 'Selangor'],
+  [/\bpahang\b/i, 'Pahang'],
+  [/\bperak\b/i, 'Perak'],
+  [/\bkedah\b/i, 'Kedah'],
+  [/\bkelantan\b/i, 'Kelantan'],
+  [/\bterengganu\b/i, 'Terengganu'],
+  [/\bperlis\b/i, 'Perlis'],
+  [/\bsabah\b/i, 'Sabah'],
+  [/\bsarawak\b/i, 'Sarawak'],
+  [/\bputrajaya\b/i, 'Putrajaya'],
+  [/\blabuan\b/i, 'Labuan']
+];
+
+/** Malaysian postcode prefix -> state (first two digits). */
+function stateFromPostcode(postcode) {
+  const n = Number(String(postcode).slice(0, 2));
+  if (!Number.isFinite(n)) return null;
+  if (n <= 2) return 'Perlis';
+  if (n <= 9) return 'Kedah';
+  if (n <= 14) return 'Pulau Pinang';
+  if (n <= 18) return 'Kelantan';
+  if (n <= 24) return 'Terengganu';
+  if (n <= 28 || n === 39 || n === 49) return 'Pahang';
+  if (n <= 36) return 'Perak';
+  if (n <= 48) return 'Selangor';
+  if (n <= 60) return 'Kuala Lumpur';
+  if (n === 62) return 'Putrajaya';
+  if (n <= 69) return 'Selangor';
+  if (n <= 73) return 'Negeri Sembilan';
+  if (n <= 78) return 'Melaka';
+  if (n <= 86) return 'Johor';
+  if (n === 87) return 'Labuan';
+  if (n <= 91) return 'Sabah';
+  if (n <= 98) return 'Sarawak';
+  return null;
+}
+
+function matchState(text) {
+  const value = String(text || '');
+  for (const [pattern, state] of STATE_ALIASES) {
+    if (pattern.test(value)) return state;
+  }
+  return null;
+}
+
+/**
+ * State of the installation, from SEDA: the state field, else a state named in the
+ * installation address, else the postcode (SEDA postcode or the 5-digit code in the address).
+ */
+function resolveInstallationState(row) {
+  const fromField = matchState(row.seda_state);
+  if (fromField) return fromField;
+  const fromAddress = matchState(row.address);
+  if (fromAddress) return fromAddress;
+  const postcode = /^\d{5}$/.test(String(row.seda_postcode || '').trim())
+    ? String(row.seda_postcode).trim()
+    : (String(row.address || '').match(/\b(\d{5})\b/) || [])[1];
+  return (postcode && stateFromPostcode(postcode)) || 'Unknown';
+}
+
 /**
  * The logged-in user, read from the "user" table only (never the agent table).
  * Returns null when the session has no resolvable user.
@@ -64,6 +139,8 @@ async function searchApprovedCustomers(query) {
               c.phone,
               s.applicant_phone,
               s.bubble_id AS seda_bubble_id,
+              s.state AS seda_state,
+              s.postcode AS seda_postcode,
               COALESCE(NULLIF(s.installation_address, ''), c.address) AS address,
               g.id AS claim_id,
               g.status AS claim_status,
@@ -73,24 +150,39 @@ async function searchApprovedCustomers(query) {
          LEFT JOIN google_review_claim g
                 ON g.customer_id = c.customer_id AND g.status <> 'Rejected'
         WHERE ${SEDA_APPROVED_SQL}
+          AND ${FULLY_PAID_SQL}
           AND ($1 = '' OR c.name ILIKE $2 OR c.phone ILIKE $2 OR s.applicant_phone ILIKE $2
-               OR s.installation_address ILIKE $2 OR c.address ILIKE $2)
+               OR s.installation_address ILIKE $2 OR c.address ILIKE $2 OR s.state ILIKE $2)
         ORDER BY c.customer_id, s.created_at DESC NULLS LAST
      ) t
      ORDER BY t.name ASC NULLS LAST
-     LIMIT 50`,
+     LIMIT 1000`,
     [q, like]
   );
-  return result.rows;
+
+  const rows = result.rows.map(({ seda_state, seda_postcode, ...row }) => ({
+    ...row,
+    state: resolveInstallationState({ seda_state, seda_postcode, address: row.address })
+  }));
+
+  // Group order: states A–Z, "Unknown" last; names A–Z within a state.
+  const byState = new Map();
+  for (const row of rows) {
+    if (!byState.has(row.state)) byState.set(row.state, []);
+    byState.get(row.state).push(row);
+  }
+  return [...byState.entries()]
+    .sort(([a], [b]) => (a === 'Unknown') - (b === 'Unknown') || a.localeCompare(b))
+    .map(([state, customers]) => ({ state, customers }));
 }
 
-/** Same approval rule as the search list, so a claim can only target a listed customer. */
+/** Same eligibility as the list (SEDA approved + fully paid), so a claim can only target a listed customer. */
 async function getApprovedCustomer(customerId) {
   const result = await pool.query(
     `SELECT c.customer_id, c.name, s.bubble_id AS seda_bubble_id
        FROM seda_registration s
        JOIN customer c ON c.customer_id = s.linked_customer
-      WHERE c.customer_id = $1 AND ${SEDA_APPROVED_SQL}
+      WHERE c.customer_id = $1 AND ${SEDA_APPROVED_SQL} AND ${FULLY_PAID_SQL}
       ORDER BY s.created_at DESC NULLS LAST
       LIMIT 1`,
     [customerId]
