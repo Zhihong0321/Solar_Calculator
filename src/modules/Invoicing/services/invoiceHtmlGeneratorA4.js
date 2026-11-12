@@ -1752,14 +1752,22 @@ ${renderStyles()}
     async function downloadPdf() {
       try {
         const response = await fetch('${escapeHtml(pdfUrl)}');
-        const data = await response.json();
-        if (data && data.success && data.downloadUrl) {
-          let url = data.downloadUrl;
-          if (!/^https?:\\/\\//i.test(url)) url = 'https://' + url;
-          window.open(url, '_blank', 'noopener');
+        if (!response.ok) {
+          let message = 'Unknown error';
+          try { const data = await response.json(); if (data && data.error) message = data.error; } catch (e) {}
+          alert('Failed to prepare PDF: ' + message);
           return;
         }
-        alert('Failed to prepare PDF: ' + ((data && data.error) ? data.error : 'Unknown error'));
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="([^"]+)"/);
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = match ? match[1] : 'invoice.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
       } catch (err) {
         alert('Error: ' + err.message);
       }

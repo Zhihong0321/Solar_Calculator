@@ -10,6 +10,12 @@ WORKDIR /usr/src/app
 # "externally managed environment" guard has nothing to protect here.
 RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+# Headless Chromium for invoice PDF downloads (src/modules/Invoicing/services/pdfRenderer.js).
+# fonts-noto-cjk covers the Chinese invoice locale; fonts-liberation covers Latin fallback.
+RUN apt-get update && apt-get install -y --no-install-recommends chromium fonts-noto-cjk fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+ENV PDF_CHROME_PATH=/usr/bin/chromium
 COPY requirements.txt ./
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 

@@ -277,13 +277,21 @@ function buildInvoiceInteractionScript({
           const paymentTermsPreview = new URLSearchParams(window.location.search).get('payment_terms_preview');
           if (paymentTermsPreview) pdfUrl.searchParams.set('payment_terms_preview', paymentTermsPreview);
           const response = await fetch(pdfUrl.toString());
-          const data = await response.json();
-          if (data.success && data.downloadUrl) {
-            let downloadUrl = data.downloadUrl;
-            if (!downloadUrl.startsWith('http')) downloadUrl = 'https://' + downloadUrl;
-            window.open(downloadUrl, '_blank');
+          if (!response.ok) {
+            let message = 'Unknown error';
+            try { const data = await response.json(); if (data && data.error) message = data.error; } catch (e) {}
+            alert('Failed: ' + message);
           } else {
-            alert('Failed: ' + (data.error || 'Unknown error'));
+            const disposition = response.headers.get('Content-Disposition') || '';
+            const match = disposition.match(/filename="([^"]+)"/);
+            const blob = await response.blob();
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = match ? match[1] : 'invoice.pdf';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
           }
         } catch (err) {
           alert('Error: ' + err.message);

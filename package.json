@@ -33,6 +33,7 @@
     "multer": "^2.0.2",
     "pdfjs-dist": "^6.1.200",
     "pg": "^8.11.3",
+    "puppeteer-core": "^25.17.0",
     "sharp": "^0.34.5"
   },
   "devDependencies": {

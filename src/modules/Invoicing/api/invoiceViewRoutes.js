@@ -13,7 +13,7 @@ const { normalizeV3Locale } = require('../services/invoiceV3Content');
 const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
 const { applyPaymentTermsPolicyToInvoice } = require('../services/invoicePaymentTermsPolicy');
 const { applyWarrantyTermsPolicyToInvoice } = require('../services/invoiceWarrantyTermsPolicy');
-const externalPdfService = require('../services/externalPdfService');
+const { renderHtmlToPdf } = require('../services/pdfRenderer');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
 const { getBillCycleMetrics, normalizeBillCycleMode } = require('../../SolarCalculator/services/billCycleModeService');
@@ -845,9 +845,31 @@ router.get('/view2/:tokenOrId', async (req, res) => {
   }
 });
 
+// Public origin of this request (behind Railway's proxy), used to resolve relative URLs in the PDF.
+function publicOrigin(req) {
+  const host = req.get('host');
+  if (!host) return null;
+  const proto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
+function pdfDownloadFilename(invoice) {
+  const base = String(invoice?.invoice_number || invoice?.bubble_id || 'invoice').replace(/[^A-Za-z0-9._-]+/g, '_');
+  return `${base || 'invoice'}.pdf`;
+}
+
+// Renders the invoice HTML in-app and sends the PDF bytes as an attachment.
+async function sendInvoicePdf(req, res, policyInvoice, html) {
+  const pdfBuffer = await renderHtmlToPdf(html, { baseUrl: publicOrigin(req) });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${pdfDownloadFilename(policyInvoice)}"`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(pdfBuffer);
+}
+
 /**
  * GET /view/:tokenOrId/pdf
- * Generate PDF for an invoice
+ * Generate PDF for an invoice (returns the PDF file itself)
  */
 router.get('/view/:tokenOrId/pdf', async (req, res) => {
   try {
@@ -862,12 +884,7 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
 
       const policyInvoice = applyInvoiceTermsPolicies(invoice, req);
       const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, { forPdf: true });
-      // This returns { success: true, downloadUrl: ... }, NOT a buffer
-      const pdfResult = await externalPdfService.generatePdf(html);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-store');
-      res.json(pdfResult);
+      await sendInvoicePdf(req, res, policyInvoice, html);
     } finally {
       client.release();
     }
@@ -879,7 +896,7 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
 
 /**
  * GET /view2/:tokenOrId/pdf
- * Generate PDF for an invoice using V2 template
+ * Generate PDF for an invoice using V2 template (returns the PDF file itself)
  */
 router.get('/view2/:tokenOrId/pdf', async (req, res) => {
   try {
@@ -894,12 +911,7 @@ router.get('/view2/:tokenOrId/pdf', async (req, res) => {
 
       const policyInvoice = applyInvoiceTermsPolicies(invoice, req);
       const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, { isPdf: true });
-      // This returns { success: true, downloadUrl: ... }, NOT a buffer
-      const pdfResult = await externalPdfService.generatePdf(html);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'no-store');
-      res.json(pdfResult);
+      await sendInvoicePdf(req, res, policyInvoice, html);
     } finally {
       client.release();
     }
