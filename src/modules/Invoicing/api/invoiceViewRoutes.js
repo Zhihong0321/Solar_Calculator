@@ -754,6 +754,16 @@ function applyInvoiceTermsPolicies(invoice, req) {
   );
 }
 
+// PDF download URL for the A4 page. Carries the mono/lang choice the user is viewing.
+function a4PdfUrl(req, tokenOrId) {
+  const mono = String(req.query.mono || '1') !== '0' ? '1' : '0';
+  const locale = String(normalizeV3Locale(req.query.lang || req.query.locale || 'en'));
+  return appendPaymentTermsPreviewQuery(
+    `/view/${encodeURIComponent(tokenOrId)}/pdf?mono=${mono}&lang=${encodeURIComponent(locale)}`,
+    req
+  );
+}
+
 function appendPaymentTermsPreviewQuery(url, req) {
   if (!shouldPreviewAfterEffectivePaymentTerms(req)) {
     return url;
@@ -785,7 +795,7 @@ router.get('/view/:tokenOrId', async (req, res) => {
             locale: normalizeV3Locale(req.query.lang || req.query.locale || 'en'),
             mono: String(req.query.mono || '1') !== '0',
             mobileViewUrl: appendPaymentTermsPreviewQuery(`/view/${encodeURIComponent(tokenOrId)}`, req),
-            pdfUrl: appendPaymentTermsPreviewQuery(`/view/${encodeURIComponent(tokenOrId)}/pdf`, req)
+            pdfUrl: a4PdfUrl(req, tokenOrId)
           });
           res.send(html);
           return;
@@ -883,7 +893,14 @@ router.get('/view/:tokenOrId/pdf', async (req, res) => {
       }
 
       const policyInvoice = applyInvoiceTermsPolicies(invoice, req);
-      const html = invoiceHtmlGeneratorV2.generateInvoiceHtmlV2(policyInvoice, policyInvoice.template, { forPdf: true });
+      // Same A4 quotation layout as the A4 page (not the mobile V2 page).
+      const html = generateInvoiceHtmlA4(policyInvoice, policyInvoice.template, {
+        layout: 'a4',
+        locale: normalizeV3Locale(req.query.lang || req.query.locale || 'en'),
+        mono: String(req.query.mono || '1') !== '0',
+        mobileViewUrl: appendPaymentTermsPreviewQuery(`/view/${encodeURIComponent(tokenOrId)}`, req),
+        pdfUrl: a4PdfUrl(req, tokenOrId)
+      });
       await sendInvoicePdf(req, res, policyInvoice, html);
     } finally {
       client.release();
