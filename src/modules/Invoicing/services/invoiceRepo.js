@@ -83,57 +83,78 @@ function generateShareToken() {
  */
 async function generateInvoiceNumber(client) {
   try {
-    // Atomically increment and get the new value
-    const result = await client.query(
-      `UPDATE system_parameter 
-       SET value = (CAST(value AS INTEGER) + 1)::text, 
-           updated_at = NOW() 
-       WHERE key = 'invoice_count' 
-       RETURNING value`
-    );
+    // The counter alone is not enough: legacy invoices were imported with plain
+    // numbers (no "INV-" prefix), so a counter value can already be in use.
+    // Every candidate is checked against the invoice table before it is returned.
+    // The counter row is locked by the UPDATE until the transaction ends, so two
+    // concurrent creations cannot take the same candidate.
+    for (;;) {
+      const nextNum = await _takeNextInvoiceCounterValue(client);
+      const invoiceNumber = `INV-${nextNum.toString().padStart(6, '0')}`;
 
-    let nextNum;
-
-    if (result.rows.length > 0) {
-      nextNum = parseInt(result.rows[0].value);
-    } else {
-      // Fallback/Safety: If record missing, try to initialize based on max existing or start at 1
-      // We'll lock table or just try insert. Since this is rare, we'll do a safe insert.
-
-      // Get actual max from table just to be safe if parameter was missing
-      const lastInvoiceResult = await client.query(
-        `SELECT invoice_number
-         FROM invoice
-         WHERE invoice_number LIKE 'INV-%'
-         ORDER BY invoice_number DESC
-         LIMIT 1`
+      const taken = await client.query(
+        `SELECT 1 FROM invoice WHERE invoice_number = ANY($1::text[]) LIMIT 1`,
+        [[invoiceNumber, String(nextNum)]]
       );
-
-      let maxExisting = 0;
-      if (lastInvoiceResult.rows.length > 0) {
-        try {
-          maxExisting = parseInt(lastInvoiceResult.rows[0].invoice_number.replace('INV-', '')) || 0;
-        } catch (e) { }
+      if (taken.rows.length === 0) {
+        return invoiceNumber;
       }
-
-      nextNum = maxExisting + 1;
-
-      // Initialize the parameter for next time
-      await client.query(
-        `INSERT INTO system_parameter (key, value, description)
-         VALUES ('invoice_count', $1, 'Current running number for invoices')
-         ON CONFLICT (key) DO NOTHING`,
-        [String(nextNum)]
-      );
+      console.warn(`[generateInvoiceNumber] ${invoiceNumber} is already in use, taking the next counter value`);
     }
-
-    // Pad with zeros (6 digits)
-    const numStr = nextNum.toString().padStart(6, '0');
-    return `INV-${numStr}`;
   } catch (err) {
     console.error('Error generating invoice number:', err);
     throw new Error('Failed to generate invoice number');
   }
+}
+
+/**
+ * Atomically advances system_parameter.invoice_count and returns the new value.
+ *
+ * @param {object} client - Database client
+ * @returns {Promise<number>} Next counter value
+ */
+async function _takeNextInvoiceCounterValue(client) {
+  // Atomically increment and get the new value
+  const result = await client.query(
+    `UPDATE system_parameter
+     SET value = (CAST(value AS INTEGER) + 1)::text,
+         updated_at = NOW()
+     WHERE key = 'invoice_count'
+     RETURNING value`
+  );
+
+  if (result.rows.length > 0) {
+    return parseInt(result.rows[0].value);
+  }
+
+  // Fallback/Safety: If record missing, try to initialize based on max existing or start at 1
+  // Get actual max from table just to be safe if parameter was missing
+  const lastInvoiceResult = await client.query(
+    `SELECT invoice_number
+     FROM invoice
+     WHERE invoice_number LIKE 'INV-%'
+     ORDER BY invoice_number DESC
+     LIMIT 1`
+  );
+
+  let maxExisting = 0;
+  if (lastInvoiceResult.rows.length > 0) {
+    try {
+      maxExisting = parseInt(lastInvoiceResult.rows[0].invoice_number.replace('INV-', '')) || 0;
+    } catch (e) { }
+  }
+
+  const nextNum = maxExisting + 1;
+
+  // Initialize the parameter for next time
+  await client.query(
+    `INSERT INTO system_parameter (key, value, description)
+     VALUES ('invoice_count', $1, 'Current running number for invoices')
+     ON CONFLICT (key) DO NOTHING`,
+    [String(nextNum)]
+  );
+
+  return nextNum;
 }
 
 /**
