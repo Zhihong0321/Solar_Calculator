@@ -8,6 +8,7 @@ const pool = require('../../../core/database/pool');
 const { requireAuth } = require('../../../core/middleware/auth');
 const https = require('https');
 const customerRepo = require('../services/customerRepo');
+const { splitNameLog } = require('../services/customerNameLog');
 const { getRequestUserBubbleId, getRequestLegacyUserId } = require('../../../core/auth/userIdentity');
 const { storageDriver } = require('../../../core/upload');
 const { writeActivity } = require('../../../core/activityLog/writeActivity');
@@ -16,6 +17,26 @@ const router = express.Router();
 const WHATSAPP_API_DISABLED = process.env.WHATSAPP_API_DISABLED !== 'false';
 const WHATSAPP_API_BASE_URL = process.env.WHATSAPP_API_URL || 'https://whatsapp-api-server-production-c15f.up.railway.app';
 const WHATSAPP_API_CHECK_TIMEOUT_MS = Number(process.env.WHATSAPP_API_TIMEOUT_MS || 10000);
+
+/**
+ * Records who is editing a customer inside the current transaction, so the
+ * customer name-change log (trg_customer_name_log) names the real person
+ * instead of only a user id. Uses the signed-in user's own token fields only.
+ * Never blocks the edit: if stamping fails, the edit still goes through.
+ */
+async function stampCustomerEditActor(client, req, userId) {
+  try {
+    const actorName = [req?.user?.name, req?.user?.displayName, req?.user?.email]
+      .map((value) => (value === null || value === undefined ? '' : String(value).trim()))
+      .find((value) => value) || '';
+    await client.query(
+      `SELECT set_config('app.user_id', $1, true), set_config('app.user_name', $2, true)`,
+      [String(userId || ''), actorName]
+    );
+  } catch (err) {
+    console.warn('[CustomerRoutes] could not stamp customer edit actor:', err.message);
+  }
+}
 
 function parseMaybeJson(text) {
   if (!text) return null;
@@ -280,13 +301,17 @@ router.put('/api/customers/:id', requireAuth, async (req, res) => {
     }
 
     client = await pool.connect();
+    await client.query('BEGIN');
+    await stampCustomerEditActor(client, req, userId);
     const customer = await customerRepo.updateCustomer(client, id, {
       name, phone, email, address, city, state, postcode, userId, profilePicture, leadSource, remark
     });
 
     if (!customer) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Customer not found or permission denied' });
     }
+    await client.query('COMMIT');
 
     res.json({
       success: true,
@@ -294,6 +319,7 @@ router.put('/api/customers/:id', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Error updating customer:', err);
+    if (client) await client.query('ROLLBACK').catch(() => {});
     res.status(500).json({ success: false, error: err.message });
   } finally {
     if (client) client.release();
@@ -323,6 +349,38 @@ router.delete('/api/customers/:id', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Error deleting customer:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+/**
+ * GET /api/customers/:id/name-log
+ * Name change log for a customer the signed-in user owns (newest first)
+ */
+router.get('/api/customers/:id/name-log', requireAuth, async (req, res) => {
+  let client = null;
+  try {
+    const userId = getRequestUserBubbleId(req) || getRequestLegacyUserId(req);
+    const { id } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    client = await pool.connect();
+    const log = await customerRepo.getCustomerNameLog(client, id, userId);
+    if (log === null) {
+      return res.status(404).json({ success: false, error: 'Customer not found or permission denied' });
+    }
+
+    res.json({
+      success: true,
+      data: { lines: splitNameLog(log) }
+    });
+  } catch (err) {
+    console.error('Error fetching customer name log:', err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     if (client) client.release();

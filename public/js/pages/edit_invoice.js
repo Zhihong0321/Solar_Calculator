@@ -2440,6 +2440,9 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (inv.lead_source) document.getElementById('customerLeadSource').value = inv.lead_source;
             if (inv.remark) document.getElementById('customerRemark').value = inv.remark;
 
+            // 2.7 Customer name change log (read-only panel under Customer Name)
+            if (window.CustomerNameLog) CustomerNameLog.forInvoice(editInvoiceId);
+
             // 3. Discount — edit mode should stay simple and preserve what was
             // saved on the invoice, not re-derive create-time discount logic.
             window.InvoicePageShared.applyDiscountValue(

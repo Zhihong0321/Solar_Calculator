@@ -146,7 +146,7 @@
                                 <p class="mt-2 text-xs text-emerald-700">Selecting a referral autofills the customer fields, and you can still edit them before saving.</p>
                             </div>
                             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div><label class="mb-2 block text-sm font-semibold text-slate-900">Customer Name</label><input type="text" name="customer_name" id="customerName" class="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none" placeholder="Optional - leave blank for 'Sample Quotation'"></div>
+                                <div><label class="mb-2 block text-sm font-semibold text-slate-900">Customer Name</label><input type="text" name="customer_name" id="customerName" class="w-full rounded-xl border-2 border-slate-300 bg-white px-3 py-2 text-slate-900 focus:border-blue-500 focus:outline-none" placeholder="Optional - leave blank for 'Sample Quotation'"><div id="invoiceNameLogBox" class="hidden mt-2"><button type="button" id="invoiceNameLogToggle" class="text-xs font-medium text-blue-600 hover:underline">Show name change log</button><div id="invoiceNameLogPanel" class="hidden mt-2 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 space-y-1"></div></div></div>
                                 <div>
                                     <label class="mb-2 block text-sm font-semibold text-slate-900">Customer Phone</label>
                                     <div class="relative">
@@ -423,6 +423,7 @@
 
     <script src="/js/navigation.js"></script>
     <script src="/js/components/customerManager.js"></script>
+    <script src="/js/components/customerNameLog.js"></script>
     <script src="/js/components/invoiceVoucherStep.js"></script>
     <script src="/js/pages/invoice_page_shared.js"></script>
     <script src="/js/pages/edit_invoice.js"></script>

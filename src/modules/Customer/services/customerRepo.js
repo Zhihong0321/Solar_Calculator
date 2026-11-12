@@ -304,6 +304,23 @@ async function deleteCustomer(client, id, userId) {
 }
 
 /**
+ * Get the customer name change log (customer.log) for a customer the user owns.
+ * @returns {Promise<string|null>} log text ('' when none), or null when not owned/found
+ */
+async function getCustomerNameLog(client, id, userId) {
+  const ownerIdentifiers = await resolveCustomerOwnerIdentifiers(client, userId);
+  const result = await client.query(
+    'SELECT log FROM customer WHERE id = $1 AND created_by = ANY($2::text[])',
+    [id, ownerIdentifiers]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+  return typeof result.rows[0].log === 'string' ? result.rows[0].log : '';
+}
+
+/**
  * Get customer history from customer_history table
  * @param {object} client - Database client
  * @param {number} id - Customer internal ID (id from customer table)
@@ -371,5 +388,6 @@ module.exports = {
   updateCustomer,
   deleteCustomer,
   getCustomerHistory,
+  getCustomerNameLog,
   getLeadSourceStatistics
 };

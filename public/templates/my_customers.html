@@ -296,6 +296,12 @@
                                 Name</label>
                             <input type="text" id="customerName" required
                                 class="input-field block w-full px-3 py-2 rounded-lg text-sm text-slate-900">
+                            <div id="customerNameLogBox" class="hidden mt-2">
+                                <button type="button" id="customerNameLogToggle"
+                                    class="text-xs font-medium text-blue-600 hover:underline">Show name change log</button>
+                                <div id="customerNameLogPanel"
+                                    class="hidden mt-2 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 space-y-1"></div>
+                            </div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -385,6 +391,7 @@
 
     <!-- CustomerManager Module -->
     <script src="/js/components/customerManager.js"></script>
+    <script src="/js/components/customerNameLog.js"></script>
     <script>
         let currentLimit = 12;
         let currentOffset = 0;
@@ -692,6 +699,7 @@
 
         function openModal(c = null) {
             CustomerManager.openModal(c);
+            if (window.CustomerNameLog) CustomerNameLog.forCustomer(c ? c.id : null);
         }
 
         function closeModal() {

@@ -8,6 +8,7 @@ const invoiceService = require('../services/invoiceService');
 const { listEvChargerQuotePackages } = require('../services/invoiceLookupSupport');
 const invoiceHistoryRepo = require('../services/invoiceHistoryRepo');
 const { writeActivity } = require('../../../core/activityLog/writeActivity');
+const { splitNameLog } = require('../../Customer/services/customerNameLog');
 let beginAgentAuditTransaction = async (client) => {
     await client.query('BEGIN');
 };
@@ -273,6 +274,38 @@ router.get('/api/v1/invoices/:bubbleId', requireAuth, async (req, res) => {
         }
         res.json({ success: true, data: invoice });
     } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+/**
+ * GET /api/v1/invoices/:bubbleId/customer-name-log
+ * Name change log of the customer linked to this invoice (newest first)
+ */
+router.get('/api/v1/invoices/:bubbleId/customer-name-log', requireAuth, async (req, res) => {
+    const { bubbleId } = req.params;
+    let client = null;
+    try {
+        client = await pool.connect();
+        const result = await client.query(
+            `SELECT i.bubble_id, c.log
+             FROM invoice i
+             LEFT JOIN customer c ON c.customer_id = i.linked_customer
+             WHERE i.bubble_id = $1 OR i.id::text = $1
+             LIMIT 1`,
+            [bubbleId]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Invoice not found' });
+        }
+        res.json({
+            success: true,
+            data: { lines: splitNameLog(result.rows[0].log) }
+        });
+    } catch (err) {
+        console.error('Error fetching invoice customer name log:', err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
