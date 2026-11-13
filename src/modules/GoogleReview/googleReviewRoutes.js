@@ -46,7 +46,8 @@ router.get('/api/google-review/campaign/eligible', ...reviewer, campaignHandler(
 }));
 router.post('/api/google-review/campaign/queue', ...reviewer, campaignHandler((req) =>
   campaign.enqueueEligible(req.googleReviewActor, { skipClaimed: req.body.skip_claimed !== false })));
-router.get('/api/google-review/campaign/progress', ...reviewer, campaignHandler((req) => campaign.getProgress({ status: req.query.status })));
+router.get('/api/google-review/campaign/progress', ...reviewer, campaignHandler((req) => campaign.getProgress({ status: req.query.status, q: req.query.q })));
+router.post('/api/google-review/campaign/messages/:id/verify', ...reviewer, ctrl.handleUpload, ctrl.verifyCampaignMessage);
 router.put('/api/google-review/campaign/settings', ...reviewer, campaignHandler(async (req) => ({ settings: await campaign.updateSettings(req.body) })));
 router.post('/api/google-review/campaign/start', ...reviewer, campaignHandler(async () => ({ settings: await campaign.setRunning(true) })));
 router.post('/api/google-review/campaign/pause', ...reviewer, campaignHandler(async () => ({ settings: await campaign.setRunning(false) })));

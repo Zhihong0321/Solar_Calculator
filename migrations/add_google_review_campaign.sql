@@ -55,4 +55,21 @@ CREATE INDEX IF NOT EXISTS idx_google_review_campaign_status
 ALTER TABLE google_review_campaign_settings ADD COLUMN IF NOT EXISTS message_template_zh TEXT;
 ALTER TABLE google_review_campaign_message  ADD COLUMN IF NOT EXISTS language TEXT;
 
+-- Verification: an admin checks a customer's screenshot reply and sends them to the Google Review claims page.
+ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS verified_by_name TEXT;
+ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS claim_id INTEGER;
+ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS remark TEXT;
+
+DO $$
+BEGIN
+  IF to_regclass('google_review_claim') IS NOT NULL THEN
+    -- A campaign claim is verified on WhatsApp, so the screenshot may not be in the app.
+    ALTER TABLE google_review_claim ALTER COLUMN photo_url DROP NOT NULL;
+    ALTER TABLE google_review_claim ADD COLUMN IF NOT EXISTS source TEXT;
+    ALTER TABLE google_review_claim ADD COLUMN IF NOT EXISTS campaign_message_id INTEGER;
+  END IF;
+END;
+$$;
+
 INSERT INTO google_review_campaign_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

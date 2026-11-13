@@ -66,7 +66,7 @@
             }
             $('list').innerHTML = rows.map((c) => `
                 <div class="gr-card gr-claim">
-                    <img class="gr-thumb" src="${escapeHtml(c.photo_url)}" alt="Review photo" loading="lazy" data-full="${escapeHtml(c.photo_url)}">
+                    ${c.photo_url ? `<img class="gr-thumb" src="${escapeHtml(c.photo_url)}" alt="Review photo" loading="lazy" data-full="${escapeHtml(c.photo_url)}">` : ''}
                     <div class="gr-claim-body">
                         <div class="gr-claim-top">
                             <div class="gr-claim-name">${escapeHtml(c.customer_name || c.customer_id)}</div>

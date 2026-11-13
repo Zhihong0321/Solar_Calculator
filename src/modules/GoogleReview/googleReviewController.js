@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const path = require('path');
 
 const service = require('./googleReviewService');
+const campaign = require('./campaignService');
 const r2Storage = require('../../core/upload/r2Storage');
 const { writeActivity } = require('../../core/activityLog/writeActivity');
 
@@ -181,5 +182,55 @@ exports.decide = async (req, res) => {
   } catch (err) {
     console.error('[GoogleReview] decide error:', err);
     res.status(500).json({ error: 'Failed to update claim' });
+  }
+};
+
+/** HR/KC verified a campaign customer's screenshot reply: send them to the Google Review claims page. */
+exports.verifyCampaignMessage = async (req, res) => {
+  let photoUrl = null;
+  let mime = null;
+  try {
+    const actor = req.googleReviewActor;
+    if (req.file) {
+      try {
+        mime = req.file.mimetype || 'image/jpeg';
+        const ext = EXT_BY_MIME[mime] || path.extname(req.file.originalname || '') || '.jpg';
+        const key = `google_review_uploads/${Date.now()}-${crypto.randomUUID()}${ext}`;
+        photoUrl = await r2Storage.uploadBuffer(req.file.buffer, key, mime);
+      } catch (uploadErr) {
+        // The claim matters more than the picture: carry on without it and say so in the note.
+        console.error('[GoogleReview] campaign screenshot upload failed:', uploadErr.message);
+        photoUrl = null;
+        req.body.note = [req.body.note, '(screenshot upload failed)'].filter(Boolean).join(' ');
+      }
+    }
+
+    const result = await campaign.verifyAndCreateClaim({
+      messageId: Number(req.params.id),
+      tngMobileInput: req.body.tng_mobile,
+      photoUrl,
+      photoMime: mime,
+      note: req.body.note,
+      actor
+    });
+    if (result.error) {
+      if (photoUrl && r2Storage.isR2Url(photoUrl)) r2Storage.deleteObject(r2Storage.keyFromUrl(photoUrl));
+      return res.status(result.code || 400).json({ error: result.error });
+    }
+    res.status(201).json(result);
+
+    writeActivity({
+      req,
+      app: 'google-review',
+      action: 'create',
+      entityType: 'google_review_claim',
+      entityId: result.claim.id,
+      entityLabel: result.claim.customer_name || null,
+      description: `verified the review of ${result.claim.customer_name || result.claim.customer_id} and sent it to Google Review claims`
+    });
+    return undefined;
+  } catch (err) {
+    console.error('[GoogleReview] verifyCampaignMessage error:', err);
+    return res.status(500).json({ error: 'Failed to verify' });
   }
 };

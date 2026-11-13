@@ -365,6 +365,11 @@ async function sentTodayCount() {
   return rows[0].n;
 }
 
+// Errors that mean the WhatsApp link itself dropped, not that this customer cannot be messaged.
+const CONNECTION_ERROR = /connection closed|stream errored|connection lost|not connected|timed out|econnreset|socket hang up|fetch failed|http 5\d\d|http 0/i;
+const isConnectionError = (message) => CONNECTION_ERROR.test(String(message || ''));
+const MAX_CONNECTION_RETRIES = 6;
+
 let ticking = false;
 
 /**
@@ -413,6 +418,13 @@ async function tick() {
       [SENDING_STALE_MIN]
     );
 
+    // Customers whose send failed only because the WhatsApp link dropped go back in the queue by themselves.
+    await pool.query(
+      `UPDATE google_review_campaign_message SET status = 'Queued', updated_at = NOW()
+        WHERE status = 'Failed' AND is_test = FALSE AND attempts < $1 AND last_error ~* $2`,
+      [MAX_CONNECTION_RETRIES, CONNECTION_ERROR.source]
+    );
+
     const claimed = await pool.query(
       `UPDATE google_review_campaign_message
           SET status = 'Sending', attempts = attempts + 1, updated_at = NOW()
@@ -430,13 +442,25 @@ async function tick() {
     const { lang, template } = pickTemplate(s, row.customer_name);
     const text = renderMessage(template, { name: row.customer_name, reviewUrl: s.review_url, lang });
     const result = await sendText(s.session_id, row.phone, text);
+    const linkDropped = !result.ok && isConnectionError(result.error) && row.attempts < MAX_CONNECTION_RETRIES;
     await pool.query(
       `UPDATE google_review_campaign_message
           SET status = $2, last_error = $3, message_text = $4, wa_message_id = $5, language = $6,
               sent_at = CASE WHEN $2 = 'Sent' THEN NOW() END, updated_at = NOW()
         WHERE id = $1`,
-      [row.id, result.ok ? 'Sent' : 'Failed', result.ok ? null : result.error, text, result.ok ? result.waMessageId : null, lang]
+      [row.id, result.ok ? 'Sent' : (linkDropped ? 'Queued' : 'Failed'), result.ok ? null : result.error, text, result.ok ? result.waMessageId : null, lang]
     );
+
+    if (linkDropped) {
+      // Not the customer's fault: keep them queued and wait a few minutes for the WhatsApp link to come back.
+      const waitLink = randBetween(240, 420);
+      await pool.query(
+        `UPDATE google_review_campaign_settings SET next_send_at = NOW() + make_interval(secs => $1), worker_note = $2, worker_note_at = NOW() WHERE id = 1`,
+        [waitLink, `Waiting: WhatsApp connection dropped (${result.error}); ${row.customer_name || row.customer_id} stays queued, retrying in ${Math.round(waitLink / 60)} min`.slice(0, 300)]
+      );
+      armTimer(waitLink);
+      return undefined;
+    }
 
     // Book the next slot: random gap, plus a longer random rest after each random-sized batch.
     let waitSec = randBetween(s.min_interval_sec, s.max_interval_sec);
@@ -483,6 +507,60 @@ function startWorker() {
   if (timer.unref) timer.unref();
 }
 
+// ---------- verify a reply and send the customer to the Google Review claims page ----------
+
+/**
+ * An admin has seen the customer's screenshot reply: mark the message verified and create a Pending claim
+ * (RM15 TNG for the customer; no agent is involved, so the agent bonus is RM0) for the Google Review
+ * Claims page, where HR/KC approve and pay it. The screenshot is optional because it arrives on WhatsApp.
+ * Returns { claim, message } or { error, code }.
+ */
+async function verifyAndCreateClaim({ messageId, tngMobileInput, photoUrl, photoMime, note, actor }) {
+  await ensureSchema();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query(
+      'SELECT * FROM google_review_campaign_message WHERE id = $1 AND is_test = FALSE FOR UPDATE', [messageId]
+    );
+    const msg = found.rows[0];
+    if (!msg) { await client.query('ROLLBACK'); return { error: 'Message not found', code: 404 }; }
+    if (msg.status !== 'Sent') { await client.query('ROLLBACK'); return { error: 'Only a message that was sent can be verified', code: 409 }; }
+    if (msg.claim_id) { await client.query('ROLLBACK'); return { error: 'Already verified and sent to the claims page', code: 409 }; }
+
+    const tng = reviewService.normalizeMobile(tngMobileInput || msg.phone);
+    if (!tng) { await client.query('ROLLBACK'); return { error: 'Enter a valid Malaysian mobile number for the TNG reload (e.g. 012-345 6789)', code: 400 }; }
+
+    const seda = await client.query(
+      'SELECT bubble_id FROM seda_registration WHERE linked_customer = $1 ORDER BY created_at DESC NULLS LAST LIMIT 1', [msg.customer_id]
+    );
+    const remark = ['Verified', String(note || '').trim()].filter(Boolean).join(' - ');
+    const claim = (await client.query(
+      `INSERT INTO google_review_claim
+         (customer_id, customer_name, seda_bubble_id, tng_mobile, photo_url, photo_mime, agent_bonus, customer_bonus,
+          remark, submitted_by_user_id, submitted_by_name, source, campaign_message_id)
+       VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8,$9,$10,'campaign',$11) RETURNING *`,
+      [msg.customer_id, msg.customer_name, (seda.rows[0] && seda.rows[0].bubble_id) || null, tng,
+        photoUrl || null, photoUrl ? photoMime : null, reviewService.CUSTOMER_BONUS, remark,
+        actor.userId, actor.name, msg.id]
+    )).rows[0];
+    const message = (await client.query(
+      `UPDATE google_review_campaign_message
+          SET verified_at = NOW(), verified_by_name = $2, claim_id = $3, remark = $4, updated_at = NOW()
+        WHERE id = $1 RETURNING *`,
+      [msg.id, actor.name, claim.id, remark]
+    )).rows[0];
+    await client.query('COMMIT');
+    return { claim, message };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    if (err.code === '23505') return { error: 'This customer already has a Google review claim', code: 409 };
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // ---------- one-time bootstrap ----------
 
 /**
@@ -517,25 +595,33 @@ async function applyBootstrapOnce() {
 
 // ---------- monitor ----------
 
-async function getProgress({ limit = 200, status = null } = {}) {
+async function getProgress({ limit = 200, status = null, q = null } = {}) {
   const s = await getSettings();
   const counts = await pool.query(
     `SELECT status, COUNT(*)::int AS n FROM google_review_campaign_message WHERE is_test = FALSE GROUP BY status`
   );
   const by = Object.fromEntries(counts.rows.map((r) => [r.status, r.n]));
   // Newest activity first (Sending, then Sent/Failed by time), then the Queued rows in send order.
+  // `q` searches every message by phone number (any format) or customer name.
+  const verifiedOnly = status === 'Verified';
   const wanted = ['Queued', 'Sending', 'Sent', 'Failed', 'Skipped'].includes(status) ? status : null;
+  const rawQ = String(q || '').trim();
+  const digits = rawQ.replace(/\D/g, '');
+  const phoneLike = digits.length >= 4 ? `%${digits.startsWith('0') ? `60${digits.slice(1)}` : digits}%` : null;
+  const nameLike = rawQ ? `%${rawQ.replace(/[%_]/g, '')}%` : null;
   const recent = await pool.query(
     `SELECT * FROM (
        SELECT id, customer_id, customer_name, phone, status, attempts, last_error, message_text, is_test, language,
-              queued_at, sent_at, updated_at,
+              queued_at, sent_at, updated_at, verified_at, verified_by_name, claim_id, remark,
               CASE WHEN status = 'Sending' THEN 0 WHEN status IN ('Sent', 'Failed') THEN 1 WHEN status = 'Queued' THEN 2 ELSE 3 END AS grp
          FROM google_review_campaign_message
         WHERE ($2::text IS NULL OR status = $2)
+          AND ($3::boolean IS NOT TRUE OR claim_id IS NOT NULL)
+          AND (($4::text IS NULL AND $5::text IS NULL) OR phone LIKE $4 OR customer_name ILIKE $5)
      ) t
      ORDER BY grp, CASE WHEN grp <= 1 THEN -EXTRACT(EPOCH FROM COALESCE(sent_at, updated_at)) ELSE id END
      LIMIT $1`,
-    [limit, wanted]
+    [limit, wanted, verifiedOnly, phoneLike, nameLike]
   );
   const sentToday = await sentTodayCount();
   const session = await getSessionStatus(s.session_id);
@@ -592,5 +678,6 @@ module.exports = {
   retryFailed,
   startWorker,
   applyBootstrapOnce,
+  verifyAndCreateClaim,
   tick
 };

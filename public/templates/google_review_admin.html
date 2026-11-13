@@ -91,14 +91,18 @@
             }
             $('list').innerHTML = rows.map((c) => `
                 <div class="gr-card gr-claim">
-                    <img class="gr-thumb" src="${escapeHtml(c.photo_url)}" alt="Review photo" loading="lazy" data-full="${escapeHtml(c.photo_url)}">
+                    ${c.photo_url
+                        ? `<img class="gr-thumb" src="${escapeHtml(c.photo_url)}" alt="Review photo" loading="lazy" data-full="${escapeHtml(c.photo_url)}">`
+                        : '<div class="gr-thumb" style="display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;color:#94a3b8;border:1px dashed #475569">Verified on WhatsApp<br>no photo</div>'}
                     <div class="gr-claim-body">
                         <div class="gr-claim-top">
                             <div class="gr-claim-name">${escapeHtml(c.customer_name || c.customer_id)}</div>
                             <span class="gr-pill ${escapeHtml(c.status)}">${escapeHtml(c.status)}</span>
                         </div>
                         <div class="gr-claim-meta">
-                            Agent: <b>${escapeHtml(c.submitted_by_name || c.submitted_by_user_id)}</b> · bonus ${rm(c.agent_bonus)}<br>
+                            ${c.source === 'campaign'
+                                ? `Source: <b>WhatsApp review campaign</b> · verified by <b>${escapeHtml(c.submitted_by_name || c.submitted_by_user_id)}</b><br>`
+                                : `Agent: <b>${escapeHtml(c.submitted_by_name || c.submitted_by_user_id)}</b> · bonus ${rm(c.agent_bonus)}<br>`}
                             TNG reload: <b>${escapeHtml(fmtMobile(c.tng_mobile))}</b> · ${rm(c.customer_bonus)}
                             <button type="button" class="gr-btn link" data-copy="${escapeHtml(c.tng_mobile)}" title="Copy number"><i class="fa-regular fa-copy"></i></button><br>
                             Submitted ${escapeHtml(fmtDate(c.created_at))}
@@ -111,7 +115,7 @@
                                 <button type="button" class="gr-btn small ok" data-act="Approved" data-id="${c.id}"><i class="fa-solid fa-check"></i> Approve</button>
                                 <button type="button" class="gr-btn small bad" data-act="Rejected" data-id="${c.id}"><i class="fa-solid fa-xmark"></i> Reject</button>` : ''}
                             ${c.status === 'Approved' ? `
-                                <button type="button" class="gr-btn small primary" data-act="Paid" data-id="${c.id}"><i class="fa-solid fa-money-bill-wave"></i> Mark paid (agent + TNG)</button>` : ''}
+                                <button type="button" class="gr-btn small primary" data-act="Paid" data-id="${c.id}"><i class="fa-solid fa-money-bill-wave"></i> Mark paid${Number(c.agent_bonus) > 0 ? ' (agent + TNG)' : ' (TNG)'}</button>` : ''}
                         </div>
                     </div>
                 </div>`).join('');
@@ -146,7 +150,9 @@
                 remark = r.value.trim();
             } else {
                 const text = status === 'Paid'
-                    ? `Confirm <b>${rm(claim.agent_bonus)}</b> paid to <b>${escapeHtml(claim.submitted_by_name)}</b> and <b>${rm(claim.customer_bonus)}</b> TNG reloaded to <b>${escapeHtml(fmtMobile(claim.tng_mobile))}</b>.`
+                    ? (Number(claim.agent_bonus) > 0
+                        ? `Confirm <b>${rm(claim.agent_bonus)}</b> paid to <b>${escapeHtml(claim.submitted_by_name)}</b> and <b>${rm(claim.customer_bonus)}</b> TNG reloaded to <b>${escapeHtml(fmtMobile(claim.tng_mobile))}</b>.`
+                        : `Confirm <b>${rm(claim.customer_bonus)}</b> TNG reloaded to <b>${escapeHtml(fmtMobile(claim.tng_mobile))}</b>.`)
                     : `Approve the Google review claim for <b>${name}</b> by ${escapeHtml(claim.submitted_by_name)}?`;
                 const r = await Swal.fire({ title: status === 'Paid' ? 'Mark as paid?' : 'Approve claim?', html: text, showCancelButton: true, confirmButtonText: status === 'Paid' ? 'Mark paid' : 'Approve', confirmButtonColor: '#2563eb' });
                 if (!r.isConfirmed) return;

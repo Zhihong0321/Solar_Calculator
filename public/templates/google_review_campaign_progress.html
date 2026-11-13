@@ -107,9 +107,13 @@
             </div>
 
             <div class="gr-toolbar">
+                <div class="gr-search-wrap" style="flex:1 1 240px;margin:0"><i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="msgSearch" class="gr-input" type="search" placeholder="Search a number or name (any format, e.g. 012-345 6789)" autocomplete="off">
+                </div>
                 <select id="statusFilter" class="gr-input" style="width:auto">
                     <option value="">Latest activity</option>
                     <option>Sending</option><option>Queued</option><option>Sent</option><option>Failed</option>
+                    <option value="Verified">Verified (sent to claims)</option>
                 </select>
                 <span class="gr-hint" id="rowCount" style="margin:0"></span>
             </div>
@@ -195,14 +199,23 @@
                     <td>${statusTag(m.status)}</td>
                     <td>${esc(fmtDT(m.sent_at))}</td>
                     <td>${m.attempts}</td>
-                    <td>${m.last_error ? `<span style="color:#991b1b">${esc(m.last_error)}</span>` : (m.message_text ? `<details><summary>Message</summary><div style="white-space:pre-wrap;max-width:360px">${esc(m.message_text)}</div></details>` : '')}</td>
+                    <td>
+                        ${m.last_error ? `<span style="color:#991b1b">${esc(m.last_error)}</span>` : ''}
+                        ${m.status === 'Sent' && !m.is_test && !m.claim_id ? `<button type="button" class="gr-btn small ok" data-verify="${m.id}"><i class="fa-solid fa-circle-check"></i> Verified, send to claims</button>` : ''}
+                        ${m.claim_id ? `<span class="gr-tag ok">Verified</span> <a href="/google-review/admin" class="gr-hint" style="margin:0">Claim #${m.claim_id}</a><div class="gr-hint" style="margin:2px 0 0">${esc(m.verified_by_name || '')} · ${esc(fmtDT(m.verified_at))}</div>` : ''}
+                        ${!m.last_error && m.message_text ? `<details><summary>Message</summary><div style="white-space:pre-wrap;max-width:360px">${esc(m.message_text)}</div></details>` : ''}
+                    </td>
                 </tr>`).join('') : '<tr><td colspan="7" class="gr-empty">Nothing here yet.</td></tr>';
         }
 
         async function load() {
             try {
                 const status = $('statusFilter').value;
-                data = await api('/api/google-review/campaign/progress' + (status ? `?status=${encodeURIComponent(status)}` : ''));
+                const q = $('msgSearch').value.trim();
+                const params = new URLSearchParams();
+                if (status) params.set('status', status);
+                if (q) params.set('q', q);
+                data = await api('/api/google-review/campaign/progress' + (params.toString() ? `?${params}` : ''));
                 $('accessError').classList.remove('show');
                 $('body').classList.remove('gr-hidden');
                 render();
@@ -237,6 +250,36 @@
             return undefined;
         }
 
+        async function verifyMessage(id) {
+            const m = data && data.messages.find((x) => x.id === id);
+            if (!m) return;
+            const local = m.phone && m.phone.startsWith('60') ? `0${m.phone.slice(2)}` : (m.phone || '');
+            const r = await Swal.fire({
+                title: 'Verified, send to claims?',
+                html: `<div style="text-align:left;font-size:14px">
+                    <div><b>${esc(m.customer_name || m.customer_id)}</b><br>${esc(fmtPhone(m.phone))}</div>
+                    <label style="display:block;margin-top:10px;font-weight:600">TNG reload mobile</label>
+                    <input id="vTng" class="swal2-input" style="margin:4px 0" value="${esc(local)}">
+                    <label style="display:block;margin-top:6px;font-weight:600">Review screenshot (optional)</label>
+                    <input id="vPhoto" type="file" accept="image/*" class="swal2-file" style="margin:4px 0">
+                    <label style="display:block;margin-top:6px;font-weight:600">Note (optional)</label>
+                    <input id="vNote" class="swal2-input" style="margin:4px 0" placeholder="Saved as: Verified">
+                    <div style="margin-top:8px;color:#64748b;font-size:12px">Creates a Pending claim of RM15 TNG on the Google Review Claims page.</div></div>`,
+                showCancelButton: true, confirmButtonText: 'Send to claims', confirmButtonColor: '#16a34a',
+                preConfirm: () => ({ tng: document.getElementById('vTng').value, file: document.getElementById('vPhoto').files[0] || null, note: document.getElementById('vNote').value })
+            });
+            if (!r.isConfirmed) return;
+            const form = new FormData();
+            form.append('tng_mobile', r.value.tng);
+            form.append('note', r.value.note);
+            if (r.value.file) form.append('photo', r.value.file);
+            try {
+                await api(`/api/google-review/campaign/messages/${id}/verify`, { method: 'POST', body: form });
+                Swal.fire({ icon: 'success', title: 'Sent to Google Review claims', text: 'It is now a Pending claim for HR/KC to approve and pay.', timer: 2200, showConfirmButton: false });
+                load();
+            } catch (err) { Swal.fire({ icon: 'error', title: 'Could not verify', text: err.message }); }
+        }
+
         async function simple(url, errTitle) {
             try { await api(url, { method: 'POST', headers: json, body: '{}' }); load(); }
             catch (err) { Swal.fire({ icon: 'error', title: errTitle, text: err.message }); }
@@ -263,6 +306,12 @@
         $('testBtn').addEventListener('click', () => testSend('en'));
         $('testZhBtn').addEventListener('click', () => testSend('zh'));
         $('statusFilter').addEventListener('change', load);
+        let searchTimer = null;
+        $('msgSearch').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(load, 350); });
+        $('rows').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-verify]');
+            if (btn) verifyMessage(Number(btn.dataset.verify));
+        });
         load();
         setInterval(load, 10000);
     })();
