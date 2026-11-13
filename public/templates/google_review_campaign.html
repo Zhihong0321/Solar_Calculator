@@ -73,6 +73,7 @@
                     <option value="Failed">Failed</option>
                     <option value="nophone">No valid mobile</option>
                     <option value="claimed">Already has a review claim</option>
+                    <option value="duplicate">Same number as another customer</option>
                 </select>
                 <select id="langFilter" class="gr-input" style="width:auto">
                     <option value="">English + Chinese</option>
@@ -111,13 +112,14 @@
             return data;
         }
 
-        const stateOf = (c) => c.campaign_status ? c.campaign_status : (!c.phone ? 'nophone' : (c.claim_status ? 'claimed' : 'ready'));
+        const stateOf = (c) => c.campaign_status ? c.campaign_status : (!c.phone ? 'nophone' : (c.duplicate_phone ? 'duplicate' : (c.claim_status ? 'claimed' : 'ready')));
 
         function campaignTag(c) {
             if (c.campaign_status === 'Sent') return `<span class="gr-tag ok">Sent</span><div class="gr-hint" style="margin:2px 0 0">${esc(fmtDate(c.campaign_sent_at))}</div>`;
             if (c.campaign_status === 'Failed') return '<span class="gr-tag bad">Failed</span>';
             if (c.campaign_status) return `<span class="gr-tag info">${esc(c.campaign_status)}</span>`;
             if (!c.phone) return '<span class="gr-tag bad">No valid mobile</span>';
+            if (c.duplicate_phone) return '<span class="gr-tag warn">Skipped: same number as another customer</span>';
             if (c.claim_status) return '<span class="gr-tag warn">Skipped: has claim</span>';
             return '<span class="gr-tag ok">Ready</span>';
         }

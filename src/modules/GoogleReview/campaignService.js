@@ -187,10 +187,13 @@ async function scanEligible() {
             GROUP BY linked_customer
          ) cia ON cia.linked_customer = c.customer_id AND cia.total_invoiced > 0
          LEFT JOIN (
-           SELECT linked_customer, SUM(COALESCE(amount, 0)) AS total_paid, MAX(payment_date) AS last_payment_date
-             FROM payment
-            WHERE linked_customer IS NOT NULL
-            GROUP BY linked_customer
+           -- Each payment counts once, for its own customer or, when that is blank, the customer of its invoice.
+           SELECT COALESCE(NULLIF(p.linked_customer, ''), pi.linked_customer) AS linked_customer,
+                  SUM(COALESCE(p.amount, 0)) AS total_paid, MAX(p.payment_date) AS last_payment_date
+             FROM payment p
+             LEFT JOIN invoice pi ON pi.bubble_id = p.linked_invoice AND pi.is_deleted IS NOT TRUE
+            WHERE COALESCE(NULLIF(p.linked_customer, ''), pi.linked_customer) IS NOT NULL
+            GROUP BY 1
          ) cpa ON cpa.linked_customer = c.customer_id
          LEFT JOIN google_review_claim g
                 ON g.customer_id = c.customer_id AND g.status <> 'Rejected'
@@ -203,9 +206,14 @@ async function scanEligible() {
      ORDER BY t.last_payment_date DESC NULLS LAST, t.name ASC NULLS LAST`
   );
 
+  const seenPhones = new Set();
   return rows.map((row) => {
     const waNumber = toWaNumber(row.phone) || toWaNumber(row.applicant_phone);
+    // Several customer records can share one number: only the first (most recent payment) is messaged.
+    const duplicatePhone = Boolean(waNumber) && seenPhones.has(waNumber);
+    if (waNumber) seenPhones.add(waNumber);
     return {
+      duplicate_phone: duplicatePhone,
       customer_id: row.customer_id,
       name: row.name,
       phone: waNumber,
@@ -229,7 +237,11 @@ async function scanEligible() {
 /** Queue every eligible customer with a valid mobile who is not already in the campaign. */
 async function enqueueEligible(actor, { skipClaimed = true } = {}) {
   const eligible = await scanEligible();
-  const queueable = eligible.filter((c) => c.phone && !c.campaign_status && !(skipClaimed && c.claim_status));
+  const inCampaign = new Set((await pool.query(
+    'SELECT DISTINCT phone FROM google_review_campaign_message WHERE is_test = FALSE'
+  )).rows.map((r) => r.phone));
+  const queueable = eligible.filter((c) => c.phone && !c.duplicate_phone && !inCampaign.has(c.phone)
+    && !c.campaign_status && !(skipClaimed && c.claim_status));
   let queued = 0;
   for (const c of queueable) {
     const result = await pool.query(
@@ -245,7 +257,8 @@ async function enqueueEligible(actor, { skipClaimed = true } = {}) {
     queued,
     already_in_campaign: eligible.filter((c) => c.campaign_status).length,
     no_valid_mobile: eligible.filter((c) => !c.phone).length,
-    skipped_already_claimed: skipClaimed ? eligible.filter((c) => c.claim_status && !c.campaign_status && c.phone).length : 0
+    skipped_duplicate_phone: eligible.filter((c) => c.phone && !c.campaign_status && (c.duplicate_phone || inCampaign.has(c.phone))).length,
+    skipped_already_claimed: skipClaimed ? eligible.filter((c) => c.claim_status && !c.campaign_status && c.phone && !c.duplicate_phone).length : 0
   };
 }
 
