@@ -10,7 +10,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.all.min.js"></script>
     <style>
         .gr-wide { max-width: 1100px; }
-        .gr-table-wrap { overflow-x: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+        .gr-table-wrap { overflow-x: auto; background: #fff; color: #0f172a; border: 1px solid #e2e8f0; border-radius: 12px; }
+        .gr-table td { color: #0f172a; }
+        .gr-table .gr-hint { color: #64748b; }
         .gr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .gr-table th { text-align: left; padding: 10px 12px; background: #f8fafc; color: #475569; font-weight: 600; white-space: nowrap; border-bottom: 1px solid #e2e8f0; }
         .gr-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
@@ -106,7 +108,7 @@
 
             <div class="gr-toolbar">
                 <select id="statusFilter" class="gr-input" style="width:auto">
-                    <option value="">All messages</option>
+                    <option value="">Latest activity</option>
                     <option>Sending</option><option>Queued</option><option>Sent</option><option>Failed</option>
                 </select>
                 <span class="gr-hint" id="rowCount" style="margin:0"></span>
@@ -183,8 +185,7 @@
                 ? `${t.sent} of ${t.total} sent (${Math.round(pct(t.sent))}%)${t.queued ? ` · about ${t.queued ? Math.max(1, data.estimated_minutes_left) : 0} min of sending left at the current pace` : ''}`
                 : 'No customers in the campaign yet. Add them from the eligible customers page.';
 
-            const sf = $('statusFilter').value;
-            const rows = messages.filter((m) => !sf || m.status === sf);
+            const rows = messages;
             $('rowCount').textContent = `Showing ${rows.length} (latest ${messages.length})`;
             $('rows').innerHTML = rows.length ? rows.map((m) => `
                 <tr>
@@ -200,7 +201,8 @@
 
         async function load() {
             try {
-                data = await api('/api/google-review/campaign/progress');
+                const status = $('statusFilter').value;
+                data = await api('/api/google-review/campaign/progress' + (status ? `?status=${encodeURIComponent(status)}` : ''));
                 $('accessError').classList.remove('show');
                 $('body').classList.remove('gr-hidden');
                 render();
@@ -260,7 +262,7 @@
         $('retryBtn').addEventListener('click', () => simple('/api/google-review/campaign/retry-failed', 'Could not retry'));
         $('testBtn').addEventListener('click', () => testSend('en'));
         $('testZhBtn').addEventListener('click', () => testSend('zh'));
-        $('statusFilter').addEventListener('change', () => data && render());
+        $('statusFilter').addEventListener('change', load);
         load();
         setInterval(load, 10000);
     })();

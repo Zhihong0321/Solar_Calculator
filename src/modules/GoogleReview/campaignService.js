@@ -457,6 +457,7 @@ async function tick() {
         WHERE id = 1`,
       [waitSec, sentInBatch, batchTarget, note.slice(0, 300)]
     );
+    armTimer(waitSec);
     return undefined;
   } catch (err) {
     console.error('[GoogleReviewCampaign] tick error:', err.message);
@@ -464,6 +465,15 @@ async function tick() {
   } finally {
     ticking = false;
   }
+}
+
+// The 15 s poll alone would round every gap up to a multiple of 15 s (so "random 30-54 s" became 45 or 60 s).
+// After each send the next pass is also armed for the exact moment the random gap ends.
+let preciseTimer = null;
+function armTimer(seconds) {
+  if (preciseTimer) clearTimeout(preciseTimer);
+  preciseTimer = setTimeout(() => { preciseTimer = null; tick(); }, Math.max(0, Math.round(Number(seconds) * 1000)) + 150);
+  if (preciseTimer.unref) preciseTimer.unref();
 }
 
 let timer = null;
@@ -507,20 +517,25 @@ async function applyBootstrapOnce() {
 
 // ---------- monitor ----------
 
-async function getProgress({ limit = 200 } = {}) {
+async function getProgress({ limit = 200, status = null } = {}) {
   const s = await getSettings();
   const counts = await pool.query(
     `SELECT status, COUNT(*)::int AS n FROM google_review_campaign_message WHERE is_test = FALSE GROUP BY status`
   );
   const by = Object.fromEntries(counts.rows.map((r) => [r.status, r.n]));
+  // Newest activity first (Sending, then Sent/Failed by time), then the Queued rows in send order.
+  const wanted = ['Queued', 'Sending', 'Sent', 'Failed', 'Skipped'].includes(status) ? status : null;
   const recent = await pool.query(
-    `SELECT id, customer_id, customer_name, phone, status, attempts, last_error, message_text, is_test, language,
-            queued_at, sent_at, updated_at
-       FROM google_review_campaign_message
-      ORDER BY CASE status WHEN 'Sending' THEN 0 WHEN 'Queued' THEN 1 ELSE 2 END,
-               COALESCE(sent_at, updated_at) DESC, id DESC
-      LIMIT $1`,
-    [limit]
+    `SELECT * FROM (
+       SELECT id, customer_id, customer_name, phone, status, attempts, last_error, message_text, is_test, language,
+              queued_at, sent_at, updated_at,
+              CASE WHEN status = 'Sending' THEN 0 WHEN status IN ('Sent', 'Failed') THEN 1 WHEN status = 'Queued' THEN 2 ELSE 3 END AS grp
+         FROM google_review_campaign_message
+        WHERE ($2::text IS NULL OR status = $2)
+     ) t
+     ORDER BY grp, CASE WHEN grp <= 1 THEN -EXTRACT(EPOCH FROM COALESCE(sent_at, updated_at)) ELSE id END
+     LIMIT $1`,
+    [limit, wanted]
   );
   const sentToday = await sentTodayCount();
   const session = await getSessionStatus(s.session_id);
