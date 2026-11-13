@@ -237,6 +237,33 @@
             mobileHideSelectors: ['body > header.gr-header']
         },
         {
+            pageKey: 'google-review-campaign',
+            path: '/google-review/campaign',
+            title: 'Review Campaign',
+            rootTab: TOOLS_ROOT_KEY,
+            routeType: 'tool',
+            stack: 'google-review-campaign',
+            showBack: true,
+            parentPage: 'agent-home',
+            toolGroup: 'Management',
+            toolLabel: 'Review Campaign',
+            toolDescription: 'WhatsApp review requests',
+            icon: 'star',
+            visibleIf: ({ roles }) => roles.includes('hr') || roles.includes('kc'),
+            mobileHideSelectors: ['body > header.gr-header']
+        },
+        {
+            pageKey: 'google-review-campaign-progress',
+            path: '/google-review/campaign/progress',
+            title: 'Review Campaign Progress',
+            rootTab: TOOLS_ROOT_KEY,
+            routeType: 'child',
+            stack: 'google-review-campaign',
+            showBack: true,
+            parentPage: 'google-review-campaign',
+            mobileHideSelectors: ['body > header.gr-header']
+        },
+        {
             pageKey: 'agent-profile',
             path: '/agent/profile',
             title: 'Profile',

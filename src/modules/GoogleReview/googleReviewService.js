@@ -267,6 +267,8 @@ async function decide(id, nextStatus, actor, remark) {
 module.exports = {
   AGENT_BONUS,
   CUSTOMER_BONUS,
+  SEDA_APPROVED_SQL,
+  resolveInstallationState,
   resolveActor,
   normalizeMobile,
   searchApprovedCustomers,

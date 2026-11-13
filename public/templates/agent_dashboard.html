@@ -254,6 +254,10 @@
         <i class="fa-solid fa-star-half-stroke w-5"></i>
         <span>Google Review Claims</span>
       </a>
+      <a href="/google-review/campaign" id="googleReviewCampaignNav" class="nav-link hidden">
+        <i class="fa-brands fa-whatsapp w-5"></i>
+        <span>Review Campaign</span>
+      </a>
       <a href="/referral-leads-management" id="referralLeadManagementNav" class="nav-link hidden">
         <i class="fa-solid fa-user-check w-5"></i>
         <span>Referral Leads</span>
@@ -659,6 +663,16 @@
             <h3 class="text-sm font-bold text-slate-900">Google Review Claims</h3>
             <p class="text-[10px] text-slate-400 font-medium mt-1">
               Approve &amp; pay review claims
+            </p>
+          </a>
+
+          <a href="/google-review/campaign" id="googleReviewCampaignCard" class="tool-card hidden">
+            <div class="tool-icon">
+              <i class="fa-brands fa-whatsapp text-2xl text-emerald-500"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-900">Review Campaign</h3>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">
+              WhatsApp review requests
             </p>
           </a>
 
@@ -1099,6 +1113,12 @@
 
           const googleReviewAdminNav = document.getElementById("googleReviewAdminNav");
           if (googleReviewAdminNav) googleReviewAdminNav.classList.remove("hidden");
+
+          const googleReviewCampaignCard = document.getElementById("googleReviewCampaignCard");
+          if (googleReviewCampaignCard) googleReviewCampaignCard.classList.remove("hidden");
+
+          const googleReviewCampaignNav = document.getElementById("googleReviewCampaignNav");
+          if (googleReviewCampaignNav) googleReviewCampaignNav.classList.remove("hidden");
         }
 
         if (accessLevels.includes("ee-core")) {

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Review Campaign – Eligible Customers | ETERNALGY OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/google-review.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.all.min.js"></script>
+    <style>
+        .gr-wide { max-width: 1100px; }
+        .gr-table-wrap { overflow-x: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+        .gr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .gr-table th { text-align: left; padding: 10px 12px; background: #f8fafc; color: #475569; font-weight: 600; white-space: nowrap; border-bottom: 1px solid #e2e8f0; }
+        .gr-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        .gr-table tr:last-child td { border-bottom: 0; }
+        .gr-tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #e2e8f0; color: #334155; white-space: nowrap; }
+        .gr-tag.ok { background: #dcfce7; color: #166534; }
+        .gr-tag.warn { background: #fef3c7; color: #92400e; }
+        .gr-tag.bad { background: #fee2e2; color: #991b1b; }
+        .gr-tag.info { background: #dbeafe; color: #1e40af; }
+        .gr-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .gr-toolbar .gr-search-wrap { flex: 1 1 240px; margin: 0; }
+        .gr-num { text-align: right; white-space: nowrap; }
+        .gr-sessionbar { font-size: 13px; color: #475569; }
+    </style>
+</head>
+<body>
+    <header class="gr-header">
+        <div class="gr-header-inner">
+            <a href="/agent/home" class="gr-back" title="Back to Dashboard"><i class="fa-solid fa-arrow-left"></i></a>
+            <div>
+                <h1 class="gr-title">Review Campaign: Eligible Customers</h1>
+                <p class="gr-subtitle">SEDA approved and fully paid (100% or more). Nothing is sent from this page.</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="gr-main gr-wide">
+        <div class="gr-pagelinks">
+            <button type="button" class="gr-link-btn" id="scanBtn"><i class="fa-solid fa-arrows-rotate"></i> Scan again</button>
+            <a class="gr-link-btn" href="/google-review/campaign/progress"><i class="fa-solid fa-chart-line"></i> Campaign progress</a>
+        </div>
+        <div id="accessError" class="gr-msg error"></div>
+
+        <div id="body" class="gr-hidden" style="display:flex;flex-direction:column;gap:12px">
+            <div class="gr-stats">
+                <div class="gr-stat"><div class="gr-stat-label">Eligible customers</div><div class="gr-stat-value" id="statEligible">–</div></div>
+                <div class="gr-stat"><div class="gr-stat-label">Ready to queue</div><div class="gr-stat-value" id="statReady">–</div></div>
+                <div class="gr-stat"><div class="gr-stat-label">Already in campaign</div><div class="gr-stat-value" id="statIn">–</div></div>
+                <div class="gr-stat"><div class="gr-stat-label">No valid mobile</div><div class="gr-stat-value" id="statNoPhone">–</div></div>
+            </div>
+
+            <div class="gr-card" style="padding:14px">
+                <div class="gr-toolbar">
+                    <button type="button" class="gr-btn primary" id="queueBtn"><i class="fa-solid fa-list-check"></i> Add ready customers to campaign queue</button>
+                    <span class="gr-hint" style="margin:0">Adding to the queue does not send anything. Sending only starts when you press Start on the progress page.</span>
+                </div>
+                <div class="gr-sessionbar" id="scanInfo" style="margin-top:8px"></div>
+            </div>
+
+            <div class="gr-toolbar">
+                <div class="gr-search-wrap"><i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="searchInput" class="gr-input" type="search" placeholder="Search name, mobile or state" autocomplete="off">
+                </div>
+                <select id="stateFilter" class="gr-input" style="width:auto"><option value="">All states</option></select>
+                <select id="statusFilter" class="gr-input" style="width:auto">
+                    <option value="">All statuses</option>
+                    <option value="ready">Ready to queue</option>
+                    <option value="Queued">Queued</option>
+                    <option value="Sent">Sent</option>
+                    <option value="Failed">Failed</option>
+                    <option value="nophone">No valid mobile</option>
+                    <option value="claimed">Already has a review claim</option>
+                </select>
+            </div>
+
+            <div class="gr-table-wrap">
+                <table class="gr-table">
+                    <thead><tr>
+                        <th>Customer</th><th>WhatsApp number</th><th>State</th>
+                        <th class="gr-num">Invoiced</th><th class="gr-num">Paid</th><th class="gr-num">%</th>
+                        <th>Last payment</th><th>Review claim</th><th>Campaign</th>
+                    </tr></thead>
+                    <tbody id="rows"><tr><td colspan="9" class="gr-empty">Loading…</td></tr></tbody>
+                </table>
+            </div>
+            <div class="gr-hint" id="rowCount"></div>
+        </div>
+    </main>
+
+    <script>
+    (() => {
+        const $ = (id) => document.getElementById(id);
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+        const fmtPhone = (p) => p ? `+${p.slice(0, 2)} ${p.slice(2, 4)}-${p.slice(4)}` : '';
+        const rm = (n) => `RM${Number(n || 0).toLocaleString('en-MY', { maximumFractionDigits: 0 })}`;
+        let customers = [];
+
+        async function api(url, opts) {
+            const res = await fetch(url, Object.assign({ credentials: 'same-origin' }, opts));
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { const e = new Error(data.error || `Request failed (${res.status})`); e.status = res.status; throw e; }
+            return data;
+        }
+
+        const stateOf = (c) => c.campaign_status ? c.campaign_status : (!c.phone ? 'nophone' : (c.claim_status ? 'claimed' : 'ready'));
+
+        function campaignTag(c) {
+            if (c.campaign_status === 'Sent') return `<span class="gr-tag ok">Sent</span><div class="gr-hint" style="margin:2px 0 0">${esc(fmtDate(c.campaign_sent_at))}</div>`;
+            if (c.campaign_status === 'Failed') return '<span class="gr-tag bad">Failed</span>';
+            if (c.campaign_status) return `<span class="gr-tag info">${esc(c.campaign_status)}</span>`;
+            if (!c.phone) return '<span class="gr-tag bad">No valid mobile</span>';
+            if (c.claim_status) return '<span class="gr-tag warn">Skipped: has claim</span>';
+            return '<span class="gr-tag ok">Ready</span>';
+        }
+
+        function render() {
+            const q = $('searchInput').value.trim().toLowerCase();
+            const qd = q.replace(/\D/g, '');
+            const st = $('stateFilter').value;
+            const sf = $('statusFilter').value;
+            const rows = customers.filter((c) =>
+                (!st || c.state === st) && (!sf || stateOf(c) === sf) &&
+                (!q || String(c.name || '').toLowerCase().includes(q) || c.state.toLowerCase().includes(q) || (qd && String(c.phone || c.raw_phone || '').includes(qd))));
+
+            const ready = customers.filter((c) => stateOf(c) === 'ready').length;
+            $('statEligible').textContent = customers.length;
+            $('statReady').textContent = ready;
+            $('statIn').textContent = customers.filter((c) => c.campaign_status).length;
+            $('statNoPhone').textContent = customers.filter((c) => !c.phone).length;
+            $('queueBtn').disabled = !ready;
+            $('rowCount').textContent = `Showing ${rows.length} of ${customers.length}`;
+
+            $('rows').innerHTML = rows.length ? rows.map((c) => `
+                <tr>
+                    <td><b>${esc(c.name || c.customer_id)}</b><div class="gr-hint" style="margin:2px 0 0">${esc(c.customer_id)}</div></td>
+                    <td>${c.phone ? esc(fmtPhone(c.phone)) : `<span class="gr-tag bad">Invalid</span> ${esc(c.raw_phone || '')}`}</td>
+                    <td>${esc(c.state)}</td>
+                    <td class="gr-num">${rm(c.total_invoiced)}</td>
+                    <td class="gr-num">${rm(c.total_paid)}</td>
+                    <td class="gr-num">${esc(c.paid_percent)}%</td>
+                    <td>${esc(fmtDate(c.last_payment_date))}</td>
+                    <td>${c.claim_status ? `<span class="gr-pill ${esc(c.claim_status)}">${esc(c.claim_status)}</span>` : ''}</td>
+                    <td>${campaignTag(c)}</td>
+                </tr>`).join('') : '<tr><td colspan="9" class="gr-empty">No customers match.</td></tr>';
+        }
+
+        async function scan() {
+            $('scanBtn').disabled = true;
+            try {
+                const data = await api('/api/google-review/campaign/eligible');
+                customers = data.customers || [];
+                const states = [...new Set(customers.map((c) => c.state))].sort();
+                const cur = $('stateFilter').value;
+                $('stateFilter').innerHTML = '<option value="">All states</option>' + states.map((s) => `<option>${esc(s)}</option>`).join('');
+                $('stateFilter').value = cur;
+                $('scanInfo').textContent = `Scanned ${new Date(data.scanned_at).toLocaleString('en-MY')} · WhatsApp session: ${data.session_id}`;
+                $('accessError').classList.remove('show');
+                $('body').classList.remove('gr-hidden');
+                render();
+            } catch (err) {
+                $('accessError').textContent = err.status === 403 ? 'This page is for HR and KC only.' : err.message;
+                $('accessError').classList.add('show');
+                $('body').classList.add('gr-hidden');
+            } finally {
+                $('scanBtn').disabled = false;
+            }
+        }
+
+        async function queue() {
+            const ready = customers.filter((c) => stateOf(c) === 'ready').length;
+            const r = await Swal.fire({
+                title: 'Add to campaign queue?',
+                html: `<b>${ready}</b> customers will be queued. Nothing is sent until you press Start on the progress page.`,
+                showCancelButton: true, confirmButtonText: 'Add to queue', confirmButtonColor: '#2563eb'
+            });
+            if (!r.isConfirmed) return;
+            try {
+                const out = await api('/api/google-review/campaign/queue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+                await Swal.fire({ icon: 'success', title: `${out.queued} queued`, html: `Eligible: ${out.eligible}<br>Already in campaign: ${out.already_in_campaign}<br>No valid mobile: ${out.no_valid_mobile}<br>Skipped (already has a review claim): ${out.skipped_already_claimed}` });
+                scan();
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Could not queue', text: err.message });
+            }
+        }
+
+        $('scanBtn').addEventListener('click', scan);
+        $('queueBtn').addEventListener('click', queue);
+        ['searchInput', 'stateFilter', 'statusFilter'].forEach((id) => $(id).addEventListener('input', render));
+        scan();
+    })();
+    </script>
+    <script src="/js/navigation.js"></script>
+</body>
+</html>

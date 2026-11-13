@@ -1004,3 +1004,6 @@ app.listen(PORT, () => {
 });
 
 Health.startHealthCheckScheduler();
+
+// Google Review WhatsApp campaign sender. Idle unless a reviewer pressed Start on the campaign page.
+if (process.env.GOOGLE_REVIEW_WORKER !== 'off') GoogleReview.campaign.startWorker();
