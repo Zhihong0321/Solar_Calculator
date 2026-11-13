@@ -52,6 +52,6 @@ router.post('/api/google-review/campaign/start', ...reviewer, campaignHandler(as
 router.post('/api/google-review/campaign/pause', ...reviewer, campaignHandler(async () => ({ settings: await campaign.setRunning(false) })));
 router.post('/api/google-review/campaign/retry-failed', ...reviewer, campaignHandler(() => campaign.retryFailed()));
 router.post('/api/google-review/campaign/test-send', ...reviewer, campaignHandler((req) =>
-  campaign.sendTest(req.googleReviewActor, { text: req.body && req.body.text })));
+  campaign.sendTest(req.googleReviewActor, { lang: req.body && req.body.lang })));
 
 module.exports = router;

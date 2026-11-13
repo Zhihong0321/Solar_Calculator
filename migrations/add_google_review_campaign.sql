@@ -51,4 +51,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_google_review_campaign_customer
 CREATE INDEX IF NOT EXISTS idx_google_review_campaign_status
     ON google_review_campaign_message (status, id);
 
+-- Chinese message (sent when the customer's name looks Chinese) and the language each message used.
+ALTER TABLE google_review_campaign_settings ADD COLUMN IF NOT EXISTS message_template_zh TEXT;
+ALTER TABLE google_review_campaign_message  ADD COLUMN IF NOT EXISTS language TEXT;
+
 INSERT INTO google_review_campaign_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

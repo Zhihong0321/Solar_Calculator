@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../../core/database/pool');
 const reviewService = require('./googleReviewService');
+const nameUtils = require('./nameUtils');
 
 const WA_BASE_URL = String(process.env.GOOGLE_REVIEW_WA_BASE_URL || 'https://ee-baileys-production.up.railway.app').replace(/\/+$/, '');
 const DEFAULT_SESSION_ID = 'eternalgy-auth';
@@ -61,6 +62,9 @@ async function updateSettings(input = {}) {
   const template = input.message_template === undefined
     ? current.message_template
     : (String(input.message_template || '').trim() || null);
+  const templateZh = input.message_template_zh === undefined
+    ? current.message_template_zh
+    : (String(input.message_template_zh || '').trim() || null);
   const reviewUrl = input.review_url === undefined
     ? current.review_url
     : (String(input.review_url || '').trim() || DEFAULT_REVIEW_URL);
@@ -75,13 +79,14 @@ async function updateSettings(input = {}) {
             window_start_hour = $7, window_end_hour = $8,
             batch_size_min = $9, batch_size_max = $10,
             batch_break_min_sec = $11, batch_break_max_sec = $12,
+            message_template_zh = $13,
             updated_at = NOW()
       WHERE id = 1`,
     [
       template, reviewUrl, sessionId, minInterval, maxInterval,
       num(input.daily_limit, current.daily_limit, 1, 1000),
       startHour, Math.max(endHour, startHour + 1),
-      batchMin, batchMax, breakMin, breakMax
+      batchMin, batchMax, breakMin, breakMax, templateZh
     ]
   );
   return getSettings();
@@ -108,17 +113,35 @@ async function setNote(note) {
 
 // ---------- message rendering ----------
 
-function firstName(name) {
-  const cleaned = String(name || '').trim().replace(/\s+/g, ' ');
-  return cleaned || 'Customer';
+/** Picks one option from each {a|b|c} group, so messages are not word-for-word identical. */
+function spin(text) {
+  return String(text || '').replace(/\{([^{}|]*(?:\|[^{}|]*)+)\}/g, (m, group) => {
+    const options = group.split('|');
+    return options[Math.floor(Math.random() * options.length)];
+  });
 }
 
-/** Placeholders: {name} full name, {first_name} first word, {review_link}. Unknown ones are left as typed. */
-function renderMessage(template, { name, reviewUrl }) {
-  const full = firstName(name);
-  return String(template || '')
-    .replace(/\{name\}/gi, full)
-    .replace(/\{first_name\}/gi, full.split(' ')[0])
+/**
+ * Template for this customer: the Chinese one when the name looks Chinese (see nameUtils), otherwise the
+ * English one. Falls back to whichever template exists, so a missing one never stops a message.
+ */
+function pickTemplate(settings, customerName) {
+  const wanted = nameUtils.detectLanguage(customerName);
+  if (wanted === 'zh' && settings.message_template_zh) return { lang: 'zh', template: settings.message_template_zh };
+  if (settings.message_template) return { lang: 'en', template: settings.message_template };
+  if (settings.message_template_zh) return { lang: 'zh', template: settings.message_template_zh };
+  return { lang: 'en', template: '' };
+}
+
+/**
+ * Placeholders: {customer_name} (tidied: no "(ATAP)", proper case; "Valued Customer" / "客户" for a company
+ * or blank record) and {review_link}. {name} still works as an alias. {a|b|c} picks one option at random.
+ */
+function renderMessage(template, { name, reviewUrl, lang = 'en' }) {
+  const greeting = nameUtils.greetingName(name, lang);
+  return spin(String(template || ''))
+    .replace(/\{customer_name\}/gi, greeting)
+    .replace(/\{name\}/gi, greeting)
     .replace(/\{review_link\}/gi, reviewUrl || DEFAULT_REVIEW_URL);
 }
 
@@ -192,6 +215,8 @@ async function scanEligible() {
       total_paid: Number(row.total_paid),
       paid_percent: Number(row.paid_percent),
       last_payment_date: row.last_payment_date,
+      language: nameUtils.detectLanguage(row.name),
+      is_company: nameUtils.isCompanyName(row.name),
       claim_status: row.claim_status || null,
       campaign_status: row.campaign_status || null,
       campaign_sent_at: row.campaign_sent_at || null
@@ -268,18 +293,23 @@ async function sendText(sessionId, phone, text) {
  * Test send to the fixed test number. Uses the saved template (rendered with a sample name) unless
  * a text is given. Recorded as a test row so it shows on the monitor page.
  */
-async function sendTest(actor, { text } = {}) {
+async function sendTest(actor, { lang } = {}) {
   const settings = await getSettings();
-  const body = String(text || '').trim()
-    || (settings.message_template
-      ? renderMessage(settings.message_template, { name: 'Test Customer', reviewUrl: settings.review_url })
-      : '');
-  if (!body) return { error: 'No message template saved yet. Save a template first.' };
+  const wantZh = lang === 'zh';
+  const template = wantZh ? settings.message_template_zh : settings.message_template;
+  if (!template) {
+    return { error: `No ${wantZh ? 'Chinese' : 'English'} message template saved yet. Save it first.` };
+  }
+  const body = renderMessage(template, {
+    name: wantZh ? 'Tan Wei Ming' : 'Test Customer',
+    reviewUrl: settings.review_url,
+    lang: wantZh ? 'zh' : 'en'
+  });
 
   const { rows } = await pool.query(
-    `INSERT INTO google_review_campaign_message (customer_id, customer_name, phone, status, is_test, queued_by, message_text, attempts)
-     VALUES ('TEST', 'Test send', $1, 'Sending', TRUE, $2, $3, 1) RETURNING id`,
-    [TEST_PHONE, actor && actor.name, body]
+    `INSERT INTO google_review_campaign_message (customer_id, customer_name, phone, status, is_test, queued_by, message_text, attempts, language)
+     VALUES ('TEST', $4, $1, 'Sending', TRUE, $2, $3, 1, $5) RETURNING id`,
+    [TEST_PHONE, actor && actor.name, body, wantZh ? 'Test send (Chinese)' : 'Test send (English)', wantZh ? 'zh' : 'en']
   );
   const result = await sendText(settings.session_id, TEST_PHONE, body);
   await pool.query(
@@ -327,7 +357,7 @@ async function tick() {
     const s = await getSettings();
     if (!s.running) return;
 
-    if (!s.message_template) return setNote('Waiting: no message template saved yet');
+    if (!s.message_template && !s.message_template_zh) return setNote('Waiting: no message template saved yet');
 
     const { hour } = myNow();
     if (hour < s.window_start_hour || hour >= s.window_end_hour) {
@@ -374,14 +404,15 @@ async function tick() {
       return setNote('Idle: queue is empty');
     }
 
-    const text = renderMessage(s.message_template, { name: row.customer_name, reviewUrl: s.review_url });
+    const { lang, template } = pickTemplate(s, row.customer_name);
+    const text = renderMessage(template, { name: row.customer_name, reviewUrl: s.review_url, lang });
     const result = await sendText(s.session_id, row.phone, text);
     await pool.query(
       `UPDATE google_review_campaign_message
-          SET status = $2, last_error = $3, message_text = $4, wa_message_id = $5,
+          SET status = $2, last_error = $3, message_text = $4, wa_message_id = $5, language = $6,
               sent_at = CASE WHEN $2 = 'Sent' THEN NOW() END, updated_at = NOW()
         WHERE id = $1`,
-      [row.id, result.ok ? 'Sent' : 'Failed', result.ok ? null : result.error, text, result.ok ? result.waMessageId : null]
+      [row.id, result.ok ? 'Sent' : 'Failed', result.ok ? null : result.error, text, result.ok ? result.waMessageId : null, lang]
     );
 
     // Book the next slot: random gap, plus a longer random rest after each random-sized batch.
@@ -428,7 +459,7 @@ async function getProgress({ limit = 200 } = {}) {
   );
   const by = Object.fromEntries(counts.rows.map((r) => [r.status, r.n]));
   const recent = await pool.query(
-    `SELECT id, customer_id, customer_name, phone, status, attempts, last_error, message_text, is_test,
+    `SELECT id, customer_id, customer_name, phone, status, attempts, last_error, message_text, is_test, language,
             queued_at, sent_at, updated_at
        FROM google_review_campaign_message
       ORDER BY CASE status WHEN 'Sending' THEN 0 WHEN 'Queued' THEN 1 ELSE 2 END,
@@ -482,6 +513,7 @@ module.exports = {
   updateSettings,
   setRunning,
   renderMessage,
+  pickTemplate,
   scanEligible,
   enqueueEligible,
   getSessionStatus,

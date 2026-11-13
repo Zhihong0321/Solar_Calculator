@@ -74,16 +74,21 @@
                     <option value="nophone">No valid mobile</option>
                     <option value="claimed">Already has a review claim</option>
                 </select>
+                <select id="langFilter" class="gr-input" style="width:auto">
+                    <option value="">English + Chinese</option>
+                    <option value="zh">Chinese message</option>
+                    <option value="en">English message</option>
+                </select>
             </div>
 
             <div class="gr-table-wrap">
                 <table class="gr-table">
                     <thead><tr>
-                        <th>Customer</th><th>WhatsApp number</th><th>State</th>
+                        <th>Customer</th><th>WhatsApp number</th><th>Message</th><th>State</th>
                         <th class="gr-num">Invoiced</th><th class="gr-num">Paid</th><th class="gr-num">%</th>
                         <th>Last payment</th><th>Review claim</th><th>Campaign</th>
                     </tr></thead>
-                    <tbody id="rows"><tr><td colspan="9" class="gr-empty">Loading…</td></tr></tbody>
+                    <tbody id="rows"><tr><td colspan="10" class="gr-empty">Loading…</td></tr></tbody>
                 </table>
             </div>
             <div class="gr-hint" id="rowCount"></div>
@@ -122,8 +127,9 @@
             const qd = q.replace(/\D/g, '');
             const st = $('stateFilter').value;
             const sf = $('statusFilter').value;
+            const lf = $('langFilter').value;
             const rows = customers.filter((c) =>
-                (!st || c.state === st) && (!sf || stateOf(c) === sf) &&
+                (!st || c.state === st) && (!sf || stateOf(c) === sf) && (!lf || c.language === lf) &&
                 (!q || String(c.name || '').toLowerCase().includes(q) || c.state.toLowerCase().includes(q) || (qd && String(c.phone || c.raw_phone || '').includes(qd))));
 
             const ready = customers.filter((c) => stateOf(c) === 'ready').length;
@@ -138,6 +144,7 @@
                 <tr>
                     <td><b>${esc(c.name || c.customer_id)}</b><div class="gr-hint" style="margin:2px 0 0">${esc(c.customer_id)}</div></td>
                     <td>${c.phone ? esc(fmtPhone(c.phone)) : `<span class="gr-tag bad">Invalid</span> ${esc(c.raw_phone || '')}`}</td>
+                    <td>${c.language === 'zh' ? '<span class="gr-tag info">中文</span>' : '<span class="gr-tag">English</span>'}${c.is_company ? '<div class="gr-hint" style="margin:2px 0 0">Company name</div>' : ''}</td>
                     <td>${esc(c.state)}</td>
                     <td class="gr-num">${rm(c.total_invoiced)}</td>
                     <td class="gr-num">${rm(c.total_paid)}</td>
@@ -145,7 +152,7 @@
                     <td>${esc(fmtDate(c.last_payment_date))}</td>
                     <td>${c.claim_status ? `<span class="gr-pill ${esc(c.claim_status)}">${esc(c.claim_status)}</span>` : ''}</td>
                     <td>${campaignTag(c)}</td>
-                </tr>`).join('') : '<tr><td colspan="9" class="gr-empty">No customers match.</td></tr>';
+                </tr>`).join('') : '<tr><td colspan="10" class="gr-empty">No customers match.</td></tr>';
         }
 
         async function scan() {
@@ -189,7 +196,7 @@
 
         $('scanBtn').addEventListener('click', scan);
         $('queueBtn').addEventListener('click', queue);
-        ['searchInput', 'stateFilter', 'statusFilter'].forEach((id) => $(id).addEventListener('input', render));
+        ['searchInput', 'stateFilter', 'statusFilter', 'langFilter'].forEach((id) => $(id).addEventListener('input', render));
         scan();
     })();
     </script>

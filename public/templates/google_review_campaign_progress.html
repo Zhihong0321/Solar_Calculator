@@ -73,8 +73,12 @@
             <div class="gr-card" style="padding:14px">
                 <h2 class="gr-step-title" style="margin:0 0 10px">Message and pacing</h2>
                 <div class="gr-field">
-                    <label for="template">Message template <span style="font-weight:400">(use {name}, {first_name} and {review_link})</span></label>
-                    <textarea id="template" class="gr-input" placeholder="Message template not set yet"></textarea>
+                    <label for="template">English message <span style="font-weight:400">(sent to non-Chinese names and companies. Use {customer_name} and {review_link}; {a|b} picks one at random)</span></label>
+                    <textarea id="template" class="gr-input" placeholder="English message not set yet"></textarea>
+                </div>
+                <div class="gr-field" style="margin-top:10px">
+                    <label for="templateZh">Chinese message <span style="font-weight:400">(sent when the customer's name looks Chinese. Same placeholders. Empty = English is used)</span></label>
+                    <textarea id="templateZh" class="gr-input" placeholder="Chinese message not set yet"></textarea>
                 </div>
                 <div class="gr-field" style="margin-top:10px">
                     <label for="reviewUrl">Google review link</label>
@@ -95,7 +99,8 @@
                 <div class="gr-hint">Each gap is a random time between min and max. After a random number of messages the sender takes a longer random rest. Gaps under 30 seconds are not accepted.</div>
                 <div class="gr-toolbar" style="margin-top:10px">
                     <button type="button" class="gr-btn primary" id="saveBtn"><i class="fa-solid fa-floppy-disk"></i> Save</button>
-                    <button type="button" class="gr-btn" id="testBtn"><i class="fa-brands fa-whatsapp"></i> Send test to <span id="testPhone"></span></button>
+                    <button type="button" class="gr-btn" id="testBtn"><i class="fa-brands fa-whatsapp"></i> Test English to <span id="testPhone"></span></button>
+                    <button type="button" class="gr-btn" id="testZhBtn"><i class="fa-brands fa-whatsapp"></i> Test Chinese</button>
                 </div>
             </div>
 
@@ -108,8 +113,8 @@
             </div>
             <div class="gr-table-wrap">
                 <table class="gr-table">
-                    <thead><tr><th>Customer</th><th>Number</th><th>Status</th><th>Sent at</th><th>Tries</th><th>Detail</th></tr></thead>
-                    <tbody id="rows"><tr><td colspan="6" class="gr-empty">Loading…</td></tr></tbody>
+                    <thead><tr><th>Customer</th><th>Number</th><th>Lang</th><th>Status</th><th>Sent at</th><th>Tries</th><th>Detail</th></tr></thead>
+                    <tbody id="rows"><tr><td colspan="7" class="gr-empty">Loading…</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -136,6 +141,7 @@
 
         function fillForm(s) {
             $('template').value = s.message_template || '';
+            $('templateZh').value = s.message_template_zh || '';
             $('reviewUrl').value = s.review_url || '';
             $('sessionId').value = s.session_id || '';
             $('minInt').value = s.min_interval_sec; $('maxInt').value = s.max_interval_sec;
@@ -146,7 +152,7 @@
 
         function formBody() {
             return {
-                message_template: $('template').value, review_url: $('reviewUrl').value, session_id: $('sessionId').value,
+                message_template: $('template').value, message_template_zh: $('templateZh').value, review_url: $('reviewUrl').value, session_id: $('sessionId').value,
                 min_interval_sec: $('minInt').value, max_interval_sec: $('maxInt').value, daily_limit: $('daily').value,
                 window_start_hour: $('winStart').value, window_end_hour: $('winEnd').value,
                 batch_size_min: $('batchMin').value, batch_size_max: $('batchMax').value,
@@ -184,11 +190,12 @@
                 <tr>
                     <td><b>${esc(m.customer_name || m.customer_id)}</b>${m.is_test ? ' <span class="gr-tag warn">TEST</span>' : ''}</td>
                     <td>${esc(fmtPhone(m.phone))}</td>
+                    <td>${m.language === 'zh' ? '中文' : (m.language === 'en' ? 'EN' : '')}</td>
                     <td>${statusTag(m.status)}</td>
                     <td>${esc(fmtDT(m.sent_at))}</td>
                     <td>${m.attempts}</td>
                     <td>${m.last_error ? `<span style="color:#991b1b">${esc(m.last_error)}</span>` : (m.message_text ? `<details><summary>Message</summary><div style="white-space:pre-wrap;max-width:360px">${esc(m.message_text)}</div></details>` : '')}</td>
-                </tr>`).join('') : '<tr><td colspan="6" class="gr-empty">Nothing here yet.</td></tr>';
+                </tr>`).join('') : '<tr><td colspan="7" class="gr-empty">Nothing here yet.</td></tr>';
         }
 
         async function load() {
@@ -214,7 +221,7 @@
         }
 
         async function start() {
-            if (!data.settings.message_template) {
+            if (!data.settings.message_template && !data.settings.message_template_zh) {
                 return Swal.fire({ icon: 'info', title: 'No message template yet', text: 'Sending will wait until a template is saved.' }).then(() => undefined);
             }
             const r = await Swal.fire({
@@ -233,15 +240,15 @@
             catch (err) { Swal.fire({ icon: 'error', title: errTitle, text: err.message }); }
         }
 
-        async function testSend() {
+        async function testSend(lang) {
             const r = await Swal.fire({
-                title: 'Send a test message?',
-                html: `Sends the saved template (sample name) to <b>${esc(fmtPhone(data.test_phone))}</b> only.`,
+                title: lang === 'zh' ? 'Send a Chinese test message?' : 'Send an English test message?',
+                html: `Sends the saved ${lang === 'zh' ? 'Chinese' : 'English'} message (sample name) to <b>${esc(fmtPhone(data.test_phone))}</b> only.`,
                 showCancelButton: true, confirmButtonText: 'Send test'
             });
             if (!r.isConfirmed) return;
             try {
-                const out = await api('/api/google-review/campaign/test-send', { method: 'POST', headers: json, body: '{}' });
+                const out = await api('/api/google-review/campaign/test-send', { method: 'POST', headers: json, body: JSON.stringify({ lang }) });
                 Swal.fire(out.sent ? { icon: 'success', title: 'Test sent' } : { icon: 'error', title: 'Test not sent', text: out.error });
                 load();
             } catch (err) { Swal.fire({ icon: 'error', title: 'Test not sent', text: err.message }); }
@@ -251,7 +258,8 @@
         $('startBtn').addEventListener('click', start);
         $('pauseBtn').addEventListener('click', () => simple('/api/google-review/campaign/pause', 'Could not pause'));
         $('retryBtn').addEventListener('click', () => simple('/api/google-review/campaign/retry-failed', 'Could not retry'));
-        $('testBtn').addEventListener('click', testSend);
+        $('testBtn').addEventListener('click', () => testSend('en'));
+        $('testZhBtn').addEventListener('click', () => testSend('zh'));
         $('statusFilter').addEventListener('change', () => data && render());
         load();
         setInterval(load, 10000);
