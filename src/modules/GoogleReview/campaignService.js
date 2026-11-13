@@ -7,9 +7,11 @@ const nameUtils = require('./nameUtils');
 const WA_BASE_URL = String(process.env.GOOGLE_REVIEW_WA_BASE_URL || 'https://ee-baileys-production.up.railway.app').replace(/\/+$/, '');
 const DEFAULT_SESSION_ID = 'eternalgy-auth';
 const TEST_PHONE = '601121000099';
-// Where customers finally land: the Google Maps review box.
-const GOOGLE_REVIEW_URL =
-  'https://www.google.com/maps/place/Eternalgy+Sdn+Bhd/@1.5519339,103.7825061,17z/data=!4m8!3m7!1s0x31da6db9f2e0d68f:0xe30f21260dcdbc70!8m2!3d1.5519285!4d103.785081!9m1!1b1!16s%2Fg%2F11l5l59cd3?entry=ttu&g_ep=EgoyMDI2MTExMC4wIKXMDSoASAFQAw%3D%3D';
+// Where customers finally land: Google's direct "write a review" page for the business (opens the review
+// form, asks for a Google sign-in if needed). Place ID of Eternalgy Sdn Bhd, checked against Google Maps.
+// The old Maps place link (.../maps/place/...!9m1!1b1) only listed existing reviews and pushed Maps app updates.
+const GOOGLE_PLACE_ID = 'ChIJj9bg8rlt2jERcLzNDSYhD-M';
+const GOOGLE_REVIEW_URL = `https://search.google.com/local/writereview?placeid=${GOOGLE_PLACE_ID}`;
 // Short link put in the WhatsApp message; GET /review on this app redirects to GOOGLE_REVIEW_URL.
 const SHORT_REVIEW_URL = `${String(process.env.PUBLIC_BASE_URL || 'https://calculator.atap.solar').replace(/\/+$/, '')}/review`;
 const DEFAULT_REVIEW_URL = SHORT_REVIEW_URL;
