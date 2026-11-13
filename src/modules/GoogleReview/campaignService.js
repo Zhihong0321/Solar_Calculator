@@ -473,6 +473,38 @@ function startWorker() {
   if (timer.unref) timer.unref();
 }
 
+// ---------- one-time bootstrap ----------
+
+/**
+ * Applies migrations/google_review_campaign_bootstrap.json exactly once (tracked by its id): saves the
+ * templates and pacing, queues every eligible customer and optionally starts sending. It exists so the
+ * campaign can be configured by a deploy when nobody is logged in to the progress page.
+ * Never throws; a failure is logged and the server keeps running.
+ */
+async function applyBootstrapOnce() {
+  try {
+    const file = path.join(__dirname, '../../../migrations/google_review_campaign_bootstrap.json');
+    if (!fs.existsSync(file)) return;
+    const cfg = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!cfg || !cfg.id) return;
+
+    await ensureSchema();
+    await pool.query('CREATE TABLE IF NOT EXISTS google_review_campaign_marker (name TEXT PRIMARY KEY, done_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
+    const claim = await pool.query(
+      'INSERT INTO google_review_campaign_marker (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [cfg.id]
+    );
+    if (!claim.rowCount) return; // already applied (or being applied by another instance)
+
+    if (cfg.settings) await updateSettings(cfg.settings);
+    let queued = null;
+    if (cfg.queue_eligible) queued = await enqueueEligible({ name: 'bootstrap' });
+    if (cfg.start) await setRunning(true);
+    console.log(`[GoogleReviewCampaign] bootstrap ${cfg.id} applied`, queued ? JSON.stringify(queued) : '', cfg.start ? '· sending started' : '');
+  } catch (err) {
+    console.error('[GoogleReviewCampaign] bootstrap failed:', err.message);
+  }
+}
+
 // ---------- monitor ----------
 
 async function getProgress({ limit = 200 } = {}) {
@@ -544,5 +576,6 @@ module.exports = {
   getProgress,
   retryFailed,
   startWorker,
+  applyBootstrapOnce,
   tick
 };

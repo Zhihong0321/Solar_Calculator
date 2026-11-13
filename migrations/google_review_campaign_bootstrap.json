@@ -1,0 +1,19 @@
+{
+  "id": "2026-11-13-start-75-per-hour",
+  "settings": {
+    "min_interval_sec": 30,
+    "max_interval_sec": 54,
+    "daily_limit": 800,
+    "window_start_hour": 9,
+    "window_end_hour": 20,
+    "batch_size_min": 20,
+    "batch_size_max": 30,
+    "batch_break_min_sec": 60,
+    "batch_break_max_sec": 180,
+    "session_id": "eternalgy-auth",
+    "message_template": "{Hi|Hello} {customer_name}, thank you for choosing Eternalgy for your solar system! ☀️\n\nWe'd love to hear how it's going. {If you have a minute|If you can spare a minute}, please leave us a 5 star review on Google Maps:\n{review_link}\n\nAs a thank-you, we'll give you a RM15 Touch 'n Go top-up bonus 🎁\n\nHow to claim:\n1. Open the link and leave a 5 star review\n2. Reply to this chat with a screenshot of your review\n3. Receive your RM15 TNG bonus within 5 working days\n\nThank you for your support!\nEternalgy Sdn Bhd",
+    "message_template_zh": "{您好|你好} {customer_name}，感谢您选择 Eternalgy 安装太阳能系统！☀️\n\n我们很想听听您的使用体验。{如果方便的话|若您有空}，请花一分钟在 Google 地图给我们一个 5 星好评：\n{review_link}\n\n为了感谢您，我们将赠送 RM15 Touch 'n Go 增值奖励 🎁\n\n领取方式：\n1. 点击链接，留下 5 星好评\n2. 在这个聊天里回复评论的截图\n3. 5 个工作日内，您将收到 RM15 TNG 奖励\n\n感谢您的支持！\nEternalgy Sdn Bhd"
+  },
+  "queue_eligible": true,
+  "start": true
+}

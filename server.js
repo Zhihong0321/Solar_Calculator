@@ -1009,4 +1009,7 @@ Health.startHealthCheckScheduler();
 if (process.env.INVOICE_PAID_SYNC !== 'off') require('./src/modules/Invoicing/services/invoicePaidSync').ensureInvoicePaidSync();
 
 // Google Review WhatsApp campaign sender. Idle unless a reviewer pressed Start on the campaign page.
-if (process.env.GOOGLE_REVIEW_WORKER !== 'off') GoogleReview.campaign.startWorker();
+if (process.env.GOOGLE_REVIEW_WORKER !== 'off') {
+  GoogleReview.campaign.applyBootstrapOnce();
+  GoogleReview.campaign.startWorker();
+}
