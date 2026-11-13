@@ -87,7 +87,7 @@ router.get('/api/integration/v1/users', (req, res) => {
 });
 
 router.get('/api/integration/v1/users/:id', (req, res) => withClient(res, async (client) => {
-  const result = await client.query(`${userSelect} WHERE u.bubble_id = $1 OR u.id::text = $1 LIMIT 1`, [req.params.id]);
+  const result = await client.query(`${userSelect} WHERE u.bubble_id = $1 LIMIT 1`, [req.params.id]);
   if (!result.rows.length) return res.status(404).json({ success: false, error: 'User not found' });
   return res.json({ success: true, data: publicUser(result.rows[0]) });
 }));
@@ -113,7 +113,7 @@ router.patch('/api/integration/v1/users/:id', (req, res) => withClient(res, asyn
 
   await client.query('BEGIN');
   try {
-    const existing = await client.query('SELECT id, bubble_id, linked_agent_profile FROM "user" WHERE bubble_id = $1 OR id::text = $1 LIMIT 1 FOR UPDATE', [req.params.id]);
+    const existing = await client.query('SELECT id, bubble_id, linked_agent_profile FROM "user" WHERE bubble_id = $1 LIMIT 1 FOR UPDATE', [req.params.id]);
     if (!existing.rows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'User not found' });
@@ -171,7 +171,7 @@ router.get('/api/integration/v1/support-tickets', (req, res) => {
 });
 
 router.get('/api/integration/v1/support-tickets/:id', (req, res) => withClient(res, async (client) => {
-  const result = await client.query('SELECT * FROM support_ticket WHERE bubble_id = $1 OR id::text = $1 LIMIT 1', [req.params.id]);
+  const result = await client.query('SELECT * FROM support_ticket WHERE bubble_id = $1 LIMIT 1', [req.params.id]);
   if (!result.rows.length) return res.status(404).json({ success: false, error: 'Ticket not found' });
   return res.json({ success: true, data: result.rows[0] });
 }));
@@ -196,7 +196,7 @@ router.patch('/api/integration/v1/support-tickets/:id', (req, res) => {
   params.push(req.params.id);
   return withClient(res, async (client) => {
     const result = await client.query(`UPDATE support_ticket SET ${assignments.join(', ')}, modified_date = NOW()
-      WHERE bubble_id = $${params.length} OR id::text = $${params.length} RETURNING *`, params);
+      WHERE bubble_id = $${params.length} RETURNING *`, params);
     if (!result.rows.length) return res.status(404).json({ success: false, error: 'Ticket not found' });
     return res.json({ success: true, data: result.rows[0] });
   });

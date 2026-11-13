@@ -90,11 +90,12 @@ async function main() {
     assert.equal(ticketList.status, 200);
     assert.equal((await ticketList.json()).data[0].id, 42);
     assert.deepEqual(queries.at(-1).params, ['unread', 'customer-1', 'user-7', 20, 2]);
-    for (const id of ['42', 'ticket-42']) {
+    for (const id of ['ticket-42']) {
       const ticket = await request(`/api/integration/v1/support-tickets/${id}`);
       assert.equal(ticket.status, 200);
       assert.equal((await ticket.json()).data.id, 42);
       assert.deepEqual(queries.at(-1).params, [id]);
+      assert(!queries.at(-1).sql.includes('id::text'), 'Lookups must use bubble_id only');
     }
     assert.equal((await request('/api/integration/v1/support-tickets/missing')).status, 404);
     for (const query of ['limit=101', 'offset=-1', 'status=invalid', 'created_by=', 'link_customer=a&link_customer=b']) {

@@ -63,14 +63,14 @@ Content-Type: application/json</code></pre>
       <table><thead><tr><th>Parameter</th><th>Applies to</th><th>Meaning</th></tr></thead><tbody>
         <tr><td><code>limit</code></td><td>All lists</td><td>Integer 1–100; default 50.</td></tr>
         <tr><td><code>offset</code></td><td>All lists</td><td>Non-negative integer; default 0.</td></tr>
-        <tr><td><code>:id</code></td><td>Detail and edit</td><td>Record <code>bubble_id</code>. Users and support tickets also accept numeric database <code>id</code>.</td></tr>
+        <tr><td><code>:id</code></td><td>Detail and edit</td><td>Record <code>bubble_id</code> only.</td></tr>
       </tbody></table>
       <p>List data is sorted newest first. Results are pages; request the next page with a higher <code>offset</code> until fewer than <code>limit</code> records are returned.</p>
     </section>
     <section id="users">
       <h2>Users</h2>
       <div class="endpoint"><span class="method">GET</span><code>/users</code><p>List user profiles. Sensitive authentication columns are omitted.</p></div>
-      <div class="endpoint"><span class="method">GET</span><code>/users/:id</code><p>Read one user by Bubble ID or numeric ID.</p></div>
+      <div class="endpoint"><span class="method">GET</span><code>/users/:id</code><p>Read one user by Bubble ID.</p></div>
       <div class="endpoint"><span class="method patch">PATCH</span><code>/users/:id</code><p>Edit selected user profile fields. Send only the fields to change.</p></div>
       <p>User responses include <code>id</code>, <code>bubble_id</code>, <code>email</code>, <code>access_level</code>, <code>linked_agent_profile</code>, <code>name</code>, <code>contact</code>, <code>banker</code>, <code>bankin_account</code>, <code>user_signature</code>, <code>profile_picture</code>, <code>created_at</code>, and <code>updated_at</code>. Profile values fall back to the linked agent record where appropriate.</p>
       <table><thead><tr><th>Editable field</th><th>Rules</th></tr></thead><tbody>
@@ -100,7 +100,7 @@ Content-Type: application/json</code></pre>
     <section id="support-tickets">
       <h2>Support ticket submissions</h2>
       <div class="endpoint"><span class="method">GET</span><code>/support-tickets</code><p>List submissions with standard limit and offset pagination. Optional exact filters: <code>status</code>, <code>link_customer</code>, and <code>created_by</code>. Filters may be combined.</p></div>
-      <div class="endpoint"><span class="method">GET</span><code>/support-tickets/:id</code><p>Read a submission by numeric local ID or Bubble ID.</p></div>
+      <div class="endpoint"><span class="method">GET</span><code>/support-tickets/:id</code><p>Read a submission by Bubble ID.</p></div>
       <div class="endpoint"><span class="method patch">PATCH</span><code>/support-tickets/:id</code><p>Update selected fields. Send a non-empty JSON object containing only the fields to change. Returns the updated ticket in <code>data</code>.</p></div>
       <p>Reads return existing database fields, including <code>id</code>, <code>bubble_id</code>, <code>title</code>, <code>problem_description</code>, <code>technician_remark</code>, <code>status</code>, <code>link_customer</code>, <code>created_by</code>, <code>images</code>, <code>video_url</code> when present, <code>created_date</code>, <code>modified_date</code>, and <code>synced_at</code>. Local submissions may have no Bubble ID. Images are arrays of URLs; legacy Bubble URLs may start with <code>//</code>.</p>
       <p>Customer references are stored as submitted: legacy Bubble customer-profile IDs or local customer IDs. Creator references identify the submitting user. Related customer and user records are not expanded.</p>
