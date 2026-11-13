@@ -33,6 +33,10 @@ const campaignHandler = (fn) => async (req, res) => {
   }
 };
 
+// Public short link for customers (no login): /review -> the Google Maps review box.
+// 302 so the target can change later without breaking links already sent.
+router.get('/review', (req, res) => res.redirect(302, campaign.GOOGLE_REVIEW_URL));
+
 router.get('/google-review/campaign', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign.html')));
 router.get('/google-review/campaign/progress', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign_progress.html')));
 
