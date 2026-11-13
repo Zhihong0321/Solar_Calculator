@@ -156,8 +156,10 @@ function toWaNumber(input) {
 // ---------- eligibility scan ----------
 
 /**
- * Eligible = SEDA approved AND paid >= 100% of invoiced (same payment/invoice sums the Customer page
- * uses). Customers without a usable mobile number are still listed, labelled, so nothing disappears.
+ * Eligible = paid >= 100% of the invoiced amount (same payment/invoice sums the Customer page uses, plus
+ * payments linked only through their invoice). SEDA status is NOT a condition: it is typed in by hand and
+ * is blank for most paid customers. Customers without a usable mobile number are still listed, labelled,
+ * so nothing disappears.
  */
 async function scanEligible() {
   await ensureSchema();
@@ -172,14 +174,13 @@ async function scanEligible() {
               COALESCE(cpa.total_paid, 0)     AS total_paid,
               ROUND((COALESCE(cpa.total_paid, 0) / cia.total_invoiced) * 100, 1) AS paid_percent,
               cpa.last_payment_date,
-              s.state AS seda_state,
-              s.postcode AS seda_postcode,
+              s.seda_state,
+              s.seda_postcode,
               COALESCE(NULLIF(s.installation_address, ''), c.address) AS address,
               g.status AS claim_status,
               m.status AS campaign_status,
               m.sent_at AS campaign_sent_at
-         FROM seda_registration s
-         JOIN customer c ON c.customer_id = s.linked_customer
+         FROM customer c
          JOIN (
            SELECT linked_customer, SUM(COALESCE(total_amount, 0)) AS total_invoiced
              FROM invoice
@@ -195,13 +196,20 @@ async function scanEligible() {
             WHERE COALESCE(NULLIF(p.linked_customer, ''), pi.linked_customer) IS NOT NULL
             GROUP BY 1
          ) cpa ON cpa.linked_customer = c.customer_id
+         LEFT JOIN LATERAL (
+           -- Latest SEDA record, only used for a spare phone number and the installation state.
+           SELECT sr.applicant_phone, sr.state AS seda_state, sr.postcode AS seda_postcode, sr.installation_address
+             FROM seda_registration sr
+            WHERE sr.linked_customer = c.customer_id OR sr.bubble_id = c.linked_seda_registration
+            ORDER BY sr.created_at DESC NULLS LAST
+            LIMIT 1
+         ) s ON TRUE
          LEFT JOIN google_review_claim g
                 ON g.customer_id = c.customer_id AND g.status <> 'Rejected'
          LEFT JOIN google_review_campaign_message m
                 ON m.customer_id = c.customer_id AND m.is_test = FALSE
-        WHERE ${reviewService.SEDA_APPROVED_SQL}
-          AND ROUND((COALESCE(cpa.total_paid, 0) / cia.total_invoiced) * 100, 1) >= 100
-        ORDER BY c.customer_id, s.created_at DESC NULLS LAST
+        WHERE ROUND((COALESCE(cpa.total_paid, 0) / cia.total_invoiced) * 100, 1) >= 100
+        ORDER BY c.customer_id
      ) t
      ORDER BY t.last_payment_date DESC NULLS LAST, t.name ASC NULLS LAST`
   );
