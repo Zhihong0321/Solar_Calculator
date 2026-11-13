@@ -253,6 +253,17 @@
             mobileHideSelectors: ['body > header.gr-header']
         },
         {
+            pageKey: 'google-review-campaign-send',
+            path: '/google-review/campaign/send',
+            title: 'Send from my phone',
+            rootTab: TOOLS_ROOT_KEY,
+            routeType: 'child',
+            stack: 'google-review-campaign',
+            showBack: true,
+            parentPage: 'google-review-campaign',
+            mobileHideSelectors: ['.sp-title']
+        },
+        {
             pageKey: 'google-review-campaign-progress',
             path: '/google-review/campaign/progress',
             title: 'Review Campaign Progress',

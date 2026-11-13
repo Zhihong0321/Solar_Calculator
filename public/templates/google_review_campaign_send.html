@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0b1220">
+    <title>Send from my phone | ETERNALGY OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/google-review.css">
+    <style>
+        body { padding-bottom: env(safe-area-inset-bottom); }
+        .sp-wrap { max-width: 640px; margin: 0 auto; padding: 10px 14px 90px; }
+        .sp-top { position: sticky; top: 0; z-index: 5; background: #0b1220; padding: 10px 0 8px; margin: 0 -14px; padding-left: 14px; padding-right: 14px; border-bottom: 1px solid #1e293b; }
+        .sp-title { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .sp-title a { color: #cbd5e1; font-size: 18px; text-decoration: none; padding: 6px; }
+        .sp-title h1 { font-size: 17px; font-weight: 800; margin: 0; color: #f1f5f9; }
+        .sp-stats { display: flex; gap: 8px; margin-bottom: 8px; }
+        .sp-stat { flex: 1; background: #111a2e; border: 1px solid #1e293b; border-radius: 10px; padding: 7px 8px; text-align: center; }
+        .sp-stat b { display: block; font-size: 18px; color: #f1f5f9; }
+        .sp-stat span { font-size: 11px; color: #94a3b8; }
+        .sp-search { width: 100%; box-sizing: border-box; font-size: 16px; padding: 11px 12px; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: #f1f5f9; }
+        .sp-tabs { display: flex; gap: 6px; margin-top: 8px; }
+        .sp-tab { flex: 1; padding: 9px 4px; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: #cbd5e1; font-size: 14px; font-weight: 600; }
+        .sp-tab.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .sp-card { background: #111a2e; border: 1px solid #1e293b; border-radius: 14px; padding: 14px; margin-top: 10px; }
+        .sp-name { font-size: 17px; font-weight: 700; color: #f1f5f9; line-height: 1.25; word-break: break-word; }
+        .sp-meta { margin-top: 4px; font-size: 14px; color: #94a3b8; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .sp-tag { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #1e293b; color: #cbd5e1; }
+        .sp-tag.ok { background: #14532d; color: #bbf7d0; }
+        .sp-tag.info { background: #1e3a8a; color: #bfdbfe; }
+        .sp-go { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 12px; padding: 15px; border: 0; border-radius: 12px; background: #16a34a; color: #fff; font-size: 17px; font-weight: 800; }
+        .sp-go:disabled { opacity: .6; }
+        .sp-row { display: flex; gap: 8px; margin-top: 10px; }
+        .sp-sec { flex: 1; padding: 12px 6px; border-radius: 10px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; font-weight: 600; }
+        .sp-note { margin-top: 10px; font-size: 13px; color: #94a3b8; line-height: 1.45; }
+        .sp-poster { background: #111a2e; border: 1px solid #1e293b; border-radius: 14px; padding: 12px; margin-top: 10px; }
+        .sp-poster summary { font-weight: 700; color: #f1f5f9; font-size: 15px; }
+        .sp-poster img { width: 100%; border-radius: 10px; margin-top: 10px; }
+        .sp-empty { text-align: center; color: #94a3b8; padding: 40px 10px; }
+        .sp-err { background: #450a0a; color: #fecaca; border-radius: 10px; padding: 12px; margin-top: 10px; display: none; }
+        .sp-toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: #0f172a; color: #f1f5f9; border: 1px solid #334155; padding: 10px 16px; border-radius: 999px; font-size: 14px; display: none; z-index: 20; }
+    </style>
+</head>
+<body>
+<div class="sp-wrap">
+    <div class="sp-top">
+        <div class="sp-title">
+            <a href="/google-review/campaign/progress" title="Back"><i class="fa-solid fa-arrow-left"></i></a>
+            <h1>Send from my phone</h1>
+        </div>
+        <div class="sp-stats">
+            <div class="sp-stat"><b id="cTodo">–</b><span>To send</span></div>
+            <div class="sp-stat"><b id="cSent">–</b><span>Sent</span></div>
+            <div class="sp-stat"><b id="cToday">–</b><span>Sent by phone today</span></div>
+        </div>
+        <input id="q" class="sp-search" type="search" inputmode="search" placeholder="Search a number or name" autocomplete="off">
+        <div class="sp-tabs" id="tabs">
+            <button type="button" class="sp-tab active" data-status="todo">To send</button>
+            <button type="button" class="sp-tab" data-status="sent">Sent</button>
+            <button type="button" class="sp-tab" data-status="all">All</button>
+        </div>
+    </div>
+
+    <div id="err" class="sp-err"></div>
+
+    <details class="sp-poster">
+        <summary><i class="fa-regular fa-image"></i> Poster image</summary>
+        <img src="/google-review-bonus.png" alt="Review bonus poster" loading="lazy">
+        <div class="sp-row">
+            <button type="button" class="sp-sec" id="shareBtn"><i class="fa-solid fa-share-nodes"></i> Share image</button>
+            <a class="sp-sec" id="saveBtn" href="/google-review-bonus.png" download="eternalgy-review-bonus.png" style="text-align:center;text-decoration:none"><i class="fa-solid fa-download"></i> Save image</a>
+        </div>
+        <div class="sp-note">The link inside the message already shows this poster as a preview card in WhatsApp. WhatsApp cannot attach an image from a link, so if you also want to send the picture itself, tap <b>Share image</b> and pick the same customer, or attach it from your gallery after saving it.</div>
+    </details>
+
+    <div id="list"><div class="sp-empty">Loading…</div></div>
+    <div class="sp-note" id="pace"></div>
+</div>
+<div class="sp-toast" id="toast"></div>
+
+<script>
+(() => {
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmtPhone = (p) => p ? `+${p.slice(0, 2)} ${p.slice(2, 4)}-${p.slice(4)}` : '';
+    const fmtTime = (v) => v ? new Date(v).toLocaleString('en-MY', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    let status = 'todo';
+    let busy = false;
+    let timer = null;
+
+    function toast(text) {
+        const t = $('toast');
+        t.textContent = text; t.style.display = 'block';
+        clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 2600);
+    }
+
+    async function api(url, opts) {
+        const res = await fetch(url, Object.assign({ credentials: 'same-origin' }, opts));
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { const e = new Error(data.error || `Request failed (${res.status})`); e.status = res.status; throw e; }
+        return data;
+    }
+
+    function card(r) {
+        const lang = r.language === 'zh' ? '<span class="sp-tag info">中文</span>' : '<span class="sp-tag">English</span>';
+        const sent = r.status === 'Sent';
+        const meta = `${esc(fmtPhone(r.phone))} ${lang}${sent ? `<span class="sp-tag ok">Sent ${esc(fmtTime(r.sent_at))}${r.sent_via === 'manual' ? ' · phone' : ''}</span>` : ''}${r.claim_id ? '<span class="sp-tag ok">Verified</span>' : ''}`;
+        const actions = sent
+            ? `<div class="sp-row">
+                   <button type="button" class="sp-sec" data-open="${r.id}"><i class="fa-brands fa-whatsapp"></i> Open chat again</button>
+                   ${r.sent_via === 'manual' && !r.claim_id ? `<button type="button" class="sp-sec" data-undo="${r.id}"><i class="fa-solid fa-rotate-left"></i> Not sent</button>` : ''}
+               </div>`
+            : `<button type="button" class="sp-go" data-open="${r.id}"><i class="fa-brands fa-whatsapp"></i> Send on WhatsApp</button>`;
+        return `<div class="sp-card"><div class="sp-name">${esc(r.customer_name || r.customer_id)}</div><div class="sp-meta">${meta}</div>${actions}</div>`;
+    }
+
+    async function load() {
+        try {
+            const params = new URLSearchParams({ status });
+            const q = $('q').value.trim();
+            if (q) params.set('q', q);
+            const data = await api(`/api/google-review/campaign/send-list?${params}`);
+            $('err').style.display = 'none';
+            $('cTodo').textContent = data.counts.todo;
+            $('cSent').textContent = data.counts.sent;
+            $('cToday').textContent = data.counts.manual_today;
+            $('list').innerHTML = data.rows.length ? data.rows.map(card).join('') : '<div class="sp-empty">Nobody here.</div>';
+            $('pace').textContent = data.counts.manual_today >= 100
+                ? `You have sent ${data.counts.manual_today} from this phone today. WhatsApp can restrict a number that messages many new people in a day: consider stopping for today.`
+                : 'Go gently: a pause of a minute or two between customers, and a break every 20 messages, keeps the number safe.';
+        } catch (err) {
+            $('err').textContent = err.status === 403 ? 'This page is for HR and KC only.' : err.message;
+            $('err').style.display = 'block';
+        }
+    }
+
+    async function openChat(id, btn) {
+        if (busy) return;
+        busy = true;
+        const old = btn.innerHTML;
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Opening…';
+        try {
+            const out = await api(`/api/google-review/campaign/messages/${id}/manual-send`, { method: 'POST' });
+            // Opens the WhatsApp app on this customer's chat with the message already typed in.
+            window.location.href = out.waUrl;
+            setTimeout(load, 1200);
+        } catch (err) {
+            toast(err.message);
+        } finally {
+            busy = false; btn.disabled = false; btn.innerHTML = old;
+        }
+    }
+
+    async function undo(id) {
+        try {
+            await api(`/api/google-review/campaign/messages/${id}/undo-manual`, { method: 'POST' });
+            toast('Put back in the list');
+            load();
+        } catch (err) { toast(err.message); }
+    }
+
+    async function sharePoster() {
+        try {
+            const blob = await (await fetch('/google-review-bonus.png')).blob();
+            const file = new File([blob], 'eternalgy-review-bonus.png', { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file] });
+            } else {
+                toast('Sharing is not supported here: use Save image');
+            }
+        } catch (err) {
+            if (err && err.name !== 'AbortError') toast('Could not share: use Save image');
+        }
+    }
+
+    $('list').addEventListener('click', (e) => {
+        const open = e.target.closest('[data-open]');
+        if (open) return openChat(Number(open.dataset.open), open);
+        const un = e.target.closest('[data-undo]');
+        if (un) return undo(Number(un.dataset.undo));
+        return undefined;
+    });
+    $('tabs').addEventListener('click', (e) => {
+        const t = e.target.closest('.sp-tab');
+        if (!t) return;
+        status = t.dataset.status;
+        document.querySelectorAll('.sp-tab').forEach((x) => x.classList.toggle('active', x === t));
+        load();
+    });
+    $('q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 350); });
+    $('shareBtn').addEventListener('click', sharePoster);
+    // Coming back from WhatsApp: refresh the list.
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });
+    load();
+})();
+</script>
+<script src="/js/navigation.js"></script>
+</body>
+</html>

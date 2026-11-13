@@ -60,6 +60,7 @@ ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS verified_at 
 ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS verified_by_name TEXT;
 ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS claim_id INTEGER;
 ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS remark TEXT;
+ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS sent_via TEXT;   -- NULL = automatic sender, 'manual' = sent from a phone
 
 DO $$
 BEGIN

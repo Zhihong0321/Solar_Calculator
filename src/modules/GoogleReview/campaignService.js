@@ -507,6 +507,88 @@ function startWorker() {
   if (timer.unref) timer.unref();
 }
 
+// ---------- manual sending from a phone (WhatsApp app) ----------
+
+/**
+ * Customers for the mobile send page. status: 'todo' (queued / failed, in send order), 'sent' (newest first)
+ * or 'all'. `q` searches a phone number (any format) or a name.
+ */
+async function listForSend({ status = 'todo', q = null, limit = 60 } = {}) {
+  await ensureSchema();
+  const rawQ = String(q || '').trim();
+  const digits = rawQ.replace(/\D/g, '');
+  const phoneLike = digits.length >= 4 ? `%${digits.startsWith('0') ? `60${digits.slice(1)}` : digits}%` : null;
+  const nameLike = rawQ ? `%${rawQ.replace(/[%_]/g, '')}%` : null;
+  const mode = ['todo', 'sent', 'all'].includes(status) ? status : 'todo';
+
+  const rows = await pool.query(
+    `SELECT id, customer_id, customer_name, phone, status, sent_at, sent_via, claim_id, verified_at
+       FROM google_review_campaign_message
+      WHERE is_test = FALSE
+        AND ($2::text = 'all' OR ($2::text = 'todo' AND status IN ('Queued', 'Failed', 'Sending')) OR ($2::text = 'sent' AND status = 'Sent'))
+        AND (($3::text IS NULL AND $4::text IS NULL) OR phone LIKE $3 OR customer_name ILIKE $4)
+      ORDER BY CASE WHEN $2::text = 'todo' THEN id END ASC, COALESCE(sent_at, updated_at) DESC, id DESC
+      LIMIT $1`,
+    [limit, mode, phoneLike, nameLike]
+  );
+  const counts = (await pool.query(
+    `SELECT COUNT(*) FILTER (WHERE status IN ('Queued', 'Failed', 'Sending'))::int AS todo,
+            COUNT(*) FILTER (WHERE status = 'Sent')::int AS sent,
+            COUNT(*) FILTER (WHERE status = 'Sent' AND sent_via = 'manual'
+                               AND (sent_at AT TIME ZONE 'Asia/Kuala_Lumpur')::date = (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date)::int AS manual_today
+       FROM google_review_campaign_message WHERE is_test = FALSE`
+  )).rows[0];
+
+  return {
+    counts,
+    rows: rows.rows.map((r) => ({ ...r, language: nameUtils.detectLanguage(r.customer_name) }))
+  };
+}
+
+/**
+ * Renders this customer's message and marks them Sent (manual). The page then opens
+ * https://wa.me/<number>?text=<message> so the phone's WhatsApp app opens on the customer's chat with the
+ * text filled in. An already-sent customer just gets the link again. Returns { waUrl, text, message } or { error, code }.
+ */
+async function manualSend(messageId, actor) {
+  await ensureSchema();
+  const settings = await getSettings();
+  const found = await pool.query('SELECT * FROM google_review_campaign_message WHERE id = $1 AND is_test = FALSE', [messageId]);
+  const row = found.rows[0];
+  if (!row) return { error: 'Message not found', code: 404 };
+
+  const { lang, template } = pickTemplate(settings, row.customer_name);
+  if (!template) return { error: 'No message template saved yet', code: 409 };
+  const text = renderMessage(template, { name: row.customer_name, reviewUrl: settings.review_url, lang });
+  const waUrl = `https://wa.me/${row.phone}?text=${encodeURIComponent(text)}`;
+
+  let message = row;
+  if (row.status !== 'Sent') {
+    message = (await pool.query(
+      `UPDATE google_review_campaign_message
+          SET status = 'Sent', sent_at = NOW(), sent_via = 'manual', message_text = $2, language = $3,
+              last_error = NULL, remark = COALESCE(remark, $4), updated_at = NOW()
+        WHERE id = $1 RETURNING *`,
+      [messageId, text, lang, `sent from phone by ${(actor && actor.name) || 'HR/KC'}`]
+    )).rows[0];
+  }
+  return { waUrl, text, message };
+}
+
+/** The send did not happen after all: put a manually-sent customer back in the queue. */
+async function undoManualSend(messageId) {
+  await ensureSchema();
+  const result = await pool.query(
+    `UPDATE google_review_campaign_message
+        SET status = 'Queued', sent_at = NULL, sent_via = NULL, message_text = NULL, updated_at = NOW()
+      WHERE id = $1 AND is_test = FALSE AND status = 'Sent' AND sent_via = 'manual' AND claim_id IS NULL
+      RETURNING *`,
+    [messageId]
+  );
+  if (!result.rows[0]) return { error: 'Only a customer you marked sent from the phone (and not yet verified) can be undone', code: 409 };
+  return { message: result.rows[0] };
+}
+
 // ---------- verify a reply and send the customer to the Google Review claims page ----------
 
 /**
@@ -679,5 +761,8 @@ module.exports = {
   startWorker,
   applyBootstrapOnce,
   verifyAndCreateClaim,
+  listForSend,
+  manualSend,
+  undoManualSend,
   tick
 };

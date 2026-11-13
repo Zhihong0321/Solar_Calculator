@@ -35,9 +35,30 @@ const campaignHandler = (fn) => async (req, res) => {
 
 // Public short link for customers (no login): /review -> the Google Maps review box.
 // 302 so the target can change later without breaking links already sent.
-router.get('/review', (req, res) => res.redirect(302, campaign.GOOGLE_REVIEW_URL));
+// WhatsApp (and other chat apps) fetch the link to build a preview card: they get a small page whose
+// image is the campaign poster, so the customer sees the poster inside the message. People get the redirect.
+const PREVIEW_BOTS = /whatsapp|facebookexternalhit|facebot|telegrambot|twitterbot|slackbot|linkedinbot|discordbot/i;
+router.get('/review', (req, res) => {
+  if (PREVIEW_BOTS.test(req.get('user-agent') || '')) {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    res.set('Cache-Control', 'public, max-age=300');
+    return res.status(200).send(`<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Eternalgy - give us a 5 star review, get RM15 Touch 'n Go</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Eternalgy">
+<meta property="og:title" content="Give us a 5 star review and get RM15 Touch 'n Go">
+<meta property="og:description" content="Tap to leave your review on Google Maps.">
+<meta property="og:image" content="${origin}/google-review-bonus.png">
+<meta property="og:image:width" content="1080"><meta property="og:image:height" content="1080">
+<meta property="og:url" content="${origin}/review">
+<meta name="twitter:card" content="summary_large_image">
+</head><body><a href="${campaign.GOOGLE_REVIEW_URL}">Leave a Google review</a></body></html>`);
+  }
+  return res.redirect(302, campaign.GOOGLE_REVIEW_URL);
+});
 
 router.get('/google-review/campaign', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign.html')));
+router.get('/google-review/campaign/send', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign_send.html')));
 router.get('/google-review/campaign/progress', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign_progress.html')));
 
 router.get('/api/google-review/campaign/eligible', ...reviewer, campaignHandler(async () => {
@@ -47,6 +68,27 @@ router.get('/api/google-review/campaign/eligible', ...reviewer, campaignHandler(
 router.post('/api/google-review/campaign/queue', ...reviewer, campaignHandler((req) =>
   campaign.enqueueEligible(req.googleReviewActor, { skipClaimed: req.body.skip_claimed !== false })));
 router.get('/api/google-review/campaign/progress', ...reviewer, campaignHandler((req) => campaign.getProgress({ status: req.query.status, q: req.query.q })));
+router.get('/api/google-review/campaign/send-list', ...reviewer, campaignHandler((req) => campaign.listForSend({ status: req.query.status, q: req.query.q })));
+router.post('/api/google-review/campaign/messages/:id/manual-send', ...reviewer, async (req, res) => {
+  try {
+    const result = await campaign.manualSend(Number(req.params.id), req.googleReviewActor);
+    if (result.error) return res.status(result.code || 400).json({ error: result.error });
+    return res.json(result);
+  } catch (err) {
+    console.error('[GoogleReviewCampaign] manual-send error:', err);
+    return res.status(500).json({ error: err.message || 'Could not prepare the message' });
+  }
+});
+router.post('/api/google-review/campaign/messages/:id/undo-manual', ...reviewer, async (req, res) => {
+  try {
+    const result = await campaign.undoManualSend(Number(req.params.id));
+    if (result.error) return res.status(result.code || 400).json({ error: result.error });
+    return res.json(result);
+  } catch (err) {
+    console.error('[GoogleReviewCampaign] undo-manual error:', err);
+    return res.status(500).json({ error: err.message || 'Could not undo' });
+  }
+});
 router.post('/api/google-review/campaign/messages/:id/verify', ...reviewer, ctrl.handleUpload, ctrl.verifyCampaignMessage);
 router.put('/api/google-review/campaign/settings', ...reviewer, campaignHandler(async (req) => ({ settings: await campaign.updateSettings(req.body) })));
 router.post('/api/google-review/campaign/start', ...reviewer, campaignHandler(async () => ({ settings: await campaign.setRunning(true) })));
