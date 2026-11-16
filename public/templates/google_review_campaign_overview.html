@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Review Campaign Overview | ETERNALGY OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/google-review.css">
+    <style>
+        .ov-main { max-width: 1100px; margin: 0 auto; padding: 16px 16px 56px; display: flex; flex-direction: column; gap: 14px; }
+        .ov-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .ov-pill.run { background: rgba(52,211,153,.16); color: var(--gr-ok); }
+        .ov-pill.stop { background: rgba(251,191,36,.16); color: var(--gr-warn); }
+        .ov-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+        .ov-kpi { background: var(--gr-card); border: 1px solid var(--gr-line); border-radius: 14px; padding: 14px 16px; }
+        .ov-kpi .l { font-size: 12px; color: var(--gr-muted); font-weight: 600; }
+        .ov-kpi .v { font-size: 30px; font-weight: 800; line-height: 1.15; margin-top: 4px; }
+        .ov-kpi .s { font-size: 12px; color: var(--gr-muted); margin-top: 2px; }
+        .ov-kpi.good .v { color: var(--gr-ok); }
+        .ov-kpi.bad .v { color: var(--gr-bad); }
+        .ov-h { font-size: 15px; font-weight: 700; margin: 0 0 10px; }
+        .ov-sub { font-size: 12px; color: var(--gr-muted); font-weight: 400; margin-left: 6px; }
+        .ov-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 800px) { .ov-two { grid-template-columns: 1fr; } }
+        .ov-funnel { display: flex; flex-direction: column; gap: 8px; }
+        .ov-frow { display: grid; grid-template-columns: 150px 1fr 90px; align-items: center; gap: 10px; font-size: 13px; }
+        .ov-fbar { height: 22px; background: #1e293b; border-radius: 6px; overflow: hidden; }
+        .ov-fbar > span { display: block; height: 100%; background: var(--gr-accent); border-radius: 6px; min-width: 2px; }
+        .ov-fnum { text-align: right; font-weight: 700; }
+        .ov-fnum small { color: var(--gr-muted); font-weight: 500; }
+        .ov-bar { height: 14px; background: #1e293b; border-radius: 999px; overflow: hidden; display: flex; }
+        .ov-bar > span { display: block; height: 100%; }
+        .ov-chart { display: flex; align-items: flex-end; gap: 6px; height: 170px; padding-top: 8px; }
+        .ov-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+        .ov-bars { display: flex; align-items: flex-end; gap: 2px; width: 100%; justify-content: center; flex: 1; }
+        .ov-bars > i { display: block; width: 45%; max-width: 18px; border-radius: 4px 4px 0 0; min-height: 0; }
+        .ov-bars > i.s { background: var(--gr-accent); }
+        .ov-bars > i.v { background: var(--gr-ok); }
+        .ov-cnum { font-size: 10px; color: var(--gr-muted); height: 14px; }
+        .ov-day { font-size: 10px; color: var(--gr-muted); margin-top: 4px; white-space: nowrap; }
+        .ov-legend { display: flex; gap: 14px; font-size: 12px; color: var(--gr-muted); margin-top: 8px; }
+        .ov-legend b { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+        .ov-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ov-tbl th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--gr-muted); padding: 6px 8px; border-bottom: 1px solid var(--gr-line-strong); white-space: nowrap; }
+        .ov-tbl td { padding: 8px; border-bottom: 1px solid var(--gr-line); vertical-align: top; }
+        .ov-tbl td.n, .ov-tbl th.n { text-align: right; }
+        .ov-scroll { overflow-x: auto; }
+        .ov-tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #1e293b; color: var(--gr-muted); white-space: nowrap; }
+        .ov-tag.ok { background: rgba(52,211,153,.16); color: var(--gr-ok); }
+        .ov-tag.bad { background: rgba(248,113,113,.16); color: var(--gr-bad); }
+        .ov-tag.warn { background: rgba(251,191,36,.16); color: var(--gr-warn); }
+        .ov-tag.info { background: rgba(59,130,246,.18); color: #93c5fd; }
+        .ov-note { font-size: 12px; color: var(--gr-muted); }
+        .ov-warn { background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.35); color: var(--gr-warn); border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+        .ov-err { background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.35); color: var(--gr-bad); border-radius: 10px; padding: 14px; font-size: 14px; }
+        .ov-empty { color: var(--gr-muted); font-size: 13px; padding: 8px 0; }
+        .gr-hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <header class="gr-header">
+        <div class="gr-header-inner">
+            <a href="/" class="gr-back" title="Back"><i class="fa-solid fa-arrow-left"></i></a>
+            <div>
+                <h1 class="gr-title">Google Review Campaign</h1>
+                <p class="gr-subtitle">Overview: RM15 Touch 'n Go bonus for a 5-star review · read only</p>
+            </div>
+            <div class="gr-header-links"><span class="ov-pill stop" id="status">Loading…</span></div>
+        </div>
+    </header>
+
+    <main class="ov-main">
+        <div id="error" class="ov-err gr-hidden"></div>
+        <div id="warn" class="ov-warn gr-hidden"></div>
+
+        <div id="body" class="gr-hidden" style="display:flex;flex-direction:column;gap:14px">
+            <div class="ov-kpis" id="kpis"></div>
+
+            <div class="gr-card">
+                <h2 class="ov-h">Progress <span class="ov-sub" id="progressSub"></span></h2>
+                <div class="ov-bar" id="bar"></div>
+                <div class="ov-note" id="barText" style="margin-top:8px"></div>
+            </div>
+
+            <div class="ov-two">
+                <div class="gr-card">
+                    <h2 class="ov-h">From message to payout <span class="ov-sub">share of messages sent</span></h2>
+                    <div class="ov-funnel" id="funnel"></div>
+                </div>
+                <div class="gr-card">
+                    <h2 class="ov-h">WhatsApp numbers <span class="ov-sub">messages are shared between them</span></h2>
+                    <div class="ov-scroll"><table class="ov-tbl">
+                        <thead><tr><th>Number</th><th>Status</th><th class="n">Today</th><th class="n">Total</th></tr></thead>
+                        <tbody id="numbers"></tbody>
+                    </table></div>
+                </div>
+            </div>
+
+            <div class="gr-card">
+                <h2 class="ov-h">Last 14 days <span class="ov-sub">messages sent and reviews confirmed per day</span></h2>
+                <div class="ov-chart" id="chart"></div>
+                <div class="ov-legend"><span><b style="background:var(--gr-accent)"></b>Sent</span><span><b style="background:var(--gr-ok)"></b>Review confirmed</span></div>
+            </div>
+
+            <div class="ov-two">
+                <div class="gr-card">
+                    <h2 class="ov-h">Reviews confirmed <span class="ov-sub">latest</span></h2>
+                    <div id="verified"></div>
+                </div>
+                <div class="gr-card">
+                    <h2 class="ov-h">Daily history</h2>
+                    <div class="ov-scroll" style="max-height:340px;overflow-y:auto"><table class="ov-tbl">
+                        <thead><tr><th>Date</th><th class="n">Sent</th><th class="n">Confirmed</th></tr></thead>
+                        <tbody id="dailyRows"></tbody>
+                    </table></div>
+                </div>
+            </div>
+
+            <div class="gr-card">
+                <h2 class="ov-h">Recent activity <span class="ov-sub">latest 40 attempts</span></h2>
+                <div class="ov-scroll"><table class="ov-tbl">
+                    <thead><tr><th>Time</th><th>Event</th><th>Customer</th><th>Via</th><th>Detail</th></tr></thead>
+                    <tbody id="recent"></tbody>
+                </table></div>
+            </div>
+
+            <div class="ov-note" id="footer"></div>
+        </div>
+    </main>
+
+    <script>
+    (() => {
+        const $ = (id) => document.getElementById(id);
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const n0 = (v) => Number(v || 0);
+        const fmtDT = (v) => v ? new Date(v).toLocaleString('en-MY', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–';
+        const fmtDay = (v) => new Date(`${String(v).slice(0, 10)}T00:00:00`).toLocaleDateString('en-MY', { day: '2-digit', month: 'short' });
+        const rm = (v) => `RM ${n0(v).toLocaleString('en-MY', { maximumFractionDigits: 0 })}`;
+        const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+
+        const kpi = (label, value, sub, cls) => `<div class="ov-kpi ${cls || ''}"><div class="l">${esc(label)}</div><div class="v">${esc(value)}</div><div class="s">${esc(sub || '')}</div></div>`;
+
+        function claimCount(claims, ...statuses) {
+            return (claims || []).filter((c) => statuses.includes(String(c.status))).reduce((a, c) => a + n0(c.n), 0);
+        }
+        function claimRm(claims, ...statuses) {
+            return (claims || []).filter((c) => statuses.includes(String(c.status))).reduce((a, c) => a + n0(c.rm), 0);
+        }
+
+        function render(d) {
+            const t = d.totals || {};
+            const sent = n0(t.sent), total = n0(t.total), queued = n0(t.queued);
+            const claims = d.claims || [];
+            const approved = claimCount(claims, 'Approved', 'Paid');
+            const paid = claimCount(claims, 'Paid');
+            const paidRm = claimRm(claims, 'Paid');
+            const owedRm = claimRm(claims, 'Pending', 'Approved');
+
+            $('status').className = `ov-pill ${d.running ? 'run' : 'stop'}`;
+            $('status').innerHTML = d.running
+                ? `<i class="fa-solid fa-circle" style="font-size:8px"></i> Running${d.window ? ` · ${esc(d.window.from)}–${esc(d.window.until)}` : ''}`
+                : '<i class="fa-solid fa-pause" style="font-size:10px"></i> Paused';
+
+            $('kpis').innerHTML = [
+                kpi('Messages sent', sent.toLocaleString('en-MY'), `${n0(t.sent_today)} today`),
+                kpi('Reviews confirmed', n0(t.verified), sent ? `${pct(n0(t.verified), sent)}% of messages sent` : '', 'good'),
+                kpi('Bonus paid', rm(paidRm), `${paid} paid · ${rm(owedRm)} waiting to be paid`),
+                kpi('Still to send', queued.toLocaleString('en-MY'), d.days_left ? `about ${d.days_left} day${d.days_left === 1 ? '' : 's'} at today's limits` : ''),
+                kpi('Failed', n0(t.failed), n0(t.failed) ? 'see recent activity below' : 'none', n0(t.failed) ? 'bad' : '')
+            ].join('');
+
+            const w = (n) => (total ? (n / total) * 100 : 0);
+            $('bar').innerHTML = `<span style="width:${w(sent)}%;background:var(--gr-ok)"></span><span style="width:${w(n0(t.failed))}%;background:var(--gr-bad)"></span><span style="width:${w(n0(t.sending))}%;background:var(--gr-warn)"></span>`;
+            $('progressSub').textContent = total ? `${pct(sent, total)}% of ${total.toLocaleString('en-MY')} customers messaged` : '';
+            $('barText').textContent = total
+                ? `${sent.toLocaleString('en-MY')} sent · ${queued.toLocaleString('en-MY')} waiting${t.first_sent_at ? ` · started ${fmtDT(t.first_sent_at)}` : ''}${t.last_sent_at ? ` · last message ${fmtDT(t.last_sent_at)}` : ''}${d.note ? ` · ${d.note}` : ''}`
+                : 'No customers in the campaign yet.';
+
+            const steps = [
+                ['Messages sent', sent, 'var(--gr-accent)'],
+                ['Review confirmed', n0(t.verified), 'var(--gr-ok)'],
+                ['Approved', approved, 'var(--gr-ok)'],
+                ['Bonus paid', paid, 'var(--gr-ok)']
+            ];
+            $('funnel').innerHTML = steps.map(([label, n, color]) => `
+                <div class="ov-frow"><div>${esc(label)}</div>
+                <div class="ov-fbar"><span style="width:${pct(n, sent)}%;background:${color}"></span></div>
+                <div class="ov-fnum">${n.toLocaleString('en-MY')} <small>${pct(n, sent)}%</small></div></div>`).join('');
+
+            const nums = d.numbers || [];
+            $('numbers').innerHTML = nums.length ? nums.map((x) => `
+                <tr><td><b>${esc(x.number)}</b>${x.line ? `<div class="ov-note">+${esc(x.line)}</div>` : ''}</td>
+                <td>${x.connected === null || x.connected === undefined ? '<span class="ov-tag">–</span>' : `<span class="ov-tag ${x.connected ? 'ok' : 'bad'}">${x.connected ? 'connected' : esc(x.status || 'offline')}</span>`}</td>
+                <td class="n">${n0(x.today)}${x.limit ? ` / ${n0(x.limit)}` : ''}</td><td class="n">${n0(x.total)}</td></tr>`).join('')
+                : '<tr><td colspan="4" class="ov-empty">No messages sent yet.</td></tr>';
+
+            const days = d.daily || [];
+            const max = Math.max(1, ...days.map((x) => Math.max(n0(x.sent), n0(x.verified))));
+            $('chart').innerHTML = days.map((x) => `
+                <div class="ov-col" title="${esc(fmtDay(x.day))}: ${n0(x.sent)} sent, ${n0(x.verified)} confirmed">
+                    <div class="ov-cnum">${n0(x.sent) || ''}</div>
+                    <div class="ov-bars"><i class="s" style="height:${(n0(x.sent) / max) * 100}%"></i><i class="v" style="height:${(n0(x.verified) / max) * 100}%"></i></div>
+                    <div class="ov-day">${esc(fmtDay(x.day))}</div>
+                </div>`).join('') || '<div class="ov-empty">No data yet.</div>';
+            $('dailyRows').innerHTML = days.slice().reverse().map((x) => `<tr><td>${esc(fmtDay(x.day))}</td><td class="n">${n0(x.sent)}</td><td class="n">${n0(x.verified)}</td></tr>`).join('');
+
+            const ver = d.verified || [];
+            $('verified').innerHTML = ver.length
+                ? `<table class="ov-tbl"><tbody>${ver.map((v) => `<tr><td>${esc(v.customer_name || '')}</td><td class="ov-note">${esc(fmtDT(v.verified_at))}</td></tr>`).join('')}</tbody></table>`
+                : '<div class="ov-empty">No reviews confirmed yet.</div>';
+
+            const tag = { sent: 'ok', manual_sent: 'ok', failed: 'bad', possible_block: 'bad', link_dropped: 'warn' };
+            const rec = d.recent || [];
+            $('recent').innerHTML = rec.length ? rec.map((r) => `
+                <tr><td class="ov-note" style="white-space:nowrap">${esc(fmtDT(r.at))}</td>
+                <td><span class="ov-tag ${tag[r.event] || ''}">${esc(String(r.event).replace(/_/g, ' '))}</span></td>
+                <td>${esc(r.customer || '')} <span class="ov-note">${esc(r.phone || '')}</span></td>
+                <td>${esc(r.session_id || '')}</td><td class="ov-note">${esc(r.detail || '')}</td></tr>`).join('')
+                : '<tr><td colspan="5" class="ov-empty">No activity logged yet.</td></tr>';
+
+            const missing = d.unavailable_parts || [];
+            $('warn').classList.toggle('gr-hidden', !missing.length);
+            if (missing.length) $('warn').textContent = `Some figures could not be loaded right now: ${missing.join(', ')}. The rest is correct.`;
+            $('footer').textContent = `Updated ${fmtDT(d.generated_at)} · refreshes every minute · figures are read only. Campaign controls are on the progress page (HR/KC).`;
+            $('body').classList.remove('gr-hidden');
+        }
+
+        async function load() {
+            try {
+                const res = await fetch('/api/google-review/campaign/overview', { credentials: 'same-origin' });
+                const out = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(out.error || `Could not load (${res.status})`);
+                $('error').classList.add('gr-hidden');
+                render(out);
+            } catch (err) {
+                $('error').textContent = err.message;
+                $('error').classList.remove('gr-hidden');
+                $('status').textContent = 'Unavailable';
+            }
+        }
+        load();
+        setInterval(load, 60000);
+    })();
+    </script>
+</body>
+</html>

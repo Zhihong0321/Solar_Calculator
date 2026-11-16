@@ -900,6 +900,103 @@ async function getProgress({ limit = 200, status = null, q = null } = {}) {
   };
 }
 
+// ---------- CEO overview (read only) ----------
+
+const maskPhone = (p) => (p ? `${String(p).slice(0, 4)}••••${String(p).slice(-3)}` : '');
+
+/**
+ * Everything the read-only CEO page shows: totals, funnel (sent -> replied/verified -> approved -> paid),
+ * sends per day, each number's activity and the latest history. Each part is read on its own, so a part
+ * that fails comes back empty and labelled instead of taking the page down.
+ */
+async function getOverview() {
+  await ensureSchema();
+  const failed = [];
+  const part = async (name, fn, fallback) => {
+    try { return await fn(); } catch (err) {
+      console.error(`[GoogleReviewCampaign] overview part "${name}" failed:`, err.message);
+      failed.push(name);
+      return fallback;
+    }
+  };
+  const KL = `(sent_at AT TIME ZONE 'Asia/Kuala_Lumpur')::date`;
+
+  const settings = await part('settings', getSettings, {});
+  const totals = await part('totals', async () => (await pool.query(
+    `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE status = 'Queued')::int AS queued,
+            COUNT(*) FILTER (WHERE status = 'Sending')::int AS sending,
+            COUNT(*) FILTER (WHERE status = 'Sent')::int AS sent,
+            COUNT(*) FILTER (WHERE status = 'Failed')::int AS failed,
+            COUNT(*) FILTER (WHERE status = 'Sent' AND ${KL} = (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date)::int AS sent_today,
+            COUNT(*) FILTER (WHERE claim_id IS NOT NULL)::int AS verified,
+            COUNT(*) FILTER (WHERE status = 'Sent' AND sent_via = 'manual')::int AS sent_manual,
+            MIN(sent_at) AS first_sent_at, MAX(sent_at) AS last_sent_at
+       FROM google_review_campaign_message WHERE is_test = FALSE`
+  )).rows[0], {});
+
+  const claims = await part('claims', async () => (await pool.query(
+    `SELECT status, COUNT(*)::int AS n, COALESCE(SUM(customer_bonus), 0)::float AS rm
+       FROM google_review_claim WHERE source = 'campaign' GROUP BY status`
+  )).rows, []);
+
+  const daily = await part('daily', async () => (await pool.query(
+    `SELECT to_char(d, 'YYYY-MM-DD') AS day,
+            COALESCE(s.n, 0)::int AS sent, COALESCE(v.n, 0)::int AS verified
+       FROM generate_series((NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date - 13, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date, interval '1 day') d
+       LEFT JOIN (SELECT ${KL} AS day, COUNT(*) AS n FROM google_review_campaign_message
+                   WHERE is_test = FALSE AND status = 'Sent' GROUP BY 1) s ON s.day = d::date
+       LEFT JOIN (SELECT (verified_at AT TIME ZONE 'Asia/Kuala_Lumpur')::date AS day, COUNT(*) AS n FROM google_review_campaign_message
+                   WHERE is_test = FALSE AND verified_at IS NOT NULL GROUP BY 1) v ON v.day = d::date
+      ORDER BY d`
+  )).rows, []);
+
+  const byNumber = await part('numbers', async () => {
+    const rows = (await pool.query(
+      `SELECT COALESCE(sent_session, CASE WHEN sent_via = 'manual' THEN 'phone (manual)' ELSE 'unknown' END) AS number,
+              COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE ${KL} = (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date)::int AS today,
+              MAX(sent_at) AS last_sent_at
+         FROM google_review_campaign_message WHERE is_test = FALSE AND status = 'Sent' GROUP BY 1 ORDER BY 2 DESC`
+    )).rows;
+    const live = await getSessions();
+    const states = await Promise.all(live.map((x) => getSessionStatus(x.session_id).catch(() => ({ connected: false, status: 'unknown' }))));
+    const merged = rows.map((r) => ({ ...r, limit: null, connected: null }));
+    live.forEach((x, i) => {
+      const hit = merged.find((m) => m.number === x.session_id);
+      const info = { limit: x.daily_limit, connected: states[i].connected, status: states[i].status, line: states[i].number, enabled: x.enabled };
+      if (hit) Object.assign(hit, info); else merged.push({ number: x.session_id, total: 0, today: x.sent_today, last_sent_at: null, ...info });
+    });
+    return merged;
+  }, []);
+
+  const recent = await part('recent', async () => (await pool.query(
+    `SELECT l.at, l.event, l.session_id, l.customer, l.phone, l.detail
+       FROM google_review_campaign_log l WHERE l.event IN ('sent', 'failed', 'manual_sent', 'link_dropped', 'possible_block')
+      ORDER BY l.id DESC LIMIT 40`
+  )).rows.map((r) => ({ ...r, phone: maskPhone(r.phone) })), []);
+
+  const verified = await part('verified', async () => (await pool.query(
+    `SELECT customer_name, verified_at, verified_by_name FROM google_review_campaign_message
+      WHERE is_test = FALSE AND claim_id IS NOT NULL ORDER BY verified_at DESC LIMIT 15`
+  )).rows, []);
+
+  const capacity = (byNumber.filter((n) => n.limit && n.enabled !== false).reduce((a, n) => a + Math.min(n.limit, HARD_CAP_PER_NUMBER), 0)) || null;
+  return {
+    generated_at: new Date().toISOString(),
+    running: Boolean(settings.running),
+    window: settings.window_start_hour === undefined ? null : {
+      from: `${pad2(settings.window_start_hour)}:${pad2(settings.window_start_minute || 0)}`,
+      until: `${pad2(settings.window_end_hour)}:${pad2(settings.window_end_minute || 0)}`
+    },
+    note: settings.worker_note || null,
+    totals, claims, daily, numbers: byNumber, recent, verified,
+    daily_capacity: capacity,
+    days_left: capacity && totals.queued ? Math.ceil(totals.queued / capacity) : null,
+    unavailable_parts: failed
+  };
+}
+
 /** Failed rows go back to the queue so they are tried again at the normal pace. */
 async function retryFailed() {
   await ensureSchema();
@@ -919,6 +1016,7 @@ module.exports = {
   updateSettings,
   getSessions,
   getLog,
+  getOverview,
   HARD_CAP_PER_NUMBER,
   setRunning,
   renderMessage,

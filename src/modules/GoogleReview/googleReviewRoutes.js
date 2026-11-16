@@ -60,6 +60,9 @@ router.get('/review', (req, res) => {
 router.get('/google-review/campaign', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign.html')));
 router.get('/google-review/campaign/send', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign_send.html')));
 router.get('/google-review/campaign/progress', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign_progress.html')));
+// Read-only overview for the CEO (no controls). The page loads its numbers from the API below.
+router.get('/google-review/campaign/overview', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign_overview.html')));
+router.get('/api/google-review/campaign/overview', requireAuth, ctrl.requireOverviewViewer, campaignHandler(() => campaign.getOverview()));
 
 router.get('/api/google-review/campaign/eligible', ...reviewer, campaignHandler(async () => {
   const [customers, settings] = await Promise.all([campaign.scanEligible(), campaign.getSettings()]);

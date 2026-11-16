@@ -105,7 +105,9 @@ async function resolveActor(req) {
   return {
     userId: row.user_id,
     name: row.name || row.email || 'Unknown',
-    isReviewer: roles.some((r) => REVIEWER_ROLES.includes(r))
+    isReviewer: roles.some((r) => REVIEWER_ROLES.includes(r)),
+    // Read-only campaign overview page: the CEO, plus HR/KC and superadmin.
+    canViewOverview: roles.some((r) => ['ceo', 'hr', 'kc', 'superadmin'].includes(r))
   };
 }
 

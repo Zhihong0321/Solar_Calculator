@@ -57,6 +57,20 @@ exports.requireReviewer = async (req, res, next) => {
   }
 };
 
+/** Read-only campaign overview: CEO, HR, KC and superadmin. */
+exports.requireOverviewViewer = async (req, res, next) => {
+  try {
+    const actor = await requireActor(req, res);
+    if (!actor) return undefined;
+    if (!actor.canViewOverview) return res.status(403).json({ error: 'The campaign overview is for the CEO, HR and KC' });
+    req.googleReviewActor = actor;
+    return next();
+  } catch (err) {
+    console.error('[GoogleReview] overview access check error:', err);
+    return res.status(500).json({ error: 'Authorization error' });
+  }
+};
+
 exports.me = async (req, res) => {
   try {
     const actor = await requireActor(req, res);
