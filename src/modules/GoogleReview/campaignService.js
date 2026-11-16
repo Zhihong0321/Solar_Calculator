@@ -518,8 +518,21 @@ async function pickSender(s) {
   if (!ready.length) {
     return { note: `Waiting: no WhatsApp number is connected (${open.map((x, i) => `${x.session_id} ${statuses[i].status}`).join(', ')})`.slice(0, 300), waitSec: 60 };
   }
-  ready.sort((a, b) => (a.sent_today / a.daily_limit) - (b.sent_today / b.daily_limit) || a.position - b.position);
-  return { sessionId: ready[0].session_id };
+  // A number whose link dropped in the last 10 minutes goes to the back of the line; the others keep sending.
+  // If every ready number dropped recently, they are still tried (nothing is ever refused).
+  let recentlyDropped = new Set();
+  try {
+    const dropped = await pool.query(
+      `SELECT DISTINCT session_id FROM google_review_campaign_log WHERE event = 'link_dropped' AND at > NOW() - interval '10 minutes'`
+    );
+    recentlyDropped = new Set(dropped.rows.map((r) => r.session_id));
+  } catch (err) {
+    console.error('[GoogleReviewCampaign] could not read recent link drops:', err.message);
+  }
+  const preferred = ready.filter((x) => !recentlyDropped.has(x.session_id));
+  const choices = preferred.length ? preferred : ready;
+  choices.sort((a, b) => (a.sent_today / a.daily_limit) - (b.sent_today / b.daily_limit) || a.position - b.position);
+  return { sessionId: choices[0].session_id };
 }
 
 /**
@@ -611,11 +624,12 @@ async function tick() {
     if (!result.ok) await restNumberIfBlocked(sessionId, result.error, who);
 
     if (linkDropped) {
-      // Not the customer's fault: keep them queued and wait a few minutes for the WhatsApp link to come back.
-      const waitLink = randBetween(240, 420);
+      // Not the customer's fault: keep them queued. Only this number is affected: the next try (shortly) goes
+      // to another number, so one broken WhatsApp link no longer stalls the whole campaign.
+      const waitLink = randBetween(30, 60);
       await pool.query(
         `UPDATE google_review_campaign_settings SET next_send_at = NOW() + make_interval(secs => $1), worker_note = $2, worker_note_at = NOW() WHERE id = 1`,
-        [waitLink, `Waiting: WhatsApp connection dropped (${result.error}); ${row.customer_name || row.customer_id} stays queued, retrying in ${Math.round(waitLink / 60)} min`.slice(0, 300)]
+        [waitLink, `Waiting: WhatsApp connection dropped (${result.error}); ${row.customer_name || row.customer_id} stays queued, ${sessionId} goes to the back of the line, trying another number shortly`.slice(0, 300)]
       );
       armTimer(waitLink);
       return undefined;
