@@ -1008,8 +1008,7 @@ Health.startHealthCheckScheduler();
 // Keep invoice paid amount / paid percent in step with the payment table (idempotent, never throws).
 if (process.env.INVOICE_PAID_SYNC !== 'off') require('./src/modules/Invoicing/services/invoicePaidSync').ensureInvoicePaidSync();
 
-// Google Review WhatsApp campaign sender. Idle unless a reviewer pressed Start on the campaign page.
-if (process.env.GOOGLE_REVIEW_WORKER !== 'off') {
-  GoogleReview.campaign.applyBootstrapOnce();
-  GoogleReview.campaign.startWorker();
-}
+// Google Review WhatsApp campaign sender. Always running; it stays idle until a reviewer presses Start on the
+// campaign page, and the Pause button there is the only switch (no environment variable can turn it off).
+GoogleReview.campaign.applyBootstrapOnce();
+GoogleReview.campaign.startWorker();

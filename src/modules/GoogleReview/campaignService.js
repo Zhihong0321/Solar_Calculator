@@ -128,7 +128,8 @@ async function saveSessions(list) {
     await pool.query(
       `INSERT INTO google_review_campaign_session (session_id, daily_limit, enabled, position)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (session_id) DO UPDATE SET daily_limit = $2, enabled = $3, position = $4`,
+       ON CONFLICT (session_id) DO UPDATE SET daily_limit = $2, enabled = $3, position = $4,
+         paused_until = NULL, paused_reason = NULL`, // pressing Save on the page also resumes a rested number
       [c.id, c.limit, c.enabled, c.position]
     );
   }

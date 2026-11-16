@@ -225,7 +225,7 @@
             const numbers = data.sessions && data.sessions.length ? data.sessions : null;
             $('sessionState').className = numbers ? '' : `gr-tag ${session.connected ? 'ok' : 'bad'}`;
             $('sessionState').innerHTML = numbers
-                ? numbers.map((x) => `<span class="gr-tag ${x.connected ? 'ok' : 'bad'}" style="margin-right:4px">${esc(x.session_id)}${x.number ? ` (+${esc(x.number)})` : ''}: ${x.connected ? 'connected' : esc(x.status)} · ${x.sent_today}/${x.daily_limit} today${x.enabled ? '' : ' · off'}${x.paused_until && new Date(x.paused_until) > new Date() ? ' · RESTED (possible block)' : ''}</span>`).join('')
+                ? numbers.map((x) => `<span class="gr-tag ${x.connected ? 'ok' : 'bad'}" style="margin-right:4px">${esc(x.session_id)}${x.number ? ` (+${esc(x.number)})` : ''}: ${x.connected ? 'connected' : esc(x.status)} · ${x.sent_today}/${x.daily_limit} today${x.enabled ? '' : ' · off'}${x.paused_until && new Date(x.paused_until) > new Date() ? ' · RESTED (possible block) - press Save below to resume' : ''}</span>`).join('')
                 : `WhatsApp ${esc(s.session_id)}: ${session.connected ? `connected${session.number ? ` (+${session.number})` : ''}` : esc(session.status)}`;
             $('workerNote').textContent = s.worker_note ? `${s.worker_note} · ${fmtDT(s.worker_note_at)}` : '';
             if (s.running && s.next_send_at && t.queued) $('workerNote').textContent += ` · next send after ${fmtDT(s.next_send_at)}`;
