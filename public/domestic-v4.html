@@ -61,6 +61,14 @@
         * {
             -webkit-tap-highlight-color: transparent;
         }
+        @keyframes floatAdjustSlideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(24px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes floatAdjustPop {
+            from { opacity: 0; transform: scale(0.7); }
+            to { opacity: 1; transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -2889,6 +2897,13 @@
             const minPanels = toNumber(gate.min, 1);
             const maxPanels = toNumber(gate.max, Math.max(minPanels, actualPanels));
             const morningUsage = clampInteger(solarResult?.config?.morningUsage ?? 30, 1, 100);
+            const [open, setOpen] = useState(() => {
+                try { return localStorage.getItem('solar_float_adjust_open') === '1'; } catch (e) { return false; }
+            });
+            function setOpenPersist(next) {
+                setOpen(next);
+                try { localStorage.setItem('solar_float_adjust_open', next ? '1' : '0'); } catch (e) { /* ignore */ }
+            }
 
             function Stepper({ label, value, suffix = '', helper, onMinus, onPlus, minusDisabled, plusDisabled }) {
                 return (
@@ -2952,6 +2967,45 @@
                 );
             }
 
+            if (!open) {
+                return (
+                    <button
+                        type="button"
+                        aria-label="Open adjust panel"
+                        aria-expanded="false"
+                        onClick={() => setOpenPersist(true)}
+                        style={{
+                            position: 'fixed',
+                            right: 16,
+                            bottom: 16,
+                            width: 52,
+                            height: 52,
+                            borderRadius: '50%',
+                            border: '1px solid rgba(134, 239, 172, 0.45)',
+                            background: '#0d1f0f',
+                            color: ACCENT.light,
+                            boxShadow: '0 10px 24px rgba(0, 0, 0, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            zIndex: 300,
+                            animation: 'floatAdjustPop 0.18s ease-out'
+                        }}
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                            <line x1="4" y1="7" x2="20" y2="7" />
+                            <line x1="4" y1="17" x2="20" y2="17" />
+                            <circle cx="9" cy="7" r="2.4" fill="#0d1f0f" />
+                            <circle cx="15" cy="17" r="2.4" fill="#0d1f0f" />
+                        </svg>
+                        {updating && (
+                            <span style={{ position: 'absolute', top: 4, right: 4, width: 10, height: 10, borderRadius: '50%', background: ACCENT.light }} />
+                        )}
+                    </button>
+                );
+            }
+
             return (
                 <div style={{
                     position: 'fixed',
@@ -2959,7 +3013,8 @@
                     bottom: 12,
                     transform: 'translateX(-50%)',
                     width: 'min(calc(100vw - 24px), 402px)',
-                    zIndex: 300
+                    zIndex: 300,
+                    animation: 'floatAdjustSlideUp 0.2s ease-out'
                 }}>
                     <div style={{
                         background: '#0d1f0f',
@@ -2977,19 +3032,44 @@
                                     调整 panel qty 和 morning offset
                                 </div>
                             </div>
-                            {updating && (
-                                <div style={{
-                                    padding: '6px 9px',
-                                    borderRadius: 999,
-                                    background: '#18371f',
-                                    color: ACCENT.light,
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    Updating...
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {updating && (
+                                    <div style={{
+                                        padding: '6px 9px',
+                                        borderRadius: 999,
+                                        background: '#18371f',
+                                        color: ACCENT.light,
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        whiteSpace: 'nowrap'
+                                    }}>
+                                        Updating...
+                                    </div>
+                                )}
+                                <button
+                                    type="button"
+                                    aria-label="Collapse adjust panel"
+                                    aria-expanded="true"
+                                    onClick={() => setOpenPersist(false)}
+                                    style={{
+                                        width: 32,
+                                        height: 32,
+                                        borderRadius: '50%',
+                                        border: 'none',
+                                        background: '#18371f',
+                                        color: '#fff',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                        <polyline points="6 9 12 15 18 9" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
 
                         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
