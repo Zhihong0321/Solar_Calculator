@@ -24,7 +24,6 @@ const MIN_INTERVAL_FLOOR_SEC = 30; // pacing never goes faster than this, whatev
 // Nothing is dropped: a number that is not allowed to send right now just waits, and the customer stays queued.
 const HARD_CAP_PER_NUMBER = 25;   // most messages one number may send in a day
 const NUMBER_MIN_GAP_SEC = 300;   // least time between two sends from the same number
-const BLOCK_REST_HOURS = 24;      // a number showing signs of a block is rested this long
 const POSSIBLE_BLOCK = /banned|\bban\b|blocked|restrict|spam|forbidden|logged.?out|unauthori[sz]ed|not-authorized|rate.?limit|too many|temporarily/i;
 
 let schemaPromise = null;
@@ -179,20 +178,21 @@ async function getLog(limit = 100) {
   }
 }
 
-/** A number whose error looks like a WhatsApp block/restriction is rested; the other numbers carry on. */
+/**
+ * An error that looks like a WhatsApp block/restriction is only recorded and labelled (log line + note on the
+ * page). It never stops or pauses a number: sending carries on and a person decides.
+ */
 async function restNumberIfBlocked(sessionId, error, customerLabel) {
   if (!POSSIBLE_BLOCK.test(String(error || ''))) return false;
+  await logEvent('possible_block', { sessionId, customer: customerLabel, detail: `warning only, sending continues: ${error}` });
   try {
     await pool.query(
-      `UPDATE google_review_campaign_session
-          SET paused_until = NOW() + make_interval(hours => $2), paused_reason = $3
-        WHERE session_id = $1`,
-      [sessionId, BLOCK_REST_HOURS, `Rested ${BLOCK_REST_HOURS} h: possible WhatsApp block (${String(error).slice(0, 120)})`]
+      `UPDATE google_review_campaign_settings SET worker_note = $1, worker_note_at = NOW() WHERE id = 1`,
+      [`WARNING: ${sessionId} returned an error that may mean a WhatsApp block: ${String(error).slice(0, 160)}`]
     );
   } catch (err) {
-    console.error('[GoogleReviewCampaign] could not rest number:', err.message);
+    console.error('[GoogleReviewCampaign] could not write warning note:', err.message);
   }
-  await logEvent('possible_block', { sessionId, customer: customerLabel, detail: `number rested ${BLOCK_REST_HOURS} h after: ${error}` });
   return true;
 }
 
@@ -506,12 +506,11 @@ async function pickSender(s) {
   const winEnd = s.window_end_hour * 60 + (s.window_end_minute || 0);
   const progress = winEnd > winStart ? Math.min(1, Math.max(0, (minutes - winStart) / (winEnd - winStart))) : 1;
   const open = underCap.filter((x) => {
-    if (x.paused_until && new Date(x.paused_until).getTime() > nowMs) return false;
     if (x.last_sent_at && nowMs - new Date(x.last_sent_at).getTime() < NUMBER_MIN_GAP_SEC * 1000) return false;
     return x.sent_today < Math.max(1, Math.ceil(x.daily_limit * progress));
   });
   if (!open.length) {
-    const why = underCap.map((x) => (x.paused_until && new Date(x.paused_until).getTime() > nowMs ? `${x.session_id} rested (${x.paused_reason || 'possible block'})` : `${x.session_id} ${x.sent_today}/${x.daily_limit}`)).join(', ');
+    const why = underCap.map((x) => `${x.session_id} ${x.sent_today}/${x.daily_limit}`).join(', ');
     return { note: `Waiting: numbers are spacing out their sends to stay safe (${why})`.slice(0, 300), waitSec: 60 };
   }
   const statuses = await Promise.all(open.map((x) => getSessionStatus(x.session_id)));
