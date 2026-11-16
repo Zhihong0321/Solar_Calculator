@@ -87,13 +87,17 @@
                     <label for="reviewUrl">Google review link</label>
                     <input id="reviewUrl" class="gr-input" type="text">
                 </div>
+                <div class="gr-field" style="margin-top:10px">
+                    <label>WhatsApp numbers (sending takes turns between the connected ones; each has its own daily limit)</label>
+                    <div id="sessionList" style="display:flex;flex-direction:column;gap:6px"></div>
+                    <div class="gr-toolbar" style="margin-top:6px"><button type="button" class="gr-btn small" id="addSessionBtn"><i class="fa-solid fa-plus"></i> Add number</button></div>
+                </div>
                 <div class="gr-grid2" style="margin-top:10px">
-                    <div class="gr-field"><label for="sessionId">WhatsApp session ID</label><input id="sessionId" class="gr-input" type="text"></div>
                     <div class="gr-field"><label for="minInt">Min gap between messages (sec)</label><input id="minInt" class="gr-input" type="number" min="30"></div>
                     <div class="gr-field"><label for="maxInt">Max gap (sec)</label><input id="maxInt" class="gr-input" type="number" min="30"></div>
-                    <div class="gr-field"><label for="daily">Daily limit</label><input id="daily" class="gr-input" type="number" min="1"></div>
-                    <div class="gr-field"><label for="winStart">Send from (hour, MY time)</label><input id="winStart" class="gr-input" type="number" min="0" max="23"></div>
-                    <div class="gr-field"><label for="winEnd">Send until (hour, MY time)</label><input id="winEnd" class="gr-input" type="number" min="1" max="24"></div>
+                    <div class="gr-field"><label for="daily">Daily limit (all numbers together)</label><input id="daily" class="gr-input" type="number" min="1"></div>
+                    <div class="gr-field"><label for="winStart">Send from (MY time)</label><input id="winStart" class="gr-input" type="time"></div>
+                    <div class="gr-field"><label for="winEnd">Send until (MY time)</label><input id="winEnd" class="gr-input" type="time"></div>
                     <div class="gr-field"><label for="batchMin">Rest after min messages</label><input id="batchMin" class="gr-input" type="number" min="1"></div>
                     <div class="gr-field"><label for="batchMax">Rest after max messages</label><input id="batchMax" class="gr-input" type="number" min="1"></div>
                     <div class="gr-field"><label for="breakMin">Rest min (sec)</label><input id="breakMin" class="gr-input" type="number" min="60"></div>
@@ -124,6 +128,17 @@
                     <tbody id="rows"><tr><td colspan="7" class="gr-empty">Loading…</td></tr></tbody>
                 </table>
             </div>
+
+            <div class="gr-card" style="padding:14px">
+                <h2 class="gr-step-title" style="margin:0 0 4px">Send log</h2>
+                <div class="gr-hint" style="margin:0 0 8px">Every send attempt, newest first: sent, failed, WhatsApp link dropped (customer stays queued) and possible block (that number rests 24 h). No number can send more than <span id="hardCap">25</span> a day, and each waits at least 5 minutes between its own sends.</div>
+                <div class="gr-table-wrap">
+                    <table class="gr-table">
+                        <thead><tr><th>Time</th><th>Event</th><th>Number</th><th>Customer</th><th>Detail</th></tr></thead>
+                        <tbody id="logRows"><tr><td colspan="5" class="gr-empty">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -150,18 +165,51 @@
             $('template').value = s.message_template || '';
             $('templateZh').value = s.message_template_zh || '';
             $('reviewUrl').value = s.review_url || '';
-            $('sessionId').value = s.session_id || '';
+            renderSessionInputs(data.sessions && data.sessions.length ? data.sessions : [{ session_id: s.session_id, daily_limit: 20, enabled: true }]);
             $('minInt').value = s.min_interval_sec; $('maxInt').value = s.max_interval_sec;
-            $('daily').value = s.daily_limit; $('winStart').value = s.window_start_hour; $('winEnd').value = s.window_end_hour;
+            const hhmm = (h, m) => `${String(h).padStart(2, '0')}:${String(m || 0).padStart(2, '0')}`;
+            $('daily').value = s.daily_limit;
+            $('winStart').value = hhmm(s.window_start_hour, s.window_start_minute);
+            $('winEnd').value = s.window_end_hour >= 24 ? '23:59' : hhmm(s.window_end_hour, s.window_end_minute);
             $('batchMin').value = s.batch_size_min; $('batchMax').value = s.batch_size_max;
             $('breakMin').value = s.batch_break_min_sec; $('breakMax').value = s.batch_break_max_sec;
         }
 
+        function renderSessionInputs(list) {
+            $('sessionList').innerHTML = list.map((x) => `
+                <div class="gr-toolbar" data-session-row style="gap:8px;align-items:center">
+                    <input class="gr-input" data-f="id" type="text" placeholder="session id" value="${esc(x.session_id)}" style="flex:1;min-width:140px">
+                    <label class="gr-hint" style="margin:0;white-space:nowrap">per day <input class="gr-input" data-f="limit" type="number" min="1" max="25" value="${esc(x.daily_limit)}" style="width:80px;display:inline-block"></label>
+                    <label class="gr-hint" style="margin:0;white-space:nowrap"><input data-f="on" type="checkbox" ${x.enabled === false ? '' : 'checked'}> on</label>
+                    <button type="button" class="gr-btn small" data-remove-session title="Remove this number"><i class="fa-solid fa-xmark"></i></button>
+                </div>`).join('');
+        }
+        function readSessionInputs() {
+            return [...document.querySelectorAll('[data-session-row]')].map((row) => ({
+                session_id: row.querySelector('[data-f=id]').value.trim(),
+                daily_limit: row.querySelector('[data-f=limit]').value,
+                enabled: row.querySelector('[data-f=on]').checked
+            })).filter((x) => x.session_id);
+        }
+        $('addSessionBtn').addEventListener('click', () => renderSessionInputs([...readSessionInputs(), { session_id: '', daily_limit: 20, enabled: true }]));
+        $('sessionList').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-remove-session]');
+            if (!btn) return;
+            btn.closest('[data-session-row]').remove();
+        });
+        const splitTime = (v, fallbackH, fallbackM) => {
+            const m = /^(\d{1,2}):(\d{2})/.exec(String(v || ''));
+            return m ? { h: Number(m[1]), m: Number(m[2]) } : { h: fallbackH, m: fallbackM };
+        };
+
         function formBody() {
+            const ws = splitTime($('winStart').value, 9, 0);
+            const we = splitTime($('winEnd').value, 19, 30);
             return {
-                message_template: $('template').value, message_template_zh: $('templateZh').value, review_url: $('reviewUrl').value, session_id: $('sessionId').value,
+                message_template: $('template').value, message_template_zh: $('templateZh').value, review_url: $('reviewUrl').value,
+                sessions: readSessionInputs(),
                 min_interval_sec: $('minInt').value, max_interval_sec: $('maxInt').value, daily_limit: $('daily').value,
-                window_start_hour: $('winStart').value, window_end_hour: $('winEnd').value,
+                window_start_hour: ws.h, window_start_minute: ws.m, window_end_hour: we.h, window_end_minute: we.m,
                 batch_size_min: $('batchMin').value, batch_size_max: $('batchMax').value,
                 batch_break_min_sec: $('breakMin').value, batch_break_max_sec: $('breakMax').value
             };
@@ -174,8 +222,11 @@
 
             $('runState').className = `gr-tag ${s.running ? 'ok' : 'warn'}`;
             $('runState').textContent = s.running ? 'Running' : 'Paused (not sending)';
-            $('sessionState').className = `gr-tag ${session.connected ? 'ok' : 'bad'}`;
-            $('sessionState').textContent = `WhatsApp ${s.session_id}: ${session.connected ? `connected${session.number ? ` (+${session.number})` : ''}` : session.status}`;
+            const numbers = data.sessions && data.sessions.length ? data.sessions : null;
+            $('sessionState').className = numbers ? '' : `gr-tag ${session.connected ? 'ok' : 'bad'}`;
+            $('sessionState').innerHTML = numbers
+                ? numbers.map((x) => `<span class="gr-tag ${x.connected ? 'ok' : 'bad'}" style="margin-right:4px">${esc(x.session_id)}${x.number ? ` (+${esc(x.number)})` : ''}: ${x.connected ? 'connected' : esc(x.status)} · ${x.sent_today}/${x.daily_limit} today${x.enabled ? '' : ' · off'}${x.paused_until && new Date(x.paused_until) > new Date() ? ' · RESTED (possible block)' : ''}</span>`).join('')
+                : `WhatsApp ${esc(s.session_id)}: ${session.connected ? `connected${session.number ? ` (+${session.number})` : ''}` : esc(session.status)}`;
             $('workerNote').textContent = s.worker_note ? `${s.worker_note} · ${fmtDT(s.worker_note_at)}` : '';
             if (s.running && s.next_send_at && t.queued) $('workerNote').textContent += ` · next send after ${fmtDT(s.next_send_at)}`;
             $('startBtn').disabled = s.running; $('pauseBtn').disabled = !s.running;
@@ -190,6 +241,18 @@
                 ? `${t.sent} of ${t.total} sent (${Math.round(pct(t.sent))}%)${t.queued ? ` · about ${t.queued ? Math.max(1, data.estimated_minutes_left) : 0} min of sending left at the current pace` : ''}`
                 : 'No customers in the campaign yet. Add them from the eligible customers page.';
 
+            if (data.safety) $('hardCap').textContent = data.safety.hard_cap_per_number;
+            const logTag = { sent: 'ok', manual_sent: 'ok', test_sent: 'info', failed: 'bad', test_failed: 'bad', possible_block: 'bad', link_dropped: 'warn' };
+            const log = data.log || [];
+            $('logRows').innerHTML = log.length ? log.map((l) => `
+                <tr>
+                    <td>${esc(fmtDT(l.at))}</td>
+                    <td><span class="gr-tag ${logTag[l.event] || ''}">${esc(String(l.event).replace(/_/g, ' '))}</span></td>
+                    <td>${esc(l.session_id || '')}</td>
+                    <td>${esc(l.customer || '')}${l.phone ? ` <span class="gr-hint" style="margin:0">${esc(fmtPhone(l.phone))}</span>` : ''}</td>
+                    <td>${esc(l.detail || '')}</td>
+                </tr>`).join('') : '<tr><td colspan="5" class="gr-empty">No sends logged yet.</td></tr>';
+
             const rows = messages;
             $('rowCount').textContent = `Showing ${rows.length} (latest ${messages.length})`;
             $('rows').innerHTML = rows.length ? rows.map((m) => `
@@ -198,7 +261,7 @@
                     <td>${esc(fmtPhone(m.phone))}</td>
                     <td>${m.language === 'zh' ? '中文' : (m.language === 'en' ? 'EN' : '')}</td>
                     <td>${statusTag(m.status)}</td>
-                    <td>${esc(fmtDT(m.sent_at))}</td>
+                    <td>${esc(fmtDT(m.sent_at))}${m.sent_session ? `<div class="gr-hint" style="margin:2px 0 0">via ${esc(m.sent_session)}</div>` : (m.sent_via === 'manual' ? '<div class="gr-hint" style="margin:2px 0 0">from phone</div>' : '')}</td>
                     <td>${m.attempts}</td>
                     <td>
                         ${m.last_error ? `<span style="color:#991b1b">${esc(m.last_error)}</span>` : ''}

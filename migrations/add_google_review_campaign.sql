@@ -62,6 +62,45 @@ ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS claim_id INT
 ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS remark TEXT;
 ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS sent_via TEXT;   -- NULL = automatic sender, 'manual' = sent from a phone
 
+-- Several WhatsApp numbers share the sending. Each has its own daily limit; the sender rotates between the
+-- numbers that are connected and still under their limit. The number that sent a message is recorded on it.
+-- Sending window with minutes (e.g. 09:00 to 19:30). The hour columns stay; these add the minute part.
+ALTER TABLE google_review_campaign_settings ADD COLUMN IF NOT EXISTS window_start_minute INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE google_review_campaign_settings ADD COLUMN IF NOT EXISTS window_end_minute   INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS google_review_campaign_session (
+    session_id  TEXT PRIMARY KEY,
+    daily_limit INTEGER NOT NULL DEFAULT 20,
+    enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+    position    INTEGER NOT NULL DEFAULT 0
+);
+-- A number that shows signs of a WhatsApp block/restriction is rested until this time (the others keep sending).
+ALTER TABLE google_review_campaign_session ADD COLUMN IF NOT EXISTS paused_until  TIMESTAMPTZ;
+ALTER TABLE google_review_campaign_session ADD COLUMN IF NOT EXISTS paused_reason TEXT;
+
+-- Every send attempt, kept as history (the message row only keeps its latest state).
+CREATE TABLE IF NOT EXISTS google_review_campaign_log (
+    id          BIGSERIAL PRIMARY KEY,
+    at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    event       TEXT NOT NULL,              -- sent | failed | link_dropped | possible_block | manual_sent | test_sent | test_failed
+    session_id  TEXT,
+    message_id  INTEGER,
+    customer    TEXT,
+    phone       TEXT,
+    detail      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_google_review_campaign_log_at ON google_review_campaign_log (at DESC);
+
+ALTER TABLE google_review_campaign_message ADD COLUMN IF NOT EXISTS sent_session TEXT;
+-- Messages sent before the rotation existed all went out from the one original number.
+UPDATE google_review_campaign_message SET sent_session = 'eternalgy-auth'
+ WHERE sent_session IS NULL AND status = 'Sent' AND sent_via IS NULL AND is_test = FALSE;
+-- Starting numbers (only inserted when missing, so edits made on the progress page are kept).
+-- eternalgy-auth also sends OTP codes, so it gets the low limit; the two marketing numbers only do this job.
+INSERT INTO google_review_campaign_session (session_id, daily_limit, position) VALUES
+    ('eternalgy-auth', 10, 0), ('marketing-292', 20, 1), ('marketing-2800', 20, 2)
+ON CONFLICT (session_id) DO NOTHING;
+
 DO $$
 BEGIN
   IF to_regclass('google_review_claim') IS NOT NULL THEN

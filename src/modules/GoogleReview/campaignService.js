@@ -20,6 +20,12 @@ const WA_TIMEOUT_MS = 30 * 1000;
 const SEND_LEASE_SEC = 300; // a crashed send frees its slot after this long
 const SENDING_STALE_MIN = 10;
 const MIN_INTERVAL_FLOOR_SEC = 30; // pacing never goes faster than this, whatever is saved
+// Account safety (WhatsApp blocked a number after 47 messages in 2 hours). These apply whatever is saved on the page.
+// Nothing is dropped: a number that is not allowed to send right now just waits, and the customer stays queued.
+const HARD_CAP_PER_NUMBER = 25;   // most messages one number may send in a day
+const NUMBER_MIN_GAP_SEC = 300;   // least time between two sends from the same number
+const BLOCK_REST_HOURS = 24;      // a number showing signs of a block is rested this long
+const POSSIBLE_BLOCK = /banned|\bban\b|blocked|restrict|spam|forbidden|logged.?out|unauthori[sz]ed|not-authorized|rate.?limit|too many|temporarily/i;
 
 let schemaPromise = null;
 
@@ -59,7 +65,13 @@ async function updateSettings(input = {}) {
   const breakMin = num(input.batch_break_min_sec, current.batch_break_min_sec, 60, 7200);
   const breakMax = Math.max(breakMin, num(input.batch_break_max_sec, current.batch_break_max_sec, 60, 14400));
   const startHour = num(input.window_start_hour, current.window_start_hour, 0, 23);
-  const endHour = num(input.window_end_hour, current.window_end_hour, 1, 24);
+  const startMinute = num(input.window_start_minute, current.window_start_minute || 0, 0, 59);
+  const rawEndHour = num(input.window_end_hour, current.window_end_hour, 1, 24);
+  const rawEndMinute = rawEndHour >= 24 ? 0 : num(input.window_end_minute, current.window_end_minute || 0, 0, 59);
+  // The window must be at least an hour long; otherwise it is stretched instead of rejected.
+  const endTotal = Math.min(24 * 60, Math.max(rawEndHour * 60 + rawEndMinute, startHour * 60 + startMinute + 60));
+  const endHour = Math.floor(endTotal / 60);
+  const endMinute = endTotal % 60;
 
   const template = input.message_template === undefined
     ? current.message_template
@@ -82,16 +94,105 @@ async function updateSettings(input = {}) {
             batch_size_min = $9, batch_size_max = $10,
             batch_break_min_sec = $11, batch_break_max_sec = $12,
             message_template_zh = $13,
+            window_start_minute = $14, window_end_minute = $15,
             updated_at = NOW()
       WHERE id = 1`,
     [
       template, reviewUrl, sessionId, minInterval, maxInterval,
       num(input.daily_limit, current.daily_limit, 1, 1000),
-      startHour, Math.max(endHour, startHour + 1),
-      batchMin, batchMax, breakMin, breakMax, templateZh
+      startHour, endHour,
+      batchMin, batchMax, breakMin, breakMax, templateZh,
+      startMinute, endMinute
     ]
   );
+  await saveSessions(input.sessions);
   return getSettings();
+}
+
+/**
+ * Saves the list of sending numbers: [{ session_id, daily_limit, enabled }]. A missing or empty list changes
+ * nothing, so an old page or a partial save can never leave the campaign without a number.
+ */
+async function saveSessions(list) {
+  if (!Array.isArray(list)) return;
+  const seen = new Set();
+  const cleaned = [];
+  list.forEach((item, i) => {
+    const id = String((item && item.session_id) || '').trim().slice(0, 80);
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    cleaned.push({ id, limit: num(item.daily_limit, 20, 1, HARD_CAP_PER_NUMBER), enabled: item.enabled !== false, position: i });
+  });
+  if (!cleaned.length) return;
+  for (const c of cleaned) {
+    await pool.query(
+      `INSERT INTO google_review_campaign_session (session_id, daily_limit, enabled, position)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (session_id) DO UPDATE SET daily_limit = $2, enabled = $3, position = $4`,
+      [c.id, c.limit, c.enabled, c.position]
+    );
+  }
+  await pool.query('DELETE FROM google_review_campaign_session WHERE NOT (session_id = ANY($1::text[]))', [cleaned.map((c) => c.id)]);
+}
+
+/** The sending numbers with how many each has sent today (Malaysia time) and when each last sent. */
+async function getSessions() {
+  await ensureSchema();
+  const { rows } = await pool.query(
+    `SELECT s.session_id, s.daily_limit, s.enabled, s.position, s.paused_until, s.paused_reason,
+            (SELECT COUNT(*)::int FROM google_review_campaign_message m
+              WHERE m.sent_session = s.session_id AND m.is_test = FALSE AND m.status = 'Sent'
+                AND (m.sent_at AT TIME ZONE 'Asia/Kuala_Lumpur')::date = (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date) AS sent_today,
+            (SELECT MAX(m.sent_at) FROM google_review_campaign_message m
+              WHERE m.sent_session = s.session_id AND m.is_test = FALSE AND m.status = 'Sent') AS last_sent_at
+       FROM google_review_campaign_session s ORDER BY s.position, s.session_id`
+  );
+  // The hard cap also holds for a limit that was saved higher before the cap existed.
+  return rows.map((r) => ({ ...r, daily_limit: Math.min(r.daily_limit, HARD_CAP_PER_NUMBER) }));
+}
+
+/**
+ * Writes one line of send history. Never throws: logging must not be able to stop a send.
+ */
+async function logEvent(event, { sessionId = null, messageId = null, customer = null, phone = null, detail = null } = {}) {
+  console.log(`[GoogleReviewCampaign] ${event} via=${sessionId || '-'} to=${phone || '-'} ${customer || ''}${detail ? ` | ${detail}` : ''}`);
+  try {
+    await pool.query(
+      `INSERT INTO google_review_campaign_log (event, session_id, message_id, customer, phone, detail)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [event, sessionId, messageId, customer, phone, detail ? String(detail).slice(0, 500) : null]
+    );
+  } catch (err) {
+    console.error('[GoogleReviewCampaign] could not write log line:', err.message);
+  }
+}
+
+/** Latest send history, newest first. */
+async function getLog(limit = 100) {
+  try {
+    const { rows } = await pool.query('SELECT * FROM google_review_campaign_log ORDER BY id DESC LIMIT $1', [limit]);
+    return rows;
+  } catch (err) {
+    console.error('[GoogleReviewCampaign] could not read log:', err.message);
+    return [];
+  }
+}
+
+/** A number whose error looks like a WhatsApp block/restriction is rested; the other numbers carry on. */
+async function restNumberIfBlocked(sessionId, error, customerLabel) {
+  if (!POSSIBLE_BLOCK.test(String(error || ''))) return false;
+  try {
+    await pool.query(
+      `UPDATE google_review_campaign_session
+          SET paused_until = NOW() + make_interval(hours => $2), paused_reason = $3
+        WHERE session_id = $1`,
+      [sessionId, BLOCK_REST_HOURS, `Rested ${BLOCK_REST_HOURS} h: possible WhatsApp block (${String(error).slice(0, 120)})`]
+    );
+  } catch (err) {
+    console.error('[GoogleReviewCampaign] could not rest number:', err.message);
+  }
+  await logEvent('possible_block', { sessionId, customer: customerLabel, detail: `number rested ${BLOCK_REST_HOURS} h after: ${error}` });
+  return true;
 }
 
 async function setRunning(running) {
@@ -341,6 +442,9 @@ async function sendTest(actor, { lang } = {}) {
       WHERE id = $1`,
     [rows[0].id, result.ok ? 'Sent' : 'Failed', result.ok ? null : result.error, result.ok ? result.waMessageId : null]
   );
+  await logEvent(result.ok ? 'test_sent' : 'test_failed', {
+    sessionId: settings.session_id, messageId: rows[0].id, customer: 'TEST', phone: TEST_PHONE, detail: result.ok ? null : result.error
+  });
   return result.ok ? { sent: true, to: TEST_PHONE } : { sent: false, to: TEST_PHONE, error: result.error };
 }
 
@@ -351,10 +455,14 @@ const randBetween = (min, max) => min + Math.random() * Math.max(0, max - min);
 function myNow() {
   // Hour and date in Malaysia time, whatever the server timezone is.
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', hour12: false
+    timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit', hour12: false
   }).formatToParts(new Date());
-  return { hour: Number(parts.find((p) => p.type === 'hour').value) % 24 };
+  const hour = Number(parts.find((p) => p.type === 'hour').value) % 24;
+  const minute = Number(parts.find((p) => p.type === 'minute').value);
+  return { hour, minute, minutes: hour * 60 + minute };
 }
+
+const pad2 = (n) => String(n).padStart(2, '0');
 
 async function sentTodayCount() {
   const { rows } = await pool.query(
@@ -373,6 +481,48 @@ const MAX_CONNECTION_RETRIES = 6;
 let ticking = false;
 
 /**
+ * Chooses which WhatsApp number sends the next message: only enabled numbers that are connected and under
+ * their own daily limit, the one with the smallest share of its limit used so far (so a number with a low
+ * limit sends proportionally less). Returns { sessionId } or { note, waitSec } saying why nobody can send.
+ */
+async function pickSender(s) {
+  let list = (await getSessions()).filter((x) => x.enabled);
+  if (!list.length) {
+    // No numbers saved: fall back to the single session of the old settings so sending never stops for lack of one.
+    list = [{ session_id: s.session_id, daily_limit: Math.min(s.daily_limit, HARD_CAP_PER_NUMBER), position: 0, sent_today: await sentTodayCount(), last_sent_at: null, paused_until: null }];
+  }
+  const underCap = list.filter((x) => x.sent_today < x.daily_limit);
+  if (!underCap.length) {
+    return { note: `Waiting: every number reached its daily limit (${list.map((x) => `${x.session_id} ${x.sent_today}/${x.daily_limit}`).join(', ')}), resumes tomorrow`.slice(0, 300), waitSec: 300 };
+  }
+
+  // Safety pacing per number: a rested (possible block) number sits out, two sends from one number are at least
+  // NUMBER_MIN_GAP_SEC apart, and the daily allowance is released gradually across the sending window so a
+  // number never sends its whole day in one burst.
+  const nowMs = Date.now();
+  const { minutes } = myNow();
+  const winStart = s.window_start_hour * 60 + (s.window_start_minute || 0);
+  const winEnd = s.window_end_hour * 60 + (s.window_end_minute || 0);
+  const progress = winEnd > winStart ? Math.min(1, Math.max(0, (minutes - winStart) / (winEnd - winStart))) : 1;
+  const open = underCap.filter((x) => {
+    if (x.paused_until && new Date(x.paused_until).getTime() > nowMs) return false;
+    if (x.last_sent_at && nowMs - new Date(x.last_sent_at).getTime() < NUMBER_MIN_GAP_SEC * 1000) return false;
+    return x.sent_today < Math.max(1, Math.ceil(x.daily_limit * progress));
+  });
+  if (!open.length) {
+    const why = underCap.map((x) => (x.paused_until && new Date(x.paused_until).getTime() > nowMs ? `${x.session_id} rested (${x.paused_reason || 'possible block'})` : `${x.session_id} ${x.sent_today}/${x.daily_limit}`)).join(', ');
+    return { note: `Waiting: numbers are spacing out their sends to stay safe (${why})`.slice(0, 300), waitSec: 60 };
+  }
+  const statuses = await Promise.all(open.map((x) => getSessionStatus(x.session_id)));
+  const ready = open.map((x, i) => ({ ...x, status: statuses[i] })).filter((x) => x.status.connected);
+  if (!ready.length) {
+    return { note: `Waiting: no WhatsApp number is connected (${open.map((x, i) => `${x.session_id} ${statuses[i].status}`).join(', ')})`.slice(0, 300), waitSec: 60 };
+  }
+  ready.sort((a, b) => (a.sent_today / a.daily_limit) - (b.sent_today / b.daily_limit) || a.position - b.position);
+  return { sessionId: ready[0].session_id };
+}
+
+/**
  * One scheduler pass. Sends at most one message, then books the next slot a random time away.
  * Nothing here deletes or hides queue rows: when sending cannot happen (paused, outside the
  * window, daily cap, session down) the reason is written to worker_note and rows stay queued.
@@ -387,9 +537,11 @@ async function tick() {
 
     if (!s.message_template && !s.message_template_zh) return setNote('Waiting: no message template saved yet');
 
-    const { hour } = myNow();
-    if (hour < s.window_start_hour || hour >= s.window_end_hour) {
-      return setNote(`Waiting: outside sending hours (${s.window_start_hour}:00-${s.window_end_hour}:00 Malaysia time)`);
+    const { minutes } = myNow();
+    const winStart = s.window_start_hour * 60 + (s.window_start_minute || 0);
+    const winEnd = s.window_end_hour * 60 + (s.window_end_minute || 0);
+    if (minutes < winStart || minutes >= winEnd) {
+      return setNote(`Waiting: outside sending hours (${pad2(s.window_start_hour)}:${pad2(s.window_start_minute || 0)}-${pad2(s.window_end_hour)}:${pad2(s.window_end_minute || 0)} Malaysia time)`);
     }
     if ((await sentTodayCount()) >= s.daily_limit) {
       return setNote(`Waiting: daily limit of ${s.daily_limit} reached, resumes tomorrow`);
@@ -405,11 +557,12 @@ async function tick() {
     );
     if (!slot.rowCount) return undefined;
 
-    const session = await getSessionStatus(s.session_id);
-    if (!session.connected) {
-      await pool.query(`UPDATE google_review_campaign_settings SET next_send_at = NOW() + interval '60 seconds' WHERE id = 1`);
-      return setNote(`Waiting: WhatsApp session "${s.session_id}" is ${session.status}${session.message ? ` (${session.message})` : ''}`);
+    const sender = await pickSender(s);
+    if (!sender.sessionId) {
+      await pool.query(`UPDATE google_review_campaign_settings SET next_send_at = NOW() + make_interval(secs => $1) WHERE id = 1`, [sender.waitSec]);
+      return setNote(sender.note);
     }
+    const sessionId = sender.sessionId;
 
     // Rows stuck in Sending (server restarted mid-send) go back to the queue.
     await pool.query(
@@ -441,15 +594,21 @@ async function tick() {
 
     const { lang, template } = pickTemplate(s, row.customer_name);
     const text = renderMessage(template, { name: row.customer_name, reviewUrl: s.review_url, lang });
-    const result = await sendText(s.session_id, row.phone, text);
+    const result = await sendText(sessionId, row.phone, text);
     const linkDropped = !result.ok && isConnectionError(result.error) && row.attempts < MAX_CONNECTION_RETRIES;
     await pool.query(
       `UPDATE google_review_campaign_message
           SET status = $2, last_error = $3, message_text = $4, wa_message_id = $5, language = $6,
-              sent_at = CASE WHEN $2 = 'Sent' THEN NOW() END, updated_at = NOW()
+              sent_at = CASE WHEN $2 = 'Sent' THEN NOW() END, sent_session = $7, updated_at = NOW()
         WHERE id = $1`,
-      [row.id, result.ok ? 'Sent' : (linkDropped ? 'Queued' : 'Failed'), result.ok ? null : result.error, text, result.ok ? result.waMessageId : null, lang]
+      [row.id, result.ok ? 'Sent' : (linkDropped ? 'Queued' : 'Failed'), result.ok ? null : result.error, text, result.ok ? result.waMessageId : null, lang, sessionId]
     );
+    const who = row.customer_name || row.customer_id;
+    await logEvent(result.ok ? 'sent' : (linkDropped ? 'link_dropped' : 'failed'), {
+      sessionId, messageId: row.id, customer: who, phone: row.phone,
+      detail: result.ok ? `wa id ${result.waMessageId || '-'}, ${lang}` : `${result.error} (attempt ${row.attempts})`
+    });
+    if (!result.ok) await restNumberIfBlocked(sessionId, result.error, who);
 
     if (linkDropped) {
       // Not the customer's fault: keep them queued and wait a few minutes for the WhatsApp link to come back.
@@ -571,6 +730,7 @@ async function manualSend(messageId, actor) {
         WHERE id = $1 RETURNING *`,
       [messageId, text, lang, `sent from phone by ${(actor && actor.name) || 'HR/KC'}`]
     )).rows[0];
+    await logEvent('manual_sent', { messageId, customer: row.customer_name || row.customer_id, phone: row.phone, detail: `marked sent from phone by ${(actor && actor.name) || 'HR/KC'}` });
   }
   return { waUrl, text, message };
 }
@@ -694,7 +854,7 @@ async function getProgress({ limit = 200, status = null, q = null } = {}) {
   const recent = await pool.query(
     `SELECT * FROM (
        SELECT id, customer_id, customer_name, phone, status, attempts, last_error, message_text, is_test, language,
-              queued_at, sent_at, updated_at, verified_at, verified_by_name, claim_id, remark,
+              queued_at, sent_at, updated_at, verified_at, verified_by_name, claim_id, remark, sent_session, sent_via,
               CASE WHEN status = 'Sending' THEN 0 WHEN status IN ('Sent', 'Failed') THEN 1 WHEN status = 'Queued' THEN 2 ELSE 3 END AS grp
          FROM google_review_campaign_message
         WHERE ($2::text IS NULL OR status = $2)
@@ -706,13 +866,21 @@ async function getProgress({ limit = 200, status = null, q = null } = {}) {
     [limit, wanted, verifiedOnly, phoneLike, nameLike]
   );
   const sentToday = await sentTodayCount();
-  const session = await getSessionStatus(s.session_id);
+  const sessionRows = await getSessions();
+  const sessionStates = await Promise.all(sessionRows.map((x) => getSessionStatus(x.session_id)));
+  const sessions = sessionRows.map((x, i) => ({ ...x, connected: sessionStates[i].connected, status: sessionStates[i].status, number: sessionStates[i].number }));
+  const session = sessions[0]
+    ? { connected: sessions[0].connected, status: sessions[0].status, number: sessions[0].number }
+    : await getSessionStatus(s.session_id);
   const queued = by.Queued || 0;
   const avgGap = (s.min_interval_sec + s.max_interval_sec) / 2;
 
   return {
     settings: s,
     session,
+    sessions,
+    log: await getLog(100),
+    safety: { hard_cap_per_number: HARD_CAP_PER_NUMBER, min_gap_between_sends_per_number_sec: NUMBER_MIN_GAP_SEC },
     test_phone: TEST_PHONE,
     totals: {
       queued,
@@ -749,6 +917,9 @@ module.exports = {
   ensureSchema,
   getSettings,
   updateSettings,
+  getSessions,
+  getLog,
+  HARD_CAP_PER_NUMBER,
   setRunning,
   renderMessage,
   pickTemplate,
