@@ -113,3 +113,29 @@ END;
 $$;
 
 INSERT INTO google_review_campaign_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Reviews found on our Google Maps profile by the scanner (Reviews page). One row per Google review id.
+CREATE TABLE IF NOT EXISTS google_review_scanned (
+    id               SERIAL PRIMARY KEY,
+    review_id        TEXT NOT NULL UNIQUE,
+    reviewer_name    TEXT,
+    reviewer_link    TEXT,
+    reviewer_reviews INTEGER,
+    rating           INTEGER,
+    review_text      TEXT,
+    review_text_en   TEXT,
+    posted_at        TIMESTAMPTZ,
+    review_link      TEXT,
+    photos           JSONB,
+    first_seen_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_google_review_scanned_posted ON google_review_scanned (posted_at DESC);
+
+CREATE TABLE IF NOT EXISTS google_review_scan_state (
+    id          INTEGER PRIMARY KEY CHECK (id = 1),
+    last_run_at TIMESTAMPTZ,
+    last_ok     BOOLEAN,
+    last_note   TEXT,
+    last_added  INTEGER
+);
+INSERT INTO google_review_scan_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

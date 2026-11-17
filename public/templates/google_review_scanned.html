@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Google Reviews Received | ETERNALGY OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/google-review.css">
+    <style>
+        .rv-main { max-width: 1100px; margin: 0 auto; padding: 16px 16px 56px; display: flex; flex-direction: column; gap: 14px; }
+        .rv-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+        .rv-kpi { background: var(--gr-card); border: 1px solid var(--gr-line); border-radius: 14px; padding: 14px 16px; }
+        .rv-kpi .l { font-size: 12px; color: var(--gr-muted); font-weight: 600; }
+        .rv-kpi .v { font-size: 28px; font-weight: 800; margin-top: 4px; }
+        .rv-kpi .s { font-size: 12px; color: var(--gr-muted); margin-top: 2px; }
+        .rv-warn { background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.35); color: var(--gr-warn); border-radius: 10px; padding: 10px 14px; font-size: 13px; }
+        .rv-err { background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.35); color: var(--gr-bad); border-radius: 10px; padding: 14px; font-size: 14px; }
+        .rv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+        .rv-item { background: var(--gr-card); border: 1px solid var(--gr-line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .rv-item img { width: 100%; height: auto; border-radius: 10px; background: #fff; display: block; }
+        .rv-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .rv-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; border: 1px solid var(--gr-line-strong); color: var(--gr-text); background: #1e293b; text-decoration: none; cursor: pointer; font-family: inherit; }
+        .rv-btn:hover { border-color: var(--gr-accent); }
+        .rv-btn:disabled { opacity: .5; cursor: default; }
+        .rv-meta { font-size: 12px; color: var(--gr-muted); }
+        .rv-match { font-size: 12px; background: rgba(59,130,246,.14); color: #93c5fd; border-radius: 8px; padding: 6px 10px; }
+        .rv-empty { color: var(--gr-muted); font-size: 14px; padding: 24px 0; text-align: center; }
+        .gr-hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <header class="gr-header">
+        <div class="gr-header-inner">
+            <a href="/google-review/campaign/overview" class="gr-back" title="Back to overview"><i class="fa-solid fa-arrow-left"></i></a>
+            <div>
+                <h1 class="gr-title">Google Reviews Received</h1>
+                <p class="gr-subtitle">New reviews on our Google Maps profile since 12 Nov 2026</p>
+            </div>
+            <div class="gr-header-links"><button type="button" class="rv-btn" id="scanBtn"><i class="fa-solid fa-rotate"></i> Scan now</button></div>
+        </div>
+    </header>
+
+    <main class="rv-main">
+        <div id="error" class="rv-err gr-hidden"></div>
+        <div id="warn" class="rv-warn gr-hidden"></div>
+        <div id="body" class="gr-hidden" style="display:flex;flex-direction:column;gap:14px">
+            <div class="rv-kpis" id="kpis"></div>
+            <div class="rv-grid" id="grid"></div>
+            <div class="rv-meta" id="footer"></div>
+        </div>
+    </main>
+
+    <script>
+    (() => {
+        const $ = (id) => document.getElementById(id);
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const fmtDT = (v) => v ? new Date(v).toLocaleString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
+        const fmtD = (v) => v ? new Date(v).toLocaleDateString('en-MY', { day: '2-digit', month: 'short' }) : '';
+        let current = null;
+
+        function render(d) {
+            const sc = d.scanner || {};
+            const warn = [];
+            if (!sc.key_present) warn.push('The scanner is not set up yet: the server needs the SCRAPER_TECH_KEY credential. Reviews already recorded are shown below.');
+            else if (sc.last_ok === false) warn.push(`The last scan did not work (${sc.last_note || 'unknown reason'}). It tries again every hour.`);
+            $('warn').textContent = warn.join(' ');
+            $('warn').classList.toggle('gr-hidden', !warn.length);
+
+            $('kpis').innerHTML = [
+                ['Reviews since 12 Nov', d.total, ''],
+                ['Average rating', d.average_rating ? `${d.average_rating} ★` : '–', ''],
+                ['Last scan', sc.last_run_at ? fmtDT(sc.last_run_at) : 'not yet', sc.last_run_at ? (sc.last_ok ? `${sc.last_added || 0} new that time` : 'did not work') : 'scans every hour']
+            ].map(([l, v, s]) => `<div class="rv-kpi"><div class="l">${esc(l)}</div><div class="v">${esc(v)}</div><div class="s">${esc(s)}</div></div>`).join('');
+
+            const list = d.reviews || [];
+            $('grid').innerHTML = list.length ? list.map((r) => `
+                <div class="rv-item">
+                    <img src="/api/google-review/campaign/reviews/${r.id}/card.svg" alt="Review by ${esc(r.reviewer_name || 'Google user')}" loading="lazy">
+                    <div class="rv-actions">
+                        <button type="button" class="rv-btn" data-dl="${r.id}" data-name="${esc(r.reviewer_name || 'review')}" data-date="${esc((r.posted_at || '').slice(0, 10))}"><i class="fa-solid fa-download"></i> Download image</button>
+                        ${r.review_link ? `<a class="rv-btn" href="${esc(r.review_link)}" target="_blank" rel="noopener"><i class="fa-brands fa-google"></i> Open on Google</a>` : ''}
+                        ${r.reviewer_link ? `<a class="rv-btn" href="${esc(r.reviewer_link)}" target="_blank" rel="noopener"><i class="fa-solid fa-user"></i> Reviewer</a>` : ''}
+                    </div>
+                    ${(r.possible_customers || []).length ? `<div class="rv-match"><i class="fa-solid fa-link"></i> Looks like a customer we messaged: ${r.possible_customers.map((c) => `<b>${esc(c.name)}</b>${c.sent_at ? ` (sent ${esc(fmtD(c.sent_at))})` : ''}`).join(', ')}. A hint only: check before paying the bonus.</div>` : ''}
+                    <div class="rv-meta">Posted ${esc(fmtDT(r.posted_at))} · recorded ${esc(fmtDT(r.first_seen_at))}</div>
+                </div>`).join('') : '<div class="rv-empty" style="grid-column:1/-1">No reviews recorded since 12 Nov yet.</div>';
+
+            $('footer').textContent = 'Reviews are read from Google Maps once an hour. The image of each review is drawn from the review text, name, rating and date.';
+            $('body').classList.remove('gr-hidden');
+        }
+
+        async function load() {
+            try {
+                const res = await fetch('/api/google-review/campaign/reviews', { credentials: 'same-origin' });
+                const out = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(out.error || `Could not load (${res.status})`);
+                current = out;
+                $('error').classList.add('gr-hidden');
+                render(out);
+            } catch (err) {
+                $('error').textContent = err.message;
+                $('error').classList.remove('gr-hidden');
+            }
+        }
+
+        // Download the review image as a PNG (drawn in this browser, so Chinese text uses this computer's fonts).
+        async function downloadPng(id, name, date) {
+            const svgText = await (await fetch(`/api/google-review/campaign/reviews/${id}/card.svg`, { credentials: 'same-origin' })).text();
+            const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }));
+            const img = new Image();
+            await new Promise((ok, bad) => { img.onload = ok; img.onerror = () => bad(new Error('Could not draw the image')); img.src = url; });
+            const scale = 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth * scale; canvas.height = img.naturalHeight * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+            const blob = await new Promise((ok) => canvas.toBlob(ok, 'image/png'));
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `google-review-${date || 'review'}-${String(name).replace(/[^\w一-鿿-]+/g, '_')}.png`;
+            document.body.appendChild(a); a.click(); a.remove();
+        }
+
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('[data-dl]');
+            if (!btn) return;
+            btn.disabled = true;
+            try { await downloadPng(btn.dataset.dl, btn.dataset.name, btn.dataset.date); }
+            catch (err) { alert(err.message); }
+            btn.disabled = false;
+        });
+
+        $('scanBtn').addEventListener('click', async () => {
+            const b = $('scanBtn');
+            b.disabled = true; b.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Scanning…';
+            try {
+                const res = await fetch('/api/google-review/campaign/reviews/scan', { method: 'POST', credentials: 'same-origin' });
+                const out = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(out.error || `Scan failed (${res.status})`);
+                if (out.ok === false) alert(`The scan did not work: ${out.note}`);
+                await load();
+            } catch (err) { alert(err.message); }
+            b.disabled = false; b.innerHTML = '<i class="fa-solid fa-rotate"></i> Scan now';
+        });
+
+        load();
+        setInterval(load, 120000);
+    })();
+    </script>
+</body>
+</html>

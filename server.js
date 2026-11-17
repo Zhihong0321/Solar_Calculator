@@ -1012,3 +1012,4 @@ if (process.env.INVOICE_PAID_SYNC !== 'off') require('./src/modules/Invoicing/se
 // campaign page, and the Pause button there is the only switch (no environment variable can turn it off).
 GoogleReview.campaign.applyBootstrapOnce();
 GoogleReview.campaign.startWorker();
+GoogleReview.reviewScan.startWorker(); // scans our Google Maps profile for new reviews every hour

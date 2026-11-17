@@ -64,6 +64,24 @@ router.get('/google-review/campaign/progress', requireAuth, (req, res) => res.se
 router.get('/google-review/campaign/overview', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_campaign_overview.html')));
 router.get('/api/google-review/campaign/overview', requireAuth, ctrl.requireOverviewViewer, campaignHandler(() => campaign.getOverview()));
 
+// Google reviews found on our Maps profile since 12 Nov, each with an image card.
+const reviewScan = require('./reviewScanService');
+router.get('/google-review/campaign/reviews', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_scanned.html')));
+router.get('/api/google-review/campaign/reviews', requireAuth, ctrl.requireOverviewViewer, campaignHandler(() => reviewScan.list()));
+router.get('/api/google-review/campaign/reviews/:id/card.svg', requireAuth, ctrl.requireOverviewViewer, async (req, res) => {
+  try {
+    const svg = await reviewScan.getCardSvg(req.params.id);
+    if (!svg) return res.status(404).send('Review not found');
+    res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    return res.send(svg);
+  } catch (err) {
+    console.error('[ReviewScan] card error:', err);
+    return res.status(500).send('Could not draw the review card');
+  }
+});
+router.post('/api/google-review/campaign/reviews/scan', ...reviewer, campaignHandler(() => reviewScan.scan()));
+
 router.get('/api/google-review/campaign/eligible', ...reviewer, campaignHandler(async () => {
   const [customers, settings] = await Promise.all([campaign.scanEligible(), campaign.getSettings()]);
   return { customers, scanned_at: new Date().toISOString(), session_id: settings.session_id };
