@@ -81,6 +81,7 @@ router.get('/api/google-review/campaign/reviews/:id/card.svg', requireAuth, ctrl
   }
 });
 router.post('/api/google-review/campaign/reviews/scan', ...reviewer, campaignHandler(() => reviewScan.scan()));
+router.post('/api/google-review/campaign/reviews/scanner-key', ...reviewer, campaignHandler((req) => reviewScan.saveKeyAndScan(req.body && req.body.key)));
 
 router.get('/api/google-review/campaign/eligible', ...reviewer, campaignHandler(async () => {
   const [customers, settings] = await Promise.all([campaign.scanEligible(), campaign.getSettings()]);

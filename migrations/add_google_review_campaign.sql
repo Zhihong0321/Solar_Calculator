@@ -139,3 +139,6 @@ CREATE TABLE IF NOT EXISTS google_review_scan_state (
     last_added  INTEGER
 );
 INSERT INTO google_review_scan_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- The scraper credential is pasted once on the Reviews page and kept here (no Railway variable needed).
+ALTER TABLE google_review_scan_state ADD COLUMN IF NOT EXISTS api_key TEXT;

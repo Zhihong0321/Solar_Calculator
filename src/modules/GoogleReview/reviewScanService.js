@@ -15,11 +15,21 @@ const FIRST_SCAN_DELAY_MS = 90 * 1000;
 const MAX_PAGES = 12;
 const REQUEST_TIMEOUT_MS = 60 * 1000;
 
-const getKey = () => String(process.env.SCRAPER_TECH_KEY || '').trim(); // the API credential, not a switch
+/** The scraper credential: pasted on the Reviews page (kept in the database), else the SCRAPER_TECH_KEY variable if one exists. */
+async function getKey() {
+  try {
+    const { rows } = await pool.query('SELECT api_key FROM google_review_scan_state WHERE id = 1');
+    const stored = String((rows[0] && rows[0].api_key) || '').trim();
+    if (stored) return stored;
+  } catch (err) {
+    console.error('[ReviewScan] could not read the saved key:', err.message);
+  }
+  return String(process.env.SCRAPER_TECH_KEY || '').trim();
+}
 
 async function mcpCall(name, args) {
-  const key = getKey();
-  if (!key) throw new Error('SCRAPER_TECH_KEY is not set on the server');
+  const key = await getKey();
+  if (!key) throw new Error('no scraper key saved yet');
   let lastErr;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const controller = new AbortController();
@@ -65,9 +75,9 @@ async function scan() {
   scanning = true;
   try {
     await campaign.ensureSchema();
-    if (!getKey()) {
-      await saveState(false, 'Scanner not set up: SCRAPER_TECH_KEY is missing on the server', 0);
-      return { ok: false, added: 0, note: 'SCRAPER_TECH_KEY is missing on the server' };
+    if (!(await getKey())) {
+      await saveState(false, 'Scanner needs its key: paste it on the Reviews page', 0);
+      return { ok: false, added: 0, note: 'Scanner needs its key: paste it on the Reviews page' };
     }
     let cursor = null;
     let added = 0;
@@ -157,7 +167,7 @@ async function list() {
   const rated = reviews.filter((r) => Number.isFinite(r.rating));
   return {
     since: REVIEWS_SINCE,
-    scanner: { ...(state.rows[0] || {}), key_present: Boolean(getKey()) },
+    scanner: { last_run_at: (state.rows[0] || {}).last_run_at, last_ok: (state.rows[0] || {}).last_ok, last_note: (state.rows[0] || {}).last_note, last_added: (state.rows[0] || {}).last_added, key_present: Boolean(await getKey()) },
     total: reviews.length,
     average_rating: rated.length ? Math.round((rated.reduce((a, r) => a + r.rating, 0) / rated.length) * 10) / 10 : null,
     reviews
@@ -225,4 +235,13 @@ async function getCardSvg(id) {
   return rows[0] ? renderCardSvg(rows[0]) : null;
 }
 
-module.exports = { scan, startWorker, list, getCardSvg, REVIEWS_SINCE };
+/** Saves the key pasted on the Reviews page, then scans straight away. The key is never sent back to any page. */
+async function saveKeyAndScan(key) {
+  const clean = String(key || '').trim().replace(/^https?:\/\/mcp\.scraper\.tech\//i, '');
+  if (clean.length < 16 || /\s/.test(clean)) return { ok: false, note: 'That does not look like the scraper key' };
+  await campaign.ensureSchema();
+  await pool.query('UPDATE google_review_scan_state SET api_key = $1 WHERE id = 1', [clean]);
+  return scan();
+}
+
+module.exports = { scan, startWorker, list, getCardSvg, saveKeyAndScan, REVIEWS_SINCE };
