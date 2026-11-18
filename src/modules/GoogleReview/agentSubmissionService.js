@@ -130,9 +130,18 @@ async function submit(req) {
       labels.push('proof image upload failed');
       proofUrl = null;
     }
-  } else if (pick(body, ['proof_url', 'image_url', 'screenshot_url'])) {
-    proofUrl = pick(body, ['proof_url', 'image_url', 'screenshot_url']);
-    proofMime = pick(body, ['proof_mime']) || null;
+  } else {
+    // The screenshot can also be a link: in the proof/photo/image/screenshot field itself (text instead of a file),
+    // or in proof_url / image_url / screenshot_url. The link is kept exactly as sent.
+    const given = pick(body, [...PROOF_FIELDS, 'proof_url', 'image_url', 'screenshot_url', 'url']);
+    if (given) {
+      if (/^https?:\/\/\S+$/i.test(given)) {
+        proofUrl = given;
+        proofMime = pick(body, ['proof_mime']) || null;
+      } else {
+        labels.push('the proof was sent as text but it is not a web link (http or https)');
+      }
+    }
   }
   if (req.uploadProblem) labels.push(req.uploadProblem);
   if (!proofUrl && !labels.some((l) => /proof/.test(l))) labels.push('no proof image');
@@ -221,9 +230,9 @@ async function list(limit = 100) {
 const usage = {
   endpoint: 'POST /api/google-review/agent/verified-review',
   auth: 'none: no key or token is needed',
-  content_type: 'multipart/form-data (with the image file) or application/json (with proof_url)',
+  content_type: 'multipart/form-data (image file or link) or application/json (link)',
   fields: {
-    proof: 'the screenshot image file (field name proof, photo, image or screenshot). Or send proof_url with a link to it.',
+    proof: 'the screenshot: either the image file, or a link (http/https URL) to the image. Send it in the field proof (photo, image or screenshot also work); proof_url also works for a link.',
     reviewer_name: 'who added the review: the name shown on the Google review',
     mobile: "the customer's mobile number, e.g. 012-345 6789 or 60123456789",
     agent_name: '(optional) which WhatsApp agent/session is sending this, e.g. marketing-292',
