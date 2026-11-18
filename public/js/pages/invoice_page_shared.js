@@ -243,7 +243,8 @@
         const customerName = document.getElementById('customerName')?.value?.trim();
         const leadSource = document.getElementById('customerLeadSource')?.value?.trim();
         const remark = document.getElementById('customerRemark')?.value?.trim();
-        const customerReady = !customerName || (leadSource && remark);
+        const segment = document.getElementById('customerSegment')?.value?.trim();
+        const customerReady = Boolean(segment) && (!customerName || (leadSource && remark));
         setSectionStatus('customer-lead', customerReady ? 'Ready' : 'Needs attention', customerReady ? 'ready' : 'error');
 
         const pricingHealthy = !global._extraItemsDiscountExceeded && !global._maxDiscountExceeded && !global._subtotalIsZeroOrNegative;
@@ -429,6 +430,18 @@
         const leadSource = document.getElementById('customerLeadSource')?.value;
         const remark = document.getElementById('customerRemark')?.value;
 
+        // Customer segment is always required (create and edit): the agent must pick one.
+        const segmentSelect = document.getElementById('customerSegment');
+        if (segmentSelect && !segmentSelect.value) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Customer Segment Required',
+                text: 'Please pick one: Residential, Commercial or Factory.'
+            });
+            segmentSelect.focus();
+            return false;
+        }
+
         if (customerName && !leadSource) {
             Swal.fire({
                 icon: 'error',
@@ -510,6 +523,7 @@
             customer_address: formValues.customer_address || null,
             profilePicture: document.getElementById('profilePicture')?.value || null,
             lead_source: document.getElementById('customerLeadSource')?.value || null,
+            customer_segment: document.getElementById('customerSegment')?.value || null,
             remark: document.getElementById('customerRemark')?.value || null,
             // When CEO discount is active, send it as discount_given and flag ceo_discount
             discount_given: ceoDiscountValue || formValues.discount_given || null,

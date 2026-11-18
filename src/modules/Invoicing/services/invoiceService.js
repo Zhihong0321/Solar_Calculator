@@ -194,6 +194,9 @@ async function createInvoice(pool, invoiceRequestPayload) {
     if (invoiceRequestPayload.lead_source && !invoiceRequestPayload.leadSource) {
         invoiceRequestPayload.leadSource = invoiceRequestPayload.lead_source;
     }
+    if (invoiceRequestPayload.customer_segment !== undefined && invoiceRequestPayload.customerSegment === undefined) {
+        invoiceRequestPayload.customerSegment = invoiceRequestPayload.customer_segment;
+    }
     if (invoiceRequestPayload.linked_referral && !invoiceRequestPayload.linkedReferral) {
         invoiceRequestPayload.linkedReferral = invoiceRequestPayload.linked_referral;
     }
@@ -300,6 +303,7 @@ async function createInvoice(pool, invoiceRequestPayload) {
       linkedReferral: invoiceRequestPayload.linkedReferral,
       profilePicture: invoiceRequestPayload.profilePicture,
       leadSource: invoiceRequestPayload.leadSource,
+      customerSegment: invoiceRequestPayload.customerSegment,
       remark: invoiceRequestPayload.remark,
       customerAverageTnb: invoiceRequestPayload.customerAverageTnb,
       estimatedSaving: invoiceRequestPayload.estimatedSaving,
@@ -421,6 +425,9 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
     if (invoiceRequestPayload.lead_source && !invoiceRequestPayload.leadSource) {
         invoiceRequestPayload.leadSource = invoiceRequestPayload.lead_source;
     }
+    if (invoiceRequestPayload.customer_segment !== undefined && invoiceRequestPayload.customerSegment === undefined) {
+        invoiceRequestPayload.customerSegment = invoiceRequestPayload.customer_segment;
+    }
     if (invoiceRequestPayload.linked_referral && !invoiceRequestPayload.linkedReferral) {
         invoiceRequestPayload.linkedReferral = invoiceRequestPayload.linked_referral;
     }
@@ -521,6 +528,7 @@ async function createInvoiceVersion(pool, originalBubbleId, invoiceRequestPayloa
       linkedReferral: invoiceRequestPayload.linkedReferral,
       profilePicture: invoiceRequestPayload.profilePicture,
       leadSource: invoiceRequestPayload.leadSource,
+      customerSegment: invoiceRequestPayload.customerSegment,
       remark: invoiceRequestPayload.remark,
       customerAverageTnb: invoiceRequestPayload.customerAverageTnb,
       estimatedSaving: invoiceRequestPayload.estimatedSaving,

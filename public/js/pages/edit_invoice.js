@@ -2438,6 +2438,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             // 2.6 Load Lead Source & Remark from customer
             if (inv.lead_source) document.getElementById('customerLeadSource').value = inv.lead_source;
+            // Customer segment: invoices created before this field existed are blank, so the agent must pick one on save.
+            const segmentSelect = document.getElementById('customerSegment');
+            if (segmentSelect) segmentSelect.value = inv.customer_segment || '';
             if (inv.remark) document.getElementById('customerRemark').value = inv.remark;
 
             // 2.7 Customer name change log (read-only panel under Customer Name)

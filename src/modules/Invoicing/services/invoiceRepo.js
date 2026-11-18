@@ -23,6 +23,10 @@ const {
   appendInvoiceEstimateUpdateFields
 } = require('./invoiceEstimateSupport');
 const {
+  appendInvoiceSegmentInsertField,
+  appendInvoiceSegmentUpdateField
+} = require('./invoiceSegmentSupport');
+const {
   resolveExtraItemProducts,
   insertInvoiceItem,
   syncLinkedInvoiceItems
@@ -1078,6 +1082,7 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   }
 
   appendInvoiceEstimateInsertFields(invoiceColumns, data, insertColumns, values);
+  appendInvoiceSegmentInsertField(invoiceColumns, data, insertColumns, values);
 
   insertColumns.push(
     'invoice_number',
@@ -1809,6 +1814,7 @@ async function updateInvoiceTransaction(client, data) {
       `SELECT id, bubble_id, total_amount, status, linked_customer, linked_package, linked_agent,
               ${invoiceColumns.has('linked_referral') ? 'linked_referral' : 'NULL::text AS linked_referral'},
               ${invoiceColumns.has('referrer_name') ? 'referrer_name' : 'NULL::text AS referrer_name'},
+              ${invoiceColumns.has('customer_segment') ? 'customer_segment' : 'NULL::text AS customer_segment'},
               ${invoiceColumns.has('customer_average_tnb') ? 'customer_average_tnb' : 'NULL::numeric AS customer_average_tnb'},
               ${invoiceColumns.has('estimated_saving') ? 'estimated_saving' : 'NULL::numeric AS estimated_saving'},
               ${invoiceColumns.has('estimated_new_bill_amount') ? 'estimated_new_bill_amount' : 'NULL::numeric AS estimated_new_bill_amount'},
@@ -1957,6 +1963,15 @@ async function updateInvoiceTransaction(client, data) {
     }
 
     updateParamIdx = appendInvoiceEstimateUpdateFields(
+      invoiceColumns,
+      data,
+      currentData,
+      updateAssignments,
+      updateValues,
+      updateParamIdx
+    );
+
+    updateParamIdx = appendInvoiceSegmentUpdateField(
       invoiceColumns,
       data,
       currentData,

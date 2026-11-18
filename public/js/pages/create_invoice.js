@@ -2336,6 +2336,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                     phone: inv.customer_phone_snapshot,
                     address: inv.customer_address_snapshot
                 });
+                const segmentSelect = document.getElementById('customerSegment');
+                if (segmentSelect) segmentSelect.value = inv.customer_segment || '';
                 setHiddenFieldValue('customerAverageTnb', inv.customer_average_tnb);
                 setHiddenFieldValue('estimatedSaving', inv.estimated_saving);
                 setHiddenFieldValue('estimatedNewBillAmount', inv.estimated_new_bill_amount);
