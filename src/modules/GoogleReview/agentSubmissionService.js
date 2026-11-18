@@ -228,7 +228,7 @@ async function crossCheck(id, { fresh = false, preloaded = null } = {}) {
     if (review) {
       check = 'found';
       const old = review.posted_at && new Date(review.posted_at) < new Date('2026-11-12T00:00:00+08:00');
-      note = `Found on Google: "${review.reviewer_name}", ${review.rating || '?'} star, posted ${dateOf(review.posted_at)}.${old ? ' This review is older than the campaign, so it may not be a new review.' : ''}`;
+      note = `Found on Google: "${review.reviewer_name}", ${review.rating || '?'} star, posted ${dateOf(review.posted_at)}.${old ? ' VOID: posted before the campaign started on 12 Nov, so it does not qualify for the bonus.' : ''}`;
     }
     else if (scanNote) { check = 'error'; note = `Could not read Google just now (${scanNote}). It will be tried again.`; }
     else { check = 'not_found'; note = 'Not found on the Eternalgy Johor Bahru Google profile yet. Google can take a while to show a new review.'; }
