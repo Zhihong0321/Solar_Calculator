@@ -13,6 +13,7 @@ const SCRAPER_URL = 'https://mcp.scraper.tech';
 const SCAN_EVERY_MS = 60 * 60 * 1000; // hourly: the free plan allows 1,000 requests a month
 const FIRST_SCAN_DELAY_MS = 90 * 1000;
 const MAX_PAGES = 12;
+const DEEP_EVERY_MS = 3 * 24 * 60 * 60 * 1000; // a full read of the whole profile every 3 days (10 requests)
 const REQUEST_TIMEOUT_MS = 60 * 1000;
 
 /** The scraper credential: pasted on the Reviews page (kept in the database), else the SCRAPER_TECH_KEY variable if one exists. */
@@ -70,11 +71,31 @@ async function saveState(ok, note, added) {
 let scanning = false;
 
 /** One scan: newest reviews first, page by page, until a page brings nothing new or is older than REVIEWS_SINCE. */
-async function scan() {
+async function lastDeepAt() {
+  try {
+    await pool.query('ALTER TABLE google_review_scan_state ADD COLUMN IF NOT EXISTS last_deep_at TIMESTAMPTZ');
+    const { rows } = await pool.query('SELECT last_deep_at FROM google_review_scan_state WHERE id = 1');
+    return rows[0] && rows[0].last_deep_at ? new Date(rows[0].last_deep_at).getTime() : 0;
+  } catch (err) {
+    console.error('[ReviewScan] could not read last deep scan time:', err.message);
+    return Date.now(); // unknown: do not burn requests on deep scans
+  }
+}
+
+/**
+ * One scan. Normal: newest reviews first, stopping when a page brings nothing new or is older than REVIEWS_SINCE.
+ * deep: reads every page Google returns (about 10 requests), because Google's "newest" order is not strict and a
+ * review can sit far down the list. throttleMinutes keeps a deep scan from running more than once in that time.
+ */
+async function scan({ deep = false, throttleMinutes = 0 } = {}) {
   if (scanning) return { skipped: true, note: 'A scan is already running' };
   scanning = true;
   try {
     await campaign.ensureSchema();
+    if (deep && throttleMinutes) {
+      const age = Date.now() - await lastDeepAt();
+      if (age < throttleMinutes * 60 * 1000) return { skipped: true, ok: true, added: 0, note: 'A full read of Google was done recently' };
+    }
     if (!(await getKey())) {
       await saveState(false, 'Scanner needs its key: paste it on the Reviews page', 0);
       return { ok: false, added: 0, note: 'Scanner needs its key: paste it on the Reviews page' };
@@ -109,9 +130,11 @@ async function scan() {
       added += newInPage;
       cursor = out && out.cursor;
       oldPagesInARow = newestOldEnough ? oldPagesInARow + 1 : 0;
-      if (!reviews.length || !cursor || oldPagesInARow >= 2 || newInPage === 0) break;
+      if (!reviews.length || !cursor) break;
+      if (!deep && (oldPagesInARow >= 2 || newInPage === 0)) break;
     }
-    await saveState(true, `Scanned ${pages + 1} page(s), ${added} new review(s)`, added);
+    await saveState(true, `${deep ? 'Full read: ' : 'Scanned '}${pages + 1} page(s), ${added} new review(s)`, added);
+    if (deep) { try { await pool.query('UPDATE google_review_scan_state SET last_deep_at = NOW() WHERE id = 1'); } catch (err) { console.error('[ReviewScan] could not save deep scan time:', err.message); } }
     return { ok: true, added, note: `${added} new review(s)` };
   } catch (err) {
     console.error('[ReviewScan] scan failed:', err.message);
@@ -125,8 +148,12 @@ async function scan() {
 let timer = null;
 function startWorker() {
   if (timer) return;
-  setTimeout(() => { scan(); }, FIRST_SCAN_DELAY_MS).unref();
-  timer = setInterval(() => { scan(); }, SCAN_EVERY_MS);
+  const run = async () => {
+    const deep = Date.now() - await lastDeepAt() > DEEP_EVERY_MS;
+    return scan({ deep });
+  };
+  setTimeout(() => { run(); }, FIRST_SCAN_DELAY_MS).unref();
+  timer = setInterval(() => { run(); }, SCAN_EVERY_MS);
   if (timer.unref) timer.unref();
 }
 

@@ -208,7 +208,7 @@ async function crossCheck(id, { fresh = false, preloaded = null } = {}) {
       if (out && out.ok === false && !out.skipped) scanNote = out.note || 'scan failed';
     } catch (err) { scanNote = err.message; }
   }
-  const all = preloaded || await loadScanned();
+  let all = preloaded || await loadScanned();
   let check;
   let review = null;
   let note;
@@ -216,7 +216,20 @@ async function crossCheck(id, { fresh = false, preloaded = null } = {}) {
     check = 'no_name'; note = 'No reviewer name was sent, so there is nothing to look for on Google.';
   } else {
     review = all.find((r) => reviewMatches(row.reviewer_name, r)) || null;
-    if (review) { check = 'found'; note = `Found on Google: "${review.reviewer_name}", ${review.rating || '?'} star, posted ${dateOf(review.posted_at)}.`; }
+    if (!review && fresh) {
+      // Not among the newest reviews: read the whole profile (Google does not list reviews strictly newest first).
+      try {
+        const deep = await reviewScan.scan({ deep: true, throttleMinutes: 30 });
+        if (deep && deep.ok === false && !deep.skipped) scanNote = deep.note || 'full read failed';
+      } catch (err) { scanNote = err.message; }
+      all = await loadScanned();
+      review = all.find((r) => reviewMatches(row.reviewer_name, r)) || null;
+    }
+    if (review) {
+      check = 'found';
+      const old = review.posted_at && new Date(review.posted_at) < new Date('2026-11-12T00:00:00+08:00');
+      note = `Found on Google: "${review.reviewer_name}", ${review.rating || '?'} star, posted ${dateOf(review.posted_at)}.${old ? ' This review is older than the campaign, so it may not be a new review.' : ''}`;
+    }
     else if (scanNote) { check = 'error'; note = `Could not read Google just now (${scanNote}). It will be tried again.`; }
     else { check = 'not_found'; note = 'Not found on the Eternalgy Johor Bahru Google profile yet. Google can take a while to show a new review.'; }
   }
@@ -236,7 +249,7 @@ async function checkAll() {
   if (!pending.rows.length) return { checked: 0, found: 0 };
   let scanNote = null;
   try {
-    const out = await reviewScan.scan();
+    const out = await reviewScan.scan({ deep: true });
     if (out && out.ok === false && !out.skipped) scanNote = out.note;
   } catch (err) { scanNote = err.message; }
   const all = await loadScanned();
