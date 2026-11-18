@@ -51,6 +51,10 @@ function ensureSchema() {
         ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS google_checked_at TIMESTAMPTZ;
         ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS google_note TEXT;
         ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS chat_mobile TEXT;
+        ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS special_tng_mobile TEXT;
+        UPDATE google_review_agent_submission s SET special_tng_mobile = s.mobile
+         WHERE s.special_tng_mobile IS NULL AND s.mobile IS NOT NULL AND s.matched_message_id IS NOT NULL
+           AND ('6' || s.mobile) <> COALESCE((SELECT m.phone FROM google_review_campaign_message m WHERE m.id = s.matched_message_id), '6' || s.mobile);
       `);
     })().catch((err) => { schemaPromise = null; throw err; });
   }
@@ -140,7 +144,7 @@ async function tryCreateClaim({ matched, mobile, proofUrl, proofMime, agentName,
 /** Submissions that found no customer when they arrived are tried again (the numbers may be in the note). */
 async function rematchCustomers() {
   const open = await pool.query(
-    `SELECT id, chat_mobile, mobile, mobile_input, note, proof_url, proof_mime, agent_name, reviewer_name, labels
+    `SELECT id, chat_mobile, special_tng_mobile, mobile, mobile_input, note, proof_url, proof_mime, agent_name, reviewer_name, labels
        FROM google_review_agent_submission WHERE claim_id IS NULL AND matched_message_id IS NULL
         AND created_at > NOW() - interval '30 days' ORDER BY id DESC LIMIT 50`);
   for (const r of open.rows) {
@@ -149,7 +153,7 @@ async function rematchCustomers() {
     if (!matched) continue;
     const labels = (Array.isArray(r.labels) ? r.labels : []).filter((l) => !/not a customer we messaged/.test(l));
     labels.push(`customer found later by the number 0${String(via).slice(1)} (${matched.customer_name})`);
-    const made = await tryCreateClaim({ matched, mobile: r.mobile, proofUrl: r.proof_url, proofMime: r.proof_mime, agentName: r.agent_name || 'agent', reviewerName: r.reviewer_name, note: r.note, labels });
+    const made = await tryCreateClaim({ matched, mobile: r.special_tng_mobile || r.mobile, proofUrl: r.proof_url, proofMime: r.proof_mime, agentName: r.agent_name || 'agent', reviewerName: r.reviewer_name, note: r.note, labels });
     await pool.query(
       `UPDATE google_review_agent_submission SET matched_message_id = $2, matched_customer = $3, claim_id = $4, status = $5, labels = $6 WHERE id = $1`,
       [r.id, matched.id, matched.customer_name, made.claimId, made.status, JSON.stringify(labels)]);
@@ -254,6 +258,11 @@ async function submit(req) {
   const note = pick(body, ['note', 'remark', 'notes']);
   const mobile = reviewService.normalizeMobile(mobileInput);
   const chatMobileInput = pick(body, ['chat_mobile', 'chat_number', 'whatsapp_number', 'customer_whatsapp', 'replied_from']);
+  const specialTngInput = pick(body, ['special_tng_mobile', 'special_tng', 'tng_mobile', 'tng_number', 'special_request_mobile']);
+  const specialTng = reviewService.normalizeMobile(specialTngInput);
+  if (specialTngInput && !specialTng) labels.push('special TNG mobile is not a valid Malaysian mobile, so the normal mobile is used');
+  const tngMobile = specialTng || mobile;
+  if (specialTng && specialTng !== mobile) labels.push(`special request: the RM15 reload goes to ${specialTng}, not the mobile`);
 
   if (!reviewerName) labels.push('no reviewer name given');
   if (!mobileInput) labels.push('no mobile number given');
@@ -309,7 +318,7 @@ async function submit(req) {
   let claimId = null;
   let status = 'Recorded';
   if (matched) {
-    const made = await tryCreateClaim({ matched, mobile, proofUrl, proofMime, agentName, reviewerName, note, labels });
+    const made = await tryCreateClaim({ matched, mobile: tngMobile, proofUrl, proofMime, agentName, reviewerName, note, labels });
     claimId = made.claimId;
     status = made.status;
   }
@@ -317,10 +326,10 @@ async function submit(req) {
   const ins = await pool.query(
     `INSERT INTO google_review_agent_submission
        (agent_name, key_label, reviewer_name, mobile_input, mobile, proof_url, proof_mime, note,
-        matched_message_id, matched_customer, claim_id, google_review_id, status, labels, chat_mobile)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id, created_at`,
+        matched_message_id, matched_customer, claim_id, google_review_id, status, labels, chat_mobile, special_tng_mobile)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id, created_at`,
     [agentName, req.agentKey.label, reviewerName || null, mobileInput || null, mobile || null, proofUrl, proofMime, note || null,
-      matched ? matched.id : null, matched ? matched.customer_name : null, claimId, scanned ? scanned.review_id : null, status, JSON.stringify(labels), chatMobileInput || null]
+      matched ? matched.id : null, matched ? matched.customer_name : null, claimId, scanned ? scanned.review_id : null, status, JSON.stringify(labels), chatMobileInput || null, specialTng || null]
   );
   // Read Google right after the reply goes out (the agent does not wait for it), then label the submission.
   setImmediate(() => { crossCheck(ins.rows[0].id, { fresh: true }).catch((err) => console.error('[AgentApi] cross-check failed:', err.message)); });
@@ -332,6 +341,8 @@ async function submit(req) {
     matched_customer: matched ? matched.customer_name : null,
     claim_id: claimId,
     proof_saved: Boolean(proofUrl),
+    tng_reload_number: tngMobile || null,
+    special_request: Boolean(specialTng && specialTng !== mobile),
     notes: labels
   };
 }
@@ -356,7 +367,7 @@ async function list(limit = 300) {
     }
   } catch (err) { console.error('[AgentApi] re-match failed:', err.message); }
   const { rows } = await pool.query(
-    `SELECT s.id, s.created_at, s.agent_name, s.reviewer_name, s.mobile_input, s.mobile, s.proof_url, s.proof_mime, s.note,
+    `SELECT s.id, s.created_at, s.agent_name, s.reviewer_name, s.mobile_input, s.mobile, s.chat_mobile, s.special_tng_mobile, s.proof_url, s.proof_mime, s.note,
             s.matched_customer, s.claim_id, s.status, s.labels, s.google_check, s.google_checked_at, s.google_note,
             g.reviewer_name AS google_reviewer, g.posted_at AS google_posted_at, g.rating AS google_rating,
             g.review_link AS google_link, g.review_text AS google_text
@@ -382,11 +393,12 @@ const usage = {
     proof: 'the screenshot: either the image file, or a link (http/https URL) to the image. Send it in the field proof (photo, image or screenshot also work); proof_url also works for a link.',
     reviewer_name: 'who added the review: the name shown on the Google review',
     mobile: "the mobile number for the RM15 Touch 'n Go reload, e.g. 012-345 6789 or 60123456789 (the customer's chat number if they gave no other)",
+    special_tng_mobile: "(optional) the Touch 'n Go number the customer asked the RM15 to be sent to, when they asked for a different one. If sent, the reload goes here; if not, it goes to mobile.",
     chat_mobile: "(optional but recommended) the WhatsApp number the customer chatted from, when it differs from mobile. This is how the customer we messaged is found.",
     agent_name: '(optional) which WhatsApp agent/session is sending this, e.g. marketing-292',
     note: '(optional) anything the agent wants to add'
   },
-  result: 'Always 201 with { ok, submission_id, status, matched_customer, claim_id, proof_saved, notes[] }. Problems with the data are listed in notes and never cause the submission to be dropped.'
+  result: 'Always 201 with { ok, submission_id, status, matched_customer, claim_id, proof_saved, tng_reload_number, special_request, notes[] }. Problems with the data are listed in notes and never cause the submission to be dropped.'
 };
 
 module.exports = { identify, parseUpload, handler, list, usage, ensureSchema, crossCheck, checkAll };

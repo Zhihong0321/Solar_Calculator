@@ -131,7 +131,8 @@
                             <span class="sb-meta">#${esc(x.id)} · ${esc(fmtDT(x.created_at))}</span>
                         </div>
                         <div class="sb-fields">
-                            <div><b>Mobile</b>${esc(fmtMobile(x.mobile) || x.mobile_input || '–')}</div>
+                            <div><b>Mobile</b>${esc(fmtMobile(x.mobile) || x.mobile_input || '–')}${x.chat_mobile ? `<div class="sb-meta">chat number ${esc(fmtMobile(x.chat_mobile.replace(/\D/g, '').replace(/^60/, '0')) || x.chat_mobile)}</div>` : ''}</div>
+                            <div><b>TNG reload number</b>${esc(fmtMobile(x.special_tng_mobile || x.mobile) || '–')}${x.special_tng_mobile ? ' <span class="sb-tag warn">special request</span>' : ''}</div>
                             <div><b>Customer we messaged</b>${esc(x.matched_customer || 'no match')}</div>
                             <div><b>Sent by agent</b>${esc(x.agent_name || '–')}</div>
                         </div>
