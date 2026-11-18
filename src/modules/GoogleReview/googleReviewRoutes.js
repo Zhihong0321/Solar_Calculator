@@ -83,6 +83,12 @@ router.get('/api/google-review/campaign/reviews/:id/card.svg', requireAuth, ctrl
 router.post('/api/google-review/campaign/reviews/scan', ...reviewer, campaignHandler(() => reviewScan.scan()));
 router.post('/api/google-review/campaign/reviews/scanner-key', ...reviewer, campaignHandler((req) => reviewScan.saveKeyAndScan(req.body && req.body.key)));
 
+// API for the WhatsApp AI agents to submit a verified review (proof image, who added the review, mobile number).
+const agentApi = require('./agentSubmissionService');
+router.get('/api/google-review/agent/verified-review', (req, res) => res.json(agentApi.usage));
+router.post('/api/google-review/agent/verified-review', agentApi.identify, agentApi.parseUpload, agentApi.handler);
+router.get('/api/google-review/agent/submissions', requireAuth, ctrl.requireOverviewViewer, campaignHandler(() => agentApi.list()));
+
 router.get('/api/google-review/campaign/eligible', ...reviewer, campaignHandler(async () => {
   const [customers, settings] = await Promise.all([campaign.scanEligible(), campaign.getSettings()]);
   return { customers, scanned_at: new Date().toISOString(), session_id: settings.session_id };

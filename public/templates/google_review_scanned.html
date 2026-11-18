@@ -56,6 +56,14 @@
         <div id="body" class="gr-hidden" style="display:flex;flex-direction:column;gap:14px">
             <div class="rv-kpis" id="kpis"></div>
             <div class="rv-grid" id="grid"></div>
+            <div class="rv-item" id="agentBox">
+                <div style="font-weight:700">Verified reviews submitted by the WhatsApp agents</div>
+                <div class="rv-meta">Each WhatsApp agent sends the customer's proof image, the name on the review and the mobile number. A matching customer gets a Pending claim on the claims page for HR/KC to approve.</div>
+                <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+                    <thead><tr style="text-align:left;color:var(--gr-muted);font-size:11px;text-transform:uppercase"><th style="padding:6px 8px">Received</th><th style="padding:6px 8px">Agent</th><th style="padding:6px 8px">Reviewer</th><th style="padding:6px 8px">Mobile</th><th style="padding:6px 8px">Proof</th><th style="padding:6px 8px">Result</th></tr></thead>
+                    <tbody id="agentRows"><tr><td colspan="6" class="rv-meta" style="padding:8px">Loading…</td></tr></tbody>
+                </table></div>
+            </div>
             <div class="rv-meta" id="footer"></div>
         </div>
     </main>
@@ -156,6 +164,24 @@
             b.disabled = false; b.innerHTML = '<i class="fa-solid fa-rotate"></i> Scan now';
         });
 
+        async function loadAgent() {
+            try {
+                const res = await fetch('/api/google-review/agent/submissions', { credentials: 'same-origin' });
+                const out = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(out.error || 'Could not load');
+                const list = out.submissions || [];
+                $('agentRows').innerHTML = list.length ? list.map((x) => `
+                    <tr style="border-top:1px solid var(--gr-line);vertical-align:top">
+                        <td style="padding:8px">${esc(fmtDT(x.created_at))}</td>
+                        <td style="padding:8px">${esc(x.agent_name || '')}</td>
+                        <td style="padding:8px">${esc(x.reviewer_name || '–')}</td>
+                        <td style="padding:8px">${esc(x.mobile || '–')}${x.matched_customer ? `<div class="rv-meta">${esc(x.matched_customer)}</div>` : ''}</td>
+                        <td style="padding:8px">${x.proof_url ? `<a class="rv-btn" href="${esc(x.proof_url)}" target="_blank" rel="noopener"><i class="fa-solid fa-image"></i> View</a>` : '<span class="rv-meta">none</span>'}</td>
+                        <td style="padding:8px"><b>${esc(x.status)}</b>${x.claim_id ? ` · claim #${esc(x.claim_id)}` : ''}${(x.labels || []).map((l) => `<div class="rv-meta">${esc(l)}</div>`).join('')}</td>
+                    </tr>`).join('') : '<tr><td colspan="6" class="rv-meta" style="padding:8px">Nothing submitted by the agents yet.</td></tr>';
+            } catch (err) { $('agentRows').innerHTML = `<tr><td colspan="6" class="rv-meta" style="padding:8px">${esc(err.message)}</td></tr>`; }
+        }
+
         $('keyBtn').addEventListener('click', async () => {
             const b = $('keyBtn');
             const key = $('keyInput').value.trim();
@@ -173,7 +199,8 @@
         });
 
         load();
-        setInterval(load, 120000);
+        loadAgent();
+        setInterval(() => { load(); loadAgent(); }, 120000);
     })();
     </script>
 </body>
