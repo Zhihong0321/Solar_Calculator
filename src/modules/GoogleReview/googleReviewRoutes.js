@@ -89,6 +89,9 @@ router.get('/api/google-review/agent/verified-review', (req, res) => res.json(ag
 router.post('/api/google-review/agent/verified-review', agentApi.identify, agentApi.parseUpload, agentApi.handler);
 router.get('/google-review/campaign/submissions', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_agent_submissions.html')));
 router.get('/api/google-review/agent/submissions', requireAuth, ctrl.requireOverviewViewer, campaignHandler(() => agentApi.list()));
+// Cross-check against Google with the scraper.tech Google Maps scraper (HR/KC only: each check reads Google once).
+router.post('/api/google-review/agent/submissions/check-all', ...reviewer, campaignHandler(() => agentApi.checkAll()));
+router.post('/api/google-review/agent/submissions/:id/check', ...reviewer, campaignHandler((req) => agentApi.crossCheck(Number(req.params.id), { fresh: true })));
 
 router.get('/api/google-review/campaign/eligible', ...reviewer, campaignHandler(async () => {
   const [customers, settings] = await Promise.all([campaign.scanEligible(), campaign.getSettings()]);

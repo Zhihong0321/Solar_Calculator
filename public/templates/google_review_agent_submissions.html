@@ -65,7 +65,9 @@
                 <button type="button" class="sb-chip" data-f="all" aria-pressed="true">All</button>
                 <button type="button" class="sb-chip" data-f="claim" aria-pressed="false">Claim created</button>
                 <button type="button" class="sb-chip" data-f="check" aria-pressed="false">Needs a check</button>
+                <button type="button" class="sb-btn" id="checkAllBtn"><i class="fa-brands fa-google"></i> Check all on Google</button>
             </div>
+            <div class="sb-meta">Each submission is looked for on the Eternalgy Sdn Bhd (Johor Bahru) Google Maps page, using your scraper.tech Google Maps scraper. This happens by itself when an agent submits, and again every hour.</div>
             <div class="sb-list" id="list"></div>
             <div class="sb-meta" id="footer"></div>
         </div>
@@ -81,12 +83,28 @@
         let data = null;
         let filter = 'all';
 
+        // The Google check: is this review on the Eternalgy (Johor Bahru) Google Maps page? Read with the scraper.tech Google Maps scraper.
+        function googleBlock(x) {
+            const state = x.google_check || 'pending';
+            const when = x.google_checked_at ? ` · checked ${fmtDT(x.google_checked_at)}` : '';
+            const tag = { found: ['ok', 'Found on Google'], not_found: ['warn', 'Not on Google yet'], error: ['warn', 'Google check failed'], no_name: ['warn', 'No name to look for'], pending: ['warn', 'Checking Google…'] }[state] || ['warn', state];
+            const detail = state === 'found' && x.google_reviewer
+                ? `Review by <b>${esc(x.google_reviewer)}</b>${x.google_rating ? ` · ${esc(x.google_rating)} ★` : ''}${x.google_posted_at ? ` · posted ${esc(fmtDT(x.google_posted_at))}` : ''}${safeHref(x.google_link) ? ` · <a href="${esc(x.google_link)}" target="_blank" rel="noopener" style="color:var(--gr-accent)">open on Google</a>` : ''}${x.google_text ? `<div class="sb-meta" style="margin-top:2px">“${esc(String(x.google_text).slice(0, 140))}”</div>` : ''}`
+                : esc(x.google_note || 'The page is being read from Google. This takes a few seconds.');
+            return `<div style="margin:8px 0;padding:8px 10px;border:1px solid var(--gr-line-strong);border-radius:10px;font-size:13px">
+                <span class="sb-tag ${tag[0]}">${esc(tag[1])}</span> <span class="sb-meta">${esc(when)}</span>
+                <div style="margin-top:4px">${detail}</div>
+                ${state === 'found' ? '' : `<div style="margin-top:6px"><button type="button" class="sb-btn" data-check="${esc(x.id)}"><i class="fa-brands fa-google"></i> Check on Google now</button></div>`}
+            </div>`;
+        }
+
         function render() {
             const t = data.totals || {};
             $('kpis').innerHTML = [
                 ['Submissions', t.total || 0, `${t.last_24h || 0} in the last 24 hours`],
                 ['Claim created', t.with_claim || 0, 'waiting for HR/KC to approve'],
                 ['Needs a check', t.needs_check || 0, 'no claim was made, see the notes'],
+                ['Found on Google', t.found_on_google || 0, 'seen on the Eternalgy Johor Bahru page'],
                 ['Last received', t.last_at ? fmtDT(t.last_at) : 'none yet', '']
             ].map(([l, v, s]) => `<div class="sb-kpi"><div class="l">${esc(l)}</div><div class="v" style="${typeof v === 'string' ? 'font-size:18px;margin-top:10px' : ''}">${esc(v)}</div><div class="s">${esc(s)}</div></div>`).join('');
 
@@ -118,6 +136,7 @@
                             <div><b>Sent by agent</b>${esc(x.agent_name || '–')}</div>
                         </div>
                         ${x.note ? `<div style="font-size:13px"><b class="sb-meta">Agent note:</b> ${esc(x.note)}</div>` : ''}
+                        ${googleBlock(x)}
                         ${(x.labels || []).length ? `<ul class="sb-notes">${x.labels.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
                     </div>
                 </div>`;
@@ -147,6 +166,27 @@
             if (data) render();
         }));
         $('search').addEventListener('input', () => { if (data) render(); });
+
+        async function post(url) {
+            const res = await fetch(url, { method: 'POST', credentials: 'same-origin' });
+            const out = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(out.error || `Could not check (${res.status})`);
+            return out;
+        }
+        $('list').addEventListener('click', async (e) => {
+            const btn = e.target.closest('[data-check]');
+            if (!btn) return;
+            btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Reading Google…';
+            try { await post(`/api/google-review/agent/submissions/${btn.dataset.check}/check`); await load(); }
+            catch (err) { btn.disabled = false; btn.textContent = err.message; }
+        });
+        $('checkAllBtn').addEventListener('click', async () => {
+            const b = $('checkAllBtn');
+            b.disabled = true; b.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Reading Google…';
+            try { const out = await post('/api/google-review/agent/submissions/check-all'); b.textContent = `${out.found || 0} of ${out.checked || 0} found`; await load(); }
+            catch (err) { b.textContent = err.message; }
+            setTimeout(() => { b.disabled = false; b.innerHTML = '<i class="fa-brands fa-google"></i> Check all on Google'; }, 4000);
+        });
         load();
         setInterval(load, 60000);
     })();

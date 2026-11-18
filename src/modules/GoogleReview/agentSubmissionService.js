@@ -5,6 +5,7 @@ const pool = require('../../core/database/pool');
 const r2Storage = require('../../core/upload/r2Storage');
 const reviewService = require('./googleReviewService');
 const campaign = require('./campaignService');
+const reviewScan = require('./reviewScanService');
 
 /**
  * API for the WhatsApp AI agents. Each agent that gets a customer's screenshot reply posts it here:
@@ -46,6 +47,9 @@ function ensureSchema() {
         );
         CREATE INDEX IF NOT EXISTS idx_google_review_agent_submission_created ON google_review_agent_submission (created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_google_review_agent_submission_mobile ON google_review_agent_submission (mobile);
+        ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS google_check TEXT;
+        ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS google_checked_at TIMESTAMPTZ;
+        ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS google_note TEXT;
       `);
     })().catch((err) => { schemaPromise = null; throw err; });
   }
@@ -85,21 +89,88 @@ const pick = (body, names) => {
 const normName = (s) => String(s || '').toLowerCase().replace(/\((atap|ecn|ec)\)|[^a-z一-鿿 ]/gi, ' ').replace(/\s+/g, ' ').trim();
 const tokens = (s) => normName(s).split(' ').filter((t) => t.length > 1);
 
-async function findScannedReview(reviewerName) {
+const reviewMatches = (reviewerName, r) => {
   const a = tokens(reviewerName);
-  if (!a.length) return null;
+  if (!a.length) return false;
+  if (normName(r.reviewer_name) === normName(reviewerName)) return true;
+  const b = tokens(r.reviewer_name);
+  const overlap = a.filter((t) => b.includes(t)).length;
+  return overlap >= 2 || (a.length === 1 && b.length === 1 && overlap === 1);
+};
+
+/** The Google reviews we have read from the Eternalgy (Johor Bahru) profile, newest first. */
+async function loadScanned() {
   try {
-    const { rows } = await pool.query(`SELECT review_id, reviewer_name, posted_at, rating FROM google_review_scanned ORDER BY posted_at DESC LIMIT 500`);
-    return rows.find((r) => {
-      if (normName(r.reviewer_name) === normName(reviewerName)) return true;
-      const b = tokens(r.reviewer_name);
-      const overlap = a.filter((t) => b.includes(t)).length;
-      return overlap >= 2 || (a.length === 1 && b.length === 1 && overlap === 1);
-    }) || null;
+    const { rows } = await pool.query(
+      `SELECT review_id, reviewer_name, posted_at, rating, review_link FROM google_review_scanned ORDER BY posted_at DESC LIMIT 500`);
+    return rows;
   } catch (err) {
     console.error('[AgentApi] scanned review lookup failed:', err.message);
-    return null;
+    return [];
   }
+}
+
+async function findScannedReview(reviewerName) {
+  const all = await loadScanned();
+  return all.find((r) => reviewMatches(reviewerName, r)) || null;
+}
+
+const dateOf = (v) => (v ? new Date(v).toISOString().slice(0, 10) : '');
+
+/**
+ * Cross-checks one submission against Google: with fresh = true the scraper.tech Google Maps scraper reads the newest
+ * reviews of our profile first, then the reviewer name is looked for among them. The result is only a label on the
+ * submission (found / not found yet / check failed): it never changes or blocks the claim.
+ */
+async function crossCheck(id, { fresh = false, preloaded = null } = {}) {
+  await ensureSchema();
+  const row = (await pool.query('SELECT id, reviewer_name FROM google_review_agent_submission WHERE id = $1', [id])).rows[0];
+  if (!row) return null;
+  let scanNote = null;
+  if (fresh) {
+    try {
+      const out = await reviewScan.scan();
+      if (out && out.ok === false && !out.skipped) scanNote = out.note || 'scan failed';
+    } catch (err) { scanNote = err.message; }
+  }
+  const all = preloaded || await loadScanned();
+  let check;
+  let review = null;
+  let note;
+  if (!String(row.reviewer_name || '').trim()) {
+    check = 'no_name'; note = 'No reviewer name was sent, so there is nothing to look for on Google.';
+  } else {
+    review = all.find((r) => reviewMatches(row.reviewer_name, r)) || null;
+    if (review) { check = 'found'; note = `Found on Google: "${review.reviewer_name}", ${review.rating || '?'} star, posted ${dateOf(review.posted_at)}.`; }
+    else if (scanNote) { check = 'error'; note = `Could not read Google just now (${scanNote}). It will be tried again.`; }
+    else { check = 'not_found'; note = 'Not found on the Eternalgy Johor Bahru Google profile yet. Google can take a while to show a new review.'; }
+  }
+  await pool.query(
+    `UPDATE google_review_agent_submission SET google_check = $2, google_checked_at = NOW(), google_note = $3,
+            google_review_id = COALESCE($4, google_review_id) WHERE id = $1`,
+    [id, check, note, review ? review.review_id : null]
+  );
+  return { id, check, note };
+}
+
+/** Re-checks every submission that is not confirmed yet: one Google read, then a match for each. */
+async function checkAll() {
+  await ensureSchema();
+  const pending = await pool.query(
+    `SELECT id FROM google_review_agent_submission WHERE COALESCE(google_check, 'pending') <> 'found' ORDER BY id DESC LIMIT 200`);
+  if (!pending.rows.length) return { checked: 0, found: 0 };
+  let scanNote = null;
+  try {
+    const out = await reviewScan.scan();
+    if (out && out.ok === false && !out.skipped) scanNote = out.note;
+  } catch (err) { scanNote = err.message; }
+  const all = await loadScanned();
+  let found = 0;
+  for (const r of pending.rows) {
+    const res = await crossCheck(r.id, { preloaded: all }).catch(() => null);
+    if (res && res.check === 'found') found += 1;
+  }
+  return { checked: pending.rows.length, found, scan_note: scanNote };
 }
 
 async function submit(req) {
@@ -160,8 +231,8 @@ async function submit(req) {
   const scanned = reviewerName ? await findScannedReview(reviewerName) : null;
   if (reviewerName) {
     labels.push(scanned
-      ? `matches a Google review by "${scanned.reviewer_name}" posted ${new Date(scanned.posted_at).toISOString().slice(0, 10)}`
-      : 'no Google review with this name seen yet (the scan runs hourly)');
+      ? `matches a Google review by "${scanned.reviewer_name}" posted ${dateOf(scanned.posted_at)}`
+      : 'not seen on Google yet: it is being checked now and the result shows on the submissions page');
   }
 
   const dup = mobile ? await pool.query('SELECT id FROM google_review_agent_submission WHERE mobile = $1 ORDER BY id LIMIT 1', [mobile]) : { rows: [] };
@@ -199,6 +270,8 @@ async function submit(req) {
     [agentName, req.agentKey.label, reviewerName || null, mobileInput || null, mobile || null, proofUrl, proofMime, note || null,
       matched ? matched.id : null, matched ? matched.customer_name : null, claimId, scanned ? scanned.review_id : null, status, JSON.stringify(labels)]
   );
+  // Read Google right after the reply goes out (the agent does not wait for it), then label the submission.
+  setImmediate(() => { crossCheck(ins.rows[0].id, { fresh: true }).catch((err) => console.error('[AgentApi] cross-check failed:', err.message)); });
   console.log(`[AgentApi] submission #${ins.rows[0].id} from "${agentName}" mobile=${mobile || mobileInput || '-'} status=${status} labels=${labels.length}`);
   return {
     ok: true,
@@ -218,17 +291,30 @@ function handler(req, res) {
   });
 }
 
-/** Latest submissions for the team page, with totals. */
+/** Latest submissions for the team page, with totals and the Google check of each. */
 async function list(limit = 300) {
   await ensureSchema();
+  // Cheap re-match against the reviews already read from Google (no scraper call): an hourly scan may have found it since.
+  try {
+    const open = await pool.query(`SELECT id FROM google_review_agent_submission WHERE COALESCE(google_check, 'pending') <> 'found' AND created_at > NOW() - interval '30 days' ORDER BY id DESC LIMIT 100`);
+    if (open.rows.length) {
+      const all = await loadScanned();
+      for (const r of open.rows) await crossCheck(r.id, { preloaded: all }).catch(() => null);
+    }
+  } catch (err) { console.error('[AgentApi] re-match failed:', err.message); }
   const { rows } = await pool.query(
-    `SELECT id, created_at, agent_name, reviewer_name, mobile_input, mobile, proof_url, proof_mime, note,
-            matched_customer, claim_id, status, labels
-       FROM google_review_agent_submission ORDER BY id DESC LIMIT $1`, [limit]);
+    `SELECT s.id, s.created_at, s.agent_name, s.reviewer_name, s.mobile_input, s.mobile, s.proof_url, s.proof_mime, s.note,
+            s.matched_customer, s.claim_id, s.status, s.labels, s.google_check, s.google_checked_at, s.google_note,
+            g.reviewer_name AS google_reviewer, g.posted_at AS google_posted_at, g.rating AS google_rating,
+            g.review_link AS google_link, g.review_text AS google_text
+       FROM google_review_agent_submission s
+       LEFT JOIN google_review_scanned g ON g.review_id = s.google_review_id
+      ORDER BY s.id DESC LIMIT $1`, [limit]);
   const totals = (await pool.query(
     `SELECT COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE claim_id IS NOT NULL)::int AS with_claim,
             COUNT(*) FILTER (WHERE claim_id IS NULL)::int AS needs_check,
+            COUNT(*) FILTER (WHERE google_check = 'found')::int AS found_on_google,
             COUNT(*) FILTER (WHERE created_at > NOW() - interval '24 hours')::int AS last_24h,
             MAX(created_at) AS last_at
        FROM google_review_agent_submission`)).rows[0];
@@ -249,4 +335,4 @@ const usage = {
   result: 'Always 201 with { ok, submission_id, status, matched_customer, claim_id, proof_saved, notes[] }. Problems with the data are listed in notes and never cause the submission to be dropped.'
 };
 
-module.exports = { identify, parseUpload, handler, list, usage, ensureSchema };
+module.exports = { identify, parseUpload, handler, list, usage, ensureSchema, crossCheck, checkAll };
