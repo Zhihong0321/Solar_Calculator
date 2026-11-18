@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Agent Submissions | ETERNALGY OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/google-review.css">
+    <style>
+        .sb-main { max-width: 1100px; margin: 0 auto; padding: 16px 16px 56px; display: flex; flex-direction: column; gap: 14px; }
+        .sb-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+        .sb-kpi { background: var(--gr-card); border: 1px solid var(--gr-line); border-radius: 14px; padding: 14px 16px; }
+        .sb-kpi .l { font-size: 12px; color: var(--gr-muted); font-weight: 600; }
+        .sb-kpi .v { font-size: 28px; font-weight: 800; margin-top: 4px; }
+        .sb-kpi .s { font-size: 12px; color: var(--gr-muted); margin-top: 2px; }
+        .sb-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .sb-input { flex: 1; min-width: 200px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--gr-line-strong); background: var(--gr-card); color: var(--gr-text); font-family: inherit; font-size: 14px; }
+        .sb-chip { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--gr-line-strong); background: var(--gr-card); color: var(--gr-muted); font: 600 13px inherit; font-family: inherit; cursor: pointer; }
+        .sb-chip[aria-pressed="true"] { background: var(--gr-accent); border-color: var(--gr-accent); color: #fff; }
+        .sb-list { display: flex; flex-direction: column; gap: 12px; }
+        .sb-item { background: var(--gr-card); border: 1px solid var(--gr-line); border-radius: 14px; padding: 14px; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; }
+        @media (max-width: 640px) { .sb-item { grid-template-columns: minmax(0, 1fr); } }
+        .sb-proof { width: 150px; max-width: 100%; }
+        .sb-proof a { display: block; }
+        .sb-proof img { width: 150px; max-width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; border: 1px solid var(--gr-line-strong); background: #fff; display: block; }
+        .sb-noproof { width: 150px; max-width: 100%; height: 100px; border-radius: 10px; border: 1px dashed var(--gr-line-strong); display: grid; place-items: center; color: var(--gr-muted); font-size: 12px; text-align: center; padding: 8px; }
+        .sb-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; }
+        .sb-name { font-size: 16px; font-weight: 700; }
+        .sb-meta { font-size: 12px; color: var(--gr-muted); }
+        .sb-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 16px; margin: 10px 0; font-size: 13px; }
+        .sb-fields b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--gr-muted); font-weight: 600; margin-bottom: 1px; }
+        .sb-tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .sb-tag.ok { background: rgba(52,211,153,.16); color: var(--gr-ok); }
+        .sb-tag.warn { background: rgba(251,191,36,.16); color: var(--gr-warn); }
+        .sb-notes { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--gr-muted); }
+        .sb-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 10px; font-size: 12px; font-weight: 600; border: 1px solid var(--gr-line-strong); color: var(--gr-text); background: #1e293b; text-decoration: none; }
+        .sb-btn:hover { border-color: var(--gr-accent); }
+        .sb-empty { color: var(--gr-muted); text-align: center; padding: 30px 0; }
+        .sb-err { background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.35); color: var(--gr-bad); border-radius: 10px; padding: 14px; font-size: 14px; }
+        .gr-hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <header class="gr-header">
+        <div class="gr-header-inner">
+            <a href="/google-review/campaign/overview" class="gr-back" title="Back to overview"><i class="fa-solid fa-arrow-left"></i></a>
+            <div>
+                <h1 class="gr-title">Agent Submissions</h1>
+                <p class="gr-subtitle">Verified reviews sent in by the WhatsApp agents</p>
+            </div>
+            <div class="gr-header-links">
+                <a class="gr-link-btn" href="/google-review/campaign/reviews">Google reviews</a>
+                <a class="gr-link-btn" href="/google-review/admin">Claims</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="sb-main">
+        <div id="error" class="sb-err gr-hidden"></div>
+        <div id="body" class="gr-hidden" style="display:flex;flex-direction:column;gap:14px">
+            <div class="sb-kpis" id="kpis"></div>
+            <div class="sb-bar">
+                <input id="search" class="sb-input" type="search" placeholder="Search a name, mobile number or agent">
+                <button type="button" class="sb-chip" data-f="all" aria-pressed="true">All</button>
+                <button type="button" class="sb-chip" data-f="claim" aria-pressed="false">Claim created</button>
+                <button type="button" class="sb-chip" data-f="check" aria-pressed="false">Needs a check</button>
+            </div>
+            <div class="sb-list" id="list"></div>
+            <div class="sb-meta" id="footer"></div>
+        </div>
+    </main>
+
+    <script>
+    (() => {
+        const $ = (id) => document.getElementById(id);
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const fmtDT = (v) => v ? new Date(v).toLocaleString('en-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–';
+        const fmtMobile = (m) => m && /^01\d{8,9}$/.test(m) ? `${m.slice(0, 3)}-${m.slice(3)}` : (m || '');
+        const safeHref = (u) => (/^https?:\/\//i.test(String(u || '')) ? u : '');
+        let data = null;
+        let filter = 'all';
+
+        function render() {
+            const t = data.totals || {};
+            $('kpis').innerHTML = [
+                ['Submissions', t.total || 0, `${t.last_24h || 0} in the last 24 hours`],
+                ['Claim created', t.with_claim || 0, 'waiting for HR/KC to approve'],
+                ['Needs a check', t.needs_check || 0, 'no claim was made, see the notes'],
+                ['Last received', t.last_at ? fmtDT(t.last_at) : 'none yet', '']
+            ].map(([l, v, s]) => `<div class="sb-kpi"><div class="l">${esc(l)}</div><div class="v" style="${typeof v === 'string' ? 'font-size:18px;margin-top:10px' : ''}">${esc(v)}</div><div class="s">${esc(s)}</div></div>`).join('');
+
+            const q = $('search').value.trim().toLowerCase();
+            const rows = (data.submissions || []).filter((x) => {
+                if (filter === 'claim' && !x.claim_id) return false;
+                if (filter === 'check' && x.claim_id) return false;
+                if (!q) return true;
+                return [x.reviewer_name, x.mobile, x.mobile_input, x.agent_name, x.matched_customer].some((v) => String(v || '').toLowerCase().includes(q.replace(/[\s-]/g, '')) || String(v || '').toLowerCase().includes(q));
+            });
+
+            $('list').innerHTML = rows.length ? rows.map((x) => {
+                const href = safeHref(x.proof_url);
+                const proof = href
+                    ? `<a href="${esc(href)}" target="_blank" rel="noopener"><img src="${esc(href)}" alt="Proof from ${esc(x.reviewer_name || 'agent')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.outerHTML='<div class=&quot;sb-noproof&quot;>Open the link to see the proof</div>'"></a><div style="margin-top:6px"><a class="sb-btn" href="${esc(href)}" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square"></i> Open proof</a></div>`
+                    : '<div class="sb-noproof">No proof image</div>';
+                return `
+                <div class="sb-item">
+                    <div class="sb-proof">${proof}</div>
+                    <div style="min-width:0">
+                        <div class="sb-head">
+                            <span class="sb-name">${esc(x.reviewer_name || 'No reviewer name')}</span>
+                            <span class="sb-tag ${x.claim_id ? 'ok' : 'warn'}">${x.claim_id ? `Claim #${esc(x.claim_id)} created` : 'Needs a check'}</span>
+                            <span class="sb-meta">#${esc(x.id)} · ${esc(fmtDT(x.created_at))}</span>
+                        </div>
+                        <div class="sb-fields">
+                            <div><b>Mobile</b>${esc(fmtMobile(x.mobile) || x.mobile_input || '–')}</div>
+                            <div><b>Customer we messaged</b>${esc(x.matched_customer || 'no match')}</div>
+                            <div><b>Sent by agent</b>${esc(x.agent_name || '–')}</div>
+                        </div>
+                        ${x.note ? `<div style="font-size:13px"><b class="sb-meta">Agent note:</b> ${esc(x.note)}</div>` : ''}
+                        ${(x.labels || []).length ? `<ul class="sb-notes">${x.labels.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
+                    </div>
+                </div>`;
+            }).join('') : `<div class="sb-empty">${(data.submissions || []).length ? 'Nothing matches this filter.' : 'No agent has submitted a review yet. When a WhatsApp agent posts one, it appears here with its proof image.'}</div>`;
+
+            $('footer').textContent = `Showing ${rows.length} of ${(data.submissions || []).length} · updates every minute`;
+            $('body').classList.remove('gr-hidden');
+        }
+
+        async function load() {
+            try {
+                const res = await fetch('/api/google-review/agent/submissions', { credentials: 'same-origin' });
+                const out = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(out.error || `Could not load (${res.status})`);
+                data = out;
+                $('error').classList.add('gr-hidden');
+                render();
+            } catch (err) {
+                $('error').textContent = err.message;
+                $('error').classList.remove('gr-hidden');
+            }
+        }
+
+        document.querySelectorAll('.sb-chip').forEach((b) => b.addEventListener('click', () => {
+            filter = b.dataset.f;
+            document.querySelectorAll('.sb-chip').forEach((c) => c.setAttribute('aria-pressed', String(c === b)));
+            if (data) render();
+        }));
+        $('search').addEventListener('input', () => { if (data) render(); });
+        load();
+        setInterval(load, 60000);
+    })();
+    </script>
+</body>
+</html>

@@ -218,13 +218,21 @@ function handler(req, res) {
   });
 }
 
-/** Latest submissions for the team page. */
-async function list(limit = 100) {
+/** Latest submissions for the team page, with totals. */
+async function list(limit = 300) {
   await ensureSchema();
   const { rows } = await pool.query(
-    `SELECT id, created_at, agent_name, reviewer_name, mobile, proof_url, matched_customer, claim_id, status, labels
+    `SELECT id, created_at, agent_name, reviewer_name, mobile_input, mobile, proof_url, proof_mime, note,
+            matched_customer, claim_id, status, labels
        FROM google_review_agent_submission ORDER BY id DESC LIMIT $1`, [limit]);
-  return { submissions: rows };
+  const totals = (await pool.query(
+    `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE claim_id IS NOT NULL)::int AS with_claim,
+            COUNT(*) FILTER (WHERE claim_id IS NULL)::int AS needs_check,
+            COUNT(*) FILTER (WHERE created_at > NOW() - interval '24 hours')::int AS last_24h,
+            MAX(created_at) AS last_at
+       FROM google_review_agent_submission`)).rows[0];
+  return { totals, submissions: rows };
 }
 
 const usage = {

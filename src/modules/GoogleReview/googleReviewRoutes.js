@@ -87,6 +87,7 @@ router.post('/api/google-review/campaign/reviews/scanner-key', ...reviewer, camp
 const agentApi = require('./agentSubmissionService');
 router.get('/api/google-review/agent/verified-review', (req, res) => res.json(agentApi.usage));
 router.post('/api/google-review/agent/verified-review', agentApi.identify, agentApi.parseUpload, agentApi.handler);
+router.get('/google-review/campaign/submissions', requireAuth, (req, res) => res.sendFile(path.join(TEMPLATES, 'google_review_agent_submissions.html')));
 router.get('/api/google-review/agent/submissions', requireAuth, ctrl.requireOverviewViewer, campaignHandler(() => agentApi.list()));
 
 router.get('/api/google-review/campaign/eligible', ...reviewer, campaignHandler(async () => {
