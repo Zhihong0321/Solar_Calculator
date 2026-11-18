@@ -1029,9 +1029,14 @@
                             <p class="text-xs font-bold text-white truncate">${escapeHtml(e.email)}</p>
                             <p class="text-[10px] text-slate-400">${escapeHtml(e.label || e.type || 'Email')}</p>
                         </div>
-                        <a href="${escapeHtml(buildMailtoUrl(lead, e.email))}" onclick="this.href = buildMailtoUrlForLead('${escapeHtml(lead.id)}', '${escapeHtml(e.email)}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 transition shrink-0">
-                            <i class="fa-solid fa-envelope"></i> Send
-                        </a>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <a href="https://gemini.google.com/app" target="_blank" rel="noopener" onclick="copyGeminiPrompt('${escapeHtml(lead.id)}', '${escapeHtml(e.email)}')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold flex items-center gap-1 transition">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Gemini
+                            </a>
+                            <a href="${escapeHtml(buildMailtoUrl(lead, e.email))}" onclick="this.href = buildMailtoUrlForLead('${escapeHtml(lead.id)}', '${escapeHtml(e.email)}')" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1 transition">
+                                <i class="fa-solid fa-envelope"></i> Send
+                            </a>
+                        </div>
                     </div>
                 `).join('');
             }
@@ -1202,6 +1207,68 @@
         function buildMailtoUrlForLead(leadId, email) {
             const lead = allLeads.find(l => String(l.id) === String(leadId)) || { id: leadId };
             return buildMailtoUrl(lead, email);
+        }
+
+        // Gemini: contact details + the email template as one prompt.
+        // Gemini has no way to pre-fill a prompt from a link, so the prompt is copied
+        // to the clipboard and the Gemini app/site opens; the agent pastes it.
+        function buildGeminiPrompt(lead, email) {
+            const person = (dmNameCache[lead.id] || getFirstDecisionMakerName(lead) || '').trim();
+            const company = (lead.name || '').trim();
+            return [
+                'Help me finalise a sales email. Use the contact details and the email template below.',
+                'Keep it short, polite and natural, and keep all the facts as they are. Give me the subject line and the email body, ready to send.',
+                '',
+                'CONTACT',
+                `Name: ${person || '(unknown)'}`,
+                `Company: ${company || '(unknown)'}`,
+                `Email: ${String(email || '').trim()}`,
+                '',
+                'EMAIL TEMPLATE',
+                'Subject: Turn TNB Bill into Investment',
+                '',
+                buildEmailBody(lead).replace(/\r\n/g, '\n')
+            ].join('\n');
+        }
+
+        function copyGeminiPrompt(leadId, email) {
+            let text = '';
+            try {
+                const lead = allLeads.find(l => String(l.id) === String(leadId)) || { id: leadId };
+                text = buildGeminiPrompt(lead, email);
+            } catch (err) {
+                console.error('Gemini prompt build failed', err);
+                return;
+            }
+
+            let copied = false;
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                copied = document.execCommand('copy');
+                document.body.removeChild(ta);
+            } catch {}
+            if (!copied && navigator.clipboard) {
+                try { navigator.clipboard.writeText(text); copied = true; } catch {}
+            }
+
+            try {
+                Swal.fire({
+                    toast: true,
+                    position: 'top',
+                    icon: copied ? 'success' : 'warning',
+                    title: copied ? 'Copied - paste it in Gemini' : 'Could not copy automatically',
+                    showConfirmButton: false,
+                    timer: 2500,
+                    background: '#131c2e',
+                    color: '#fff'
+                });
+            } catch {}
         }
 
         function getFirstDecisionMakerName(lead) {
